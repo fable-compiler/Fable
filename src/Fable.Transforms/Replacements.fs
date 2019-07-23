@@ -1266,14 +1266,15 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match args with
             | [first; last] -> [first; getOne com ctx genArg; last]
             | _ -> args
-        let meth, args =
+        let modul, meth, args =
             match genArg with
-            // TODO: BigInt?
-            | Char -> "rangeChar", args
-            | Builtin BclInt64 -> "rangeLong", (addStep args) @ [makeBoolConst false]
-            | Builtin BclUInt64 -> "rangeLong", (addStep args) @ [makeBoolConst true]
-            | _ -> "rangeNumber", addStep args
-        Helper.CoreCall("Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            | Char -> "Seq", "rangeChar", args
+            | Builtin BclInt64 -> "Seq", "rangeLong", (addStep args) @ [makeBoolConst false]
+            | Builtin BclUInt64 -> "Seq", "rangeLong", (addStep args) @ [makeBoolConst true]
+            | Builtin BclDecimal -> "Seq", "rangeDecimal", addStep args
+            | Builtin BclBigInt -> "BigInt", "range", addStep args
+            | _ -> "Seq", "rangeNumber", addStep args
+        Helper.CoreCall(modul, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Pipes and composition
     | "op_PipeRight", [x; f]
     | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some

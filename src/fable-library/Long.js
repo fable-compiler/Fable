@@ -1160,9 +1160,19 @@ export function ticksToUnixEpochMilliseconds(ticks) {
 }
 
 export function makeRangeStepFunction(step, last, unsigned) {
-    const zero = unsigned ? UZERO : ZERO;
-    return (x) =>
-        greaterThan(step, zero) && lessThanOrEqual(x, last)
-        || lessThan(step, zero) && greaterThanOrEqual(x, last)
-        ? [x, op_Addition(x, step)] : null
+    const stepComparedWithZero = compare(step, unsigned ? UZERO : ZERO);
+    if (stepComparedWithZero === 0) {
+        throw new Error("The step of a range cannot be zero");
+    }
+    const stepGreaterThanZero = stepComparedWithZero > 0;
+    return (x) => {
+        const comparedWithLast = compare(x, last);
+        if ((stepGreaterThanZero && comparedWithLast <= 0)
+            || (!stepGreaterThanZero && comparedWithLast >= 0)) {
+            return [x, op_Addition(x, step)];
+        }
+        else {
+            return null;
+        }
+    }
 }

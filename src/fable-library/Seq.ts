@@ -1,4 +1,5 @@
-import Long, { makeRangeStepFunction } from "./Long";
+import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long";
+import Decimal, { makeRangeStepFunction as makeDecimalRangeStepFunction } from "./Decimal";
 import { Some, some, value } from "./Option";
 import { compare, equals, IComparer, IDisposable, isDisposable } from "./Util";
 
@@ -561,8 +562,13 @@ export function rangeChar(first: string, last: string) {
   return delay(() => unfold((x) => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : null, first));
 }
 
-export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean) {
-  const stepFn = makeRangeStepFunction(step, last, unsigned);
+export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean): Iterable<Long> {
+  const stepFn = makeLongRangeStepFunction(step, last, unsigned);
+  return delay(() => unfold(stepFn as any, first));
+}
+
+export function rangeDecimal(first: Decimal, step: Decimal, last: Decimal): Iterable<Decimal> {
+  const stepFn = makeDecimalRangeStepFunction(step, last);
   return delay(() => unfold(stepFn as any, first));
 }
 

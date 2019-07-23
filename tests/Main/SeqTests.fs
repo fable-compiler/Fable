@@ -522,6 +522,26 @@ let tests =
         |> Seq.reduce (+)
         |> equal 20UL
 
+    testCase "Seq.range works with decimal" <| fun () ->
+        seq{1M .. 50M}
+        |> Seq.reduce (+)
+        |> equal 1275M
+
+    testCase "Seq.range step works with decimal" <| fun () ->
+        seq {-3M .. -0.4359698987M .. -50M}
+        |> Seq.reduce (+)
+        |> equal -2843.0340746886M
+
+    testCase "Seq.range works with bigint" <| fun () ->
+        seq{1I..2000I}
+        |> Seq.reduce (+)
+        |> equal 2001000I
+
+    testCase "Seq.range step works with bigint" <| fun () ->
+        seq {1I .. 10000000000000I .. 20000000000000000I}
+        |> Seq.reduce (+)
+        |> equal 19990000000000002000I
+
     testCase "Seq.reduce works" <| fun () ->
         let xs = [1.; 2.]
         xs |> Seq.reduce (+)
