@@ -470,8 +470,8 @@ module Util =
             match ent, generics with
             | Replacements.BuiltinEntity kind ->
                 match kind with
-                | Replacements.BclGuid -> primitiveTypeInfo "string"
-                | Replacements.BclTimeSpan -> primitiveTypeInfo "float64"
+                | Replacements.BclGuid
+                | Replacements.BclTimeSpan
                 | Replacements.BclDateTime
                 | Replacements.BclDateTimeOffset
                 | Replacements.BclTimer
