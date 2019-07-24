@@ -22,6 +22,12 @@ var customPlugins = [
 
 var compilerCache = null;
 
+function log(opts, msg) {
+    if (!opts.silent) {
+        console.log(msg);
+    }
+}
+
 function getTcpPort(opts) {
     if (opts.port != null) {
         return opts.port;
@@ -61,6 +67,8 @@ var Loader = function(buffer) {
     var callback = this.async();
 
     var opts = this.loaders[0].options || {};
+    opts.cli = opts.cli || {};
+    opts.cli.silent = opts.silent;
     var babelOptions = opts.babel || {};
     babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
 
@@ -111,7 +119,7 @@ var Loader = function(buffer) {
                                     this.emitWarning(new Error(msg));
                                     break;
                                 default:
-                                    console.log(msg)
+                                    log(opts, msg)
                             }
                         });
                       });
@@ -125,7 +133,7 @@ var Loader = function(buffer) {
                     if (err) {
                         callback(err);
                     } else {
-                        console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
+                        log(opts, "fable: Compiled " + path.relative(process.cwd(), msg.path));
                         callback(null, babelParsed.code, babelParsed.map);
                     }
                 });

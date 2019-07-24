@@ -1168,7 +1168,7 @@ module Util =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit ->
-            if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
+            if com.Options.verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
