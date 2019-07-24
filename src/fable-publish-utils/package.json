@@ -10,7 +10,10 @@
     "type": "git",
     "url": "git+https://github.com/fable-compiler/fable-publish-utils.git"
   },
-  "keywords": ["fable", "f#"],
+  "keywords": [
+    "fable",
+    "f#"
+  ],
   "author": "Alfonso García-Caro",
   "license": "ISC",
   "bugs": {
