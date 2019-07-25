@@ -246,7 +246,7 @@ type OperationKind =
 type GetKind =
     | ExprGet of Expr
     | TupleGet of int
-    | FieldGet of string * hasDoubleEvalRisk: bool * fieldType: Type
+    | FieldGet of string * isFieldMutable: bool * fieldType: Type
     | UnionField of FSharpField * FSharpUnionCase * fieldType: Type
     | UnionTag
     | ListHead

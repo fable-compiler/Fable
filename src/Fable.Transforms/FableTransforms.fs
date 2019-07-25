@@ -222,7 +222,11 @@ let countReferencesPreventingLeak limit identName body =
     (false, [body]) ||> traverse (fun insideFunction expr ->
         match expr with
         | IdentExpr id2 when id2.Name = identName ->
-            count <- (if insideFunction then limit else count) + 1
+            count <-
+                if limit > 0 then
+                    (if insideFunction then limit else count) + 1
+                elif insideFunction then 1
+                else 0
             count > limit, false, []
         // If the function is immediately applied we don't have to worry about leaks
         // | NestedApply(NestedLambda(args, body, _), argExprs, _, _) when List.sameLength args argExprs ->
@@ -233,13 +237,19 @@ let countReferencesPreventingLeak limit identName body =
             false, false, getSubExpressions e) |> ignore
     count
 
+let preventLeak identName body =
+    countReferencesPreventingLeak -1 identName body = 0
+
 let canInlineArg identName value body =
-    // Don't erase expressions referenced 0 times, they may have side-effects
-    if not(hasDoubleEvalRisk value) then true
-    else
+    match hasDoubleEvalRisk value with
+    | DoubleEvalRisk.No -> true
+    | DoubleEvalRisk.Yes ->
         match value with
-        | Function _ -> countReferences 1 identName body = 1
+        | Function _ -> countReferences 1 identName body > 1
+        // Don't erase expressions referenced 0 times, they may have side-effects
         | _ -> countReferencesPreventingLeak 1 identName body = 1
+    | DoubleEvalRisk.InTailCalls identName ->
+        preventLeak identName body
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function

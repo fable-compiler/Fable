@@ -879,7 +879,7 @@ module Util =
             | Replacements.FSharpReference _ -> fail "result/choice/reference"
         | Fable.AnonymousRecordType _ ->
             "Type testing is not yet supported for anonymous records" // TODO
-            |> addWarning com [] range            
+            |> addWarning com [] range
             upcast BooleanLiteral false
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
@@ -961,7 +961,7 @@ module Util =
         let bindings, replacements =
             (([], Map.empty), matchTargetIdentAndValues idents boundValues)
             ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                if hasDoubleEvalRisk expr // && isReferencedMoreThan 1 ident.Name body
+                if hasDoubleEvalRisk expr <> DoubleEvalRisk.No // && isReferencedMoreThan 1 ident.Name body
                 then (ident, expr)::bindings, replacements
                 else bindings, Map.add ident.Name expr replacements)
         let target = FableTransforms.replaceValues replacements target

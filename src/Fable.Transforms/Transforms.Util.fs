@@ -285,24 +285,43 @@ module AST =
         | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda
         | e -> e
 
+    [<RequireQualifiedAccess>]
+    type DoubleEvalRisk =
+        | No
+        | Yes
+        /// Immutable values can be turned into mutable in tail-call optimizations
+        /// so we need to check whether the value is captured in a function, see #1859
+        | InTailCalls of identName: string
+
     /// When referenced multiple times, is there a risk of double evaluation?
-    /// Functions return true because we don't want to duplicate them in the code
+    /// Functions return yes because we don't want to duplicate them in the code
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec hasDoubleEvalRisk = function
-        | Import _ -> false
-        | IdentExpr id -> id.IsMutable
-        | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> false
-        | Value(NewTuple exprs,_) -> exprs |> List.exists hasDoubleEvalRisk
+        | Import _ -> DoubleEvalRisk.No
+        | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> DoubleEvalRisk.No
+        | Value(NewTuple exprs,_) ->
+            (DoubleEvalRisk.No, exprs) ||> List.fold (fun acc e ->
+                match acc with
+                | DoubleEvalRisk.No -> hasDoubleEvalRisk e
+                | DoubleEvalRisk.Yes
+                | DoubleEvalRisk.InTailCalls _ -> acc)
         | Value(Enum(kind, _),_) ->
-            match kind with NumberEnum e | StringEnum e -> hasDoubleEvalRisk e
-        | Get(_,kind,_,_) ->
+            match kind with
+            | NumberEnum e
+            | StringEnum e -> hasDoubleEvalRisk e
+        | IdentExpr id ->
+            if id.IsMutable then DoubleEvalRisk.Yes
+            else DoubleEvalRisk.InTailCalls id.Name
+        | Get(e,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check
             | ListHead | ListTail | TupleGet _
-            | UnionTag | UnionField _ -> false
-            | FieldGet(_,hasDoubleEvalRisk,_) -> hasDoubleEvalRisk
-            | _ -> true
-        | _ -> true
+            | UnionTag | UnionField _ -> hasDoubleEvalRisk e
+            | FieldGet(_,isFieldMutable,_) ->
+                if isFieldMutable then DoubleEvalRisk.Yes
+                else hasDoubleEvalRisk e
+            | _ -> DoubleEvalRisk.Yes
+        | _ -> DoubleEvalRisk.Yes
 
     /// TODO: Add string and other nullable types?
     /// For unit, unresolved generics or nested options, create a runtime wrapper
