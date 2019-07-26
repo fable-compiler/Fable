@@ -367,13 +367,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let body = Fable.Let([ident1, id1Expr], Fable.Let([ident2, id2Expr], restExpr))
         return Fable.Let([tupleIdent, tupleExpr], body)
 
-    | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
+    | CallCreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let! callee = transformExpr com ctx callee
         let! args = transformExprList com ctx membArgs
         let callee = get None Fable.Any callee eventName
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs (Some callee) args memb
+
+    | BindCreateEvent (var, value, eventName, body) ->
+        let! value = transformExpr com ctx value
+        let value = get None Fable.Any value eventName
+        let ctx, ident = putBindingInScope com ctx var value
+        let! body = transformExpr com ctx body
+        return Fable.Let([ident, value], body)
 
     // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
     | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->

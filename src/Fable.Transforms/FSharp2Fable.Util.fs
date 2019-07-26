@@ -415,14 +415,23 @@ module Patterns =
 
     /// This matches the boilerplate generated to wrap .NET events from F#
     let (|CreateEvent|_|) = function
-        | Call(Some(Call(None, createEvent,_,_,
-                        [Lambda(_eventDelegate, Call(Some callee, addEvent,[],[],[Value _eventDelegate']));
-                         Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
-                         Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])),
-                memb, typArgs, methTypArgs, args)
-                when createEvent.FullName = Types.createEvent ->
+        | Call(None,createEvent,_,_,
+               [Lambda(_eventDelegate, Call(Some callee, addEvent,[],[],[Value _eventDelegate']));
+                Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
+                Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])
+          when createEvent.FullName = Types.createEvent ->
             let eventName = addEvent.CompiledName.Replace("add_","")
+            Some (callee, eventName)
+        | _ -> None
+
+    let (|CallCreateEvent|_|) = function
+        | Call(Some(CreateEvent(callee, eventName)), memb, typArgs, methTypArgs, args) ->
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
+        | _ -> None
+
+    let (|BindCreateEvent|_|) = function
+        | Let((var, CreateEvent(value, eventName)), body) ->
+            Some (var, value, eventName, body)
         | _ -> None
 
     let (|ConstructorCall|_|) = function

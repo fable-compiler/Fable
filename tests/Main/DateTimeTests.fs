@@ -543,4 +543,34 @@ let tests =
             equal 10 !res
             t.Stop()
         }
+
+    testCaseAsync "Assigning an event to a variable works" <| fun () -> // See #1863
+        let createTimerAndObservable timerInterval =
+            // setup a timer
+            let timer = new System.Timers.Timer(float timerInterval)
+            timer.AutoReset <- true
+            // events are automatically IObservable
+            let observable = timer.Elapsed
+            // return an async task
+            let task = async {
+                timer.Start()
+                do! Async.Sleep 200
+                timer.Stop()
+            }
+            // return a async task and the observable
+            (task,observable)
+        // create the timer and the corresponding observable
+        let basicTimer2 , timerEventStream = createTimerAndObservable 50
+
+        let mutable acc = 1
+        // register that everytime something happens on the
+        // event stream, print the time.
+        timerEventStream |> Observable.subscribe (fun _ ->
+            acc <- acc + 1) |>ignore
+
+        async {
+            do! basicTimer2
+            printfn "%i" acc
+            acc > 2 |> equal true
+        }
   ]
