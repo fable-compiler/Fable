@@ -385,6 +385,21 @@ module MapTree =
             then Some(en.Current, en)
             else None)
 
+/// Fable uses JS Map to represent .NET Dictionary. However when keys are non-primitive,
+/// we need to disguise an F# map as a mutable map. Thus, this interface matches JS Map prototype.
+/// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+type IMutableMap<'Key,'Value> =
+    inherit IEnumerable<KeyValuePair<'Key,'Value>>
+    abstract size: int
+    abstract clear: unit -> unit
+    abstract delete: 'Key -> bool
+    abstract entries: unit -> KeyValuePair<'Key,'Value> seq
+    abstract get: 'Key -> 'Value
+    abstract has: 'Key -> bool
+    abstract keys: unit -> 'Key seq
+    abstract set: 'Key * 'Value -> IMutableMap<'Key,'Value>
+    abstract values: unit -> 'Value seq
+
 [<CompiledName("FSharpMap"); Replaces("Microsoft.FSharp.Collections.FSharpMap`2")>]
 type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key,'Value>) =
     member internal __.Comparer = comparer
@@ -474,6 +489,16 @@ type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditi
                     let c = comparer.Compare(kvp1.Key, kvp2.Key)
                     res <- if c <> 0 then c else Unchecked.compare kvp1.Value kvp2.Value
             res
+    interface IMutableMap<'Key,'Value> with
+        member this.size = this.Count
+        member __.clear() = failwith "Map cannot be mutated"
+        member __.delete(_) = failwith "Map cannot be mutated"
+        member this.entries() = MapTree.toSeq this.Tree
+        member this.get(k) = this.Item(k)
+        member this.has(k) = this.ContainsKey(k)
+        member this.keys() = MapTree.toSeq this.Tree |> Seq.map (fun kv -> kv.Key)
+        member __.set(k, v) = failwith "Map cannot be mutated"
+        member this.values() = MapTree.toSeq this.Tree |> Seq.map (fun kv -> kv.Value)
 
 let isEmpty (m:Map<_,_>) = m.IsEmpty
 
@@ -541,21 +566,6 @@ let toArray (m:Map<'Key,'Value>) =
 
 let empty<'Key,'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) =
     new Map<'Key,'Value>(comparer, MapTree.MapEmpty)
-
-/// Fable uses JS Map to represent .NET Dictionary. However when keys are non-primitive,
-/// we need to disguise an F# map as a mutable map. Thus, this interface matches JS Map prototype.
-/// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-type IMutableMap<'Key,'Value> =
-    inherit IEnumerable<KeyValuePair<'Key,'Value>>
-    abstract size: int
-    abstract clear: unit -> unit
-    abstract delete: 'Key -> bool
-    abstract entries: unit -> KeyValuePair<'Key,'Value> seq
-    abstract get: 'Key -> 'Value
-    abstract has: 'Key -> bool
-    abstract keys: unit -> 'Key seq
-    abstract set: 'Key * 'Value -> IMutableMap<'Key,'Value>
-    abstract values: unit -> 'Value seq
 
 let private createMutablePrivate (comparer: IComparer<'Key>) tree' =
     let mutable tree = tree'
