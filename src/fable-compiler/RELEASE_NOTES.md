@@ -1,3 +1,14 @@
+### 2.3.14
+
+* Fix Timespan and Guid reflection info @MangelMaxime
+* Fix #1864: npm security issues
+* Fix #1863: Binding event to a value
+* Fix #1862: Add `--silent` option
+
+* Fix #1859: Binding optimization vs tailcalls
+* Fix #1857, #1729: Maps casted to IDictionary
+* Fix #1856: Decimal and BigInt ranges
+
 ### 2.3.12
 
 * Fix #1848: decimal should round up .5
