@@ -3,6 +3,7 @@
   "scripts": {
     "build": "fable build.fsx --run",
     "publish": "fable build.fsx --run publish",
+    "check-sourcemaps": "source-map-visualization --sm=./src/fable-library/Array.fs;./build/fable-library/Array.js;./build/fable-library/Array.js.map",
     "test": "fable build.fsx --run test",
     "test-js": "node src/fable-compiler-js/dist/app.js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs",
     "posttest-js": "mocha build/tests-js --reporter dot -t 10000"
@@ -29,5 +30,30 @@
     "typescript": "^3.4.2",
     "webpack": "^4.29.6",
     "webpack-cli": "^3.3.0"
+  },
+  "devDependencies": {
+    "@matthid/source-map-visualization": "^0.5.0",
+    "nyc": "^14.1.1",
+    "source-map-support": "^0.5.12"
+  },
+  "nyc": {
+    "extension": [
+      ".ts",
+      ".fs",
+      ".tsx"
+    ],
+    "exclude": [
+      "**/*.d.ts"
+    ],
+    "reporter": [
+      "lcov",
+      "cobertura",
+      "text"
+    ],
+    "report-dir": "./build/coverage/nyc",
+    "temp-dir": "./build/coverage/nyc/temp",
+    "sourceMap": true,
+    "produce-source-map": true,
+    "all": true
   }
 }

@@ -148,6 +148,32 @@ let test() =
         // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
         // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
 
+
+let coverage() =
+    // report converter
+    // https://github.com/danielpalme/ReportGenerator
+    // dotnet tool install dotnet-reportgenerator-globaltool --tool-path tools
+    if not (pathExists "./bin/tools/reportgenerator") && not (pathExists "./bin/tools/reportgenerator.exe") then
+        runInDir "." "dotnet tool install dotnet-reportgenerator-globaltool --tool-path bin/tools"
+    let reportGen =
+        if pathExists "./bin/tools/reportgenerator" then "bin/tools/reportgenerator"
+        else "bin\\tools\\reportgenerator.exe"
+
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
+
+    cleanDirs ["build/tests"]
+    buildSplitter "tests"
+
+    // JS
+    run "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
+    runInDir "." (reportGen + " \"-reports:build/coverage/nyc/lcov.info\" -reporttypes:Html \"-targetdir:build/coverage/nyc/html\" ")
+
+    // .NET
+    //runInDir "tests/Main" "dotnet build /t:Collect_Coverage"
+    cleanDirs ["build/coverage/netcoreapp2.0/out"]
+    runInDir "." (reportGen + " \"-reports:build/coverage/netcoreapp2.0/coverage.xml\" -reporttypes:Html \"-targetdir:build/coverage/netcoreapp2.0/html\" ")
+
 let downloadStandalone() =
     let targetDir = "src/fable-standalone/dist"
     cleanDirs [targetDir]
@@ -232,6 +258,7 @@ let publishPackages restArgs =
 
 match argsLower with
 | "test"::_ -> test()
+| "coverage"::_ -> coverage()
 | "quicktest"::_ -> quicktest()
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
