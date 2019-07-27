@@ -136,24 +136,24 @@ module Util =
     let ofString s =
         StringLiteral s :> Expression
 
-    let memberFromName memberName: Expression * bool =
+    let memberFromName memberName loc: Expression * bool =
         if Naming.hasIdentForbiddenChars memberName
-        then upcast StringLiteral memberName, true
-        else upcast Identifier memberName, false
+        then upcast StringLiteral(memberName, ?loc=loc), true
+        else upcast Identifier(memberName, ?loc=loc), false
 
     let memberFromExpr (com: IBabelCompiler) ctx memberExpr: Expression * bool =
         match memberExpr with
-        | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
+        | Fable.Value(Fable.StringConstant name, r) -> memberFromName name r
         | e -> com.TransformAsExpr(ctx, e), true
 
     let get r left memberName =
-        let expr, computed = memberFromName memberName
+        let expr, computed = memberFromName memberName r
         MemberExpression(left, expr, computed, ?loc=r) :> Expression
 
     let getExpr r (object: Expression) (expr: Expression) =
         let expr, computed =
             match expr with
-            | :? StringLiteral as e -> memberFromName e.Value
+            | :? StringLiteral as e -> memberFromName e.Value r
             | e -> e, true
         MemberExpression(object, expr, computed, ?loc=r) :> Expression
 
@@ -213,9 +213,9 @@ module Util =
         |> List.mapToArray (fun x -> StringLiteral x :> Expression)
         |> ArrayExpression :> Expression
 
-    let makeJsObject pairs =
+    let makeJsObject r pairs =
         pairs |> Seq.map (fun (name, value) ->
-            let prop, computed = memberFromName name
+            let prop, computed = memberFromName name r
             ObjectProperty(prop, value, computed_=computed) |> U3.Case1)
         |> Seq.toArray
         |> ObjectExpression :> Expression
@@ -564,7 +564,7 @@ module Util =
                 upcast NewExpression(consRef, values, ?loc=r)
             | Fable.AnonymousRecord fieldNames ->
                 Array.zip fieldNames values
-                |> makeJsObject
+                |> makeJsObject r
                 |> Array.singleton
                 |> coreLibCall com ctx r "Types" "anonRecord"
         | Fable.NewUnion(values, uci, ent, _) ->
@@ -599,7 +599,7 @@ module Util =
                     let prop, computed =
                         match key with
                         // Compile ToString in lower case for compatibity with JS (and debugger tools)
-                        | Fable.Value(Fable.StringConstant "ToString",_) -> memberFromName "toString"
+                        | Fable.Value(Fable.StringConstant "ToString", r) -> memberFromName "toString" r
                         | key -> memberFromExpr com ctx key
                     makeObjMethod ObjectMeth prop computed hasSpread args body
                 | Fable.ObjectIterator, Fable.Function(Fable.Delegate args, body, _) ->
