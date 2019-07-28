@@ -185,8 +185,8 @@ module Helpers =
         else not memb.Accessibility.IsPrivate
 
     let makeRange (r: Range.range) =
-        { start = { line = r.StartLine; column = r.StartColumn+1 }
-          ``end``= { line = r.EndLine; column = r.EndColumn+1 }
+        { start = { line = r.StartLine; column = r.StartColumn }
+          ``end``= { line = r.EndLine; column = r.EndColumn }
           identifierName = None }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
