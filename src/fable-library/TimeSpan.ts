@@ -142,7 +142,33 @@ export function parse(str: string) {
         s = +r[7];
       }
       if (r[8] != null) {
-        ms = +r[8];
+        // Depending on the number of decimals passed, we needed to adapt the numbers
+        switch (r[8].length) {
+            case 1:
+                ms = +r[8] * 100;
+                break;
+            case 2:
+                ms = +r[8] * 10;
+                break;
+            case 3:
+                ms = +r[8];
+                break;
+            case 4:
+                ms = +r[8] / 10;
+                break;
+            case 5:
+                ms = +r[8] / 100;
+                break;
+            case 6:
+                ms = +r[8] / 1000;
+                break;
+            case 7:
+                ms = +r[8] / 10000;
+                break;
+            default:
+                throw new Error("String was not recognized as a valid TimeSpan.");
+                break;
+        }
       }
       return sign * create(d, h, m, s, ms);
     }
