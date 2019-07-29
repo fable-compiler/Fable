@@ -127,23 +127,24 @@ export function parse(str: string) {
   }
   if (firstColon > 0) { // process time part
     // tslint:disable-next-line:max-line-length
-    const r = /^((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
-    if (r != null && r[3] != null && r[4] != null) {
+    const r = /^(-?)((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
+    if (r != null && r[4] != null && r[5] != null) {
       let d = 0;
       let ms = 0;
       let s = 0;
-      const h = +r[3];
-      const m = +r[4];
-      if (r[2] != null) {
-        d = +r[2];
-      }
-      if (r[6] != null) {
-        s = +r[6];
+      const sign = r[1] != null && r[1] === '-' ? -1 : 1;
+      const h = +r[4];
+      const m = +r[5];
+      if (r[3] != null) {
+        d = +r[3];
       }
       if (r[7] != null) {
-        ms = +r[7];
+        s = +r[7];
       }
-      return create(d, h, m, s, ms);
+      if (r[8] != null) {
+        ms = +r[8];
+      }
+      return sign * create(d, h, m, s, ms);
     }
   }
   throw new Error("String was not recognized as a valid TimeSpan.");
