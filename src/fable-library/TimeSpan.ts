@@ -128,6 +128,7 @@ export function parse(str: string) {
   }
   if (firstColon > 0) { // process time part
     // tslint:disable-next-line:max-line-length
+    // WIP: (-?)(((\d+)\.)?([0-9]|0[0-9]|1[0-9]|2[0-3]):(\d+)(:\d+(\.\d{1,7})?)?|\d+(?:(?!\.)))
     const r = /^(-?)((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
     if (r != null && r[4] != null && r[5] != null) {
       let d = 0;
@@ -143,7 +144,7 @@ export function parse(str: string) {
         s = +r[7];
       }
       if (r[8] != null) {
-        // Depending on the number of decimals passed, we needed to adapt the numbers
+        // Depending on the number of decimals passed, we need to adapt the numbers
         switch (r[8].length) {
             case 1:
                 ms = +r[8] * 100;
@@ -168,7 +169,6 @@ export function parse(str: string) {
                 break;
             default:
                 throw new Error("String was not recognized as a valid TimeSpan.");
-                break;
         }
       }
       return sign * create(d, h, m, s, ms);
