@@ -76,7 +76,8 @@ export function totalMinutes(ts: number) {
 }
 
 export function totalSeconds(ts: number) {
-  return ts / 1000;
+  // Round needed to replicated .Net behaviour
+  return Math.round(ts / 1000 * 1000000) / 1000000;
 }
 
 export function negate(ts: number) {
