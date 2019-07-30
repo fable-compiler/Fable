@@ -466,4 +466,29 @@ let tests =
             let actual = TimeSpan.Parse("-2:00:00")
             equal actual.TotalMilliseconds -7200000.0
 
+        testCase "TimeSpan 1.23:45:06.789 TotalMilliseconds works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalMilliseconds
+            let expected = 171906789.0
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalSeconds works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalSeconds
+            let expected = 171906.789
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalMinutes works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalMinutes
+            let expected = 2865.11315
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalHours works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalHours
+            let expected = 47.75188583333333
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalDays works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalDays
+            let expected = 1.9896619097222221
+            equal actual expected
+
     ]
