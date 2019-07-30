@@ -1,3 +1,8 @@
+### 2.3.15
+
+* Fix negative timespan + milliseconds value when parsing a string @MangelMaxime
+* Improve source maps @matthid
+
 ### 2.3.14
 
 * Fix Timespan and Guid reflection info @MangelMaxime

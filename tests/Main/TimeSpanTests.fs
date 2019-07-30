@@ -491,4 +491,10 @@ let tests =
             let expected = 1.9896619097222221
             equal actual expected
 
+        // TODO: This tests fails because of the decimal part of the milliseconds, see #1867
+        // testCase "TimeSpan TotalSeconds & friends work" <| fun () ->
+        //     let ts = TimeSpan.FromDays(0.005277777778)
+        //     ts.TotalMilliseconds |> equal 456000.0
+        //     ts.TotalSeconds |> equal 456.
+        //     ts.TotalMinutes |> equal 7.6
     ]
