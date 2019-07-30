@@ -76,6 +76,7 @@ export function totalMinutes(ts: number) {
 }
 
 export function totalSeconds(ts: number) {
+  // Round needed to replicated .Net behaviour
   return ts / 1000;
 }
 
@@ -127,23 +128,50 @@ export function parse(str: string) {
   }
   if (firstColon > 0) { // process time part
     // tslint:disable-next-line:max-line-length
-    const r = /^((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
-    if (r != null && r[3] != null && r[4] != null) {
+    // WIP: (-?)(((\d+)\.)?([0-9]|0[0-9]|1[0-9]|2[0-3]):(\d+)(:\d+(\.\d{1,7})?)?|\d+(?:(?!\.)))
+    const r = /^(-?)((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
+    if (r != null && r[4] != null && r[5] != null) {
       let d = 0;
       let ms = 0;
       let s = 0;
-      const h = +r[3];
-      const m = +r[4];
-      if (r[2] != null) {
-        d = +r[2];
-      }
-      if (r[6] != null) {
-        s = +r[6];
+      const sign = r[1] != null && r[1] === '-' ? -1 : 1;
+      const h = +r[4];
+      const m = +r[5];
+      if (r[3] != null) {
+        d = +r[3];
       }
       if (r[7] != null) {
-        ms = +r[7];
+        s = +r[7];
       }
-      return create(d, h, m, s, ms);
+      if (r[8] != null) {
+        // Depending on the number of decimals passed, we need to adapt the numbers
+        switch (r[8].length) {
+            case 1:
+                ms = +r[8] * 100;
+                break;
+            case 2:
+                ms = +r[8] * 10;
+                break;
+            case 3:
+                ms = +r[8];
+                break;
+            case 4:
+                ms = +r[8] / 10;
+                break;
+            case 5:
+                ms = +r[8] / 100;
+                break;
+            case 6:
+                ms = +r[8] / 1000;
+                break;
+            case 7:
+                ms = +r[8] / 10000;
+                break;
+            default:
+                throw new Error("String was not recognized as a valid TimeSpan.");
+        }
+      }
+      return sign * create(d, h, m, s, ms);
     }
   }
   throw new Error("String was not recognized as a valid TimeSpan.");

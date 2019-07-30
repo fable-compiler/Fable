@@ -42,11 +42,13 @@ let tests =
             let t2 = TimeSpan(3, 3, 3)
             let t3 = TimeSpan(5, 5, 5, 5)
             let t4 = TimeSpan(7, 7, 7, 7, 7)
+            let t5 = TimeSpan(-2,0,0,0)
 
             t1.TotalMilliseconds |> equal 2.0
             t2.TotalMilliseconds |> equal 10983000.0
             t3.TotalMilliseconds |> equal 450305000.0
             t4.TotalMilliseconds |> equal 630427007.0
+            t5.TotalMilliseconds |> equal -172800000.0
 
             t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
             |> equal 1091715009.0
@@ -424,4 +426,69 @@ let tests =
             let expected = TimeSpan(10, 12, 00, 0, 0)
             equal status true
             equal actual expected
+
+        testCase "TimeSpan 00:00:00.1 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.1").TotalMilliseconds
+            let expected = 100.
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.12 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.12").TotalMilliseconds
+            let expected = 120.
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.123 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.123").TotalMilliseconds
+            let expected = 123.
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.1234 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.1234").TotalMilliseconds
+            let expected = 123.4
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.12345 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.12345").TotalMilliseconds
+            let expected = 123.45
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.123456 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.123456").TotalMilliseconds
+            let expected = 123.456
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.0034567 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.0034567").TotalMilliseconds
+            let expected = 3.4567
+            equal actual expected
+
+        testCase "TimeSpan Parse work with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-2:00:00")
+            equal actual.TotalMilliseconds -7200000.0
+
+        testCase "TimeSpan 1.23:45:06.789 TotalMilliseconds works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalMilliseconds
+            let expected = 171906789.0
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalSeconds works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalSeconds
+            let expected = 171906.789
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalMinutes works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalMinutes
+            let expected = 2865.11315
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalHours works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalHours
+            let expected = 47.75188583333333
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalDays works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalDays
+            let expected = 1.9896619097222221
+            equal actual expected
+
     ]
