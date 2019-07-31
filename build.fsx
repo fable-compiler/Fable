@@ -66,14 +66,15 @@ let buildLibrary() =
     buildTypescript "src/fable-library"
     buildSplitter "src/fable-library"
 
-let quicktest() =
+let quicktest additionalCommands =
     cleanDirs ["build/fable-library"]
     concurrently [|
         // Watch fable-library
-        "npx tsc --project src/fable-library --watch"
-        "npx fable-splitter -c src/fable-library/splitter.config.js --watch"
+        yield "npx tsc --project src/fable-library --watch"
+        yield "npx fable-splitter -c src/fable-library/splitter.config.js --watch"
         // Restart splitter on changes so latest fable-library and compiler are picked
-        "chokidar \"src/quicktest/*.fs\" -c \"fable-splitter -c src/quicktest/splitter.config.js --run\""
+        yield "nodemon --watch src/quicktest/Quicktest.fs --exec \"fable-splitter -c src/quicktest/splitter.config.js --run\""
+        yield! additionalCommands
     |]
 
 let buildCompiler() =
@@ -259,7 +260,12 @@ let publishPackages restArgs =
 match argsLower with
 | "test"::_ -> test()
 | "coverage"::_ -> coverage()
-| "quicktest"::_ -> quicktest()
+| "quicktest-fast"::_ -> run "npx fable-splitter -c src/quicktest/splitter.config.js --watch --run"
+| "quicktest"::_ -> quicktest []
+| "check-sourcemaps"::_ ->
+    ("src/quicktest/Quicktest.fs", "src/quicktest/bin/Quicktest.js", "src/quicktest/bin/Quicktest.js.map")
+    |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
+    |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs false

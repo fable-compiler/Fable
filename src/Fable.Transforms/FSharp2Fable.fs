@@ -875,7 +875,8 @@ let private transformImport com r typ isMutable isPublic name selector path =
           // TODO: Check if they're mutable, see #1314
           IsMutable = isMutable
           IsEntryPoint = false
-          HasSpread = false }
+          HasSpread = false
+          Range = None}
     let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ, r)
     [Fable.ValueDeclaration(fableValue, info)]
 
@@ -899,7 +900,8 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
               IsPublic = isPublic
               IsMutable = memb.IsMutable
               IsEntryPoint = false
-              HasSpread = false }
+              HasSpread = false
+              Range = makeRange memb.DeclarationLocation |> Some }
         [Fable.ValueDeclaration(fableValue, info)]
 
 let private functionDeclarationInfo name isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.ValueDeclarationInfo =
@@ -907,7 +909,8 @@ let private functionDeclarationInfo name isPublic (memb: FSharpMemberOrFunctionO
       IsPublic = isPublic
       IsMutable = memb.IsMutable
       IsEntryPoint = memb.Attributes |> hasAttribute Atts.entryPoint
-      HasSpread = hasSeqSpread memb }
+      HasSpread = hasSeqSpread memb
+      Range = makeRange memb.DeclarationLocation |> Some }
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args

@@ -58,7 +58,8 @@ type ValueDeclarationInfo =
       IsPublic: bool
       IsMutable: bool
       IsEntryPoint: bool
-      HasSpread: bool }
+      HasSpread: bool
+      Range: SourceLocation option }
 
 type ClassImplicitConstructorInfo =
     { Name: string
