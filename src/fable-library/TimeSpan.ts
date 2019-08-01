@@ -3,6 +3,16 @@ import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Uti
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 
+/**
+ * Calls:
+ * - `Math.ceil` if the `value` is **negative**
+ * - `Math.floor` if the `value` is **positive**
+ * @param value Value to round
+ */
+function signedRound(value : number) {
+    return value < 0 ? Math.ceil(value) : Math.floor(value);
+}
+
 export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
   switch (arguments.length) {
     case 1:
@@ -40,23 +50,23 @@ export function fromSeconds(s: number) {
 }
 
 export function days(ts: number) {
-  return Math.floor(ts / 86400000);
+  return signedRound(ts / 86400000);
 }
 
 export function hours(ts: number) {
-  return Math.floor(ts % 86400000 / 3600000);
+  return signedRound(ts % 86400000 / 3600000);
 }
 
 export function minutes(ts: number) {
-  return Math.floor(ts % 3600000 / 60000);
+  return signedRound(ts % 3600000 / 60000);
 }
 
 export function seconds(ts: number) {
-  return Math.floor(ts % 60000 / 1000);
+  return signedRound(ts % 60000 / 1000);
 }
 
 export function milliseconds(ts: number) {
-  return Math.floor(ts % 1000);
+  return signedRound(ts % 1000);
 }
 
 export function ticks(ts: number /* Long */) {
@@ -105,13 +115,14 @@ export function toString(ts: number, format = "c") {
   if (["c", "g", "G"].indexOf(format) === -1) {
     throw new Error("Custom formats are not supported");
   }
-  const d = days(ts);
-  const h = hours(ts);
-  const m = minutes(ts);
-  const s = seconds(ts);
-  const ms = milliseconds(ts);
+  const d = Math.abs(days(ts));
+  const h = Math.abs(hours(ts));
+  const m = Math.abs(minutes(ts));
+  const s = Math.abs(seconds(ts));
+  const ms = Math.abs(milliseconds(ts));
+  const sign = ts < 0 ? "-" : "";
   // tslint:disable-next-line:max-line-length
-  return `${d === 0 && (format === "c" || format === "g") ? "" : format === "c" ? d + "." : d + ":" }${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 && (format === "c" || format === "g") ? "" : format === "g" ? "." + padWithZeros(ms, 3) : "." + padLeftAndRightWithZeros(ms, 3, 7)}`;
+  return `${sign}${d === 0 && (format === "c" || format === "g") ? "" : format === "c" ? d + "." : d + ":" }${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 && (format === "c" || format === "g") ? "" : format === "g" ? "." + padWithZeros(ms, 3) : "." + padLeftAndRightWithZeros(ms, 3, 7)}`;
 }
 
 export function parse(str: string) {
