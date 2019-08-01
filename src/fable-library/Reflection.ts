@@ -36,8 +36,15 @@ export function getGenerics(t: TypeInfo): TypeInfo[] {
 }
 
 export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
-  return t1.fullname === t2.fullname
-    && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);
+  if (t1.fullname === "") { // Anonymous records
+    return t2.fullname === ""
+      && equalArraysWith(getRecordElements(t1),
+                         getRecordElements(t2),
+                         ([k1, v1], [k2, v2]) => k1 === k2 && equals(v1, v2));
+  } else {
+    return t1.fullname === t2.fullname
+      && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);
+  }
 }
 
 // System.Type is not comparable in .NET, but let's implement this

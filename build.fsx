@@ -73,7 +73,7 @@ let quicktest additionalCommands =
         yield "npx tsc --project src/fable-library --watch"
         yield "npx fable-splitter -c src/fable-library/splitter.config.js --watch"
         // Restart splitter on changes so latest fable-library and compiler are picked
-        yield "nodemon --watch src/quicktest/Quicktest.fs --exec \"fable-splitter -c src/quicktest/splitter.config.js --run\""
+        yield "npx nodemon --watch src/quicktest -e \"fs\" --exec \"fable-splitter -c src/quicktest/splitter.config.js --run\""
         yield! additionalCommands
     |]
 
