@@ -1,3 +1,9 @@
+### 2.3.16
+
+* Fix #1871: comparing anonymous record types
+* Fix `TimeSpan.ToString` for negative values @MangelMaxime
+* Some more source map improvements
+
 ### 2.3.15
 
 * Fix negative timespan + milliseconds value when parsing a string @MangelMaxime
