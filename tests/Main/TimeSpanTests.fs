@@ -14,6 +14,10 @@ let tests =
             TimeSpan.FromDays(18.).ToString() |> equal "18.00:00:00"
             TimeSpan.FromMilliseconds(25.).ToString() |> equal "00:00:00.0250000"
 
+        testCase "TimeSpan.ToString() works for negative TimeSpan" <| fun () ->
+            TimeSpan.FromSeconds(-5.).ToString() |> equal "-00:00:05"
+            TimeSpan.FromDays(-5.23).ToString() |> equal "-5.05:31:12"
+
         testCase "TimeSpan.ToString(\"c\", CultureInfo.InvariantCulture) works" <| fun () ->
             TimeSpan(0L).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00"
             TimeSpan.FromSeconds(12345.).ToString("c", CultureInfo.InvariantCulture) |> equal "03:25:45"
@@ -497,4 +501,54 @@ let tests =
         //     ts.TotalMilliseconds |> equal 456000.0
         //     ts.TotalSeconds |> equal 456.
         //     ts.TotalMinutes |> equal 7.6
+
+        testCase "TimeSpan.Milliseconds works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Milliseconds
+            let expected = 789
+            equal actual expected
+
+        testCase "TimeSpan.Milliseconds works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Milliseconds
+            let expected = -789
+            equal actual expected
+
+        testCase "TimeSpan.Seconds works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Seconds
+            let expected = 6
+            equal actual expected
+
+        testCase "TimeSpan.Seconds works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Seconds
+            let expected = -6
+            equal actual expected
+
+        testCase "TimeSpan.Minutes works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Minutes
+            let expected = 45
+            equal actual expected
+
+        testCase "TimeSpan.Minutes works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Minutes
+            let expected = -45
+            equal actual expected
+
+        testCase "TimeSpan.Hours works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Hours
+            let expected = 23
+            equal actual expected
+
+        testCase "TimeSpan.Hours works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Hours
+            let expected = -23
+            equal actual expected
+
+        testCase "TimeSpan.Days works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Days
+            let expected = 1
+            equal actual expected
+
+        testCase "TimeSpan.Days works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Days
+            let expected = -1
+            equal actual expected
     ]
