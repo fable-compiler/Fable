@@ -264,6 +264,9 @@ let reflectionTests = [
       typeof<AnonRec1> = typeof<AnonRec2> |> equal false
       typeof<AnonRec1> = typeof<AnonRec1> |> equal true
       typeof<AnonRec2> = x.GetType() |> equal true
+      let generic = typeof<Result<AnonRec2, string>>
+      generic = typeof<Result<AnonRec1, string>> |> equal false
+      generic = typeof<Result<{| numbers: int list |}, string>> |> equal true
 
   testCase "FSharp.Reflection: Anonymous Record" <| fun () ->
     let typ = typeof<{| String: string; Int: int |}>

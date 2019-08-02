@@ -131,7 +131,8 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
         for constant in define do yield "--define:" + constant
     |]
     let checker = FSharpChecker.Create()
-    checker.GetProjectOptionsFromScript(scriptFile, File.readAllTextNonBlocking scriptFile,
+    checker.GetProjectOptionsFromScript(scriptFile,
+                                        File.readAllTextNonBlocking scriptFile |> FSharp.Compiler.Text.SourceText.ofString,
                                         assumeDotNetFramework=false, otherFlags=otherFlags)
     |> Async.RunSynchronously
     |> fun (opts, _errors) -> // TODO: Check errors

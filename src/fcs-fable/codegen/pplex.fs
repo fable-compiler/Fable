@@ -1,4 +1,4 @@
-//# 3 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+﻿//# 3 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
  
 
 module internal FSharp.Compiler.PPLexer
@@ -85,62 +85,62 @@ let rec _fslex_dummy () = _fslex_dummy()
 and tokenstream args lexbuf =
   match _fslex_tables.Interpret(3,lexbuf) with
   | 0 -> ( 
-//# 47 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 47 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.PRELUDE                                              
 //# 90 "pplex.fs"
           )
   | 1 -> ( 
-//# 48 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 48 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.PRELUDE                                              
 //# 95 "pplex.fs"
           )
   | 2 -> ( 
-//# 49 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 49 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.ID(lexeme lexbuf)                                    
 //# 100 "pplex.fs"
           )
   | 3 -> ( 
-//# 51 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 51 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.OP_NOT                                               
 //# 105 "pplex.fs"
           )
   | 4 -> ( 
-//# 52 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 52 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.OP_AND                                               
 //# 110 "pplex.fs"
           )
   | 5 -> ( 
-//# 53 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 53 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.OP_OR                                                
 //# 115 "pplex.fs"
           )
   | 6 -> ( 
-//# 54 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 54 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.LPAREN                                               
 //# 120 "pplex.fs"
           )
   | 7 -> ( 
-//# 55 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 55 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.RPAREN                                               
 //# 125 "pplex.fs"
           )
   | 8 -> ( 
-//# 57 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 57 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  tokenstream args lexbuf                                       
 //# 130 "pplex.fs"
           )
   | 9 -> ( 
-//# 59 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 59 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.EOF                                                  
 //# 135 "pplex.fs"
           )
   | 10 -> ( 
-//# 60 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 60 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  fail args lexbuf (FSComp.SR.pplexExpectedSingleLineComment()) 
 //# 140 "pplex.fs"
           )
   | 11 -> ( 
-//# 61 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 61 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                 
                                    let lex = lexeme lexbuf
                                    let _   = rest lexbuf
@@ -149,7 +149,7 @@ and tokenstream args lexbuf =
 //# 149 "pplex.fs"
           )
   | 12 -> ( 
-//# 66 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 66 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  PPParser.EOF                                                  
 //# 154 "pplex.fs"
           )
@@ -158,12 +158,12 @@ and tokenstream args lexbuf =
 and rest  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-//# 69 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 69 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  rest lexbuf   
 //# 163 "pplex.fs"
           )
   | 1 -> ( 
-//# 70 "/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+//# 70 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
                                  ()            
 //# 168 "pplex.fs"
           )
