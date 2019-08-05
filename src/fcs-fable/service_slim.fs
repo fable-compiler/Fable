@@ -100,6 +100,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
         let tcConfig =
             let tcConfigB = TcConfigBuilder.Initial
+            tcConfigB.implicitIncludeDir <- Path.GetDirectoryName (projectOptions.ProjectFileName)
             let sourceFiles = projectOptions.SourceFiles |> Array.toList
             let argv = projectOptions.OtherOptions |> Array.toList
             let _sourceFiles = ApplyCommandLineArgs(tcConfigB, sourceFiles, argv)
@@ -157,7 +158,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         parseCache.GetOrAdd(parseCacheKey, fun _ ->
             x.ClearStaleCache(fileName, parsingOptions)
             let sourceText = SourceText.ofString source
-            let parseErrors, parseTreeOpt, anyErrors = Parser.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors)
+            let parseErrors, parseTreeOpt, anyErrors = ParseAndCheckFile.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors)
             let dependencyFiles = [||] // interactions have no dependencies
             FSharpParseFileResults (parseErrors, parseTreeOpt, anyErrors, dependencyFiles) )
 
@@ -190,7 +191,6 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
             checkCache.[fileName] <- ((tcResult, tcErrors), (tcState, moduleNamesDict))
 
             let loadClosure = None
-            let checkAlive () = true
             let textSnapshotInfo = None
             let keepAssemblyContents = true
 
@@ -199,7 +199,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
             let scope = TypeCheckInfo (tcConfig, tcGlobals, ccuSigForFile, tcState.Ccu, tcImports, tcEnvAtEnd.AccessRights,
                                     projectFileName, fileName, sink.GetResolutions(), sink.GetSymbolUses(), tcEnvAtEnd.NameEnv,
-                                    loadClosure, reactorOps, checkAlive, textSnapshotInfo, implFile, sink.GetOpenDeclarations())
+                                    loadClosure, reactorOps, textSnapshotInfo, implFile, sink.GetOpenDeclarations())
             FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, reactorOps, keepAssemblyContents)
             |> Some
         | None ->
@@ -241,18 +241,17 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let moduleNamesDict = Map.empty
         let loadClosure = None
         let backgroundErrors = [||]
-        let checkAlive () = true
         let textSnapshotInfo = None
         let tcState = tcInitialState
-        let tcResults = Parser.CheckOneFile(
+        let tcResults = ParseAndCheckFile.CheckOneFile(
                             parseResults, sourceText, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
-                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, checkAlive, textSnapshotInfo, userOpName, suggestNamesForErrors)
+                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, textSnapshotInfo, userOpName, suggestNamesForErrors)
         match tcResults with
-        | tcErrors, Parser.TypeCheckAborted.No scope ->
+        | tcErrors, Result.Ok tcFileInfo ->
             let errors = Array.append parseResults.Errors tcErrors
-            let tcImplFilesOpt = match scope.ImplementationFile with Some x -> Some [x] | None -> None
-            let typeCheckResults = FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, reactorOps, true)
-            let symbolUses = [scope.ScopeSymbolUses]
+            let tcImplFilesOpt = match tcFileInfo.ImplementationFile with Some x -> Some [x] | None -> None
+            let typeCheckResults = FSharpCheckFileResults (fileName, errors, Some tcFileInfo, parseResults.DependencyFiles, None, reactorOps, true)
+            let symbolUses = [tcFileInfo.ScopeSymbolUses]
             let projectResults = x.MakeProjectResults (projectFileName, [|parseResults|], tcState, errors, symbolUses, None, tcImplFilesOpt)
             parseResults, typeCheckResults, projectResults
         | _ ->

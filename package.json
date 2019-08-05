@@ -19,7 +19,7 @@
     "download-cli": "^1.1.1",
     "fable-babel-plugins": "^2.2.0",
     "fable-compiler": "^2.2.3",
-    "fable-compiler-js": "^1.0.3",
+    "fable-compiler-js": "^1.0.4",
     "fable-loader": "^2.1.6",
     "fable-splitter": "^2.1.8",
     "ghreleases": "^3.0.2",

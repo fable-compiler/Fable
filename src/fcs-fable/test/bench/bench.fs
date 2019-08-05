@@ -22,10 +22,10 @@ let printErrors showWarnings (errors: FSharpErrorInfo[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-let parseFiles projectPath outDir optimize =
+let parseFiles projectFileName outDir optimize =
     // parse project
     let projSet = makeHashSetIgnoreCase ()
-    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectPath
+    let (dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectFileName
 
     // dedup file names
     let fileSet = makeHashSetIgnoreCase ()
@@ -95,10 +95,10 @@ let parseArguments (argv: string[]) =
     let usage = "Usage: bench <PROJECT_PATH> [--options]"
     let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
     match args with
-    | [| projectPath |] ->
+    | [| projectFileName |] ->
         let outDir = "./out-test"
         let optimize = opts |> Array.contains "--optimize-fcs"
-        parseFiles projectPath outDir optimize
+        parseFiles projectFileName outDir optimize
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]

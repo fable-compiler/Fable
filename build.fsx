@@ -225,7 +225,12 @@ let syncFcsRepo() =
     cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
         runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
     copyDirRecursive (FCS_REPO_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
-    copyDirRecursive (FCS_REPO_LOCAL </> "src") "src/fcs-fable/src"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/absil") "src/fcs-fable/src/absil"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp") "src/fcs-fable/src/fsharp"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp/service") "src/fcs-fable/src/fsharp/service"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp/symbols") "src/fcs-fable/src/fsharp/symbols"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/ilx") "src/fcs-fable/src/ilx"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/utils") "src/fcs-fable/src/utils"
     removeFile "src/fcs-fable/.gitignore"
     let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
     Regex.Replace(

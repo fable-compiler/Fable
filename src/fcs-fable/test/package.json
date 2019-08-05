@@ -1,8 +1,8 @@
 {
   "private": true,
   "scripts": {
-    "build-test": "dotnet build -c Release -p fcs-fable-test.fsproj",
-    "build-bench": "dotnet build -c Release -p bench/fcs-fable-bench.fsproj",
+    "build-test": "dotnet build -c Release fcs-fable-test.fsproj",
+    "build-bench": "dotnet build -c Release bench/fcs-fable-bench.fsproj",
     "build-node": "fable fcs-fable-test.fsproj out-test --commonjs",
     "test-node": "node out-test/test",
     "test-dotnet": "dotnet run -c Release -p fcs-fable-test.fsproj",

@@ -38,10 +38,10 @@ type CmdLineOptions = {
     watchMode: bool
 }
 
-let parseFiles projectPath outDir options =
+let parseFiles projectFileName outDir options =
     // parse project
     let projSet = makeHashSetIgnoreCase ()
-    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectPath
+    let (dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectFileName
 
     // dedup file names
     let fileSet = makeHashSetIgnoreCase ()
@@ -82,7 +82,7 @@ let parseFiles projectPath outDir options =
     let fableLibraryDir = "fable-library"
     let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    let projDir = projectPath |> normalizeFullPath |> Path.GetDirectoryName
+    let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
     let libDir = getFableLibDir() |> normalizeFullPath
 
     for fileName in fileNames do
@@ -94,12 +94,12 @@ let parseFiles projectPath outDir options =
         let outPath = getRelativePath projDir fileName |> trimPath
         transformAndSaveBabelAst(res.BabelAst, outPath, projDir, outDir, libDir, options.commonjs)
 
-let run opts projectPath outDir =
+let run opts projectFileName outDir =
     let commandToRun =
         opts |> Array.tryFindIndex ((=) "--run")
         |> Option.map (fun i ->
             // TODO: This only works if the project is an .fsx file
-            let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectPath) + ".js")
+            let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
             let runArgs = opts.[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
@@ -107,7 +107,7 @@ let run opts projectPath outDir =
         optimize = opts |> Array.contains "--optimize-fcs"
         watchMode = opts |> Array.contains "--watch"
     }
-    parseFiles projectPath outDir options
+    parseFiles projectFileName outDir options
     commandToRun |> Option.iter runCmdAndExitIfFails
 
 let parseArguments (argv: string[]) =
@@ -120,11 +120,11 @@ let parseArguments (argv: string[]) =
     match opts, args with
     | [| "--help" |], _ -> printfn "%s" usage
     | [| "--version" |], _ -> printfn "v%s" (getVersion())
-    | _, [| projectPath |] ->
-        Path.Combine(Path.GetDirectoryName(projectPath), "bin")
-        |> run opts projectPath
-    | _, [| projectPath; outDir |] ->
-        run opts projectPath outDir
+    | _, [| projectFileName |] ->
+        Path.Combine(Path.GetDirectoryName(projectFileName), "bin")
+        |> run opts projectFileName
+    | _, [| projectFileName; outDir |] ->
+        run opts projectFileName outDir
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]

@@ -26,15 +26,6 @@ let condition s =
 let GetEnvInteger e dflt = match System.Environment.GetEnvironmentVariable(e) with null -> dflt | t -> try int t with _ -> dflt
 
 let dispose (x:System.IDisposable) = match x with null -> () | x -> x.Dispose()
-
-type SaveAndRestoreConsoleEncoding () =
-    let savedOut = System.Console.Out
-
-    interface System.IDisposable with
-        member this.Dispose() = 
-            try 
-                System.Console.SetOut(savedOut)
-            with _ -> ()
 #endif
 
 //-------------------------------------------------------------------------
@@ -553,5 +544,16 @@ module UnmanagedProcessExecutionOptions =
                             "HeapSetInformation() returned FALSE; LastError = 0x" + 
                             GetLastError().ToString("X").PadLeft(8, '0') + "."))
 
+[<RequireQualifiedAccess>]
+module StackGuard =
+
+    open System.Runtime.CompilerServices
+
+    [<Literal>] 
+    let private MaxUncheckedRecursionDepth = 20
+
+    let EnsureSufficientExecutionStack recursionDepth =
+        if recursionDepth > MaxUncheckedRecursionDepth then
+            RuntimeHelpers.EnsureSufficientExecutionStack ()
 
 #endif //!FABLE_COMPILER
