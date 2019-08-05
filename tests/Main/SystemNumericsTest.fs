@@ -33,7 +33,32 @@ let tests =
             v1.Y <- 6.f
             v1.Z <- 7.f
             v1 |> equal (System.Numerics.Vector3(5.f, 6.f, 7.f))
-    
+            
+      testList "Vector3 equality" [
+        let v1 = System.Numerics.Vector3(1.f, 2.f, 3.f)
+        let v2 = System.Numerics.Vector3(1.f, 2.f, 3.f)
+
+        yield testCase "operator (=) works" <| fun () ->
+            (v1 = v2) |> equal true
+        yield testCase ".Equals works" <| fun () ->
+            (v1.Equals v2) |> equal true            
+        yield testCase "operator (<>) works" <| fun () ->
+            (v1 <> v2) |> equal false
+      ]
+
+      testList "Vector3 inequality" [
+        let v1 = System.Numerics.Vector3(1.f, 2.f, 3.f)
+        let v2 = System.Numerics.Vector3(4.f, 5.f, 6.f)
+
+        yield testCase "operator (=) works" <| fun () ->
+            (v1 = v2) |> equal false
+        yield testCase ".Equals works" <| fun () ->
+            (v1.Equals v2) |> equal false            
+        yield testCase "operator (<>) works" <| fun () ->
+            (v1 <> v2) |> equal false
+      ]
+
+
 
       // Quaternion
       
@@ -51,4 +76,28 @@ let tests =
             q1.Z <- 7.f
             q1.W <- 8.f
             q1 |> equal (System.Numerics.Quaternion(5.f, 6.f, 7.f, 8.f))
+            
+      testList "Quaternion equality" [
+        let q1 = System.Numerics.Quaternion(1.f, 2.f, 3.f, 4.f)
+        let q2 = System.Numerics.Quaternion(1.f, 2.f, 3.f, 4.f)
+
+        yield testCase "operator (=) works" <| fun () ->
+            (q1 = q2) |> equal true
+        yield testCase ".Equals works" <| fun () ->
+            (q1.Equals q2) |> equal true            
+        yield testCase "operator (<>) works" <| fun () ->
+            (q1 <> q2) |> equal false
+      ]
+
+      testList "Quaternion inequality" [
+        let q1 = System.Numerics.Quaternion(1.f, 2.f, 3.f, 4.f)
+        let q2 = System.Numerics.Quaternion(4.f, 5.f, 6.f, 7.f)
+
+        yield testCase "operator (=) works" <| fun () ->
+            (q1 = q2) |> equal false
+        yield testCase ".Equals works" <| fun () ->
+            (q1.Equals q2) |> equal false            
+        yield testCase "operator (<>) works" <| fun () ->
+            (q1 <> q2) |> equal false
+      ]
 ]
