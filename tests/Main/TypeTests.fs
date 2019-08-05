@@ -222,6 +222,11 @@ type ValueType1<'T>(value: 'T) =
 [<Struct>]
 type ValueType2(i: int, j: int) =
     member x.Value = i + j
+    
+type ValueType3 =
+  struct
+    val mutable public X : int
+  end
 
 [<Struct>]
 type StructUnion = Value of string
@@ -622,6 +627,18 @@ let tests =
         test2.Value |> equal 7
         let p = Point2D(2.)
         p.Y |> equal 2.
+
+    testCase "struct without explicit ctor works" <| fun () ->
+        let t1 = ValueType3(X=10)
+        t1.X |> equal 10
+        let mutable t2 = ValueType3()
+        t2.X |> equal 0
+        t1 |> notEqual t2
+        (compare t1 t2) |> equal 1
+        t2.X <- 10
+        t1 |> equal t2
+
+        (compare t1 t2) |> equal 0
 
     testCase "Custom F# exceptions work" <| fun () ->
         try
