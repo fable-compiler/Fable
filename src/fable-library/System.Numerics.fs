@@ -16,7 +16,7 @@ open System
 //  - https://github.com/dotnet/corefx/blob/master/src/System.Numerics.Vectors/tests/QuaternionTests.cs
 //  - https://github.com/dotnet/corefx/blob/master/src/System.Numerics.Vectors/tests/Vector3Tests.cs
 
-
+[<CustomComparison; CustomEquality>]
 type Vector3 =
   struct
 
@@ -66,19 +66,29 @@ type Vector3 =
           |> ignore
         stringBuilder.ToString()
 
-    //member __.Equals(other : Vector3) =
-    //    x = other.X &&
-    //    y = other.Y &&
-    //    z = other.Z
+    member this.Equals(other : Vector3) =
+        this.X = other.X &&
+        this.Y = other.Y &&
+        this.Z = other.Z
 
-    //override this.Equals(other : obj) =
-    //    match other with
-    //    | :? Vector3 as vother ->
-    //        this.Equals(vother)
-    //    | _ -> false
+    override this.Equals(other : obj) =
+        match other with
+        | :? Vector3 as vother ->
+            this.Equals(vother)
+        | _ -> false
 
-    //override __.GetHashCode() =
-    //    hash(x, y, z)
+    override this.GetHashCode() =
+        let o = obj()
+        hash(this.X, this.Y, this.Z)
+
+
+    interface System.IComparable with
+        member this.CompareTo(other) =
+            match other with
+            | null -> failwithf "other is null"
+            | :? Vector3 as vother ->
+                compare (this.X, this.Y, this.Z) (vother.X, vother.Y, vother.Z)
+            | _ -> failwithf "invalid type, expected 'other' to be a Vector, but it is '%O'" (other.GetType())
     
 
     // --------------------------------
@@ -196,10 +206,10 @@ type Vector3 =
     static member (/) (left:Vector3, right:single) : Vector3 =
         Vector3.Divide(left, right)
 
-    static member (==) (left:Vector3, right:single) : bool =
+    static member (==) (left:Vector3, right:Vector3) : bool =
         left.Equals(right)
 
-    static member (!=) (left:Vector3, right:single) : bool =
+    static member (!=) (left:Vector3, right:Vector3) : bool =
         not (left.Equals(right))
 
     static member (*) (left:Vector3, right:Vector3) : Vector3 =
