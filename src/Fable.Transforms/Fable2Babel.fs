@@ -471,6 +471,8 @@ module Util =
             | Replacements.BuiltinEntity kind ->
                 match kind with
                 | Replacements.BclGuid
+                | Replacements.BclVector3
+                | Replacements.BclQuaternion
                 | Replacements.BclTimeSpan
                 | Replacements.BclDateTime
                 | Replacements.BclDateTimeOffset
