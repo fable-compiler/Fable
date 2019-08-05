@@ -7,7 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="System.Numerics.fs" />
+    <Compile Include="Vector3.fs" />
+    <Compile Include="Quaternion.fs" />
     <Compile Include="Global.fs" />
     <!-- <Compile Include="BigInt/n.fsi" /> -->
     <Compile Include="BigInt/n.fs" />
