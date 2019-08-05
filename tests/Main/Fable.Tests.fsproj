@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <OutputType>Exe</OutputType>
@@ -8,6 +8,7 @@
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="FSharp.Core" Version="4.5.2" />
+    <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
@@ -71,19 +72,9 @@
   
   <Target Name="Collect_Coverage" DependsOnTargets="Restore;BuildProject">
       <!-- Altcover fails if _Reports folder doesn't exist -->
-     <MakeDir  
-            Directories="$(OutputPath)/_Reports"/>   
-      <AltCover.Prepare 
-        InputDirectory="$(OutputPath)"  
-        SymbolDirectories="$(OutputPath)"  
-        OutputDirectory="$(OutputPath)/__Saved$([System.DateTime]::UtcNow.ToString().Replace(':','-').Replace('/','-').Replace(' ','+'))" 
-        XmlReport="../../build/coverage/$(TargetFramework)/coverage.xml"
-        OpenCover="true"
-        />
-      <Exec Command="dotnet run -f $(TargetFramework) --no-build" ContinueOnError="WarnAndContinue"/>
-      <AltCover.Collect 
-        RecorderDirectory="$(OutputPath)"   
-        LcovReport="../../build/coverage/$(TargetFramework)/lcov.info"
-        />  
+     <MakeDir Directories="$(OutputPath)/_Reports" />   
+      <AltCover.Prepare InputDirectory="$(OutputPath)" SymbolDirectories="$(OutputPath)" OutputDirectory="$(OutputPath)/__Saved$([System.DateTime]::UtcNow.ToString().Replace(':','-').Replace('/','-').Replace(' ','+'))" XmlReport="../../build/coverage/$(TargetFramework)/coverage.xml" OpenCover="true" />
+      <Exec Command="dotnet run -f $(TargetFramework) --no-build" ContinueOnError="WarnAndContinue" />
+      <AltCover.Collect RecorderDirectory="$(OutputPath)" LcovReport="../../build/coverage/$(TargetFramework)/lcov.info" />  
   </Target>
 </Project>
