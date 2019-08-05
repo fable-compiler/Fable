@@ -25,10 +25,10 @@ type CmdLineOptions = {
     watchMode: bool
 }
 
-let parseFiles projectPath outDir options =
+let parseFiles projectFileName outDir options =
     // parse project
     let projSet = makeHashSetIgnoreCase ()
-    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectPath
+    let (dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectFileName
 
     // dedup file names
     let fileSet = makeHashSetIgnoreCase ()
@@ -68,7 +68,7 @@ let parseFiles projectPath outDir options =
     let fableLibraryDir = "fable-library"
     let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    let projDir = projectPath |> normalizeFullPath |> Path.GetDirectoryName
+    let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
 
     for fileName in fileNames do
 
@@ -96,13 +96,13 @@ let parseArguments (argv: string[]) =
     let usage = "Usage: fable <PROJECT_PATH> <OUT_DIR> [--options]"
     let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
     match args with
-    | [| projectPath; outDir |] ->
+    | [| projectFileName; outDir |] ->
         let options = {
             commonjs = opts |> Array.contains "--commonjs"
             optimize = opts |> Array.contains "--optimize-fcs"
             watchMode = opts |> Array.contains "--watch"
         }
-        parseFiles projectPath outDir options
+        parseFiles projectFileName outDir options
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]

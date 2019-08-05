@@ -4880,7 +4880,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 //# 1362 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                              _2 
+                             mkAttributeList _2 (rhs2 parseState 1 3) 
                    )
 //# 1362 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attributeList));
@@ -4891,7 +4891,7 @@ let _fsyacc_reductions ()  =    [|
                 (
                    (
 //# 1365 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                              [] 
+                             mkAttributeList [] (rhs2 parseState 1 3) 
                    )
 //# 1365 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attributeList));
@@ -4905,7 +4905,7 @@ let _fsyacc_reductions ()  =    [|
                    (
 //# 1368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _4 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedLBrackLess())
-                             _2 
+                             mkAttributeList _2 (rhs2 parseState 1 2) 
                    )
 //# 1368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attributeList));
@@ -4917,7 +4917,7 @@ let _fsyacc_reductions ()  =    [|
                    (
 //# 1372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _2 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedLBrackLess())
-                             [] 
+                             mkAttributeList [] (rhs parseState 1) 
                    )
 //# 1372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attributeList));
@@ -5555,7 +5555,9 @@ let _fsyacc_reductions ()  =    [|
                                         let optInline = _1 || optInline 
                                         // optional attributes are only applied to getters and setters
                                         // the "top level" attrs will be applied to both
-                                        let optAttrs = optAttrs |> List.map (fun (a:SynAttribute) -> { a with AppliesToGetterAndSetter=true })
+                                        let optAttrs =
+                                            optAttrs |> List.map (fun attrList ->
+                                                { attrList with Attributes = attrList.Attributes |> List.map (fun a -> { a with AppliesToGetterAndSetter = true } ) })
                                         let attrs = attrs @ optAttrs
                                         
                                         let binding = bindingBuilder (visNoLongerUsed,optInline,isMutable,mBindLhs,NoSequencePointAtInvisibleBinding,optReturnType,expr,exprm,[],attrs,Some (memFlagsBuilder MemberKind.Member))
@@ -5695,27 +5697,27 @@ let _fsyacc_reductions ()  =    [|
                    )
 //# 1633 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'memberCore));
-//# 5698 "pars.fs"
+//# 5700 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1813 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    
                    )
-//# 1810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1813 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'abstractMemberFlags));
-//# 5708 "pars.fs"
+//# 5710 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1811 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                           
                    )
-//# 1811 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'abstractMemberFlags));
-//# 5718 "pars.fs"
+//# 5720 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5723,13 +5725,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1817 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2))
                             [mkClassMemberLocalBindings(false,None,_1,_2,_3)] 
                    )
-//# 1817 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5732 "pars.fs"
+//# 5734 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5737,13 +5739,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1821 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2))
                             [mkClassMemberLocalBindings(true,Some (rhs parseState 3),_1,_2,_4)] 
                    )
-//# 1821 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5746 "pars.fs"
+//# 5748 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5753,14 +5755,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1825 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2))
                             let _,flags = _3
                             _4 _2 flags _1 
                    )
-//# 1825 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5763 "pars.fs"
+//# 5765 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5770,7 +5772,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1833 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not (isNil _1) then errorR(Error(FSComp.SR.parsAttributesAreNotPermittedOnInterfaceImplementations(),rhs parseState 1))
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsInterfacesHaveSameVisibilityAsEnclosingType(),rhs parseState 3))
                              let mWhole = 
@@ -5779,9 +5781,9 @@ let _fsyacc_reductions ()  =    [|
                                  | Some(mems) -> (rhs2 parseState 3 4, mems) ||> unionRangeWithListBy (fun (mem:SynMemberDefn) -> mem.Range)
                              [ SynMemberDefn.Interface (_4, _5, mWhole) ] 
                    )
-//# 1830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1833 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5784 "pars.fs"
+//# 5786 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5795,7 +5797,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1842 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let ty,arity = _8
                             let isInline,doc,id,explicitValTyparDecls = _4,grabXmlDoc(parseState,3),_5,_6
                             let getSetRangeOpt, getSet = _9
@@ -5809,9 +5811,9 @@ let _fsyacc_reductions ()  =    [|
                             let valSpfn = ValSpfn(_1,id,explicitValTyparDecls,ty,arity, isInline,false,doc, None,None,wholeRange)
                             [ SynMemberDefn.AbstractSlot(valSpfn,AbstractMemberFlags (getSetAdjuster arity), wholeRange) ] 
                    )
-//# 1839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1842 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5814 "pars.fs"
+//# 5816 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5819,14 +5821,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1853 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1856 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not (isNil _1) then errorR(Error(FSComp.SR.parsAttributesIllegalOnInherit(),rhs parseState 1))
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityIllegalOnInherit(),rhs parseState 1))
                              [ _3 ] 
                    )
-//# 1853 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1856 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5829 "pars.fs"
+//# 5831 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5835,13 +5837,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1858 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1861 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2))
                              _3 None _1 false 
                    )
-//# 1858 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1861 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5844 "pars.fs"
+//# 5846 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5850,13 +5852,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1862 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1865 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2))
                              _4 (Some (rhs parseState 3)) _1 true  
                    )
-//# 1862 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1865 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5859 "pars.fs"
+//# 5861 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5866,14 +5868,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1869 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2))
                              let isStatic, flags = _3
                              _4 _1 isStatic flags 
                    )
-//# 1866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1869 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5876 "pars.fs"
+//# 5878 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5884,7 +5886,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1871 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1874 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let m = unionRanges (rhs2 parseState 3 6) _7.Range 
                              let expr = _7
                              let valSynData = SynValData (Some CtorMemberFlags, SynValInfo([SynInfo.InferSynArgInfoFromPat _4],SynInfo.unnamedRetVal), _5) 
@@ -5894,9 +5896,9 @@ let _fsyacc_reductions ()  =    [|
                              assert (match declPat with SynPatForConstructorDecl _ -> true | _ -> false)
                              [ SynMemberDefn.Member(Binding (None,NormalBinding,false,false,_1,grabXmlDoc(parseState,3),valSynData, declPat,None,expr,m,NoSequencePointAtInvisibleBinding),m) ] 
                    )
-//# 1871 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1874 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5899 "pars.fs"
+//# 5901 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -5905,13 +5907,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1884 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2))
                              [ SynMemberDefn.NestedType(_5,None,rhs2 parseState 3 5) ] 
                    )
-//# 1881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1884 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnMember));
-//# 5914 "pars.fs"
+//# 5916 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_mutable)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -5920,7 +5922,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1888 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1891 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mRhs = rhs2 parseState 4 6
                              let doc = grabXmlDoc(parseState,4)
                              let mValDecl = rhs2 parseState 1 6
@@ -5929,9 +5931,9 @@ let _fsyacc_reductions ()  =    [|
                                  let fld = Field(attribs,isStatic,Some _4,_6,_2,doc,_3,mRhs)
                                  [ SynMemberDefn.ValField(fld, mValDecl) ]) 
                    )
-//# 1888 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1891 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'valDefnDecl));
-//# 5934 "pars.fs"
+//# 5936 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_mutable)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -5942,7 +5944,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1900 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1903 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let doc = grabXmlDoc(parseState,5)
                              let mValDecl = unionRanges (rhs parseState 1) _7.Range
                              let mGetSetOpt, getSet = _8
@@ -5950,193 +5952,193 @@ let _fsyacc_reductions ()  =    [|
                              (fun attribs isStatic flags -> 
                                  [ SynMemberDefn.AutoProperty(attribs, isStatic, _4, _5, getSet, flags, doc, _3, _7, mGetSetOpt, mValDecl) ]) 
                    )
-//# 1900 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1903 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'autoPropsDefnDecl));
-//# 5955 "pars.fs"
+//# 5957 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1910 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1913 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                         None 
                    )
-//# 1910 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1913 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_typ));
-//# 5965 "pars.fs"
+//# 5967 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1911 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1914 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                       Some _2 
                    )
-//# 1911 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1914 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_typ));
-//# 5976 "pars.fs"
+//# 5978 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1915 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1918 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                               let (LongIdentWithDots(lid,dotms)) = _3 in (None,LongIdentWithDots(ident(MangledGlobalName,rhs parseState 1) :: lid, rhs parseState 2 :: dotms)) 
                    )
-//# 1915 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1918 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatternLongIdent));
-//# 5987 "pars.fs"
+//# 5989 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1916 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1919 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   (None,_1) 
                    )
-//# 1916 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1919 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatternLongIdent));
-//# 5998 "pars.fs"
+//# 6000 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'access)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1920 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                          (Some(_1), _2) 
                    )
-//# 1917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1920 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatternLongIdent));
-//# 6010 "pars.fs"
+//# 6012 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1921 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        None 
                    )
-//# 1921 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_access));
-//# 6020 "pars.fs"
+//# 6022 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'access)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1925 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   Some(_1) 
                    )
-//# 1922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1925 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_access));
-//# 6031 "pars.fs"
+//# 6033 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1926 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1929 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     SynAccess.Private 
                    )
-//# 1926 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1929 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'access));
-//# 6041 "pars.fs"
+//# 6043 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1927 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1930 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     SynAccess.Public 
                    )
-//# 1927 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1930 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'access));
-//# 6051 "pars.fs"
+//# 6053 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     SynAccess.Internal 
                    )
-//# 1928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'access));
-//# 6061 "pars.fs"
+//# 6063 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'access)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1935 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        Some(_1) 
                    )
-//# 1932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1935 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_declVisibility));
-//# 6072 "pars.fs"
+//# 6074 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1933 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1936 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        None 
                    )
-//# 1933 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1936 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_declVisibility));
-//# 6082 "pars.fs"
+//# 6084 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'objectImplementationBlock)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'declEnd)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1937 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                   Some(_2) 
                    )
-//# 1937 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_interfaceImplDefn));
-//# 6094 "pars.fs"
+//# 6096 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                   None 
                    )
-//# 1938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_interfaceImplDefn));
-//# 6104 "pars.fs"
+//# 6106 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'classDefnBlock)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'declEnd)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1942 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1945 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                        _2 
                    )
-//# 1942 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1945 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_classDefn));
-//# 6116 "pars.fs"
+//# 6118 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1946 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                        [] 
                    )
-//# 1943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1946 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_classDefn));
-//# 6126 "pars.fs"
+//# 6128 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'optBaseSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1949 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mDecl = unionRanges (rhs parseState 1) ((_2): SynType).Range 
                             SynMemberDefn.Inherit(_2,_3,mDecl) 
                    )
-//# 1949 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'inheritsDefn));
-//# 6139 "pars.fs"
+//# 6141 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_APP)) in
@@ -6145,139 +6147,139 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1953 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mDecl = unionRanges (rhs parseState 1) _4.Range 
                             SynMemberDefn.ImplicitInherit(_2,_4,_5,mDecl) 
                    )
-//# 1953 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'inheritsDefn));
-//# 6154 "pars.fs"
+//# 6156 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1957 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1960 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mDecl = (rhs parseState 1)
                             if not _2 then errorR(Error(FSComp.SR.parsTypeNameCannotBeEmpty(), mDecl))
                             SynMemberDefn.Inherit(SynType.LongIdent(LongIdentWithDots([], [])), None,mDecl) 
                    )
-//# 1957 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1960 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'inheritsDefn));
-//# 6167 "pars.fs"
+//# 6169 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'asSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1962 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   Some(_1) 
                    )
-//# 1962 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optAsSpec));
-//# 6178 "pars.fs"
+//# 6180 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1963 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1966 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   None 
                    )
-//# 1963 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1966 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optAsSpec));
-//# 6188 "pars.fs"
+//# 6190 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1966 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     _2 
                    )
-//# 1966 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'asSpec));
-//# 6199 "pars.fs"
+//# 6201 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'baseSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1970 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1973 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     Some(_1) 
                    )
-//# 1970 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1973 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optBaseSpec));
-//# 6210 "pars.fs"
+//# 6212 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1971 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1974 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   None 
                    )
-//# 1971 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1974 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optBaseSpec));
-//# 6220 "pars.fs"
+//# 6222 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1979 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if (_2).idText <> "base" then 
                                   errorR(Error(FSComp.SR.parsInheritDeclarationsCannotHaveAsBindings(),rhs2 parseState 1 2)) 
                              ident("base",rhs parseState 2) 
                    )
-//# 1976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1979 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'baseSpec));
-//# 6233 "pars.fs"
+//# 6235 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1984 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              errorR(Error(FSComp.SR.parsInheritDeclarationsCannotHaveAsBindings(),rhs2 parseState 1 2)) 
                              ident("base",rhs parseState 2) 
                    )
-//# 1981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1984 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'baseSpec));
-//# 6244 "pars.fs"
+//# 6246 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'objectImplementationMembers)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'oblockend)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1988 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 
                    )
-//# 1988 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationBlock));
-//# 6256 "pars.fs"
+//# 6258 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'objectImplementationMembers)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1994 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedEndOfFileObjectMembers())
                              _2 
                    )
-//# 1991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1994 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationBlock));
-//# 6269 "pars.fs"
+//# 6271 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objectImplementationMembers)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 1995 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1998 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 1995 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 1998 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationBlock));
-//# 6280 "pars.fs"
+//# 6282 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objectImplementationMember)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_seps)) in
@@ -6285,24 +6287,24 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2001 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2004 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 @  _3 
                    )
-//# 2001 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2004 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationMembers));
-//# 6293 "pars.fs"
+//# 6295 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objectImplementationMember)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_seps)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2004 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2007 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2004 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2007 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationMembers));
-//# 6305 "pars.fs"
+//# 6307 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'memberOrOverride)) in
@@ -6311,12 +6313,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2013 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _3 None OverrideMemberFlags _1 
                    )
-//# 2010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2013 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationMember));
-//# 6319 "pars.fs"
+//# 6321 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'memberOrOverride)) in
@@ -6325,24 +6327,24 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2013 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _3 _1 false OverrideMemberFlags 
                    )
-//# 2013 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationMember));
-//# 6333 "pars.fs"
+//# 6335 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'memberOrOverride)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [] 
                    )
-//# 2016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationMember));
-//# 6345 "pars.fs"
+//# 6347 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'memberCore)) in
@@ -6350,32 +6352,32 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [] 
                    )
-//# 2019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objectImplementationMember));
-//# 6358 "pars.fs"
+//# 6360 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2023 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2026 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     
                    )
-//# 2023 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2026 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'memberOrOverride));
-//# 6368 "pars.fs"
+//# 6370 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2024 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2027 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                       
                    )
-//# 2024 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2027 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'memberOrOverride));
-//# 6378 "pars.fs"
+//# 6380 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -6386,13 +6388,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             errorR(Error(FSComp.SR.parsUnexpectedQuotationOperatorInTypeAliasDidYouMeanVerbatimString(), rhs parseState 4)) 
                             SynTypeDefnSimpleRepr.TypeAbbrev (ParserDetail.ThereWereSignificantParseErrorsSoDoNotTypecheckThisNode, SynType.LongIdent(_3), unionRanges (rhs parseState 1) _3.Range)  
                    )
-//# 2032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynTypeDefnSimpleRepr));
-//# 6395 "pars.fs"
+//# 6397 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -6400,14 +6402,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2037 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not (isNil _1) then errorR(Error(FSComp.SR.parsAttributesIllegalHere(),rhs parseState 1))
                             if Option.isSome _2 then errorR(Error(FSComp.SR.parsTypeAbbreviationsCannotHaveVisibilityDeclarations(),rhs parseState 2))
                             SynTypeDefnSimpleRepr.TypeAbbrev (ParserDetail.Ok, _3, unionRanges (rhs parseState 1) _3.Range) 
                    )
-//# 2037 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynTypeDefnSimpleRepr));
-//# 6410 "pars.fs"
+//# 6412 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -6415,7 +6417,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2043 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not (isNil _1) then errorR(Error(FSComp.SR.parsAttributesIllegalHere(),rhs parseState 1))
                             let rangesOf3 = _3 |> List.map (function |Choice1Of2(ec)->ec.Range | Choice2Of2(uc)->uc.Range)
                             let mWhole = (rhs2 parseState 1 2, rangesOf3) ||> List.fold unionRanges 
@@ -6432,9 +6434,9 @@ let _fsyacc_reductions ()  =    [|
                                                  _3 |> List.choose (function Choice2Of2 data -> Some(data) | Choice1Of2 _ -> failwith "huh?"),
                                                  mWhole) 
                    )
-//# 2043 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynTypeDefnSimpleRepr));
-//# 6437 "pars.fs"
+//# 6439 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -6442,13 +6444,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2061 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2064 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not (isNil _1) then errorR(Error(FSComp.SR.parsAttributesIllegalHere(),rhs parseState 1))
                             SynTypeDefnSimpleRepr.Record (_2,_3,lhs parseState) 
                    )
-//# 2061 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2064 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynTypeDefnSimpleRepr));
-//# 6451 "pars.fs"
+//# 6453 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declVisibility)) in
@@ -6457,184 +6459,184 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2066 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2069 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not (isNil _1) then errorR(Error(FSComp.SR.parsAttributesIllegalHere(),rhs parseState 1))
                             libraryOnlyError (lhs parseState)
                             if Option.isSome _2 then errorR(Error(FSComp.SR.parsInlineAssemblyCannotHaveVisibilityDeclarations(),rhs parseState 2))
                             _4 
                    )
-//# 2066 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2069 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynTypeDefnSimpleRepr));
-//# 6468 "pars.fs"
+//# 6470 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdFieldDeclList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2078 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _2 
                    )
-//# 2075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2078 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceFieldDeclList));
-//# 6480 "pars.fs"
+//# 6482 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdFieldDeclList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2078 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2081 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBrace()) 
                             _2 
                    )
-//# 2078 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2081 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceFieldDeclList));
-//# 6493 "pars.fs"
+//# 6495 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2082 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2085 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 2082 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2085 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceFieldDeclList));
-//# 6504 "pars.fs"
+//# 6506 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceBarFieldDeclListCore)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2086 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2089 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                _2,true 
                    )
-//# 2086 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2089 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonRecdType));
-//# 6515 "pars.fs"
+//# 6517 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceBarFieldDeclListCore)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2088 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                _1,false 
                    )
-//# 2088 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonRecdType));
-//# 6526 "pars.fs"
+//# 6528 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdFieldDeclList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'bar_rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2093 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2096 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _2 
                    )
-//# 2093 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2096 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarFieldDeclListCore));
-//# 6538 "pars.fs"
+//# 6540 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdFieldDeclList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2096 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2099 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBraceBar()) 
                             _2 
                    )
-//# 2096 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2099 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarFieldDeclListCore));
-//# 6551 "pars.fs"
+//# 6553 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'bar_rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2100 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2103 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 2100 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2103 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarFieldDeclListCore));
-//# 6562 "pars.fs"
+//# 6564 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'stringOrKeywordString)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2104 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2107 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             libraryOnlyError (lhs parseState)
                             let lhsm = lhs parseState 
                             SynTypeDefnSimpleRepr.LibraryOnlyILAssembly (ParseAssemblyCodeType _2 (rhs parseState 2),lhsm) 
                    )
-//# 2104 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2107 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'inlineAssemblyTyconRepr));
-//# 6575 "pars.fs"
+//# 6577 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2109 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2112 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      TyconClass 
                    )
-//# 2109 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2112 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classOrInterfaceOrStruct));
-//# 6585 "pars.fs"
+//# 6587 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2110 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2113 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      TyconInterface 
                    )
-//# 2110 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2113 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classOrInterfaceOrStruct));
-//# 6595 "pars.fs"
+//# 6597 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2111 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2114 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      TyconStruct 
                    )
-//# 2111 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2114 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classOrInterfaceOrStruct));
-//# 6605 "pars.fs"
+//# 6607 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2114 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2117 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      
                    )
-//# 2114 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2117 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'interfaceMember));
-//# 6615 "pars.fs"
+//# 6617 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2115 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2118 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                 
                    )
-//# 2115 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2118 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'interfaceMember));
-//# 6625 "pars.fs"
+//# 6627 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2119 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2122 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [], _2.Lid,false,[],_1,grabXmlDoc(parseState,2) 
                    )
-//# 2119 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2122 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tyconNameAndTyparDecls));
-//# 6637 "pars.fs"
+//# 6639 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'prefixTyparDecls)) in
@@ -6642,12 +6644,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2122 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2, _3.Lid,false,[],_1,grabXmlDoc(parseState,2) 
                    )
-//# 2122 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tyconNameAndTyparDecls));
-//# 6650 "pars.fs"
+//# 6652 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
@@ -6655,71 +6657,71 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2128 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let tps,tpcs = _3 
                              tps, _2.Lid,true,tpcs,_1,grabXmlDoc(parseState,2) 
                    )
-//# 2125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2128 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tyconNameAndTyparDecls));
-//# 6664 "pars.fs"
+//# 6666 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2129 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2132 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  [ TyparDecl([],_1) ] 
                    )
-//# 2129 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2132 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'prefixTyparDecls));
-//# 6675 "pars.fs"
+//# 6677 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarDeclList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2130 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2133 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                         List.rev _2 
                    )
-//# 2130 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2133 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'prefixTyparDecls));
-//# 6687 "pars.fs"
+//# 6689 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarDeclList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarDecl)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2133 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2136 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                          _3 :: _1 
                    )
-//# 2133 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2136 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typarDeclList));
-//# 6699 "pars.fs"
+//# 6701 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarDecl)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2137 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      [_1] 
                    )
-//# 2134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2137 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typarDeclList));
-//# 6710 "pars.fs"
+//# 6712 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2138 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2141 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              TyparDecl(_1,_2) 
                    )
-//# 2138 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2141 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typarDecl));
-//# 6722 "pars.fs"
+//# 6724 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_TYAPP)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
@@ -6729,45 +6731,45 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2144 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2147 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _2 then warning(Error(FSComp.SR.parsNonAdjacentTypars(),rhs2 parseState 2 5))
                              List.rev _3, _4 
                    )
-//# 2144 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2147 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'postfixTyparDecls));
-//# 6738 "pars.fs"
+//# 6740 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarDeclList)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2151 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (List.rev _1,true) 
                    )
-//# 2151 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'explicitValTyparDeclsCore));
-//# 6749 "pars.fs"
+//# 6751 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarDeclList)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2153 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (List.rev _1,false) 
                    )
-//# 2153 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'explicitValTyparDeclsCore));
-//# 6760 "pars.fs"
+//# 6762 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2155 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2158 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              ([],false) 
                    )
-//# 2155 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2158 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'explicitValTyparDeclsCore));
-//# 6770 "pars.fs"
+//# 6772 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_TYAPP)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
@@ -6777,159 +6779,159 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2162 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _2 then warning(Error(FSComp.SR.parsNonAdjacentTypars(),rhs2 parseState 2 5))
                              let tps,flex = _3 
                              SynValTyparDecls(tps,flex,_4) 
                    )
-//# 2159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2162 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'explicitValTyparDecls));
-//# 6787 "pars.fs"
+//# 6789 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'explicitValTyparDecls)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2168 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2168 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_explicitValTyparDecls));
-//# 6798 "pars.fs"
+//# 6800 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2167 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2170 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynValTyparDecls([],true,[]) 
                    )
-//# 2167 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2170 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_explicitValTyparDecls));
-//# 6808 "pars.fs"
+//# 6810 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'explicitValTyparDecls)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2171 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2174 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Some _1 
                    )
-//# 2171 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2174 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_explicitValTyparDecls2));
-//# 6819 "pars.fs"
+//# 6821 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2173 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              None 
                    )
-//# 2173 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_explicitValTyparDecls2));
-//# 6829 "pars.fs"
+//# 6831 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2179 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2182 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 2179 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2182 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_typeConstraints));
-//# 6839 "pars.fs"
+//# 6841 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeConstraints)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2181 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             List.rev _2 
                    )
-//# 2181 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_typeConstraints));
-//# 6850 "pars.fs"
+//# 6852 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeConstraints)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeConstraint)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2186 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2189 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                               _3 :: _1 
                    )
-//# 2186 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2189 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraints));
-//# 6862 "pars.fs"
+//# 6864 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeConstraint)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2187 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2190 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                           [_1] 
                    )
-//# 2187 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2190 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraints));
-//# 6873 "pars.fs"
+//# 6875 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2193 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2196 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              libraryOnlyError (lhs parseState); WhereTyparDefaultsToType(_2,_4,lhs parseState) 
                    )
-//# 2193 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2196 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6885 "pars.fs"
+//# 6887 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2196 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2199 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              WhereTyparSubtypeOfType(_1,_3,lhs parseState) 
                    )
-//# 2196 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2199 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6897 "pars.fs"
+//# 6899 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2199 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              WhereTyparIsValueType(_1,lhs parseState) 
                    )
-//# 2199 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6908 "pars.fs"
+//# 6910 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if _3 <> "not" then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedIdentifier(_3))  
                              WhereTyparIsReferenceType(_1,lhs parseState) 
                    )
-//# 2202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6921 "pars.fs"
+//# 6923 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2206 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              WhereTyparSupportsNull(_1,lhs parseState) 
                    )
-//# 2206 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6932 "pars.fs"
+//# 6934 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'classMemberSpfn)) in
@@ -6937,13 +6939,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2212 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let tp = _1
                              WhereTyparSupportsMember([ SynType.Var(tp, tp.Range) ],_4,lhs parseState) 
                    )
-//# 2209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2212 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6946 "pars.fs"
+//# 6948 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarAlts)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
@@ -6952,24 +6954,24 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2213 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2216 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              WhereTyparSupportsMember(List.rev(_2),_6,lhs parseState) 
                    )
-//# 2213 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2216 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6960 "pars.fs"
+//# 6962 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : range * range option * Ast.SynType list * range list * range)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2216 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2219 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let _ltm,_gtm,args,_commas,mWhole = _4 in WhereTyparIsDelegate(_1, args, unionRanges _1.Range mWhole) 
                    )
-//# 2216 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2219 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6972 "pars.fs"
+//# 6974 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -6977,65 +6979,65 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2219 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2222 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              match _3 with 
                              | "enum" -> let _ltm,_gtm,args,_commas,mWhole = _4 in WhereTyparIsEnum(_1, args, unionRanges _1.Range mWhole)
                              | nm -> raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedIdentifier(nm)) 
                    )
-//# 2219 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2222 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 6987 "pars.fs"
+//# 6989 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2224 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2227 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              match _3 with 
                              | "comparison" -> WhereTyparIsComparable(_1,lhs parseState)
                              | "equality" -> WhereTyparIsEquatable(_1,lhs parseState)
                              | "unmanaged" -> WhereTyparIsUnmanaged(_1,lhs parseState)
                              | nm -> raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedIdentifier(nm)) 
                    )
-//# 2224 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2227 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeConstraint));
-//# 7003 "pars.fs"
+//# 7005 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typarAlts)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2231 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2234 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                   _3 :: _1 
                    )
-//# 2231 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2234 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typarAlts));
-//# 7015 "pars.fs"
+//# 7017 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2232 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2235 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      [_1] 
                    )
-//# 2232 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2235 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typarAlts));
-//# 7026 "pars.fs"
+//# 7028 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'barAndgrabXmlDoc)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'attrUnionCaseDecls)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2242 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _2 _1 
                    )
-//# 2239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2242 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Choice<Ast.SynEnumCase, Ast.SynUnionCase> list));
-//# 7038 "pars.fs"
+//# 7040 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'firstUnionCaseDeclOfMany)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'barAndgrabXmlDoc)) in
@@ -7043,33 +7045,33 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2242 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2245 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 :: _3 _2 
                    )
-//# 2242 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2245 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Choice<Ast.SynEnumCase, Ast.SynUnionCase> list));
-//# 7051 "pars.fs"
+//# 7053 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'firstUnionCaseDecl)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2245 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [_1] 
                    )
-//# 2245 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Choice<Ast.SynEnumCase, Ast.SynUnionCase> list));
-//# 7062 "pars.fs"
+//# 7064 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2251 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                grabXmlDoc(parseState,1) 
                    )
-//# 2248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2251 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'barAndgrabXmlDoc));
-//# 7072 "pars.fs"
+//# 7074 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attrUnionCaseDecl)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'barAndgrabXmlDoc)) in
@@ -7077,23 +7079,23 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2251 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2254 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                   (fun xmlDoc -> _1 xmlDoc  :: _3 _2) 
                    )
-//# 2251 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2254 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attrUnionCaseDecls));
-//# 7085 "pars.fs"
+//# 7087 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attrUnionCaseDecl)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2252 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2255 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                              (fun xmlDoc -> [ _1 xmlDoc ]) 
                    )
-//# 2252 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2255 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attrUnionCaseDecls));
-//# 7096 "pars.fs"
+//# 7098 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -7102,15 +7104,15 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2257 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2260 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsUnionCasesCannotHaveVisibilityDeclarations(),rhs parseState 2))
                              let mDecl = rhs parseState 3
                              (fun xmlDoc -> Choice2Of2 (UnionCase ( _1, _3,UnionCaseFields [],xmlDoc,None,mDecl))) 
                            
                    )
-//# 2257 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2260 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attrUnionCaseDecl));
-//# 7113 "pars.fs"
+//# 7115 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -7120,15 +7122,15 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2263 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2266 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsUnionCasesCannotHaveVisibilityDeclarations(),rhs parseState 2))
                              let mDecl = rhs2 parseState 3 5
                              (fun xmlDoc -> Choice2Of2 (UnionCase ( _1, _3,UnionCaseFields _5,xmlDoc,None,mDecl))) 
                            
                    )
-//# 2263 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2266 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attrUnionCaseDecl));
-//# 7131 "pars.fs"
+//# 7133 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -7138,16 +7140,16 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2269 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2272 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsUnionCasesCannotHaveVisibilityDeclarations(),rhs parseState 2))
                              libraryOnlyWarning(lhs parseState)
                              let mDecl = rhs2 parseState 3 5
                              (fun xmlDoc -> Choice2Of2 (UnionCase ( _1, _3,UnionCaseFullType _5,xmlDoc,None,mDecl))) 
                            
                    )
-//# 2269 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2272 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attrUnionCaseDecl));
-//# 7150 "pars.fs"
+//# 7152 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -7157,60 +7159,60 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2276 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2279 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if Option.isSome _2 then errorR(Error(FSComp.SR.parsEnumFieldsCannotHaveVisibilityDeclarations(),rhs parseState 2))
                              let mDecl = rhs2 parseState 3 5
                              (fun xmlDoc -> Choice1Of2 (EnumCase ( _1, _3,_5,xmlDoc,mDecl))) 
                            
                    )
-//# 2276 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2279 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attrUnionCaseDecl));
-//# 7168 "pars.fs"
+//# 7170 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'nameop)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2284 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2287 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2284 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2287 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseName));
-//# 7179 "pars.fs"
+//# 7181 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2287 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               ident(opNameCons,rhs parseState 2) 
                    )
-//# 2287 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseName));
-//# 7190 "pars.fs"
+//# 7192 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2293 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               ident(opNameNil,rhs2 parseState 2 3) 
                    )
-//# 2290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2293 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseName));
-//# 7201 "pars.fs"
+//# 7203 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_OBLOCKSEP)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2294 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2297 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Choice2Of2 (UnionCase ( [], _1,UnionCaseFields [],PreXmlDoc.Empty,None,rhs parseState 1)) 
                    )
-//# 2294 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2297 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'firstUnionCaseDeclOfMany));
-//# 7213 "pars.fs"
+//# 7215 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'constant)) in
@@ -7218,36 +7220,36 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2297 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2300 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Choice1Of2 (EnumCase ([],_1,_3,PreXmlDoc.Empty,rhs2 parseState 1 3)) 
                    )
-//# 2297 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2300 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'firstUnionCaseDeclOfMany));
-//# 7226 "pars.fs"
+//# 7228 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'firstUnionCaseDecl)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_OBLOCKSEP)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2300 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2303 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2300 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2303 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'firstUnionCaseDeclOfMany));
-//# 7238 "pars.fs"
+//# 7240 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'unionCaseRepr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2304 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             Choice2Of2 (UnionCase ( [],_1,UnionCaseFields _3,PreXmlDoc.Empty,None,rhs2 parseState 1 3)) 
                    )
-//# 2304 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'firstUnionCaseDecl));
-//# 7250 "pars.fs"
+//# 7252 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'constant)) in
@@ -7255,81 +7257,81 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2310 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Choice1Of2 (EnumCase ([],_1,_3,PreXmlDoc.Empty,rhs2 parseState 1 3))  
                    )
-//# 2307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2310 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'firstUnionCaseDecl));
-//# 7263 "pars.fs"
+//# 7265 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'unionCaseReprElement)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'unionCaseReprElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2310 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2313 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                            _1 :: _3 
                    )
-//# 2310 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2313 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseReprElements));
-//# 7275 "pars.fs"
+//# 7277 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'unionCaseReprElement)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2311 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                 [_1] 
                    )
-//# 2311 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseReprElements));
-//# 7286 "pars.fs"
+//# 7288 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2317 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                mkNamedField(_1, _3) 
                    )
-//# 2314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2317 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseReprElement));
-//# 7298 "pars.fs"
+//# 7300 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2315 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2318 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    mkAnonField _1 
                    )
-//# 2315 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2318 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseReprElement));
-//# 7309 "pars.fs"
+//# 7311 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceFieldDeclList)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2319 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2322 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             errorR(Deprecated(FSComp.SR.parsConsiderUsingSeparateRecordType(),lhs parseState)) 
                             _1 
                    )
-//# 2319 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2322 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseRepr));
-//# 7321 "pars.fs"
+//# 7323 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'unionCaseReprElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2326 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 2323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2326 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'unionCaseRepr));
-//# 7332 "pars.fs"
+//# 7334 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdFieldDecl)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
@@ -7337,39 +7339,39 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2328 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 :: _3 
                    )
-//# 2328 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdFieldDeclList));
-//# 7345 "pars.fs"
+//# 7347 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdFieldDecl)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_seps)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [_1] 
                    )
-//# 2331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdFieldDeclList));
-//# 7357 "pars.fs"
+//# 7359 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'fieldDecl)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2336 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2339 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let fld = _2 _1 false 
                             let (Field(a,b,c,d,e,f,vis,g)) = fld 
                             if Option.isSome vis then errorR(Error(FSComp.SR.parsRecordFieldsCannotHaveVisibilityDeclarations(),rhs parseState 2))
                             Field(a,b,c,d,e,f,None,g)  
                    )
-//# 2336 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2339 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdFieldDecl));
-//# 7372 "pars.fs"
+//# 7374 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_mutable)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -7378,36 +7380,36 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2344 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2347 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mRhs = rhs2 parseState 3 5 
                             let xmlDoc = grabXmlDoc(parseState,3)
                             (fun attrs stat -> Field(attrs, stat,Some _3,_5,_1,xmlDoc,_2,mRhs)) 
                    )
-//# 2344 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2347 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'fieldDecl));
-//# 7388 "pars.fs"
+//# 7390 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExceptionDefnRepr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_classDefn)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2355 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynExceptionDefn(_1,_2, (_1.Range,_2) ||> unionRangeWithListBy (fun cd -> cd.Range) ) 
                    )
-//# 2352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2355 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExceptionDefn));
-//# 7400 "pars.fs"
+//# 7402 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2356 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2359 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      grabXmlDoc(parseState,1) 
                    )
-//# 2356 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2359 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'exceptionAndGrabDoc));
-//# 7410 "pars.fs"
+//# 7412 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'exceptionAndGrabDoc)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
@@ -7417,67 +7419,67 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2364 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynExceptionDefnRepr(_2,_4,_5,_1,_3,(match _5 with None -> rhs2 parseState 1 4 | Some p -> unionRanges (rangeOfLongIdent p) (rhs2 parseState 1 4))) 
                    )
-//# 2361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2364 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExceptionDefnRepr));
-//# 7425 "pars.fs"
+//# 7427 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2366 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              UnionCase ( [], _1,UnionCaseFields [],PreXmlDoc.Empty,None,lhs parseState) 
                    )
-//# 2366 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'exconIntro));
-//# 7436 "pars.fs"
+//# 7438 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'unionCaseRepr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              UnionCase ( [], _1,UnionCaseFields _3,PreXmlDoc.Empty,None,lhs parseState) 
                    )
-//# 2369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'exconIntro));
-//# 7448 "pars.fs"
+//# 7450 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2375 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        None 
                    )
-//# 2372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2375 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'exconRepr));
-//# 7458 "pars.fs"
+//# 7460 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2373 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        Some (_2.Lid) 
                    )
-//# 2373 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'exconRepr));
-//# 7469 "pars.fs"
+//# 7471 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      _2 
                    )
-//# 2376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 7480 "pars.fs"
+//# 7482 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_rec)) in
@@ -7485,7 +7487,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2385 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mLetKwd = rhs parseState 1 
                              let isUse = _1
                              let isRec = _2 
@@ -7506,36 +7508,36 @@ let _fsyacc_reductions ()  =    [|
                                      [],binds), 
                                  bindingSetRange) 
                    )
-//# 2385 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'defnBindings));
-//# 7511 "pars.fs"
+//# 7513 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cPrototype)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2407 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let bindRange = lhs parseState
                              BindingSetPreAttrs(bindRange, false,false,_1,bindRange)  
                    )
-//# 2407 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'defnBindings));
-//# 7523 "pars.fs"
+//# 7525 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2417 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mDoKwd = rhs parseState 1 
                              let mWhole = unionRanges mDoKwd _2.Range
                              // any attributes prior to the 'let' are left free, e.g. become top-level attributes 
                              // associated with the module, 'main' function or assembly depending on their target 
                              BindingSetPreAttrs(mDoKwd,false,false,(fun attrs vis -> attrs,[mkSynDoBinding (vis,true,_2,mWhole)]), mWhole) 
                    )
-//# 2414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2417 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'doBinding));
-//# 7538 "pars.fs"
+//# 7540 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_rec)) in
@@ -7544,7 +7546,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2424 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2427 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mLetKwd = rhs parseState 1 
                              let isUse = _1
                              let isRec = _2
@@ -7566,16 +7568,16 @@ let _fsyacc_reductions ()  =    [|
                                  [],binds),
                                bindingSetRange), (unionRanges mLetKwd bindingSetRange) 
                    )
-//# 2424 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2427 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'hardwhiteLetBindings));
-//# 7571 "pars.fs"
+//# 7573 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteDefnBindingsTerminator)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2450 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2453 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mLetKwd = rhs parseState 1 
                              let bindingSetRange = unionRanges mLetKwd _2.Range 
                              let seqPt = NoSequencePointAtDoBinding 
@@ -7583,78 +7585,78 @@ let _fsyacc_reductions ()  =    [|
                              // associated with the module, 'main' function or assembly depending on their target 
                              BindingSetPreAttrs(mLetKwd,false,false,(fun attrs vis -> attrs,[mkSynDoBinding (vis,true,_2,bindingSetRange)]),bindingSetRange), _2 
                    )
-//# 2450 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2453 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'hardwhiteDoBinding));
-//# 7588 "pars.fs"
+//# 7590 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'defnBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2460 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                         _1 
                    )
-//# 2460 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnBindings));
-//# 7599 "pars.fs"
+//# 7601 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'doBinding)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2461 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2464 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      _1 
                    )
-//# 2461 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2464 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnBindings));
-//# 7610 "pars.fs"
+//# 7612 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteLetBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2462 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2465 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                 let b,m = _1 in b 
                    )
-//# 2462 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2465 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnBindings));
-//# 7621 "pars.fs"
+//# 7623 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteDoBinding)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2466 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                fst _1 
                    )
-//# 2463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2466 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'classDefnBindings));
-//# 7632 "pars.fs"
+//# 7634 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2469 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2472 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (fun _ m -> ()) 
                    )
-//# 2469 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2472 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'hardwhiteDefnBindingsTerminator));
-//# 7642 "pars.fs"
+//# 7644 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2471 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2474 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (fun kwd m -> reportParseErrorAt m (match kwd with 
                                                                 | "let!" -> FSComp.SR.parsUnmatchedLetBang() 
                                                                 | "use!" -> FSComp.SR.parsUnmatchedUseBang() 
                                                                 | "use" -> FSComp.SR.parsUnmatchedUse() 
                                                                 | _ (*"let" *) -> FSComp.SR.parsUnmatchedLet()))  
                    )
-//# 2471 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2474 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'hardwhiteDefnBindingsTerminator));
-//# 7657 "pars.fs"
+//# 7659 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'cRetType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_access)) in
@@ -7665,7 +7667,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2480 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2483 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let rty,vis,nm,args  = _2,_3,_4,_7 
                              let xmlDoc = grabXmlDoc(parseState,1) 
                              let nmm = rhs parseState 3 
@@ -7685,77 +7687,77 @@ let _fsyacc_reductions ()  =    [|
                                                    (vis, false, false, mBindLhs, NoSequencePointAtInvisibleBinding, Some rty, rhsExpr, mRhs, [], attrs, None)
                                  [], [binding]) 
                    )
-//# 2480 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2483 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cPrototype));
-//# 7690 "pars.fs"
+//# 7692 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cMoreArgs)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2502 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2505 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             List.rev _1 
                    )
-//# 2502 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2505 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cArgs));
-//# 7701 "pars.fs"
+//# 7703 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cArg)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2505 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2508 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [_1] 
                    )
-//# 2505 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2508 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cArgs));
-//# 7712 "pars.fs"
+//# 7714 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2507 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2510 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 2507 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2510 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cArgs));
-//# 7722 "pars.fs"
+//# 7724 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cMoreArgs)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'cArg)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2513 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2516 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _3 :: _1 
                    )
-//# 2513 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2516 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cMoreArgs));
-//# 7734 "pars.fs"
+//# 7736 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cArg)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'cArg)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2516 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2519 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [_3; _1] 
                    )
-//# 2516 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2519 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cMoreArgs));
-//# 7746 "pars.fs"
+//# 7748 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'cType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2522 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = lhs parseState in SynPat.Typed(SynPat.Wild m,_2,m) |> addAttribs _1 
                    )
-//# 2522 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cArg));
-//# 7758 "pars.fs"
+//# 7760 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'cType)) in
@@ -7763,103 +7765,103 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2528 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = lhs parseState in SynPat.Typed(SynPat.Named (SynPat.Wild m,_3,false,None,m),_2,m) |> addAttribs _1 
                    )
-//# 2525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2528 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cArg));
-//# 7771 "pars.fs"
+//# 7773 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2530 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2533 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = _1.Range
                             SynType.App(SynType.LongIdent(_1),None,[],[],None,false,m) 
                    )
-//# 2530 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2533 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cType));
-//# 7783 "pars.fs"
+//# 7785 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cType)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_APP)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2534 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2537 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = lhs parseState 
                             SynType.App(SynType.LongIdent(LongIdentWithDots([ident("[]",m)],[])),None,[_1],[],None,true,m) 
                    )
-//# 2534 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2537 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cType));
-//# 7796 "pars.fs"
+//# 7798 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = lhs parseState 
                             SynType.App(SynType.LongIdent(LongIdentWithDots([ident("nativeptr",m)],[])),None,[_1],[],None,true,m) 
                    )
-//# 2538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cType));
-//# 7808 "pars.fs"
+//# 7810 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'cType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2542 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2545 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = lhs parseState 
                             SynType.App(SynType.LongIdent(LongIdentWithDots([ident("byref",m)],[])),None,[_1],[],None,true,m) 
                    )
-//# 2542 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2545 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cType));
-//# 7820 "pars.fs"
+//# 7822 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2546 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2549 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = lhs parseState 
                             SynType.App(SynType.LongIdent(LongIdentWithDots([ident("nativeint",m)],[])),None,[],[],None,true,m) 
                    )
-//# 2546 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2549 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cType));
-//# 7831 "pars.fs"
+//# 7833 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'cType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2553 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2556 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynReturnInfo((_2,SynArgInfo(_1,false,None)),rhs parseState 2) 
                    )
-//# 2553 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2556 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cRetType));
-//# 7843 "pars.fs"
+//# 7845 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2556 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2559 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = rhs parseState 2 
                             SynReturnInfo((SynType.App(SynType.LongIdent(LongIdentWithDots([ident("unit",m)],[])),None,[],[],None,false,m),SynArgInfo(_1,false,None)),m) 
                    )
-//# 2556 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2559 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'cRetType));
-//# 7855 "pars.fs"
+//# 7857 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attr_localBinding)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'moreLocalBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2562 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2565 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let (moreBindings, moreBindingRanges) = List.unzip _2
                              let moreLocalBindingsLastRange = if moreBindingRanges.IsEmpty then None else Some (List.last moreBindingRanges)
                              match _1 with 
@@ -7872,59 +7874,59 @@ let _fsyacc_reductions ()  =    [|
                              | None -> 
                                 moreLocalBindingsLastRange, (fun _attrs _vis _letm -> moreBindings) 
                    )
-//# 2562 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2565 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'localBindings));
-//# 7877 "pars.fs"
+//# 7879 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'attr_localBinding)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'moreLocalBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2577 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mLetKwd = rhs parseState 1
                              (match _2 with 
                               | Some (localBindingRange,attrLocalBindingBuilder) -> (attrLocalBindingBuilder [] None mLetKwd false,localBindingRange) :: _3 
                               | None -> _3) 
                    )
-//# 2577 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'moreLocalBindings));
-//# 7892 "pars.fs"
+//# 7894 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2586 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [] 
                    )
-//# 2583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2586 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'moreLocalBindings));
-//# 7902 "pars.fs"
+//# 7904 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'localBinding)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2589 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2592 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let attrs2 = _1
                              let localBindingRange,localBindingBuilder = _2
                              let attrLocalBindingBuilder = (fun attrs vis mLetKwd _ -> localBindingBuilder (attrs@attrs2) vis mLetKwd)
                              Some(localBindingRange,attrLocalBindingBuilder) 
                    )
-//# 2589 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2592 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attr_localBinding));
-//# 7917 "pars.fs"
+//# 7919 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2595 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2598 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              None 
                    )
-//# 2595 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2598 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'attr_localBinding));
-//# 7927 "pars.fs"
+//# 7929 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_inline)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_mutable)) in
@@ -7934,7 +7936,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2601 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2604 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let (expr:SynExpr),opts = _6
                              let eqm = rhs parseState 5 
                              let mRhs = expr.Range 
@@ -7948,9 +7950,9 @@ let _fsyacc_reductions ()  =    [|
                                  bindingBuilder (vis,_1,_2,mBindLhs,spBind,optReturnType,expr,mRhs,opts,attrs,None))
                              localBindingRange,localBindingBuilder 
                    )
-//# 2601 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2604 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'localBinding));
-//# 7953 "pars.fs"
+//# 7955 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_inline)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_mutable)) in
@@ -7959,7 +7961,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2615 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2618 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mWhole = rhs2 parseState 3 5 
                              let mRhs = rhs parseState 5
                              let optReturnType = _4 
@@ -7972,9 +7974,9 @@ let _fsyacc_reductions ()  =    [|
                                  bindingBuilder (vis,_1,_2,mBindLhs,spBind,optReturnType,arbExpr("localBinding1",zeroWidthAtEnd),mRhs,[],attrs,None))  
                              mWhole,localBindingBuilder 
                    )
-//# 2615 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2618 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'localBinding));
-//# 7977 "pars.fs"
+//# 7979 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_inline)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_mutable)) in
@@ -7984,7 +7986,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2628 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2631 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _5 then reportParseErrorAt (rhs parseState 5) (FSComp.SR.parsUnexpectedEndOfFileDefinition())
                              let optReturnType = _4 
                              let mWhole = match optReturnType with None -> rhs parseState 3 | Some _ -> rhs2 parseState 3 4
@@ -7996,329 +7998,329 @@ let _fsyacc_reductions ()  =    [|
                                  bindingBuilder (vis,_1,_2,mBindLhs,spBind,optReturnType,arbExpr("localBinding2",mRhs),mRhs,[],attrs,None))  
                              mWhole,localBindingBuilder 
                    )
-//# 2628 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2631 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'localBinding));
-//# 8001 "pars.fs"
+//# 8003 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedExprWithStaticOptimizations)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'oblockend)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2643 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2646 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 
                    )
-//# 2643 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2646 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedExprWithStaticOptimizationsBlock));
-//# 8013 "pars.fs"
+//# 8015 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedExprWithStaticOptimizations)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2646 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2649 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedEndOfFile())
                              let a,b = _2
                              (exprFromParseError a, b) 
                    )
-//# 2646 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2649 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedExprWithStaticOptimizationsBlock));
-//# 8027 "pars.fs"
+//# 8029 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedExprWithStaticOptimizations)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2651 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2654 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2651 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2654 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedExprWithStaticOptimizationsBlock));
-//# 8038 "pars.fs"
+//# 8040 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_staticOptimizations)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2654 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2657 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                 _1, List.rev _2 
                    )
-//# 2654 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2657 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedExprWithStaticOptimizations));
-//# 8050 "pars.fs"
+//# 8052 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_staticOptimizations)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticOptimization)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2657 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2660 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                       _2 :: _1 
                    )
-//# 2657 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2660 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_staticOptimizations));
-//# 8062 "pars.fs"
+//# 8064 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2658 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            [] 
                    )
-//# 2658 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_staticOptimizations));
-//# 8072 "pars.fs"
+//# 8074 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticOptimizationConditions)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2664 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                       (_2,_4) 
                    )
-//# 2661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2664 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticOptimization));
-//# 8084 "pars.fs"
+//# 8086 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticOptimizationConditions)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticOptimizationCondition)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2664 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2667 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                         _3 :: _1 
                    )
-//# 2664 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2667 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticOptimizationConditions));
-//# 8096 "pars.fs"
+//# 8098 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticOptimizationCondition)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2665 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                        [_1 ] 
                    )
-//# 2665 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticOptimizationConditions));
-//# 8107 "pars.fs"
+//# 8109 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2671 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                            WhenTyparTyconEqualsTycon(_1,_3,lhs parseState) 
                    )
-//# 2668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2671 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticOptimizationCondition));
-//# 8119 "pars.fs"
+//# 8121 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2669 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2672 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                         WhenTyparIsStruct(_1,lhs parseState) 
                    )
-//# 2669 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2672 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticOptimizationCondition));
-//# 8130 "pars.fs"
+//# 8132 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : sbyte * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2672 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2675 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                 if snd _1 then errorR(Error(FSComp.SR.lexOutsideEightBitSigned(), lhs parseState))
                                 SynConst.SByte (fst _1) 
                    )
-//# 2672 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2675 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8142 "pars.fs"
+//# 8144 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : byte)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2674 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  SynConst.Byte _1 
                    )
-//# 2674 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8153 "pars.fs"
+//# 8155 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int16 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2675 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2678 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  if snd _1 then errorR(Error(FSComp.SR.lexOutsideSixteenBitSigned(), lhs parseState))
                                  SynConst.Int16 (fst _1) 
                    )
-//# 2675 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2678 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8165 "pars.fs"
+//# 8167 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : uint16)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2680 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   SynConst.UInt16 _1 
                    )
-//# 2677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2680 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8176 "pars.fs"
+//# 8178 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2678 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  if snd _1 then errorR(Error(FSComp.SR.lexOutsideThirtyTwoBitSigned(), lhs parseState))
                                  SynConst.Int32 (fst _1) 
                    )
-//# 2678 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8188 "pars.fs"
+//# 8190 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : uint32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2680 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   SynConst.UInt32 _1 
                    )
-//# 2680 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8199 "pars.fs"
+//# 8201 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int64 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2684 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  if snd _1 then errorR(Error(FSComp.SR.lexOutsideSixtyFourBitSigned(), lhs parseState))
                                  SynConst.Int64 (fst _1) 
                    )
-//# 2681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2684 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8211 "pars.fs"
+//# 8213 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : uint64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2686 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   SynConst.UInt64 _1 
                    )
-//# 2683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2686 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8222 "pars.fs"
+//# 8224 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2684 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2687 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      SynConst.IntPtr _1 
                    )
-//# 2684 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2687 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8233 "pars.fs"
+//# 8235 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : uint64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2685 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2688 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                       SynConst.UIntPtr _1 
                    )
-//# 2685 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2688 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8244 "pars.fs"
+//# 8246 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : single)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2686 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   SynConst.Single _1 
                    )
-//# 2686 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8255 "pars.fs"
+//# 8257 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : double)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2687 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2690 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   SynConst.Double _1 
                    )
-//# 2687 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2690 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8266 "pars.fs"
+//# 8268 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : char)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2688 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2691 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                 SynConst.Char _1 
                    )
-//# 2688 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2691 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8277 "pars.fs"
+//# 8279 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : System.Decimal)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2692 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    SynConst.Decimal _1 
                    )
-//# 2689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2692 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8288 "pars.fs"
+//# 8290 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : (string * string))) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2690 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2693 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   SynConst.UserNum _1 
                    )
-//# 2690 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2693 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8299 "pars.fs"
+//# 8301 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'stringOrKeywordString)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2691 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2694 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                  SynConst.String (_1,lhs parseState) 
                    )
-//# 2691 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2694 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8310 "pars.fs"
+//# 8312 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : byte[])) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2692 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2695 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      SynConst.Bytes (_1,lhs parseState) 
                    )
-//# 2692 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2695 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rawConstant));
-//# 8321 "pars.fs"
+//# 8323 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -8326,15 +8328,15 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2696 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2699 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            if _2 <> "/" then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnexpectedOperatorForUnitOfMeasure())
                            if fst _3 = 0 then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsIllegalDenominatorForMeasureExponent())
                            if (snd _1) || (snd _3) then errorR(Error(FSComp.SR.lexOutsideThirtyTwoBitSigned(), lhs parseState))
                            SynRationalConst.Rational(fst _1, fst _3, lhs parseState) 
                    )
-//# 2696 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2699 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rationalConstant));
-//# 8337 "pars.fs"
+//# 8339 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -8342,379 +8344,390 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2702 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2705 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            if _3 <> "/" then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedOperatorForUnitOfMeasure())
                            if fst _4 = 0 then reportParseErrorAt (rhs parseState 4) (FSComp.SR.parsIllegalDenominatorForMeasureExponent())
                            if (snd _2) || (snd _4) then errorR(Error(FSComp.SR.lexOutsideThirtyTwoBitSigned(), lhs parseState))
                            SynRationalConst.Negate(SynRationalConst.Rational(fst _2, fst _4, lhs parseState)) 
                    )
-//# 2702 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2705 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rationalConstant));
-//# 8353 "pars.fs"
+//# 8355 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2707 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2710 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  if snd _1 then errorR(Error(FSComp.SR.lexOutsideThirtyTwoBitSigned(), lhs parseState))
                                  SynRationalConst.Integer(fst _1) 
                    )
-//# 2707 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2710 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rationalConstant));
-//# 8365 "pars.fs"
+//# 8367 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2710 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2713 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        if snd _2 then errorR(Error(FSComp.SR.lexOutsideThirtyTwoBitSigned(), lhs parseState))
                                        SynRationalConst.Negate(SynRationalConst.Integer(fst _2)) 
                    )
-//# 2710 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2713 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rationalConstant));
-//# 8377 "pars.fs"
+//# 8379 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2714 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2717 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  if snd _1 then errorR(Error(FSComp.SR.lexOutsideThirtyTwoBitSigned(), lhs parseState))
                                  SynRationalConst.Integer(fst _1) 
                    )
-//# 2714 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2717 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicUnsignedRationalConstant));
-//# 8389 "pars.fs"
+//# 8391 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'rationalConstant)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2718 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2721 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            _2 
                    )
-//# 2718 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2721 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicUnsignedRationalConstant));
-//# 8401 "pars.fs"
+//# 8403 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicUnsignedRationalConstant)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2721 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2724 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                           _1 
                    )
-//# 2721 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2724 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicRationalConstant));
-//# 8412 "pars.fs"
+//# 8414 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicUnsignedRationalConstant)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2724 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2727 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            SynRationalConst.Negate(_2) 
                    )
-//# 2724 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2727 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicRationalConstant));
-//# 8423 "pars.fs"
+//# 8425 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'rawConstant)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2727 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2730 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        _1 
                    )
-//# 2727 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2730 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'constant));
-//# 8434 "pars.fs"
+//# 8436 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'rawConstant)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeArg)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2728 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2731 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                             SynConst.Measure(_1, _3) 
                    )
-//# 2728 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2731 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'constant));
-//# 8446 "pars.fs"
+//# 8448 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2732 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2735 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               let xmlDoc = grabXmlDoc(parseState,1)
                               mkSynBinding (xmlDoc,_1), rhs parseState 1 
                    )
-//# 2732 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2735 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'bindingPattern));
-//# 8458 "pars.fs"
+//# 8460 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2738 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             SynSimplePat.Id (_1,None,false,false,false,rhs parseState 1) 
+//# 2743 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let m = rhs parseState 1 
+                             SynPat.Named(SynPat.Wild m, _1, false, None, m) 
                    )
-//# 2738 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2743 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePattern));
-//# 8469 "pars.fs"
+//# 8472 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2740 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             SynSimplePat.Id (_2,None,false,false,true,rhs parseState 2) 
+//# 2746 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             SynPat.OptionalVal(_2, rhs parseState 2) 
                    )
-//# 2740 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2746 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePattern));
-//# 8480 "pars.fs"
+//# 8483 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'simplePattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeWithTypeConstraints)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2742 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             let lhsm = lhs parseState 
-                             SynSimplePat.Typed(_1,_3,lhsm) 
+//# 2748 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             SynPat.Typed(_1, _3, lhs parseState) 
                    )
-//# 2742 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2748 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePattern));
-//# 8493 "pars.fs"
+//# 8495 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'simplePattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2745 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             let lhsm = lhs parseState 
-                             SynSimplePat.Attrib(_2,_1,lhsm) 
+//# 2750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             SynPat.Attrib(_2, _1, lhs parseState) 
                    )
-//# 2745 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePattern));
-//# 8506 "pars.fs"
+//# 8507 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'simplePattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             [_1] 
+//# 2754 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             _1 
                    )
-//# 2750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2754 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePatternCommaList));
-//# 8517 "pars.fs"
+//# 8518 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'simplePattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'simplePatternCommaList)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2752 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             _1 :: _3 
+//# 2756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             match _3 with
+                             | SynPat.Tuple(_, pats, _) -> SynPat.Tuple(false, _1 :: pats, rhs2 parseState 1 3)
+                             | _ -> SynPat.Tuple(false, [_1; _3], rhs2 parseState 1 3) 
                    )
-//# 2752 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePatternCommaList));
-//# 8529 "pars.fs"
+//# 8532 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'simplePatternCommaList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             _2 
+//# 2762 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let parenPat = SynPat.Paren(_2, rhs2 parseState 1 3)
+                             let simplePats, _ = SimplePatsOfPat parseState.SynArgNameGenerator parenPat
+                             simplePats 
                    )
-//# 2756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2762 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePatterns));
-//# 8541 "pars.fs"
+//# 8546 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2758 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             [] 
+//# 2766 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let pat = SynPat.Const(SynConst.Unit, rhs2 parseState 1 2)
+                             let simplePats, _ = SimplePatsOfPat parseState.SynArgNameGenerator pat
+                             simplePats 
                    )
-//# 2758 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2766 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePatterns));
-//# 8552 "pars.fs"
+//# 8559 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'simplePatternCommaList)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2760 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()) 
-                             [] 
+//# 2770 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen())
+                             let parenPat = SynPat.Paren(SynPat.Tuple(false, [], rhs2 parseState 1 2), rhs2 parseState 1 2) // todo: report parsed pats anyway?
+                             let simplePats, _ = SimplePatsOfPat parseState.SynArgNameGenerator parenPat
+                             simplePats 
                    )
-//# 2760 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2770 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePatterns));
-//# 8565 "pars.fs"
+//# 8574 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2763 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             (* silent recovery *) [] 
+//# 2775 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let parenPat = SynPat.Paren(SynPat.Wild(rhs parseState 2), rhs2 parseState 1 3) // silent recovery
+                             let simplePats, _ = SimplePatsOfPat parseState.SynArgNameGenerator parenPat
+                             simplePats 
                    )
-//# 2763 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2775 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePatterns));
-//# 8576 "pars.fs"
+//# 8587 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2765 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()) 
-                             [] 
+//# 2779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen())
+                             let pat = SynPat.Wild(lhs parseState)
+                             let simplePats, _ = SimplePatsOfPat parseState.SynArgNameGenerator pat
+                             simplePats 
                    )
-//# 2765 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'simplePatterns));
-//# 8588 "pars.fs"
+//# 8601 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2771 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2787 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Named (_1,_3,false,None,rhs2 parseState 1 3) 
                    )
-//# 2771 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2787 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynPat));
-//# 8600 "pars.fs"
+//# 8613 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Or(_1,_3,rhs2 parseState 1 3) 
                    )
-//# 2773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynPat));
-//# 8612 "pars.fs"
+//# 8625 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2775 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2791 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.LongIdent (LongIdentWithDots(mkSynCaseName (rhs parseState 2) opNameCons,[]), None, None, SynConstructorArgs.Pats [SynPat.Tuple (false,[_1;_3],rhs2 parseState 1 3)],None,lhs parseState) 
                    )
-//# 2775 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2791 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynPat));
-//# 8624 "pars.fs"
+//# 8637 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tuplePatternElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Tuple(false,List.rev _1, lhs parseState) 
                    )
-//# 2777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynPat));
-//# 8635 "pars.fs"
+//# 8648 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'conjPatternElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2795 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Ands(List.rev _1, lhs parseState) 
                    )
-//# 2779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2795 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynPat));
-//# 8646 "pars.fs"
+//# 8659 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'constrPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2781 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2797 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2781 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2797 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynPat));
-//# 8657 "pars.fs"
+//# 8670 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tuplePatternElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2785 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2801 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 
                    )
-//# 2785 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2801 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tuplePatternElements));
-//# 8669 "pars.fs"
+//# 8682 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2787 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2803 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 :: [] 
                    )
-//# 2787 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2803 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tuplePatternElements));
-//# 8681 "pars.fs"
+//# 8694 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'conjPatternElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2791 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2807 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 
                    )
-//# 2791 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2807 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'conjPatternElements));
-//# 8693 "pars.fs"
+//# 8706 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2809 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 :: [] 
                    )
-//# 2793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2809 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'conjPatternElements));
-//# 8705 "pars.fs"
+//# 8718 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'namePatPair)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_seps)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2796 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                  [_1], lhs parseState 
                    )
-//# 2796 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'namePatPairs));
-//# 8717 "pars.fs"
+//# 8730 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'namePatPair)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
@@ -8722,36 +8735,36 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2797 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2813 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                           let (rs, _) = _3 in (_1 :: rs), lhs parseState 
                    )
-//# 2797 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2813 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'namePatPairs));
-//# 8730 "pars.fs"
+//# 8743 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2800 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                       (_1, _3) 
                    )
-//# 2800 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'namePatPair));
-//# 8742 "pars.fs"
+//# 8755 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatternLongIdent)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'explicitValTyparDecls)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2804 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let vis,lid = _1 in SynPat.LongIdent (lid,None,Some _2, SynConstructorArgs.Pats [],vis,lhs parseState) 
                    )
-//# 2804 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'constrPattern));
-//# 8754 "pars.fs"
+//# 8767 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatternLongIdent)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_explicitValTyparDecls2)) in
@@ -8759,23 +8772,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2806 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let vis,lid = _1 in SynPat.LongIdent (lid,None,_2, _3,vis,lhs parseState) 
                    )
-//# 2806 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'constrPattern));
-//# 8767 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatternLongIdent)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_explicitValTyparDecls2)) in
-            let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatsOrNamePatPairs)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 2808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             let vis,lid = _1 in SynPat.LongIdent (lid,None,_2, _4,vis,lhs parseState) 
-                   )
-//# 2808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'constrPattern));
 //# 8780 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -8785,80 +8785,80 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let vis,lid = _1 in SynPat.LongIdent (lid,None,_2, _4,vis,lhs parseState) 
                    )
-//# 2810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'constrPattern));
 //# 8793 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatternLongIdent)) in
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_explicitValTyparDecls2)) in
+            let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatsOrNamePatPairs)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 2826 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let vis,lid = _1 in SynPat.LongIdent (lid,None,_2, _4,vis,lhs parseState) 
+                   )
+//# 2826 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'constrPattern));
+//# 8806 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeOrAnonRecdType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.IsInst(_2,lhs parseState) 
                    )
-//# 2812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'constrPattern));
-//# 8804 "pars.fs"
+//# 8817 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'constrPattern));
-//# 8815 "pars.fs"
+//# 8828 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'namePatPairs)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2817 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2833 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                       SynConstructorArgs.NamePatPairs _2 
                    )
-//# 2817 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2833 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatsOrNamePatPairs));
-//# 8827 "pars.fs"
+//# 8840 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2818 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2834 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                           SynConstructorArgs.Pats _1 
                    )
-//# 2818 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2834 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatsOrNamePatPairs));
-//# 8838 "pars.fs"
+//# 8851 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPattern)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2838 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 :: _2 
                    )
-//# 2822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'atomicPatterns));
-//# 8850 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPattern)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 2824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsSuccessivePatternsShouldBeSpacedOrTupled())
-                             _1 :: _3 
-                   )
-//# 2824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2838 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatterns));
 //# 8863 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -8867,430 +8867,443 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2827 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2840 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsSuccessivePatternsShouldBeSpacedOrTupled())
                              _1 :: _3 
                    )
-//# 2827 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2840 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatterns));
 //# 8876 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPattern)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 2843 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsSuccessivePatternsShouldBeSpacedOrTupled())
+                             _1 :: _3 
+                   )
+//# 2843 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'atomicPatterns));
+//# 8889 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2829 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                          [_1] 
                    )
-//# 2829 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPatterns));
-//# 8887 "pars.fs"
+//# 8900 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'quoteExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2834 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2850 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.QuoteExpr(_1,lhs parseState) 
                    )
-//# 2834 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2850 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8898 "pars.fs"
+//# 8911 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : char)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : char)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2835 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2851 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                              SynPat.DeprecatedCharRange (_1,_3,rhs2 parseState 1 3) 
                    )
-//# 2835 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2851 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8910 "pars.fs"
+//# 8923 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recordPatternElementsAux)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2837 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2853 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let rs,m = _2 in SynPat.Record (rs,m) 
                    )
-//# 2837 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2853 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8922 "pars.fs"
+//# 8935 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'listPatternElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2855 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.ArrayOrList(false,_2,lhs parseState) 
                    )
-//# 2839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2855 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8933 "pars.fs"
+//# 8946 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'listPatternElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2841 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.ArrayOrList(true,_2, lhs parseState) 
                    )
-//# 2841 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8944 "pars.fs"
+//# 8957 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2843 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2859 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Wild (lhs parseState) 
                    )
-//# 2843 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2859 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8954 "pars.fs"
+//# 8967 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2861 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.OptionalVal(_2,lhs parseState) 
                    )
-//# 2845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2861 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8965 "pars.fs"
+//# 8978 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatternLongIdent)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2847 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2863 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let vis,lidwd = _1 
                              if not (isNilOrSingleton lidwd.Lid) || (String.isUpper (List.head lidwd.Lid).idText) 
                              then mkSynPatMaybeVar lidwd vis (lhs parseState)
                              else mkSynPatVar vis (List.head lidwd.Lid) 
                    )
-//# 2847 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2863 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8979 "pars.fs"
+//# 8992 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'constant)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2852 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2868 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Const (_1,_1.Range (lhs parseState)) 
                    )
-//# 2852 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2868 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 8990 "pars.fs"
+//# 9003 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2854 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2870 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Const(SynConst.Bool false,lhs parseState) 
                    )
-//# 2854 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2870 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9000 "pars.fs"
+//# 9013 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2856 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2872 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Const(SynConst.Bool true,lhs parseState) 
                    )
-//# 2856 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2872 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9010 "pars.fs"
+//# 9023 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2858 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2874 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Null(lhs parseState) 
                    )
-//# 2858 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2874 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9020 "pars.fs"
+//# 9033 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPatternBody)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let m = (lhs parseState)
                              SynPat.Paren(_2 m,m) 
                    )
-//# 2860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9033 "pars.fs"
+//# 9046 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPatternBody)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2863 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2879 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()) 
                              patFromParseError (_2 (rhs2 parseState 1 2)) 
                    )
-//# 2863 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2879 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9046 "pars.fs"
+//# 9059 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2882 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (* silent recovery *) SynPat.Wild (lhs parseState) 
                    )
-//# 2866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2882 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9057 "pars.fs"
+//# 9070 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2868 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2884 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()) 
                               SynPat.Wild (lhs parseState)
                    )
-//# 2868 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2884 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9069 "pars.fs"
+//# 9082 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleParenPatternElements)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2871 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2887 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Tuple(true, List.rev _3,lhs parseState) 
                    )
-//# 2871 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2887 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9081 "pars.fs"
+//# 9094 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleParenPatternElements)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2873 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2889 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()); 
                              SynPat.Tuple(true, List.rev _3,lhs parseState) 
                    )
-//# 2873 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2889 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9094 "pars.fs"
+//# 9107 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2892 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (* silent recovery *) SynPat.Wild (lhs parseState) 
                    )
-//# 2876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2892 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9105 "pars.fs"
+//# 9118 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2878 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2894 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()); 
                               SynPat.Wild (lhs parseState)
                    )
-//# 2878 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2894 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicPattern));
-//# 9117 "pars.fs"
+//# 9130 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2885 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2901 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun m -> _1) 
                    )
-//# 2885 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2901 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPatternBody));
-//# 9128 "pars.fs"
+//# 9141 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2887 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2903 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun m -> SynPat.Const(SynConst.Unit,m)) 
                    )
-//# 2887 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2903 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPatternBody));
-//# 9138 "pars.fs"
+//# 9151 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2916 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Named (_1,_3,false,None,rhs2 parseState 1 3) 
                    )
-//# 2916 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9150 "pars.fs"
+//# 9163 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2918 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2934 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Or(_1,_3,rhs2 parseState 1 3) 
                    )
-//# 2918 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2934 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9162 "pars.fs"
+//# 9175 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleParenPatternElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2920 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2936 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Tuple(false,List.rev _1,lhs parseState) 
                    )
-//# 2920 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2936 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9173 "pars.fs"
+//# 9186 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'conjParenPatternElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.Ands(List.rev _1,rhs2 parseState 1 3) 
                    )
-//# 2922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9184 "pars.fs"
+//# 9197 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeWithTypeConstraints)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let lhsm = lhs parseState 
                              SynPat.Typed(_1,_3,lhsm) 
                    )
-//# 2924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9197 "pars.fs"
+//# 9210 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2927 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let lhsm = lhs parseState 
                              SynPat.Attrib(_2,_1,lhsm) 
                    )
-//# 2927 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9210 "pars.fs"
+//# 9223 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2930 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2946 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynPat.LongIdent (LongIdentWithDots(mkSynCaseName (rhs parseState 2) opNameCons,[]), None, None, SynConstructorArgs.Pats [ SynPat.Tuple (false,[_1;_3],rhs2 parseState 1 3) ],None,lhs parseState) 
                    )
-//# 2930 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2946 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9222 "pars.fs"
+//# 9235 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'constrPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                          _1 
                    )
-//# 2931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenPattern));
-//# 9233 "pars.fs"
+//# 9246 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleParenPatternElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2935 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2951 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 
                    )
-//# 2935 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2951 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleParenPatternElements));
-//# 9245 "pars.fs"
+//# 9258 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2937 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2953 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 :: [] 
                    )
-//# 2937 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2953 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleParenPatternElements));
-//# 9257 "pars.fs"
+//# 9270 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'conjParenPatternElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2957 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 
                    )
-//# 2941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2957 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'conjParenPatternElements));
-//# 9269 "pars.fs"
+//# 9282 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2959 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 :: [] 
                    )
-//# 2943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2959 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'conjParenPatternElements));
-//# 9281 "pars.fs"
+//# 9294 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recordPatternElement)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_seps)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2963 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [_1],lhs parseState 
                    )
-//# 2947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2963 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recordPatternElementsAux));
-//# 9293 "pars.fs"
+//# 9306 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recordPatternElement)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
@@ -9298,46 +9311,46 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2949 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let r = _1 in let (rs,dropMark) = _3 in (r :: rs),lhs parseState 
                    )
-//# 2949 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recordPatternElementsAux));
-//# 9306 "pars.fs"
+//# 9319 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2968 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                     (List.frontAndBack _1.Lid,_3) 
                    )
-//# 2952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2968 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recordPatternElement));
-//# 9318 "pars.fs"
+//# 9331 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [] 
                    )
-//# 2956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'listPatternElements));
-//# 9328 "pars.fs"
+//# 9341 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_seps)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2958 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2974 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [_1] 
                    )
-//# 2958 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2974 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'listPatternElements));
-//# 9340 "pars.fs"
+//# 9353 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
@@ -9345,176 +9358,176 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2960 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 :: _3 
                    )
-//# 2960 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'listPatternElements));
-//# 9353 "pars.fs"
+//# 9366 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'oblockend)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 
                    )
-//# 2965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9365 "pars.fs"
+//# 9378 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2967 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2983 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedEndOfFileExpression())
                              exprFromParseError _2 
                    )
-//# 2967 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2983 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9378 "pars.fs"
+//# 9391 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2970 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2986 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2970 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2986 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9389 "pars.fs"
+//# 9402 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'oblockend)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2975 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 
                    )
-//# 2975 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9401 "pars.fs"
+//# 9414 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2977 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2993 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2977 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2993 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9412 "pars.fs"
+//# 9425 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2982 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2998 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                          _1 
                    )
-//# 2982 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2998 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedSeqExprBlockR));
-//# 9423 "pars.fs"
+//# 9436 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2983 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2999 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                         _1 
                    )
-//# 2983 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 2999 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedSeqExprBlockR));
-//# 9434 "pars.fs"
+//# 9447 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'seqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeWithTypeConstraints)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2986 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3002 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                SynExpr.Typed (_1,_3, unionRanges _1.Range _3.Range) 
                    )
-//# 2986 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3002 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedSeqExpr));
-//# 9446 "pars.fs"
+//# 9459 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'seqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2987 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3003 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    _1 
                    )
-//# 2987 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3003 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typedSeqExpr));
-//# 9457 "pars.fs"
+//# 9470 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LexerWhitespaceContinuation)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2990 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                             checkEndOfFileError _2; _1 
                    )
-//# 2990 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9469 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'seqExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 2994 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             SynExpr.Sequential (SequencePointsAtSeq,true,_1,_3,unionRanges _1.Range _3.Range) 
-                   )
-//# 2994 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'seqExpr));
 //# 9482 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'seqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             SynExpr.Sequential (SequencePointsAtSeq,true,_1,_3,unionRanges _1.Range _3.Range) 
+                   )
+//# 3010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'seqExpr));
+//# 9495 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3012 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3012 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seqExpr));
-//# 9494 "pars.fs"
+//# 9507 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 2998 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3014 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 2998 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3014 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seqExpr));
-//# 9505 "pars.fs"
+//# 9518 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'seqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Sequential (SequencePointsAtSeq,false,_1,_3,unionRanges _1.Range _3.Range ) 
                    )
-//# 3000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seqExpr));
-//# 9517 "pars.fs"
+//# 9530 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
@@ -9522,18 +9535,18 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3002 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3018 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Sequential (SequencePointsAtSeq,false,_1,_4,unionRanges _1.Range _4.Range) 
                    )
-//# 3002 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3018 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seqExpr));
-//# 9530 "pars.fs"
+//# 9543 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteLetBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3004 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3020 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let hwlb,m = _1
                             let mLetKwd,isUse = match hwlb with (BindingSetPreAttrs(m,_,isUse,_,_))  -> m,isUse
                             let usedKeyword = if isUse then "use" else "let"
@@ -9541,204 +9554,204 @@ let _fsyacc_reductions ()  =    [|
                             let fauxRange = m.EndRange // zero width range at end of m
                             mkLocalBindings (m,hwlb,arbExpr("seqExpr",fauxRange)) 
                    )
-//# 3004 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3020 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seqExpr));
-//# 9546 "pars.fs"
+//# 9559 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   debugPrint("recovering via error"); true 
                    )
-//# 3016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recover));
-//# 9556 "pars.fs"
+//# 9569 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LexerWhitespaceContinuation)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3017 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3033 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                 debugPrint("recovering via EOF"); false 
                    )
-//# 3017 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3033 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recover));
-//# 9567 "pars.fs"
+//# 9580 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'defnBindings)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3038 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             mkLocalBindings (unionRanges (rhs2 parseState 1 2) _3.Range,_1,_3) 
                    )
-//# 3022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3038 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9579 "pars.fs"
+//# 9592 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'defnBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3025 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3041 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             mkLocalBindings (rhs2 parseState 1 2,_1,arbExpr("declExpr1",(rhs parseState 3))) 
                    )
-//# 3025 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3041 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9590 "pars.fs"
+//# 9603 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteLetBindings)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3031 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3047 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let hwlb,m = _1
                             mkLocalBindings (unionRanges m _2.Range,hwlb,_2) 
                    )
-//# 3031 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3047 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9603 "pars.fs"
+//# 9616 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteLetBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3051 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let hwlb,m = _1
                             reportParseErrorAt (match hwlb with (BindingSetPreAttrs(m,_,_,_,_))  -> m) (FSComp.SR.parsErrorInReturnForLetIncorrectIndentation())
                             mkLocalBindings (m,hwlb,arbExpr("declExpr2",(rhs parseState 2))) 
                    )
-//# 3035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3051 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9616 "pars.fs"
+//# 9629 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteLetBindings)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3056 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let hwlb,m = _1
                             mkLocalBindings (unionRanges m _3.Range, hwlb, _3) 
                    )
-//# 3040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3056 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9629 "pars.fs"
+//# 9642 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteLetBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3044 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3060 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let hwlb,m = _1
                             //reportParseErrorAt (match hwlb with (BindingSetPreAttrs(m,_,_,_,_))  -> m) (FSComp.SR.parsErrorInReturnForLetIncorrectIndentation())
                             mkLocalBindings (unionRanges m (rhs parseState 3),hwlb,arbExpr("declExpr3",(rhs parseState 3))) 
                    )
-//# 3044 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3060 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9642 "pars.fs"
+//# 9655 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteDoBinding)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3049 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3065 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let e = snd _1
                             SynExpr.Do (e,e.Range) 
                    )
-//# 3049 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3065 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9654 "pars.fs"
+//# 9667 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'anonMatchingExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3053 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3069 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3053 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3069 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9665 "pars.fs"
+//# 9678 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'anonLambdaExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3056 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3072 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3056 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3072 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9676 "pars.fs"
+//# 9689 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'withClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3059 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mMatch = (rhs parseState 1)
                              let mWith,(clauses,mLast) = _3 
                              let spBind = SequencePointAtBinding(unionRanges mMatch mWith) 
                              SynExpr.Match (spBind, _2,clauses,unionRanges mMatch mLast) 
                    )
-//# 3059 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9691 "pars.fs"
+//# 9704 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3065 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3081 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileMatch())
                              // Produce approximate expression during error recovery 
                              exprFromParseError _2 
                    )
-//# 3065 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3081 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9705 "pars.fs"
+//# 9718 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'withClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3070 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3086 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mMatch = (rhs parseState 1)
                              let mWith,(clauses,mLast) = _3 
                              let spBind = SequencePointAtBinding(unionRanges mMatch mWith) 
                              SynExpr.MatchBang (spBind, _2,clauses,unionRanges mMatch mLast) 
                    )
-//# 3070 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3086 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9720 "pars.fs"
+//# 9733 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3076 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3092 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileMatch())
                              // Produce approximate expression during error recovery 
                              exprFromParseError _2 
                    )
-//# 3076 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3092 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9734 "pars.fs"
+//# 9747 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'withClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3081 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3097 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mTry = (rhs parseState 1)
                              let spTry = SequencePointAtTry(mTry) 
                              let mWith,(clauses,mLast) = _3 
@@ -9748,60 +9761,60 @@ let _fsyacc_reductions ()  =    [|
                              let mTryToLast = unionRanges mTry mLast
                              SynExpr.TryWith (_2, mTryToWith, clauses,mWithToLast, mTryToLast,spTry,spWith) 
                    )
-//# 3081 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3097 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9753 "pars.fs"
+//# 9766 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3107 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              // Produce approximate expression during error recovery 
                              // Include any expressions to make sure they gets type checked in case that generates useful results for intellisense 
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileTry())
                              exprFromParseError _2 
                    )
-//# 3091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3107 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9768 "pars.fs"
+//# 9781 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3097 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3113 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mTry = rhs parseState 1 
                              let spTry = SequencePointAtTry(mTry) 
                              let spFinally = SequencePointAtFinally(rhs parseState 3) 
                              let mTryToLast = unionRanges mTry _4.Range 
                              SynExpr.TryFinally (_2, _4,mTryToLast,spTry,spFinally) 
                    )
-//# 3097 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3113 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9784 "pars.fs"
+//# 9797 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ifExprCases)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3104 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3120 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mIf = (rhs parseState 1)
                              _3 _2 mIf 
                    )
-//# 3104 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3120 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9797 "pars.fs"
+//# 9810 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3108 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3124 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsIncompleteIf()) 
                              // Produce an approximate expression during error recovery. 
                              // Include expressions to make sure they get type checked in case that generates useful results for intellisense. 
@@ -9809,15 +9822,15 @@ let _fsyacc_reductions ()  =    [|
                              // from the context it is used in. 
                              exprFromParseError _2 
                    )
-//# 3108 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3124 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9814 "pars.fs"
+//# 9827 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3116 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3132 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsIncompleteIf())
                              // Produce an approximate expression during error recovery. There can still be value in doing this even
                              // for this pathological case.
@@ -9826,73 +9839,73 @@ let _fsyacc_reductions ()  =    [|
                              let spIfToThen = SequencePointAtBinding mEnd
                              exprFromParseError (SynExpr.IfThenElse (arbExpr("ifGuard1",mEnd),arbExpr("thenBody1",mEnd),None,spIfToThen,true,m,m)) 
                    )
-//# 3116 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3132 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9831 "pars.fs"
+//# 9844 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3141 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Lazy (_2,unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3141 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9842 "pars.fs"
+//# 9855 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3128 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3144 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Assert (_2, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3128 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3144 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9853 "pars.fs"
+//# 9866 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3131 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3147 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              raiseParseErrorAt (rhs parseState 1) (FSComp.SR.parsAssertIsNotFirstClassValue()) 
                    )
-//# 3131 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3147 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9863 "pars.fs"
+//# 9876 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3150 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Lazy (_2,unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3150 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9874 "pars.fs"
+//# 9887 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3137 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3153 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Assert (_2, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3137 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3153 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9885 "pars.fs"
+//# 9898 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3140 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              raiseParseErrorAt (rhs parseState 1) (FSComp.SR.parsAssertIsNotFirstClassValue()) 
                    )
-//# 3140 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9895 "pars.fs"
+//# 9908 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -9901,15 +9914,15 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3143 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mWhileHeader = unionRanges (rhs parseState 1) _2.Range
                              let spWhile = SequencePointAtWhileLoop mWhileHeader 
                              let mWhileAll = unionRanges (rhs parseState 1) _4.Range
                              SynExpr.While (spWhile,_2,_4,mWhileAll) 
                    )
-//# 3143 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9912 "pars.fs"
+//# 9925 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -9918,16 +9931,16 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3149 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _5 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileWhile())
                              let mWhileHeader = unionRanges (rhs parseState 1) _2.Range
                              let spWhile = SequencePointAtWhileLoop mWhileHeader 
                              let mWhileAll = unionRanges (rhs parseState 1) _4.Range
                              exprFromParseError (SynExpr.While (spWhile,_2,_4,mWhileAll)) 
                    )
-//# 3149 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9930 "pars.fs"
+//# 9943 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -9935,7 +9948,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3172 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              // silent recovery 
                              let mWhileHeader = unionRanges (rhs parseState 1) _2.Range
                              let spWhile = SequencePointAtWhileLoop mWhileHeader 
@@ -9943,16 +9956,16 @@ let _fsyacc_reductions ()  =    [|
                              let mWhileAll = unionRanges (rhs parseState 1) (rhs parseState 5)
                              SynExpr.While (spWhile,_2,arbExpr("whileBody1",mWhileBodyArb),mWhileAll) 
                    )
-//# 3156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3172 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9948 "pars.fs"
+//# 9961 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3164 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3180 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsWhileDoExpected())
                              let mWhileHeader = unionRanges (rhs parseState 1) _2.Range
                              let spWhile = SequencePointAtWhileLoop mWhileHeader 
@@ -9960,27 +9973,27 @@ let _fsyacc_reductions ()  =    [|
                              let mWhileAll = unionRanges (rhs parseState 1) (rhs parseState 3)
                              exprFromParseError (SynExpr.While (spWhile,_2,arbExpr("whileBody2",mWhileBodyArb),mWhileAll))  
                    )
-//# 3164 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3180 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9965 "pars.fs"
+//# 9978 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3172 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3188 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _2 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileWhile())
                              arbExpr("whileLoop1",rhs parseState 1)  
                    )
-//# 3172 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3188 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9977 "pars.fs"
+//# 9990 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doneDeclEnd)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3192 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              //silent recovery
                              let mWhileHeader = rhs parseState 1
                              let spWhile = SequencePointAtWhileLoop mWhileHeader 
@@ -9988,9 +10001,9 @@ let _fsyacc_reductions ()  =    [|
                              let mWhileAll = unionRanges (rhs parseState 1) (rhs parseState 3)
                              exprFromParseError (SynExpr.While (spWhile,arbExpr("whileGuard1",mWhileHeader),arbExpr("whileBody3",mWhileBodyArb),mWhileAll))  
                    )
-//# 3176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3192 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 9993 "pars.fs"
+//# 10006 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopBinder)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -9999,14 +10012,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3200 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let spBind = SequencePointAtForLoop(rhs2 parseState 1 3)
                              let (a,b,_) = _2 
                              SynExpr.ForEach (spBind,SeqExprOnly false,true,a,b,_4,unionRanges (rhs parseState 1) _4.Range) 
                    )
-//# 3184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3200 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10009 "pars.fs"
+//# 10022 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopBinder)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -10015,16 +10028,16 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3189 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _5 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileFor())
                              let spBind = SequencePointAtForLoop(rhs2 parseState 1 3)
                              let (a,b,_) = _2 
                              let mForLoopAll = unionRanges (rhs parseState 1) _4.Range
                              SynExpr.ForEach (spBind,SeqExprOnly false,true,a,b,_4,mForLoopAll) 
                    )
-//# 3189 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10027 "pars.fs"
+//# 10040 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopBinder)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -10032,7 +10045,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3196 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3212 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              // Silent recovery
                              let mForLoopHeader = rhs2 parseState 1 3
                              let spBind = SequencePointAtForLoop mForLoopHeader
@@ -10041,9 +10054,9 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 5
                              SynExpr.ForEach (spBind,SeqExprOnly false,true,a,b,arbExpr("forLoopBody2a",mForLoopBodyArb),mForLoopAll) 
                    )
-//# 3196 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3212 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10046 "pars.fs"
+//# 10059 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopBinder)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -10051,7 +10064,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3221 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _4 then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsExpectedExpressionAfterToken())
                              let mForLoopHeader = rhs2 parseState 1 3
                              let spBind = SequencePointAtForLoop mForLoopHeader
@@ -10060,16 +10073,16 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 3
                              SynExpr.ForEach (spBind,SeqExprOnly false,true,a,b,arbExpr("forLoopBody2",mForLoopBodyArb),mForLoopAll) 
                    )
-//# 3205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3221 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10065 "pars.fs"
+//# 10078 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopBinder)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3214 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3230 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let (a,b,ok) = _2 
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsForDoExpected())
                              let mForLoopHeader = rhs2 parseState 1 3
@@ -10078,9 +10091,9 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 3
                              SynExpr.ForEach (spBind,SeqExprOnly false,true,a,b,arbExpr("forLoopBody1",mForLoopBodyArb),mForLoopAll) 
                    )
-//# 3214 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3230 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10083 "pars.fs"
+//# 10096 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopRange)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -10089,16 +10102,16 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3223 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mForLoopHeader = rhs2 parseState 1 3
                              let spBind = SequencePointAtForLoop mForLoopHeader
                              let (a,b,c,d) = _2 
                              let mForLoopAll = unionRanges (rhs parseState 1) _4.Range
                              SynExpr.For (spBind,a,b,c,d,_4,mForLoopAll) 
                    )
-//# 3223 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10101 "pars.fs"
+//# 10114 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopRange)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -10107,7 +10120,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3230 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3246 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _5 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileFor())
                              // Still produce an expression
                              let mForLoopHeader = rhs2 parseState 1 3
@@ -10116,9 +10129,9 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = unionRanges (rhs parseState 1) _4.Range
                              exprFromParseError (SynExpr.For (spBind,a,b,c,d,_4,mForLoopAll)) 
                    )
-//# 3230 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3246 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10121 "pars.fs"
+//# 10134 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopRange)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -10126,7 +10139,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3255 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              // silent recovery 
                              let mForLoopHeader = rhs2 parseState 1 3
                              let spBind = SequencePointAtForLoop mForLoopHeader
@@ -10135,9 +10148,9 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 5
                              SynExpr.For (spBind,a,b,c,d,arbExpr("declExpr11",mForLoopBodyArb),mForLoopAll) 
                    )
-//# 3239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3255 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10140 "pars.fs"
+//# 10153 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopRange)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
@@ -10145,7 +10158,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3264 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _4 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileFor())
                              let mForLoopHeader = rhs2 parseState 1 3
                              let spBind = SequencePointAtForLoop mForLoopHeader
@@ -10154,16 +10167,16 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 3
                              exprFromParseError (SynExpr.For (spBind,a,b,c,d,arbExpr("declExpr11",mForLoopBodyArb),mForLoopAll)) 
                    )
-//# 3248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3264 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10159 "pars.fs"
+//# 10172 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopRange)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3257 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3273 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileFor())
                              let mForLoopHeader = rhs2 parseState 1 2
                              let spBind = SequencePointAtForLoop mForLoopHeader
@@ -10172,9 +10185,9 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 2
                              exprFromParseError (SynExpr.For (spBind,a,b,c,d,arbExpr("declExpr11",mForLoopBodyArb),mForLoopAll)) 
                    )
-//# 3257 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3273 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10177 "pars.fs"
+//# 10190 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'doToken)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
@@ -10182,35 +10195,35 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3267 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3283 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              // silent recovery 
                              let mForLoopHeader = rhs2 parseState 1 2
                              let mForLoopAll = unionRanges (rhs parseState 1) _4.Range
                              let spBind = SequencePointAtForLoop(mForLoopHeader)
                              SynExpr.For (spBind,mkSynId mForLoopHeader "_loopVar",arbExpr("startLoopRange1",mForLoopHeader),true,arbExpr("endLoopRange1",rhs parseState 3),_4,mForLoopAll) 
                    )
-//# 3267 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3283 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10194 "pars.fs"
+//# 10207 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3302 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsIdentifierExpected())
                              arbExpr("declExpr12",(rhs parseState 1)) 
                    )
-//# 3286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3302 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10206 "pars.fs"
+//# 10219 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'doneDeclEnd)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3306 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsInOrEqualExpected())
                              let mForLoopHeader = rhs2 parseState 1 2
                              let spBind = SequencePointAtForLoop mForLoopHeader
@@ -10218,16 +10231,16 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 4
                              SynExpr.ForEach (spBind,SeqExprOnly false,true,_2,arbExpr("forLoopCollection",mForLoopHeader),arbExpr("forLoopBody3",mForLoopBodyArb),mForLoopAll) 
                    )
-//# 3290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3306 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10223 "pars.fs"
+//# 10236 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3298 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileFor())
                              let mForLoopHeader = rhs2 parseState 1 2
                              let spBind = SequencePointAtForLoop mForLoopHeader
@@ -10235,33 +10248,33 @@ let _fsyacc_reductions ()  =    [|
                              let mForLoopAll = rhs2 parseState 1 2
                              exprFromParseError (SynExpr.ForEach (spBind,SeqExprOnly false,true,_2,arbExpr("forLoopCollection",mForLoopHeader),arbExpr("forLoopBody3",mForLoopBodyArb),mForLoopAll)) 
                    )
-//# 3298 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10240 "pars.fs"
+//# 10253 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynExpr.YieldOrReturn ((_1,not _1),_2, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10252 "pars.fs"
+//# 10265 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3310 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3326 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynExpr.YieldOrReturnFrom ((_1,not _1), _2, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3310 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3326 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10264 "pars.fs"
+//# 10277 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
@@ -10271,14 +10284,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3313 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3329 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let spBind = SequencePointAtBinding(rhs2 parseState 1 5)
                             let m = unionRanges (rhs parseState 1) _7.Range
                             SynExpr.LetOrUseBang (spBind,(_1 = "use"),true,_2,_4,_7,m) 
                    )
-//# 3313 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3329 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10281 "pars.fs"
+//# 10294 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
@@ -10289,15 +10302,15 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3318 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _5 (if _1 = "use" then "use!" else "let!") (rhs parseState 1)  // report unterminated error 
                             let spBind = SequencePointAtBinding(unionRanges (rhs parseState 1) _4.Range)
                             let m = unionRanges (rhs parseState 1) _7.Range
                             SynExpr.LetOrUseBang (spBind,(_1 = "use"),true,_2,_4,_7,m) 
                    )
-//# 3318 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10300 "pars.fs"
+//# 10313 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynPat)) in
@@ -10307,16 +10320,16 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3324 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3340 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             // error recovery that allows intellisense when writing incomplete computation expressions 
                             let spBind = SequencePointAtBinding(unionRanges (rhs parseState 1) _4.Range) 
                             let mAll = unionRanges (rhs parseState 1) (rhs parseState 7)
                             let m = _4.Range.EndRange // zero-width range
                             SynExpr.LetOrUseBang (spBind,(_1 = "use"),true,_2,_4, SynExpr.ImplicitZero m, mAll) 
                    )
-//# 3324 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3340 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10319 "pars.fs"
+//# 10332 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_OBLOCKSEP)) in
@@ -10324,25 +10337,25 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3347 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let spBind = NoSequencePointAtDoBinding
                             SynExpr.LetOrUseBang (spBind,false,true,SynPat.Const(SynConst.Unit,_2.Range),_2,_5, unionRanges (rhs parseState 1) _5.Range) 
                    )
-//# 3331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3347 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10333 "pars.fs"
+//# 10346 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'hardwhiteDefnBindingsTerminator)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3335 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3351 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynExpr.DoBang (_2, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3335 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3351 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10345 "pars.fs"
+//# 10358 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'forLoopBinder)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_OBLOCKSEP)) in
@@ -10350,205 +10363,205 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3338 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3354 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let spBind = SequencePointAtForLoop(rhs2 parseState 1 2)
                             let (a,b,_) = _2 in SynExpr.ForEach (spBind,SeqExprOnly true,true,a,b,_4,unionRanges (rhs parseState 1) _4.Range) 
                    )
-//# 3338 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3354 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10359 "pars.fs"
+//# 10372 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3342 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3358 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynExpr.Fixed (_2, (unionRanges (rhs parseState 1) _2.Range)) 
                    )
-//# 3342 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3358 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10370 "pars.fs"
+//# 10383 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             errorR(Error(FSComp.SR.parsArrowUseIsLimited(),lhs parseState))
                             SynExpr.YieldOrReturn ((true,true),_2, (unionRanges (rhs parseState 1) _2.Range)) 
                    )
-//# 3345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10382 "pars.fs"
+//# 10395 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3350 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3366 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                              SynExpr.TypeTest (_1,_3, unionRanges _1.Range _3.Range) 
                    )
-//# 3350 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3366 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10394 "pars.fs"
+//# 10407 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3351 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3367 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                              SynExpr.Upcast (_1,_3, unionRanges _1.Range _3.Range) 
                    )
-//# 3351 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3367 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10406 "pars.fs"
+//# 10419 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                              SynExpr.Downcast (_1,_3, unionRanges _1.Range _3.Range) 
                    )
-//# 3352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10418 "pars.fs"
+//# 10431 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3355 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3371 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 ":=" _3 
                    )
-//# 3355 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3371 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10430 "pars.fs"
+//# 10443 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3356 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                          mkSynAssign _1 _3 
                    )
-//# 3356 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10442 "pars.fs"
+//# 10455 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3358 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3374 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                         let exprs,commas = _1 in SynExpr.Tuple (false, List.rev exprs, List.rev commas, (commas.Head, exprs) ||> unionRangeWithListBy (fun e -> e.Range) ) 
                    )
-//# 3358 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3374 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10453 "pars.fs"
+//# 10466 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3359 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3375 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     SynExpr.JoinIn (_1,rhs parseState 2,_3,unionRanges _1.Range _3.Range) 
                    )
-//# 3359 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3375 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10465 "pars.fs"
+//# 10478 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3360 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 "||" _3 
                    )
-//# 3360 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10477 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    mkSynInfix (rhs parseState 2) _1 _2 _3 
-                   )
-//# 3361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10490 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3362 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    mkSynInfix (rhs parseState 2) _1 "or" _3 
-                   )
-//# 3362 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10502 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3363 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    mkSynInfix (rhs parseState 2) _1 "&" _3 
-                   )
-//# 3363 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10514 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3364 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    mkSynInfix (rhs parseState 2) _1 "&&" _3 
-                   )
-//# 3364 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10526 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3365 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3377 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 _2 _3 
                    )
-//# 3365 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3377 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10503 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3378 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    mkSynInfix (rhs parseState 2) _1 "or" _3 
+                   )
+//# 3378 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10515 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    mkSynInfix (rhs parseState 2) _1 "&" _3 
+                   )
+//# 3379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10527 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3380 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    mkSynInfix (rhs parseState 2) _1 "&&" _3 
+                   )
+//# 3380 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10539 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3366 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3381 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    mkSynInfix (rhs parseState 2) _1 _2 _3 
+                   )
+//# 3381 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10552 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3382 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 "=" _3 
                    )
-//# 3366 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3382 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10551 "pars.fs"
+//# 10564 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -10556,24 +10569,24 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3367 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3383 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 _2 _3 
                    )
-//# 3367 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3383 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10564 "pars.fs"
+//# 10577 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3384 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 "$" _3 
                    )
-//# 3368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3384 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10576 "pars.fs"
+//# 10589 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
@@ -10581,12 +10594,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3385 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 "<" _3 
                    )
-//# 3369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3385 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10589 "pars.fs"
+//# 10602 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
@@ -10594,13 +10607,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3370 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3386 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                    if not _3 then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("<"))  
                                                                    exprFromParseError (mkSynInfix (rhs parseState 2) _1 "<" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3370 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3386 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10603 "pars.fs"
+//# 10616 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
@@ -10608,23 +10621,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 ">" _3 
                    )
-//# 3372 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10616 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3373 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    mkSynInfix (rhs parseState 2) _1 _2 _3 
-                   )
-//# 3373 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10629 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -10634,72 +10634,72 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3374 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3389 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 _2 _3 
                    )
-//# 3374 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3389 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10642 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3375 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    SynExpr.App (ExprAtomicFlag.NonAtomic, true, mkSynIdGet (rhs parseState 2) opNameCons,SynExpr.Tuple (false,[_1;_3],[rhs parseState 2],unionRanges _1.Range _3.Range),unionRanges _1.Range _3.Range) 
-                   )
-//# 3375 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10654 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3390 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 _2 _3 
                    )
-//# 3376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3390 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10655 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3391 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    SynExpr.App (ExprAtomicFlag.NonAtomic, true, mkSynIdGet (rhs parseState 2) opNameCons,SynExpr.Tuple (false,[_1;_3],[rhs parseState 2],unionRanges _1.Range _3.Range),unionRanges _1.Range _3.Range) 
+                   )
+//# 3391 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10667 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3377 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    mkSynInfix (rhs parseState 2) _1 "-" _3 
-                   )
-//# 3377 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10679 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3378 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                    mkSynInfix (rhs parseState 2) _1 "*" _3 
-                   )
-//# 3378 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10691 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3392 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 _2 _3 
                    )
-//# 3379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3392 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10680 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3393 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    mkSynInfix (rhs parseState 2) _1 "-" _3 
+                   )
+//# 3393 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10692 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3394 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    mkSynInfix (rhs parseState 2) _1 "*" _3 
+                   )
+//# 3394 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10704 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -10709,146 +10709,146 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3380 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3395 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                     mkSynInfix (rhs parseState 2) _1 _2 _3 
                    )
-//# 3380 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3395 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10717 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3382 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3396 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                    mkSynInfix (rhs parseState 2) _1 _2 _3 
+                   )
+//# 3396 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10730 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3398 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("in")) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 "@in" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3382 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3398 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10729 "pars.fs"
+//# 10742 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3384 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3400 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("||")) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 "||" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3384 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10741 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3386 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
-                   )
-//# 3386 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3400 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10754 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("or")) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "or" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
-                   )
-//# 3388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10766 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3390 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("&")) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "&" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
-                   )
-//# 3390 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10778 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3392 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("&&")) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "&&" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
-                   )
-//# 3392 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10790 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3394 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3402 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3394 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3402 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10767 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("or")) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "or" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+                   )
+//# 3404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10779 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("&")) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "&" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+                   )
+//# 3406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10791 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3408 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("&&")) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "&&" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+                   )
+//# 3408 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10803 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3396 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+                   )
+//# 3410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10816 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3412 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("=")) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 "=" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3396 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3412 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10815 "pars.fs"
+//# 10828 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3398 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3398 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10828 "pars.fs"
+//# 10841 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3400 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3416 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("$")) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 "$" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3400 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10840 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3402 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("<")) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "<" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
-                   )
-//# 3402 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3416 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10853 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -10857,24 +10857,24 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(">")) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 ">" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+//# 3418 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("<")) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "<" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3418 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10866 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+//# 3420 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(">")) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 ">" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3420 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10879 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -10883,73 +10883,73 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3408 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3422 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3408 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3422 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10892 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("::")) 
-                                                                                 SynExpr.App (ExprAtomicFlag.NonAtomic, true, mkSynIdGet (rhs parseState 2) opNameCons,SynExpr.Tuple (false,[_1;(arbExpr("declExprInfix",(rhs parseState 3).StartRange))],[rhs parseState 2],unionRanges _1.Range (rhs parseState 3).StartRange),unionRanges _1.Range (rhs parseState 3).StartRange) 
-                   )
-//# 3410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10904 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3412 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3424 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3412 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3424 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10905 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("::")) 
+                                                                                 SynExpr.App (ExprAtomicFlag.NonAtomic, true, mkSynIdGet (rhs parseState 2) opNameCons,SynExpr.Tuple (false,[_1;(arbExpr("declExprInfix",(rhs parseState 3).StartRange))],[rhs parseState 2],unionRanges _1.Range (rhs parseState 3).StartRange),unionRanges _1.Range (rhs parseState 3).StartRange) 
+                   )
+//# 3426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10917 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("-")) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "-" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
-                   )
-//# 3414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10929 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3416 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("*")) 
-                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "*" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
-                   )
-//# 3416 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 10941 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3418 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3428 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3418 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3428 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10930 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3430 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("-")) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "-" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+                   )
+//# 3430 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10942 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3432 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("*")) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 "*" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+                   )
+//# 3432 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10954 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -10958,156 +10958,169 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3420 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3434 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                                  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
                                                                                  exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
                    )
-//# 3420 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3434 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 10967 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3436 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                                                 reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression(_2)) 
+                                                                                 exprFromParseError(mkSynInfix (rhs parseState 2) _1 _2 (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) 
+                   )
+//# 3436 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 10980 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3423 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3439 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                   _1 
                    )
-//# 3423 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3439 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 10978 "pars.fs"
+//# 10991 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3427 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3443 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let con = SynConst.String (_1,rhs parseState 1)
                              let arg2 = SynExpr.Const (con,con.Range (rhs parseState 1)) 
                              arg2 
                    )
-//# 3427 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3443 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'dynamicArg));
-//# 10991 "pars.fs"
+//# 11004 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3431 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3447 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 
                    )
-//# 3431 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3447 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'dynamicArg));
-//# 11003 "pars.fs"
+//# 11016 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'withPatternClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3435 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3451 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              rhs parseState 1, _2 
                    )
-//# 3435 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3451 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'withClauses));
-//# 11014 "pars.fs"
+//# 11027 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'withPatternClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3437 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3453 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              rhs parseState 1, _2 
                    )
-//# 3437 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3453 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'withClauses));
-//# 11025 "pars.fs"
+//# 11038 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'withPatternClauses)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3439 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3455 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileWith())
                              rhs parseState 1, _2 
                    )
-//# 3439 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3455 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'withClauses));
-//# 11038 "pars.fs"
+//# 11051 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3444 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3460 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3444 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3460 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'withPatternClauses));
-//# 11049 "pars.fs"
+//# 11062 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3446 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3462 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               _2 
                    )
-//# 3446 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3462 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'withPatternClauses));
-//# 11060 "pars.fs"
+//# 11073 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3448 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3464 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               // silent recovery 
                               let mLast = rhs parseState 1
                               [], mLast 
                    )
-//# 3448 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3464 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'withPatternClauses));
-//# 11072 "pars.fs"
+//# 11085 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3452 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3468 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               // silent recovery 
                               let mLast = rhs parseState 1
                               [], mLast 
                    )
-//# 3452 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3468 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'withPatternClauses));
-//# 11084 "pars.fs"
+//# 11097 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternGuard)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3459 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3475 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1, _2, rhs parseState 1 
                    )
-//# 3459 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3475 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternAndGuard));
-//# 11096 "pars.fs"
+//# 11109 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternAndGuard)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3479 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let pat,guard,patm = _1 
                             let mLast = _2.Range 
                             [Clause(pat,guard,_2,patm,SequencePointAtTarget)], mLast  
                    )
-//# 3463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3479 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternClauses));
-//# 11110 "pars.fs"
+//# 11123 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternAndGuard)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
@@ -11115,97 +11128,97 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3467 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3483 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let pat,guard,patm = _1 
                             let clauses,mLast = _4 
                             (Clause(pat,guard,_2,patm,SequencePointAtTarget) :: clauses), mLast 
                    )
-//# 3467 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3483 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternClauses));
-//# 11125 "pars.fs"
+//# 11138 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternAndGuard)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3471 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3487 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let pat,guard,patm = _1 
                             let mLast = rhs parseState 3 
                             // silent recovery 
                             [Clause(pat,guard,_2,patm,SequencePointAtTarget)], mLast  
                    )
-//# 3471 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3487 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternClauses));
-//# 11140 "pars.fs"
+//# 11153 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternAndGuard)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3476 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3492 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let pat,guard,patm = _1 
                             let mLast = _2.Range 
                             // silent recovery 
                             [Clause(pat,guard,_2,patm,SequencePointAtTarget)], mLast 
                    )
-//# 3476 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3492 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternClauses));
-//# 11155 "pars.fs"
+//# 11168 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'patternAndGuard)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3481 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3497 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let pat,guard,patm = _1 
                             let mLast = rhs parseState 2
                             // silent recovery 
                             [Clause(pat,guard,SynExpr.Const (SynConst.Unit,mLast.EndRange),patm,SequencePointAtTarget)], mLast 
                    )
-//# 3481 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3497 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternClauses));
-//# 11169 "pars.fs"
+//# 11182 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3488 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3504 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             Some _2 
                    )
-//# 3488 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3504 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternGuard));
-//# 11180 "pars.fs"
+//# 11193 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3490 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3506 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             None 
                    )
-//# 3490 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3506 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'patternGuard));
-//# 11190 "pars.fs"
+//# 11203 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3494 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3510 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _2 
                    )
-//# 3494 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3510 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11201 "pars.fs"
+//# 11214 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'ifExprThen)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'ifExprElifs)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3498 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3514 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let exprThen,mThen = _1 
                              (fun exprGuard mIf -> 
                                  let mIfToThen = unionRanges mIf mThen
@@ -11214,191 +11227,178 @@ let _fsyacc_reductions ()  =    [|
                                  let spIfToThen = SequencePointAtBinding(mIfToThen)
                                  SynExpr.IfThenElse (exprGuard,exprThen,_2,spIfToThen,false,mIfToThen,mIfToEndOfLastBranch)) 
                    )
-//# 3498 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3514 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprCases));
-//# 11219 "pars.fs"
+//# 11232 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3508 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3524 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2, rhs parseState 1 
                    )
-//# 3508 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3524 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprThen));
-//# 11230 "pars.fs"
+//# 11243 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'oblockend)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3510 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3526 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3,rhs parseState 1 
                    )
-//# 3510 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'ifExprThen));
-//# 11242 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
-            let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3512 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             if not _4 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileThen())
-                             exprFromParseError _3,rhs parseState 1 
-                   )
-//# 3512 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3526 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprThen));
 //# 11255 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
+            let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3517 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3528 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             if not _4 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileThen())
+                             exprFromParseError _3,rhs parseState 1 
+                   )
+//# 3528 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'ifExprThen));
+//# 11268 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3533 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              None 
                    )
-//# 3517 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3533 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprElifs));
-//# 11265 "pars.fs"
+//# 11278 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3520 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3536 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Some _2 
                    )
-//# 3520 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3536 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprElifs));
-//# 11276 "pars.fs"
+//# 11289 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'oblockend)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3523 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3539 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Some _3 
                    )
-//# 3523 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3539 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprElifs));
-//# 11288 "pars.fs"
+//# 11301 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3526 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3542 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _4 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileElse())
                              Some (exprFromParseError _3) 
                    )
-//# 3526 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3542 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprElifs));
-//# 11301 "pars.fs"
+//# 11314 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ifExprCases)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3530 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3546 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mElif = rhs parseState 1 
                              Some (_3 _2 mElif) 
                    )
-//# 3530 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3546 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprElifs));
-//# 11314 "pars.fs"
+//# 11327 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3534 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3550 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Some (exprFromParseError _2) 
                    )
-//# 3534 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3550 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ifExprElifs));
-//# 11326 "pars.fs"
+//# 11339 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3554 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let exprs,commas = _1 in (_3 :: exprs),((rhs parseState 2) :: commas) 
                    )
-//# 3538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3554 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleExpr));
-//# 11338 "pars.fs"
+//# 11351 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3557 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsExpectedExpressionAfterToken())
                              let exprs,commas = _1     
                              let zeroWidthAtNextToken = (rhs parseState 3).StartRange
                              ((arbExpr("tupleExpr1",zeroWidthAtNextToken)) :: exprs), (rhs parseState 2) :: commas 
                    )
-//# 3541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3557 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleExpr));
-//# 11353 "pars.fs"
+//# 11366 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3547 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3563 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsExpectedExpressionAfterToken())
                              let zeroWidthAtNextToken = (rhs parseState 3).StartRange 
                              ((arbExpr("tupleExpr2",zeroWidthAtNextToken)) :: [_1]), [rhs parseState 2] 
                    )
-//# 3547 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3563 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleExpr));
-//# 11367 "pars.fs"
+//# 11380 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3552 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3568 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [_3 ; _1], [rhs parseState 2] 
                    )
-//# 3552 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3568 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleExpr));
-//# 11379 "pars.fs"
+//# 11392 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3556 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3572 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              mkSynPrefix (rhs parseState 1) (unionRanges (rhs parseState 1) _2.Range) "~-" _2 
                    )
-//# 3556 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 11390 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3559 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             if not (IsValidPrefixOperatorUse _1) then reportParseErrorAt _2.Range (FSComp.SR.parsInvalidPrefixOperator())
-                             mkSynPrefix (rhs parseState 1) (unionRanges (rhs parseState 1) _2.Range) ("~"+(_1)) _2 
-                   )
-//# 3559 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3572 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 11403 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -11407,11 +11407,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3563 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3575 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not (IsValidPrefixOperatorUse _1) then reportParseErrorAt _2.Range (FSComp.SR.parsInvalidPrefixOperator())
                              mkSynPrefix (rhs parseState 1) (unionRanges (rhs parseState 1) _2.Range) ("~"+(_1)) _2 
                    )
-//# 3563 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3575 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 11416 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -11420,35 +11420,48 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3567 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3579 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not (IsValidPrefixOperatorUse _1) then reportParseErrorAt _2.Range (FSComp.SR.parsInvalidPrefixOperator())
                              mkSynPrefix (rhs parseState 1) (unionRanges (rhs parseState 1) _2.Range) ("~"+(_1)) _2 
                    )
-//# 3567 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3579 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 11429 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3571 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             SynExpr.AddressOf (true,_2,rhs parseState 1,unionRanges (rhs parseState 1) _2.Range) 
+//# 3583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             if not (IsValidPrefixOperatorUse _1) then reportParseErrorAt _2.Range (FSComp.SR.parsInvalidPrefixOperator())
+                             mkSynPrefix (rhs parseState 1) (unionRanges (rhs parseState 1) _2.Range) ("~"+(_1)) _2 
                    )
-//# 3571 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11440 "pars.fs"
+//# 11442 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3574 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3587 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             SynExpr.AddressOf (true,_2,rhs parseState 1,unionRanges (rhs parseState 1) _2.Range) 
+                   )
+//# 3587 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 11453 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3590 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.AddressOf (false,_2,rhs parseState 1, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3574 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3590 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11451 "pars.fs"
+//# 11464 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_APP)) in
@@ -11456,711 +11469,711 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3577 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3593 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.New (false,_2,_4,unionRanges (rhs parseState 1) _4.Range) 
                    )
-//# 3577 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3593 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11464 "pars.fs"
+//# 11477 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_APP)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3596 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.New (false,_2,arbExpr("minusExpr",(rhs parseState 4)),unionRanges (rhs parseState 1) (_2).Range) 
                    )
-//# 3580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3596 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11476 "pars.fs"
+//# 11489 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              arbExpr("minusExpr2",(rhs parseState 1)) 
                    )
-//# 3583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11486 "pars.fs"
+//# 11499 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3586 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3602 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.InferredUpcast (_2,unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3586 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3602 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11497 "pars.fs"
+//# 11510 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3589 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3605 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.InferredDowncast (_2,unionRanges (rhs parseState 1) _2.Range)
                    )
-//# 3589 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3605 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11508 "pars.fs"
+//# 11521 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3592 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3608 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3592 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3608 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11519 "pars.fs"
+//# 11532 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3596 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3612 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.App (ExprAtomicFlag.NonAtomic, false, _1,_2,unionRanges _1.Range _2.Range)  
                    )
-//# 3596 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3612 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11531 "pars.fs"
+//# 11544 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3615 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg,_ = _1 
                              arg 
                    )
-//# 3599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3615 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 11543 "pars.fs"
+//# 11556 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3604 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3620 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg2,hpa2 = _2 
                              if not (IsValidPrefixOperatorUse _1) then reportParseErrorAt arg2.Range (FSComp.SR.parsInvalidPrefixOperator())
                              if hpa2 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsSuccessiveArgsShouldBeSpacedOrTupled())
                              mkSynPrefix (rhs parseState 1) (unionRanges (rhs parseState 1) arg2.Range) ("~"+(_1)) arg2 
                    )
-//# 3604 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr));
-//# 11558 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3610 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             let arg,hpa = _1 
-                             if hpa then reportParseErrorAt arg.Range (FSComp.SR.parsSuccessiveArgsShouldBeSpacedOrTupled())
-                             arg 
-                   )
-//# 3610 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3620 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
 //# 11571 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3616 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             let arg1,_ = _1 
-                             let arg2,_ = _3 
-                             SynExpr.App (ExprAtomicFlag.Atomic, false, arg1,arg2,unionRanges arg1.Range arg2.Range),true  
+//# 3626 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let arg,hpa = _1 
+                             if hpa then reportParseErrorAt arg.Range (FSComp.SR.parsSuccessiveArgsShouldBeSpacedOrTupled())
+                             arg 
                    )
-//# 3616 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : Ast.SynExpr * bool));
-//# 11585 "pars.fs"
+//# 3626 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr));
+//# 11584 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3621 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3632 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg1,_ = _1 
                              let arg2,_ = _3 
                              SynExpr.App (ExprAtomicFlag.Atomic, false, arg1,arg2,unionRanges arg1.Range arg2.Range),true  
                    )
-//# 3621 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3632 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11599 "pars.fs"
+//# 11598 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3637 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let arg1,_ = _1 
+                             let arg2,_ = _3 
+                             SynExpr.App (ExprAtomicFlag.Atomic, false, arg1,arg2,unionRanges arg1.Range arg2.Range),true  
+                   )
+//# 3637 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : Ast.SynExpr * bool));
+//# 11612 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : range * range option * bool     * Ast.SynType list * range list * range)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3626 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3642 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg1,_ = _1 
                              let mLessThan,mGreaterThan,_,args,commas,mTypeArgs = _3
                              let mWholeExpr = unionRanges arg1.Range mTypeArgs
                              SynExpr.TypeApp (arg1, mLessThan, args, commas, mGreaterThan, mTypeArgs, mWholeExpr), false 
                    )
-//# 3626 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3642 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11614 "pars.fs"
+//# 11627 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3632 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3648 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg2,hpa2 = _2 
                              if not (IsValidPrefixOperatorUse _1) then reportParseErrorAt arg2.Range (FSComp.SR.parsInvalidPrefixOperator())
                              mkSynPrefixPrim (rhs parseState 1) (unionRanges (rhs parseState 1) arg2.Range) _1 arg2,hpa2 
                    )
-//# 3632 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3648 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11628 "pars.fs"
+//# 11641 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicExprQualification)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3637 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3653 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg1,hpa1 = _1 
                              _3 arg1 (lhs parseState) (rhs parseState 2),hpa1 
                    )
-//# 3637 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3653 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11641 "pars.fs"
+//# 11654 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicExprQualification)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3641 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3657 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg1 = SynExpr.Ident (ident("base",rhs parseState 1))
                              _3 arg1 (lhs parseState) (rhs parseState 2),false 
                    )
-//# 3641 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3657 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11653 "pars.fs"
+//# 11666 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'nameop)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3645 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.LongIdent (true,LongIdentWithDots([_2],[]),None,rhs parseState 2),false 
                    )
-//# 3645 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11664 "pars.fs"
+//# 11677 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'dynamicArg)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3648 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3664 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let arg1,hpa1 = _1
                              mkSynInfix (rhs parseState 2) arg1 "?" _3, hpa1 
                    )
-//# 3648 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3664 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11677 "pars.fs"
+//# 11690 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3652 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Ident (ident(MangledGlobalName,rhs parseState 1)), false 
                    )
-//# 3652 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11687 "pars.fs"
+//# 11700 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'nameop)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3655 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3671 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Ident (_1),false 
                    )
-//# 3655 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3671 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11698 "pars.fs"
+//# 11711 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'listExprElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3658 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3674 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 (lhs parseState) false,false 
                    )
-//# 3658 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3674 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11709 "pars.fs"
+//# 11722 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'listExprElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracket()) 
                              exprFromParseError (_2 (rhs2 parseState 1 2) false), false 
                    )
-//# 3661 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11722 "pars.fs"
+//# 11735 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3665 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              // silent recovery 
                              SynExpr.ArrayOrList (false,[ ], lhs parseState),false  
                    )
-//# 3665 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11733 "pars.fs"
+//# 11746 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3669 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3685 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracket()) 
                              // silent recovery 
                              exprFromParseError (SynExpr.ArrayOrList (false,[ ], rhs parseState 1)),false  
                    )
-//# 3669 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3685 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11746 "pars.fs"
+//# 11759 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3674 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3690 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let exprs,commas = _3 in SynExpr.Tuple (true, List.rev exprs, List.rev commas, (commas.Head, exprs) ||> unionRangeWithListBy (fun e -> e.Range) ), false 
                    )
-//# 3674 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3690 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11758 "pars.fs"
+//# 11771 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3693 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedBracket()); 
                              let exprs,commas = _3 in SynExpr.Tuple (true, List.rev exprs, List.rev commas, (commas.Head, exprs) ||> unionRangeWithListBy (fun e -> e.Range) ), false 
                    )
-//# 3677 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3693 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11771 "pars.fs"
+//# 11784 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3697 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1,false 
                    )
-//# 3681 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3697 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr * bool));
-//# 11782 "pars.fs"
+//# 11795 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'identOrOp)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3685 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3701 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let idm = rhs parseState 1 
                              (fun e lhsm dotm -> mkSynDot dotm lhsm e _1) 
                    )
-//# 3685 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'atomicExprQualification));
-//# 11794 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             (fun e lhsm dotm -> 
-                                 reportParseErrorAt (rhs parseState 3) (FSComp.SR.nrGlobalUsedOnlyAsFirstName()) 
-                                 let fixedLhsm = mkRange lhsm.FileName lhsm.Start dotm.End // previous lhsm is wrong after 'recover'
-                                 mkSynDotMissing dotm fixedLhsm e) 
-                   )
-//# 3689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3701 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
 //# 11807 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3695 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3705 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             (fun e lhsm dotm -> 
+                                 reportParseErrorAt (rhs parseState 3) (FSComp.SR.nrGlobalUsedOnlyAsFirstName()) 
+                                 let fixedLhsm = mkRange lhsm.FileName lhsm.Start dotm.End // previous lhsm is wrong after 'recover'
+                                 mkSynDotMissing dotm fixedLhsm e) 
+                   )
+//# 3705 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'atomicExprQualification));
+//# 11820 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3711 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun e lhsm dotm -> 
                                  reportParseErrorAt dotm (FSComp.SR.parsMissingQualificationAfterDot()) 
                                  let fixedLhsm = mkRange lhsm.FileName lhsm.Start dotm.End // previous lhsm is wrong after 'recover'
                                  mkSynDotMissing dotm fixedLhsm e) 
                    )
-//# 3695 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3711 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11820 "pars.fs"
+//# 11833 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3700 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3716 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun e lhsm dotm -> 
                                  reportParseErrorAt dotm (FSComp.SR.parsMissingQualificationAfterDot()) 
                                  let fixedLhsm = mkRange lhsm.FileName lhsm.Start dotm.End // previous lhsm is wrong after 'recover'
                                  // Include 'e' in the returned expression but throw it away
                                  SynExpr.DiscardAfterMissingQualificationAfterDot (e,fixedLhsm)) 
                    )
-//# 3700 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3716 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11835 "pars.fs"
+//# 11848 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             let _5 = (let data = parseState.GetInput(5) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3706 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3722 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun e lhsm dotm -> 
                                  libraryOnlyError(lhs parseState)
                                  SynExpr.LibraryOnlyUnionCaseFieldGet (e,mkSynCaseName lhsm opNameCons,(fst _5),lhsm)) 
                    )
-//# 3706 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3722 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11849 "pars.fs"
+//# 11862 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3711 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3727 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun e lhsm dotm -> 
                                  mlCompatWarning (FSComp.SR.parsParenFormIsForML()) (lhs parseState) 
                                  mkSynDotParenGet lhsm dotm e _2) 
                    )
-//# 3711 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3727 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11863 "pars.fs"
+//# 11876 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3716 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3732 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun e lhsm dotm -> mkSynDotBrackGet lhsm dotm e _2) 
                    )
-//# 3716 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'atomicExprQualification));
-//# 11874 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
-            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 3719 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracket()) 
-                             (fun e lhsm dotm -> exprFromParseError (mkSynDotBrackGet lhsm dotm e _2)) 
-                   )
-//# 3719 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3732 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
 //# 11887 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
+            let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 3735 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracket()) 
+                             (fun e lhsm dotm -> exprFromParseError (mkSynDotBrackGet lhsm dotm e _2)) 
+                   )
+//# 3735 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'atomicExprQualification));
+//# 11900 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'optRangeSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3723 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3739 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun e lhsm dotm -> mkSynDotBrackSeqSliceGet lhsm dotm e _2) 
                    )
-//# 3723 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3739 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11898 "pars.fs"
+//# 11911 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'optRangeSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3726 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3742 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracket()) 
                              (fun e lhsm dotm -> exprFromParseError (mkSynDotBrackSeqSliceGet lhsm dotm e _2)) 
                    )
-//# 3726 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3742 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11911 "pars.fs"
+//# 11924 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3730 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3746 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mArg = rhs2 parseState 1 3
                              (fun e lhsm dotm -> mkSynDotBrackGet lhsm dotm e (arbExpr("indexerExpr1",mArg))) 
                    )
-//# 3730 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3746 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11922 "pars.fs"
+//# 11935 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3734 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracket())
                              let mArg = (rhs parseState 1).EndRange 
                              (fun e lhsm dotm -> exprFromParseError (mkSynDotBrackGet lhsm dotm e (arbExpr("indexerExpr2",mArg)))) 
                    )
-//# 3734 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomicExprQualification));
-//# 11935 "pars.fs"
+//# 11948 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'optRange)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'optRangeSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3739 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3755 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                             _1 :: _3 
                    )
-//# 3739 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3755 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optRangeSeqExpr));
-//# 11947 "pars.fs"
+//# 11960 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'optRange)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3740 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     [_1] 
                    )
-//# 3740 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optRangeSeqExpr));
-//# 11958 "pars.fs"
+//# 11971 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3744 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3760 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynIndexerArg.Two(mkSynOptionalExpr (rhs parseState 1) (Some _1), mkSynOptionalExpr (rhs parseState 3) (Some _3)) 
                    )
-//# 3744 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3760 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optRange));
-//# 11970 "pars.fs"
+//# 11983 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3747 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3763 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynIndexerArg.Two(mkSynOptionalExpr (rhs parseState 1) (Some _1), mkSynOptionalExpr (rhs parseState 2) None) 
                    )
-//# 3747 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3763 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optRange));
-//# 11981 "pars.fs"
+//# 11994 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3766 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynIndexerArg.Two(mkSynOptionalExpr (rhs parseState 1) None, mkSynOptionalExpr (rhs parseState 2) (Some _2)) 
                    )
-//# 3750 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3766 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optRange));
-//# 11992 "pars.fs"
+//# 12005 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3753 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3769 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynIndexerArg.Two(mkSynOptionalExpr (rhs parseState 1) None, mkSynOptionalExpr (rhs parseState 1) None) 
                    )
-//# 3753 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3769 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optRange));
-//# 12002 "pars.fs"
+//# 12015 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3772 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynIndexerArg.One(_1) 
                    )
-//# 3756 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3772 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'optRange));
-//# 12013 "pars.fs"
+//# 12026 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'constant)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3761 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Const (_1,_1.Range (lhs parseState)) 
                    )
-//# 3761 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12024 "pars.fs"
+//# 12037 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3763 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3763 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12035 "pars.fs"
+//# 12048 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3765 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3781 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3765 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3781 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12046 "pars.fs"
+//# 12059 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceBarExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3767 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3783 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3767 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3783 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12057 "pars.fs"
+//# 12070 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3769 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3785 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Null (lhs parseState) 
                    )
-//# 3769 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3785 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12067 "pars.fs"
+//# 12080 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3771 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3787 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Const (SynConst.Bool false,lhs parseState) 
                    )
-//# 3771 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3787 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12077 "pars.fs"
+//# 12090 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Const (SynConst.Bool true,lhs parseState) 
                    )
-//# 3773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12087 "pars.fs"
+//# 12100 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'quoteExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3775 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3791 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3775 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3791 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12098 "pars.fs"
+//# 12111 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'arrayExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12109 "pars.fs"
+//# 12122 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'beginEndExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3795 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3779 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3795 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynExpr));
-//# 12120 "pars.fs"
+//# 12133 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3783 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3799 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Paren (_2, rhs parseState 1, Some(rhs parseState 3), rhs2 parseState 1 3) 
                    )
-//# 3783 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3799 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'beginEndExpr));
-//# 12131 "pars.fs"
+//# 12144 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3786 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3802 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBegin()); exprFromParseError _2 
                    )
-//# 3786 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3802 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'beginEndExpr));
-//# 12143 "pars.fs"
+//# 12156 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3805 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (* silent recovery *) arbExpr("beginEndExpr",(lhs parseState))  
                    )
-//# 3789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3805 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'beginEndExpr));
-//# 12153 "pars.fs"
+//# 12166 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3792 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              mkSynUnit (lhs parseState) 
                    )
-//# 3792 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'beginEndExpr));
-//# 12163 "pars.fs"
+//# 12176 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string * bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
@@ -12168,13 +12181,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3796 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if _1 <> _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsMismatchedQuote(fst _1))
                              (SynExpr.Quote (mkSynIdGet (lhs parseState) (CompileOpName (fst _1)), snd _1, _2, false, lhs parseState)) 
                    )
-//# 3796 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'quoteExpr));
-//# 12177 "pars.fs"
+//# 12190 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string * bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
@@ -12182,196 +12195,196 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3800 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatched(fst _1))  
                              let mExpr = rhs2 parseState 1 2
                              exprFromParseError (SynExpr.Quote (mkSynIdGet (lhs parseState) (CompileOpName (fst _1)),snd _1, _2, false, mExpr))  
                    )
-//# 3800 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'quoteExpr));
-//# 12192 "pars.fs"
+//# 12205 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string * bool)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : string * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3805 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3821 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (* silent recovery *) SynExpr.Quote (mkSynIdGet (lhs parseState) (CompileOpName (fst _1)),snd _1, arbExpr("quoteExpr",(rhs parseState 2)), false, lhs parseState)  
                    )
-//# 3805 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3821 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'quoteExpr));
-//# 12204 "pars.fs"
+//# 12217 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string * bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatched(fst _1))
                              exprFromParseError (SynExpr.Quote (mkSynIdGet (lhs parseState) (CompileOpName (fst _1)),snd _1, arbExpr("quoteExpr2",(rhs parseState 1).EndRange), false, rhs parseState 1))  
                    )
-//# 3808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'quoteExpr));
-//# 12217 "pars.fs"
+//# 12230 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'listExprElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3813 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3829 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               _2 (lhs parseState) true 
                    )
-//# 3813 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3829 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayExpr));
-//# 12228 "pars.fs"
+//# 12241 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'listExprElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3832 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracketBar()) 
                              exprFromParseError (_2 (rhs2 parseState 1 2) true) 
                    )
-//# 3816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3832 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayExpr));
-//# 12241 "pars.fs"
+//# 12254 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3836 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               (* silent recovery *) SynExpr.ArrayOrList (true,[ ], lhs parseState) 
                    )
-//# 3820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3836 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayExpr));
-//# 12251 "pars.fs"
+//# 12264 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3823 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracketBar())  
                              (* silent recovery *) 
                              exprFromParseError (SynExpr.ArrayOrList (true,[ ], rhs parseState 1)) 
                    )
-//# 3823 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayExpr));
-//# 12264 "pars.fs"
+//# 12277 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3829 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynExpr.Const (SynConst.Unit,(rhs2 parseState 1 2)) 
                    )
-//# 3829 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12275 "pars.fs"
+//# 12288 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenExprBody)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3832 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3848 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let m = rhs2 parseState 1 3
                              SynExpr.Paren (_2 m, rhs parseState 1, Some(rhs parseState 3), m) 
                    )
-//# 3832 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3848 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12288 "pars.fs"
+//# 12301 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenExprBody)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_other_than_rparen_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3836 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3852 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not _3 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen())
                              let lhsm = unionRangeWithPos (rhs parseState 1) (rhs parseState 2).End
                              SynExpr.Paren (exprFromParseError (_2 lhsm), rhs parseState 1, None, lhsm) 
                    )
-//# 3836 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3852 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12302 "pars.fs"
+//# 12315 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3841 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              // silent recovery
                              SynExpr.Paren (arbExpr("parenExpr1",(rhs parseState 1).EndRange),(rhs parseState 1),Some(rhs parseState 3),(rhs2 parseState 1 3)) 
                    )
-//# 3841 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12314 "pars.fs"
+//# 12327 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3861 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen())
                              let lhsm = unionRangeWithPos (rhs parseState 1) (rhs parseState 2).Start
                              arbExpr("parenExpr2tcs", lhsm) 
                    )
-//# 3845 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3861 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12326 "pars.fs"
+//# 12339 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3850 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen())
                              let lhsm = unionRangeWithPos (rhs parseState 1) (rhs parseState 2).Start
                              arbExpr("parenExpr2mcs", lhsm) 
                    )
-//# 3850 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12338 "pars.fs"
+//# 12351 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3855 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3871 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen())
                              let lhsm = unionRangeWithPos (rhs parseState 1) (rhs parseState 2).Start
                              arbExpr("parenExpr2rbcs", lhsm) 
                    )
-//# 3855 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3871 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12350 "pars.fs"
+//# 12363 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let lparenRange = (rhs parseState 1)
                              reportParseErrorAt lparenRange (FSComp.SR.parsUnmatchedParen())
                              SynExpr.Paren(arbExpr("parenExpr2obecs", lparenRange.EndRange), lparenRange, None, lparenRange) 
                    )
-//# 3860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12362 "pars.fs"
+//# 12375 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3865 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()) 
                              arbExpr("parenExpr2",(lhs parseState))  
                    )
-//# 3865 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExpr));
-//# 12374 "pars.fs"
+//# 12387 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticallyKnownHeadTypars)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'classMemberSpfn)) in
@@ -12380,227 +12393,227 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3877 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3893 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun m -> SynExpr.TraitCall (_1,_4,_6,m)) 
                    )
-//# 3877 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3893 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExprBody));
-//# 12388 "pars.fs"
+//# 12401 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3879 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3895 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (fun _m -> _1) 
                    )
-//# 3879 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3895 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExprBody));
-//# 12399 "pars.fs"
+//# 12412 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'inlineAssemblyExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3897 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 3881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3897 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'parenExprBody));
-//# 12410 "pars.fs"
+//# 12423 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticallyKnownHeadTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3885 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3901 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [_1] 
                    )
-//# 3885 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3901 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticallyKnownHeadTypars));
-//# 12421 "pars.fs"
+//# 12434 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticallyKnownHeadTyparAlts)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3888 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3904 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              List.rev _2 
                    )
-//# 3888 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3904 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticallyKnownHeadTypars));
-//# 12433 "pars.fs"
+//# 12446 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticallyKnownHeadTyparAlts)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticallyKnownHeadTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3892 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _3 :: _1
                    )
-//# 3892 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticallyKnownHeadTyparAlts));
-//# 12445 "pars.fs"
+//# 12458 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticallyKnownHeadTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3895 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3911 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [_1] 
                    )
-//# 3895 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3911 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticallyKnownHeadTyparAlts));
-//# 12456 "pars.fs"
+//# 12469 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceExprBody)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3899 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3915 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let m,r = _2 in r (rhs2 parseState 1 3) 
                    )
-//# 3899 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3915 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExpr));
-//# 12468 "pars.fs"
+//# 12481 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceExprBody)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3902 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3918 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBrace())  
                             let m,r = _2 
                             // Note, we can't use 'exprFromParseError' because the extra syntax node interferes with some syntax-directed transformations for computation expressions
                             r (unionRanges (rhs parseState 1) m) 
                    )
-//# 3902 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3918 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExpr));
-//# 12483 "pars.fs"
+//# 12496 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             // silent recovery 
                             arbExpr("braceExpr",rhs2 parseState 1 3)  
                    )
-//# 3908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExpr));
-//# 12495 "pars.fs"
+//# 12508 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3912 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBrace())  
                             // Note, we can't use 'exprFromParseError' because the extra syntax node interferes with some syntax-directed transformations for computation expressions
                             SynExpr.Record (None,None,[],rhs parseState 1) 
                    )
-//# 3912 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExpr));
-//# 12508 "pars.fs"
+//# 12521 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3933 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let m = rhs2 parseState 1 2 
                              SynExpr.Record (None,None,[],m) 
                    )
-//# 3917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3933 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExpr));
-//# 12520 "pars.fs"
+//# 12533 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (lhs parseState), (fun m -> let a,b,c = _1 in SynExpr.Record (a,b,c,m)) 
                    )
-//# 3922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExprBody));
-//# 12531 "pars.fs"
+//# 12544 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3925 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 3925 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExprBody));
-//# 12542 "pars.fs"
+//# 12555 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'monadicExprInitial)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3944 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m,r = _1 in (m, r false) 
                    )
-//# 3928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3944 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceExprBody));
-//# 12553 "pars.fs"
+//# 12566 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'monadicExprInitial)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3948 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m,r = _1 in (fun lhsm isArray -> SynExpr.ArrayOrListOfSeqExpr (isArray, r true m, lhsm)) 
                    )
-//# 3932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3948 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'listExprElements));
-//# 12564 "pars.fs"
+//# 12577 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3934 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3950 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (fun lhsm isArray -> SynExpr.ArrayOrList (isArray,[ ], lhsm)) 
                    )
-//# 3934 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3950 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'listExprElements));
-//# 12574 "pars.fs"
+//# 12587 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'seqExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3954 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1.Range, (fun isArrayOrList lhsm -> SynExpr.CompExpr (isArrayOrList,ref(isArrayOrList),_1,lhsm)) 
                    )
-//# 3938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3954 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'monadicExprInitial));
-//# 12585 "pars.fs"
+//# 12598 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'rangeSequenceExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3957 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 3941 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3957 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'monadicExprInitial));
-//# 12596 "pars.fs"
+//# 12609 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3945 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3961 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let opm = (rhs parseState 2)
                             (unionRanges _1.Range _3.Range),(fun _isArray wholem -> 
                                                                      // in the case of "{ 1 .. 10 }", we want the range of the expression to include the curlies, that comes from a higher level rule in the grammar,
@@ -12609,9 +12622,9 @@ let _fsyacc_reductions ()  =    [|
                                                                      | SynExpr.App (a,b,c,d,_) -> SynExpr.App (a,b,c,d,wholem)
                                                                      | _ -> failwith "impossible") 
                    )
-//# 3945 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3961 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rangeSequenceExpr));
-//# 12614 "pars.fs"
+//# 12627 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
@@ -12619,19 +12632,19 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3953 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (unionRanges _1.Range _5.Range),(fun _isArray wholem -> mkSynTrifix wholem ".. .." _1 _3 _5) 
                    )
-//# 3953 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rangeSequenceExpr));
-//# 12627 "pars.fs"
+//# 12640 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _3 then reportParseErrorAt (rhs parseState 3) (FSComp.SR.parsUnexpectedEndOfFileExpression())
                             let opm = (rhs parseState 2)
                             let e = arbExpr("rangeSeqError1", (rhs parseState 3).StartRange)
@@ -12642,70 +12655,70 @@ let _fsyacc_reductions ()  =    [|
                                                                      | SynExpr.App (a,b,c,d,_) -> SynExpr.App (a,b,c,d,wholem)
                                                                      | _ -> failwith "impossible") 
                    )
-//# 3956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rangeSequenceExpr));
-//# 12647 "pars.fs"
+//# 12660 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3985 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynExpr.YieldOrReturn ((true,false), _2, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 3969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3985 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrowThenExprR));
-//# 12658 "pars.fs"
+//# 12671 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3974 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3990 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (_1, _3, true) 
                    )
-//# 3974 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3990 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopBinder));
-//# 12670 "pars.fs"
+//# 12683 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rangeSequenceExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3977 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3993 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m,r = _3 in (_1, r false m, true) 
                    )
-//# 3977 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3993 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopBinder));
-//# 12682 "pars.fs"
+//# 12695 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3980 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _3 then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsExpectedExpressionAfterToken())
                             (_1, arbExpr("forLoopBinder",(rhs parseState 2)), false) 
                    )
-//# 3980 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 3996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopBinder));
-//# 12695 "pars.fs"
+//# 12708 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3984 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _2 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsInOrEqualExpected())
                             (_1, arbExpr("forLoopBinder2",(rhs parseState 1).EndRange), false) 
                    )
-//# 3984 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopBinder));
-//# 12708 "pars.fs"
+//# 12721 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
@@ -12714,44 +12727,44 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3989 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4005 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              idOfPat (rhs parseState 1) _1,_3,_4,_5 
                    )
-//# 3989 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4005 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopRange));
-//# 12722 "pars.fs"
+//# 12735 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'parenPattern)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rangeSequenceExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3992 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4008 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             raiseParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnexpectedSymbolEqualsInsteadOfIn()) 
                    )
-//# 3992 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4008 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopRange));
-//# 12734 "pars.fs"
+//# 12747 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3995 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4011 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   true 
                    )
-//# 3995 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4011 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopDirection));
-//# 12744 "pars.fs"
+//# 12757 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 3996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4012 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   false 
                    )
-//# 3996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4012 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'forLoopDirection));
-//# 12754 "pars.fs"
+//# 12767 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'stringOrKeywordString)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_inlineAssemblyTypeArg)) in
@@ -12760,67 +12773,67 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              libraryOnlyWarning (lhs parseState)
                              let s,sm = _2,rhs parseState 2
                              (fun m -> SynExpr.LibraryOnlyILAssembly (ParseAssemblyCodeInstructions s sm,_3,List.rev _4,_5,m)) 
                    )
-//# 4000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'inlineAssemblyExpr));
-//# 12770 "pars.fs"
+//# 12783 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_curriedArgExprs)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 :: _1 
                    )
-//# 4006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_curriedArgExprs));
-//# 12782 "pars.fs"
+//# 12795 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4009 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4025 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [] 
                    )
-//# 4009 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4025 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_curriedArgExprs));
-//# 12792 "pars.fs"
+//# 12805 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4013 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4029 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              None 
                    )
-//# 4013 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4029 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_atomicExprAfterType));
-//# 12802 "pars.fs"
+//# 12815 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              Some(_1) 
                    )
-//# 4016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_atomicExprAfterType));
-//# 12813 "pars.fs"
+//# 12826 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 4019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_inlineAssemblyTypeArg));
-//# 12823 "pars.fs"
+//# 12836 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeKeyword)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
@@ -12828,44 +12841,44 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4020 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4036 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                            [_3] 
                    )
-//# 4020 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4036 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_inlineAssemblyTypeArg));
-//# 12836 "pars.fs"
+//# 12849 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4024 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 4024 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_inlineAssemblyReturnTypes));
-//# 12846 "pars.fs"
+//# 12859 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4027 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4043 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [_2] 
                    )
-//# 4027 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4043 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_inlineAssemblyReturnTypes));
-//# 12857 "pars.fs"
+//# 12870 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4030 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [] 
                    )
-//# 4030 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_inlineAssemblyReturnTypes));
-//# 12868 "pars.fs"
+//# 12881 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_APP)) in
@@ -12875,7 +12888,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4034 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4050 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let arg = match _4 with None -> mkSynUnit (lhs parseState) | Some e -> e 
                             let l = List.rev _5
                             let dummyField = mkRecdField (LongIdentWithDots([], [])) // dummy identifier, it will be discarded
@@ -12884,20 +12897,20 @@ let _fsyacc_reductions ()  =    [|
                             let bindings = List.tail l
                             (Some (_2,arg,rhs2 parseState 2 4, inheritsSep, rhs parseState 1), None, bindings) 
                    )
-//# 4034 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4050 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExpr));
-//# 12889 "pars.fs"
+//# 12902 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdExprCore)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4042 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4058 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            let a,b = _1 in (None, a, b) 
                    )
-//# 4042 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4058 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExpr));
-//# 12900 "pars.fs"
+//# 12913 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
@@ -12906,7 +12919,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4062 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             match _1 with 
                             | LongOrSingleIdent(false, (LongIdentWithDots(_,_) as f),None,m) ->  
                                  let f = mkRecdField f
@@ -12915,28 +12928,28 @@ let _fsyacc_reductions ()  =    [|
                                  (None, l)
                             | _ -> raiseParseErrorAt (rhs parseState 2) (FSComp.SR.parsFieldBinding()) 
                    )
-//# 4046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4062 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprCore));
-//# 12920 "pars.fs"
+//# 12933 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4059 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            let m = rhs parseState 1
                            reportParseErrorAt m (FSComp.SR.parsUnderscoreInvalidFieldName())
                            reportParseErrorAt m (FSComp.SR.parsFieldBinding())
                            let f = mkUnderscoreRecdField m
                            (None, [ (f, None, None)  ]) 
                    )
-//# 4059 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprCore));
-//# 12934 "pars.fs"
+//# 12947 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4066 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4082 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            let m = rhs parseState 1
                            reportParseErrorAt m (FSComp.SR.parsUnderscoreInvalidFieldName())      
                            let f = mkUnderscoreRecdField m
@@ -12944,9 +12957,9 @@ let _fsyacc_reductions ()  =    [|
                            
                            (None, [ (f, None, None) ]) 
                    )
-//# 4066 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4082 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprCore));
-//# 12949 "pars.fs"
+//# 12962 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdExprBindings)) in
@@ -12954,16 +12967,16 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnderscoreInvalidFieldName())
                            let f = mkUnderscoreRecdField (rhs parseState 1)
                            let l = List.rev _4
                            let l = rebindRanges (f, Some _3) l _5
                            (None, l) 
                    )
-//# 4075 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprCore));
-//# 12966 "pars.fs"
+//# 12979 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdBinding)) in
@@ -12972,26 +12985,26 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4083 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4099 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let l = List.rev _4
                              let l = rebindRanges _3 l _5
                              (Some (_1, (rhs parseState 2, None)), l) 
                    )
-//# 4083 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4099 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprCore));
-//# 12982 "pars.fs"
+//# 12995 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_seps_recd)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4088 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4104 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (Some (_1, (rhs parseState 2, None)), []) 
                    )
-//# 4088 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4104 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprCore));
-//# 12994 "pars.fs"
+//# 13007 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdBinding)) in
@@ -13000,98 +13013,98 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4107 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let l = List.rev _4
                              let l = rebindRanges _3 l _5
                              (Some (_1, (rhs parseState 2, None)), l) 
                    )
-//# 4091 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4107 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprCore));
-//# 13010 "pars.fs"
+//# 13023 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps_recd)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4096 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4112 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      Some _1 
                    )
-//# 4096 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4112 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_seps_recd));
-//# 13021 "pars.fs"
+//# 13034 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4097 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4113 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            None 
                    )
-//# 4097 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4113 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_seps_recd));
-//# 13031 "pars.fs"
+//# 13044 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4100 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4116 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      (rhs parseState 1), None 
                    )
-//# 4100 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4116 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps_recd));
-//# 13041 "pars.fs"
+//# 13054 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4101 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4117 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                       let m = (rhs parseState 1) in (m, Some m.End) 
                    )
-//# 4101 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4117 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps_recd));
-//# 13051 "pars.fs"
+//# 13064 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4102 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4118 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                (rhs2 parseState 1 2), Some (rhs parseState 1).End 
                    )
-//# 4102 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4118 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps_recd));
-//# 13061 "pars.fs"
+//# 13074 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4103 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4119 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                (rhs2 parseState 1 2), Some (rhs parseState 2).End 
                    )
-//# 4103 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4119 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps_recd));
-//# 13071 "pars.fs"
+//# 13084 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4110 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4126 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                 mkRecdField _1 
                    )
-//# 4110 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4126 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'pathOrUnderscore));
-//# 13082 "pars.fs"
+//# 13095 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4112 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4128 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            let m = rhs parseState 1
                            reportParseErrorAt m (FSComp.SR.parsUnderscoreInvalidFieldName())
                            mkUnderscoreRecdField m 
                    )
-//# 4112 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4128 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'pathOrUnderscore));
-//# 13094 "pars.fs"
+//# 13107 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdExprBindings)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps_recd)) in
@@ -13099,84 +13112,84 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4118 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (_3, Some _2) :: _1 
                    )
-//# 4118 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprBindings));
-//# 13107 "pars.fs"
+//# 13120 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4119 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4135 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 4119 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4135 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdExprBindings));
-//# 13117 "pars.fs"
+//# 13130 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'pathOrUnderscore)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4123 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4139 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              (_1, Some _3) 
                    )
-//# 4123 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4139 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdBinding));
-//# 13129 "pars.fs"
+//# 13142 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'pathOrUnderscore)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4126 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4142 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsFieldBinding())
                              (_1, None) 
                    )
-//# 4126 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4142 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdBinding));
-//# 13141 "pars.fs"
+//# 13154 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'pathOrUnderscore)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4130 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4146 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsFieldBinding())
                              (_1, None) 
                    )
-//# 4130 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4146 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdBinding));
-//# 13154 "pars.fs"
+//# 13167 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'pathOrUnderscore)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4150 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsFieldBinding())
                              (_1, None) 
                    )
-//# 4134 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4150 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdBinding));
-//# 13166 "pars.fs"
+//# 13179 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'pathOrUnderscore)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4138 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsFieldBinding())
                              (_1, None) 
                    )
-//# 4138 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'recdBinding));
-//# 13179 "pars.fs"
+//# 13192 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objExprBaseCall)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'objExprBindings)) in
@@ -13185,14 +13198,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4149 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mNewExpr = rhs parseState 1
                             let fullRange = match _4 with [] -> (rhs parseState 1) | _ -> (rhs2 parseState 1 4)
                             fullRange, (fun m -> let (a,b) = _1 in SynExpr.ObjExpr (a,b,_2,_4, mNewExpr, m)) 
                    )
-//# 4149 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExpr));
-//# 13195 "pars.fs"
+//# 13208 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objExprBaseCall)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_OBLOCKSEP)) in
@@ -13200,26 +13213,26 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4170 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mNewExpr = rhs parseState 1 
                             let fullRange = match _3 with [] -> (rhs parseState 1) | _ -> (rhs2 parseState 1 3)
                             fullRange, (fun m -> let (a,b) = _1 in SynExpr.ObjExpr (a,b,[],_3, mNewExpr, m)) 
                    )
-//# 4154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4170 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExpr));
-//# 13210 "pars.fs"
+//# 13223 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4175 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mNewExpr = rhs parseState 1 
                             (rhs2 parseState 1 2), (fun m -> let (a,b) = _2,None in SynExpr.ObjExpr (a,b,[],[], mNewExpr, m)) 
                    )
-//# 4159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4175 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExpr));
-//# 13222 "pars.fs"
+//# 13235 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_APP)) in
@@ -13228,12 +13241,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4181 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (_2, Some(_4,Some(_5))) 
                    )
-//# 4165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4181 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExprBaseCall));
-//# 13236 "pars.fs"
+//# 13249 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_HIGH_PRECEDENCE_APP)) in
@@ -13241,131 +13254,131 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4168 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (_2, Some(_4,None)) 
                    )
-//# 4168 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExprBaseCall));
-//# 13249 "pars.fs"
+//# 13262 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeNonAtomicDeprecated)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4171 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4187 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _2,None 
                    )
-//# 4171 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4187 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExprBaseCall));
-//# 13260 "pars.fs"
+//# 13273 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objExprBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4192 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                            _1 
                    )
-//# 4176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4192 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_objExprBindings));
-//# 13271 "pars.fs"
+//# 13284 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4177 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4193 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                            [] 
                    )
-//# 4177 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4193 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_objExprBindings));
-//# 13281 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'localBindings)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4181 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             let mWithKwd = (rhs parseState 1)
-                             let _localBindingsLastRange, localBindingsBuilder = _2 
-                             localBindingsBuilder [] None mWithKwd 
-                   )
-//# 4181 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'objExprBindings));
 //# 13294 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'localBindings)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4186 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4197 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let mWithKwd = (rhs parseState 1)
                              let _localBindingsLastRange, localBindingsBuilder = _2 
                              localBindingsBuilder [] None mWithKwd 
                    )
-//# 4186 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4197 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExprBindings));
 //# 13307 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'localBindings)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let mWithKwd = (rhs parseState 1)
+                             let _localBindingsLastRange, localBindingsBuilder = _2 
+                             localBindingsBuilder [] None mWithKwd 
+                   )
+//# 4202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'objExprBindings));
+//# 13320 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'objectImplementationBlock)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_declEnd)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4191 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4207 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 |> 
                              (List.choose (function 
                                                | SynMemberDefn.Member(b,m) -> Some b
                                                | SynMemberDefn.AutoProperty(_,_,_,_,_,_,_,_,_,_,m) -> errorR(Error(FSComp.SR.parsIllegalMemberVarInObjectImplementation(),m)); None
                                                | x -> errorR(Error(FSComp.SR.parsMemberIllegalInObjectImplementation(),x.Range)); None)) 
                    )
-//# 4191 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4207 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExprBindings));
-//# 13323 "pars.fs"
+//# 13336 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objExprInterface)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_objExprInterfaces)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4198 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4214 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                                   _1 :: _2 
                    )
-//# 4198 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4214 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExprInterfaces));
-//# 13335 "pars.fs"
+//# 13348 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4218 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [] 
                    )
-//# 4202 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4218 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_objExprInterfaces));
-//# 13345 "pars.fs"
+//# 13358 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'objExprInterface)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_objExprInterfaces)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4221 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 :: _2 
                    )
-//# 4205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4221 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_objExprInterfaces));
-//# 13357 "pars.fs"
+//# 13370 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_objExprInterfaces)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4208 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4224 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (* silent recovery *) _2 
                    )
-//# 4208 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4224 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_objExprInterfaces));
-//# 13368 "pars.fs"
+//# 13381 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'interfaceMember)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
@@ -13375,41 +13388,41 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4212 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4228 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            InterfaceImpl(_2, _3, lhs parseState) 
                    )
-//# 4212 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4228 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'objExprInterface));
-//# 13383 "pars.fs"
+//# 13396 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceBarExprCore)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4216 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4232 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 true 
                    )
-//# 4216 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4232 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarExpr));
-//# 13394 "pars.fs"
+//# 13407 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'braceBarExprCore)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4218 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4234 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 false 
                    )
-//# 4218 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4234 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarExpr));
-//# 13405 "pars.fs"
+//# 13418 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdExprCore)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'bar_rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4222 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4238 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let orig, flds = _2
                             let flds = 
                                 flds |> List.choose (function 
@@ -13419,16 +13432,16 @@ let _fsyacc_reductions ()  =    [|
                             let m = rhs2 parseState 1 3
                             (fun isStruct -> SynExpr.AnonRecd (isStruct,orig,flds,m)) 
                    )
-//# 4222 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4238 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarExprCore));
-//# 13424 "pars.fs"
+//# 13437 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recdExprCore)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4232 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBraceBar())  
                             let orig, flds = _2 
                             let flds = 
@@ -13439,85 +13452,85 @@ let _fsyacc_reductions ()  =    [|
                             let m = rhs2 parseState 1 2
                             (fun isStruct -> SynExpr.AnonRecd (isStruct,orig,flds,m)) 
                    )
-//# 4232 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarExprCore));
-//# 13444 "pars.fs"
+//# 13457 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'bar_rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4243 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4259 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             // silent recovery 
                             let m = rhs2 parseState 1 3
                             (fun _ -> arbExpr("braceBarExpr",m)) 
                    )
-//# 4243 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4259 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarExprCore));
-//# 13457 "pars.fs"
+//# 13470 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4264 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBraceBar())  
                             let m = rhs2 parseState 1 1
                             (fun isStruct -> SynExpr.AnonRecd (isStruct,None,[],m)) 
                    )
-//# 4248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4264 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarExprCore));
-//# 13470 "pars.fs"
+//# 13483 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'bar_rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4253 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4269 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = rhs2 parseState 1 2
                             (fun isStruct -> SynExpr.AnonRecd (isStruct,None,[],m)) 
                    )
-//# 4253 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4269 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'braceBarExprCore));
-//# 13482 "pars.fs"
+//# 13495 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4258 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4274 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mAll = unionRanges (rhs parseState 1) _4.Range
                             mkSynFunMatchLambdas parseState.SynArgNameGenerator false mAll _2 _4 
                    )
-//# 4258 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4274 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13495 "pars.fs"
+//# 13508 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4262 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4278 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mAll = rhs2 parseState 1 3
                             mkSynFunMatchLambdas parseState.SynArgNameGenerator false mAll _2 (arbExpr("anonLambdaExpr1",(rhs parseState 4))) 
                    )
-//# 4262 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4278 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13507 "pars.fs"
+//# 13520 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4266 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4282 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mAll = unionRanges (rhs parseState 1) _4.Range
                             mkSynFunMatchLambdas parseState.SynArgNameGenerator false mAll _2 _4 
                    )
-//# 4266 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4282 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13520 "pars.fs"
+//# 13533 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'typedSeqExprBlockR)) in
@@ -13525,228 +13538,228 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4270 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _5 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileFunBody());
                             let mAll = unionRanges (rhs parseState 1) _4.Range
                             exprFromParseError (mkSynFunMatchLambdas parseState.SynArgNameGenerator false mAll _2 _4) 
                    )
-//# 4270 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13535 "pars.fs"
+//# 13548 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4275 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4291 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs2 parseState 1 3) (FSComp.SR.parsMissingFunctionBody())
                             mkSynFunMatchLambdas parseState.SynArgNameGenerator false (rhs2 parseState 1 3) _2 (arbExpr("anonLambdaExpr2",(rhs parseState 4))) 
                    )
-//# 4275 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4291 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13547 "pars.fs"
+//# 13560 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4279 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _4 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileFunBody())
                             exprFromParseError (mkSynFunMatchLambdas parseState.SynArgNameGenerator false (rhs2 parseState 1 3) _2 (arbExpr("anonLambdaExpr3",(rhs parseState 4)))) 
                    )
-//# 4279 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13560 "pars.fs"
+//# 13573 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomicPatterns)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4283 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4299 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             exprFromParseError (mkSynFunMatchLambdas parseState.SynArgNameGenerator false (rhs2 parseState 1 2) _2 (arbExpr("anonLambdaExpr4",(rhs parseState 3)))) 
                    )
-//# 4283 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4299 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13571 "pars.fs"
+//# 13584 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4302 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             exprFromParseError (mkSynFunMatchLambdas parseState.SynArgNameGenerator false (rhs parseState 1) [] (arbExpr("anonLambdaExpr5",(rhs parseState 2)))) 
                    )
-//# 4286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4302 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonLambdaExpr));
-//# 13581 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'withPatternClauses)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             let clauses,mLast = _2
-                             let mAll = unionRanges (rhs parseState 1) mLast
-                             SynExpr.MatchLambda (false,(rhs parseState 1),clauses,NoSequencePointAtInvisibleBinding,mAll) 
-                   )
-//# 4290 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'anonMatchingExpr));
 //# 13594 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'withPatternClauses)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4306 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let clauses,mLast = _2
                              let mAll = unionRanges (rhs parseState 1) mLast
                              SynExpr.MatchLambda (false,(rhs parseState 1),clauses,NoSequencePointAtInvisibleBinding,mAll) 
                    )
-//# 4295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4306 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'anonMatchingExpr));
 //# 13607 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'withPatternClauses)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4311 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             let clauses,mLast = _2
+                             let mAll = unionRanges (rhs parseState 1) mLast
+                             SynExpr.MatchLambda (false,(rhs parseState 1),clauses,NoSequencePointAtInvisibleBinding,mAll) 
+                   )
+//# 4311 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'anonMatchingExpr));
+//# 13620 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4304 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4320 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4304 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4320 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeWithTypeConstraints));
-//# 13618 "pars.fs"
+//# 13631 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeConstraints)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynType.WithGlobalConstraints(_1, List.rev _3,lhs parseState) 
                    )
-//# 4307 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeWithTypeConstraints));
-//# 13630 "pars.fs"
+//# 13643 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4311 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4327 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4311 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4327 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topTypeWithTypeConstraints));
-//# 13641 "pars.fs"
+//# 13654 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeConstraints)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4330 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let ty,arity = _1 
                             // nb. it doesn't matter where the constraints go in the structure of the type. 
                             SynType.WithGlobalConstraints(ty,List.rev _3,lhs parseState), arity 
                    )
-//# 4314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4330 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topTypeWithTypeConstraints));
-//# 13655 "pars.fs"
+//# 13668 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4320 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4336 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             None 
                    )
-//# 4320 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4336 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_topReturnTypeWithTypeConstraints));
-//# 13665 "pars.fs"
+//# 13678 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'topTypeWithTypeConstraints)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4339 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let ty,arity = _2 
                             let arity = (match arity with SynValInfo([],rmdata)-> rmdata | _ -> SynInfo.unnamedRetVal)
                             Some (SynReturnInfo((ty,arity),rhs parseState 2)) 
                    )
-//# 4323 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4339 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_topReturnTypeWithTypeConstraints));
-//# 13678 "pars.fs"
+//# 13691 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topTupleType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'topType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4329 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let dty,dmdata= _1 
                             let rty,(SynValInfo(dmdatas,rmdata)) = _3 
                             SynType.Fun(dty,rty,lhs parseState), (SynValInfo(dmdata :: dmdatas, rmdata)) 
                    )
-//# 4329 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topType));
-//# 13692 "pars.fs"
+//# 13705 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topTupleType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4350 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let ty,rmdata = _1 in ty, (SynValInfo([],(match rmdata with [md] -> md | _ -> SynInfo.unnamedRetVal))) 
                    )
-//# 4334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4350 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topType));
-//# 13703 "pars.fs"
+//# 13716 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topAppType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'topTupleTypeElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4338 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4354 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let ty,mdata = _1 in let tys,mdatas = List.unzip _3 in (SynType.Tuple(false,List.map (fun ty -> (false,ty)) (ty :: tys), lhs parseState)),(mdata :: mdatas) 
                    )
-//# 4338 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4354 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topTupleType));
-//# 13715 "pars.fs"
+//# 13728 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topAppType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4341 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4357 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let ty,mdata = _1 in ty,[mdata] 
                    )
-//# 4341 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4357 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topTupleType));
-//# 13726 "pars.fs"
+//# 13739 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topAppType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'topTupleTypeElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 :: _3 
                    )
-//# 4345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topTupleTypeElements));
-//# 13738 "pars.fs"
+//# 13751 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topAppType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4348 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4364 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             [_1] 
                    )
-//# 4348 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4364 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topTupleTypeElements));
-//# 13749 "pars.fs"
+//# 13762 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
@@ -13754,14 +13767,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             match _2 with 
                             | SynType.LongIdent(LongIdentWithDots([id],_)) -> _4,SynArgInfo(_1,false,Some id)
                             | _ -> raiseParseErrorAt (rhs parseState 2) (FSComp.SR.parsSyntaxErrorInLabeledType())  
                    )
-//# 4352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topAppType));
-//# 13764 "pars.fs"
+//# 13777 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attributes)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
@@ -13769,121 +13782,121 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4357 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4373 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _5,SynArgInfo(_1,true,Some _3) 
                    )
-//# 4357 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4373 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topAppType));
-//# 13777 "pars.fs"
+//# 13790 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'attributes)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4360 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (_2,SynArgInfo(_1,false,None)) 
                    )
-//# 4360 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4376 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topAppType));
-//# 13789 "pars.fs"
+//# 13802 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4363 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             match _1 with 
                             | SynType.LongIdent(LongIdentWithDots([id],_)) -> _3,SynArgInfo([],false,Some id)
                             | _ -> raiseParseErrorAt (rhs parseState 2) (FSComp.SR.parsSyntaxErrorInLabeledType())  
                    )
-//# 4363 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topAppType));
-//# 13803 "pars.fs"
+//# 13816 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4384 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _4,SynArgInfo([],true,Some _2) 
                    )
-//# 4368 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4384 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topAppType));
-//# 13815 "pars.fs"
+//# 13828 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4371 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4387 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1,SynArgInfo([],false,None) 
                    )
-//# 4371 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4387 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topAppType));
-//# 13826 "pars.fs"
+//# 13839 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4377 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4393 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynType.Fun(_1,_3,lhs parseState) 
                    )
-//# 4377 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4393 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynType));
-//# 13838 "pars.fs"
+//# 13851 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4380 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4396 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4380 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4396 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynType));
-//# 13849 "pars.fs"
+//# 13862 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LexerWhitespaceContinuation)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4383 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4399 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    checkEndOfFileError _2; _1 
                    )
-//# 4383 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4399 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynType));
-//# 13861 "pars.fs"
+//# 13874 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleOrQuotTypeElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            SynType.Tuple(false,(false,_1) :: _3,lhs parseState) 
                    )
-//# 4388 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleType));
-//# 13873 "pars.fs"
+//# 13886 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleOrQuotTypeElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4391 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4407 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            if _1 <> "/" then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedInfixOperator());
                            SynType.Tuple(false,(true, SynType.StaticConstant (SynConst.Int32 1, lhs parseState)) :: _2, lhs parseState) 
                    )
-//# 4391 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4407 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleType));
-//# 13886 "pars.fs"
+//# 13899 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -13891,36 +13904,36 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4395 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4411 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            if _2 <> "/" then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedInfixOperator());
                            SynType.Tuple(false,(true,_1) :: _3, lhs parseState) 
                    )
-//# 4395 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4411 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleType));
-//# 13900 "pars.fs"
+//# 13913 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4399 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4415 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            _1 
                    )
-//# 4399 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4415 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleType));
-//# 13911 "pars.fs"
+//# 13924 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleOrQuotTypeElements)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4403 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4419 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            (false,_1) :: _3 
                    )
-//# 4403 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4419 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleOrQuotTypeElements));
-//# 13923 "pars.fs"
+//# 13936 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -13928,46 +13941,46 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4422 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            if _2 <> "/" then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedInfixOperator());
                            (true,_1) :: _3 
                    )
-//# 4406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4422 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleOrQuotTypeElements));
-//# 13937 "pars.fs"
+//# 13950 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            [(false,_1)] 
                    )
-//# 4410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'tupleOrQuotTypeElements));
-//# 13948 "pars.fs"
+//# 13961 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4430 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            SynType.LongIdent(_1) 
                    )
-//# 4414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4430 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appTypeCon));
-//# 13959 "pars.fs"
+//# 13972 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4417 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4433 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            SynType.Var(_1, lhs parseState) 
                    )
-//# 4417 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4433 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appTypeCon));
-//# 13970 "pars.fs"
+//# 13983 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypeCon)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -13975,61 +13988,61 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4421 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4437 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            if _2 <> "^" && _2 <> "^-" then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnexpectedInfixOperator());
                            if _2 = "^-" then SynType.MeasurePower(_1, SynRationalConst.Negate(_3), lhs parseState)
                            else SynType.MeasurePower(_1, _3, lhs parseState)  
                    )
-//# 4421 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4437 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appTypeConPower));
-//# 13985 "pars.fs"
+//# 13998 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypeCon)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4442 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            _1 
                    )
-//# 4426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4442 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appTypeConPower));
-//# 13996 "pars.fs"
+//# 14009 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'arrayTypeSuffix)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4430 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4446 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               SynType.Array(_2,_1,lhs parseState) 
                    )
-//# 4430 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4446 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appType));
-//# 14008 "pars.fs"
+//# 14021 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'arrayTypeSuffix)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4433 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4449 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               SynType.Array(_3,_1,lhs parseState) 
                    )
-//# 4433 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4449 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appType));
-//# 14020 "pars.fs"
+//# 14033 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypeConPower)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4436 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4452 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynType.App(_2, None, [_1], [], None, true, unionRanges (rhs parseState 1) _2.Range) 
                    )
-//# 4436 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4452 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appType));
-//# 14032 "pars.fs"
+//# 14045 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypePrefixArguments)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
@@ -14037,90 +14050,90 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4439 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4455 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let args, commas = _2
                              mlCompatWarning (FSComp.SR.parsMultiArgumentGenericTypeFormDeprecated()) (unionRanges (rhs parseState 1) _4.Range); 
                              SynType.App(_4, None, args, commas, None, true, unionRanges (rhs parseState 1) _4.Range) 
                    )
-//# 4439 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4455 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appType));
-//# 14047 "pars.fs"
+//# 14060 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'powerType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4444 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4460 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 4444 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4460 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appType));
-//# 14058 "pars.fs"
+//# 14071 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4447 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               let tp,typ = _1,_3 
                               let m = lhs parseState 
                               SynType.WithGlobalConstraints(SynType.Var (tp, rhs parseState 1), [WhereTyparSubtypeOfType(tp,typ,m)],m)  
                    )
-//# 4447 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4463 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appType));
-//# 14072 "pars.fs"
+//# 14085 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4452 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4468 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                               SynType.HashConstraint(_3, lhs parseState) 
                    )
-//# 4452 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4468 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appType));
-//# 14083 "pars.fs"
+//# 14096 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4456 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4472 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              1 
                    )
-//# 4456 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4472 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayTypeSuffix));
-//# 14093 "pars.fs"
+//# 14106 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4459 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4475 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              2 
                    )
-//# 4459 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4475 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayTypeSuffix));
-//# 14103 "pars.fs"
+//# 14116 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4462 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4478 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              3 
                    )
-//# 4462 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4478 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayTypeSuffix));
-//# 14113 "pars.fs"
+//# 14126 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4465 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4481 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              4 
                    )
-//# 4465 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4481 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'arrayTypeSuffix));
-//# 14123 "pars.fs"
+//# 14136 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActual)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActual)) in
@@ -14128,60 +14141,60 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4469 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4485 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let typeArgs, commas = _4 in _1 :: _3 :: List.rev typeArgs, (rhs parseState 2) :: (List.rev commas) 
                    )
-//# 4469 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4485 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'appTypePrefixArguments));
-//# 14136 "pars.fs"
+//# 14149 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgListElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActual)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4473 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4489 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let typeArgs, commas = _1
                              _3 :: typeArgs, (rhs parseState 2) :: commas 
                    )
-//# 4473 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4489 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgListElements));
-//# 14149 "pars.fs"
+//# 14162 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgListElements)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'dummyTypeArg)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4477 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4493 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsMissingTypeArgs())
                             let typeArgs, commas = _1
                             _3 :: typeArgs, (rhs parseState 2) :: commas 
                    )
-//# 4477 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4493 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgListElements));
-//# 14163 "pars.fs"
+//# 14176 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4482 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4498 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [], [] 
                    )
-//# 4482 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4498 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgListElements));
-//# 14173 "pars.fs"
+//# 14186 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeOrAnonRecdType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4486 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4502 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            _1 
                    )
-//# 4486 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4502 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'powerType));
-//# 14184 "pars.fs"
+//# 14197 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomTypeOrAnonRecdType)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -14189,14 +14202,14 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4489 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4505 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if _2 <> "^" && _2 <> "^-" then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnexpectedInfixOperator());
                             if _2 = "^-" then SynType.MeasurePower(_1, SynRationalConst.Negate(_3), lhs parseState)
                             else SynType.MeasurePower(_1, _3, lhs parseState) 
                    )
-//# 4489 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4505 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'powerType));
-//# 14199 "pars.fs"
+//# 14212 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypePrefixArguments)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
@@ -14204,42 +14217,42 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4498 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4514 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let args, commas = _2
                              mlCompatWarning (FSComp.SR.parsMultiArgumentGenericTypeFormDeprecated()) (unionRanges (rhs parseState 1) _4.Range); 
                              SynType.App(_4, None, args, commas, None, true, unionRanges (rhs parseState 1) _4.Range) 
                    )
-//# 4498 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4514 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomTypeNonAtomicDeprecated));
-//# 14214 "pars.fs"
+//# 14227 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4503 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4519 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 4503 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4519 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomTypeNonAtomicDeprecated));
-//# 14225 "pars.fs"
+//# 14238 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4507 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4523 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4507 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4523 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomTypeOrAnonRecdType));
-//# 14236 "pars.fs"
+//# 14249 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'anonRecdType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4509 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let flds,isStruct = _1
                             let flds2 = 
                                 flds |> List.choose (function 
@@ -14247,66 +14260,66 @@ let _fsyacc_reductions ()  =    [|
                                   | _ -> reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsInvalidAnonRecdType()); None)
                             SynType.AnonRecd (isStruct,flds2, rhs parseState 1) 
                    )
-//# 4509 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomTypeOrAnonRecdType));
-//# 14252 "pars.fs"
+//# 14265 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4522 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynType.HashConstraint(_2, lhs parseState) 
                    )
-//# 4522 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14263 "pars.fs"
+//# 14276 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypeConPower)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4525 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14274 "pars.fs"
+//# 14287 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4528 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4544 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynType.Anon (lhs parseState) 
                    )
-//# 4528 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4544 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14284 "pars.fs"
+//# 14297 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4531 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4547 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _2 
                    )
-//# 4531 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4547 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14296 "pars.fs"
+//# 14309 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4534 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4550 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()) 
                             _2 
                    )
-//# 4534 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4550 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14309 "pars.fs"
+//# 14322 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _5 = (let data = parseState.GetInput(5) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleOrQuotTypeElements)) in
@@ -14314,12 +14327,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4554 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            SynType.Tuple(true, (false,_3) :: _5,lhs parseState) 
                    )
-//# 4538 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4554 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14322 "pars.fs"
+//# 14335 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _5 = (let data = parseState.GetInput(5) in (Microsoft.FSharp.Core.Operators.unbox data : 'tupleOrQuotTypeElements)) in
@@ -14327,140 +14340,140 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4557 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
                            SynType.Tuple(true, (false,_3) :: _5,lhs parseState) 
                    )
-//# 4541 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4557 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14336 "pars.fs"
+//# 14349 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _5 = (let data = parseState.GetInput(5) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4545 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4561 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
                            SynType.Anon (lhs parseState) 
                    )
-//# 4545 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4561 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14349 "pars.fs"
+//# 14362 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'appType)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4549 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4565 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
                            SynType.Anon (lhs parseState) 
                    )
-//# 4549 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4565 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14362 "pars.fs"
+//# 14375 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4553 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4569 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
                            SynType.Anon (lhs parseState) 
                    )
-//# 4553 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4569 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14374 "pars.fs"
+//# 14387 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'rawConstant)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4557 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4573 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynType.StaticConstant(_1, rhs parseState 1) 
                    )
-//# 4557 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4573 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14385 "pars.fs"
+//# 14398 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4560 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4576 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = rhs parseState 1
                             SynType.StaticConstant(SynConst.String (null, m), m) 
                    )
-//# 4560 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4576 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14396 "pars.fs"
+//# 14409 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynExpr * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4564 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let e,_ = _2
                              SynType.StaticConstantExpr(e, e.Range) 
                    )
-//# 4564 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14408 "pars.fs"
+//# 14421 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4568 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4584 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynType.StaticConstant(SynConst.Bool false,lhs parseState) 
                    )
-//# 4568 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4584 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14418 "pars.fs"
+//# 14431 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4571 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4587 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              SynType.StaticConstant(SynConst.Bool true,lhs parseState) 
                    )
-//# 4571 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4587 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14428 "pars.fs"
+//# 14441 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4574 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4590 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (* silent recovery *) SynType.Anon (lhs parseState) 
                    )
-//# 4574 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4590 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14439 "pars.fs"
+//# 14452 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypeCon)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : range * range option * Ast.SynType list * range list * range)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4577 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4593 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mLessThan,mGreaterThan,args,commas,mWhole = _2 in SynType.App(_1, Some(mLessThan), args, commas, mGreaterThan, false, unionRanges _1.Range mWhole) 
                    )
-//# 4577 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4593 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14451 "pars.fs"
+//# 14464 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4596 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynType.LongIdentApp(_1, _3, None, [], [], None, unionRanges (rhs parseState 1) _3.Range) 
                    )
-//# 4580 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4596 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14463 "pars.fs"
+//# 14476 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'atomType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
@@ -14468,52 +14481,52 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mLessThan,mGreaterThan,args,commas,mWhole = _4 
                             SynType.LongIdentApp(_1, _3, Some(mLessThan), args, commas, mGreaterThan, unionRanges _1.Range mWhole) 
                    )
-//# 4583 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14477 "pars.fs"
+//# 14490 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'appTypeCon)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4587 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4603 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _3 then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsExpectedNameAfterToken())
                             _1 
                    )
-//# 4587 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4603 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'atomType));
-//# 14490 "pars.fs"
+//# 14503 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : range * range option * bool     * Ast.SynType list * range list * range)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4593 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4609 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mLessThan, mGreaterThan, parsedOk, args, commas, mAll = _1
                             if parsedOk then // if someone has "foo<bar" without a closing greater-than, then the lexfilter does not introduce a HPA, even though it is adjacent
                                 warning(Error(FSComp.SR.parsNonAdjacentTyargs(),rhs parseState 1))
                             mLessThan, mGreaterThan, args, commas, mAll 
                    )
-//# 4593 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4609 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * Ast.SynType list * range list * range));
-//# 14504 "pars.fs"
+//# 14517 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : range * range option * bool     * Ast.SynType list * range list * range)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4615 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let mLessThan, mGreaterThan, _, args, commas, mAll = _2
                             mLessThan, mGreaterThan, args, commas, mAll 
                    )
-//# 4599 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4615 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * Ast.SynType list * range list * range));
-//# 14516 "pars.fs"
+//# 14529 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActualOrDummyIfEmpty)) in
@@ -14523,13 +14536,13 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4604 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4620 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let typeArgs, commas = _5
                             (rhs parseState 1), Some(rhs parseState 6), true, (_2 :: _4 :: List.rev typeArgs), (rhs parseState 3) :: (List.rev commas), lhs parseState 
                    )
-//# 4604 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4620 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * bool     * Ast.SynType list * range list * range));
-//# 14532 "pars.fs"
+//# 14545 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActualOrDummyIfEmpty)) in
@@ -14539,7 +14552,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4608 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4624 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _6 then 
                                 reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedEndOfFileTypeArgs())
                             else
@@ -14549,9 +14562,9 @@ let _fsyacc_reductions ()  =    [|
                             let zeroWidthAtStartOfNextToken = nextToken.StartRange
                             (rhs parseState 1), None, false, (_2 :: _4 :: List.rev typeArgs), (rhs parseState 3) :: (List.rev commas), unionRanges (rhs parseState 1) zeroWidthAtStartOfNextToken 
                    )
-//# 4608 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4624 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * bool     * Ast.SynType list * range list * range));
-//# 14554 "pars.fs"
+//# 14567 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActualOrDummyIfEmpty)) in
@@ -14559,15 +14572,15 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4618 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4634 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _4 then reportParseErrorAt (rhs parseState 4) (FSComp.SR.parsMissingTypeArgs())
                             let nextToken = rhs parseState 4
                             let zeroWidthAtStartOfNextToken = nextToken.StartRange
                             (rhs parseState 1), None, false, [_2], [rhs parseState 3], unionRanges (rhs parseState 1) zeroWidthAtStartOfNextToken 
                    )
-//# 4618 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4634 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * bool     * Ast.SynType list * range list * range));
-//# 14570 "pars.fs"
+//# 14583 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActual)) in
@@ -14575,12 +14588,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4624 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4640 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (rhs parseState 1), Some(rhs parseState 3), true, [_2], [], lhs parseState 
                    )
-//# 4624 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4640 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * bool     * Ast.SynType list * range list * range));
-//# 14583 "pars.fs"
+//# 14596 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActual)) in
@@ -14588,34 +14601,34 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4627 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4643 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let nextToken = rhs parseState 3
                             if not _3 then reportParseErrorAt nextToken (FSComp.SR.parsMissingTypeArgs())
                             let zeroWidthAtStartOfNextToken = nextToken.StartRange
                             (rhs parseState 1), None, false, [_2], [], unionRanges (rhs parseState 1) zeroWidthAtStartOfNextToken 
                    )
-//# 4627 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4643 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * bool     * Ast.SynType list * range list * range));
-//# 14599 "pars.fs"
+//# 14612 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4633 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4649 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (rhs parseState 1), Some(rhs parseState 2), true, [], [], lhs parseState 
                    )
-//# 4633 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4649 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * bool     * Ast.SynType list * range list * range));
-//# 14611 "pars.fs"
+//# 14624 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4636 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4652 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _2 then  
                                 reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsExpectedTypeAfterToken())
                             else
@@ -14624,83 +14637,83 @@ let _fsyacc_reductions ()  =    [|
                             let zeroWidthAtStartOfNextToken = nextToken.StartRange
                             (rhs parseState 1), None, false, [], [], unionRanges (rhs parseState 1) zeroWidthAtStartOfNextToken 
                    )
-//# 4636 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4652 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : range * range option * bool     * Ast.SynType list * range list * range));
-//# 14629 "pars.fs"
+//# 14642 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4646 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4662 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4646 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4662 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgActual));
-//# 14640 "pars.fs"
+//# 14653 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4649 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4665 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynType.StaticConstantNamed(_1, _3, unionRanges _1.Range _3.Range) 
                    )
-//# 4649 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4665 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgActual));
-//# 14652 "pars.fs"
+//# 14665 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynType)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4652 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsMissingTypeArgs())
                             let dummy = SynType.StaticConstant(SynConst.Int32(0), rhs parseState 2)
                             SynType.StaticConstantNamed(_1, dummy, (rhs2 parseState 1 2))
                           
                    )
-//# 4652 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4668 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgActual));
-//# 14666 "pars.fs"
+//# 14679 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeArgActual)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4659 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4675 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4659 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4675 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgActualOrDummyIfEmpty));
-//# 14677 "pars.fs"
+//# 14690 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'dummyTypeArg)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4662 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4678 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsMissingTypeArgs())
                             _1 
                    )
-//# 4662 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4678 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeArgActualOrDummyIfEmpty));
-//# 14689 "pars.fs"
+//# 14702 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4667 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let m = rhs parseState 1
                             let dummyStatVal = SynType.StaticConstant(SynConst.Int32(0), m)
                             let dummyName = SynType.LongIdent(LongIdentWithDots([ident("",m)],[]))
                             let dummyTypeArg = SynType.StaticConstantNamed(dummyName, dummyStatVal, m)
                             dummyTypeArg 
                    )
-//# 4667 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'dummyTypeArg));
-//# 14703 "pars.fs"
+//# 14716 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeExpr)) in
@@ -14708,69 +14721,69 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4676 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4692 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _2 
                    )
-//# 4676 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4692 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeArg));
-//# 14716 "pars.fs"
+//# 14729 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4679 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4695 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynMeasure.Anon (lhs parseState) 
                    )
-//# 4679 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4695 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeArg));
-//# 14728 "pars.fs"
+//# 14741 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4699 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynMeasure.Named(_1.Lid, _1.Range) 
                    )
-//# 4683 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4699 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeAtom));
-//# 14739 "pars.fs"
+//# 14752 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.SynTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4686 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4702 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             SynMeasure.Var(_1, lhs parseState) 
                    )
-//# 4686 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4702 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeAtom));
-//# 14750 "pars.fs"
+//# 14763 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4705 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _2 
                    )
-//# 4689 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4705 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeAtom));
-//# 14762 "pars.fs"
+//# 14775 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeAtom)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4693 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4709 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _1 
                    )
-//# 4693 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4709 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypePower));
-//# 14773 "pars.fs"
+//# 14786 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeAtom)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -14778,72 +14791,72 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4696 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4712 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if _2 <> "^" && _2 <> "^-" then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnexpectedOperatorForUnitOfMeasure());
                             if _2 = "^-" then SynMeasure.Power(_1, SynRationalConst.Negate(_3), lhs parseState)
                             else SynMeasure.Power(_1, _3, lhs parseState) 
                    )
-//# 4696 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4712 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypePower));
-//# 14788 "pars.fs"
+//# 14801 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int32 * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4701 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4717 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if fst _1 <> 1 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedIntegerLiteralForUnitOfMeasure());
                             SynMeasure.One 
                    )
-//# 4701 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4717 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypePower));
-//# 14800 "pars.fs"
+//# 14813 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypePower)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4706 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4722 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            [_1] 
                    )
-//# 4706 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4722 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeSeq));
-//# 14811 "pars.fs"
+//# 14824 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypePower)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeSeq)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4709 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4725 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            _1 :: _2 
                    )
-//# 4709 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4725 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeSeq));
-//# 14823 "pars.fs"
+//# 14836 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeSeq)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4713 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4729 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            SynMeasure.Seq(_1, lhs parseState) 
                    )
-//# 4713 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4729 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeExpr));
-//# 14834 "pars.fs"
+//# 14847 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeExpr)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4716 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4732 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            SynMeasure.Product(_1, _3, lhs parseState) 
                    )
-//# 4716 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4732 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeExpr));
-//# 14846 "pars.fs"
+//# 14859 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeExpr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
@@ -14851,414 +14864,401 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4719 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4735 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                            if _2 <> "*" && _2 <> "/" then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnexpectedOperatorForUnitOfMeasure());
                            if _2 = "*" then SynMeasure.Product(_1, _3, lhs parseState)
                            else SynMeasure.Divide(_1, _3, lhs parseState) 
                    )
-//# 4719 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4735 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeExpr));
-//# 14861 "pars.fs"
+//# 14874 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'measureTypeExpr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4724 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4740 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if _1 <> "/" then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedOperatorForUnitOfMeasure());
                             SynMeasure.Divide(SynMeasure.One, _2, lhs parseState) 
                    )
-//# 4724 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4740 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'measureTypeExpr));
-//# 14874 "pars.fs"
+//# 14887 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4729 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4745 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              let id = mkSynId (lhs parseState) (_2).idText
                              Typar(id, NoStaticReq,false) 
                    )
-//# 4729 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4745 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynTypar));
-//# 14886 "pars.fs"
+//# 14899 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'staticallyKnownHeadTypar)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4733 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4749 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4733 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4749 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.SynTypar));
-//# 14897 "pars.fs"
+//# 14910 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4737 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4753 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if _1 <> "^" then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedTypeParameter());
                             let id = mkSynId (lhs parseState) (_2).idText
                             Typar(id,HeadTypeStaticReq,false) 
                    )
-//# 4737 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4753 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'staticallyKnownHeadTypar));
-//# 14911 "pars.fs"
+//# 14924 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4745 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4761 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             ident(_1,rhs parseState 1) 
                    )
-//# 4745 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4761 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.Ident));
-//# 14922 "pars.fs"
+//# 14935 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4751 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4767 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              LongIdentWithDots([ident(MangledGlobalName,rhs parseState 1)],[]) 
                    )
-//# 4751 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4767 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 14932 "pars.fs"
+//# 14945 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4754 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4770 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             LongIdentWithDots([_1],[]) 
                    )
-//# 4754 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4770 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 14943 "pars.fs"
+//# 14956 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4757 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let (LongIdentWithDots(lid,dotms)) = _1 in LongIdentWithDots(lid @ [_3], dotms @ [rhs parseState 2]) 
                    )
-//# 4757 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 14955 "pars.fs"
+//# 14968 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'ends_coming_soon_or_recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4760 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4776 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             if not _3 then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsExpectedNameAfterToken())
                             let (LongIdentWithDots(lid,dotms)) = _1 in LongIdentWithDots(lid, dotms @ [rhs parseState 2])  
                    )
-//# 4760 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4776 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 14968 "pars.fs"
+//# 14981 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'operatorName)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4767 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4783 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              ident(CompileOpName _2,rhs parseState 2) 
                    )
-//# 4767 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4783 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opName));
-//# 14980 "pars.fs"
+//# 14993 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4770 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4786 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              reportParseErrorAt (lhs parseState) (FSComp.SR.parsErrorParsingAsOperatorName()); ident(CompileOpName "****",rhs parseState 2) 
                    )
-//# 4770 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4786 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opName));
-//# 14991 "pars.fs"
+//# 15004 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              ident(CompileOpName "*",rhs parseState 1) 
                    )
-//# 4773 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4789 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opName));
-//# 15001 "pars.fs"
+//# 15014 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'activePatternCaseNames)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let text = ("|" + String.concat "|" (List.rev _2) + "|")
                             ident(text,rhs2 parseState 2 3) 
                    )
-//# 4777 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4793 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opName));
-//# 15014 "pars.fs"
+//# 15027 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'activePatternCaseNames)) in
             let _6 = (let data = parseState.GetInput(6) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4782 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4798 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let text = ("|" + String.concat "|" (List.rev _2) + "|_|" )
                             ident(text,rhs2 parseState 2 5) 
                    )
-//# 4782 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4798 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opName));
-//# 15027 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4788 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             if not (IsValidPrefixOperatorDefinitionName _1) then 
-                                 reportParseErrorAt (lhs parseState) (FSComp.SR.parsInvalidPrefixOperatorDefinition());
-                             _1 
-                   )
-//# 4788 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
 //# 15040 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4792 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                               _1 
-                   )
-//# 4792 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15051 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4794 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                            _1 
-                   )
-//# 4794 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15062 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4796 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                            _1 
-                   )
-//# 4796 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15073 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4798 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                         _1 
-                   )
-//# 4798 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15084 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4800 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                        _1 
-                   )
-//# 4800 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15095 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4802 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                          _1 
-                   )
-//# 4802 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15106 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
 //# 4804 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                                 _1 
-                   )
-//# 4804 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15117 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4806 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                  "$" 
-                   )
-//# 4806 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15127 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                              _1 
-                   )
-//# 4808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15138 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                 "-" 
-                   )
-//# 4810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15148 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                "*" 
-                   )
-//# 4812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15158 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                  "=" 
-                   )
-//# 4814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15168 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                              "or" 
-                   )
-//# 4816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15178 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4818 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                "<" 
-                   )
-//# 4818 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15189 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                   ">" 
-                   )
-//# 4820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15200 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                 "?" 
-                   )
-//# 4822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15210 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                               "&" 
-                   )
-//# 4824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15220 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4826 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                   "&&" 
-                   )
-//# 4826 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15230 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                   "||" 
-                   )
-//# 4828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15240 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                        ":=" 
-                   )
-//# 4830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'operatorName));
-//# 15250 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4833 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                             if _1 <> ".[]"  && _1 <> ".()" && _1 <> ".()<-" then 
-                                  deprecatedOperator (lhs parseState); 
+                             if not (IsValidPrefixOperatorDefinitionName _1) then 
+                                 reportParseErrorAt (lhs parseState) (FSComp.SR.parsInvalidPrefixOperatorDefinition());
                              _1 
                    )
-//# 4833 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4804 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15053 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                               _1 
+                   )
+//# 4808 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15064 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                            _1 
+                   )
+//# 4810 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15075 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                            _1 
+                   )
+//# 4812 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15086 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                         _1 
+                   )
+//# 4814 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15097 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                        _1 
+                   )
+//# 4816 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15108 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4818 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                          _1 
+                   )
+//# 4818 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15119 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                                 _1 
+                   )
+//# 4820 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15130 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                  "$" 
+                   )
+//# 4822 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15140 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                              _1 
+                   )
+//# 4824 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15151 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4826 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                 "-" 
+                   )
+//# 4826 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15161 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                "*" 
+                   )
+//# 4828 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15171 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                  "=" 
+                   )
+//# 4830 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15181 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4832 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                              "or" 
+                   )
+//# 4832 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15191 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4834 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                "<" 
+                   )
+//# 4834 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15202 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : bool)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4836 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                   ">" 
+                   )
+//# 4836 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15213 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4838 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                 "?" 
+                   )
+//# 4838 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15223 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4840 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                               "&" 
+                   )
+//# 4840 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15233 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4842 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                   "&&" 
+                   )
+//# 4842 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15243 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4844 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                   "||" 
+                   )
+//# 4844 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15253 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4846 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                        ":=" 
+                   )
+//# 4846 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'operatorName));
 //# 15263 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -15266,955 +15266,968 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4837 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4849 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                             if _1 <> ".[]"  && _1 <> ".()" && _1 <> ".()<-" then 
+                                  deprecatedOperator (lhs parseState); 
+                             _1 
+                   )
+//# 4849 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'operatorName));
+//# 15276 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4853 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                       _1 
                    )
-//# 4837 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4853 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'operatorName));
-//# 15274 "pars.fs"
+//# 15287 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4855 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    ".." 
                    )
-//# 4839 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4855 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'operatorName));
-//# 15284 "pars.fs"
+//# 15297 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4841 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                            ".. .." 
                    )
-//# 4841 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'operatorName));
-//# 15294 "pars.fs"
+//# 15307 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string * bool)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string * bool)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4844 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if _1 <> _2 then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsMismatchedQuotationName(fst _1));  
                              fst _1 
                    )
-//# 4844 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'operatorName));
-//# 15307 "pars.fs"
+//# 15320 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4850 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              if not (String.isUpper _1) then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsActivePatternCaseMustBeginWithUpperCase());  
                              if (_1.IndexOf('|') <> -1) then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsActivePatternCaseContainsPipe());  
                              _1 
                    )
-//# 4850 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4866 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'activePatternCaseName));
-//# 15320 "pars.fs"
+//# 15333 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'activePatternCaseName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4873 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              [_2] 
                    )
-//# 4857 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4873 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'activePatternCaseNames));
-//# 15331 "pars.fs"
+//# 15344 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'activePatternCaseNames)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'activePatternCaseName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              _3 :: _1 
                    )
-//# 4860 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4876 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'activePatternCaseNames));
-//# 15343 "pars.fs"
+//# 15356 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4865 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4865 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4881 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'identOrOp));
-//# 15354 "pars.fs"
+//# 15367 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4868 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4884 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             _1 
                    )
-//# 4868 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4884 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'identOrOp));
-//# 15365 "pars.fs"
+//# 15378 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4874 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4890 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             LongIdentWithDots([_1],[]) 
                    )
-//# 4874 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4890 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 15376 "pars.fs"
+//# 15389 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'opName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4877 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4893 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             LongIdentWithDots([_1],[]) 
                    )
-//# 4877 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4893 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 15387 "pars.fs"
+//# 15400 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.LongIdentWithDots)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4880 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4896 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             let (LongIdentWithDots(lid,dotms)) = _3 in LongIdentWithDots(_1 :: lid, rhs parseState 2 :: dotms) 
                    )
-//# 4880 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4896 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 15399 "pars.fs"
+//# 15412 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Ast.Ident)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4883 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4899 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             (* silent recovery *) LongIdentWithDots([_1],[rhs parseState 2]) 
                    )
-//# 4883 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4899 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : Ast.LongIdentWithDots));
-//# 15410 "pars.fs"
+//# 15423 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'identOrOp)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4888 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4904 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                       _1 
                    )
-//# 4888 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4904 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'nameop));
-//# 15421 "pars.fs"
+//# 15434 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4891 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4907 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      
                    )
-//# 4891 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4907 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topSeparator));
-//# 15431 "pars.fs"
+//# 15444 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4892 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                
                    )
-//# 4892 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topSeparator));
-//# 15441 "pars.fs"
+//# 15454 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4893 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4909 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      
                    )
-//# 4893 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4909 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topSeparator));
-//# 15451 "pars.fs"
+//# 15464 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topSeparator)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4896 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4912 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                             
                    )
-//# 4896 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4912 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topSeparators));
-//# 15462 "pars.fs"
+//# 15475 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topSeparator)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'topSeparators)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4897 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4913 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                       
                    )
-//# 4897 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4913 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'topSeparators));
-//# 15474 "pars.fs"
+//# 15487 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'topSeparator)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_topSeparators)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4900 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4916 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                           
                    )
-//# 4900 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4916 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_topSeparators));
-//# 15486 "pars.fs"
+//# 15499 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4901 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                           
                    )
-//# 4901 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_topSeparators));
-//# 15496 "pars.fs"
+//# 15509 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4905 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4921 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      
                    )
-//# 4905 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4921 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps));
-//# 15506 "pars.fs"
+//# 15519 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4906 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      
                    )
-//# 4906 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps));
-//# 15516 "pars.fs"
+//# 15529 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4907 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4923 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                
                    )
-//# 4907 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4923 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps));
-//# 15526 "pars.fs"
+//# 15539 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                
                    )
-//# 4908 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'seps));
-//# 15536 "pars.fs"
+//# 15549 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4913 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4929 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              
                    )
-//# 4913 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4929 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'declEnd));
-//# 15546 "pars.fs"
+//# 15559 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4915 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                
                    )
-//# 4915 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'declEnd));
-//# 15556 "pars.fs"
+//# 15569 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4933 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              
                    )
-//# 4917 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4933 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'declEnd));
-//# 15566 "pars.fs"
+//# 15579 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             
                    )
-//# 4922 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4938 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_declEnd));
-//# 15576 "pars.fs"
+//# 15589 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                              
                    )
-//# 4924 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_declEnd));
-//# 15586 "pars.fs"
+//# 15599 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4926 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4942 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             
                    )
-//# 4926 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4942 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_declEnd));
-//# 15596 "pars.fs"
+//# 15609 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4944 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                             
                    )
-//# 4928 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4944 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_declEnd));
-//# 15606 "pars.fs"
+//# 15619 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        
                    )
-//# 4931 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_ODECLEND));
-//# 15616 "pars.fs"
+//# 15629 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4948 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        
                    )
-//# 4932 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4948 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_ODECLEND));
-//# 15626 "pars.fs"
+//# 15639 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4935 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4951 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        deprecatedWithError (FSComp.SR.parsNoEqualShouldFollowNamespace()) (lhs parseState); () 
                    )
-//# 4935 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4951 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'deprecated_opt_equals));
-//# 15636 "pars.fs"
+//# 15649 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4936 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                         
                    )
-//# 4936 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'deprecated_opt_equals));
-//# 15646 "pars.fs"
+//# 15659 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4939 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4955 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        
                    )
-//# 4939 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4955 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_OBLOCKSEP));
-//# 15656 "pars.fs"
+//# 15669 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                        
                    )
-//# 4940 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_OBLOCKSEP));
-//# 15666 "pars.fs"
+//# 15679 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'seps)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       
-                   )
-//# 4943 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_seps));
-//# 15677 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4944 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       
-                   )
-//# 4944 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_seps));
-//# 15687 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       true 
-                   )
-//# 4947 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_rec));
-//# 15697 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4948 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       false 
-                   )
-//# 4948 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_rec));
-//# 15707 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4951 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       
-                   )
-//# 4951 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_bar));
-//# 15717 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       
-                   )
-//# 4952 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_bar));
-//# 15727 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4955 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       true 
-                   )
-//# 4955 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_inline));
-//# 15737 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
-//# 4956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       false 
-                   )
-//# 4956 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_inline));
-//# 15747 "pars.fs"
-        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
-            Microsoft.FSharp.Core.Operators.box
-                (
-                   (
 //# 4959 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       true 
+                                       
                    )
 //# 4959 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_mutable));
-//# 15757 "pars.fs"
+                 : 'opt_seps));
+//# 15690 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
 //# 4960 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                                       false 
+                                       
                    )
 //# 4960 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'opt_mutable));
-//# 15767 "pars.fs"
+                 : 'opt_seps));
+//# 15700 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4963 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                       true 
+                   )
+//# 4963 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'opt_rec));
+//# 15710 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
 //# 4964 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                               
+                                       false 
                    )
 //# 4964 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'doToken));
-//# 15777 "pars.fs"
+                 : 'opt_rec));
+//# 15720 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                               
+//# 4967 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                       
                    )
-//# 4965 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
-                 : 'doToken));
-//# 15787 "pars.fs"
+//# 4967 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'opt_bar));
+//# 15730 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
 //# 4968 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                       
+                   )
+//# 4968 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'opt_bar));
+//# 15740 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4971 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                       true 
+                   )
+//# 4971 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'opt_inline));
+//# 15750 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                       false 
+                   )
+//# 4972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'opt_inline));
+//# 15760 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4975 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                       true 
+                   )
+//# 4975 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'opt_mutable));
+//# 15770 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                                       false 
+                   )
+//# 4976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'opt_mutable));
+//# 15780 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4980 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                               
+                   )
+//# 4980 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'doToken));
+//# 15790 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                               
+                   )
+//# 4981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+                 : 'doToken));
+//# 15800 "pars.fs"
+        (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
+            Microsoft.FSharp.Core.Operators.box
+                (
+                   (
+//# 4984 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                 
                    )
-//# 4968 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4984 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'doneDeclEnd));
-//# 15797 "pars.fs"
+//# 15810 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4985 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                     
                    )
-//# 4969 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4985 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'doneDeclEnd));
-//# 15807 "pars.fs"
+//# 15820 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4988 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   mlCompatWarning (FSComp.SR.parsSyntaxModuleStructEndDeprecated()) (lhs parseState); 
                    )
-//# 4972 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4988 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'structOrBegin));
-//# 15817 "pars.fs"
+//# 15830 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4973 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4989 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  
                    )
-//# 4973 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4989 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'structOrBegin));
-//# 15827 "pars.fs"
+//# 15840 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4992 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                mlCompatWarning (FSComp.SR.parsSyntaxModuleSigEndDeprecated()) (lhs parseState); 
                    )
-//# 4976 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4992 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'sigOrBegin));
-//# 15837 "pars.fs"
+//# 15850 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4977 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4993 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  
                    )
-//# 4977 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4993 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'sigOrBegin));
-//# 15847 "pars.fs"
+//# 15860 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4980 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                  mlCompatWarning (FSComp.SR.parsSyntaxModuleSigEndDeprecated()) (lhs parseState); 
                    )
-//# 4980 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4996 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'colonOrEquals));
-//# 15857 "pars.fs"
+//# 15870 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4997 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   
                    )
-//# 4981 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 4997 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'colonOrEquals));
-//# 15867 "pars.fs"
+//# 15880 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4985 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5001 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   _1 
                    )
-//# 4985 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5001 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'stringOrKeywordString));
-//# 15878 "pars.fs"
+//# 15891 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4986 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5002 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                           _1 
                    )
-//# 4986 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5002 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'stringOrKeywordString));
-//# 15889 "pars.fs"
+//# 15902 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4989 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5005 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                      
                    )
-//# 4989 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5005 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_HIGH_PRECEDENCE_APP));
-//# 15899 "pars.fs"
+//# 15912 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4990 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                      
                    )
-//# 4990 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_HIGH_PRECEDENCE_APP));
-//# 15909 "pars.fs"
+//# 15922 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5007 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                          
                    )
-//# 4991 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5007 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_HIGH_PRECEDENCE_APP));
-//# 15919 "pars.fs"
+//# 15932 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4994 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                  
                    )
-//# 4994 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_HIGH_PRECEDENCE_TYAPP));
-//# 15929 "pars.fs"
+//# 15942 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4995 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5011 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                          
                    )
-//# 4995 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5011 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'opt_HIGH_PRECEDENCE_TYAPP));
-//# 15939 "pars.fs"
+//# 15952 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeKeyword)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 4999 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5015 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                         
                    )
-//# 4999 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5015 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeKeyword));
-//# 15950 "pars.fs"
+//# 15963 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                         
                    )
-//# 5000 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5016 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeKeyword));
-//# 15960 "pars.fs"
+//# 15973 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5001 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5017 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                 
                    )
-//# 5001 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5017 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'typeKeyword));
-//# 15970 "pars.fs"
+//# 15983 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'moduleKeyword)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5005 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5021 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                             
                    )
-//# 5005 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5021 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'moduleKeyword));
-//# 15981 "pars.fs"
+//# 15994 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                           
                    )
-//# 5006 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5022 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'moduleKeyword));
-//# 15991 "pars.fs"
+//# 16004 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5007 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5023 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   
                    )
-//# 5007 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5023 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'moduleKeyword));
-//# 16001 "pars.fs"
+//# 16014 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'rbrace)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5026 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                      
                    )
-//# 5010 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5026 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rbrace));
-//# 16012 "pars.fs"
+//# 16025 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5011 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5027 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                           
                    )
-//# 5011 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5027 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rbrace));
-//# 16022 "pars.fs"
+//# 16035 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5012 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5028 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   
                    )
-//# 5012 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5028 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rbrace));
-//# 16032 "pars.fs"
+//# 16045 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5015 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5031 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                       
                    )
-//# 5015 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5031 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'bar_rbrace));
-//# 16042 "pars.fs"
+//# 16055 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'rparen)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5018 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5034 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                      
                    )
-//# 5018 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5034 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rparen));
-//# 16053 "pars.fs"
+//# 16066 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                           
                    )
-//# 5019 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rparen));
-//# 16063 "pars.fs"
+//# 16076 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5020 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5036 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                   
                    )
-//# 5020 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5036 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'rparen));
-//# 16073 "pars.fs"
+//# 16086 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'oblockend)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5023 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5039 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                            
                    )
-//# 5023 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5039 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'oblockend));
-//# 16084 "pars.fs"
+//# 16097 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5024 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                              
                    )
-//# 5024 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'oblockend));
-//# 16094 "pars.fs"
+//# 16107 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5025 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5041 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                      
                    )
-//# 5025 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5041 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'oblockend));
-//# 16104 "pars.fs"
+//# 16117 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5028 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5044 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                             false 
                    )
-//# 5028 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5044 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_other_than_rparen_coming_soon_or_recover));
-//# 16114 "pars.fs"
+//# 16127 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5029 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5045 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                               false 
                    )
-//# 5029 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5045 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_other_than_rparen_coming_soon_or_recover));
-//# 16124 "pars.fs"
+//# 16137 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5030 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                               false 
                    )
-//# 5030 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5046 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_other_than_rparen_coming_soon_or_recover));
-//# 16134 "pars.fs"
+//# 16147 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5031 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5047 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                  false 
                    )
-//# 5031 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5047 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_other_than_rparen_coming_soon_or_recover));
-//# 16144 "pars.fs"
+//# 16157 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5048 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    _1 
                    )
-//# 5032 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5048 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_other_than_rparen_coming_soon_or_recover));
-//# 16155 "pars.fs"
+//# 16168 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5051 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                             false 
                    )
-//# 5035 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5051 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_coming_soon_or_recover));
-//# 16165 "pars.fs"
+//# 16178 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5036 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5052 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                               false 
                    )
-//# 5036 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5052 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_coming_soon_or_recover));
-//# 16175 "pars.fs"
+//# 16188 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5037 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5053 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                               false 
                    )
-//# 5037 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5053 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_coming_soon_or_recover));
-//# 16185 "pars.fs"
+//# 16198 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5038 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5054 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                               false 
                    )
-//# 5038 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5054 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_coming_soon_or_recover));
-//# 16195 "pars.fs"
+//# 16208 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5039 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5055 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                                  false 
                    )
-//# 5039 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5055 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_coming_soon_or_recover));
-//# 16205 "pars.fs"
+//# 16218 "pars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'recover)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 5040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5056 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                                    _1 
                    )
-//# 5040 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
+//# 5056 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pars.fsy"
                  : 'ends_coming_soon_or_recover));
 |]
-//# 16217 "pars.fs"
+//# 16230 "pars.fs"
 let tables () : Internal.Utilities.Text.Parsing.Tables<_> = 
   { reductions= _fsyacc_reductions ();
     endOfInputTag = _fsyacc_endOfInputTag;

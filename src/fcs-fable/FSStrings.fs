@@ -47,9 +47,6 @@ let resources =
       ( "PossibleOverload",
         "Possible overload: '{0}'. {1}."
       );
-      ( "PossibleBestOverload",
-        "\n\nPossible best overload: '{0}'."
-      );
       ( "FunctionExpected",
         "This function takes too many arguments, or is used in a context where a function is not expected"
       );
