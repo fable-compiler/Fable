@@ -1,3 +1,7 @@
+### 2.1.10
+
+* Add `onCompiled` hook
+
 ### 2.1.8
 
 * Add back possibility to connect to TCP port

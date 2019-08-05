@@ -55,9 +55,12 @@ let private msbuildPropStringList (s: string) =
 let rec private projInfo additionalMSBuildProps (file: string) =
   let projDir = Path.GetDirectoryName file
 
-  let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")
-  if not(File.Exists(projectAssetsJsonPath)) then
-     failwithf "Cannot find restored info for project %s" file
+// Sometimes project.assets.json is not in "obj" folder, see #1843
+// Also, we're already calling "dotnet restore" before running this anyways
+
+//   let projectAssetsJsonPath = Path.Combine(projDir, "obj", "project.assets.json")
+//   if not(File.Exists(projectAssetsJsonPath)) then
+//      failwithf "Cannot find restored info for project %s" file
 
   let getFscArgs = Dotnet.ProjInfo.Inspect.getFscArgs
   let getP2PRefs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs

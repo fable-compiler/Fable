@@ -1,6 +1,6 @@
 {
   "name": "fable-loader",
-  "version": "2.1.6",
+  "version": "2.1.8",
   "main": "index.js",
   "description": "Webpack loader for Fable compiler",
   "keywords": [

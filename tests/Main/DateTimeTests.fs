@@ -272,6 +272,14 @@ let tests =
         d.ToUniversalTime().Kind <> d.Kind
         |> equal true
 
+    testCase "DateTime.SpecifyKind works" <| fun () -> // See #1844
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+        let d2 = DateTime.SpecifyKind(d, DateTimeKind.Utc)
+        d2.Kind |> equal DateTimeKind.Utc
+        d.Ticks = d2.Ticks |> equal true
+        // let d3 = d.ToUniversalTime()
+        // d.Ticks = d3.Ticks |> equal false
+
     testCase "DateTime.Date works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30)
         d.Date.Hour |> equal 0
@@ -534,5 +542,35 @@ let tests =
             do! Async.Sleep 50
             equal 10 !res
             t.Stop()
+        }
+
+    testCaseAsync "Assigning an event to a variable works" <| fun () -> // See #1863
+        let createTimerAndObservable timerInterval =
+            // setup a timer
+            let timer = new System.Timers.Timer(float timerInterval)
+            timer.AutoReset <- true
+            // events are automatically IObservable
+            let observable = timer.Elapsed
+            // return an async task
+            let task = async {
+                timer.Start()
+                do! Async.Sleep 200
+                timer.Stop()
+            }
+            // return a async task and the observable
+            (task,observable)
+        // create the timer and the corresponding observable
+        let basicTimer2 , timerEventStream = createTimerAndObservable 50
+
+        let mutable acc = 1
+        // register that everytime something happens on the
+        // event stream, print the time.
+        timerEventStream |> Observable.subscribe (fun _ ->
+            acc <- acc + 1) |>ignore
+
+        async {
+            do! basicTimer2
+            printfn "%i" acc
+            acc > 2 |> equal true
         }
   ]

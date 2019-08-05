@@ -522,6 +522,26 @@ let tests =
         |> Seq.reduce (+)
         |> equal 20UL
 
+    testCase "Seq.range works with decimal" <| fun () ->
+        seq{1M .. 50M}
+        |> Seq.reduce (+)
+        |> equal 1275M
+
+    testCase "Seq.range step works with decimal" <| fun () ->
+        seq {-3M .. -0.4359698987M .. -50M}
+        |> Seq.reduce (+)
+        |> equal -2843.0340746886M
+
+    testCase "Seq.range works with bigint" <| fun () ->
+        seq{1I..2000I}
+        |> Seq.reduce (+)
+        |> equal 2001000I
+
+    testCase "Seq.range step works with bigint" <| fun () ->
+        seq {1I .. 10000000000000I .. 20000000000000000I}
+        |> Seq.reduce (+)
+        |> equal 19990000000000002000I
+
     testCase "Seq.reduce works" <| fun () ->
         let xs = [1.; 2.]
         xs |> Seq.reduce (+)
@@ -810,4 +830,22 @@ let tests =
         Seq.windowed 5 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Seq.windowed 6 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Seq.windowed 7 nums |> Seq.isEmpty |> equal true
+
+    testCase "Seq.allPairs works" <| fun () ->
+        let mutable accX = 0
+        let mutable accY = 0
+        let xs = seq { accX <- accX + 1; for i = 1 to 4 do yield i }
+        let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do yield i }
+        let res = Seq.allPairs xs ys
+        let res1 = List.ofSeq res
+        let res2 = List.ofSeq res
+        let expected =
+            [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+             (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+             (4, 'd'); (4, 'e'); (4, 'f')]
+        accX |> equal 2
+        accY |> equal 1
+        equal expected res1
+        equal expected res2
   ]

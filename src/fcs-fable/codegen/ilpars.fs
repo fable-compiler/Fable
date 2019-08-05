@@ -4,7 +4,7 @@ module internal FSharp.Compiler.AbstractIL.Internal.AsciiParser
 open FSharp.Compiler.AbstractIL
 open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Text.Parsing.ParseHelpers
-//# 3 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 3 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
 
 
 #nowarn "1182"  // the generated code often has unused variable "parseState"
@@ -32,10 +32,10 @@ let decodeVarargs args =
   let rec normals = function 
     | [] -> ([],None)
     | Sentinel :: t -> ([],Some (varargs t))
-    | SigArg (_,p)::t -> let (n,r) = normals t in (p::n, r)
+    | SigArg (_,p) :: t -> let (n,r) = normals t in (p :: n, r)
   and varargs = function 
     | [] -> []
-    | SigArg (_,ty):: t ->  let l = varargs t in ty::l
+    | SigArg (_,ty) :: t ->  let l = varargs t in ty :: l
     | Sentinel :: t -> pfailwith "two sentinels in vararg call"
   normals args
 
@@ -657,10 +657,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 148 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 148 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScope _1 [] 
                    )
-//# 148 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 148 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType));
 //# 665 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -668,10 +668,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 152 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 152 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               Array.ofList _1 
                    )
-//# 152 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 152 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILInstr array));
 //# 676 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -679,10 +679,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 156 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                         _1 
                    )
-//# 156 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 156 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'compQstring));
 //# 687 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -691,10 +691,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 157 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 157 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                                          _1 + _3 
                    )
-//# 157 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 157 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'compQstring));
 //# 699 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -702,10 +702,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 159 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                           _1 
                    )
-//# 159 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 159 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'methodName));
 //# 710 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -714,20 +714,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 163 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 163 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 :: _2  
                    )
-//# 163 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 163 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instrs2));
 //# 722 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 164 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 164 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                             [] 
                    )
-//# 164 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 164 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instrs2));
 //# 732 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -740,7 +740,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 170 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 170 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               let callee_class_typ : ILType = resolveCurrentMethodSpecScope _3 
                               let gscope = (if isILArrTy callee_class_typ then None else Some callee_class_typ.TypeSpec) 
                               let argtys_n_varargs = resolveFormalMethodSpecScope gscope _8 
@@ -749,7 +749,7 @@ let _fsyacc_reductions ()  =    [|
                               let callee_retty = resolveFormalMethodSpecScope gscope _2 
                               (callee_class_typ, _1, _5, argtys, callee_retty, minst), varargs 
                    )
-//# 170 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 170 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'methodSpecMaybeArrayMethod));
 //# 754 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -757,10 +757,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 180 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 180 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 (_1 ()) 
                    )
-//# 180 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 180 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 765 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -769,10 +769,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 182 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 182 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 (_1 _2) 
                    )
-//# 182 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 182 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 777 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -782,10 +782,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 184 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 (_1 (_2,_3)) 
                    )
-//# 184 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 184 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 790 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -794,10 +794,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 186 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 186 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 (_1 _2) 
                    )
-//# 186 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 186 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 802 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -806,10 +806,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 188 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 188 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 (_1 (ILConst.R8 _2)) 
                    )
-//# 188 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 188 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 814 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -818,10 +818,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 190 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 190 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 (_1 (ILConst.R8 (float _2))) 
                    )
-//# 190 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 190 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 826 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -830,7 +830,7 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 192 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 192 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 
                                     let  ((encl_typ, _cc, nm, _argtys, _retty, _minst) as data),varargs = _2 
                                     if isILArrTy encl_typ then 
@@ -844,7 +844,7 @@ let _fsyacc_reductions ()  =    [|
                                     else 
                                         _1 (mkILMethSpecInTy data, varargs) 
                    )
-//# 192 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 192 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 849 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -853,10 +853,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 205 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 205 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 861 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -866,10 +866,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 207 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 207 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 ( _2,resolveCurrentMethodSpecScope _3) 
                    )
-//# 207 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 207 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 874 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -878,10 +878,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 209 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 209 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 886 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -890,20 +890,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 211 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 211 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 (_1 (ILToken.ILType (resolveCurrentMethodSpecScope _2)))  
                    )
-//# 211 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 211 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
 //# 898 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 218 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 218 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 noMethodSpecScope [] 
                    )
-//# 218 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 218 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'sigArgs0));
 //# 908 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -911,10 +911,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 219 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 219 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                        _1 
                    )
-//# 219 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 219 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'sigArgs0));
 //# 919 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -922,10 +922,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 223 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 223 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                ResolvedAtMethodSpecScope (fun c -> List.map (fun obj -> resolveMethodSpecScope obj c) (List.rev _1)) 
                    )
-//# 223 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 223 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'sigArgs1));
 //# 930 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -933,10 +933,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 227 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 227 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                [_1] 
                    )
-//# 227 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 227 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'sigArgs1a));
 //# 941 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -945,10 +945,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 229 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
-                               _3:: _1 
+//# 229 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _3 :: _1 
                    )
-//# 229 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 229 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'sigArgs1a));
 //# 953 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -957,21 +957,21 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 233 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 233 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> 
                               noMethodSpecScope (SigArg(_2, ty))) 
                    )
-//# 233 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 233 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'sigArg));
 //# 966 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 238 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 238 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                 None 
                    )
-//# 238 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 238 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'opt_id));
 //# 976 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -979,10 +979,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 238 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 238 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                               Some _1 
                    )
-//# 238 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 238 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'opt_id));
 //# 987 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -990,10 +990,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 246 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 246 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 
                    )
-//# 246 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 246 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : string));
 //# 998 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1001,10 +1001,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 248 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 
                    )
-//# 248 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 248 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : string));
 //# 1009 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1013,10 +1013,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 250 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 250 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 + "." + _3 
                    )
-//# 250 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 250 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : string));
 //# 1021 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1025,12 +1025,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 254 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 254 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                let (enc,nm) = _4 
                                let aref = findAssemblyRef _2 
                                ILScopeRef.Assembly aref, enc, nm 
                    )
-//# 254 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 254 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'className));
 //# 1035 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1038,10 +1038,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 258 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 258 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                let enc, nm = _1 in (ILScopeRef.Local, enc, nm) 
                    )
-//# 258 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 258 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'className));
 //# 1046 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1049,10 +1049,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 262 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 262 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                ([],_1) 
                    )
-//# 262 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 262 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'slashedName));
 //# 1057 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1061,10 +1061,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 264 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
-                               let (enc,nm) = _3 in (_1::enc, nm)  
+//# 264 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               let (enc,nm) = _3 in (_1 :: enc, nm)  
                    )
-//# 264 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 264 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'slashedName));
 //# 1069 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1073,12 +1073,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 268 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 268 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                let (a,b,c) = _1 
                                resolveMethodSpecScopeThen _2 (fun inst -> 
                                noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), inst)))) 
                    )
-//# 268 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 268 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typeNameInst));
 //# 1083 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1086,11 +1086,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 275 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 275 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                let (a,b,c) = _1 
                                noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), []))) 
                    )
-//# 275 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 275 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typeName));
 //# 1095 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1098,11 +1098,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 281 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 281 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun tref -> 
                                noMethodSpecScope (mkILBoxedType tref))  
                    )
-//# 281 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 281 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typSpec));
 //# 1107 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1110,10 +1110,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 284 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 284 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _1 
                    )
-//# 284 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 284 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typSpec));
 //# 1118 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1121,10 +1121,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 286 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _2 
                    )
-//# 286 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 286 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typSpec));
 //# 1129 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1132,10 +1132,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 291 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 291 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                Callconv (ILThisConvention.Instance,_2) 
                    )
-//# 291 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 291 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callConv));
 //# 1140 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1143,10 +1143,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 293 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 293 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                Callconv (ILThisConvention.InstanceExplicit,_2) 
                    )
-//# 293 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 293 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callConv));
 //# 1151 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1154,60 +1154,60 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 295 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                Callconv (ILThisConvention.Static,_1) 
                    )
-//# 295 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callConv));
 //# 1162 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 299 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 299 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                              ILArgConvention.Default 
                    )
-//# 299 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 299 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callKind));
 //# 1172 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 301 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 301 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                              ILArgConvention.Default 
                    )
-//# 301 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 301 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callKind));
 //# 1182 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 303 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 303 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                              ILArgConvention.VarArg 
                    )
-//# 303 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 303 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callKind));
 //# 1192 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 312 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 312 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_String 
                    )
-//# 312 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 312 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1202 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 314 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Object 
                    )
-//# 314 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1212 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1215,11 +1215,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 316 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 316 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _2 (fun tspec -> 
                                noMethodSpecScope (mkILBoxedType tspec)) 
                    )
-//# 316 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 316 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1224 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1227,11 +1227,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 319 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 319 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _3 (fun tspec -> 
                               noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 319 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 319 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1236 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1239,11 +1239,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 322 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 322 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _2 (fun tspec -> 
                               noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 322 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 322 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1248 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1251,10 +1251,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 325 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 325 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArr1DTy ty)) 
                    )
-//# 325 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 325 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1259 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1263,10 +1263,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 327 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 327 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArrTy (ty,ILArrayShape _3))) 
                    )
-//# 327 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 327 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1271 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1274,10 +1274,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 329 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 329 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Byref ty)) 
                    )
-//# 329 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 329 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1282 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1285,210 +1285,210 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 331 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Ptr ty)) 
                    )
-//# 331 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 331 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1293 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 333 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 333 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Char 
                    )
-//# 333 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 333 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1303 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 335 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 335 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope ILType.Void 
                    )
-//# 335 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 335 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1313 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 337 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 337 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Bool 
                    )
-//# 337 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 337 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1323 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 339 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 339 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_SByte 
                    )
-//# 339 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 339 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1333 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 341 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 341 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Int16 
                    )
-//# 341 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 341 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1343 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 343 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 343 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Int32 
                    )
-//# 343 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 343 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1353 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 345 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Int64 
                    )
-//# 345 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1363 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 347 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 347 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Single 
                    )
-//# 347 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 347 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1373 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 349 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 349 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Double 
                    )
-//# 349 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 349 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1383 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 351 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 351 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Byte 
                    )
-//# 351 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 351 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1393 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 353 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 353 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UInt16 
                    )
-//# 353 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 353 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1403 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 355 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 355 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UInt32 
                    )
-//# 355 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 355 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1413 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 357 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 357 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UInt64 
                    )
-//# 357 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 357 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1423 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 359 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 359 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_Byte 
                    )
-//# 359 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 359 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1433 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 361 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UInt16 
                    )
-//# 361 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 361 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1443 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 363 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 363 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UInt32 
                    )
-//# 363 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 363 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1453 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 365 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 365 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UInt64 
                    )
-//# 365 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 365 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1463 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 367 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 367 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_IntPtr 
                    )
-//# 367 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 367 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1473 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 369 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UIntPtr 
                    )
-//# 369 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 369 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1483 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 371 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 371 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (!parseILGlobals).typ_UIntPtr 
                    )
-//# 371 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 371 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1493 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1496,10 +1496,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 374 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 374 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               noMethodSpecScope (ILType.TypeVar (uint16 ( _2)))  
                    )
-//# 374 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 374 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1504 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1507,10 +1507,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 379 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               [_1] 
                    )
-//# 379 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 379 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bounds1));
 //# 1515 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1519,20 +1519,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 381 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 381 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               _1 @ [_3] 
                    )
-//# 381 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 381 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bounds1));
 //# 1527 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 385 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 385 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               (None, None) 
                    )
-//# 385 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 385 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
 //# 1537 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1540,10 +1540,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 387 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 387 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               (None, Some _1) 
                    )
-//# 387 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 387 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
 //# 1548 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1552,10 +1552,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 389 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 389 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               (Some _1, Some (_3 - _1 + 1)) 
                    )
-//# 389 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 389 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
 //# 1560 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1563,10 +1563,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 391 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 391 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               (Some _1, None) 
                    )
-//# 391 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 391 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
 //# 1571 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1575,10 +1575,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 398 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 398 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               (Some _1, Some (_2 - _1 + 1)) 
                    )
-//# 398 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 398 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
 //# 1583 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1586,10 +1586,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 400 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 400 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               (Some _1, None) 
                    )
-//# 400 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 400 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
 //# 1594 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1597,10 +1597,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 404 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               _1 
                    )
-//# 404 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 404 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'id));
 //# 1605 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1608,10 +1608,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 406 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               _1 
                    )
-//# 406 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 406 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'id));
 //# 1616 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1619,10 +1619,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 410 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               int32 _1 
                    )
-//# 410 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 410 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'int32));
 //# 1627 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1630,10 +1630,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 414 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               _1 
                    )
-//# 414 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 414 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'int64));
 //# 1638 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1641,10 +1641,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 418 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 418 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               _1 
                    )
-//# 418 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 418 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'float64));
 //# 1649 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1652,20 +1652,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 420 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 420 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                               System.BitConverter.Int64BitsToDouble _3 
                    )
-//# 420 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 420 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'float64));
 //# 1660 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 424 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 424 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                noMethodSpecScope [] 
                    )
-//# 424 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 424 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'opt_actual_tyargs));
 //# 1670 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1673,11 +1673,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 426 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun res -> 
                                noMethodSpecScope  res) 
                    )
-//# 426 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 426 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'opt_actual_tyargs));
 //# 1682 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1685,10 +1685,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 431 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 431 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                _2 
                    )
-//# 431 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 431 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'actual_tyargs));
 //# 1693 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1696,11 +1696,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 435 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 435 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun res -> 
                                noMethodSpecScope [ res]) 
                    )
-//# 435 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 435 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'actualTypSpecs));
 //# 1705 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1709,12 +1709,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 438 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 438 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun x -> 
                                resolveMethodSpecScopeThen _3 (fun y -> 
                                noMethodSpecScope (x @ [ y]))) 
                    )
-//# 438 "/Users/alfonsogarciacaronunez/dev/FSharp.Compiler.Service_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+//# 438 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'actualTypSpecs));
 |]
 //# 1720 "ilpars.fs"

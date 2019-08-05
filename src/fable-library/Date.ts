@@ -282,6 +282,10 @@ export function toLocalTime(date: IDateTime) {
   return date.kind === DateKind.Local ? date : DateTime(date.getTime(), DateKind.Local);
 }
 
+export function specifyKind(d: IDateTime, kind: DateKind) {
+    return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), kind);
+}
+
 export function timeOfDay(d: IDateTime) {
   return hour(d) * 3600000
     + minute(d) * 60000

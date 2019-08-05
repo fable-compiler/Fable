@@ -71,6 +71,10 @@ export function filter(predicate, arg) {
     return arg != null ? (!predicate(value(arg)) ? null : arg) : arg;
 }
 
+export function map(predicate, ...args) {
+    return args.every(x => x != null) ? predicate.apply(null, args) : null;
+}
+
 // CHOICE
 
 export const Choice = declare(function Choice(tag, name, field) {

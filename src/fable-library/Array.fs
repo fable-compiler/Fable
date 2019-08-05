@@ -41,28 +41,28 @@ module Helpers =
         !!array?fill(value, start, start + count)
 
     let inline foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
-        !!array?reduce(JsFunc.From2(folder), state)
+        !!array?reduce(System.Func<'State, 'T, 'State>(folder), state)
 
     let inline foldIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T[]): 'State =
-        !!array?reduce(JsFunc.From3(folder), state)
+        !!array?reduce(System.Func<'State, 'T, int, 'State>(folder), state)
 
     let inline foldBackImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
-        !!array?reduceRight(JsFunc.From2(folder), state)
+        !!array?reduceRight(System.Func<'State, 'T, 'State>(folder), state)
 
     let inline foldBackIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T[]): 'State =
-        !!array?reduceRight(JsFunc.From3(folder), state)
+        !!array?reduceRight(System.Func<'State, 'T, int, 'State>(folder), state)
 
     let inline iterImpl (action: 'T -> unit) (array: 'T[]): unit =
         !!array?forEach(action)
 
     let inline iterIndexedImpl (action: 'T -> int -> unit) (array: 'T[]): unit =
-        !!array?forEach(JsFunc.From2(action))
+        !!array?forEach(System.Action<'T, int>(action))
 
     let inline mapImpl (mapping: 'T -> 'U) (array: 'T[]): 'U[] =
         !!array?map(mapping)
 
     let inline mapIndexedImpl (mapping: 'T -> int -> 'U) (array: 'T[]): 'U[] =
-        !!array?map(JsFunc.From2(mapping))
+        !!array?map(System.Func<'T, int, 'U>(mapping))
 
     // Typed arrays not supported, only dynamic ones do
     let inline pushImpl (array: 'T[]) (item: 'T): int =
@@ -303,7 +303,7 @@ let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>
     loop 0
 
 
-let except (itemsToExclude: seq<'t>) (array: 't[]) ([<Inject>] eq: IEqualityComparer<'t>): 't[] =
+let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>): 'T[] =
     if array.Length = 0 then
         array
     else
@@ -428,13 +428,9 @@ let takeWhile predicate (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
     else
         subArrayImpl array 0 count
 
-let addRangeInPlace (range: JS.Iterable<'T>) (array: 'T[]) =
+let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    let iter = range.``[Symbol.iterator]``()
-    let mutable cur = iter.next()
-    while not (cur.``done``) do
-        pushImpl array !!cur.value |> ignore
-        cur <- iter.next()
+    Seq.iter (fun x -> pushImpl array x |> ignore) range
 
 let removeInPlace (item: 'T) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
@@ -455,7 +451,7 @@ let removeAllInPlace predicate (array: 'T[]) =
             count
     countRemoveAll 0
 
-let copyTo (source: JS.ArrayLike<'T>) sourceIndex (target: JS.ArrayLike<'T>) targetIndex count =
+let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
     let diff = targetIndex - sourceIndex
     for i = sourceIndex to sourceIndex + count - 1 do
         target.[i + diff] <- source.[i]

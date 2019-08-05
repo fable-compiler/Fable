@@ -1,9 +1,10 @@
 module QuickTest
 
-// Run a full build (or at least build fable-library) before playing with this file
-// Run `npm run quicktest` to start compiler in watch mode and write your tests below
-// You can check the compiled JS in the "bin" folder within this directory
-// Please don't add this file to your commits
+// Run `npm run build quicktest` and then add tests to this file,
+// when you save they will be run automatically with latest changes in compiler and fable-library.
+// When everything works, move the tests to the appropiate file in tests/Main.
+// You can check the compiled JS in the "bin" folder within this directory.
+// Please don't add this file to your commits.
 
 open System
 open System.Collections.Generic
@@ -43,9 +44,29 @@ let testCase (msg: string) f: unit =
     printfn ""
 
 let testCaseAsync msg f =
-    testCase msg (fun () -> f () |> Async.StartImmediate)
+    testCase msg (fun () ->
+        async {
+            try
+                do! f ()
+            with ex ->
+                printfn "%s" ex.Message
+                if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
+                    printfn "%s" ex.StackTrace
+        } |> Async.StartImmediate)
 
 // Write here your unit test, you can later move it
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+type AnonRec1 = {| name: string; child: {| name: string |} |}
+type AnonRec2 = {| numbers: int list |}
+
+testCase "Comparing anonymous record types works" <| fun () ->
+  let x = {| numbers = [3; 4] |}
+  typeof<AnonRec1> = typeof<AnonRec2> |> equal false
+  typeof<AnonRec1> = typeof<AnonRec1> |> equal true
+  typeof<AnonRec2> = x.GetType() |> equal true
+  let t1 = typeof<Result<{| name: string; child: {| name: string |} |}, string>>
+  let t2 = typeof<Result<{| numbers: int list |}, string>>
+  t1 = t2 |> equal false
+  t2 = typeof<Result<{| numbers: int list |}, string>> |> equal true

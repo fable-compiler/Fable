@@ -5,7 +5,7 @@ console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + ".
 
 const babelOptions = useCommonjs
   ? { plugins: ["@babel/plugin-transform-modules-commonjs"] }
-  : {};
+  : { };
 
 const fableOptions = {
   define: [

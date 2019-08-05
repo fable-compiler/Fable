@@ -788,4 +788,14 @@ let tests =
         let res = revert [2;3;4]
         equal 3 res.Length
         equal 4 res.Head
+
+    testCase "List.allPairs works" <| fun () ->
+        let xs = [1;2;3;4]
+        let ys = ['a';'b';'c';'d';'e';'f']
+        List.allPairs xs ys
+        |> equal
+            [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+             (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+             (4, 'd'); (4, 'e'); (4, 'f')]
   ]

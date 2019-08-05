@@ -1,3 +1,19 @@
+### 1.1.4
+
+* fable-compiler 2.3.12
+
+### 1.1.3
+
+* Don't crash REPL compilation on Babel errors
+
+### 1.1.2
+
+* fable-compiler 2.3.10
+
+### 1.1.1
+
+* Update bundle and Worker dependencies
+
 ### 1.0.4
 
 * Fixed optimized patterns

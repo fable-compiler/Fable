@@ -2,7 +2,7 @@ namespace Fable.Cli
 
 module Literals =
 
-  let [<Literal>] VERSION = "2.3.5"
+  let [<Literal>] VERSION = "2.3.17"
   let [<Literal>] CORE_VERSION = "2.1.0"
   let [<Literal>] DEFAULT_PORT = 61225
   let [<Literal>] FORCE = "force:"
@@ -57,9 +57,9 @@ type AgentMsg =
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbose, forcePkgs, fableLibraryPath, workingDir) =
+type GlobalParams private (verbosity, forcePkgs, fableLibraryPath, workingDir) =
     static let mutable singleton: GlobalParams option = None
-    let mutable _verbose = verbose
+    let mutable _verbosity = verbosity
     let mutable _forcePkgs = forcePkgs
     let mutable _fableLibraryPath = fableLibraryPath
     let mutable _workingDir = workingDir
@@ -83,19 +83,19 @@ type GlobalParams private (verbose, forcePkgs, fableLibraryPath, workingDir) =
                 defaultFableLibraryPaths
                 |> List.tryFind Directory.Exists
                 |> Option.defaultValue (List.last defaultFableLibraryPaths)
-            let p = GlobalParams(false, false, fableLibraryPath, workingDir)
+            let p = GlobalParams(Fable.Verbosity.Normal, false, fableLibraryPath, workingDir)
             singleton <- Some p
             p
 
-    member __.Verbose: bool = _verbose
+    member __.Verbosity: Fable.Verbosity = _verbosity
     member __.ForcePkgs: bool = _forcePkgs
     member __.FableLibraryPath: string = _fableLibraryPath
     member __.WorkingDir: string = _workingDir
     member __.ReplaceFiles = _replaceFiles
     member __.Experimental = _experimental
 
-    member __.SetValues(?verbose, ?forcePkgs, ?fableLibraryPath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
-        _verbose        <- defaultArg verbose _verbose
+    member __.SetValues(?verbosity, ?forcePkgs, ?fableLibraryPath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
+        _verbosity      <- defaultArg verbosity _verbosity
         _forcePkgs      <- defaultArg forcePkgs _forcePkgs
         _fableLibraryPath  <- defaultArg fableLibraryPath _fableLibraryPath
         _workingDir     <- defaultArg workingDir _workingDir
@@ -121,12 +121,13 @@ module Log =
     let writerLock = obj()
 
     let always (msg: string) =
-        lock writerLock (fun () ->
-            Console.Out.WriteLine(msg)
-            Console.Out.Flush())
+        if GlobalParams.Singleton.Verbosity <> Fable.Verbosity.Silent then
+            lock writerLock (fun () ->
+                Console.Out.WriteLine(msg)
+                Console.Out.Flush())
 
     let verbose (msg: Lazy<string>) =
-        if GlobalParams.Singleton.Verbose then
+        if GlobalParams.Singleton.Verbosity = Fable.Verbosity.Verbose then
             always msg.Value
 
 module Json =
@@ -270,7 +271,7 @@ module Process =
             |> fun m -> m.Groups.[1].Value
         let v = hostVersion.Split('.')
         let netCoreAssembliesDir = Path.Combine(nugetCache, "microsoft.netcore.app", hostVersion, "ref", "netcoreapp" + v.[0] + "." + v.[1])
-        
+
         if not(Directory.Exists(netCoreAssembliesDir)) then
             // Create a temp proj file that has the current Microsoft.NETCore.App as dependency.
             // Restore the proj file which will add the nuget package in the global cache.
@@ -287,14 +288,14 @@ module Process =
                                       </ItemGroup>
                                     </Project>
                                     """ netappCore hostVersion
-                                    
+
             let tempFolder = Path.GetTempPath()
             let tempProj = System.IO.Path.Combine(tempFolder, (sprintf "%s.proj" (System.Guid.NewGuid().ToString("N"))))
-            
+
             System.IO.File.WriteAllText(tempProj, proj)
             let restoreCode = runProcess tempFolder "dotnet" (sprintf "restore \"%s\"" tempProj)
             System.IO.File.Delete(tempProj)
-            
+
         netCoreAssembliesDir
 
 [<RequireQualifiedAccess>]

@@ -26,6 +26,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="2.0.3" />
+    <PackageReference Include="Fable.Core" Version="3.0.0" />
   </ItemGroup>
 </Project>

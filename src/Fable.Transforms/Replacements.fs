@@ -554,9 +554,8 @@ let arrayCons (com: ICompiler) genArg =
         getTypedArrayName com numberKind |> makeIdentExprNonMangled
     | _ -> makeIdentExprNonMangled "Array"
 
-// TODO: Should we pass the empty list representation here?
 let toList returnType expr =
-    Helper.CoreCall("Seq", "toList", returnType, [expr])
+    Helper.CoreCall("List", "ofSeq", returnType, [expr])
 
 let toArray (com: ICompiler) returnType expr =
     // match expr, returnType with
@@ -1068,7 +1067,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_BangHat", [arg] -> Some arg
         | "op_BangBang", [arg] ->
             match arg, i.GenericArgs with
-            | Value(NewRecord(exprs, Fable.AnonymousRecord fieldNames, []),_),
+            | Value(NewRecord(exprs, Fable.AnonymousRecord fieldNames, _),_),
               [_; (_,DeclaredType(ent, []))] when ent.IsInterface ->
                 // TODO: Check also if there are extra fields in the record not present in the interface?
                 (None, ent.MembersFunctionsAndValues) ||> Seq.fold (fun err memb ->
@@ -1098,10 +1097,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                                         let typeName = getTypeFullName true expectedType
                                         sprintf "Expecting type '%s' for field '%s'" typeName memb.DisplayName |> Some)
                 |> function
-                    | None -> ()
-                    | Some errMsg -> addWarning com ctx.InlinePath r errMsg
-            | _ -> ()
-            Some arg
+                    | Some errMsg ->
+                        addWarning com ctx.InlinePath r errMsg
+                        Some arg
+                    | None ->
+                        List.zip (Array.toList fieldNames) exprs |> objExpr t |> Some
+            | _ -> Some arg
         | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
         | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
             Set(callee, ExprSet prop, value, r) |> Some
@@ -1251,7 +1252,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", [arg] -> Helper.CoreCall("Util", "ignore", Unit, [arg], ?loc=r) |> Some
+    | "Ignore", _ -> "($0, null)" |> emitJs r t args |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
@@ -1271,14 +1272,15 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match args with
             | [first; last] -> [first; getOne com ctx genArg; last]
             | _ -> args
-        let meth, args =
+        let modul, meth, args =
             match genArg with
-            // TODO: BigInt?
-            | Char -> "rangeChar", args
-            | Builtin BclInt64 -> "rangeLong", (addStep args) @ [makeBoolConst false]
-            | Builtin BclUInt64 -> "rangeLong", (addStep args) @ [makeBoolConst true]
-            | _ -> "rangeNumber", addStep args
-        Helper.CoreCall("Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            | Char -> "Seq", "rangeChar", args
+            | Builtin BclInt64 -> "Seq", "rangeLong", (addStep args) @ [makeBoolConst false]
+            | Builtin BclUInt64 -> "Seq", "rangeLong", (addStep args) @ [makeBoolConst true]
+            | Builtin BclDecimal -> "Seq", "rangeDecimal", addStep args
+            | Builtin BclBigInt -> "BigInt", "range", addStep args
+            | _ -> "Seq", "rangeNumber", addStep args
+        Helper.CoreCall(modul, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Pipes and composition
     | "op_PipeRight", [x; f]
     | "op_PipeLeft", [f; x] -> curriedApply r t f [x] |> Some
@@ -1733,6 +1735,9 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
+    | "AllPairs", args ->
+        let allPairs = Helper.CoreCall("Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
+        toArray com t allPairs |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -1770,6 +1775,9 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some
     | "ToArray", [x] -> listToArray com r t x |> Some
+    | "AllPairs", args ->
+        let allPairs = Helper.CoreCall("Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
+        toList t allPairs |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "List" meth i.GenericArgs args
@@ -1843,6 +1851,8 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
             | _ -> f.Type, arg.Type // unexpected
         let args = [arg; Value(NewOption(None, argType), None); f]
         Helper.CoreCall("Option", "defaultArg", t, args, [argType; Option argType; fType],  ?loc=r) |> Some
+    | ("Map2" | "Map3"), args ->
+        Helper.CoreCall("Option", "map", t, args, i.SignatureArgTypes,  ?loc=r) |> Some
     | "Filter", _ ->
         Helper.CoreCall("Option", "filter", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", [arg] ->
@@ -1860,7 +1870,6 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
             then "List", "ofArray"
             else "Seq", Naming.lowerFirst meth
         Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    // | "map2" | "map3" -> failwith "TODO"
     | _ -> None
 
 let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2687,7 +2696,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
     | "MakeTupleType" ->
-        Helper.CoreCall("Reflection", "tuple", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.CoreCall("Reflection", "tuple", t, args, i.SignatureArgTypes, hasSpread=true, ?loc=r) |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
         Helper.CoreCall("Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc=r) |> Some

@@ -8,6 +8,9 @@ module.exports = {
   fable: {
     define: ["DEBUG"]
   },
+  babel: {
+    sourceMaps: true
+  }
   // allFiles: true
 };
 

@@ -1,10 +1,66 @@
+### 2.3.17
+
+* Update FSharp.Compiler.Services and Dotnet.ProjInfo
+* Fix #1868: Type provider ResolutionFolder is empty @ncave
+
+### 2.3.16
+
+* Fix #1871: comparing anonymous record types
+* Fix `TimeSpan.ToString` for negative values @MangelMaxime
+* Some more source map improvements
+
+### 2.3.15
+
+* Fix negative timespan + milliseconds value when parsing a string @MangelMaxime
+* Improve source maps @matthid
+
+### 2.3.14
+
+* Fix Timespan and Guid reflection info @MangelMaxime
+* Fix #1864: npm security issues
+* Fix #1863: Binding event to a value
+* Fix #1862: Add `--silent` option
+
+* Fix #1859: Binding optimization vs tailcalls
+* Fix #1857, #1729: Maps casted to IDictionary
+* Fix #1856: Decimal and BigInt ranges
+
+### 2.3.12
+
+* Fix #1848: decimal should round up .5
+
+### 2.3.11
+
+* Fix #1845: Seq/Array/List.allPairs
+* Fix #1844: DateTime.SpecifyKind
+* Fix #1843: Remove project.assets.json check
+* Fix #1842: Add Option.map2/map3
+
+### 2.3.10
+
+* Fix #1836: Partial Applying caches side-effects
+* Bring beta reduction optimizations
+
+### 2.3.8
+
+* Fix #1832: unit arguments
+
+### 2.3.7
+
+* Fix SRTP with anonymous records
+
+### 2.3.6
+
+* Fix #1825: FSharp.Reflection: MakeTupleType
+* Fix anonymous record casting with !!
+
 ### 2.3.5
 
 * Raise error if two or more record/interface/override members have the same name.
 
 ### 2.3.4
 
-* Fix #1821: decimal devision @ncave
+* Fix #1821: decimal division @ncave
 * Fix #1817: List slicing
 
 ### 2.3.3

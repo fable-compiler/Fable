@@ -2,7 +2,6 @@ module Fable.WebWorker.Main
 
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
 open Fable.Standalone
 open Fable.WebWorker
 
@@ -24,7 +23,7 @@ let resolveLibCall(libMap: obj, entityName: string): (string*string) option = im
 let getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
 let getBabelAstCompiler(): JS.Promise<obj->string> = importMember "./util.js"
 
-let measureTime msg f arg =
+let measureTime f arg =
     let before: float = self?performance?now()
     let res = f arg
     let after: float = self?performance?now()
@@ -57,7 +56,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                 | None -> async.Return null
             let references = Array.append Fable.Standalone.Metadata.references_core extraRefs
             let! reader = getAssemblyReader(getBlobUrl, references) |> Async.AwaitPromise
-            let (checker, checkerTime) = measureTime "FCS checker" (fun () ->
+            let (checker, checkerTime) = measureTime (fun () ->
                 manager.CreateChecker(references, reader, [||], false)) ()
             state.Worker.Post Loaded
             return! loop box { state with Fable = Some { Manager = manager
@@ -81,10 +80,23 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
 
     | Some fable, CompileCode(fsharpCode, optimize) ->
         try
-            let (parseResults, parsingTime) = measureTime "FCS parsing" fable.Manager.ParseFSharpScript (fable.Checker, FILE_NAME, fsharpCode)
-            let (res, fableTransformTime) = measureTime "Fable transform" (fun () ->
+            let (parseResults, parsingTime) = measureTime fable.Manager.ParseFSharpScript (fable.Checker, FILE_NAME, fsharpCode)
+            let (res, fableTransformTime) = measureTime (fun () ->
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, optimize, fun x -> resolveLibCall(fable.LibMap, x))) ()
-            let (jsCode, babelTime) = measureTime "Babel generation" fable.BabelAstCompiler res.BabelAst
+            let (jsCode, babelTime, babelErrors) =
+                try
+                    let code, t = measureTime fable.BabelAstCompiler res.BabelAst
+                    code, t, [||]
+                with ex ->
+                    let error =
+                        { FileName = FILE_NAME
+                          StartLineAlternate = 1
+                          StartColumn = 0
+                          EndLineAlternate = 1
+                          EndColumn = 0
+                          Message = "BABEL: " + ex.Message
+                          IsWarning = false }
+                    "", 0., [|error|]
 
             let stats : CompileStats =
                 { FCS_checker = fable.LoadTime
@@ -92,7 +104,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                   Fable_transform = fableTransformTime
                   Babel_generation = babelTime }
 
-            let errors = Array.append (parseResults.Errors) res.FableErrors
+            let errors = Array.concat [parseResults.Errors; res.FableErrors; babelErrors]
             CompilationFinished (jsCode, errors, stats) |> state.Worker.Post
         with er ->
             JS.console.error er

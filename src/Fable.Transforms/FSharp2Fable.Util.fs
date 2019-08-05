@@ -185,8 +185,8 @@ module Helpers =
         else not memb.Accessibility.IsPrivate
 
     let makeRange (r: Range.range) =
-        { start = { line = r.StartLine; column = r.StartColumn+1 }
-          ``end``= { line = r.EndLine; column = r.EndColumn+1 }
+        { start = { line = r.StartLine; column = r.StartColumn }
+          ``end``= { line = r.EndLine; column = r.EndColumn }
           identifierName = None }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
@@ -415,14 +415,23 @@ module Patterns =
 
     /// This matches the boilerplate generated to wrap .NET events from F#
     let (|CreateEvent|_|) = function
-        | Call(Some(Call(None, createEvent,_,_,
-                        [Lambda(_eventDelegate, Call(Some callee, addEvent,[],[],[Value _eventDelegate']));
-                         Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
-                         Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])),
-                memb, typArgs, methTypArgs, args)
-                when createEvent.FullName = Types.createEvent ->
+        | Call(None,createEvent,_,_,
+               [Lambda(_eventDelegate, Call(Some callee, addEvent,[],[],[Value _eventDelegate']));
+                Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
+                Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])
+          when createEvent.FullName = Types.createEvent ->
             let eventName = addEvent.CompiledName.Replace("add_","")
+            Some (callee, eventName)
+        | _ -> None
+
+    let (|CallCreateEvent|_|) = function
+        | Call(Some(CreateEvent(callee, eventName)), memb, typArgs, methTypArgs, args) ->
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
+        | _ -> None
+
+    let (|BindCreateEvent|_|) = function
+        | Let((var, CreateEvent(value, eventName)), body) ->
+            Some (var, value, eventName, body)
         | _ -> None
 
     let (|ConstructorCall|_|) = function
@@ -679,22 +688,21 @@ module Identifiers =
         com.AddUsedVarName sanitizedName
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
-          Kind = Fable.UnspecifiedIdent
+          Kind = if fsRef.IsCompilerGenerated then Fable.CompilerGenerated else Fable.UserDeclared
           IsMutable = fsRef.IsMutable
-          IsCompilerGenerated = fsRef.IsCompilerGenerated
           Range = { makeRange fsRef.DeclarationLocation
                     with identifierName = Some fsRef.DisplayName } |> Some }
 
     let putArgInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue): Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
         putIdentInScope ctx fsRef ident None, ident
-        
+
     let (|PutArgInScope|) com ctx fsRef = putArgInScope com ctx fsRef
 
     let putBindingInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value: Context*Fable.Ident =
         let ident = makeIdentFrom com ctx fsRef
         putIdentInScope ctx fsRef ident (Some value), ident
-        
+
     let inline tryGetIdentFromScopeIf (ctx: Context) r predicate =
         match List.tryFind (fun (fsRef,_,_)  -> predicate fsRef) ctx.Scope with
         | Some(_,ident,_) ->
@@ -1074,7 +1082,7 @@ module Util =
                     // Change type and mark ident as compiler-generated so it can be optimized
                     let ident = { makeIdentFrom com ctx argId with
                                     Type = arg.Type
-                                    IsCompilerGenerated = true }
+                                    Kind = Fable.InlinedArg }
                     let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map
@@ -1168,8 +1176,8 @@ module Util =
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
-        | _ when typ = Fable.Unit && v.CompiledName.EndsWith("@") ->
-            if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
+        | _ when typ = Fable.Unit ->
+            if com.Options.verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)

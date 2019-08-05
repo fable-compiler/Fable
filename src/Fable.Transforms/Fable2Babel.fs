@@ -138,8 +138,8 @@ module Util =
 
     let memberFromName memberName: Expression * bool =
         if Naming.hasIdentForbiddenChars memberName
-        then upcast StringLiteral memberName, true
-        else upcast Identifier memberName, false
+        then upcast StringLiteral(memberName), true
+        else upcast Identifier(memberName), false
 
     let memberFromExpr (com: IBabelCompiler) ctx memberExpr: Expression * bool =
         match memberExpr with
@@ -311,7 +311,7 @@ module Util =
             | U2.Case2 e -> BlockStatement [|ReturnStatement(e, ?loc=e.Loc)|]
         upcast FunctionExpression(args, body, ?id=id)
 
-    let optimizeTailCall (com: IBabelCompiler) (ctx: Context) (tc: ITailCallOpportunity) args =
+    let optimizeTailCall (com: IBabelCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
         let rec checkCrossRefs tempVars allArgs = function
             | [] -> tempVars
             | (argId, _arg)::rest ->
@@ -337,7 +337,7 @@ module Util =
                 let arg = FableTransforms.replaceValues tempVarReplacements arg
                 let arg = com.TransformAsExpr(ctx, arg)
                 yield assign None (Identifier argId) arg |> ExpressionStatement :> Statement
-            yield upcast ContinueStatement(Identifier tc.Label)
+            yield upcast ContinueStatement(Identifier tc.Label, ?loc=range)
         |]
 
     let transformImport (com: IBabelCompiler) ctx r (selector: Fable.Expr) (path: Fable.Expr) kind =
@@ -470,8 +470,8 @@ module Util =
             match ent, generics with
             | Replacements.BuiltinEntity kind ->
                 match kind with
-                | Replacements.BclGuid -> primitiveTypeInfo "string"
-                | Replacements.BclTimeSpan -> primitiveTypeInfo "float64"
+                | Replacements.BclGuid
+                | Replacements.BclTimeSpan
                 | Replacements.BclDateTime
                 | Replacements.BclDateTimeOffset
                 | Replacements.BclTimer
@@ -599,7 +599,7 @@ module Util =
                     let prop, computed =
                         match key with
                         // Compile ToString in lower case for compatibity with JS (and debugger tools)
-                        | Fable.Value(Fable.StringConstant "ToString",_) -> memberFromName "toString"
+                        | Fable.Value(Fable.StringConstant "ToString", _) -> memberFromName "toString"
                         | key -> memberFromExpr com ctx key
                     makeObjMethod ObjectMeth prop computed hasSpread args body
                 | Fable.ObjectIterator, Fable.Function(Fable.Delegate args, body, _) ->
@@ -719,11 +719,11 @@ module Util =
                 match argInfo.ThisArg with
                 | Some thisArg -> thisArg::argInfo.Args
                 | None -> argInfo.Args
-            optimizeTailCall com ctx tc args
+            optimizeTailCall com ctx range tc args
         | Some(Return|ReturnUnit), Some tc, Fable.CurriedApply(funcExpr, args)
                                 when tc.IsRecursiveRef(funcExpr)
                                 && List.sameLength args tc.Args ->
-            optimizeTailCall com ctx tc args
+            optimizeTailCall com ctx range tc args
         | _ ->
             [|transformOperation com ctx range opKind |> resolveExpr t returnStrategy|]
 
@@ -881,7 +881,7 @@ module Util =
             | Replacements.FSharpReference _ -> fail "result/choice/reference"
         | Fable.AnonymousRecordType _ ->
             "Type testing is not yet supported for anonymous records" // TODO
-            |> addWarning com [] range            
+            |> addWarning com [] range
             upcast BooleanLiteral false
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
@@ -963,7 +963,7 @@ module Util =
         let bindings, replacements =
             (([], Map.empty), matchTargetIdentAndValues idents boundValues)
             ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                if hasDoubleEvalRisk expr // && isReferencedMoreThan 1 ident.Name body
+                if hasDoubleEvalRisk expr <> DoubleEvalRisk.No // && isReferencedMoreThan 1 ident.Name body
                 then (ident, expr)::bindings, replacements
                 else bindings, Map.add ident.Name expr replacements)
         let target = FableTransforms.replaceValues replacements target
@@ -1345,15 +1345,15 @@ module Util =
         // ExpressionStatement(macroExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         ExpressionStatement(main) :> Statement
 
-    let declareModuleMember isPublic name isMutable (expr: Expression) =
+    let declareModuleMember r isPublic name isMutable (expr: Expression) =
         let privateIdent = Identifier name
         let decl: Declaration =
             match expr with
             | :? ClassExpression as e ->
                 upcast ClassDeclaration(e.Body, privateIdent,
-                    ?superClass=e.SuperClass, ?typeParameters=e.TypeParameters)
+                    ?superClass=e.SuperClass, ?typeParameters=e.TypeParameters, ?loc=r)
             | :? FunctionExpression as e ->
-                upcast FunctionDeclaration(privateIdent, e.Params, e.Body)
+                upcast FunctionDeclaration(privateIdent, e.Params, e.Body, ?loc=r)
             | _ -> upcast varDeclaration privateIdent isMutable expr
         if not isPublic
         then U2.Case1 (decl :> Statement)
@@ -1372,12 +1372,12 @@ module Util =
             | Some e -> [|consFunction; e|]
             | None -> [|consFunction|]
             |> coreLibCall com ctx None "Types" "declare"
-            |> declareModuleMember isPublic name false
+            |> declareModuleMember r isPublic name false
         let reflectionDeclaration =
             let genArgs = Array.init ent.GenericParameters.Count (fun _ -> makeIdentUnique com "gen" |> ident)
             let body = transformReflectionInfo com ctx r ent (Array.map (fun x -> x :> _) genArgs)
             makeFunctionExpression None (Array.map (fun x -> U2.Case2(upcast x)) genArgs) (U2.Case2 body)
-            |> declareModuleMember isPublic (Naming.appendSuffix name Naming.reflectionSuffix) false
+            |> declareModuleMember None isPublic (Naming.appendSuffix name Naming.reflectionSuffix) false
         [typeDeclaration; reflectionDeclaration]
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
@@ -1387,7 +1387,7 @@ module Util =
         if info.IsEntryPoint then
             declareEntryPoint com ctx expr |> U2.Case1
         else
-            declareModuleMember info.IsPublic info.Name false expr
+            declareModuleMember info.Range info.IsPublic info.Name false expr
 
     let transformAction (com: IBabelCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr
@@ -1510,7 +1510,7 @@ module Util =
             | None -> None
         [
             yield! declareType com ctx r info.IsEntityPublic info.Entity info.EntityName args body baseExpr
-            yield declareModuleMember info.IsConstructorPublic info.Name false exposedCons
+            yield declareModuleMember r info.IsConstructorPublic info.Name false exposedCons
         ]
 
     let rec transformDeclarations (com: IBabelCompiler) ctx decls transformed =
@@ -1529,13 +1529,13 @@ module Util =
                 | value when info.IsMutable && info.IsPublic ->
                     Replacements.createAtom value
                     |> transformAsExpr com ctx
-                    |> declareModuleMember true info.Name false
+                    |> declareModuleMember info.Range true info.Name false
                     |> List.singleton
                 | Fable.Function(Fable.Delegate args, body, _) ->
                     [transformModuleFunction com ctx info args body]
                 | _ ->
                     let value = transformAsExpr com ctx value
-                    [declareModuleMember info.IsPublic info.Name info.IsMutable value]
+                    [declareModuleMember info.Range info.IsPublic info.Name info.IsMutable value]
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
             | Fable.ConstructorDeclaration(kind, r) ->

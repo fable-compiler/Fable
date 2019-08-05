@@ -7,6 +7,7 @@ module.exports = {
   fable: { define: defineConstants() },
   babel: {
     plugins: ["@babel/plugin-transform-modules-commonjs"],
+    sourceMaps: true,
     // presets: [ ["@babel/preset-env", {"modules": false}] ]
   },
   // allFiles: true

@@ -186,6 +186,12 @@ type A() = member __.Value = 5
 
 type B() = member __.Value = 10
 
+// TODO: Remove this when upgrading dotnet SDK to support anonymous records
+#if FABLE_COMPILER
+type AnonRec1 = {| name: string; child: {| name: string |} |}
+type AnonRec2 = {| numbers: int list |}
+#endif
+
 let reflectionTests = [
   testCase "Reflection: Array" <| fun () ->
     let arType = typeof<int[]>
@@ -253,6 +259,15 @@ let reflectionTests = [
 
 // TODO: Remove this when upgrading dotnet SDK to support anonymous records
 #if FABLE_COMPILER
+  testCase "Comparing anonymous record types works" <| fun () ->
+      let x = {| numbers = [3; 4] |}
+      typeof<AnonRec1> = typeof<AnonRec2> |> equal false
+      typeof<AnonRec1> = typeof<AnonRec1> |> equal true
+      typeof<AnonRec2> = x.GetType() |> equal true
+      let generic = typeof<Result<AnonRec2, string>>
+      generic = typeof<Result<AnonRec1, string>> |> equal false
+      generic = typeof<Result<{| numbers: int list |}, string>> |> equal true
+
   testCase "FSharp.Reflection: Anonymous Record" <| fun () ->
     let typ = typeof<{| String: string; Int: int |}>
     let record = {| String = "a"; Int = 1 |}
@@ -324,6 +339,10 @@ let reflectionTests = [
     FSharpValue.MakeTuple([|5.; "foo"; [|2;3|]|], t)
     |> unbox<float * string * int[]>
     |> equal (5., "foo", [|2;3|])
+
+    let real = typeof<float * string * int[]>
+    let generated = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
+    equal real generated
 
   testCase "FSharp.Reflection: Union" <| fun () ->
     let typ = typeof<TestUnion>

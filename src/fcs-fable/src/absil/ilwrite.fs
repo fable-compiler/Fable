@@ -49,8 +49,8 @@ let dw2 n = byte ((n >>> 16) &&& 0xFFL)
 let dw1 n = byte ((n >>> 8) &&& 0xFFL)
 let dw0 n = byte (n &&& 0xFFL)
 
-let bitsOfSingle (x: float32) = System.BitConverter.ToInt32(System.BitConverter.GetBytes(x), 0)
-let bitsOfDouble (x: float) = System.BitConverter.DoubleToInt64Bits(x)
+let bitsOfSingle (x: float32) = System.BitConverter.ToInt32(System.BitConverter.GetBytes x, 0)
+let bitsOfDouble (x: float) = System.BitConverter.DoubleToInt64Bits x
 
 let emitBytesViaBuffer f = let bb = ByteBuffer.Create 10 in f bb; bb.Close()
 
@@ -87,16 +87,16 @@ type ByteBuffer with
             buf.EmitByte 0x0uy
 
     // Emit compressed untagged integer
-    member buf.EmitZUntaggedIndex nm sz big idx = 
+    member buf.EmitZUntaggedIndex big idx = 
         if big then buf.EmitInt32 idx
-        elif idx > 0xffff then 
-#if NETSTANDARD1_6
-            let trace = "no stack trace on.NET Standard 1.6"
-#else
-            let trace = (new System.Diagnostics.StackTrace()).ToString()
-#endif
-            failwithf "EmitZUntaggedIndex: index into table '%d' is too big for small address or simple index, idx = %d, big = %A, size of table = %d, stack = %s" nm idx big sz trace
-        else buf.EmitInt32AsUInt16 idx
+        else
+            // Note, we can have idx=0x10000 generated for method table idx + 1 for just beyond last index of method table.
+            // This indicates that a MethodList, FieldList, PropertyList or EventList has zero entries
+            // For this case, the EmitInt32AsUInt16 writes a 0 (null) into the field.  Binary readers respect this as an empty
+            // list of methods/fields/properties/events.
+            if idx > 0x10000 then 
+                System.Diagnostics.Debug.Assert (false, "EmitZUntaggedIndex: too big for small address or simple index")
+            buf.EmitInt32AsUInt16 idx
 
     // Emit compressed tagged integer
     member buf.EmitZTaggedIndex tag nbits big idx =
@@ -161,18 +161,18 @@ type ILStrongNameSigner =
 
     static member OpenPublicKeyOptions s p = PublicKeyOptionsSigner((Support.signerOpenPublicKeyFile s), p)
 
-    static member OpenPublicKey pubkey = PublicKeySigner(pubkey)
+    static member OpenPublicKey pubkey = PublicKeySigner pubkey
 
     static member OpenKeyPairFile s = KeyPair(Support.signerOpenKeyPairFile s)
 
-    static member OpenKeyContainer s = KeyContainer(s)
+    static member OpenKeyContainer s = KeyContainer s
 
     member s.Close() = 
         match s with 
         | PublicKeySigner _
         | PublicKeyOptionsSigner _
         | KeyPair _ -> ()
-        | KeyContainer containerName -> Support.signerCloseKeyContainer(containerName)
+        | KeyContainer containerName -> Support.signerCloseKeyContainer containerName
       
     member s.IsFullySigned =
         match s with 
@@ -191,7 +191,7 @@ type ILStrongNameSigner =
 
     member s.SignatureSize = 
         let pkSignatureSize pk =
-            try Support.signerSignatureSize(pk)
+            try Support.signerSignatureSize pk
             with e -> 
               failwith ("A call to StrongNameSignatureSize failed ("+e.Message+")")
               0x80 
@@ -452,26 +452,21 @@ type MetadataTable<'T> =
     member tbl.AddSharedEntry x =
         let n = tbl.rows.Count + 1
         tbl.dict.[x] <- n
-        tbl.rows.Add(x)
+        tbl.rows.Add x
         n
 
     member tbl.AddUnsharedEntry x =
         let n = tbl.rows.Count + 1
-        tbl.rows.Add(x)
+        tbl.rows.Add x
         n
 
     member tbl.FindOrAddSharedEntry x =
 #if DEBUG
         tbl.lookups <- tbl.lookups + 1 
 #endif
-#if FABLE_COMPILER
-        let ok, res = tbl.dict.TryGetValue(x)
-#else
-        let mutable res = Unchecked.defaultof<_>
-        let ok = tbl.dict.TryGetValue(x, &res)
-#endif
-        if ok then res
-        else tbl.AddSharedEntry x
+        match tbl.dict.TryGetValue x with
+        | true, res -> res
+        | _ -> tbl.AddSharedEntry x
 
 
     /// This is only used in one special place - see further below. 
@@ -549,9 +544,9 @@ type TypeDefTableKey = TdKey of string list (* enclosing *) * string (* type nam
 type MetadataTable =
     | Shared of MetadataTable<SharedRow>
     | Unshared of MetadataTable<UnsharedRow>
-    member t.FindOrAddSharedEntry(x) = match t with Shared u -> u.FindOrAddSharedEntry(x) | Unshared u -> failwithf "FindOrAddSharedEntry: incorrect table kind, u.name = %s" u.name
-    member t.AddSharedEntry(x) = match t with | Shared u -> u.AddSharedEntry(x) | Unshared u -> failwithf "AddSharedEntry: incorrect table kind, u.name = %s" u.name
-    member t.AddUnsharedEntry(x) = match t with Unshared u -> u.AddUnsharedEntry(x) | Shared u -> failwithf "AddUnsharedEntry: incorrect table kind, u.name = %s" u.name
+    member t.FindOrAddSharedEntry x = match t with Shared u -> u.FindOrAddSharedEntry x | Unshared u -> failwithf "FindOrAddSharedEntry: incorrect table kind, u.name = %s" u.name
+    member t.AddSharedEntry x = match t with | Shared u -> u.AddSharedEntry x | Unshared u -> failwithf "AddSharedEntry: incorrect table kind, u.name = %s" u.name
+    member t.AddUnsharedEntry x = match t with Unshared u -> u.AddUnsharedEntry x | Shared u -> failwithf "AddUnsharedEntry: incorrect table kind, u.name = %s" u.name
     member t.GenericRowsOfTable = match t with Unshared u -> u.EntriesAsArray |> Array.map (fun x -> x.GenericRow) | Shared u -> u.EntriesAsArray |> Array.map (fun x -> x.GenericRow) 
     member t.SetRowsOfSharedTable rows = match t with Shared u -> u.SetRowsOfTable (Array.map SharedRow rows) | Unshared u -> failwithf "SetRowsOfSharedTable: incorrect table kind, u.name = %s" u.name
     member t.Count = match t with Unshared u -> u.Count | Shared u -> u.Count 
@@ -610,6 +605,7 @@ type cenv =
 
     member cenv.GetCode() = cenv.codeChunks.Close()
 
+    override x.ToString() = "<cenv>"
 
 let FindOrAddSharedRow (cenv: cenv) tbl x = cenv.GetTable(tbl).FindOrAddSharedEntry x
 
@@ -713,10 +709,10 @@ let rec GetIdxForTypeDef cenv key =
 
 let rec GetAssemblyRefAsRow cenv (aref: ILAssemblyRef) =
     AssemblyRefRow 
-        ((match aref.Version with None -> 0us | Some (x, _, _, _) -> x), 
-         (match aref.Version with None -> 0us | Some (_, y, _, _) -> y), 
-         (match aref.Version with None -> 0us | Some (_, _, z, _) -> z), 
-         (match aref.Version with None -> 0us | Some (_, _, _, w) -> w), 
+        ((match aref.Version with None -> 0us | Some version -> version.Major), 
+         (match aref.Version with None -> 0us | Some version -> version.Minor), 
+         (match aref.Version with None -> 0us | Some version -> version.Build), 
+         (match aref.Version with None -> 0us | Some version -> version.Revision), 
          ((match aref.PublicKey with Some (PublicKey _) -> 0x0001 | _ -> 0x0000)
           ||| (if aref.Retargetable then 0x0100 else 0x0000)), 
          BlobIndex (match aref.PublicKey with 
@@ -773,14 +769,9 @@ let rec GetTypeRefAsTypeRefRow cenv (tref: ILTypeRef) =
     SharedRow [| ResolutionScope (rs1, rs2); nelem; nselem |]
 
 and GetTypeRefAsTypeRefIdx cenv tref = 
-#if FABLE_COMPILER
-    let ok, res = cenv.trefCache.TryGetValue(tref)
-#else
-    let mutable res = 0
-    let ok = cenv.trefCache.TryGetValue(tref, &res)
-#endif
-    if ok then res
-    else
+    match cenv.trefCache.TryGetValue tref with
+    | true, res -> res
+    | _ ->
         let res = FindOrAddSharedRow cenv TableNames.TypeRef (GetTypeRefAsTypeRefRow cenv tref)
         cenv.trefCache.[tref] <- res
         res
@@ -1737,7 +1728,7 @@ module Codebuf =
       
       // Now apply the adjusted fixups in the new code 
       newReqdBrFixups |> List.iter (fun (newFixupLoc, endOfInstr, tg, small) ->
-          match newAvailBrFixups.TryGetValue(tg) with
+          match newAvailBrFixups.TryGetValue tg with
           | true, n ->
               let relOffset = n - endOfInstr
               if small then 
@@ -2107,7 +2098,7 @@ module Codebuf =
             let roots, found = 
                 (false, roots) ||> List.mapFold (fun found (r, children) -> 
                     if found then ((r, children), true)
-                    elif contains x r then ((r, x::children), true) 
+                    elif contains x r then ((r, x :: children), true) 
                     else ((r, children), false))
 
             if found then roots 
@@ -2180,17 +2171,17 @@ module Codebuf =
         let pc2pos = Array.zeroCreate (instrs.Length+1)
         let pc2labs = Dictionary()
         for KeyValue (lab, pc) in code.Labels do
-            match pc2labs.TryGetValue(pc) with
+            match pc2labs.TryGetValue pc with
             | true, labels ->
                 pc2labs.[pc] <- lab :: labels
             | _ -> pc2labs.[pc] <- [lab]
 
         // Emit the instructions
         for pc = 0 to instrs.Length do
-            match pc2labs.TryGetValue(pc) with
+            match pc2labs.TryGetValue pc with
             | true, labels ->
                 for lab in labels do
-                    codebuf.RecordAvailBrFixup(lab)
+                    codebuf.RecordAvailBrFixup lab
             | _ -> ()
             pc2pos.[pc] <- codebuf.code.Position
             if pc < instrs.Length then 
@@ -2832,10 +2823,10 @@ and GenExportedTypesPass3 cenv (ce: ILExportedTypesAndForwarders) =
 and GetManifsetAsAssemblyRow cenv m = 
     UnsharedRow 
         [|ULong m.AuxModuleHashAlgorithm
-          UShort (match m.Version with None -> 0us | Some (x, _, _, _) -> x)
-          UShort (match m.Version with None -> 0us | Some (_, y, _, _) -> y)
-          UShort (match m.Version with None -> 0us | Some (_, _, z, _) -> z)
-          UShort (match m.Version with None -> 0us | Some (_, _, _, w) -> w)
+          UShort (match m.Version with None -> 0us | Some version -> version.Major)
+          UShort (match m.Version with None -> 0us | Some version -> version.Minor)
+          UShort (match m.Version with None -> 0us | Some version -> version.Build)
+          UShort (match m.Version with None -> 0us | Some version -> version.Revision)
           ULong 
             ( (match m.AssemblyLongevity with 
               | ILAssemblyLongevity.Unspecified -> 0x0000
@@ -3035,7 +3026,8 @@ let generateIL requiredDataFixups (desiredMetadataVersion, generatePdb, ilg : IL
 //=====================================================================
 // TABLES+BLOBS --> PHYSICAL METADATA+BLOBS
 //=====================================================================
-let chunk sz next = ({addr=next; size=sz}, next + sz) 
+let chunk sz next = ({addr=next; size=sz}, next + sz)
+let emptychunk next = ({addr=next; size=0}, next)
 let nochunk next = ({addr= 0x0;size= 0x0; }, next)
 
 let count f arr = 
@@ -3101,9 +3093,8 @@ let writeILMetadataAndCode (generatePdb, desiredMetadataVersion, ilg, emitTailca
 
     let (mdtableVersionMajor, mdtableVersionMinor) = metadataSchemaVersionSupportedByCLRVersion desiredMetadataVersion
 
-    let version = 
-      let (a, b, c, _) = desiredMetadataVersion
-      System.Text.Encoding.UTF8.GetBytes (sprintf "v%d.%d.%d" a b c)
+    let version =
+      System.Text.Encoding.UTF8.GetBytes (sprintf "v%d.%d.%d" desiredMetadataVersion.Major desiredMetadataVersion.Minor desiredMetadataVersion.Build)
 
 
     let paddedVersionLength = align 0x4 (Array.length version)
@@ -3153,8 +3144,8 @@ let writeILMetadataAndCode (generatePdb, desiredMetadataVersion, ilg, emitTailca
       // If there are any generic parameters in the binary we're emitting then mark that 
       // table as sorted, otherwise don't. This maximizes the number of assemblies we emit 
       // which have an ECMA-v.1. compliant set of sorted tables. 
-      (if tableSize (TableNames.GenericParam) > 0 then 0x00000400 else 0x00000000) ||| 
-      (if tableSize (TableNames.GenericParamConstraint) > 0 then 0x00001000 else 0x00000000) ||| 
+      (if tableSize TableNames.GenericParam > 0 then 0x00000400 else 0x00000000) ||| 
+      (if tableSize TableNames.GenericParamConstraint > 0 then 0x00001000 else 0x00000000) ||| 
       0x00000200
     
     reportTime showTimes "Layout Header of Tables"
@@ -3214,10 +3205,8 @@ let writeILMetadataAndCode (generatePdb, desiredMetadataVersion, ilg, emitTailca
 
     let codedTables = 
           
-        let sizesTable = Array.map Array.length sortedTables
         let bignessTable = Array.map (fun rows -> Array.length rows >= 0x10000) sortedTables
         let bigness (tab: int32) = bignessTable.[tab]
-        let size (tab: int32) = sizesTable.[tab]
         
         let codedBigness nbits tab =
           (tableSize tab) >= (0x10000 >>> nbits)
@@ -3341,12 +3330,10 @@ let writeILMetadataAndCode (generatePdb, desiredMetadataVersion, ilg, emitTailca
                     | _ when t = RowElementTags.ULong -> tablesBuf.EmitInt32 n
                     | _ when t = RowElementTags.Data -> recordRequiredDataFixup requiredDataFixups tablesBuf (tablesStreamStart + tablesBuf.Position) (n, false)
                     | _ when t = RowElementTags.DataResources -> recordRequiredDataFixup requiredDataFixups tablesBuf (tablesStreamStart + tablesBuf.Position) (n, true)
-                    | _ when t = RowElementTags.Guid -> tablesBuf.EmitZUntaggedIndex -3 guidsStreamPaddedSize guidsBig (guidAddress n)
-                    | _ when t = RowElementTags.Blob -> tablesBuf.EmitZUntaggedIndex -2 blobsStreamPaddedSize blobsBig (blobAddress n)
-                    | _ when t = RowElementTags.String -> tablesBuf.EmitZUntaggedIndex -1 stringsStreamPaddedSize stringsBig (stringAddress n)
-                    | _ when t <= RowElementTags.SimpleIndexMax -> 
-                        let tnum = t - RowElementTags.SimpleIndexMin
-                        tablesBuf.EmitZUntaggedIndex tnum (size tnum) (bigness tnum) n
+                    | _ when t = RowElementTags.Guid -> tablesBuf.EmitZUntaggedIndex guidsBig (guidAddress n)
+                    | _ when t = RowElementTags.Blob -> tablesBuf.EmitZUntaggedIndex blobsBig (blobAddress n)
+                    | _ when t = RowElementTags.String -> tablesBuf.EmitZUntaggedIndex stringsBig (stringAddress n)
+                    | _ when t <= RowElementTags.SimpleIndexMax -> tablesBuf.EmitZUntaggedIndex (bigness (t - RowElementTags.SimpleIndexMin)) n
                     | _ when t <= RowElementTags.TypeDefOrRefOrSpecMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.TypeDefOrRefOrSpecMin) 2 tdorBigness n
                     | _ when t <= RowElementTags.TypeOrMethodDefMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.TypeOrMethodDefMin) 1 tomdBigness n
                     | _ when t <= RowElementTags.HasConstantMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.HasConstantMin) 2 hcBigness n
@@ -3530,8 +3517,8 @@ let writeDirectory os dict =
 let writeBytes (os: BinaryWriter) (chunk: byte[]) = os.Write(chunk, 0, chunk.Length)  
 
 let writeBinaryAndReportMappings (outfile, 
-                                  ilg: ILGlobals, pdbfile: string option, signer: ILStrongNameSigner option, portablePDB, embeddedPDB, 
-                                  embedAllSource, embedSourceList, sourceLink, emitTailcalls, deterministic, showTimes, dumpDebugInfo )
+                                  ilg: ILGlobals, pdbfile: string option, signer: ILStrongNameSigner option, portablePDB, embeddedPDB,
+                                  embedAllSource, embedSourceList, sourceLink, checksumAlgorithm, emitTailcalls, deterministic, showTimes, dumpDebugInfo, pathMap)
                                   modul normalizeAssemblyRefs =
     // Store the public key from the signer into the manifest. This means it will be written 
     // to the binary and also acts as an indicator to leave space for delay sign 
@@ -3574,20 +3561,20 @@ let writeBinaryAndReportMappings (outfile,
     let os = 
         try
             // Ensure the output directory exists otherwise it will fail
-            let dir = Path.GetDirectoryName(outfile)
-            if not (Directory.Exists(dir)) then Directory.CreateDirectory(dir) |>ignore
-            new BinaryWriter(FileSystem.FileStreamCreateShim(outfile))
+            let dir = Path.GetDirectoryName outfile
+            if not (Directory.Exists dir) then Directory.CreateDirectory dir |>ignore
+            new BinaryWriter(FileSystem.FileStreamCreateShim outfile)
         with e -> 
             failwith ("Could not open file for writing (binary mode): " + outfile)    
 
-    let pdbData, pdbOpt, debugDirectoryChunk, debugDataChunk, debugEmbeddedPdbChunk, textV2P, mappings =
+    let pdbData, pdbOpt, debugDirectoryChunk, debugDataChunk, debugChecksumPdbChunk, debugEmbeddedPdbChunk, debugDeterministicPdbChunk, textV2P, mappings =
         try 
 
           let imageBaseReal = modul.ImageBase // FIXED CHOICE
           let alignVirt = modul.VirtualAlignment // FIXED CHOICE
           let alignPhys = modul.PhysicalAlignment // FIXED CHOICE
           
-          let isItanium = modul.Platform = Some(IA64)
+          let isItanium = modul.Platform = Some IA64
           
           let numSections = 3 // .text, .sdata, .reloc 
 
@@ -3642,9 +3629,9 @@ let writeBinaryAndReportMappings (outfile,
                 match ilg.primaryAssemblyScopeRef with 
                 | ILScopeRef.Local -> failwith "Expected mscorlib to be ILScopeRef.Assembly was ILScopeRef.Local" 
                 | ILScopeRef.Module(_) -> failwith "Expected mscorlib to be ILScopeRef.Assembly was ILScopeRef.Module"
-                | ILScopeRef.Assembly(aref) ->
+                | ILScopeRef.Assembly aref ->
                     match aref.Version with
-                    | Some (2us, _, _, _) -> parseILVersion "2.0.50727.0"
+                    | Some version when version.Major = 2us -> parseILVersion "2.0.50727.0"
                     | Some v -> v
                     | None -> failwith "Expected msorlib to have a version number"
 
@@ -3685,42 +3672,61 @@ let writeBinaryAndReportMappings (outfile,
           let pdbOpt =
             match portablePDB with
             | true -> 
-                let (uncompressedLength, contentId, stream) as pdbStream = 
-                    generatePortablePdb embedAllSource embedSourceList sourceLink showTimes pdbData deterministic
+                let (uncompressedLength, contentId, stream, algorithmName, checkSum) as pdbStream = 
+                    generatePortablePdb embedAllSource embedSourceList sourceLink checksumAlgorithm showTimes pdbData pathMap
 
-                if embeddedPDB then Some (compressPortablePdbStream uncompressedLength contentId stream)
-                else Some (pdbStream)
+                if embeddedPDB then
+                    let uncompressedLength, contentId, stream = compressPortablePdbStream uncompressedLength contentId stream
+                    Some (uncompressedLength, contentId, stream, algorithmName, checkSum)
+                else Some pdbStream
 
             | _ -> None
 
-          let debugDirectoryChunk, next = 
-            chunk (if pdbfile = None then 
-                       0x0
-                   else if embeddedPDB && portablePDB then
-                       sizeof_IMAGE_DEBUG_DIRECTORY * 2
+          let debugDirectoryChunk, next =
+            chunk (if pdbfile = None then
+                        0x0
                    else
-                       sizeof_IMAGE_DEBUG_DIRECTORY
+                        sizeof_IMAGE_DEBUG_DIRECTORY * 2 +
+                        (if embeddedPDB then sizeof_IMAGE_DEBUG_DIRECTORY else 0) +
+                        (if deterministic then sizeof_IMAGE_DEBUG_DIRECTORY else 0)
                   ) next
+
           // The debug data is given to us by the PDB writer and appears to 
           // typically be the type of the data plus the PDB file name. We fill 
           // this in after we've written the binary. We approximate the size according 
           // to what PDB writers seem to require and leave extra space just in case... 
           let debugDataJustInCase = 40
-          let debugDataChunk, next = 
+          let debugDataChunk, next =
               chunk (align 0x4 (match pdbfile with 
                                 | None -> 0
                                 | Some f -> (24 
-                                            + System.Text.Encoding.Unicode.GetByteCount(f) // See bug 748444
+                                            + System.Text.Encoding.Unicode.GetByteCount f // See bug 748444
                                             + debugDataJustInCase))) next
 
-          let debugEmbeddedPdbChunk, next = 
-              let streamLength = 
-                    match pdbOpt with
-                    | Some (_, _, stream) -> int(stream.Length)
-                    | None -> 0
-              chunk (align 0x4 (match embeddedPDB with 
-                                | true -> 8 + streamLength
-                                | _ -> 0 )) next
+          let debugChecksumPdbChunk, next =
+              chunk (align 0x4 (match pdbOpt with
+                                | Some (_, _, _, algorithmName, checkSum) ->
+                                    let alg = System.Text.Encoding.UTF8.GetBytes(algorithmName)
+                                    let size = alg.Length + 1 + checkSum.Length
+                                    size
+                                | None -> 0)) next
+
+          let debugEmbeddedPdbChunk, next =
+              if embeddedPDB then
+                  let streamLength = 
+                      match pdbOpt with
+                      | Some (_, _, stream, _, _) -> int stream.Length
+                      | None -> 0
+                  chunk (align 0x4 (match embeddedPDB with 
+                                     | true -> 8 + streamLength
+                                     | _ -> 0 )) next
+              else
+                  nochunk next
+
+          let debugDeterministicPdbChunk, next =
+              if deterministic then emptychunk next 
+              else nochunk next
+
 
           let textSectionSize = next - textSectionAddr
           let nextPhys = align alignPhys (textSectionPhysLoc + textSectionSize)
@@ -3756,7 +3762,7 @@ let writeBinaryAndReportMappings (outfile,
                                unlinkResource linkedResourceBase linkedResource)
                                
                   begin
-                    try linkNativeResources unlinkedResources next resourceFormat (Path.GetDirectoryName(outfile))
+                    try linkNativeResources unlinkedResources next resourceFormat (Path.GetDirectoryName outfile)
                     with e -> failwith ("Linking a native resource failed: "+e.Message+"")
                   end
 #endif
@@ -3819,35 +3825,39 @@ let writeBinaryAndReportMappings (outfile,
                   if pCurrent <> pExpected then 
                     failwith ("warning: "+chunkName+" not where expected, pCurrent = "+string pCurrent+", p.addr = "+string pExpected) 
               writeBytes os chunk 
-          
+
           let writePadding (os: BinaryWriter) _comment sz =
               if sz < 0 then failwith "writePadding: size < 0"
               for i = 0 to sz - 1 do 
                   os.Write 0uy
-          
+
           // Now we've computed all the offsets, write the image 
-          
+
           write (Some msdosHeaderChunk.addr) os "msdos header" msdosHeader
-          
+
           write (Some peSignatureChunk.addr) os "pe signature" [| |]
-          
+
           writeInt32 os 0x4550
-          
+
           write (Some peFileHeaderChunk.addr) os "pe file header" [| |]
-          
-          if (modul.Platform = Some(AMD64)) then
+
+          if (modul.Platform = Some AMD64) then
             writeInt32AsUInt16 os 0x8664    // Machine - IMAGE_FILE_MACHINE_AMD64 
           elif isItanium then
             writeInt32AsUInt16 os 0x200
           else
             writeInt32AsUInt16 os 0x014c   // Machine - IMAGE_FILE_MACHINE_I386 
-            
+
           writeInt32AsUInt16 os numSections
 
-          let pdbData = 
+          let pdbData =
+            // Hash code, data and metadata
             if deterministic then
-              // Hash code, data and metadata
-              use sha = System.Security.Cryptography.SHA1.Create()    // IncrementalHash is core only
+              use sha =
+                  match checksumAlgorithm with
+                  | HashAlgorithm.Sha1 -> System.Security.Cryptography.SHA1.Create() :> System.Security.Cryptography.HashAlgorithm
+                  | HashAlgorithm.Sha256 -> System.Security.Cryptography.SHA256.Create() :> System.Security.Cryptography.HashAlgorithm
+
               let hCode = sha.ComputeHash code
               let hData = sha.ComputeHash data
               let hMeta = sha.ComputeHash metadata
@@ -3863,6 +3873,7 @@ let writeBinaryAndReportMappings (outfile,
               // Use last 4 bytes for timestamp - High bit set, to stop tool chains becoming confused
               let timestamp = int final.[16] ||| (int final.[17] <<< 8) ||| (int final.[18] <<< 16) ||| (int (final.[19] ||| 128uy) <<< 24) 
               writeInt32 os timestamp
+
               // Update pdbData with new guid and timestamp. Portable and embedded PDBs don't need the ModuleID
               // Full and PdbOnly aren't supported under deterministic builds currently, they rely on non-determinsitic Windows native code
               { pdbData with ModuleID = final.[0..15] ; Timestamp = timestamp }
@@ -4148,9 +4159,13 @@ let writeBinaryAndReportMappings (outfile,
           if pdbfile.IsSome then 
               write (Some (textV2P debugDirectoryChunk.addr)) os "debug directory" (Array.create debugDirectoryChunk.size 0x0uy)
               write (Some (textV2P debugDataChunk.addr)) os "debug data" (Array.create debugDataChunk.size 0x0uy)
+              write (Some (textV2P debugChecksumPdbChunk.addr)) os "debug checksum" (Array.create debugChecksumPdbChunk.size 0x0uy)
 
           if embeddedPDB then
               write (Some (textV2P debugEmbeddedPdbChunk.addr)) os "debug data" (Array.create debugEmbeddedPdbChunk.size 0x0uy)
+
+          if deterministic then
+              write (Some (textV2P debugDeterministicPdbChunk.addr)) os "debug deterministic" Array.empty
 
           writePadding os "end of .text" (dataSectionPhysLoc - textSectionPhysLoc - textSectionSize)
           
@@ -4197,7 +4212,7 @@ let writeBinaryAndReportMappings (outfile,
               FileSystemUtilites.setExecutablePermission outfile
           with _ -> 
               ()
-          pdbData, pdbOpt, debugDirectoryChunk, debugDataChunk, debugEmbeddedPdbChunk, textV2P, mappings
+          pdbData, pdbOpt, debugDirectoryChunk, debugDataChunk, debugChecksumPdbChunk, debugEmbeddedPdbChunk, debugDeterministicPdbChunk, textV2P, mappings
 
         // Looks like a finally
         with e ->   
@@ -4222,11 +4237,11 @@ let writeBinaryAndReportMappings (outfile,
         try 
             let idd = 
                 match pdbOpt with 
-                | Some (originalLength, contentId, stream) ->
+                | Some (originalLength, contentId, stream, algorithmName, checkSum) ->
                     if embeddedPDB then
-                        embedPortablePdbInfo originalLength contentId stream showTimes fpdb debugDataChunk debugEmbeddedPdbChunk
+                        embedPortablePdbInfo originalLength contentId stream showTimes fpdb debugDataChunk debugEmbeddedPdbChunk debugDeterministicPdbChunk debugChecksumPdbChunk algorithmName checkSum embeddedPDB deterministic
                     else
-                        writePortablePdbInfo contentId stream showTimes fpdb debugDataChunk
+                        writePortablePdbInfo contentId stream showTimes fpdb pathMap debugDataChunk debugDeterministicPdbChunk debugChecksumPdbChunk algorithmName checkSum embeddedPDB deterministic
                 | None ->
 #if FX_NO_PDB_WRITER
                     Array.empty<idd>
@@ -4236,7 +4251,7 @@ let writeBinaryAndReportMappings (outfile,
             reportTime showTimes "Generate PDB Info"
 
             // Now we have the debug data we can go back and fill in the debug directory in the image 
-            let fs2 = FileSystem.FileStreamWriteExistingShim(outfile)
+            let fs2 = FileSystem.FileStreamWriteExistingShim outfile
             let os2 = new BinaryWriter(fs2)
             try 
                 // write the IMAGE_DEBUG_DIRECTORY 
@@ -4247,16 +4262,17 @@ let writeBinaryAndReportMappings (outfile,
                     writeInt32AsUInt16 os2 i.iddMajorVersion
                     writeInt32AsUInt16 os2 i.iddMinorVersion
                     writeInt32 os2 i.iddType
-                    writeInt32 os2 i.iddData.Length               // IMAGE_DEBUG_DIRECTORY.SizeOfData 
-                    writeInt32 os2 i.iddChunk.addr                // IMAGE_DEBUG_DIRECTORY.AddressOfRawData 
-                    writeInt32 os2 (textV2P i.iddChunk.addr)      // IMAGE_DEBUG_DIRECTORY.PointerToRawData 
+                    writeInt32 os2 i.iddData.Length               // IMAGE_DEBUG_DIRECTORY.SizeOfData
+                    writeInt32 os2 i.iddChunk.addr                // IMAGE_DEBUG_DIRECTORY.AddressOfRawData
+                    writeInt32 os2 (textV2P i.iddChunk.addr)      // IMAGE_DEBUG_DIRECTORY.PointerToRawData
 
                 // Write the Debug Data
                 for i in idd do
-                    // write the debug raw data as given us by the PDB writer 
-                    os2.BaseStream.Seek (int64 (textV2P i.iddChunk.addr), SeekOrigin.Begin) |> ignore
-                    if i.iddChunk.size < i.iddData.Length then failwith "Debug data area is not big enough. Debug info may not be usable"
-                    writeBytes os2 i.iddData
+                    if i.iddChunk.size <> 0 then
+                        // write the debug raw data as given us by the PDB writer 
+                        os2.BaseStream.Seek (int64 (textV2P i.iddChunk.addr), SeekOrigin.Begin) |> ignore
+                        if i.iddChunk.size < i.iddData.Length then failwith "Debug data area is not big enough. Debug info may not be usable"
+                        writeBytes os2 i.iddData
                 os2.Dispose()
             with e -> 
                 failwith ("Error while writing debug directory entry: "+e.Message)
@@ -4265,9 +4281,7 @@ let writeBinaryAndReportMappings (outfile,
         with e -> 
             reraise()
 
-    end      
-    ignore debugDataChunk
-    ignore debugEmbeddedPdbChunk
+    end
     reportTime showTimes "Finalize PDB"
 
     /// Sign the binary. No further changes to binary allowed past this point! 
@@ -4295,14 +4309,16 @@ type options =
      embedAllSource: bool
      embedSourceList: string list
      sourceLink: string
+     checksumAlgorithm: HashAlgorithm
      signer: ILStrongNameSigner option
-     emitTailcalls : bool
-     deterministic : bool
+     emitTailcalls: bool
+     deterministic: bool
      showTimes: bool
-     dumpDebugInfo: bool }
+     dumpDebugInfo: bool
+     pathMap: PathMap }
 
 let WriteILBinary (outfile, (args: options), modul, normalizeAssemblyRefs) =
     writeBinaryAndReportMappings (outfile, 
                                   args.ilg, args.pdbfile, args.signer, args.portablePDB, args.embeddedPDB, args.embedAllSource, 
-                                  args.embedSourceList, args.sourceLink, args.emitTailcalls, args.deterministic, args.showTimes, args.dumpDebugInfo) modul normalizeAssemblyRefs
+                                  args.embedSourceList, args.sourceLink, args.checksumAlgorithm, args.emitTailcalls, args.deterministic, args.showTimes, args.dumpDebugInfo, args.pathMap) modul normalizeAssemblyRefs
     |> ignore

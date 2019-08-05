@@ -1,3 +1,11 @@
+### 2.1.8
+
+* Add `silent` option
+
+### 2.1.7
+
+* Enable different compiler implementations
+
 ### 2.1.6
 
 * Add back possibility to connect to TCP port

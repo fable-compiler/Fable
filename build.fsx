@@ -8,7 +8,7 @@ open PublishUtils
 open System
 open System.Text.RegularExpressions
 open Fable.Core
-open Fable.Import
+open Fable.Core.JsInterop
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
@@ -18,8 +18,8 @@ let APPVEYOR_REPL_ARTIFACT_URL =
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
 
 // ncave FCS fork
-let FCS_REPO = "https://github.com/ncave/FSharp.Compiler.Service"
-let FCS_REPO_LOCAL = "../FSharp.Compiler.Service_fable"
+let FCS_REPO = "https://github.com/ncave/fsharp"
+let FCS_REPO_LOCAL = "../fsharp_fable"
 let FCS_REPO_FABLE_BRANCH = "fable"
 let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
@@ -28,6 +28,8 @@ type GhRealeases =
         $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
             err != null ? fail(err) : succeed(res)))""")>]
     abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
+
+let concurrently(commands: string[]): unit = importDefault "concurrently"
 
 let cleanDirs dirs =
     for dir in dirs do
@@ -63,6 +65,17 @@ let buildLibrary() =
     cleanDirs ["build/fable-library"]
     buildTypescript "src/fable-library"
     buildSplitter "src/fable-library"
+
+let quicktest additionalCommands =
+    cleanDirs ["build/fable-library"]
+    concurrently [|
+        // Watch fable-library
+        yield "npx tsc --project src/fable-library --watch"
+        yield "npx fable-splitter -c src/fable-library/splitter.config.js --watch"
+        // Restart splitter on changes so latest fable-library and compiler are picked
+        yield "npx nodemon --watch src/quicktest -e \"fs\" --exec \"fable-splitter -c src/quicktest/splitter.config.js --run\""
+        yield! additionalCommands
+    |]
 
 let buildCompiler() =
     let projectDir = "src/fable-compiler"
@@ -136,6 +149,32 @@ let test() =
         // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
         // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
 
+
+let coverage() =
+    // report converter
+    // https://github.com/danielpalme/ReportGenerator
+    // dotnet tool install dotnet-reportgenerator-globaltool --tool-path tools
+    if not (pathExists "./bin/tools/reportgenerator") && not (pathExists "./bin/tools/reportgenerator.exe") then
+        runInDir "." "dotnet tool install dotnet-reportgenerator-globaltool --tool-path bin/tools"
+    let reportGen =
+        if pathExists "./bin/tools/reportgenerator" then "bin/tools/reportgenerator"
+        else "bin\\tools\\reportgenerator.exe"
+
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
+
+    cleanDirs ["build/tests"]
+    buildSplitter "tests"
+
+    // JS
+    run "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
+    runInDir "." (reportGen + " \"-reports:build/coverage/nyc/lcov.info\" -reporttypes:Html \"-targetdir:build/coverage/nyc/html\" ")
+
+    // .NET
+    //runInDir "tests/Main" "dotnet build /t:Collect_Coverage"
+    cleanDirs ["build/coverage/netcoreapp2.0/out"]
+    runInDir "." (reportGen + " \"-reports:build/coverage/netcoreapp2.0/coverage.xml\" -reporttypes:Html \"-targetdir:build/coverage/netcoreapp2.0/html\" ")
+
 let downloadStandalone() =
     let targetDir = "src/fable-standalone/dist"
     cleanDirs [targetDir]
@@ -177,8 +216,8 @@ let syncFcsRepo() =
     runInDir FCS_REPO_LOCAL "git pull"
     cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
         runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
 
     // fcs-fable
     runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_FABLE_BRANCH)
@@ -186,7 +225,12 @@ let syncFcsRepo() =
     cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
         runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
     copyDirRecursive (FCS_REPO_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
-    copyDirRecursive (FCS_REPO_LOCAL </> "src") "src/fcs-fable/src"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/absil") "src/fcs-fable/src/absil"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp") "src/fcs-fable/src/fsharp"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp/service") "src/fcs-fable/src/fsharp/service"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp/symbols") "src/fcs-fable/src/fsharp/symbols"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/ilx") "src/fcs-fable/src/ilx"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/utils") "src/fcs-fable/src/utils"
     removeFile "src/fcs-fable/.gitignore"
     let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
     Regex.Replace(
@@ -220,6 +264,13 @@ let publishPackages restArgs =
 
 match argsLower with
 | "test"::_ -> test()
+| "coverage"::_ -> coverage()
+| "quicktest-fast"::_ -> run "npx fable-splitter -c src/quicktest/splitter.config.js --watch --run"
+| "quicktest"::_ -> quicktest []
+| "check-sourcemaps"::_ ->
+    ("src/quicktest/Quicktest.fs", "src/quicktest/bin/Quicktest.js", "src/quicktest/bin/Quicktest.js.map")
+    |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
+    |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs false

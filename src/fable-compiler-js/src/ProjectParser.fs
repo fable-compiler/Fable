@@ -78,14 +78,12 @@ let parseCompilerOptions projectText =
     |]
     otherOptions
 
-let parseProjectScript projectPath =
-    let projectFileName = Path.GetFileName projectPath
-    let projectText = readAllText projectPath
-    let projectDir = Path.GetDirectoryName projectPath
+let parseProjectScript projectFileName =
+    let projectText = readAllText projectFileName
+    let projectDir = Path.GetDirectoryName projectFileName
     let dllRefs, srcFiles =
         (([||], [||]), projectText.Split('\n'))
         ||> Array.fold (fun (dllRefs, srcFiles) line ->
-            let line = line.Trim()
             match line.Trim() with
             | Regex @"^#r\s+""(.*?)""$" [_;path]
                 when not(path.EndsWith("Fable.Core.dll")) ->
@@ -94,13 +92,12 @@ let parseProjectScript projectPath =
                 dllRefs, Array.append [|Path.Combine(projectDir, path)|] srcFiles
             | _ -> dllRefs, srcFiles)
     let projectRefs = [||]
-    let sourceFiles = Array.append srcFiles [|Path.GetFileName projectPath|]
+    let sourceFiles = Array.append srcFiles [|Path.GetFileName projectFileName|]
     let otherOptions = [| "--define:FABLE_COMPILER" |]
-    (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions)
+    (dllRefs, projectRefs, sourceFiles, otherOptions)
 
-let parseProjectFile projectPath =
-    let projectFileName = Path.GetFileName projectPath
-    let projectText = readAllText projectPath
+let parseProjectFile projectFileName =
+    let projectText = readAllText projectFileName
 
     // remove all comments
     let projectText = Regex.Replace(projectText, @"<!--[\s\S]*?-->", "")
@@ -126,7 +123,7 @@ let parseProjectFile projectPath =
 
     let dllRefs = [||]
     let otherOptions = parseCompilerOptions projectText
-    (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions)
+    (dllRefs, projectRefs, sourceFiles, otherOptions)
 
 let makeHashSetIgnoreCase () =
     let equalityComparerIgnoreCase =
@@ -154,13 +151,13 @@ let dedupFileNames (fileSet: HashSet<string>) fileNames =
             fileName
     fileNames |> Array.map dedup
 
-let rec parseProject (projSet: HashSet<string>) (projectPath: string) =
-    let (projectFileName, dllRefs, projectRefs, sourceFiles, otherOptions) =
-        if projectPath.EndsWith(".fsx")
-        then parseProjectScript projectPath
-        else parseProjectFile projectPath
+let rec parseProject (projSet: HashSet<string>) (projectFileName: string) =
+    let (dllRefs, projectRefs, sourceFiles, otherOptions) =
+        if projectFileName.EndsWith(".fsx")
+        then parseProjectScript projectFileName
+        else parseProjectFile projectFileName
 
-    let projectFileDir = Path.GetDirectoryName projectPath
+    let projectFileDir = Path.GetDirectoryName projectFileName
     let isAbsolutePath (path: string) = path.StartsWith("/") || path.IndexOf(":") = 1
     let makePath path =
         if isAbsolutePath path then path
@@ -172,8 +169,8 @@ let rec parseProject (projSet: HashSet<string>) (projectPath: string) =
 
      // parse and combine all referenced projects into one big project
     let parsedProjects = projectRefs |> Array.map makePath |> dedupProjectRefs projSet |> Array.map (parseProject projSet)
-    let sourcePaths  = sourcePaths  |> Array.append (parsedProjects |> Array.collect (fun (_,_,x,_,_) -> x))
-    let sourceTexts  = sourceTexts  |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,x,_) -> x))
-    let otherOptions = otherOptions |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,_,x) -> x))
+    let sourcePaths  = sourcePaths  |> Array.append (parsedProjects |> Array.collect (fun (_,x,_,_) -> x))
+    let sourceTexts  = sourceTexts  |> Array.append (parsedProjects |> Array.collect (fun (_,_,x,_) -> x))
+    let otherOptions = otherOptions |> Array.append (parsedProjects |> Array.collect (fun (_,_,_,x) -> x))
 
-    (projectFileName, dllRefs, sourcePaths, sourceTexts, otherOptions |> Array.distinct)
+    (dllRefs, sourcePaths, sourceTexts, otherOptions |> Array.distinct)

@@ -1,6 +1,12 @@
+### 1.0.4
+
+* fable-metadata 1.1.2
+* fable-standalone 1.1.4
+
 ### 1.0.3
 
-* Update dependencies
+* fable-metadata 1.0.1
+* fable-standalone 1.0.3
 
 ### 1.0.2
 

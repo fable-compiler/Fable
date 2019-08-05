@@ -1,10 +1,11 @@
 /// @ts-check
 
+var DEFAULT_COMPILER = "fable-compiler"
+// var DEFAULT_COMPILER = require("../fable-compiler"); // testing
+
 var path = require("path");
 var babel = require("@babel/core");
 var babelPlugins = require("fable-babel-plugins");
-// var fable = require("../fable-compiler"); // testing
-var fable = require("fable-compiler");
 
 function or(option, _default) {
     return option !== void 0 ? option : _default;
@@ -21,6 +22,12 @@ var customPlugins = [
 
 var compilerCache = null;
 
+function log(opts, msg) {
+    if (!opts.silent) {
+        console.log(msg);
+    }
+}
+
 function getTcpPort(opts) {
     if (opts.port != null) {
         return opts.port;
@@ -31,8 +38,9 @@ function getTcpPort(opts) {
     }
 }
 
-function getCompiler(webpack, args) {
+function getCompiler(webpack, args, compiler) {
     if (compilerCache == null) {
+        var fable = require(compiler);
         compilerCache = fable.default(args);
         if (!webpack.watchMode) {
             webpack.hooks.done.tap("fable-loader", function() {
@@ -59,6 +67,8 @@ var Loader = function(buffer) {
     var callback = this.async();
 
     var opts = this.loaders[0].options || {};
+    opts.cli = opts.cli || {};
+    opts.cli.silent = opts.silent;
     var babelOptions = opts.babel || {};
     babelOptions.plugins = customPlugins.concat(babelOptions.plugins || []);
 
@@ -81,7 +91,7 @@ var Loader = function(buffer) {
     var port = getTcpPort(opts);
     var command = port != null
         ? require("./net-client").send("127.0.0.1", port, JSON.stringify(msg)).then(json => JSON.parse(json))
-        : getCompiler(this._compiler, opts.cli).send(msg);
+        : getCompiler(this._compiler, opts.cli, opts.compiler || DEFAULT_COMPILER).send(msg);
 
     command.then(data => {
         if (data.error) {
@@ -109,7 +119,7 @@ var Loader = function(buffer) {
                                     this.emitWarning(new Error(msg));
                                     break;
                                 default:
-                                    console.log(msg)
+                                    log(opts, msg)
                             }
                         });
                       });
@@ -123,7 +133,7 @@ var Loader = function(buffer) {
                     if (err) {
                         callback(err);
                     } else {
-                        console.log("fable: Compiled " + path.relative(process.cwd(), msg.path));
+                        log(opts, "fable: Compiled " + path.relative(process.cwd(), msg.path));
                         callback(null, babelParsed.code, babelParsed.map);
                     }
                 });

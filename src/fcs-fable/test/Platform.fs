@@ -15,10 +15,12 @@ let measureTime (f: 'a -> 'b) x =
     sw.ElapsedMilliseconds, res
 
 let normalizeFullPath (path: string) =
+    let path = if System.String.IsNullOrWhiteSpace path then "." else path
     Path.GetFullPath(path).Replace('\\', '/')
 
-let getRelativePath (pathFrom: string) (pathTo: string) =
-    Path.GetRelativePath(pathFrom, pathTo).Replace('\\', '/')
+let getRelativePath (path: string) (pathTo: string) =
+    let path = if System.String.IsNullOrWhiteSpace path then "." else path
+    Path.GetRelativePath(path, pathTo).Replace('\\', '/')
 
 #else
 
@@ -55,8 +57,8 @@ let measureTime (f: 'a -> 'b) x =
 let normalizeFullPath (path: string) =
     JS.Path.resolve(path).Replace('\\', '/')
 
-let getRelativePath (pathFrom: string) (pathTo: string) =
-    JS.Path.relative(pathFrom, pathTo).Replace('\\', '/')
+let getRelativePath (path: string) (pathTo: string) =
+    JS.Path.relative(path, pathTo).Replace('\\', '/')
 
 #endif
 
