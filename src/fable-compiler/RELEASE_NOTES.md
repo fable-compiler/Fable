@@ -1,3 +1,8 @@
+### 2.3.17
+
+* Update FSharp.Compiler.Services and Dotnet.ProjInfo
+* Fix #1868: Type provider ResolutionFolder is empty @ncave
+
 ### 2.3.16
 
 * Fix #1871: comparing anonymous record types
