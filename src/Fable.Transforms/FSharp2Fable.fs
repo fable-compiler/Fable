@@ -449,7 +449,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return makeValueFrom com ctx r var
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
-        return Replacements.defaultof typ
+        return Replacements.defaultof com typ
 
     // Assignments
     | BasicPatterns.Let((var, value), body) ->

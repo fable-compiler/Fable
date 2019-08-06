@@ -58,15 +58,3 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-type AnonRec1 = {| name: string; child: {| name: string |} |}
-type AnonRec2 = {| numbers: int list |}
-
-testCase "Comparing anonymous record types works" <| fun () ->
-  let x = {| numbers = [3; 4] |}
-  typeof<AnonRec1> = typeof<AnonRec2> |> equal false
-  typeof<AnonRec1> = typeof<AnonRec1> |> equal true
-  typeof<AnonRec2> = x.GetType() |> equal true
-  let t1 = typeof<Result<{| name: string; child: {| name: string |} |}, string>>
-  let t2 = typeof<Result<{| numbers: int list |}, string>>
-  t1 = t2 |> equal false
-  t2 = typeof<Result<{| numbers: int list |}, string>> |> equal true

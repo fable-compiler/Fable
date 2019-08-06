@@ -265,12 +265,6 @@ let coreModFor = function
 let genericTypeInfoError name =
     sprintf "Cannot get type info of generic parameter %s, please inline or inject a type resolver" name
 
-let defaultof (t: Type) =
-    match t with
-    | Number _ -> makeIntConst 0
-    | Boolean -> makeBoolConst false
-    | _ -> Null t |> makeValue None
-
 let makeLongInt r t signed (x: uint64) =
     let lowBits = NumberConstant (float (uint32 x), Float64)
     let highBits = NumberConstant (float (x >>> 32), Float64)
@@ -985,6 +979,14 @@ let jsConstructor com ent =
     else
         FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent
 
+let defaultof com (t: Type) =
+    match t with
+    | Number _ -> makeIntConst 0
+    | Boolean -> makeBoolConst false
+    | DeclaredType(ent,_) when ent.IsValueType ->
+        Helper.ConstructorCall(jsConstructor com ent, t, [])
+    | _ -> Null t |> makeValue None
+
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, ".ctor" -> objExpr t [] |> Some
@@ -1643,14 +1645,14 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
         Helper.CoreCall("Option", "value", t,
-          [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof t], ?loc=r)
+          [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof com t], ?loc=r)
             Value(BoolConstant true, None) ], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
         let left = Helper.InstanceCall(ar, "findIndex", Number Int32, [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
         Helper.CoreCall("Option", "value", t,
-          [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof t], ?loc=r)
+          [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof com t], ?loc=r)
             Value(BoolConstant true, None) ], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
         Helper.CoreCall("Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
@@ -2234,7 +2236,7 @@ let valueTypes (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "DefaultOf" -> (genArg com ctx r 0 i.GenericArgs) |> defaultof |> Some
+    | "DefaultOf" -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com |> Some
     | "Hash" -> structuralHash r args.Head |> Some
     | "Equals" -> Helper.CoreCall("Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
