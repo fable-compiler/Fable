@@ -146,7 +146,7 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
                 if o.StartsWith("-r:") then
                     let dllRef = o.[3..]
                     match badSystemDllDir with
-                    | Some bsdd -> if not(dllRef.StartsWith(bsdd)) then Some dllRef else None //if not(dllRef.StartsWith(badSystemDllDir)) then Some dllRef else None
+                    | Some bsdd -> if not(dllRef.StartsWith(bsdd)) then Some dllRef else None
                     | None -> Some dllRef
                 else None) ]
 
