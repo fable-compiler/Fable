@@ -1,3 +1,8 @@
+### 2.3.18
+
+* Fix #1876: script (fsx) compilation @nojaf
+* Fix struct without explicit constructor @0x53A
+
 ### 2.3.17
 
 * Update FSharp.Compiler.Services and Dotnet.ProjInfo
