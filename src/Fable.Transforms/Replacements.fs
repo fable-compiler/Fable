@@ -968,23 +968,38 @@ let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
             let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
             makeCustomImport Any entityName importPath)
 
-let jsConstructor com ent =
-    if FSharp2Fable.Util.isReplacementCandidate ent then
-        match tryEntityRef com ent with
-        | Some entRef -> entRef
-        | None ->
-            defaultArg ent.TryFullName ent.CompiledName
-            |> sprintf "Cannot find %s constructor"
-            |> addErrorAndReturnNull com [] None
-    else
-        FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent
+let tryJsConstructor com ent =
+    if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
+    else FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent |> Some
 
-let defaultof com (t: Type) =
+let jsConstructor com ent =
+    match tryJsConstructor com ent with
+    | Some e -> e
+    | None ->
+        defaultArg ent.TryFullName ent.CompiledName
+        |> sprintf "Cannot find %s constructor"
+        |> addErrorAndReturnNull com [] None
+
+let emptyGuid () =
+    makeStrConst "00000000-0000-0000-0000-000000000000"
+
+let defaultof com ctx (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
+    | Builtin BclTimeSpan
+    | Builtin BclDateTime 
+    | Builtin BclDateTimeOffset 
+    | Builtin (BclInt64|BclUInt64)
+    | Builtin BclBigInt
+    | Builtin BclDecimal -> getZero com ctx t
+    | Builtin BclGuid -> emptyGuid()
     | DeclaredType(ent,_) when ent.IsValueType ->
-        Helper.ConstructorCall(jsConstructor com ent, t, [])
+        match tryJsConstructor com ent with
+        | Some e -> Helper.ConstructorCall(e, t, [])
+        // TODO: This usually happens with BCL types, raise error or warning?
+        | None -> Null t |> makeValue None
+    // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1645,14 +1660,14 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
         Helper.CoreCall("Option", "value", t,
-          [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof com t], ?loc=r)
+          [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof com ctx t], ?loc=r)
             Value(BoolConstant true, None) ], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
         let left = Helper.InstanceCall(ar, "findIndex", Number Int32, [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
         Helper.CoreCall("Option", "value", t,
-          [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof com t], ?loc=r)
+          [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof com ctx t], ?loc=r)
             Value(BoolConstant true, None) ], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
         Helper.CoreCall("Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
@@ -2236,7 +2251,7 @@ let valueTypes (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "DefaultOf" -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com |> Some
+    | "DefaultOf" -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com ctx |> Some
     | "Hash" -> structuralHash r args.Head |> Some
     | "Equals" -> Helper.CoreCall("Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2596,7 +2611,7 @@ let guids (_: ICompiler) (ctx: Context) (_: SourceLocation option) t (i: CallInf
     | "ToByteArray" -> Helper.CoreCall("String", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
     | ".ctor" ->
         match args with
-        | [] -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
+        | [] -> emptyGuid() |> Some
         | [ExprType (Array _)] -> Helper.CoreCall("String", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
         | [ExprType String]    -> Helper.CoreCall("String", "validateGuid", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
@@ -2725,7 +2740,7 @@ let tryField returnTyp ownerTyp fieldName =
     | Builtin BclDecimal, _ ->
         Helper.CoreValue(coreModFor BclDecimal, "get_" + fieldName, returnTyp) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
-    | Builtin BclGuid, "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
+    | Builtin BclGuid, "Empty" -> emptyGuid() |> Some
     | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
     | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
         Helper.CoreCall(coreModFor BclDateTime, Naming.lowerFirst fieldName, returnTyp, []) |> Some
