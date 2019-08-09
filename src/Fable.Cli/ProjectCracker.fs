@@ -138,7 +138,7 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
     |> fun (opts, _errors) -> // TODO: Check errors
         // The FCS resolver uses a wrong dir for System.XXX.dll refs, we need to replace them
         let badSystemDllDir = opts.OtherOptions |> Array.tryPick (fun o ->
-            if o.EndsWith("mscorlib.dll") then IO.Path.GetDirectoryName o.[3..] |> Some else None)
+            if (o.EndsWith("mscorlib.dll") || o.EndsWith("System.Private.CoreLib.dll")) then IO.Path.GetDirectoryName o.[3..] |> Some else None)
         let goodSystemDllDir = Process.getNetcoreAssembliesDir()
         let dllRefs =
             [ yield! Literals.SYSTEM_CORE_REFERENCES |> Seq.map (fun x -> IO.Path.Combine(goodSystemDllDir, x + ".dll"))
