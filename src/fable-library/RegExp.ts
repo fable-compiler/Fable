@@ -4,13 +4,15 @@ export function create(pattern: string, options: number) {
   // Supported RegexOptions
   // * IgnoreCase:  0x0001
   // * Multiline:   0x0002
+  // * Singleline:  0x0010
   // * ECMAScript:  0x0100 (ignored)
-  if ((options & ~(1 ^ 2 ^ 256)) !== 0) {
-    throw new Error("RegexOptions only supports: IgnoreCase, Multiline and ECMAScript");
+  if ((options & ~(1 ^ 2 ^ 16 ^ 256)) !== 0) {
+    throw new Error("RegexOptions only supports: IgnoreCase, Multiline, Singleline and ECMAScript");
   }
   let flags = "g";
   flags += options & 1 ? "i" : ""; // 0x0001 RegexOptions.IgnoreCase
   flags += options & 2 ? "m" : "";
+  flags += options & 16 ? "s" : "";
   return new RegExp(pattern, flags);
 }
 // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
