@@ -1,3 +1,7 @@
+### 1.0.5
+
+* fable-standalone 1.1.5
+
 ### 1.0.4
 
 * fable-metadata 1.1.2
