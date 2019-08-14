@@ -1,3 +1,10 @@
+### 2.3.19
+
+* Fix #1876 (bis): script (fsx) compilation @nojaf
+* Fix #1880: parsing uint64
+* Support RegexOptions.Singleline
+* Minor optimization and sourcemaps improvement
+
 ### 2.3.18
 
 * Fix #1876: script (fsx) compilation @nojaf
