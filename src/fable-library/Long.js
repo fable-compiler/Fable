@@ -297,11 +297,11 @@ export function parse(str, style, unsigned, bitsize, radix) {
     if (res != null) {
         const lessOrEqual = (x, y) => {
             const len = Math.max(x.length, y.length);
-            return x.padStart(len, "0") <= maxValue.padStart(len, "0");
+            return x.padStart(len, "0") <= y.padStart(len, "0");
         }
         const isNegative = res.sign === "-";
         const maxValue = getMaxValue(unsigned || res.radix !== 10, res.radix, isNegative);
-        if (lessOrEqual(res.digits, maxValue)) {
+        if (lessOrEqual(res.digits.toUpperCase(), maxValue)) {
             str = isNegative ? res.sign + res.digits : res.digits;
             return fromString(str, unsigned, res.radix);
         }

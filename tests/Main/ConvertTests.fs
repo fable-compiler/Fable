@@ -353,6 +353,13 @@ let tests =
         xnu |> int32 |> equal -1
         xnu |> uint32 |> equal 0xFFFFFFFFu
 
+    testCase "Special cases conversion to UInt64 work" <| fun () -> // See #1880
+        uint64 "0x9fffffffffffffff" |> equal 11529215046068469759UL
+        uint64 "0xafffffffffffffff" |> equal 12682136550675316735UL
+        uint64 "0xAFFFFFFFFFFFFFFF" |> equal 12682136550675316735UL
+        uint64 "0x9fffffff_ffffffff" |> equal 11529215046068469759UL
+        uint64 "0x9fff_ffff_ffff_ffff" |> equal 11529215046068469759UL
+
     testCase "System.Convert.ToInt64 works" <| fun () ->
         let x = 1L
         int64(1y) |> equal x
