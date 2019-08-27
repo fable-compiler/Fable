@@ -414,6 +414,10 @@ let tests =
         let g1 = Guid.Empty
         string g1 |> equal "00000000-0000-0000-0000-000000000000"
 
+    testCase "Guid.ToString works" <| fun () ->
+        let g1 = Guid.Parse "dec42487-c02b-42a6-9a10-0263a5a7fdf1"
+        string g1 |> equal "dec42487-c02b-42a6-9a10-0263a5a7fdf1"
+
     testCase "lazy works" <| fun () ->
         let mutable snitch = 0
         let lazyVal =

@@ -201,12 +201,11 @@ let tests =
     //     opts2?foo2?flag1 |> unbox |> equal true
     //     opts2?bar2?(1) |> unbox |> equal 3
 
-    // TODO
-    // testCase "Array inside keyValueList is preserved" <| fun () ->
-    //     let props = [ Names [| { Name = "name" } |] ]
-    //     let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> toJson
-    //     let expected = props |> keyValueList CaseRules.LowerFirst |> toJson
-    //     actual |> equal expected
+    testCase "Array inside keyValueList is preserved" <| fun () ->
+        let props = [ Names [| { Name = "name" } |] ]
+        let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> JS.JSON.stringify
+        let expected = props |> keyValueList CaseRules.LowerFirst |> JS.JSON.stringify
+        actual |> equal expected
 
     testCase "Erased union cases work with keyValueList" <| fun () ->
         let props: Props list = [ Custom("Foo", 5); Names [|{Name = "Mikhail"}|] ]
@@ -280,9 +279,8 @@ let tests =
         nameof(record.Int) |> equal "Int"
         nameof(record.InnerRecord) + "." + nameof(record.InnerRecord.Float)
         |> equal "InnerRecord.Float"
-        // TODO!!!
-        // nameof(typeof<Record>) |> equal "Record"
-        // nameof(typeof<InnerRecord>) |> equal "InnerRecord"
+        nameof(typeof<Record>) |> equal "Record"
+        nameof(typeof<InnerRecord>) |> equal "InnerRecord"
 
     testCase "nameofLambda works" <| fun () ->
         nameofLambda(fun (x:Record) -> x.String) |> equal "String"
@@ -291,6 +289,8 @@ let tests =
     testCase "StringEnum attribute works" <| fun () ->
         Vertical |> unbox |> equal "vertical"
         Horizontal |> unbox |> equal "Horizontal"
+        Vertical |> string |> equal "vertical"
+        Horizontal |> string |> equal "Horizontal"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->

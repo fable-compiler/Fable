@@ -193,7 +193,25 @@ let (|NumberExt|_|) = function
     | Builtin BclBigInt -> Some BigInt
     | _ -> None
 
-let (|Nameof|_|) = function
+let genericTypeInfoError name =
+    sprintf "Cannot get type info of generic parameter %s, please inline or inject a type resolver" name
+
+let getTypeName com (ctx: Context) r t =
+    match t with
+    | GenericParam name ->
+        genericTypeInfoError name
+        |> addError com ctx.InlinePath r
+    | _ -> ()
+    let fullname = getTypeFullName false t
+    let fullname =
+        match fullname.IndexOf("[") with
+        | -1 -> fullname
+        | i -> fullname.[..i - 1]
+    match fullname.LastIndexOf(".") with
+    | -1 -> fullname
+    | i -> fullname.Substring(i + 1)
+
+let (|Nameof|_|) com ctx = function
     | IdentExpr ident -> Some ident.DisplayName
     | Get(_, ExprGet(Value(StringConstant prop,_)), _, _) -> Some prop
     | Get(_, FieldGet(fi,_,_), _, _) -> Some fi
@@ -202,6 +220,7 @@ let (|Nameof|_|) = function
             match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
         then Some ident.DisplayName
         else None
+    | Value(TypeInfo t, r) -> getTypeName com ctx r t |> Some
     | _ -> None
 
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
@@ -261,9 +280,6 @@ let coreModFor = function
     | FSharpReference _ -> "Types"
     | BclHashSet _
     | BclDictionary _ -> failwith "Cannot decide core module"
-
-let genericTypeInfoError name =
-    sprintf "Cannot get type info of generic parameter %s, please inline or inject a type resolver" name
 
 let makeLongInt r t signed (x: uint64) =
     let lowBits = NumberConstant (float (uint32 x), Float64)
@@ -357,7 +373,9 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
-        | Char | String -> head
+        | Char | String
+        | Builtin BclGuid
+        | EnumType(StringEnumType,_) -> head
         | Builtin (BclTimeSpan|BclInt64|BclUInt64 as t) ->
             Helper.CoreCall(coreModFor t, "toString", String, args)
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
@@ -1014,7 +1032,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Throw(error runtimeMsg, t, r) |> Some
     | _, ("nameof"|"nameof2" as meth) ->
         match args with
-        | [Nameof name as arg] ->
+        | [Nameof com ctx name as arg] ->
             if meth = "nameof2"
             then NewTuple [makeStrConst name; arg] |> makeValue r |> Some
             else makeStrConst name |> Some
@@ -1023,7 +1041,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                makeStrConst Naming.unknown |> Some
     | _, "nameofLambda" ->
         match args with
-        | [Function(_, Nameof name, _)] -> name
+        | [Function(_, (Nameof com ctx name), _)] -> name
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r; Naming.unknown
         |> makeStrConst |> Some
@@ -2896,18 +2914,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "get_Name" ->
             match c with
             | Value(TypeInfo exprType, loc) ->
-                match exprType with
-                | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath loc
-                | _ -> ()
-
-                let fullname = getTypeFullName false exprType
-                let fullname =
-                    match fullname.IndexOf("[") with
-                    | -1 -> fullname
-                    | i -> fullname.[..i - 1]
-                match fullname.LastIndexOf(".") with
-                | -1 -> fullname |> StringConstant |> makeValue r |> Some
-                | i -> fullname.Substring(i + 1) |> StringConstant |> makeValue r |> Some
+                getTypeName com ctx loc exprType
+                |> StringConstant |> makeValue r |> Some
             | c ->
                 Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
         | _ -> None
