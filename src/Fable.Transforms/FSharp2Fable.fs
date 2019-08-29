@@ -299,8 +299,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
         let t = makeType com ctx.GenericArgs targetType
         match tryDefinition targetType with
-        | Some(_, Some (Types.ienumerableGeneric | Types.ienumerable)) ->
-            return Replacements.toSeq t inpExpr
+        | Some(_, Some fullName) ->
+            match fullName with
+            | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.toSeq t inpExpr
+            | Types.array -> return Replacements.toUntypedArray inpExpr
+            | _ -> return Fable.TypeCast(inpExpr, t)            
         | _ -> return Fable.TypeCast(inpExpr, t)
 
     // TypeLambda is a local generic lambda

@@ -906,4 +906,22 @@ let tests =
               (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
               (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
               (4, 'd'); (4, 'e'); (4, 'f')|]
+
+    testCase "Casting to System.Array works" <| fun () ->
+        let xs = [|1;2;3;4|] :> System.Array // Numeric array
+        let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array        
+        [ for i in xs do for j in ys do yield (unbox i, unbox j) ]
+        |> equal 
+            [ (1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+              (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+              (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+              (4, 'd'); (4, 'e'); (4, 'f') ]
+
+    testCase "Testing against System.Array works" <| fun () ->
+        let xs = box [|1;2;3;4|]
+        let ys = box [|'a';'b';'c';'d';'e';'f'|]
+        let zs = box [1;2;3;4]
+        xs :? System.Array |> equal true
+        ys :? System.Array |> equal true
+        zs :? System.Array |> equal false
   ]

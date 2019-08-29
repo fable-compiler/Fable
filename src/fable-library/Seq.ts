@@ -201,6 +201,10 @@ export function empty<T>() {
   return unfold((): [T, T] => void 0);
 }
 
+export function enumerateFromFunctions<T, Enumerator>(factory: () => Enumerator, moveNext: (e: Enumerator) => boolean, current: (e: Enumerator) => T) {
+    return delay(() => unfold((e) => moveNext(e) ? [current(e), e] : null, factory()));
+}
+
 export function enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
   return concat(unfold(() => cond() ? [xs, true] : null));
 }

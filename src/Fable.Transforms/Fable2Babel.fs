@@ -352,9 +352,12 @@ module Util =
 
     let transformCast (com: IBabelCompiler) (ctx: Context) t e: Expression =
         match t with
-        | Fable.DeclaredType(ent,[_]) when ent.TryFullName = Some Types.ienumerableGeneric ->
-            match e with
-            | Fable.Value(Replacements.ListLiteral(exprs, _),_) ->
+        // Optimization for (numeric) array or list literals casted to seq
+        // Done at the very end of the compile pipeline to get more opportunities
+        // of matching cast and literal expressions after resolving pipes, inlining...
+        | Fable.DeclaredType(ent,[_]) ->
+            match ent.TryFullName, e with
+            | Some Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
@@ -891,6 +894,8 @@ module Util =
                 | _ -> coreLibCall com ctx None "Util" "isDisposable" [|com.TransformAsExpr(ctx, expr)|]
             | Some Types.ienumerable ->
                 [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx None "Util" "isIterable"
+            | Some Types.array ->
+                [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx None "Util" "isArray"
             | _ when ent.IsInterface ->
                 fail (sprintf "interface %A" ent.FullName)
             | _ when FSharp2Fable.Util.isReplacementCandidate ent ->

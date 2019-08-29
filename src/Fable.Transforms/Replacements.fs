@@ -248,6 +248,10 @@ let (|ListLiteral|_|) e =
     | NewList(Some(head, tail), t) -> untail t [head] tail
     | _ -> None
 
+let (|ArrayOrListLiteral|_|) = function
+    | Value((NewArray(ArrayValues vals, t)|ListLiteral(vals, t)),_) -> Some(vals, t)
+    | _ -> None
+
 let (|IDictionary|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
         match ent.TryFullName with
@@ -599,6 +603,10 @@ let toSeq t (e: Expr) =
     | String -> stringToCharArray t e
     | _ -> TypeCast(e, t)
 
+let toUntypedArray = function
+    | Value(NewArray(kind, _),r) -> Value(NewArray(kind, Any),r)
+    | e -> Helper.GlobalCall("Array", Array Any, [e], memb="from", ?loc=e.Range)
+
 let iterate r ident body (xs: Expr) =
     let f = Function(Delegate [ident], body, None)
     Helper.CoreCall("Seq", "iterate", Unit, [f; toSeq xs.Type xs], ?loc=r)
@@ -915,7 +923,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
     | Value(Enum(NumberEnum(Value(NumberConstant(rule,_),_)),_),_) ->
         let caseRule = enum(int rule)
         match keyValueList with
-        | MaybeCasted(Value((NewArray(ArrayValues ms, _)|ListLiteral(ms, _)),_)) ->
+        | MaybeCasted(ArrayOrListLiteral(ms,_)) ->
             (ms, Some []) ||> List.foldBack (fun m acc ->
                 match acc, m with
                 // Try to get the member key and value at compile time for unions and tuples
@@ -1650,7 +1658,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ExprType(Number _)] ->
         makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [MaybeCasted(Value((NewArray(ArrayValues vals, _)|ListLiteral(vals, _)),_))] ->
+    | ".ctor", _, [MaybeCasted(ArrayOrListLiteral(vals,_))] ->
         makeArray Any vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
@@ -1734,6 +1742,7 @@ let arrays (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         Helper.CoreCall("Array", "copyTo", t, [source; makeIntConst 0; target; makeIntConst 0; count], i.SignatureArgTypes, ?loc=r) |> Some
     | "Copy", None, [source; sourceIndex; target; targetIndex; count] ->
         Helper.CoreCall("Array", "copyTo", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GetEnumerator", Some ar, _ -> getEnumerator r t ar |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
