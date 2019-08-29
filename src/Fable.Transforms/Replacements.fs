@@ -1650,7 +1650,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ExprType(Number _)] ->
         makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [Value((NewArray(ArrayValues vals, _)|ListLiteral(vals, _)),_)] ->
+    | ".ctor", _, [MaybeCasted(Value((NewArray(ArrayValues vals, _)|ListLiteral(vals, _)),_))] ->
         makeArray Any vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some

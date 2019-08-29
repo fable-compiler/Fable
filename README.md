@@ -6,11 +6,11 @@
 
 [Follow us on Twitter!](https://twitter.com/FableCompiler)
 
-Fable is an F# to JavaScript compiler powered by [Babel](https://babeljs.io/), designed to produce readable and standard code. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!
+Fable is an F# to JavaScript compiler powered by [Babel](https://babeljs.io/), designed to make F# a first-class citizen of the JavaScript ecosystem. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!
 
 ## Getting started
 
-Check [this page](https://fable.io/docs/getting_started.html).
+Check [this page](https://fable.io/docs/2-steps/setup.html).
 
 ## Building
 
@@ -19,8 +19,7 @@ Make sure the following **requirements** are installed in your system:
 - [dotnet SDK](https://www.microsoft.com/net/download/core)
 - [node.js](https://nodejs.org) with npm
 
-Then run `npm install` to install dependencies and `npm run build` to start the build. Check [build.fsx](https://github.com/fable-compiler/Fable/blob/4839311afe4cfc3fd0849915c7cdf831ca1ab74c/build.fsx#L218) for other build targets. 
-For example: `npm run build compiler`.
+Then run `npm install` to install dependencies and `npm run build` to start the build. Check [build.fsx](https://github.com/fable-compiler/Fable/blob/4839311afe4cfc3fd0849915c7cdf831ca1ab74c/build.fsx#L218) for other build targets. For example: `npm run build compiler`.
 
 After that, if you want to quickly try changes to Fable source, please check `src/quicktest/QuickTest.fs`.
 
@@ -46,7 +45,6 @@ Many of you are making really useful contributions that you also need for your o
     ]
   }
 ```
-
 
 **ATTENTION**: Remember to **build fable-library files beforehand**. This can be done just by building the whole project (see "Building" above) or running the `FableLibrary` FAKE target (after this, if you edit one of the src/js/fable-library JS or TS files, you can run the `FableLibraryTypescriptOnly` which is faster).
 
