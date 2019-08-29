@@ -64,6 +64,7 @@ module Types =
     let [<Literal>] idictionary = "System.Collections.Generic.IDictionary`2"
     let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
     let [<Literal>] iset = "System.Collections.Generic.ISet`1"
+    let [<Literal>] keyValuePair = "System.Collections.Generic.KeyValuePair`2"
     let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] ienumerableGeneric = "System.Collections.Generic.IEnumerable`1"

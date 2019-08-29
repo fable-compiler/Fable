@@ -131,6 +131,7 @@ type BuiltinType =
     | BclBigInt
     | BclHashSet of Type
     | BclDictionary of key:Type * value:Type
+    | BclKeyValuePair of key:Type * value:Type
     | FSharpSet of Type
     | FSharpMap of key:Type * value:Type
     | FSharpChoice of Type list
@@ -155,6 +156,7 @@ let (|BuiltinEntity|_|) (ent: FSharpEntity, genArgs) =
     | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
     | Some Types.hashset, [t] -> Some(BclHashSet(t))
     | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
+    | Some Types.keyValuePair, [k;v] -> Some(BclKeyValuePair(k,v))
     | Some Types.result, [k;v] -> Some(FSharpResult(k,v))
     | Some Types.reference, [v] -> Some(FSharpReference(v))
     | Some (Naming.StartsWith Types.choiceNonGeneric _), gen -> Some(FSharpChoice gen)
@@ -283,7 +285,8 @@ let coreModFor = function
     | FSharpChoice _ -> "Option"
     | FSharpReference _ -> "Types"
     | BclHashSet _
-    | BclDictionary _ -> failwith "Cannot decide core module"
+    | BclDictionary _
+    | BclKeyValuePair _ -> failwith "Cannot decide core module"
 
 let makeLongInt r t signed (x: uint64) =
     let lowBits = NumberConstant (float (uint32 x), Float64)
@@ -840,9 +843,10 @@ let makeHashSet (com: ICompiler) r t sourceSeq =
         makeComparer com key |> makeHashSetWithComparer r t sourceSeq
     | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isConstructor=true, ?loc=r)
 
-let getZero (com: ICompiler) ctx (t: Type) =
+let rec getZero (com: ICompiler) ctx (t: Type) =
     match t with
-    | Char | String -> makeStrConst ""
+    | Boolean -> makeBoolConst false
+    | Char | String -> makeStrConst "" // TODO: Use null for string?
     | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.CoreCall("Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.CoreCall("DateOffset", "minValue", t, [])
@@ -850,6 +854,8 @@ let getZero (com: ICompiler) ctx (t: Type) =
     | Builtin (BclInt64|BclUInt64) as t -> Helper.CoreCall("Long", "fromInt", t, [makeIntConst 0])
     | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 0])
     | Builtin BclDecimal as t -> makeIntConst 0 |> makeDecimalFromExpr None t
+    | Builtin (BclKeyValuePair(k,v)) ->
+        Value(NewTuple[getZero com ctx k; getZero com ctx v], None)
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
     | _ -> makeIntConst 0
@@ -1751,9 +1757,8 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     let createArray size value =
         match t, value with
         | Array(Number _ as t2), None -> newArray size t2
-        | Array(Number _ as t2), Some value
-        | Array(Boolean as t2), OrDefault (makeBoolConst false) value
-        | Array t2, OrDefault (Value(Null Any, None)) value ->
+        | Array t2, value ->
+            let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
             Helper.CoreCall("Array", "fill", t, [newArray size t2; makeIntConst 0; size; value])
         | _ -> sprintf "Expecting an array type but got %A" t

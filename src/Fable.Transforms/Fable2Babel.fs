@@ -486,6 +486,7 @@ module Util =
                 | Replacements.FSharpSet gen ->
                     genericEntity ent [|transformTypeInfo com ctx r genMap gen|]
                 | Replacements.BclDictionary(key, value)
+                | Replacements.BclKeyValuePair(key, value)
                 | Replacements.FSharpMap(key, value) ->
                     genericEntity ent [|
                         transformTypeInfo com ctx r genMap key
@@ -875,6 +876,7 @@ module Util =
             | Replacements.BclBigInt -> coreLibCall com ctx None "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
             | Replacements.BclHashSet _
             | Replacements.BclDictionary _
+            | Replacements.BclKeyValuePair _
             | Replacements.FSharpSet _
             | Replacements.FSharpMap _ -> fail "set/maps"
             | Replacements.FSharpResult _

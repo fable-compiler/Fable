@@ -182,6 +182,12 @@ let tests =
         equal 2 xs.Length
         equal 0 xs.[1]
 
+    // See https://github.com/fable-compiler/repl/issues/96
+    testCase "Array.zeroCreate works with KeyValuePair" <| fun () ->
+        let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
+        equal 0. a.[1].Key
+        equal false a.[2].Value        
+
     testCase "Array.create works" <| fun () ->
         let xs = Array.create 2 5
         equal 2 xs.Length
