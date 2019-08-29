@@ -1,3 +1,11 @@
+### 2.3.20
+
+* Fix `Array.zeroCreate` with KeyValuePair @ncave
+* Fixes for untyped arrays (System.Array)
+* Fix optimization of ResizeArray constructor
+* Fix optimization of Guid and StringEnum string conversion
+* Fix `nameof(typeof<MyType>)`
+
 ### 2.3.19
 
 * Fix #1876 (bis): script (fsx) compilation @nojaf
