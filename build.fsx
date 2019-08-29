@@ -279,7 +279,7 @@ match argsLower with
 | "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->
-    publishPackages []
+    // publishPackages []
     githubRelease ()
 | "sync-fcs-repo"::_ -> syncFcsRepo()
 | _ ->
