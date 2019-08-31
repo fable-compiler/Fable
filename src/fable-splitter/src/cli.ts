@@ -53,6 +53,8 @@ Arguments:
   --commonjs        [FLAG] Compile to commonjs modules
   --run             [FLAG] Run script with node after compilation
                     Arguments after --run will be passed to the script
+  --usePolling      [FLAG] Option for watch mode, may help capture file
+                    save events in certain editors (suboptimal)
 
 Examples:
   fable-splitter src/App.fsproj -o dist/
@@ -210,6 +212,7 @@ function run(entry, args) {
                 .watch(Array.from(info.compiledPaths), {
                     ignored: /node_modules/,
                     persistent: true,
+                    usePolling: findFlag(args, ["--usePolling"])
                 })
                 .on("ready", () => {
                     console.log("fable: Watching...");
