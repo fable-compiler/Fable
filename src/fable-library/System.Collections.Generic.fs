@@ -3,7 +3,7 @@ namespace System.Collections.Generic
 type Comparer<'T when 'T : comparison>() =
     static member Default =
         { new IComparer<'T> with
-              member __.Compare(x, y) = LanguagePrimitives.GenericComparison x y }
+            member __.Compare(x, y) = LanguagePrimitives.GenericComparison x y }
     interface IComparer<'T> with
         member __.Compare(x, y) = LanguagePrimitives.GenericComparison x y
 

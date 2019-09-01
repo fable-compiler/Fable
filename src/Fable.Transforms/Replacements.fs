@@ -851,6 +851,7 @@ let makeHashSet (com: ICompiler) r t sourceSeq =
 let rec getZero (com: ICompiler) ctx (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
+    | Number _ -> makeIntConst 0
     | Char | String -> makeStrConst "" // TODO: Use null for string?
     | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.CoreCall("Date", "minValue", t, [])
@@ -863,7 +864,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
         Value(NewTuple[getZero com ctx k; getZero com ctx v], None)
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
-    | _ -> makeIntConst 0
+    | _ -> Value(Null Any, None) // null
 
 let getOne (com: ICompiler) ctx (t: Type) =
     match t with
