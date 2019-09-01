@@ -1705,9 +1705,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.CoreCall("Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
     | "AddRange", Some ar, [arg] ->
         Helper.CoreCall("Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
-    | "Contains", Some ar, [arg] ->
-        let left = Helper.InstanceCall(ar, "indexOf", Number Int32, [arg], ?loc=r)
-        makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
+    | "Contains", Some (MaybeCasted(ar)), [arg] ->
+        match ar.Type with
+        | Array _ ->
+            let left = Helper.InstanceCall(ar, "indexOf", Number Int32, [arg], ?loc=r)
+            makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
+        | _ -> Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
     | "IndexOf", Some ar, args ->
         Helper.InstanceCall(ar, "indexOf", t, args, ?loc=r) |> Some
     | "Insert", Some ar, [idx; arg] ->
@@ -2811,6 +2814,8 @@ let private replacedModules =
     "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqs
     "Microsoft.FSharp.Collections.SeqModule", seqs
     "System.Collections.Generic.KeyValuePair`2", keyValuePairs
+    "System.Collections.Generic.Comparer`1", bclType
+    "System.Collections.Generic.EqualityComparer`1", bclType
     Types.dictionary, dictionaries
     Types.idictionary, dictionaries
     Types.ienumerableGeneric, enumerables

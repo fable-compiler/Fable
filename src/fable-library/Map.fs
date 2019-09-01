@@ -598,7 +598,7 @@ let private createMutablePrivate (comparer: IComparer<'Key>) tree' =
             upcast MapTree.mkIEnumerator tree
     }
 
-/// Emulate JS Set with custom comparer for non-primitive values
+/// Emulate JS Map with custom comparer for non-primitive values
 let createMutable (source: ('Key*'Value) seq) ([<Inject>] comparer: IComparer<'Key>) =
     MapTree.ofSeq comparer source
     |> createMutablePrivate comparer
