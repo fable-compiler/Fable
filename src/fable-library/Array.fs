@@ -270,19 +270,18 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>
 
 let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, int>(eq)
-
+    let keys = [||]
     for value in array do
         let key = projection value
         match dict.TryGetValue(key) with
-        | true, prev -> dict.[key] <- prev + 1
-        | false, _ -> dict.[key] <- 1
-
-    let res = newDynamicArrayImpl dict.Count
-    let mutable i = 0
-    for group in dict do
-        res.[i] <- group.Key, group.Value
-        i <- i + 1
-    res
+        | true, prev ->
+            dict.[key] <- prev + 1
+        | false, _ ->
+            dict.[key] <- 1
+            pushImpl keys key |> ignore
+    let result =
+        map (fun key -> key, dict.[key]) keys DynamicArrayCons
+    result
 
 let distinctBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let hashSet = HashSet<'Key>(eq)
@@ -302,7 +301,6 @@ let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>
             else loop (i + 1)
     loop 0
 
-
 let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>): 'T[] =
     if array.Length = 0 then
         array
@@ -312,7 +310,7 @@ let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComp
 
 let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, 'T list>(eq)
-    let keys = ResizeArray()
+    let keys = [||]
     for v in array do
         let key = projection v
         match dict.TryGetValue(key) with
@@ -320,10 +318,9 @@ let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<
             dict.[key] <- v::prev
         | false, _ ->
             dict.Add(key, [v])
-            keys.Add(key)
-    let result = newDynamicArrayImpl keys.Count
-    keys |> Seq.iteri (fun i key ->
-        result.[i] <- key, (cons.FromSequence dict.[key] |> reverseImpl))
+            pushImpl keys key |> ignore
+    let result =
+        map (fun key -> key, (cons.FromSequence dict.[key] |> reverseImpl)) keys DynamicArrayCons
     result
 
 let inline private emptyImpl (cons: IArrayCons<'T>) = cons.Create(0)
