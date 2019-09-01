@@ -324,7 +324,7 @@ module AST =
             | _ -> DoubleEvalRisk.Yes
         | _ -> DoubleEvalRisk.Yes
 
-    /// TODO: Add string and other nullable types?
+    // TODO: Add `Any` too?
     /// For unit, unresolved generics or nested options, create a runtime wrapper
     /// See fable-library/Option.ts for more info
     let rec mustWrapOption = function
