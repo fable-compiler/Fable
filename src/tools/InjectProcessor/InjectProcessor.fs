@@ -84,7 +84,7 @@ let rec getInjects initialized decls =
 let main _argv =
     printfn "Checking methods in Fable.Library with last argument decorated with Inject..."
     let checker = FSharpChecker.Create(keepAssemblyContents=true)
-    let proj = parse checker (IO.Path.Combine(__SOURCE_DIRECTORY__,"../../js/fable-library/Fable.Library.fsproj"))
+    let proj = parse checker (IO.Path.Combine(__SOURCE_DIRECTORY__,"../../fable-library/Fable.Library.fsproj"))
     let lines =
         seq {
             yield """/// AUTOMATICALLY GENERATED - DO NOT TOUCH!
@@ -124,6 +124,6 @@ let fableReplacementsModules =
                         yield "    ]"
             yield "  ]\n"
         }
-    File.WriteAllLines(IO.Path.Combine(__SOURCE_DIRECTORY__,"../../dotnet/Fable.Compiler/Transforms/ReplacementsInject.fs"), lines)
+    File.WriteAllLines(IO.Path.Combine(__SOURCE_DIRECTORY__,"../../Fable.Transforms/ReplacementsInject.fs"), lines)
     printfn "Finished!"
     0

@@ -16,6 +16,7 @@ module Set
 
 open System.Collections
 open System.Collections.Generic
+open Fable.Collections
 open Fable.Core
 
 (* A classic functional language implementation of binary trees *)
@@ -666,16 +667,17 @@ let maxElement (s: Set<'T>) = s.MaximumElement
 /// Fable uses JS Set to represent .NET HashSet. However when keys are non-primitive,
 /// we need to disguise an F# set as a mutable set. Thus, this interface matches JS Set prototype.
 /// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
-type IMutableSet<'T> =
-    inherit IEnumerable<'T>
-    abstract size: int
-    abstract add: 'T -> IMutableSet<'T>
-    /// Convenience method (not in JS Set prototype) to check if the element has actually been added
-    abstract add_: 'T -> bool
-    abstract clear: unit -> unit
-    abstract delete: 'T -> bool
-    abstract has: 'T -> bool
-    abstract values: unit -> 'T seq
+
+// type IMutableSet<'T> =
+//     inherit IEnumerable<'T>
+//     abstract size: int
+//     abstract add: 'T -> IMutableSet<'T>
+//     /// Convenience method (not in JS Set prototype) to check if the element has actually been added
+//     abstract add_: 'T -> bool
+//     abstract clear: unit -> unit
+//     abstract delete: 'T -> bool
+//     abstract has: 'T -> bool
+//     abstract values: unit -> 'T seq
 
 let private createMutablePrivate (comparer: IComparer<'T>) tree' =
     let mutable tree = tree'
@@ -707,14 +709,20 @@ let private createMutablePrivate (comparer: IComparer<'T>) tree' =
     }
 
 /// Emulate JS Set with custom comparer for non-primitive values
-let createMutable (source: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
-    SetTree.ofSeq comparer source
-    |> createMutablePrivate comparer
 
-let distinct (xs: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
+// let createMutable (source: seq<'T>) ([<Inject>] comparer: IComparer<'T>) =
+//     SetTree.ofSeq comparer source
+//     |> createMutablePrivate comparer
+
+let createMutable (source: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
+    let set = MutableSet(comparer)
+    for item in source do set.Add(item) |> ignore
+    set :> IMutableSet<_>
+
+let distinct (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
     createMutable xs comparer :> _ seq
 
-let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] comparer: IComparer<'Key>) =
+let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'Key>) =
     let li = ResizeArray()
     let hashSet = createMutable Seq.empty comparer
     for x in xs do
