@@ -1,3 +1,7 @@
+### 2.1.11
+
+* Add --usePolling flag @drk-mtr
+
 ### 2.1.10
 
 * Add `onCompiled` hook
