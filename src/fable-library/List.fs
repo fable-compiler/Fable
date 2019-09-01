@@ -452,34 +452,37 @@ let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
 let exactlyOne (xs: 'T list) =
     match xs with
     | [] -> invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
-    | x::[] -> x
+    | [x] -> x
     | x1::x2::xs -> invalidArg "list" "Input list too long"
 
 let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
     let dict = Dictionary<'Key, 'T list>(eq)
-    let keys = ResizeArray()
-    for v in xs do
+    let mutable keys = []
+    xs |> iterate (fun v ->
         let key = projection v
         match dict.TryGetValue(key) with
         | true, prev ->
             dict.[key] <- v::prev
         | false, _ ->
             dict.Add(key, [v])
-            keys.Add(key)
-    keys |> Seq.map (fun key -> key, reverse dict.[key]) |> ofSeq
+            keys <- key::keys )
+    let mutable result = []
+    keys |> iterate (fun key -> result <- (key, reverse dict.[key]) :: result)
+    result
 
 let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
-    let dict = Dictionary<'Key, int ref>(eq)
-    iterate (fun v ->
+    let dict = Dictionary<'Key, int>(eq)
+    let mutable keys = []
+    xs |> iterate (fun v ->
         let key = projection v
         match dict.TryGetValue(key) with
-        | true, prev -> prev.contents <- prev.contents + 1
+        | true, prev ->
+            dict.[key] <- prev + 1
         | false, _ ->
-            dict.[key] <- ref 1) xs
-
+            dict.[key] <- 1
+            keys <- key::keys )
     let mutable result = []
-    for group in dict do
-        result <- (group.Key, group.Value.contents)::result
+    keys |> iterate (fun key -> result <- (key, dict.[key]) :: result)
     result
 
 let where predicate xs = filter predicate xs
