@@ -813,7 +813,8 @@ let makeEqualityComparer (com: ICompiler) typArg =
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
-    Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
+    e // leave it as is, if implementation supports it
+    // Helper.CoreCall("Util", "comparerFromEqualityComparer", Any, [e])
 
 /// Adds comparer as last argument for set creator methods
 let makeSet (com: ICompiler) r t methName args genArg =
@@ -831,7 +832,9 @@ let makeDictionaryWithComparer r t sourceSeq comparer =
 let makeDictionary (com: ICompiler) r t sourceSeq =
     match t with
     | DeclaredType(_,[key;_]) when not(isCompatibleWithJsComparison key) ->
-        makeComparer com key |> makeDictionaryWithComparer r t sourceSeq
+        // makeComparer com key
+        makeEqualityComparer com key
+        |> makeDictionaryWithComparer r t sourceSeq
     | _ -> Helper.GlobalCall("Map", t, [sourceSeq], isConstructor=true, ?loc=r)
 
 let makeHashSetWithComparer r t sourceSeq comparer =
@@ -840,7 +843,9 @@ let makeHashSetWithComparer r t sourceSeq comparer =
 let makeHashSet (com: ICompiler) r t sourceSeq =
     match t with
     | DeclaredType(_,[key]) when not(isCompatibleWithJsComparison key) ->
-        makeComparer com key |> makeHashSetWithComparer r t sourceSeq
+        // makeComparer com key
+        makeEqualityComparer com key
+        |> makeHashSetWithComparer r t sourceSeq
     | _ -> Helper.GlobalCall("Set", t, [sourceSeq], isConstructor=true, ?loc=r)
 
 let rec getZero (com: ICompiler) ctx (t: Type) =
@@ -2952,9 +2957,9 @@ let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrVa
         let args =
             match FSharp2Fable.TypeHelpers.getArgTypes com memb, args with
             | ([]|[Number _]), _ ->
-                [makeArray Any []; makeComparer com (Seq.head genArgs)]
+                [makeArray Any []; makeEqualityComparer com (Seq.head genArgs)]
             | [IDictionary], [arg] ->
-                [arg; makeComparer com (Seq.head genArgs)]
+                [arg; makeEqualityComparer com (Seq.head genArgs)]
             | [IDictionary; IEqualityComparer], [arg; eqComp] ->
                 [arg; makeComparerFromEqualityComparer eqComp]
             | [IEqualityComparer], [eqComp]
@@ -2966,9 +2971,9 @@ let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrVa
         let args =
             match FSharp2Fable.TypeHelpers.getArgTypes com memb, args with
             | [], _ ->
-                [makeArray Any []; makeComparer com (Seq.head genArgs)]
+                [makeArray Any []; makeEqualityComparer com (Seq.head genArgs)]
             | [IEnumerable], [arg] ->
-                [arg; makeComparer com (Seq.head genArgs)]
+                [arg; makeEqualityComparer com (Seq.head genArgs)]
             | [IEnumerable; IEqualityComparer], [arg; eqComp] ->
                 [arg; makeComparerFromEqualityComparer eqComp]
             | [IEqualityComparer], [eqComp] ->

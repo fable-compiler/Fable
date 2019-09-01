@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../dotnet/Fable.Compiler/CLI/ProjectCoreCracker.fs" />
-    <Compile Include="../../dotnet/Fable.Compiler/Global/Prelude.fs" />
-    <Compile Include="../../dotnet/Fable.Compiler/Transforms/OverloadSuffix.fs" />
+    <Compile Include="../../Fable.Cli/ProjectCoreCracker.fs" />
+    <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
+    <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
     <Compile Include="InjectProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.9.0" />
-    <PackageReference Include="FSharp.Compiler.Service" Version="23.0.3" />
+    <PackageReference Include="FSharp.Core" Version="4.6.2" />
+    <PackageReference Include="Dotnet.ProjInfo" Version="0.36.0" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="28.0.0" />
   </ItemGroup>
 </Project>

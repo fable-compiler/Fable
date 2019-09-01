@@ -16,6 +16,7 @@ module Map
 
 open System.Collections
 open System.Collections.Generic
+open Fable.Collections
 open Fable.Core
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.UseNullAsTrueValue)>]
@@ -388,17 +389,18 @@ module MapTree =
 /// Fable uses JS Map to represent .NET Dictionary. However when keys are non-primitive,
 /// we need to disguise an F# map as a mutable map. Thus, this interface matches JS Map prototype.
 /// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-type IMutableMap<'Key,'Value> =
-    inherit IEnumerable<KeyValuePair<'Key,'Value>>
-    abstract size: int
-    abstract clear: unit -> unit
-    abstract delete: 'Key -> bool
-    abstract entries: unit -> KeyValuePair<'Key,'Value> seq
-    abstract get: 'Key -> 'Value
-    abstract has: 'Key -> bool
-    abstract keys: unit -> 'Key seq
-    abstract set: 'Key * 'Value -> IMutableMap<'Key,'Value>
-    abstract values: unit -> 'Value seq
+
+// type IMutableMap<'Key,'Value> =
+//     inherit IEnumerable<KeyValuePair<'Key,'Value>>
+//     abstract size: int
+//     abstract clear: unit -> unit
+//     abstract delete: 'Key -> bool
+//     abstract entries: unit -> KeyValuePair<'Key,'Value> seq
+//     abstract get: 'Key -> 'Value
+//     abstract has: 'Key -> bool
+//     abstract keys: unit -> 'Key seq
+//     abstract set: 'Key * 'Value -> IMutableMap<'Key,'Value>
+//     abstract values: unit -> 'Value seq
 
 [<CompiledName("FSharpMap"); Replaces("Microsoft.FSharp.Collections.FSharpMap`2")>]
 type Map<[<EqualityConditionalOn>]'Key,[<EqualityConditionalOn;ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key,'Value>) =
@@ -599,11 +601,18 @@ let private createMutablePrivate (comparer: IComparer<'Key>) tree' =
     }
 
 /// Emulate JS Map with custom comparer for non-primitive values
-let createMutable (source: ('Key*'Value) seq) ([<Inject>] comparer: IComparer<'Key>) =
-    MapTree.ofSeq comparer source
-    |> createMutablePrivate comparer
 
-let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IComparer<'Key>): ('Key * 'T seq) seq =
+// let createMutable (source: ('Key*'Value) seq) ([<Inject>] comparer: IComparer<'Key>) =
+//     MapTree.ofSeq comparer source
+//     |> createMutablePrivate comparer
+
+let createMutable (source: ('Key*'Value) seq) ([<Inject>] comparer: IEqualityComparer<'Key>) =
+    let map = MutableMap(comparer)
+    for key, value in source do map.Add(key, value)
+    map :> IMutableMap<_,_>
+
+// let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IComparer<'Key>): ('Key * 'T seq) seq =
+let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IEqualityComparer<'Key>): ('Key * 'T seq) seq =
     let dict: IMutableMap<_,ResizeArray<'T>> = createMutable Seq.empty comparer
 
     // Build the groupings
@@ -617,7 +626,8 @@ let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: ICompare
     // as a tuple, but let's do it just in case the implementation changes
     dict |> Seq.map (fun kv -> kv.Key, upcast kv.Value)
 
-let countBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IComparer<'Key>): ('Key * int) seq =
+// let countBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IComparer<'Key>): ('Key * int) seq =
+let countBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IEqualityComparer<'Key>): ('Key * int) seq =
     let dict = createMutable Seq.empty comparer
 
     for value in xs do
