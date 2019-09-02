@@ -139,6 +139,7 @@ let test() =
     buildSplitter "tests"
     run "npx mocha build/tests --reporter dot -t 10000"
     runInDir "tests/Main" "dotnet run"
+    runInDir "tests/Fable.Cli.Test" "dotnet run"
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         buildStandalone()
