@@ -1,3 +1,9 @@
+### 2.3.21
+
+* Added O(1) mutable map and set, with equality comparer (using native JS Map/Set) @ncave
+* Reduced fable-library module inter-dependency @ncave
+* Fixed Array.zeroCreate issue in REPL build @ncave
+
 ### 2.3.20
 
 * Fix `Array.zeroCreate` with KeyValuePair @ncave
