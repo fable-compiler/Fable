@@ -256,45 +256,71 @@ module Process =
 
         exitCode
 
+    let getNetCore2AssembliesDir nugetCache netAppCoreVersion (hostVersion :string) =
+        Path.Combine(nugetCache, "microsoft.netcore.app", hostVersion, "ref", "netcoreapp" + netAppCoreVersion)
+
+    let getNetCore3AssembliesDir sdkBasePath  netAppCoreVersion  (hostVersion :string)=
+        Path.Combine(sdkBasePath, "packs", "microsoft.netcore.app.ref", hostVersion, "ref", "netcoreapp" + netAppCoreVersion)
+
+    let restoreNetcore2InAssembliesDir netAppCoreVersion (hostVersion :string) =
+        let proj = sprintf """<?xml version="1.0" encoding="utf-8"?>
+                                <Project Sdk="Microsoft.NET.Sdk">
+                                <PropertyGroup>
+                                    <TargetFramework>netcoreapp%s</TargetFramework>
+                                </PropertyGroup>
+                                <ItemGroup>
+                                    <PackageReference Include="Microsoft.NETCore.App" Version="%s" />
+                                </ItemGroup>
+                                </Project>
+                                """ netAppCoreVersion hostVersion
+
+        let tempFolder = Path.GetTempPath()
+        let tempProj = System.IO.Path.Combine(tempFolder, (sprintf "%s.proj" (System.Guid.NewGuid().ToString("N"))))
+
+        System.IO.File.WriteAllText(tempProj, proj)
+        runProcess tempFolder "dotnet" (sprintf "restore \"%s\"" tempProj) |> ignore
+        System.IO.File.Delete(tempProj)
+
+    let getHostVersionRegex text =
+        Regex.Match(text , @"Host[\s\S]*?Version\s*:\s*([\d.]+[-\w]*)")
+
+    let getBasePathRegex text =
+        Regex.Match(text , @"Base Path\s*:\s*(.+)(\/sdk|\\sdk)")
+
+    let getNugetPathRegex text =
+        Regex.Match(text , @"info\s*:\s*global-packages\s*:\s*(.+)")
+
     let getNetcoreAssembliesDir() =
-        let matchProcessOutput exe args regexPattern =
+        let matchProcessOutput exe args (execRegexPattern : string -> Match) =
             let _, logOut, _ =
                 runProcess "." exe args
-            Regex.Match(String.concat " " logOut, regexPattern)
-        let nugetCache =
-            matchProcessOutput "dotnet" "nuget locals global-packages --list"
-                               @"info\s*:\s*global-packages\s*:\s*(.+)"
-            |> fun m -> m.Groups.[1].Value.Trim()
+            logOut
+            |> String.concat "\n"
+            |> execRegexPattern
+        
         let hostVersion =
-            matchProcessOutput "dotnet" "--info"
-                               @"Host[\s\S]*?Version\s*:\s*([\d.]+)"
+            matchProcessOutput "dotnet" "--info" getHostVersionRegex
             |> fun m -> m.Groups.[1].Value
         let v = hostVersion.Split('.')
-        let netCoreAssembliesDir = Path.Combine(nugetCache, "microsoft.netcore.app", hostVersion, "ref", "netcoreapp" + v.[0] + "." + v.[1])
 
-        if not(Directory.Exists(netCoreAssembliesDir)) then
-            // Create a temp proj file that has the current Microsoft.NETCore.App as dependency.
-            // Restore the proj file which will add the nuget package in the global cache.
-            // We do this because using the System dll listed in C:\Program Files\dotnet\sdk\2.1.503
-            // lead to weird behavior in the checkedProject.AssemblyContents.ImplementationFiles in Agent.fs.
-            let netappCore = sprintf "%s.%s" v.[0] v.[1]
-            let proj = sprintf """<?xml version="1.0" encoding="utf-8"?>
-                                    <Project Sdk="Microsoft.NET.Sdk">
-                                      <PropertyGroup>
-                                        <TargetFramework>netcoreapp%s</TargetFramework>
-                                      </PropertyGroup>
-                                      <ItemGroup>
-                                        <PackageReference Include="Microsoft.NETCore.App" Version="%s" />
-                                      </ItemGroup>
-                                    </Project>
-                                    """ netappCore hostVersion
-
-            let tempFolder = Path.GetTempPath()
-            let tempProj = System.IO.Path.Combine(tempFolder, (sprintf "%s.proj" (System.Guid.NewGuid().ToString("N"))))
-
-            System.IO.File.WriteAllText(tempProj, proj)
-            let restoreCode = runProcess tempFolder "dotnet" (sprintf "restore \"%s\"" tempProj)
-            System.IO.File.Delete(tempProj)
+        let netappCoreVersion = sprintf "%s.%s" v.[0] v.[1]
+        
+        let netCoreAssembliesDir =
+            match v.[0] with
+            | "3" -> 
+                let sdkInstallDir = 
+                    matchProcessOutput "dotnet" "--info" getBasePathRegex
+                    |> fun m -> m.Groups.[1].Value
+                getNetCore3AssembliesDir sdkInstallDir netappCoreVersion hostVersion
+            | "2"
+            | _ -> 
+                let nugetCache =
+                    matchProcessOutput "dotnet" "nuget locals global-packages --list" getNugetPathRegex
+                    |> fun m -> m.Groups.[1].Value.Trim()
+                let netCore2AssembliesDir = getNetCore2AssembliesDir nugetCache netappCoreVersion hostVersion
+                if not(Directory.Exists(netCore2AssembliesDir)) then
+                    restoreNetcore2InAssembliesDir netappCoreVersion hostVersion
+                netCore2AssembliesDir   
 
         netCoreAssembliesDir
 
