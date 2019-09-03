@@ -1,3 +1,7 @@
+### 2.3.22
+
+* Fix `Count` on ICollection @forki
+
 ### 2.3.21
 
 * Added O(1) mutable map and set, with equality comparer (using native JS Map/Set) @ncave
