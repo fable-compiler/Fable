@@ -529,7 +529,15 @@ export function escapeUriString(s: string): string {
 // ICollection.Clear and Count members can be called on Arrays
 // or Dictionaries so we need a runtime check (see #1120)
 export function count<T>(col: Iterable<T>): number {
-  return isArray(col) ? (col as any).length : (col as any).size;
+  if (isArray(col)) {
+      return (col as T[]).length;
+  } else {
+      let count = 0;
+      for (const _ of col) {
+          count++;
+      }
+      return count;
+  }
 }
 
 export function clear<T>(col: Iterable<T>) {
