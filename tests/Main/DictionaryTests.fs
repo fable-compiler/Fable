@@ -232,6 +232,16 @@ let tests =
         // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dic.["B"] |> ignore)
         throwsAnyError (fun _ -> dic.["B"] |> ignore)
 
+    testCase "conversion from array works" <| fun () ->
+        let dic = [| "A",1; "B",2|] |> dict
+        dic.Values.Count
+        |> equal 2
+        
+    testCase "conversion from array works with duplicates" <| fun () ->
+        let dic = [| "A",1; "A",3; "B",2|] |> dict
+        dic.Values.Count
+        |> equal 2        
+
     // testCase "Dictionaries can be JSON serialized forth and back" <| fun () ->
     //     let x = Dictionary<_,_>()
     //     x.Add("a", { i=1; s="1" })
