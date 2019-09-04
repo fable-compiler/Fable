@@ -720,15 +720,20 @@ let createMutable (source: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>)
     set :> IMutableSet<_>
 
 let distinct (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
-    createMutable xs comparer :> _ seq
+    seq {
+        let set = MutableSet(comparer)
+        for x in xs do
+            if set.Add(x) then
+                yield x
+    }
 
 let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'Key>) =
-    let li = ResizeArray()
-    let hashSet = createMutable Seq.empty comparer
-    for x in xs do
-        if projection x |> hashSet.add_ then
-            li.Add(x)
-    li :> _ seq
+    seq {
+        let set = MutableSet(comparer)
+        for x in xs do
+            if set.Add(projection x) then
+                yield x
+    }
 
 // Helpers to replicate HashSet methods
 

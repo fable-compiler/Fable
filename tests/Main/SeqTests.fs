@@ -697,6 +697,24 @@ let tests =
         ys |> Seq.length |> equal 2
         ys |> Seq.head |> fst >= 4 |> equal true
 
+    testCase "Seq.distinct works on infinite sequences" <| fun () ->
+        let rec numbersFrom n = 
+          seq { yield n; yield n; yield! numbersFrom (n + 1) }
+        let xs =
+            numbersFrom 1
+            |> Seq.distinct
+            |> Seq.take 5
+        xs |> Seq.toList |> equal [1; 2; 3; 4; 5]
+
+    testCase "Seq.distinctBy works on infinite sequences" <| fun () ->
+        let rec numbersFrom n = 
+          seq { yield n; yield n; yield! numbersFrom (n + 1) }
+        let xs =
+            numbersFrom 1
+            |> Seq.distinctBy (fun x -> x / 5)
+            |> Seq.take 5
+        xs |> Seq.toList |> equal [1; 5; 10; 15; 20]        
+
     testCase "Seq.groupBy works" <| fun () ->
         let xs = [1; 2; 3; 4]
         let ys = xs |> Seq.groupBy (fun x -> x % 2)
