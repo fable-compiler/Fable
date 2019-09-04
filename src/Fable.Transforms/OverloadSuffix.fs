@@ -48,6 +48,10 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType
     then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
     elif t.IsFunctionType
     then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " -> "
+    elif t.IsAnonRecordType then
+        Seq.zip t.AnonRecordTypeDetails.SortedFieldNames t.GenericArguments
+        |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)
+        |> String.concat "; "
     elif t.HasTypeDefinition
     then
         let tdef = t.TypeDefinition

@@ -39,6 +39,10 @@ let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[])
 #if FABLE_COMPILER
 let makeAnonRec() =
     {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
+
+type Time =
+    static member inline duration(value: {| from: int; until: int |}) = value.until - value.from
+    static member inline duration(value: {| from: int |}) = Time.duration {| value with until = 10 |}
 #endif
 
 let tests =
@@ -59,6 +63,10 @@ let tests =
         let ar = [| {|Id=Id"foo"; Name="Sarah"|}; {|Id=Id"bar"; Name="James"|} |]
         replaceById {|Id=Id"ja"; Name="Voll"|} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
         replaceById {|Id=Id"foo"; Name="Anna"|} ar |> Seq.head |> fun x -> equal "Anna" x.Name
+
+    testCase "Overloads with anonymous record arguments don't have same mangled name" <| fun () ->
+        Time.duration {| from = 1 |} |> equal 9
+        Time.duration {| from = 1; until = 5 |} |> equal 4
 #endif
 
     testCase "Recursive record does not cause issues" <| fun () ->
