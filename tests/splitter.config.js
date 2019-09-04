@@ -14,7 +14,7 @@ module.exports = {
 };
 
 function defineConstants() {
-  var ar = ["DEBUG"];
+  var ar = [] // ["DEBUG"];
   if (process.env.APPVEYOR) {
     console.log("Running on APPVEYOR...");
     ar.push("APPVEYOR");

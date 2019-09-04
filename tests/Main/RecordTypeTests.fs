@@ -67,6 +67,18 @@ let tests =
     testCase "Overloads with anonymous record arguments don't have same mangled name" <| fun () ->
         Time.duration {| from = 1 |} |> equal 9
         Time.duration {| from = 1; until = 5 |} |> equal 4
+
+    testCase "Anonymous record execution order" <| fun () ->
+        let mutable x = 2
+        let record =
+            {|
+                C = (x <- x * 3; x)
+                B = (x <- x + 5; x)
+                A = (x <- x / 2; x)
+            |}
+        record.A |> equal 5
+        record.B |> equal 11
+        record.C |> equal 6
 #endif
 
     testCase "Recursive record does not cause issues" <| fun () ->

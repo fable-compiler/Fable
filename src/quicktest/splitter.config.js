@@ -6,7 +6,7 @@ module.exports = {
 //   outDir: resolve("temp"),
 //   port: 61225,
   fable: {
-    define: ["DEBUG"]
+    define: [] //["DEBUG"]
   },
   babel: {
     sourceMaps: true

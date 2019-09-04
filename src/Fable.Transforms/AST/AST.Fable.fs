@@ -108,7 +108,6 @@ type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
 type IdentKind =
     | UserDeclared
     | CompilerGenerated
-    | InlinedArg
     | BaseValueIdent
     | ThisArgIdentDeclaration
 
@@ -120,8 +119,6 @@ type Ident =
       Range: SourceLocation option }
       member x.IsCompilerGenerated =
         match x.Kind with CompilerGenerated -> true | _ -> false
-      member x.IsInlinedArg =
-        match x.Kind with InlinedArg -> true | _ -> false
       member x.IsBaseValue =
         match x.Kind with BaseValueIdent -> true | _ -> false
       member x.IsThisArgDeclaration =

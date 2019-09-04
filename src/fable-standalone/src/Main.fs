@@ -222,6 +222,7 @@ let makeCompiler fableLibrary fileName (project: Project) precompiledLib =
     let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
+          debugMode = true
           verbosity = Fable.Verbosity.Normal
           outputPublicInlinedFunctions = false
           precompiledLib = precompiledLib }

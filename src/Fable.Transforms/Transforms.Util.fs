@@ -207,20 +207,6 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|IdentType|) (id: Ident) = id.Type
 
-    /// ATTENTION: Only intended to be used in lambdaBetaReduction
-    let rec (|NestedCompilerGeneratedLetsAndLambdas|_|) expr =
-        let rec nestedLetsAndLambdas identValues lambdaArgs body =
-            match body with
-            | Let([ident, value], body) when ident.IsCompilerGenerated ->
-                nestedLetsAndLambdas ((ident, value)::identValues) lambdaArgs body
-            | Function(Lambda arg, body, None) when arg.IsCompilerGenerated ->
-                nestedLetsAndLambdas identValues (arg::lambdaArgs) body
-            | _ -> List.rev identValues, List.rev lambdaArgs, body
-        match expr with
-        | Let([ident, value], body) when ident.IsCompilerGenerated ->
-            nestedLetsAndLambdas [ident, value] [] body |> Some
-        | _ -> None
-
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
             | FunctionType(LambdaType arg, returnType) ->
@@ -231,19 +217,30 @@ module AST =
         | _ -> None
 
     /// Only matches lambda immediately nested within each other
-    let rec (|NestedLambda|_|) expr =
-        let rec nestedLambda accArgs body name =
+    let rec nestedLambda checkType expr =
+        let rec inner accArgs body name =
             match body with
             | Function(Lambda arg, body, None) ->
-                nestedLambda (arg::accArgs) body name
+                inner (arg::accArgs) body name
             | _ -> List.rev accArgs, body, name
         match expr with
         | Function(Lambda arg, body, name) ->
-            let args, body, name = nestedLambda [arg] body name
-            match expr.Type with
-            | NestedLambdaType(argTypes, _) when List.sameLength args argTypes -> Some(args, body, name)
-            | _ -> None
+            let args, body, name = inner [arg] body name
+            if checkType then
+                match expr.Type with
+                | NestedLambdaType(argTypes, _)
+                    when List.sameLength args argTypes -> Some(args, body, name)
+                | _ -> None
+            else
+                Some(args, body, name)
         | _ -> None
+
+    let (|NestedLambda|_|) expr =
+        nestedLambda true expr
+
+    /// Doesn't check the type of lambda body has same arity as discovered arguments
+    let (|NestedLambdaRelaxed|_|) expr =
+        nestedLambda false expr
 
     let (|NestedApply|_|) expr =
         let rec nestedApply r t accArgs applied =
@@ -286,43 +283,28 @@ module AST =
         | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda
         | e -> e
 
-    [<RequireQualifiedAccess>]
-    type DoubleEvalRisk =
-        | No
-        | Yes
-        /// Immutable values can be turned into mutable in tail-call optimizations
-        /// so we need to check whether the value is captured in a function, see #1859
-        | InTailCalls of identName: string
-
-    /// When referenced multiple times, is there a risk of double evaluation?
-    /// Functions return yes because we don't want to duplicate them in the code
+    // Functions return yes because we don't want to duplicate them in the code
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
-    let rec hasDoubleEvalRisk = function
-        | Import _ -> DoubleEvalRisk.No
-        | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> DoubleEvalRisk.No
+    let rec canHaveSideEffects = function
+        | Import _ -> false
+        | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> false
         | Value(NewTuple exprs,_) ->
-            (DoubleEvalRisk.No, exprs) ||> List.fold (fun acc e ->
-                match acc with
-                | DoubleEvalRisk.No -> hasDoubleEvalRisk e
-                | DoubleEvalRisk.Yes
-                | DoubleEvalRisk.InTailCalls _ -> acc)
+            (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
         | Value(Enum(kind, _),_) ->
             match kind with
             | NumberEnum e
-            | StringEnum e -> hasDoubleEvalRisk e
-        | IdentExpr id ->
-            if id.IsMutable then DoubleEvalRisk.Yes
-            else DoubleEvalRisk.InTailCalls id.Name
+            | StringEnum e -> canHaveSideEffects e
+        | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check
             | ListHead | ListTail | TupleGet _
-            | UnionTag | UnionField _ -> hasDoubleEvalRisk e
+            | UnionTag | UnionField _ -> canHaveSideEffects e
             | FieldGet(_,isFieldMutable,_) ->
-                if isFieldMutable then DoubleEvalRisk.Yes
-                else hasDoubleEvalRisk e
-            | _ -> DoubleEvalRisk.Yes
-        | _ -> DoubleEvalRisk.Yes
+                if isFieldMutable then true
+                else canHaveSideEffects e
+            | _ -> true
+        | _ -> true
 
     // TODO: Add `Any` too?
     /// For unit, unresolved generics or nested options, create a runtime wrapper

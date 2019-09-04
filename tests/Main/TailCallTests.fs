@@ -219,7 +219,12 @@ let tests =
                 |(i1,b1)::(i2,b2)::rest ->
                     let newParent =
                         el ignore [
-                            el (fun _ -> i1 |> dispatch) []
+                            el (fun _ ->
+                                // Force the x argument to be captured
+                                // by the closure
+                                match x with
+                                |(i1,_)::_ -> i1 |> dispatch
+                                | _ -> ()) []
                             el (fun _ -> i2 |> dispatch) []
                         ]
                     looper (newParent::acc) rest
@@ -229,6 +234,9 @@ let tests =
                     looper (newParent::acc) rest
                 |[] -> acc
 
+            // Use two looper references to prevent the binding
+            // beta reduction and force the tail-call optimization
+            model |> Map.toList |> looper [] |> ignore
             model |> Map.toList |> looper [] |> el ignore
 
         let main init view update =

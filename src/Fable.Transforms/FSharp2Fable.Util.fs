@@ -1079,10 +1079,11 @@ module Util =
             let inExpr = com.GetInlineExpr(memb)
             let ctx, bindings =
                 ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
-                    // Change type and mark ident as compiler-generated so it can be optimized
+                    // Change type and mark ident as compiler-generated so Fable also
+                    // tries to inline it in DEBUG mode (some patterns depend on this)
                     let ident = { makeIdentFrom com ctx argId with
                                     Type = arg.Type
-                                    Kind = Fable.InlinedArg }
+                                    Kind = Fable.CompilerGenerated }
                     let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map

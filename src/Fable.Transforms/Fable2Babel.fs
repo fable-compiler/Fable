@@ -21,7 +21,6 @@ type Import =
 type ITailCallOpportunity =
     abstract Label: string
     abstract Args: string list
-    abstract ReplaceArgs: bool
     abstract IsRecursiveRef: Fable.Expr -> bool
 
 type Context =
@@ -57,27 +56,14 @@ module Util =
         | args -> args
 
     type NamedTailCallOpportunity(com: ICompiler, name, args: Fable.Ident list) =
-        let getTailCallArgIds (com: ICompiler) (args: Fable.Ident list) =
-            // If some arguments are functions we need to capture the current values to
-            // prevent delayed references from getting corrupted, for that we use block-scoped
-            // ES2015 variable declarations. See #681
-            let replaceArgs =
-                args |> List.exists (fun arg ->
-                    match arg.Type with
-                    | Fable.FunctionType _ -> true
-                    | _ -> false)
-            replaceArgs, args |> List.map (fun arg ->
-                if replaceArgs
-                then com.GetUniqueVar("arg")
-                else arg.Name)
-        let replaceArgs, argIds =
-            discardUnitArg args |> getTailCallArgIds com
+        // Capture the current argument values to prevent delayed references from getting corrupted,
+        // for that we use block-scoped ES2015 variable declarations. See #681, #1859
+        let argIds = discardUnitArg args |> List.map (fun arg -> com.GetUniqueVar(arg.Name))
         interface ITailCallOpportunity with
             member __.Label = name
             member __.Args = argIds
-            member __.ReplaceArgs = replaceArgs
             member __.IsRecursiveRef(e) =
-                match e with Fable.IdentExpr id  -> name = id.Name | _ -> false
+                match e with Fable.IdentExpr id -> name = id.Name | _ -> false
 
     let prepareBoundThis (boundThis: string) (args: Fable.Ident list) =
         match args with
@@ -963,19 +949,24 @@ module Util =
         elif List.sameLength idents values then List.zip idents values
         else failwith "Target idents/values lengths differ"
 
-    let getDecisionTargetAndBindValues (ctx: Context) targetIndex boundValues =
+    let getDecisionTargetAndBindValues (com: IBabelCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
-        let bindings, replacements =
-            (([], Map.empty), matchTargetIdentAndValues idents boundValues)
-            ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                if hasDoubleEvalRisk expr <> DoubleEvalRisk.No // && isReferencedMoreThan 1 ident.Name body
-                then (ident, expr)::bindings, replacements
-                else bindings, Map.add ident.Name expr replacements)
-        let target = FableTransforms.replaceValues replacements target
-        bindings, target
+        let identsAndValues = matchTargetIdentAndValues idents boundValues
+        if not com.Options.debugMode then
+            let bindings, replacements =
+                (([], Map.empty), identsAndValues)
+                ||> List.fold (fun (bindings, replacements) (ident, expr) ->
+                    if canHaveSideEffects expr then
+                        (ident, expr)::bindings, replacements
+                    else
+                        bindings, Map.add ident.Name expr replacements)
+            let target = FableTransforms.replaceValues replacements target
+            List.rev bindings, target
+        else
+            identsAndValues, target
 
     let transformDecisionTreeSuccessAsExpr (com: IBabelCompiler) (ctx: Context) targetIndex boundValues =
-        let bindings, target = getDecisionTargetAndBindValues ctx targetIndex boundValues
+        let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
         match bindings with
         | [] -> com.TransformAsExpr(ctx, target)
         | bindings -> com.TransformAsExpr(ctx, Fable.Let(bindings, target))
@@ -991,8 +982,8 @@ module Util =
             let targetAssignment = assign None targetId (ofInt targetIndex) |> ExpressionStatement :> Statement
             Array.append [|targetAssignment|] assignments
         | ret ->
-            let bindings, target = getDecisionTargetAndBindValues ctx targetIndex boundValues
-            let bindings = bindings |> List.rev |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
+            let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
+            let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
             Array.append bindings (com.TransformAsStatements(ctx, ret, target))
 
     let transformDecisionTreeAsSwitch expr =
@@ -1101,8 +1092,19 @@ module Util =
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
         // If some targets are referenced multiple times, host bound idents,
         // resolve the decision index and compile the targets as a switch
-        let targetsWithMultiRefs = getTargetsWithMultipleReferences treeExpr
-        if not(List.isEmpty targetsWithMultiRefs) then
+        match getTargetsWithMultipleReferences treeExpr with
+        | [] ->
+            let ctx = { ctx with DecisionTargets = targets }
+            match transformDecisionTreeAsSwitch treeExpr with
+            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                let t = treeExpr.Type
+                let cases = cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
+                    [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t))
+                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
+                [|transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)|]
+            | None ->
+                com.TransformAsStatements(ctx, returnStrategy, treeExpr)
+        | targetsWithMultiRefs ->
             // If the bound idents are not referenced in the target, remove them
             let targets =
                 targets |> List.map (fun (idents, expr) ->
@@ -1126,17 +1128,6 @@ module Util =
                     transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
             else
                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
-        else
-            let ctx = { ctx with DecisionTargets = targets }
-            match transformDecisionTreeAsSwitch treeExpr with
-            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                let t = treeExpr.Type
-                let cases = cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
-                    [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t))
-                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-                [|transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)|]
-            | None ->
-                com.TransformAsStatements(ctx, returnStrategy, treeExpr)
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
@@ -1317,14 +1308,13 @@ module Util =
         let args, body =
             match isTailCallOptimized, tailcallChance, body with
             | true, Some tc, U2.Case1 body ->
+                // Replace args, see NamedTailCallOpportunity constructor
                 let args, body =
-                    if tc.ReplaceArgs then
-                        let varDeclaration =
-                            List.zip args tc.Args |> List.map (fun (arg, tempVar) ->
-                                arg.Name, Some(Identifier tempVar :> Expression))
-                            |> multiVarDeclaration Const
-                        tc.Args |> List.map Identifier, BlockStatement(Array.append [|varDeclaration|] body.Body)
-                    else args, body
+                    let varDeclaration =
+                        List.zip args tc.Args |> List.map (fun (arg, tempVar) ->
+                            arg.Name, Some(Identifier tempVar :> Expression))
+                        |> multiVarDeclaration Const
+                    tc.Args |> List.map Identifier, BlockStatement(Array.append [|varDeclaration|] body.Body)
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = BlockStatement(Array.append body.Body [|BreakStatement()|])
                 args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
