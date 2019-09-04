@@ -1,3 +1,9 @@
+### 2.3.23
+
+* Fix #1894: Seq.distinct with infinite sequence @et1975
+* Fix #1891: Overloads with anonymous records @Zaid-Ajaj
+* Fix #1886: Handle .fsx file with dotnet core 3 @rfrerebe
+
 ### 2.3.22
 
 * Fix `Count` on ICollection @forki
