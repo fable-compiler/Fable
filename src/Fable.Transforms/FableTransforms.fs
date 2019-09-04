@@ -241,15 +241,14 @@ let preventLeak identName body =
     countReferencesPreventingLeak -1 identName body = 0
 
 let canInlineArg identName value body =
-    match hasDoubleEvalRisk value with
-    | DoubleEvalRisk.No -> true
-    | DoubleEvalRisk.Yes ->
-        match value with
-        | Function _ -> countReferences 1 identName body > 1
+    match value with
+    | Function _ -> countReferences 1 identName body <= 1
+    | value ->
+        match hasDoubleEvalRisk value with
+        | DoubleEvalRisk.No -> true
         // Don't erase expressions referenced 0 times, they may have side-effects
-        | _ -> countReferencesPreventingLeak 1 identName body = 1
-    | DoubleEvalRisk.InTailCalls identName ->
-        preventLeak identName body
+        | DoubleEvalRisk.Yes -> countReferencesPreventingLeak 1 identName body = 1
+        | DoubleEvalRisk.InTailCalls identName -> preventLeak identName body
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -309,31 +308,17 @@ module private Transforms =
         | e -> e
 
     let bindingBetaReduction (com: ICompiler) e =
-        let isTuple = function
-            | Tuple _ -> true
-            | _ -> false
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
-        | Let([ident, value], letBody) when not ident.IsMutable ->
-            match value with
-            // Erase bindings for getters of compiler-generated tuples (as in pattern matching or lambdas destructuring tuple args)
-            // | Get(IdentExpr tupleIdent, TupleGet _, _, _) as value when tupleIdent.IsCompilerGenerated ->
-            //     replaceValues (Map [ident.Name, value]) letBody
-            | Function(args, funBody, currentName) when ident.IsCompilerGenerated
-                                                    && (countReferences 1 ident.Name letBody <= 1) ->
-                if Option.isSome currentName then
-                    sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
-                    |> addWarning com [] ident.Range
-                let replacement = Function(args, funBody, Some ident.Name)
-                replaceValues (Map [ident.Name, replacement]) letBody
-            | value when (ident.IsInlinedArg || ident.IsCompilerGenerated)
-                    // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
-                    // will be erased later (see above) and there's a risk the expression gets totally removed
-                    // && not (isTuple ident.Type)
-                    // && not (ident.Name.StartsWith("patternInput")) // tuple may be split into multiple getters
-                    && canInlineArg ident.Name value letBody ->
-                replaceValues (Map [ident.Name, value]) letBody
-            | _ -> e
+        | Let([ident, value], letBody) when not ident.IsMutable
+                                            && (ident.IsInlinedArg || ident.IsCompilerGenerated)
+                                            && canInlineArg ident.Name value letBody ->
+            let value =
+                match value with
+                // Ident name becomes the name of the function (mainly used for tail call optimizations)
+                | Function(args, funBody, _) -> Function(args, funBody, Some ident.Name)
+                | value -> value
+            replaceValues (Map [ident.Name, value]) letBody                
         | e -> e
 
     /// Returns arity of lambda (or lambda option) types
