@@ -270,6 +270,15 @@ let (|IEnumerable|IEqualityComparer|Other|) = function
         | _ -> Other
     | _ -> Other
 
+let (|NewAnonymousRecord|_|) e =
+    let rec inner bindings = function
+        // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
+        | Let(newBindings, body) -> inner (bindings @ newBindings) body
+        | Value(NewRecord(exprs, AnonymousRecord fieldNames, genArgs), r) ->
+            Some(List.rev bindings, exprs, fieldNames, genArgs, r)
+        | _ -> None
+    inner [] e
+
 let coreModFor = function
     | BclGuid -> "String"
     | BclDateTime -> "Date"
@@ -1116,17 +1125,15 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_BangHat", [arg] -> Some arg
         | "op_BangBang", [arg] ->
             match arg, i.GenericArgs with
-            | Value(NewRecord(exprs, Fable.AnonymousRecord fieldNames, _),_),
+            | NewAnonymousRecord(_, exprs, fieldNames, _, _),
               [_; (_,DeclaredType(ent, []))] when ent.IsInterface ->
                 // TODO: Check also if there are extra fields in the record not present in the interface?
-                (None, ent.MembersFunctionsAndValues) ||> Seq.fold (fun err memb ->
+                (None, ent.MembersFunctionsAndValues |> Seq.filter (fun memb -> memb.IsPropertyGetterMethod))
+                ||> Seq.fold (fun err memb ->
                     match err with
                     | Some _ -> err
                     | None ->
-                        let expectedType =
-                            if memb.IsPropertyGetterMethod then memb.ReturnParameter.Type
-                            else memb.FullType
-                            |> makeType com
+                        let expectedType = memb.ReturnParameter.Type |> makeType com
                         Array.tryFindIndex ((=) memb.DisplayName) fieldNames
                         |> function
                             | None ->
@@ -1149,8 +1156,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                     | Some errMsg ->
                         addWarning com ctx.InlinePath r errMsg
                         Some arg
-                    | None ->
-                        List.zip (Array.toList fieldNames) exprs |> objExpr t |> Some
+                    | None -> Some arg
             | _ -> Some arg
         | "op_Dynamic", [left; memb] -> getExpr r t left memb |> Some
         | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
