@@ -36,18 +36,6 @@ let tests =
         System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
         |> equal "2014-09-11T16:37:02.000+00:00"
 
-    // testCase "DateTimeOffset can be JSON serialized forth and back" <| fun () ->
-    //     let dof = DateTimeOffset(2016, 8, 4, 17, 30, 0, TimeSpan.FromHours(3.))
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson dof
-    //     let dof = Fable.Core.JsInterop.ofJson<DateTimeOffset> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject dof
-    //     let dof = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTimeOffset> json
-    //     #endif
-    //     dof.Offset |> equal (TimeSpan.FromHours(3.))
-    //     dof.ToString("HH:mm") |> equal "17:30"
-
     testCase "DateTimeOffset from Year 1 to 99 works" <| fun () ->
         let date = DateTimeOffset(1, 1, 1, 0, 0, 0, TimeSpan.Zero)
         date.Year |> equal 1

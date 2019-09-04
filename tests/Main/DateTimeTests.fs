@@ -44,18 +44,6 @@ let tests =
     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
 
-    // testCase "DateTime can be JSON serialized forth and back" <| fun () ->
-    //     let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson utc
-    //     let utc = Fable.Core.JsInterop.ofJson<DateTime> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject utc
-    //     let utc = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTime> json
-    //     #endif
-    //     utc.Kind = DateTimeKind.Utc |> equal true
-    //     utc.ToString("HH:mm") |> equal "17:30"
-
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
         let date = DateTime(1, 1, 1)
         date.Year |> equal 1

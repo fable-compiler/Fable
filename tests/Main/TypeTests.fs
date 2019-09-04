@@ -459,57 +459,6 @@ let tests =
         search "b" |> equal (Some "b")
         search "d" |> equal None
 
-    // testCase "Classes can be JSON serialized forth and back" <| fun () ->
-    //     let x = Serializable(5)
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson x
-    //     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
-    //     string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let x2 = Fable.Core.JsInterop.ofJsonAsType json (x.GetType()) :?> Serializable
-    //     string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Serializable> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
-    //     #endif
-    //     string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-
-    // testCase "Null values can be JSON serialized forth and back" <| fun () ->
-    //     let x: Serializable = null
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson x
-    //     let x2 = Fable.Core.JsInterop.ofJsonAsType json (typedefof<Serializable>)
-    //     equal x2 null
-    //     let json = Fable.Core.JsInterop.toJson x
-    //     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
-    //     equal x2 null
-    //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Serializable> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
-    //     #endif
-    //     equal x2 null
-
-    // testCase "Classes serialized with Json.NET can be deserialized" <| fun () ->
-    //     // let x = Serializable(5)
-    //     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    //     let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
-    //     #if FABLE_COMPILER
-    //     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let x2 = Fable.Core.JsInterop.ofJsonAsType json typedefof<Serializable>
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Serializable> json
-    //     #else
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
-    //     #endif
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-
     testCase "Secondary constructors work" <| fun () ->
         let s1 = SecondaryCons(3)
         let s2 = SecondaryCons()

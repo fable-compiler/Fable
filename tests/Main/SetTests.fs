@@ -268,37 +268,4 @@ let tests =
             (Seq.item 2 xs) = (Seq.item 2 zs)
             |> equal true
 
-        // type R = { i: int; s: string }
-
-        // testCase "Sets can be JSON serialized forth and back" <| fun () ->
-        //     let x = [{ i=1; s="1" }; { i=2; s="2" } ] |> set
-        //     #if FABLE_COMPILER
-        //     let json = Fable.Core.JsInterop.toJson x
-        //     let x2 = Fable.Core.JsInterop.ofJson<Set<R>> json
-        //     x2.IsSubsetOf x |> equal true
-        //     (0, x2) ||> Set.fold (fun acc v -> acc + v.i) |> equal 3
-        //     let x2 = Fable.Core.JsInterop.ofJsonAsType json (x.GetType()) :?> Set<R>
-        //     x2.IsSubsetOf x |> equal true
-        //     (0, x2) ||> Set.fold (fun acc v -> acc + v.i) |> equal 3
-        //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
-        //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Set<R>> json
-        //     #else
-        //     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
-        //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Set<R>> json
-        //     #endif
-        //     x2.IsSubsetOf x |> equal true
-        //     (0, x2) ||> Set.fold (fun acc v -> acc + v.i)
-        //     |> equal 3
-
-        // testCase "Sets serialized with Json.NET can be deserialized" <| fun () ->
-        //     // let x = ["a", { i=1; s="1" }; "b", { i=2; s="2" } ] |> Map
-        //     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-        //     let json = """{"$type":"Microsoft.FSharp.Collections.FSharpSet`1[[Fable.Tests.Sets+R, Fable.Tests]], FSharp.Core","$values":[{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":1,"s":"1"},{"$type":"Fable.Tests.Sets+R, Fable.Tests","i":2,"s":"2"}]}"""
-        //     #if FABLE_COMPILER
-        //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Set<R>> json
-        //     #else
-        //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Set<R>> json
-        //     #endif
-        //     (0, x2) ||> Set.fold (fun acc v -> acc + v.i)
-        //     |> equal 3
     ]

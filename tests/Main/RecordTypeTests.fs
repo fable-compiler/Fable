@@ -101,62 +101,6 @@ let tests =
         equal 1. x.``s p a c e``
         equal 2. x.``s*y*m*b*o*l``
 
-    // testCase "Records can be JSON serialized forth and back" <| fun () ->
-    //     let parent = { children=[|{a="3";b=5}; {b=7;a="1"} |] }
-    //     let sum1 = parent.Sum()
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson parent
-    //     let parent2 = Fable.Core.JsInterop.ofJson<Parent> json
-    //     let sum2 = parent.Sum()
-    //     equal true (box parent2 :? Parent) // Type is kept
-    //     equal true (sum1 = sum2) // Prototype methods can be accessed
-    //     let parent2 = Fable.Core.JsInterop.ofJsonAsType json (parent.GetType()) :?> Parent
-    //     let sum2 = parent.Sum()
-    //     equal true (box parent2 :? Parent) // Type is kept
-    //     equal true (sum1 = sum2) // Prototype methods can be accessed
-    //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo parent
-    //     let parent2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Parent> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject parent
-    //     let parent2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Parent> json
-    //     #endif
-    //     let sum2 = parent.Sum()
-    //     equal true (box parent2 :? Parent) // Type is kept
-    //     equal true (sum1 = sum2) // Prototype methods can be accessed
-
-    // testCase "Records serialized with Json.NET can be deserialized" <| fun () ->
-    //     // let x = { a="Hi"; b=20 }
-    //     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    //     let json = """{"$type":"Fable.Tests.RecordTypes+Child","a":"Hi","b":10}"""
-    //     #if FABLE_COMPILER
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Child> json
-    //     #else
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Child> json
-    //     #endif
-    //     x2.a |> equal "Hi"
-    //     x2.b |> equal 10
-
-    #if FABLE_COMPILER
-    // testCase "Trying to deserialize a JSON with unexpected $type info throws an exception" <| fun () ->
-    //     let success (f:unit->'T) =
-    //         try f() |> ignore; true
-    //         with _ -> false
-    //     let child = {a="3";b=5}
-    //     let json = JsInterop.toJsonWithTypeInfo child
-    //     success (fun () -> JsInterop.ofJsonWithTypeInfo<Parent> json)
-    //     |> equal false
-    //     success (fun () -> JsInterop.ofJsonWithTypeInfo<Child> json)
-    //     |> equal true
-    //     success (fun () -> JsInterop.ofJsonWithTypeInfo<obj> json)
-    //     |> equal true
-
-    // testCase "POJOS can be inflated" <| fun () ->
-    //     let x = Fable.Import.JS.JSON.parse """{"a":"Hi","b":10}"""
-    //     let x2: Child = JsInterop.inflate x
-    //     x2.a |> equal "Hi"
-    //     x2.b |> equal 10
-    #endif
-
     testCase "Mutating records work" <| fun () ->
         let x = { uniqueA = 10; uniqueB = 20 }
         equal 10 x.uniqueA

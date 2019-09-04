@@ -41,7 +41,6 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />
-    <!-- <Compile Include="JsonTests.fs" /> -->
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
     <Compile Include="MiscTestsHelper.fs" />
