@@ -135,10 +135,13 @@ let test() =
     if pathExists "build/fable-library" |> not then
         buildLibrary()
 
-    cleanDirs ["build/tests"]
-    buildSplitter "tests"
-    run "npx mocha build/tests --reporter dot -t 10000"
-    runInDir "tests/Main" "dotnet run"
+    let runTestsInNodeWithArgs args =
+        cleanDirs ["build/tests"]
+        buildSplitterWithArgs "tests" args
+        run "npx mocha build/tests --reporter dot -t 10000"
+
+    runTestsInNodeWithArgs "--debug"
+    runTestsInNodeWithArgs ""
     runInDir "tests/Fable.Cli.Test" "dotnet run"
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
