@@ -217,7 +217,7 @@ module AST =
         | _ -> None
 
     /// Only matches lambda immediately nested within each other
-    let rec nestedLambda checkType expr =
+    let rec nestedLambda checkArity expr =
         let rec inner accArgs body name =
             match body with
             | Function(Lambda arg, body, None) ->
@@ -226,7 +226,7 @@ module AST =
         match expr with
         | Function(Lambda arg, body, name) ->
             let args, body, name = inner [arg] body name
-            if checkType then
+            if checkArity then
                 match expr.Type with
                 | NestedLambdaType(argTypes, _)
                     when List.sameLength args argTypes -> Some(args, body, name)
@@ -235,11 +235,11 @@ module AST =
                 Some(args, body, name)
         | _ -> None
 
-    let (|NestedLambda|_|) expr =
+    let (|NestedLambdaWithSameArity|_|) expr =
         nestedLambda true expr
 
     /// Doesn't check the type of lambda body has same arity as discovered arguments
-    let (|NestedLambdaRelaxed|_|) expr =
+    let (|NestedLambda|_|) expr =
         nestedLambda false expr
 
     let (|NestedApply|_|) expr =

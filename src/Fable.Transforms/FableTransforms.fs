@@ -219,11 +219,28 @@ module private Transforms =
         | _ -> None
 
     let lambdaBetaReduction (com: ICompiler) e =
+        // Sometimes the F# compiler creates a lot of binding closures, as with printfn
+        let (|NestedLetsAndLambdas|_|) expr =
+            let rec inner accBindings accArgs body name =
+                match body with
+                | Function(Lambda arg, body, None) ->
+                    inner accBindings (arg::accArgs) body name
+                | Let(bindings, body) ->
+                    inner (accBindings @ bindings) accArgs body name           
+                | _ when not(List.isEmpty accArgs) ->
+                    Some(List.rev accArgs, Let(accBindings, body), name)
+                | _ -> None
+            match expr with
+            | Let(bindings, body) ->
+                inner bindings [] body None
+            | Function(Lambda arg, body, name) ->
+                inner [] [arg] body name
+            | _ -> None            
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if not com.Options.debugMode && canInlineArg ident.Name expr body
+                    if (not com.Options.debugMode) && canInlineArg ident.Name expr body
                     then bindings, Map.add ident.Name expr replacements
                     else (ident, expr)::bindings, replacements)
             match bindings with
@@ -233,7 +250,7 @@ module private Transforms =
         // TODO: Other binary operations and numeric types, also recursive?
         | Operation(BinaryOperation(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
             Value(StringConstant(str1 + str2), addRanges [r1; r2])
-        | NestedApply(NestedLambdaRelaxed(lambdaArgs, body, _) as lambda, argExprs,_,_) ->
+        | NestedApply(NestedLetsAndLambdas(lambdaArgs, body, _) as lambda, argExprs,_,_) ->
             if List.sameLength lambdaArgs argExprs then
                 applyArgs lambdaArgs argExprs body
             else
@@ -262,13 +279,13 @@ module private Transforms =
             (not com.Options.debugMode) || ident.IsCompilerGenerated
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
-        | Let([ident, value], letBody) when not ident.IsMutable && isErasingCandidate ident ->
+        | Let([ident, value], letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             let canEraseBinding =
                 match value with
-                | NestedLambdaRelaxed(_, lambdaBody, _) ->
+                | NestedLambda(_, lambdaBody, _) ->
                     match lambdaBody with
                     | Import _ -> false
-                           // Check the lambda doesn't reference itself recursively
+                    // Check the lambda doesn't reference itself recursively
                     | _ -> countReferences 0 ident.Name lambdaBody = 0
                            && canInlineArg ident.Name value letBody
                 | _ -> canInlineArg ident.Name value letBody
@@ -389,12 +406,12 @@ module private Transforms =
         let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
-        | Let([ident, NestedLambda(args, fnBody, _)], letBody) when List.isMultiple args ->
+        | Let([ident, NestedLambdaWithSameArity(args, fnBody, _)], letBody) when List.isMultiple args ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
             Let([ident, Function(Delegate args, fnBody, None)], letBody)
         // Anonymous lambda immediately applied
-        | Operation(CurriedApply((NestedLambda(args, fnBody, Some name)), argExprs), t, r)
+        | Operation(CurriedApply((NestedLambdaWithSameArity(args, fnBody, Some name)), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let fnBody = curryIdentInBody name args fnBody
             let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Typed)
