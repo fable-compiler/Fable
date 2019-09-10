@@ -98,9 +98,10 @@ let buildCompilerJs testLocal =
 let buildStandalone() =
     let projectDir = "src/fable-standalone"
     let libraryDir = "build/fable-library"
-    cleanDirs [projectDir </> "dist"]
-    buildLibrary()
+    if pathExists libraryDir |> not then
+        buildLibrary()
 
+    cleanDirs [projectDir </> "dist"]
     // bundle.min.js
     buildWebpack projectDir
     fileSizeInBytes (projectDir </> "dist/bundle.min.js") / 1000
