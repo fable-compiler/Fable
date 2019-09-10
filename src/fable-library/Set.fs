@@ -677,7 +677,9 @@ let maxElement (s: Set<'T>) = s.MaximumElement
 //     abstract clear: unit -> unit
 //     abstract delete: 'T -> bool
 //     abstract has: 'T -> bool
+//     abstract keys: unit -> 'T seq
 //     abstract values: unit -> 'T seq
+//     abstract entries: unit -> ('T * 'T) seq
 
 let private createMutablePrivate (comparer: IComparer<'T>) tree' =
     let mutable tree = tree'
@@ -698,8 +700,12 @@ let private createMutablePrivate (comparer: IComparer<'T>) tree' =
             else false
         member __.has x =
             SetTree.mem comparer x tree
+        member __.keys () =
+            SetTree.toSeq tree
         member __.values () =
             SetTree.toSeq tree
+        member __.entries () =
+            SetTree.toSeq tree |> Seq.map (fun v -> (v, v))
     interface IEnumerable<_> with
         member __.GetEnumerator() =
             SetTree.mkIEnumerator tree
@@ -715,13 +721,12 @@ let private createMutablePrivate (comparer: IComparer<'T>) tree' =
 //     |> createMutablePrivate comparer
 
 let createMutable (source: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
-    let set = MutableSet(comparer)
-    for item in source do set.Add(item) |> ignore
+    let set = MutableSet(source, comparer)
     set :> IMutableSet<_>
 
 let distinct (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
     seq {
-        let set = MutableSet(comparer)
+        let set = MutableSet(Seq.empty, comparer)
         for x in xs do
             if set.Add(x) then
                 yield x
@@ -729,7 +734,7 @@ let distinct (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'T>) =
 
 let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Inject>] comparer: IEqualityComparer<'Key>) =
     seq {
-        let set = MutableSet(comparer)
+        let set = MutableSet(Seq.empty, comparer)
         for x in xs do
             if set.Add(projection x) then
                 yield x

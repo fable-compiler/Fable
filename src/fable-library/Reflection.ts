@@ -1,4 +1,4 @@
-import { Record, Union, anonRecord as makeAnonRecord } from "./Types";
+import { anonRecord as makeAnonRecord, Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
@@ -261,7 +261,7 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
   }
   return t.constructor != null
     ? new t.constructor(...values)
-    : makeAnonRecord(fields.reduce((obj, [key,], i) => {
+    : makeAnonRecord(fields.reduce((obj, [key, _t], i) => {
         obj[key] = values[i];
         return obj;
     }, {} as any));

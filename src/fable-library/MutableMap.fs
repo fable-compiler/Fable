@@ -17,12 +17,14 @@ type IMutableMap<'Key, 'Value> =
     abstract values: unit -> 'Value seq
 
 [<Sealed>]
-type MutableMap<'Key, 'Value when 'Key: equality>(comparer: IEqualityComparer<'Key>) =
+type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Value> seq, comparer: IEqualityComparer<'Key>) as this =
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of KeyValuePair<'Key, 'Value>.
     let entries = Dictionary<int, ResizeArray<KeyValuePair<'Key, 'Value>>>()
+    do for pair in pairs do this.Add(pair.Key, pair.Value)
 
-    new () = MutableMap (EqualityComparer.Default)
+    // new () = MutableMap (Seq.empty, EqualityComparer.Default)
+    // new (comparer) = MutableMap (Seq.empty, comparer)
 
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)

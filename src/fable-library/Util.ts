@@ -626,7 +626,7 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
     return null;
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
-    for (var i = 0; i < args.length; i++) {
+    for (let i = 0; i < args.length; i++) {
         f = f(args[i]);
     }
     return f;
@@ -680,14 +680,10 @@ export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
         if (idx + 1 === mappings.length) {
             return res;
         } else {
-            return function(arg: any) {
-                return mapArg(res, arg, mappings, idx + 1)
-            }
+            return (arg: any) => mapArg(res, arg, mappings, idx + 1);
         }
     }
-    return function (arg: any) {
-        return mapArg(fn, arg, mappings, 0);
-    }
+    return (arg: any) => mapArg(fn, arg, mappings, 0);
 }
 
 export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {
