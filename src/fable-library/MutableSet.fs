@@ -13,15 +13,19 @@ type IMutableSet<'T> =
     abstract clear: unit -> unit
     abstract delete: 'T -> bool
     abstract has: 'T -> bool
+    abstract keys: unit -> 'T seq
     abstract values: unit -> 'T seq
+    abstract entries: unit -> ('T * 'T) seq
 
 [<Sealed>]
-type MutableSet<'T when 'T: equality>(comparer: IEqualityComparer<'T>) =
+type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer<'T>) as this =
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of 'T.
     let entries = Dictionary<int, ResizeArray<'T>>()
+    do for item in items do this.Add(item) |> ignore
 
-    new () = MutableSet (EqualityComparer.Default)
+    // new () = MutableSet (Seq.empty, EqualityComparer.Default)
+    // new (comparer) = MutableSet (Seq.empty, comparer)
 
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
@@ -132,4 +136,6 @@ type MutableSet<'T when 'T: equality>(comparer: IEqualityComparer<'T>) =
         member this.clear() = this.Clear()
         member this.delete(k) = this.Remove(k)
         member this.has(k) = this.Contains(k)
+        member this.keys() = this |> Seq.map id
         member this.values() = this |> Seq.map id
+        member this.entries() = this |> Seq.map (fun v -> (v, v))

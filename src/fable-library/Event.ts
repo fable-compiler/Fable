@@ -1,5 +1,5 @@
 import { IObservable, IObserver, Observer, protect } from "./Observable";
-import { Choice, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
+import { Option, some, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
 import { iterate as seqIterate } from "./Seq";
 import { IDisposable } from "./Util";
 
@@ -100,7 +100,7 @@ export function add<T>(callback: (x: T) => void, sourceEvent: IEvent<T>) {
   (sourceEvent as Event<T>).Subscribe(new Observer(callback));
 }
 
-export function choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
+export function choose<T, U>(chooser: (x: T) => Option<U>, sourceEvent: IEvent<T>) {
   const source = sourceEvent as Event<T>;
   return new Event<U>((observer) =>
     source.Subscribe(new Observer<T>((t) =>
@@ -113,7 +113,7 @@ export function choose<T, U>(chooser: (x: T) => U, sourceEvent: IEvent<T>) {
 }
 
 export function filter<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
-  return choose((x) => predicate(x) ? x : null, sourceEvent);
+  return choose((x) => predicate(x) ? some(x) : null, sourceEvent);
 }
 
 export function map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {

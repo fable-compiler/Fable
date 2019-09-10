@@ -2969,7 +2969,8 @@ let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrVa
             | [Number _; IEqualityComparer], [_; eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected dictionary constructor"
-        Some(makeCoreRef Any "Dictionary" "DictTypes", args)
+        let entityName = Naming.sanitizeIdentForbiddenChars "MutableMap`2"
+        Some(makeCoreRef Any entityName "MutableMap", args)
     | Types.hashset ->
         let args =
             match FSharp2Fable.TypeHelpers.getArgTypes com memb, args with
@@ -2982,5 +2983,6 @@ let tryBaseConstructor com (ent: FSharpEntity) (memb: FSharpMemberOrFunctionOrVa
             | [IEqualityComparer], [eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected hashset constructor"
-        Some(makeCoreRef Any "HashSet" "DictTypes", args)
+        let entityName = Naming.sanitizeIdentForbiddenChars "MutableSet`1"
+        Some(makeCoreRef Any entityName "MutableSet", args)
     | _ -> None

@@ -1,4 +1,4 @@
-import { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
+import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
@@ -9,7 +9,7 @@ import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Uti
  * - `Math.floor` if the `value` is **positive**
  * @param value Value to round
  */
-function signedRound(value : number) {
+function signedRound(value: number) {
     return value < 0 ? Math.ceil(value) : Math.floor(value);
 }
 
@@ -29,7 +29,7 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
   return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
 }
 
-export function fromTicks(ticks: number /* Long */) {
+export function fromTicks(ticks: Long) {
   return toNumber(op_Division(ticks, 10000));
 }
 
@@ -69,7 +69,7 @@ export function milliseconds(ts: number) {
   return signedRound(ts % 1000);
 }
 
-export function ticks(ts: number /* Long */) {
+export function ticks(ts: number) {
   return op_Multiply(fromNumber(ts), 10000);
 }
 
@@ -137,14 +137,14 @@ export function parse(str: string) {
     }
   }
   if (firstColon > 0) { // process time part
-    // tslint:disable-next-line:max-line-length
     // WIP: (-?)(((\d+)\.)?([0-9]|0[0-9]|1[0-9]|2[0-3]):(\d+)(:\d+(\.\d{1,7})?)?|\d+(?:(?!\.)))
+    // tslint:disable-next-line:max-line-length
     const r = /^(-?)((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
     if (r != null && r[4] != null && r[5] != null) {
       let d = 0;
       let ms = 0;
       let s = 0;
-      const sign = r[1] != null && r[1] === '-' ? -1 : 1;
+      const sign = r[1] != null && r[1] === "-" ? -1 : 1;
       const h = +r[4];
       const m = +r[5];
       if (r[3] != null) {
