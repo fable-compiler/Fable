@@ -930,4 +930,16 @@ let tests =
         xs :? System.Array |> equal true
         ys :? System.Array |> equal true
         zs :? System.Array |> equal false
+
+    testCase "Array.Copy works with numeric arrays" <| fun () ->
+        let source = [| 99 |]
+        let destination = [| 1; 2; 3 |]
+        Array.Copy(source, 0, destination, 0, 1)
+        equal [| 99; 2; 3 |] destination
+
+    testCase "Array.Copy works with non-numeric arrays" <| fun () ->
+        let source = [| "xy"; "xx"; "xyz" |]
+        let destination = [| "a"; "b"; "c" |]
+        Array.Copy(source, 1, destination, 1, 2)
+        equal [| "a"; "xx"; "xyz" |] destination        
   ]

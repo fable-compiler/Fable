@@ -615,10 +615,6 @@ let toSeq t (e: Expr) =
     | String -> stringToCharArray t e
     | _ -> TypeCast(e, t)
 
-let toUntypedArray = function
-    | Value(NewArray(kind, _),r) -> Value(NewArray(kind, Any),r)
-    | e -> Helper.GlobalCall("Array", Array Any, [e], memb="from", ?loc=e.Range)
-
 let iterate r ident body (xs: Expr) =
     let f = Function(Delegate [ident], body, None)
     Helper.CoreCall("Seq", "iterate", Unit, [f; toSeq xs.Type xs], ?loc=r)

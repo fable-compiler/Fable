@@ -448,6 +448,7 @@ let removeAllInPlace predicate (array: 'T[]) =
             count
     countRemoveAll 0
 
+// TODO: Check array lengths
 let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
     let diff = targetIndex - sourceIndex
     for i = sourceIndex to sourceIndex + count - 1 do
