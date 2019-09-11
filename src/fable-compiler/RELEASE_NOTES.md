@@ -1,3 +1,9 @@
+### 2.3.24
+
+* Fix #1896: Don't dupe casting to untyped array @zanaptak
+* Fix #1895: anonymous record !! casting warnings @giulioungaretti
+* Moar cleanup for beta reduction optimization
+
 ### 2.3.23
 
 * Fix #1894: Seq.distinct with infinite sequence @et1975
