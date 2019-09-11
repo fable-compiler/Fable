@@ -22,8 +22,8 @@ module Experimental =
 
 module Testing =
     type Assert =
-        static member AreEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
-        static member NotEqual(expected: 'T, actual: 'T, ?msg: string): unit = jsNative
+        static member AreEqual(actual: 'T, expected: 'T, ?msg: string): unit = jsNative
+        static member NotEqual(actual: 'T, expected: 'T, ?msg: string): unit = jsNative
 
 
 module Reflection =
