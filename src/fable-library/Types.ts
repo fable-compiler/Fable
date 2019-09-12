@@ -1,11 +1,12 @@
-import { combineHashCodes, compare, compareArrays, equals, equalArrays, identityHash, structuralHash, numberHash } from "./Util";
+import { combineHashCodes, compare, compareArrays,
+    equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
 
-function sameType(x, y) {
+function sameType(x: any, y: any) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
 // Taken from Babel helpers
-function inherits(subClass, superClass) {
+function inherits(subClass: any, superClass: any) {
   // if (typeof superClass !== "function" && superClass !== null) {
   //   throw new TypeError(
   //     "Super expression must either be null or a function, not " +
@@ -26,27 +27,28 @@ function inherits(subClass, superClass) {
   //     : (subClass.__proto__ = superClass);
 }
 
-export function declare(cons, superClass) {
+export function declare(cons: any, superClass?: any) {
   inherits(cons, superClass || SystemObject);
   return cons;
 }
 
 export function SystemObject() {
+  return;
 }
 
 SystemObject.prototype.toString = function() {
-  return "{" + Object.keys(this).map(k => k + " = " + String(this[k])).join(";\n ") + "}";
+  return "{" + Object.keys(this).map((k) => k + " = " + String(this[k])).join(";\n ") + "}";
 };
 
 SystemObject.prototype.GetHashCode = function() {
   return identityHash(this);
 };
 
-SystemObject.prototype.Equals = function(other) {
+SystemObject.prototype.Equals = function(other: any) {
   return this === other;
 };
 
-function compareList(self, other) {
+function compareList(self: { tail: any; head: any; }, other: { tail: any; head: any; }) {
   if (self === other) {
     return 0;
   } else {
@@ -64,13 +66,13 @@ function compareList(self, other) {
   }
 }
 
-export function List(head, tail) {
+export function List(this: any, head: any, tail: any) {
   this.head = head;
   this.tail = tail;
 }
 
 List.prototype.toString = function() {
-  return "[" + Array.from(this).map(x => String(x)).join("; ") + "]";
+  return "[" + Array.from(this).map((x) => String(x)).join("; ") + "]";
 };
 
 List.prototype.toJSON = function() {
@@ -93,15 +95,15 @@ List.prototype.GetHashCode = function() {
   return combineHashCodes(hashes);
 };
 
-List.prototype.Equals = function(other) {
+List.prototype.Equals = function(other: any) {
   return compareList(this, other) === 0;
 };
 
-List.prototype.CompareTo = function(other) {
+List.prototype.CompareTo = function(other: any) {
   return compareList(this, other);
 };
 
-export function Union(tag, name, ...fields) {
+export function Union(this: any, tag: number, name: any, ...fields: any[]) {
   this.tag = tag | 0;
   this.name = name;
   this.fields = fields;
@@ -114,7 +116,7 @@ Union.prototype.toString = function() {
   } else if (len === 1) {
     return this.name + " " + String(this.fields[0]);
   } else {
-    return this.name + " (" + this.fields.map(x => String(x)).join(",") + ")";
+    return this.name + " (" + this.fields.map((x: any) => String(x)).join(",") + ")";
   }
 };
 
@@ -125,19 +127,19 @@ Union.prototype.toJSON = function() {
 };
 
 Union.prototype.GetHashCode = function() {
-  let hashes = this.fields.map(x => structuralHash(x));
+  const hashes = this.fields.map((x: any) => structuralHash(x));
   hashes.splice(0, 0, numberHash(this.tag));
   return combineHashCodes(hashes);
 };
 
-Union.prototype.Equals = function(other) {
+Union.prototype.Equals = function(other: any) {
   return this === other
     || (sameType(this, other)
         && this.tag === other.tag
         && equalArrays(this.fields, other.fields));
 };
 
-Union.prototype.CompareTo = function(other) {
+Union.prototype.CompareTo = function(other: any) {
   if (this === other) {
     return 0;
   } else if (!sameType(this, other)) {
@@ -149,8 +151,8 @@ Union.prototype.CompareTo = function(other) {
   }
 };
 
-function recordToJson(record, getFieldNames) {
-  const o = {};
+function recordToJson(record: any, getFieldNames?: (arg: any) => any) {
+  const o: any = {};
   const keys = getFieldNames == null ? Object.keys(record) : getFieldNames(record);
   for (let i = 0; i < keys.length; i++) {
     o[keys[i]] = record[keys[i]];
@@ -158,7 +160,7 @@ function recordToJson(record, getFieldNames) {
   return o;
 }
 
-function recordEquals(self, other, getFieldNames) {
+function recordEquals(self: any, other: any, getFieldNames?: (arg: any) => any) {
   if (self === other) {
     return true;
   } else if (!sameType(self, other)) {
@@ -174,7 +176,7 @@ function recordEquals(self, other, getFieldNames) {
   }
 }
 
-function recordCompare(self, other, getFieldNames) {
+function recordCompare(self: any, other: any, getFieldNames?: (arg: any) => any) {
   if (self === other) {
     return 0;
   } else if (!sameType(self, other)) {
@@ -192,10 +194,11 @@ function recordCompare(self, other, getFieldNames) {
 }
 
 export function Record() {
+  return;
 }
 
 Record.prototype.toString = function() {
-  return "{" + Object.keys(this).map(k => k + " = " + String(this[k])).join(";\n ") + "}";
+  return "{" + Object.keys(this).map((k) => k + " = " + String(this[k])).join(";\n ") + "}";
 };
 
 Record.prototype.toJSON = function() {
@@ -203,42 +206,42 @@ Record.prototype.toJSON = function() {
 };
 
 Record.prototype.GetHashCode = function() {
-  const hashes = Object.keys(this).map(k => structuralHash(this[k]));
+  const hashes = Object.keys(this).map((k) => structuralHash(this[k]));
   return combineHashCodes(hashes);
 };
 
-Record.prototype.Equals = function(other) {
+Record.prototype.Equals = function(other: any) {
   return recordEquals(this, other);
 };
 
-Record.prototype.CompareTo = function(other) {
+Record.prototype.CompareTo = function(other: any) {
   return recordCompare(this, other);
 };
 
-export function anonRecord(o) {
+export function anonRecord(o: any) {
   return Object.assign(Object.create(Record.prototype), o);
 }
 
-export const FSharpRef = declare(function FSharpRef(contents) {
+export const FSharpRef = declare(function FSharpRef(this: any, contents: any) {
   this.contents = contents;
 }, Record);
 
 // EXCEPTIONS
 
-export const Exception = declare(function Exception(msg) {
+export const Exception = declare(function Exception(this: any, msg: any) {
   this.stack = Error().stack;
   this.message = msg;
 });
 
-export function isException(x) {
+export function isException(x: any) {
   return x instanceof Error || x instanceof Exception;
 }
 
-function getFSharpExceptionFieldNames(self) {
-  return Object.keys(self).filter(k => k !== "message" && k !== "stack");
+function getFSharpExceptionFieldNames(self: any) {
+  return Object.keys(self).filter((k) => k !== "message" && k !== "stack");
 }
 
-export const FSharpException = declare(function FSharpException() {
+export const FSharpException = declare(function FSharpException(this: any) {
   Exception.call(this);
 }, Exception);
 
@@ -250,7 +253,7 @@ FSharpException.prototype.toString = function() {
   } else if (len === 1) {
     return this.message + " " + String(this[fieldNames[0]]);
   } else {
-    return this.message + " (" + fieldNames.map(k => String(this[k])).join(",") + ")";
+    return this.message + " (" + fieldNames.map((k) => String(this[k])).join(",") + ")";
   }
 };
 
@@ -259,23 +262,24 @@ FSharpException.prototype.toJSON = function() {
 };
 
 FSharpException.prototype.GetHashCode = function() {
-  const hashes = getFSharpExceptionFieldNames(this).map(k => structuralHash(this[k]));
+  const hashes = getFSharpExceptionFieldNames(this).map((k) => structuralHash(this[k]));
   return combineHashCodes(hashes);
 };
 
-FSharpException.prototype.Equals = function(other) {
+FSharpException.prototype.Equals = function(other: any) {
   return recordEquals(this, other, getFSharpExceptionFieldNames);
 };
 
-FSharpException.prototype.CompareTo = function(other) {
+FSharpException.prototype.CompareTo = function(other: any) {
   return recordCompare(this, other, getFSharpExceptionFieldNames);
 };
 
-export const MatchFailureException = declare(function MatchFailureException(arg1, arg2, arg3) {
+export const MatchFailureException = declare(
+    function MatchFailureException(this: any, arg1: any, arg2: number, arg3: number) {
   this.arg1 = arg1;
   this.arg2 = arg2 | 0;
   this.arg3 = arg3 | 0;
   this.message = "The match cases were incomplete";
 }, FSharpException);
 
-export const Attribute = declare(function Attribute() { });
+export const Attribute = declare(function Attribute() { return; });

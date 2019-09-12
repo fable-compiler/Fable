@@ -1,10 +1,7 @@
-import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long";
 import Decimal, { makeRangeStepFunction as makeDecimalRangeStepFunction } from "./Decimal";
-import { Some, some, value } from "./Option";
+import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long";
+import { Option, some, value } from "./Option";
 import { compare, equals, IComparer, IDisposable, isDisposable } from "./Util";
-
-declare type Long = typeof Long;
-type Option<T> = T | Some;
 
 export interface IEnumerator<T> {
   Current: T;
@@ -81,22 +78,22 @@ export function ofArray<T>(xs: ArrayLike<T>) {
 }
 
 export function allPairs<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): Iterable<[T1, T2]> {
-    let firstEl = true;
-    const ysCache: T2[] = [];
-    return collect((x: T1) => {
-        if (firstEl) {
-            firstEl = false;
-            return map((y: T2) => {
-                ysCache.push(y);
-                return [x, y];
-            }, ys);
-        } else {
-            return ysCache.map(y => [x, y]);
-            // return map(function (i) {
-            //     return [x, ysCache[i]];
-            // }, rangeNumber(0, 1, ysCache.length - 1));
-        }
-    }, xs);
+  let firstEl = true;
+  const ysCache: T2[] = [];
+  return collect((x: T1) => {
+    if (firstEl) {
+      firstEl = false;
+      return map((y: T2) => {
+        ysCache.push(y);
+        return [x, y];
+      }, ys);
+    } else {
+      return ysCache.map((y) => [x, y]);
+      // return map(function (i) {
+      //     return [x, ysCache[i]];
+      // }, rangeNumber(0, 1, ysCache.length - 1));
+    }
+  }, xs);
 }
 
 export function append<T>(xs: Iterable<T>, ys: Iterable<T>) {
@@ -201,8 +198,11 @@ export function empty<T>() {
   return unfold((): [T, T] => void 0);
 }
 
-export function enumerateFromFunctions<T, Enumerator>(factory: () => Enumerator, moveNext: (e: Enumerator) => boolean, current: (e: Enumerator) => T) {
-    return delay(() => unfold((e) => moveNext(e) ? [current(e), e] : null, factory()));
+export function enumerateFromFunctions<T, Enumerator>(
+  factory: () => Enumerator,
+  moveNext: (e: Enumerator) => boolean,
+  current: (e: Enumerator) => T) {
+  return delay(() => unfold((e) => moveNext(e) ? [current(e), e] : null, factory()));
 }
 
 export function enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
@@ -271,7 +271,7 @@ export function except<T>(itemsToExclude: Iterable<T>, source: Iterable<T>) {
 
 export function exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
   let cur: IteratorResult<T>;
-  for (const iter = xs[Symbol.iterator](); ; ) {
+  for (const iter = xs[Symbol.iterator](); ;) {
     cur = iter.next();
     if (cur.done) { break; }
     if (f(cur.value)) { return true; }
@@ -282,7 +282,7 @@ export function exists<T>(f: (x: T) => boolean, xs: Iterable<T>) {
 export function exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
   let cur1: IteratorResult<T1>;
   let cur2: IteratorResult<T2>;
-  for (const iter1 = xs[Symbol.iterator](), iter2 = ys[Symbol.iterator](); ; ) {
+  for (const iter1 = xs[Symbol.iterator](), iter2 = ys[Symbol.iterator](); ;) {
     cur1 = iter1.next();
     cur2 = iter2.next();
     if (cur1.done || cur2.done) { break; }
@@ -292,11 +292,11 @@ export function exists2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, 
 }
 
 export function forAll<T>(f: (x: T) => boolean, xs: Iterable<T>) {
-    return !exists((x) => !f(x), xs);
+  return !exists((x) => !f(x), xs);
 }
 
 export function forAll2<T1, T2>(f: (x: T1, y: T2) => boolean, xs: Iterable<T1>, ys: Iterable<T2>) {
-    return !exists2((x, y) => !f(x, y), xs, ys);
+  return !exists2((x, y) => !f(x, y), xs, ys);
 }
 
 export function contains<T>(i: T, xs: Iterable<T>) {
@@ -778,7 +778,7 @@ export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>):
 
 export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
-  for (let i = arr.length - 1; i >= 0 ; i--) {
+  for (let i = arr.length - 1; i >= 0; i--) {
     if (f(arr[i], i)) {
       return i;
     }
@@ -837,27 +837,27 @@ export function zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterabl
 }
 
 export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T[]> {
-    if (windowSize <= 0) {
-        throw new Error("windowSize must be positive");
-    }
-    return {
-        [Symbol.iterator]: () => {
-            let window: T[] = [];
-            const iter = source[Symbol.iterator]();
-            return {
-                next: () => {
-                    let cur: IteratorResult<T>;
-                    while (window.length < windowSize) {
-                        if ((cur = iter.next()).done) {
-                            return { done: true };
-                        }
-                        window.push(cur.value);
-                    }
-                    const value = window;
-                    window = window.slice(1);
-                    return { done: false, value };
-                },
-            };
+  if (windowSize <= 0) {
+    throw new Error("windowSize must be positive");
+  }
+  return {
+    [Symbol.iterator]: () => {
+      let window: T[] = [];
+      const iter = source[Symbol.iterator]();
+      return {
+        next: () => {
+          let cur: IteratorResult<T>;
+          while (window.length < windowSize) {
+            if ((cur = iter.next()).done) {
+              return { done: true };
+            }
+            window.push(cur.value);
+          }
+          const value = window;
+          window = window.slice(1);
+          return { done: false, value };
         },
-    } as Iterable<T[]>;
+      };
+    },
+  } as Iterable<T[]>;
 }

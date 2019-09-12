@@ -1,4 +1,4 @@
-import { fromBits, getHighBits, getHighBitsUnsigned, getLowBits, getLowBitsUnsigned } from "./Long";
+import Long, { fromBits, getHighBits, getHighBitsUnsigned, getLowBits, getLowBitsUnsigned } from "./Long";
 
 const littleEndian = true;
 
@@ -34,7 +34,7 @@ export function getBytesInt32(value: number) {
   return bytes;
 }
 
-export function getBytesInt64(value: number /* Long */) {
+export function getBytesInt64(value: Long) {
   const bytes = new Uint8Array(8);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   view.setInt32(littleEndian ? 0 : 4, getLowBits(value), littleEndian);
@@ -56,7 +56,7 @@ export function getBytesUInt32(value: number) {
   return bytes;
 }
 
-export function getBytesUInt64(value: number /* Long */) {
+export function getBytesUInt64(value: Long) {
   const bytes = new Uint8Array(8);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   view.setUint32(littleEndian ? 0 : 4, getLowBitsUnsigned(value), littleEndian);
@@ -78,7 +78,7 @@ export function getBytesDouble(value: number) {
   return bytes;
 }
 
-export function int64BitsToDouble(value: number /* Long */) {
+export function int64BitsToDouble(value: Long) {
   const buffer = new ArrayBuffer(8);
   const view = new DataView(buffer);
   view.setInt32(littleEndian ? 0 : 4, getLowBits(value), littleEndian);

@@ -606,9 +606,8 @@ let private createMutablePrivate (comparer: IComparer<'Key>) tree' =
 //     MapTree.ofSeq comparer source
 //     |> createMutablePrivate comparer
 
-let createMutable (source: ('Key*'Value) seq) ([<Inject>] comparer: IEqualityComparer<'Key>) =
-    let map = MutableMap(comparer)
-    for key, value in source do map.Add(key, value)
+let createMutable (source: KeyValuePair<'Key, 'Value> seq) ([<Inject>] comparer: IEqualityComparer<'Key>) =
+    let map = MutableMap(source, comparer)
     map :> IMutableMap<_,_>
 
 // let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Inject>] comparer: IComparer<'Key>): ('Key * 'T seq) seq =
