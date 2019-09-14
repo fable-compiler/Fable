@@ -1490,13 +1490,6 @@ let implementedStringFunctions =
         |]
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let join nonDelimiterArgType args =
-        let hasSpread =
-            match i.Spread, nonDelimiterArgType with
-            | SeqSpread, _ -> true
-            | _, EntFullName Types.ienumerableGeneric -> true
-            | _ -> false
-        Helper.CoreCall("String", "join", t, args, hasSpread=hasSpread, ?loc=r)
     match i.CompiledName, thisArg, args with
     | ".ctor", _, fstArg::_ ->
         match fstArg.Type with
@@ -1575,12 +1568,18 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.CoreCall("String", "split", t, c::args, ?loc=r) |> Some
         | args ->
             Helper.CoreCall("String", "split", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | "Join", None, [_delimiter; _parts; ExprType(Number _); ExprType(Number _)] ->
-        Helper.CoreCall("String", "joinWithIndices", t, args, ?loc=r) |> Some
     | "Join", None, _ ->
-        join (List.item 1 i.SignatureArgTypes) args |> Some
+        let methName =
+            match i.SignatureArgTypes with
+            | [_; Array _; Number _; Number _] -> "joinWithIndices"
+            | _ -> "join"
+        Helper.CoreCall("String", methName, t, args, ?loc=r) |> Some
     | "Concat", None, _ ->
-        join (List.head i.SignatureArgTypes) ((makeStrConst "")::args) |> Some
+        match i.SignatureArgTypes with
+        | [Array _ | IEnumerable] ->
+            Helper.CoreCall("String", "join", t, ((makeStrConst "")::args), ?loc=r) |> Some
+        | _ ->
+            Helper.CoreCall("String", "concat", t, args, hasSpread=true, ?loc=r) |> Some
     | "CompareOrdinal", None, _ ->
         Helper.CoreCall("String", "compareOrdinal", t, args, ?loc=r) |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
@@ -1602,7 +1601,7 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         let name = Naming.lowerFirst i.CompiledName
         emitJs r t [Helper.CoreCall("Seq", name, Any, args, i.SignatureArgTypes)] "Array.from($0).join('')" |> Some
     | "Concat", _ ->
-        Helper.CoreCall("String", "join", t, args, hasSpread=true, ?loc=r) |> Some
+        Helper.CoreCall("String", "join", t, args, ?loc=r) |> Some
     // Rest of StringModule methods
     | meth, args ->
         Helper.CoreCall("String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some

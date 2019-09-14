@@ -273,16 +273,29 @@ export function isNullOrWhiteSpace(str: string | any) {
   return typeof str !== "string" || /^\s*$/.test(str);
 }
 
-export function join(delimiter: string, ...xs: any[]): string {
-  return xs.map((x) => String(x)).join(delimiter);
+export function concat(...xs: any[]): string {
+  return xs.map((x) => String(x)).join("");
 }
 
-export function joinWithIndices<T>(delimiter: string, xs: string[], startIndex: number, count: number) {
+export function join<T>(delimiter: string, xs: Iterable<T>): string {
+  if (Array.isArray(xs)) {
+    return xs.join(delimiter);
+  } else {
+    let res = "";
+    for (const x of xs) {
+      if (delimiter.length > 0 && res.length > 0) { res += delimiter; }
+      res += String(x);
+    }
+    return res;
+  }
+}
+
+export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {
   const endIndexPlusOne = startIndex + count;
   if (endIndexPlusOne > xs.length) {
     throw new Error("Index and count must refer to a location within the buffer.");
   }
-  return join(delimiter, ...xs.slice(startIndex, endIndexPlusOne));
+  return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
 }
 
 /** Validates UUID as specified in RFC4122 (versions 1-5). Trims braces. */

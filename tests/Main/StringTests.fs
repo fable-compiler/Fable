@@ -596,6 +596,36 @@ let tests =
             String.Concat(seq { yield "a"; yield "b"; yield "c" })
             |> equal "abc"
 
+      testCase "System.String.Join with long array works" <| fun () ->
+            let n = 1_000_000
+            let a = Array.init n (fun _i -> "a")
+            let s = String.Join("", a)
+            s.Length |> equal n
+
+      testCase "System.String.Join with long seq works" <| fun () ->
+            let n = 1_000_000
+            let a = seq { for i in 1..n -> "a" }
+            let s = String.Join("", a)
+            s.Length |> equal n
+
+      testCase "System.String.Concat with long array works" <| fun () ->
+            let n = 1_000_000
+            let a = Array.init n (fun _i -> "a")
+            let s = String.Concat(a)
+            s.Length |> equal n
+
+      testCase "System.String.Concat with long seq works" <| fun () ->
+            let n = 1_000_000
+            let a = seq { for i in 1..n -> "a" }
+            let s = String.Concat(a)
+            s.Length |> equal n
+
+      testCase "String.concat with long seq works" <| fun () ->
+            let n = 1_000_000
+            let a = seq { for i in 1..n -> "a" }
+            let s = String.concat "" a
+            s.Length |> equal n
+
       testCase "String.Remove works" <| fun () ->
             "abcd".Remove(2)
             |> equal "ab"

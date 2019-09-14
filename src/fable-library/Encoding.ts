@@ -101,7 +101,9 @@ class UTF16LE {
 
   public getString(bytes: Uint8Array, index?: number, count?: number) {
     if (index != null) { bytes = bytes.subarray(index, index + count); }
-    if (typeof Buffer !== "undefined") {
+    if (typeof TextDecoder !== "undefined") {
+      return new TextDecoder("utf-16le").decode(bytes);
+    } else if (typeof Buffer !== "undefined") {
       return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf16le");
     } else {
       return utf16le_decode(bytes); // polyfill
