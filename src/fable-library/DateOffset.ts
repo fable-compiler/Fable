@@ -14,7 +14,7 @@
  */
 
 import { create as createDate, dateOffsetToString, daysInMonth, offsetRegex, parseRaw } from "./Date";
-import { fromValue, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
+import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
 import { compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util";
 
 export default function DateTimeOffset(value: number, offset?: number) {
@@ -34,11 +34,9 @@ export function fromDate(date: IDateTime, offset?: number) {
   return DateTimeOffset(date.getTime(), offset2);
 }
 
-export function fromTicks(ticks: number | any, offset: number) {
+export function fromTicks(ticks: number | Long, offset: number) {
   ticks = fromValue(ticks);
-
   const epoc = ticksToUnixEpochMilliseconds(ticks) - offset;
-
   return DateTimeOffset(epoc, offset);
 }
 
@@ -68,7 +66,7 @@ export function parse(str: string): IDateTimeOffset {
   return DateTimeOffset(date.getTime(), offset);
 }
 
-export function tryParse(v: any): [boolean, IDateTimeOffset] {
+export function tryParse(v: string): [boolean, IDateTimeOffset] {
   try {
     return [true, parse(v)];
   } catch (_err) {

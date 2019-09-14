@@ -8,7 +8,7 @@
  * Basically; invariant: date.getTime() always return UTC time.
  */
 
-import { fromValue, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
+import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
 import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util";
 
 export const offsetRegex = /(?:Z|[+-](\d+):?([0-5]?\d)?)\s*$/;
@@ -53,8 +53,8 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
 }
 
 function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) {
-  return format.replace(/(\w)\1*/g, (match: any) => {
-    let rep = match;
+  return format.replace(/(\w)\1*/g, (match: string) => {
+    let rep = Number.NaN;
     switch (match.substring(0, 1)) {
       case "y":
         const y = utc ? date.getUTCFullYear() : date.getFullYear();
@@ -69,10 +69,11 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
       case "s": rep = utc ? date.getUTCSeconds() : date.getSeconds(); break;
       case "f": rep = utc ? date.getUTCMilliseconds() : date.getMilliseconds(); break;
     }
-    if (rep !== match && rep < 10 && match.length > 1) {
-      rep = "0" + rep;
+    if (Number.isNaN(rep)) {
+      return match;
+    } else {
+      return (rep < 10 && match.length > 1) ? "0" + rep : "" + rep;
     }
-    return rep;
   });
 }
 
@@ -124,7 +125,7 @@ export default function DateTime(value: number, kind?: DateKind) {
   return d;
 }
 
-export function fromTicks(ticks: number | any, kind?: DateKind) {
+export function fromTicks(ticks: number | Long, kind?: DateKind) {
   ticks = fromValue(ticks);
   kind = kind != null ? kind : DateKind.Unspecified;
   let date = DateTime(ticksToUnixEpochMilliseconds(ticks), kind);
@@ -223,10 +224,10 @@ export function parse(str: string, detectUTC = false): IDateTime {
   return DateTime(date.getTime(), kind);
 }
 
-export function tryParse(v: any): [boolean, IDateTime] {
+export function tryParse(v: string): [boolean, IDateTime] {
   try {
     // if value is null or whitespace, parsing fails
-    if (v === null || v.trim() === "") {
+    if (v == null || v.trim() === "") {
       return [false, minValue()];
     }
     return [true, parse(v)];
