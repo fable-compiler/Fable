@@ -620,6 +620,12 @@ let tests =
             let s = String.Concat(a)
             s.Length |> equal n
 
+      testCase "String.concat with long array works" <| fun () ->
+            let n = 1_000_000
+            let a = Array.init n (fun _i -> "a")
+            let s = String.concat "" a
+            s.Length |> equal n
+
       testCase "String.concat with long seq works" <| fun () ->
             let n = 1_000_000
             let a = seq { for i in 1..n -> "a" }

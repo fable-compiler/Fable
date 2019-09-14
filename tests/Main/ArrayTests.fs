@@ -116,7 +116,7 @@ let tests =
         ar.[0] <- ar.[0] + 255uy
         equal 4uy ar.[0]
 
-    // TODO: How to test at the same time that both clamped and non-clampled arrays work?
+    // TODO: How to test at the same time that both clamped and non-clamped arrays work?
 // #if FABLE_COMPILER
 //     testCase "Clamped byte arrays work" <| fun () ->
 //         let ar = DllRef.Lib.createClampedArray()
@@ -915,7 +915,7 @@ let tests =
 
     testCase "Casting to System.Array works" <| fun () ->
         let xs = [|1;2;3;4|] :> System.Array // Numeric array
-        let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array        
+        let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array
         [ for i in xs do for j in ys do yield (unbox i, unbox j) ]
         |> equal 
             [ (1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
@@ -941,5 +941,5 @@ let tests =
         let source = [| "xy"; "xx"; "xyz" |]
         let destination = [| "a"; "b"; "c" |]
         Array.Copy(source, 1, destination, 1, 2)
-        equal [| "a"; "xx"; "xyz" |] destination        
+        equal [| "a"; "xx"; "xyz" |] destination
   ]
