@@ -281,12 +281,7 @@ export function join<T>(delimiter: string, xs: Iterable<T>): string {
   if (Array.isArray(xs)) {
     return xs.join(delimiter);
   } else {
-    let res = "";
-    for (const x of xs) {
-      if (delimiter.length > 0 && res.length > 0) { res += delimiter; }
-      res += String(x);
-    }
-    return res;
+    return Array.from(xs).join(delimiter);
   }
 }
 
