@@ -519,9 +519,15 @@ module TypeHelpers =
     open Helpers
     open Patterns
 
+    // Sometimes the names of user-declared and compiler-generated clash, see #1900
+    let genParamName (genParam: FSharpGenericParameter) =
+        if genParam.IsCompilerGenerated then genParam.Name + "$"
+        else genParam.Name
+
     let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
-        match Map.tryFind genParam.Name ctxTypeArgs with
-        | None -> Fable.GenericParam genParam.Name
+        let name = genParamName genParam
+        match Map.tryFind name ctxTypeArgs with
+        | None -> Fable.GenericParam name
         | Some typ -> typ
 
     let rec makeGenArgs (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) =
@@ -542,9 +548,9 @@ module TypeHelpers =
                     |> Seq.find (fun f -> f.DisplayName = "Invoke")
                 invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
                 invokeMember.ReturnParameter.Type
-        let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map (fun x -> x.Name)) genArgs |> Map
+        let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map genParamName) genArgs |> Map
         let resolveType (t: FSharpType) =
-            if t.IsGenericParameter then Map.find t.GenericParameter.Name genArgs else t
+            if t.IsGenericParameter then Map.find (genParamName t.GenericParameter) genArgs else t
         let argTypes = argTypes |> Seq.map (resolveType >> makeType com ctxTypeArgs) |> Seq.toList
         let returnType = returnType |> resolveType |> makeType com ctxTypeArgs
         Fable.FunctionType(Fable.DelegateType argTypes, returnType)
@@ -774,7 +780,7 @@ module Util =
         Fable.TryCatch(body, catchClause, finalizer, r)
 
     let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
-        Seq.zip (genParams |> Seq.map (fun x -> x.Name)) genArgs
+        Seq.zip (genParams |> Seq.map genParamName) genArgs
 
     let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
         let genArgsLen = Seq.length genArgs

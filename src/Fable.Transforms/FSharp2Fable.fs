@@ -244,7 +244,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
             let fi = unionCase.UnionCaseFields.[0]
             let typ =
                 if fi.FieldType.IsGenericParameter then
-                    let name = fi.FieldType.GenericParameter.Name
+                    let name = genParamName fi.FieldType.GenericParameter
                     let index =
                         tdef.GenericParameters
                         |> Seq.findIndex (fun arg -> arg.Name = name)
