@@ -1,3 +1,8 @@
+### 3.1.0
+
+* Add JS Typed Arrays @Titaye
+* Fix names of arguments in Testing.Assert @zanaptak
+
 ### 3.0.0
 
 * Add `JsInterop.importValueDynamic`

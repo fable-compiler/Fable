@@ -1,3 +1,8 @@
+### 2.3.25
+
+* Fix #1900: gen param names conflict
+* Fixed large String.join and concat @ncave 
+
 ### 2.3.24
 
 * Fix #1896: Don't dupe casting to untyped array @zanaptak

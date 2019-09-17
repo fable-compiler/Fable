@@ -351,7 +351,7 @@ module Publish =
             try
                 let tempDir = projDir </> "temp"
                 removeDirRecursive tempDir
-                runList ["dotnet pack"; projDir; sprintf "-c Release -o %s" tempDir]
+                runList ["dotnet pack"; projDir; sprintf "-c Release -o temp"]
                 let pkgName = filenameWithoutExtension projFile
                 let nupkg =
                     dirFiles tempDir
