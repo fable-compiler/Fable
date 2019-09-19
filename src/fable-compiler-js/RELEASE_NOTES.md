@@ -1,3 +1,7 @@
+### 1.0.6
+
+* fable-standalone 1.1.8
+
 ### 1.0.5
 
 * fable-standalone 1.1.5
