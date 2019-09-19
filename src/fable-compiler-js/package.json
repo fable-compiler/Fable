@@ -22,10 +22,10 @@
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "dependencies": {
-    "@babel/core": "^7.4.3",
-    "@babel/plugin-transform-modules-commonjs": "^7.4.3",
+    "@babel/core": "^7.6.0",
+    "@babel/plugin-transform-modules-commonjs": "^7.6.0",
     "fable-babel-plugins": "^2.2.0",
     "fable-metadata": "^1.1.2",
-    "fable-standalone": "^1.1.5"
+    "fable-standalone": "^1.1.8"
   }
 }
