@@ -833,6 +833,8 @@ module private PseudoElmish =
         setState = (fun m d -> setStateAccumulated <- setStateAccumulated + m)
     }
 
+let mul x y = x * y
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -1086,6 +1088,12 @@ let tests7 = [
         setState 2
         doMapCalled |> equal 1
         doMapResultCalled |> equal 2
+
+    testCase "OptimizedClosures.FSharpFunc<_,_,_>.Adapt works" <| fun () -> // See #1904
+        let f = OptimizedClosures.FSharpFunc<_,_,_>.Adapt (fun x y -> x + y)
+        f.Invoke(3, 4) |> equal 7
+        let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt mul
+        f2.Invoke(3, 4) |> equal 12
 ]
 
 let tests =

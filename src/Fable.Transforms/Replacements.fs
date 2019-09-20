@@ -2172,7 +2172,8 @@ let runtimeHelpers (_: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args 
 
 let funcs (_: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | "Adapt", _ -> List.tryHead args // TODO: What's this used for?
+    // Just use Emit to change the type of the arg, Fable will automatically uncurry the function
+    | "Adapt", _ -> emitJs r t args "$0" |> Some
     | "Invoke", Some callee ->
         Helper.Application(callee, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
