@@ -316,7 +316,7 @@ module JS =
       abstract values: unit -> obj
 
 
-    and Int8Array = TypedArray<uint8>
+    and Int8Array = TypedArray<int8>
 
     and Int8ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Int8Array
