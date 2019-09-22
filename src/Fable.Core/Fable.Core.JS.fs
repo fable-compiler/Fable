@@ -274,10 +274,12 @@ module JS =
       abstract length: int
       abstract copyWithin: targetStartIndex:int * start:int * ? ``end``:int -> unit
       abstract entries: unit -> obj
+      abstract keys: unit -> obj
+      abstract join: separator:string -> string
 
     and TypedArray<'T> =
       inherit TypedArray
-      abstract fill: value:obj * ?``begin``:int * ?``end``:int -> TypedArray<'T>
+      abstract fill: value:'T * ?``begin``:int * ?``end``:int -> TypedArray<'T>
       abstract filter: ('T -> int -> TypedArray<'T> -> bool) -> TypedArray<'T>
       abstract filter: ('T -> int -> bool) -> TypedArray<'T>
       abstract filter: ('T -> bool) -> TypedArray<'T>
@@ -292,8 +294,6 @@ module JS =
       abstract forEach: ('T -> bool) -> unit
       abstract includes: searchElement:'T * ?fromIndex:int -> bool
       abstract indexOf: searchElement:'T * ?fromIndex:int -> int
-      abstract join: separator:string -> string
-      abstract keys: unit -> obj
       abstract lastIndexOf: searchElement:'T * ?fromIndex:int -> int
       abstract map: ('T -> int -> TypedArray<'T> -> 'U) -> TypedArray<'U>
       abstract map: ('T -> int -> 'U) -> TypedArray<'U>
@@ -316,8 +316,7 @@ module JS =
       abstract values: unit -> obj
 
 
-    and Int8Array =
-      inherit TypedArray<Int8Array>
+    and Int8Array = TypedArray<uint8>
 
     and Int8ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Int8Array
@@ -326,8 +325,7 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Int8Array
 
 
-    and Uint8Array =
-      inherit TypedArray<Uint8Array>
+    and Uint8Array = TypedArray<uint8>
 
     and Uint8ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8Array
@@ -336,19 +334,16 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8Array
 
 
-    and Uint8ClampedArray =
-      inherit TypedArray<Uint8ClampedArray>
+    and Uint8ClampedArray = TypedArray<uint8>
 
     and Uint8ClampedArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8ClampedArray
       [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint8ClampedArray
       [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint8ClampedArray
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8ClampedArray
-      abstract slice: ?``begin``:int * ?``end``:int -> Uint8ClampedArrayConstructor
 
 
-    and Int16Array =
-      inherit TypedArray<Int16Array>
+    and Int16Array = TypedArray<int16>
 
     and Int16ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Int16Array
@@ -357,8 +352,7 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Int16Array
 
 
-    and Uint16Array =
-      inherit TypedArray<Uint16Array>
+    and Uint16Array = TypedArray<uint16>
 
     and Uint16ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Uint16Array
@@ -367,8 +361,7 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint16Array
 
 
-    and Int32Array =
-      inherit TypedArray<Int32Array>
+    and Int32Array = TypedArray<int32>
 
     and Int32ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Int32Array
@@ -377,8 +370,7 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Int32Array
 
 
-    and Uint32Array =
-      inherit TypedArray<Uint32Array>
+    and Uint32Array = TypedArray<uint32>
 
     and Uint32ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Uint32Array
@@ -387,8 +379,7 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint32Array
 
 
-    and Float32Array =
-      inherit TypedArray<Float32Array>
+    and Float32Array = TypedArray<float32>
 
     and Float32ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Float32Array
@@ -397,8 +388,7 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Float32Array
 
 
-    and Float64Array =
-      inherit TypedArray<Float64Array>
+    and Float64Array = TypedArray<float>
 
     and Float64ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> Float64Array
@@ -407,8 +397,7 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> Float64Array
 
 
-    and BigInt64Array =
-      inherit TypedArray<BigInt64Array>
+    and BigInt64Array = TypedArray<bigint>
 
     and BigInt64ArrayConstructor =
       [<Emit "new $0($1...)">] abstract Create: size: int -> BigInt64Array
@@ -417,14 +406,14 @@ module JS =
       [<Emit "new $0($1...)">] abstract Create: data:obj -> BigInt64Array
 
 
-    and BigUint64Array =
-      inherit TypedArray<BigUint64Array>
+    // no equivalent ?
+    //and BigUint64Array = TypedArray<BigUint64Array>
 
-    and BigUint64ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> BigUint64Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> BigUint64Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> BigUint64Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> BigUint64Array
+    // and BigUint64ArrayConstructor =
+    //   [<Emit "new $0($1...)">] abstract Create: size: int -> BigUint64Array
+    //   [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> BigUint64Array
+    //   [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> BigUint64Array
+    //   [<Emit "new $0($1...)">] abstract Create: data:obj -> BigUint64Array
 
 
     and [<AllowNullLiteral>] Console =
@@ -492,4 +481,4 @@ module JS =
     let [<Global>] Float32Array: Float32ArrayConstructor = jsNative
     let [<Global>] Float64Array: Float64ArrayConstructor = jsNative
     let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
-    let [<Global>] BigUint64Array: BigUint64ArrayConstructor = jsNative
+    // let [<Global>] BigUint64Array: BigUint64ArrayConstructor = jsNative
