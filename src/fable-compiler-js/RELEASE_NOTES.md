@@ -1,3 +1,8 @@
+### 1.1.0
+
+* fable-standalone 1.2.0
+* Define FABLE_COMPILER_JS constant
+
 ### 1.0.6
 
 * fable-standalone 1.1.8
