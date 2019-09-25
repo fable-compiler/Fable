@@ -4,16 +4,18 @@ init:
 build:
   verbosity: detailed
 
-environment:
-  nodejs_version: "10.15.0"
+# environment:
+#   nodejs_version: "10.16.3"
 
 # cache:
 #  - "%LOCALAPPDATA%\\Yarn"
 
 # Install scripts. (runs after repo cloning)
 install:
+  # Get the latest stable version of .NET Core
+  - cmd: choco install dotnetcore-sdk
   # Get the latest stable version of Node.js
-  - ps: Install-Product node $env:nodejs_version
+  - ps: choco install nodejs
   # # Update npm
   # # There seems to be issues with npm 5.4 in Windows
   # # See https://github.com/npm/npm/issues/18380

@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RollForward>Major</RollForward>
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
