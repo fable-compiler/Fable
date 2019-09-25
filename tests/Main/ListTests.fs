@@ -798,4 +798,18 @@ let tests =
              (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
              (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
              (4, 'd'); (4, 'e'); (4, 'f')]
+
+    // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
+    #if FABLE_COMPILER
+    testCase "Implicit yields work" <| fun () ->
+        let makeList condition =
+            [
+                1
+                2
+                if condition then
+                    3
+            ]
+        makeList true |> List.sum |> equal 6
+        makeList false |> List.sum |> equal 3
+    #endif
   ]
