@@ -1,4 +1,4 @@
-### 2.4.1
+### 2.4.2
 
 * Build Fable.Cli with dotnet SDK 3 (but still target netcoreapp2.1)
 

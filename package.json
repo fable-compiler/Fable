@@ -18,7 +18,7 @@
     "concurrently": "^4.1.2",
     "download-cli": "^1.1.1",
     "fable-babel-plugins": "^2.2.0",
-    "fable-compiler": "^2.4.1",
+    "fable-compiler": "^2.4.2",
     "fable-compiler-js": "^1.0.5",
     "fable-loader": "^2.1.8",
     "fable-splitter": "^2.1.11",

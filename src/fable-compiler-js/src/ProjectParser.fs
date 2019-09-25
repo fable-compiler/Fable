@@ -31,7 +31,7 @@ let parseCompilerOptions projectText =
     let defines =
         Regex.Matches(projectText,  @"<DefineConstants[^>]*>([^<]*)<\/DefineConstants[^>]*>")
         |> Seq.collect (fun m -> m.Groups.[1].Value.Split(';'))
-        |> Seq.append ["FABLE_COMPILER"]
+        |> Seq.append ["FABLE_COMPILER"; "FABLE_COMPILER_JS"]
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
         |> Seq.except ["$(DefineConstants)"; ""]
@@ -93,7 +93,7 @@ let parseProjectScript projectFileName =
             | _ -> dllRefs, srcFiles)
     let projectRefs = [||]
     let sourceFiles = Array.append srcFiles [|Path.GetFileName projectFileName|]
-    let otherOptions = [| "--define:FABLE_COMPILER" |]
+    let otherOptions = [| "--define:FABLE_COMPILER"; "--define:FABLE_COMPILER_JS" |]
     (dllRefs, projectRefs, sourceFiles, otherOptions)
 
 let parseProjectFile projectFileName =

@@ -83,7 +83,7 @@ let buildCompiler() =
     cleanDirs [projectDir </> "dist"; projectDir </> "bin"]
     buildTypescript projectDir
     updateVersionInCliUtil()
-    run "dotnet publish -c Release -o ../fable-compiler/bin/fable-cli src/Fable.Cli/Fable.Cli.fsproj"
+    run "dotnet publish -c Release -o src/fable-compiler/bin/fable-cli src/Fable.Cli/Fable.Cli.fsproj"
     buildLibrary()
     copyDirRecursive libraryDir (projectDir </> "bin/fable-library")
 

@@ -800,7 +800,7 @@ let tests =
              (4, 'd'); (4, 'e'); (4, 'f')]
 
     // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
-    #if FABLE_COMPILER
+    #if FABLE_COMPILER && !FABLE_COMPILER_JS
     testCase "Implicit yields work" <| fun () ->
         let makeList condition =
             [
