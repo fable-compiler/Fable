@@ -1,3 +1,8 @@
+### 2.4.0
+
+* Support F# 4.7 (implicit yields) @ncave
+* Fix #1910: Roll forward major version to run on dotnet SDK 3 @forki
+
 ### 2.3.25
 
 * Fix #1900: gen param names conflict

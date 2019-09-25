@@ -1,3 +1,7 @@
+### 3.1.1
+
+* Fix TypedArray bindings @Titaye
+
 ### 3.1.0
 
 * Add JS Typed Arrays @Titaye
