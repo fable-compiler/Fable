@@ -558,7 +558,7 @@ let tests =
 
         async {
             do! basicTimer2
-            printfn "%i" acc
+            // printfn "%i" acc
             acc > 2 |> equal true
         }
   ]

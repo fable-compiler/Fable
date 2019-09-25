@@ -9,6 +9,6 @@
     "bench-dotnet": "dotnet run -c Release -p bench/fcs-fable-bench.fsproj ../fcs-fable.fsproj"
   },
   "devDependencies": {
-    "fable-compiler-js": "^1.0.4"
+    "fable-compiler-js": "^1.0.5"
   }
 }

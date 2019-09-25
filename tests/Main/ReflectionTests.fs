@@ -186,11 +186,8 @@ type A() = member __.Value = 5
 
 type B() = member __.Value = 10
 
-// TODO: Remove this when upgrading dotnet SDK to support anonymous records
-#if FABLE_COMPILER
 type AnonRec1 = {| name: string; child: {| name: string |} |}
 type AnonRec2 = {| numbers: int list |}
-#endif
 
 let reflectionTests = [
   testCase "Reflection: Array" <| fun () ->
@@ -257,8 +254,6 @@ let reflectionTests = [
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
-// TODO: Remove this when upgrading dotnet SDK to support anonymous records
-#if FABLE_COMPILER
   testCase "Comparing anonymous record types works" <| fun () ->
       let x = {| numbers = [3; 4] |}
       typeof<AnonRec1> = typeof<AnonRec2> |> equal false
@@ -294,7 +289,6 @@ let reflectionTests = [
     FSharpValue.MakeRecord(typ, recordValueFields)
     |> unbox<{| String: string; Int: int |}>
     |> equal record
-#endif
 
   testCase "FSharp.Reflection Functions" <| fun () ->
     let recordType = typeof<RecordF>

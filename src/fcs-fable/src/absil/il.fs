@@ -432,11 +432,7 @@ type ILAssemblyRef(data) =
     member aref.QualifiedName =
         let b = StringBuilder(100)
         let add (s: string) = b.Append s |> ignore
-#if FABLE_COMPILER
-        let addC (s: char) = b.Append(string s) |> ignore
-#else
         let addC (s: char) = b.Append s |> ignore
-#endif
         add aref.Name
         match aref.Version with
         | None -> ()

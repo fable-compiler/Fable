@@ -7,12 +7,9 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_CORHOST_SIGNER</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_NO_LINKEDRESOURCES</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_PDB_READER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_PDB_WRITER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
-    <DefineConstants>$(DefineConstants);FX_REDUCED_EXCEPTIONS</DefineConstants>
-    <DefineConstants>$(DefineConstants);NO_COMPILER_BACKEND</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_EXTENSIONTYPING</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
     <OtherFlags>$(OtherFlags) --warnon:1182</OtherFlags>
@@ -27,18 +24,18 @@
     <Compile Include="System.IO.fs" />
     <!-- string resources -->
     <Compile Include="FSStrings.fs" />
-    <Compile Include="XmlAdapters.fs" />
     <Compile Include="SR.fs" />
     <Compile Include="codegen/FSComp.fs" />
     <Compile Include="codegen/FSIstrings.fs" />
     <!-- <Compile Include="../FSharp.Compiler.Service/AssemblyInfo.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/Logger.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/Logger.fs" />
-    <!-- <Compile Include="$(FSharpSourcesRoot)/utils/reshapedreflection.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/utils/sformat.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/utils/sformat.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/sr.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/sr.fs" /> -->
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/LanguageFeatures.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/LanguageFeatures.fs" />
     <Compile Include="$(FSharpSourcesRoot)/utils/prim-lexing.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/utils/prim-lexing.fs" />
     <Compile Include="$(FSharpSourcesRoot)/utils/prim-parsing.fsi" />
@@ -64,6 +61,7 @@
     <Compile Include="$(FSharpSourcesRoot)/absil/zset.fs" />
     <Compile Include="$(FSharpSourcesRoot)/absil/bytes.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/absil/bytes.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/XmlAdapters.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/lib.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/InternalCollections.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/InternalCollections.fs" />
@@ -84,6 +82,8 @@
     <Compile Include="$(FSharpSourcesRoot)/absil/ilmorph.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/absil/ilmorph.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilsign.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilnativeres.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilnativeres.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilsupp.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilsupp.fs" /> -->
     <!-- <Compile Include="codegen/ilpars.fs" /> -->
@@ -97,6 +97,7 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilwrite.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilwrite.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/absil/ilreflect.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/utils/reshapedmsbuild.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ReferenceResolver.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/SimulatedMSBuildReferenceResolver.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/utils/CompilerLocationUtils.fs" /> -->

@@ -5,7 +5,7 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let references = Metadata.references_core
-let metadataPath = "/temp/repl/metadata2/" // .NET BCL binaries
+let metadataPath = "/Projects/Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 let printErrors showWarnings (errors: FSharpErrorInfo[]) =
     let isWarning (e: FSharpErrorInfo) =

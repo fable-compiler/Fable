@@ -21,6 +21,7 @@ open FSharp.Compiler.CompileOptions
 open FSharp.Compiler.Driver
 #endif
 open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.Features
 open FSharp.Compiler.Lib
 open FSharp.Compiler.Range
 open FSharp.Compiler.TcGlobals 

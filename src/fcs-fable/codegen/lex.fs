@@ -22,6 +22,7 @@ open FSharp.Compiler
 open FSharp.Compiler.Range
 open FSharp.Compiler.Ast
 open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.Features
 open FSharp.Compiler.Parser
 open FSharp.Compiler.Lexhelp
 open FSharp.Compiler.Lib
@@ -66,13 +67,11 @@ let get0OXB (s:string) (p:int) l =
 
 let formatError() = raise (new System.FormatException(SR.GetString("bad format string")))
 
-let parseBinaryUInt64 (s:string) p l = 
-    let rec parse n acc = if n < l then parse (n+1) (acc * 2UL + (match s.[n] with '0' -> 0UL | '1' -> 1UL | _ -> formatError())) else acc 
-    parse p 0UL
+let parseBinaryUInt64 (s:string) = 
+    Convert.ToUInt64(s, 2)
 
-let parseOctalUInt64 (s:string) p l = 
-    let rec parse n acc = if n < l then parse (n+1) (acc * 8UL + (let c = s.[n] in if c >= '0' && c <= '7' then Convert.ToUInt64 c - Convert.ToUInt64 '0' else formatError())) else acc 
-    parse p 0UL
+let parseOctalUInt64 (s:string) =
+    Convert.ToUInt64(s, 8)
 
 let removeUnderscores (s:string) =
     match s with
@@ -82,24 +81,23 @@ let removeUnderscores (s:string) =
 let parseInt32 (s:string) = 
     let s = removeUnderscores s
     let l = s.Length 
+#if FABLE_COMPILER
     let p = 0 
     let sign, p = getSign32 s p l 
     let specifier, p = get0OXB s p l 
-#if FX_RESHAPED_GLOBALIZATION
-    match CultureInfo.InvariantCulture.TextInfo.ToLower(specifier) with 
-#else
     match Char.ToLowerInvariant(specifier) with 
-#endif
-#if FABLE_COMPILER
     | 'x' -> sign * Convert.ToInt32(s.Substring(p), 16)
-#else
-    | 'x' -> sign * (int32 (uint32(UInt64.Parse(s.Substring(p), NumberStyles.AllowHexSpecifier,CultureInfo.InvariantCulture))))
-#endif
-    | 'b' -> sign * (int32 (uint32(parseBinaryUInt64 s p l)))
-    | 'o' -> sign * (int32 (uint32(parseOctalUInt64 s p l)))
-#if FABLE_COMPILER
+    | 'b' -> sign * (int32 (Convert.ToUInt32(parseBinaryUInt64 (s.Substring(p)))))
+    | 'o' -> sign * (int32 (Convert.ToUInt32(parseOctalUInt64  (s.Substring(p)))))
     | _ -> Convert.ToInt32(s)
 #else
+    let mutable p = 0 
+    let sign = getSign32 s &p l 
+    let specifier = get0OXB s &p l 
+    match Char.ToLower(specifier,CultureInfo.InvariantCulture) with 
+    | 'x' -> sign * (int32 (Convert.ToUInt32(UInt64.Parse(s.Substring(p), NumberStyles.AllowHexSpecifier,CultureInfo.InvariantCulture))))
+    | 'b' -> sign * (int32 (Convert.ToUInt32(parseBinaryUInt64 (s.Substring(p)))))
+    | 'o' -> sign * (int32 (Convert.ToUInt32(parseOctalUInt64  (s.Substring(p)))))
     | _ -> Int32.Parse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture)
 #endif
      
@@ -154,19 +152,21 @@ let tryAppendXmlDoc (buff:option<System.Text.StringBuilder>) (s:string) =
 let shouldStartLine args lexbuf (m:range) err tok = 
     if (m.StartColumn <> 0) then fail args lexbuf err tok
     else tok
-    
+
 let shouldStartFile args lexbuf (m:range) err tok = 
     if (m.StartColumn <> 0 || m.StartLine <> 1) then fail args lexbuf err tok
     else tok
-    
-let evalIfDefExpression startPos args (lookup:string->bool) (lexed:string) =
-    let lexbuf          = LexBuffer<_>.FromString (lexed)
+
+let evalIfDefExpression startPos isFeatureSupported args (lookup:string->bool) (lexed:string) =
+#if FABLE_COMPILER
+    let lexbuf          = LexBuffer<_>.FromString (isFeatureSupported, lexed)
+#else
+    let lexbuf          = LexBuffer<char>.FromChars (isFeatureSupported, lexed.ToCharArray ())
+#endif
     lexbuf.StartPos     <- startPos
     lexbuf.EndPos       <- startPos
     let tokenStream     = FSharp.Compiler.PPLexer.tokenstream args
-
     let expr            = FSharp.Compiler.PPParser.start tokenStream lexbuf
-
     LexerIfdefEval lookup expr
 
 
@@ -2450,7 +2450,7 @@ and token args skip lexbuf =
                     let m = lexbuf.LexemeRange   
                     let lookup id = List.contains id args.defines
                     let lexed = lexeme lexbuf
-                    let isTrue = evalIfDefExpression lexbuf.StartPos args lookup lexed
+                    let isTrue = evalIfDefExpression lexbuf.StartPos lexbuf.SupportsFeature args lookup lexed
                     args.ifdefStack := (IfDefIf,m) :: !(args.ifdefStack)
                     
                     // Get the token; make sure it starts at zero position & return

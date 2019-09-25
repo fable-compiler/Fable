@@ -258,8 +258,8 @@ module TcImports =
         let tcGlobals = TcGlobals (
                             tcConfig.compilingFslib, ilGlobals, fslibCcu.FSharpViewOfMetadata,
                             tcConfig.implicitIncludeDir, tcConfig.mlCompatibility,
-                            tcConfig.isInteractive, tryFindSysTypeCcu,
-                            tcConfig.emitDebugInfoInQuotations, tcConfig.noDebugData, tcConfig.pathMap)
+                            tcConfig.isInteractive, tryFindSysTypeCcu, tcConfig.emitDebugInfoInQuotations,
+                            tcConfig.noDebugData, tcConfig.pathMap, tcConfig.langVersion)
 
 #if DEBUG
         // the global_g reference cell is used only for debug printing

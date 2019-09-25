@@ -800,7 +800,7 @@ let tests =
              (4, 'd'); (4, 'e'); (4, 'f')]
 
     // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
-    #if FABLE_COMPILER && !FABLE_COMPILER_JS
+    // #if FABLE_COMPILER
     testCase "Implicit yields work" <| fun () ->
         let makeList condition =
             [
@@ -811,5 +811,5 @@ let tests =
             ]
         makeList true |> List.sum |> equal 6
         makeList false |> List.sum |> equal 3
-    #endif
+    // #endif
   ]

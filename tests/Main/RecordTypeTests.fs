@@ -35,20 +35,16 @@ type Id = Id of string
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
 
-// TODO: Remove this (and the one below) when dotnet tests support anonymous records
-#if FABLE_COMPILER
 let makeAnonRec() =
     {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
 
 type Time =
     static member inline duration(value: {| from: int; until: int |}) = value.until - value.from
     static member inline duration(value: {| from: int |}) = Time.duration {| value with until = 10 |}
-#endif
 
 let tests =
   testList "RecordTypes" [
 
-#if FABLE_COMPILER
     testCase "Anonymous records work" <| fun () ->
         let r = makeAnonRec()
         sprintf "Tell me %s %i times" r.Y (r.F r.X 3)
@@ -79,7 +75,6 @@ let tests =
         record.A |> equal 5
         record.B |> equal 11
         record.C |> equal 6
-#endif
 
     testCase "Recursive record does not cause issues" <| fun () ->
         let r = { things = [ { things = [] } ] }

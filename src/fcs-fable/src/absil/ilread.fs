@@ -20,8 +20,8 @@ open Internal.Utilities
 open Internal.Utilities.Collections
 open FSharp.Compiler.AbstractIL 
 open FSharp.Compiler.AbstractIL.Internal 
-#if !FX_NO_PDB_READER
-open FSharp.Compiler.AbstractIL.Internal.Support 
+#if !FABLE_COMPILER
+open FSharp.Compiler.AbstractIL.Internal.Support
 #endif
 open FSharp.Compiler.AbstractIL.Diagnostics 
 open FSharp.Compiler.AbstractIL.Internal.BinaryConstants 
@@ -1591,17 +1591,15 @@ let readBlobHeapAsDouble ctxt vidx = fst (sigptrGetDouble (readBlobHeap ctxt vid
 let readNativeResources (pectxt: PEReader) = 
     [ if pectxt.nativeResourcesSize <> 0x0 && pectxt.nativeResourcesAddr <> 0x0 then 
         let start = pectxt.anyV2P (pectxt.fileName + ": native resources", pectxt.nativeResourcesAddr)
+#if !FABLE_COMPILER
         if pectxt.noFileOnDisk then
-#if !FX_NO_LINKEDRESOURCES
             let unlinkedResource =
                 let linkedResource = seekReadBytes (pectxt.pefile.GetView()) start pectxt.nativeResourcesSize
                 unlinkResource pectxt.nativeResourcesAddr linkedResource
             yield ILNativeResource.Out unlinkedResource
-#else
-            ()
-#endif
         else
-            yield ILNativeResource.In (pectxt.fileName, pectxt.nativeResourcesAddr, start, pectxt.nativeResourcesSize ) ]
+#endif
+        yield ILNativeResource.In (pectxt.fileName, pectxt.nativeResourcesAddr, start, pectxt.nativeResourcesSize ) ]
 
 
 let getDataEndPointsDelayed (pectxt: PEReader) ctxtH = 

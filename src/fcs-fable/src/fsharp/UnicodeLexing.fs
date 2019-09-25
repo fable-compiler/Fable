@@ -7,22 +7,27 @@ module internal FSharp.Compiler.UnicodeLexing
 //
 
 open FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.Features
 open Internal.Utilities
-open System.IO 
+open System.IO
 
 open Internal.Utilities.Text.Lexing
 
 type Lexbuf = LexBuffer<LexBufferChar>
 
-let StringAsLexbuf =
-    Lexbuf.FromString
-  
-let FunctionAsLexbuf (bufferFiller: LexBufferChar[] * int * int -> int) : Lexbuf =
-    LexBuffer<LexBufferChar>.FromFunction bufferFiller
+let StringAsLexbuf (supportsFeature: Features.LanguageFeature -> bool, s:string) : Lexbuf =
+#if FABLE_COMPILER
+    LexBuffer<_>.FromString (supportsFeature, s)
+#else
+    LexBuffer<_>.FromChars (supportsFeature, s.ToCharArray())
+#endif
 
-let SourceTextAsLexbuf sourceText =
-    LexBuffer<char>.FromSourceText sourceText
-     
+let FunctionAsLexbuf (supportsFeature: Features.LanguageFeature -> bool, bufferFiller: LexBufferChar[] * int * int -> int) : Lexbuf =
+    LexBuffer<_>.FromFunction(supportsFeature, bufferFiller)
+
+let SourceTextAsLexbuf (supportsFeature: Features.LanguageFeature -> bool, sourceText) =
+    LexBuffer<char>.FromSourceText(supportsFeature, sourceText)
+
 #if !FABLE_COMPILER
 
 // The choice of 60 retries times 50 ms is not arbitrary. The NTFS FILETIME structure 
@@ -43,7 +48,7 @@ let numRetries = 60
 /// we can't just return the LexBuffer object, since the file it wraps wouldn't
 /// get closed when we're finished with the LexBuffer. Hence we return the stream,
 /// the reader and the LexBuffer. The caller should dispose the first two when done.
-let UnicodeFileAsLexbuf (filename,codePage : int option, retryLocked:bool) :  Lexbuf =
+let UnicodeFileAsLexbuf (supportsFeature: Features.LanguageFeature -> bool, filename, codePage: int option, retryLocked: bool): Lexbuf =
     // Retry multiple times since other processes may be writing to this file.
     let rec getSource retryNumber =
       try 
@@ -70,7 +75,11 @@ let UnicodeFileAsLexbuf (filename,codePage : int option, retryLocked:bool) :  Le
                else 
                    reraise()
     let source = getSource 0
-    let lexbuf = LexBuffer<_>.FromString (source)
+#if FABLE_COMPILER
+    let lexbuf = LexBuffer<_>.FromString (supportsFeature, source)
+#else
+    let lexbuf = LexBuffer<_>.FromChars(supportsFeature, source.ToCharArray())  
+#endif
     lexbuf
 
 #endif

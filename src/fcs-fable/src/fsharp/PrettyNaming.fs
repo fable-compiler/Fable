@@ -176,7 +176,7 @@ module public FSharp.Compiler.PrettyNaming
                     | true, x ->
                         sb.Append(x) |> ignore
                     | false, _ ->
-                        sb.Append(string c) |> ignore
+                        sb.Append(c) |> ignore
 
                 /// The compiled (mangled) operator name.
                 let opName = sb.ToString ()
@@ -259,7 +259,7 @@ module public FSharp.Compiler.PrettyNaming
                             // 'opCharName' matched the current position in 'opName'.
                             // Append the corresponding operator character to the StringBuilder
                             // and continue decompiling at the index following this instance of 'opCharName'.
-                            sb.Append (string opChar) |> ignore
+                            sb.Append (opChar) |> ignore
                             decompile sb (idx + opCharName.Length)
 
                 let opNamePrefixLen = opNamePrefix.Length
