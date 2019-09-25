@@ -1,3 +1,4 @@
+// tslint:disable:max-line-length
 import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util";
 
@@ -121,7 +122,6 @@ export function toString(ts: number, format = "c") {
   const s = Math.abs(seconds(ts));
   const ms = Math.abs(milliseconds(ts));
   const sign = ts < 0 ? "-" : "";
-  // tslint:disable-next-line:max-line-length
   return `${sign}${d === 0 && (format === "c" || format === "g") ? "" : format === "c" ? d + "." : d + ":" }${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 && (format === "c" || format === "g") ? "" : format === "g" ? "." + padWithZeros(ms, 3) : "." + padLeftAndRightWithZeros(ms, 3, 7)}`;
 }
 
@@ -131,14 +131,13 @@ export function parse(str: string) {
   if (firstDot === -1 && firstColon === -1 ) { // There is only a day ex: 4
     const d = parseInt(str, 0);
     if (isNaN(d)) {
-      throw new Error("String was not recognized as a valid TimeSpan.");
+      throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
     } else {
       return create(d, 0, 0, 0, 0);
     }
   }
   if (firstColon > 0) { // process time part
     // WIP: (-?)(((\d+)\.)?([0-9]|0[0-9]|1[0-9]|2[0-3]):(\d+)(:\d+(\.\d{1,7})?)?|\d+(?:(?!\.)))
-    // tslint:disable-next-line:max-line-length
     const r = /^(-?)((\d+)\.)?(?:0*)([0-9]|0[0-9]|1[0-9]|2[0-3]):(?:0*)([0-5][0-9]|[0-9])(:(?:0*)([0-5][0-9]|[0-9]))?\.?(\d+)?$/.exec(str);
     if (r != null && r[4] != null && r[5] != null) {
       let d = 0;
@@ -178,13 +177,13 @@ export function parse(str: string) {
                 ms = +r[8] / 10000;
                 break;
             default:
-                throw new Error("String was not recognized as a valid TimeSpan.");
+                throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
         }
       }
       return sign * create(d, h, m, s, ms);
     }
   }
-  throw new Error("String was not recognized as a valid TimeSpan.");
+  throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
 }
 
 export function tryParse(v: any): [boolean, number] {

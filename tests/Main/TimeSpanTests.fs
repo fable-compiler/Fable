@@ -271,7 +271,7 @@ let tests =
         // https://github.com/dotnet/dotnet-api-docs/blob/7f6a3882631bc008b858adfadb43cd17bbd55d49/xml/System/TimeSpan.xml#L2772
         testCase "TimeSpan 24:0:0 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("24:0:0"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '24:0:0' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 24:0:0 TryParse fails" <| fun () ->
             let status, _ = TimeSpan.TryParse("24:0:0")
@@ -286,13 +286,13 @@ let tests =
         testCase "TimeSpan 0:60:0 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("0:60:0"))
 #if FABLE_COMPILER
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '0:60:0' was not recognized as a valid TimeSpan."
 #else
-            |> Util.throwsError "The TimeSpan could not be parsed because at least one of the numeric components is out of range or contains too many digits."
+            |> Util.throwsError "The TimeSpan string '0:60:0' could not be parsed because at least one of the numeric components is out of range or contains too many digits."
 #endif
         testCase "TimeSpan 10: parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10:"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10:' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 10:0 parse works" <| fun () ->
             let actual = TimeSpan.Parse("10:0")
@@ -301,7 +301,7 @@ let tests =
 
         testCase "TimeSpan 10:20: parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10:20:"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10:20:' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 10:20:0 parse works" <| fun () ->
             let actual = TimeSpan.Parse("10:20:0")
@@ -310,7 +310,7 @@ let tests =
 
         testCase "TimeSpan .123 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse(".123"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '.123' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 0.12:00 parse works" <| fun () ->
             let actual = TimeSpan.Parse("0.12:00")
@@ -319,11 +319,11 @@ let tests =
 
         testCase "TimeSpan 10. parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10."))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10.' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 10.12 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10.12"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10.12' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 10.12:00 parse works" <| fun () ->
             let actual = TimeSpan.Parse("10.12:00")

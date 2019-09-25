@@ -1,18 +1,26 @@
 language: csharp
 os: linux
-dist: trusty
-sudo: false
-dotnet: 2.1.403
+dist: xenial
+sudo: required
+# dotnet: 3.0.100
 mono: none
 
 # cache:
 #   yarn: true
 
+addons:
+  snaps:
+  - name: dotnet-sdk
+    classic: true
+    channel: latest/stable
+
 before_script:
-  - nvm install 10.15.0
-  - nvm use 10.15.0
+  - sudo snap alias dotnet-sdk.dotnet dotnet
+  - nvm install 10.16.3
+  - nvm use 10.16.3
   # # Update npm
   # - npm install -g npm
 
 script:
+  - dotnet --version
   - npm install && npm test
