@@ -1,3 +1,7 @@
+### 2.4.1
+
+* Build Fable.Cli with dotnet SDK 3 (but still target netcoreapp2.1)
+
 ### 2.4.0
 
 * Support F# 4.7 (implicit yields) @ncave
