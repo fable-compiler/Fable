@@ -240,6 +240,6 @@ let tests =
     testCase "conversion from array works with duplicates" <| fun () ->
         let dic = [| "A",1; "A",3; "B",2|] |> dict
         dic.Values.Count
-        |> equal 2        
+        |> equal 2
 
   ]
