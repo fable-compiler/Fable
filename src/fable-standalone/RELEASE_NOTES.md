@@ -1,3 +1,7 @@
+### 1.2.1
+
+* Enable passing otherFSharpOptions
+
 ### 1.2.0
 
 * fable-compiler 2.4.2
