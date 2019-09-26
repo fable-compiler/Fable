@@ -80,7 +80,7 @@ let parseFiles projectFileName outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
     let libDir = getFableLibDir() |> normalizeFullPath

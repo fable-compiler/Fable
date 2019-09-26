@@ -25,18 +25,13 @@ let mapError (error: FSharpErrorInfo) =
             | FSharpErrorSeverity.Warning -> true
     }
 
-type ParseResults (optimizedProject: Lazy<Project>,
-                   unoptimizedProject: Lazy<Project>,
+type ParseResults (project: Lazy<Project>,
                    parseFileResultsOpt: FSharpParseFileResults option,
                    checkFileResultsOpt: FSharpCheckFileResults option,
                    checkProjectResults: FSharpCheckProjectResults,
                    otherFSharpOptions: string[]) =
 
-    member __.GetProject (optimized: bool) =
-        if optimized
-        then optimizedProject.Force()
-        else unoptimizedProject.Force()
-
+    member __.GetProject () = project.Force()
     member __.ParseFileResultsOpt = parseFileResultsOpt
     member __.CheckFileResultsOpt = checkFileResultsOpt
     member __.CheckProjectResults = checkProjectResults
@@ -122,9 +117,10 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
         Stamp = None }
     projOptions
 
-let makeProject projectOptions (projectResults: FSharpCheckProjectResults) optimized =
+let makeProject (projectOptions: FSharpProjectOptions) (projectResults: FSharpCheckProjectResults) =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
+    let optimized = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
     let implFiles =
         (if optimized
         then projectResults.GetOptimizedAssemblyContents()
@@ -137,23 +133,20 @@ let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName sou
     let parseResults, checkResults, projectResults =
         checker.ParseAndCheckScript (projectFileName, fileName, source)
     let projectOptions = makeProjOptions projectFileName [| fileName |] otherFSharpOptions
-    let optimizedProject = lazy (makeProject projectOptions projectResults true)
-    let unoptimizedProject = lazy (makeProject projectOptions projectResults false)
-    ParseResults (optimizedProject, unoptimizedProject, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
+    let project = lazy (makeProject projectOptions projectResults)
+    ParseResults (project, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
 
 let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
     let projectResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
-    let optimizedProject = lazy (makeProject projectOptions projectResults true)
-    let unoptimizedProject = lazy (makeProject projectOptions projectResults false)
-    ParseResults (optimizedProject, unoptimizedProject, None, None, projectResults, otherFSharpOptions)
+    let project = lazy (makeProject projectOptions projectResults)
+    ParseResults (project, None, None, projectResults, otherFSharpOptions)
 
 let parseFSharpFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources otherFSharpOptions =
     let parseResults, checkResultsOpt, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
-    let optimizedProject = lazy (makeProject projectOptions projectResults true)
-    let unoptimizedProject = lazy (makeProject projectOptions projectResults false)
-    ParseResults (optimizedProject, unoptimizedProject, Some parseResults, checkResultsOpt, projectResults, otherFSharpOptions)
+    let project = lazy (makeProject projectOptions projectResults)
+    ParseResults (project, Some parseResults, checkResultsOpt, projectResults, otherFSharpOptions)
 
 let tooltipToString (el: FSharpToolTipElement<string>): string[] =
     let dataToString (data: FSharpToolTipElementData<string>) =
@@ -224,7 +217,7 @@ let makeCompiler fableLibrary fileName (project: Project) precompiledLib (otherF
     let options: Fable.CompilerOptions =
         { typedArrays = true
           clampByteArrays = false
-          debugMode = otherFSharpOptions |> Array.exists ((=) "--define:DEBUG")
+          debugMode = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
           verbosity = Fable.Verbosity.Normal
           outputPublicInlinedFunctions = false
           precompiledLib = precompiledLib }
@@ -238,10 +231,6 @@ let compileAst (com: Compiler) (project: Project) =
 
 let init () =
   { new IFableManager with
-        member __.CreateChecker(references, readAllBytes, defines, optimize) =
-            InteractiveChecker.Create(references, readAllBytes, defines, optimize)
-            |> CheckerImpl :> IChecker
-
         member __.CreateChecker(references, readAllBytes, otherOptions) =
             InteractiveChecker.Create(references, readAllBytes, otherOptions)
             |> CheckerImpl :> IChecker
@@ -281,9 +270,9 @@ let init () =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string, optimized: bool, ?precompiledLib) =
+        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string, ?precompiledLib) =
             let res = parseResults :?> ParseResults
-            let project = res.GetProject (optimized)
+            let project = res.GetProject()
             let com = makeCompiler fableLibrary fileName project precompiledLib parseResults.OtherFSharpOptions
             let ast = compileAst com project
             let errors =
@@ -310,9 +299,9 @@ let init () =
                 member __.BabelAst = ast :> obj
                 member __.FableErrors = errors }
 
-        member __.FSharpAstToString(parseResults:IParseResults, fileName:string, optimized: bool) =
+        member __.FSharpAstToString(parseResults:IParseResults, fileName:string) =
             let res = parseResults :?> ParseResults
-            let project = res.GetProject (optimized)
+            let project = res.GetProject()
             let implFile = project.ImplementationFiles.Item(fileName)
             AstPrint.printFSharpDecls "" implFile.Declarations |> String.concat "\n"
   }

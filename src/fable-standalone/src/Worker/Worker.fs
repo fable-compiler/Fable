@@ -34,20 +34,26 @@ type FableState =
       Checker: IChecker
       BabelAstCompiler: obj->string
       LoadTime: float
-      LibMap: obj }
+      LibMap: obj
+      References: string[]
+      Reader: string->byte[]
+      OtherFSharpOptions: string[] }
+
+type FableStateConfig =
+    | Init of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * libJsonUrl: string option
+    | Initialized of FableState
 
 type State =
     { Fable: FableState option
       Worker: ObservableWorker<WorkerRequest>
       CurrentResults: IParseResults option }
 
-let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
-    let! msg = box.Receive()
-    match state.Fable, msg with
-    | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl) ->
-        let getBlobUrl name =
-            refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
-        try
+let makeFableState (config: FableStateConfig) otherFSharpOptions =
+    async {
+        match config with
+        | Init(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl) ->
+            let getBlobUrl name =
+                refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
             let manager = FableInit.init()
             let! babelCompiler = getBabelAstCompiler() |> Async.AwaitPromise
             let! libMap =
@@ -57,13 +63,36 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let references = Array.append Fable.Standalone.Metadata.references_core extraRefs
             let! reader = getAssemblyReader(getBlobUrl, references) |> Async.AwaitPromise
             let (checker, checkerTime) = measureTime (fun () ->
-                manager.CreateChecker(references, reader, [||], false)) ()
+                manager.CreateChecker(references, reader, otherFSharpOptions)) ()
+            return { Manager = manager
+                     Checker = checker
+                     BabelAstCompiler = babelCompiler
+                     LoadTime = checkerTime
+                     LibMap = libMap
+                     References = references
+                     Reader = reader
+                     OtherFSharpOptions = otherFSharpOptions }
+
+        | Initialized fable ->
+            // We don't need to recreate the checker
+            if fable.OtherFSharpOptions = otherFSharpOptions then
+                return fable
+            else
+                let (checker, checkerTime) = measureTime (fun () ->
+                    fable.Manager.CreateChecker(fable.References, fable.Reader, otherFSharpOptions)) ()
+                return { fable with Checker = checker
+                                    LoadTime = checkerTime
+                                    OtherFSharpOptions = otherFSharpOptions }   
+    }   
+              
+let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
+    let! msg = box.Receive()
+    match state.Fable, msg with
+    | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl, otherFSharpOptions) ->
+        try
+            let! fable = makeFableState (Init(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl)) otherFSharpOptions
             state.Worker.Post Loaded
-            return! loop box { state with Fable = Some { Manager = manager
-                                                         Checker = checker
-                                                         BabelAstCompiler = babelCompiler
-                                                         LoadTime = checkerTime
-                                                         LibMap = libMap } }
+            return! loop box { state with Fable = Some fable }
         with err ->
             JS.console.error("Cannot create F# checker", err)
             state.Worker.Post LoadFailed
@@ -74,15 +103,19 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     | Some _, CreateChecker _ -> return! loop box state
 
     | Some fable, ParseCode(fsharpCode, otherFSharpOptions) ->
+        // Check if we need to recreate the FableState because otherFSharpOptions have changed
+        let! fable = makeFableState (Initialized fable) otherFSharpOptions
         let res = fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)
         ParsedCode res.Errors |> state.Worker.Post
         return! loop box { state with CurrentResults = Some res }
 
-    | Some fable, CompileCode(fsharpCode, otherFSharpOptions, optimize) ->
+    | Some fable, CompileCode(fsharpCode, otherFSharpOptions) ->
         try
+            // Check if we need to recreate the FableState because otherFSharpOptions have changed
+            let! fable = makeFableState (Initialized fable) otherFSharpOptions
             let (parseResults, parsingTime) = measureTime (fun () -> fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             let (res, fableTransformTime) = measureTime (fun () ->
-                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, optimize, fun x -> resolveLibCall(fable.LibMap, x))) ()
+                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, fun x -> resolveLibCall(fable.LibMap, x))) ()
             let (jsCode, babelTime, babelErrors) =
                 try
                     let code, t = measureTime fable.BabelAstCompiler res.BabelAst
