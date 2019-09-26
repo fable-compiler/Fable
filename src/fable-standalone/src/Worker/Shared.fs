@@ -9,8 +9,8 @@ open Thoth.Json
 type WorkerRequest =
     /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
     | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * libJsonUrl: string option
-    | ParseCode of fsharpCode: string
-    | CompileCode of fsharpCode: string * optimize: bool
+    | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
+    | CompileCode of fsharpCode: string * otherFSharpOptions: string[] * optimize: bool
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string

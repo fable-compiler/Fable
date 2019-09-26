@@ -73,14 +73,14 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     | None, _
     | Some _, CreateChecker _ -> return! loop box state
 
-    | Some fable, ParseCode fsharpCode ->
-        let res = fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode)
+    | Some fable, ParseCode(fsharpCode, otherFSharpOptions) ->
+        let res = fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)
         ParsedCode res.Errors |> state.Worker.Post
         return! loop box { state with CurrentResults = Some res }
 
-    | Some fable, CompileCode(fsharpCode, optimize) ->
+    | Some fable, CompileCode(fsharpCode, otherFSharpOptions, optimize) ->
         try
-            let (parseResults, parsingTime) = measureTime fable.Manager.ParseFSharpScript (fable.Checker, FILE_NAME, fsharpCode)
+            let (parseResults, parsingTime) = measureTime (fun () -> fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             let (res, fableTransformTime) = measureTime (fun () ->
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, optimize, fun x -> resolveLibCall(fable.LibMap, x))) ()
             let (jsCode, babelTime, babelErrors) =
