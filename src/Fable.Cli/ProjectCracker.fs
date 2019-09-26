@@ -226,7 +226,8 @@ let private getDllName (dllFullPath: string) =
 let private isUsefulOption (opt : string) =
     [ "--nowarn"
       "--warnon"
-      "--warnaserror" ]
+      "--warnaserror"
+      "--langversion" ]
     |> List.exists opt.StartsWith
 
 /// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
