@@ -19,6 +19,10 @@ let parseCompilerOptions projectText =
     let m = Regex.Match(projectText, @"<OutputType[^>]*>([^<]*)<\/OutputType[^>]*>")
     let target = if m.Success then m.Groups.[1].Value.Trim().ToLowerInvariant() else ""
 
+    // get language version
+    let m = Regex.Match(projectText, @"<LangVersion[^>]*>([^<]*)<\/LangVersion[^>]*>")
+    let langVersion = if m.Success then m.Groups.[1].Value.Trim() else ""
+
     // get warning level
     let m = Regex.Match(projectText, @"<WarningLevel[^>]*>([^<]*)<\/WarningLevel[^>]*>")
     let warnLevel = if m.Success then m.Groups.[1].Value.Trim() else ""
@@ -67,6 +71,8 @@ let parseCompilerOptions projectText =
     let otherOptions = [|
         if target.Length > 0 then
             yield "--target:" + target
+        if langVersion.Length > 0 then
+            yield "--langversion:" + langVersion
         if warnLevel.Length > 0 then
             yield "--warn:" + warnLevel
         if treatWarningsAsErrors then

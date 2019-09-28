@@ -19,6 +19,10 @@ let parseCompilerOptions projectText =
     let m = Regex.Match(projectText, @"<OutputType[^>]*>([^<]*)<\/OutputType[^>]*>")
     let target = if m.Success then m.Groups.[1].Value.Trim().ToLowerInvariant() else ""
 
+    // get language version
+    let m = Regex.Match(projectText, @"<LangVersion[^>]*>([^<]*)<\/LangVersion[^>]*>")
+    let langVersion = if m.Success then m.Groups.[1].Value.Trim() else ""
+
     // get warning level
     let m = Regex.Match(projectText, @"<WarningLevel[^>]*>([^<]*)<\/WarningLevel[^>]*>")
     let warnLevel = if m.Success then m.Groups.[1].Value.Trim() else ""
@@ -31,7 +35,7 @@ let parseCompilerOptions projectText =
     let defines =
         Regex.Matches(projectText,  @"<DefineConstants[^>]*>([^<]*)<\/DefineConstants[^>]*>")
         |> Seq.collect (fun m -> m.Groups.[1].Value.Split(';'))
-        |> Seq.append ["FABLE_COMPILER"]
+        |> Seq.append ["FABLE_COMPILER"; "FABLE_COMPILER_JS"]
         |> Seq.map (fun s -> s.Trim())
         |> Seq.distinct
         |> Seq.except ["$(DefineConstants)"; ""]
@@ -67,6 +71,8 @@ let parseCompilerOptions projectText =
     let otherOptions = [|
         if target.Length > 0 then
             yield "--target:" + target
+        if langVersion.Length > 0 then
+            yield "--langversion:" + langVersion
         if warnLevel.Length > 0 then
             yield "--warn:" + warnLevel
         if treatWarningsAsErrors then
@@ -93,7 +99,7 @@ let parseProjectScript projectFileName =
             | _ -> dllRefs, srcFiles)
     let projectRefs = [||]
     let sourceFiles = Array.append srcFiles [|Path.GetFileName projectFileName|]
-    let otherOptions = [| "--define:FABLE_COMPILER" |]
+    let otherOptions = [| "--define:FABLE_COMPILER"; "--define:FABLE_COMPILER_JS" |]
     (dllRefs, projectRefs, sourceFiles, otherOptions)
 
 let parseProjectFile projectFileName =
