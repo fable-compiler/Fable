@@ -66,7 +66,7 @@ let parseFiles projectFileName outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, options.optimize)
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
 
@@ -74,7 +74,7 @@ let parseFiles projectFileName outDir options =
 
         // print F# AST
         if false then
-            let fsAstStr = fable.FSharpAstToString(parseRes, fileName, options.optimize)
+            let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
             printfn "%s Typed AST: %s" fileName fsAstStr
 
         // transform F# AST to Babel AST
