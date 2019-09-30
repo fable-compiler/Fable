@@ -1,3 +1,7 @@
+### 1.2.3
+
+* Include System.Net.Requests & System.Net.WebClient in references
+
 ### 1.2.2
 
 * Enable passing otherFSharpOptions

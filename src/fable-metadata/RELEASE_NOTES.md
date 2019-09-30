@@ -1,3 +1,8 @@
+### 1.2.0
+
+* Update FSharp.Core to 4.7.0
+* Add System.Net.Requests & System.Net.WebClient
+
 ### 1.1.2
 
 * Add Recharts to Fable.Repl.Lib
