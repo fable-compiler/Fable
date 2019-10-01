@@ -1,3 +1,8 @@
+### 2.4.3
+
+* Fix #1908: Overloads only distinguished by argument generic constrains
+* Parse LangVersion from .fsproj
+
 ### 2.4.2
 
 * Build Fable.Cli with dotnet SDK 3 (but still target netcoreapp2.1)
