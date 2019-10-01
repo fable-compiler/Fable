@@ -37,13 +37,39 @@ let private tryFindAttributeArgs fullName (atts: #seq<FSharpAttribute>) =
 
 // -------- End of helper functions
 
+let private hashToString (i: int) =
+    if i < 0
+    then "Z" + (abs i).ToString("X")
+    else i.ToString("X")
+
+// TODO: This is very simple right now and only checks the constrain kind
+let private getGenericParamConstrainsHash (p: FSharpGenericParameter) =
+    let getConstrainHash (c: FSharpGenericParameterConstraint) =
+        if c.IsCoercesToConstraint then 1
+        elif c.IsComparisonConstraint then 2
+        elif c.IsDefaultsToConstraint then 4
+        elif c.IsDelegateConstraint then 8
+        elif c.IsEnumConstraint then 16
+        elif c.IsEqualityConstraint then 32
+        elif c.IsMemberConstraint then 64
+        elif c.IsNonNullableValueTypeConstraint then 128
+        elif c.IsReferenceTypeConstraint then 256
+        elif c.IsRequiresDefaultConstructorConstraint then 512
+        elif c.IsSimpleChoiceConstraint then 1024
+        elif c.IsSupportsNullConstraint then 2048
+        elif c.IsUnmanagedConstraint then 4096
+        else 0
+    let v = p.Constraints |> Seq.sumBy getConstrainHash
+    if v = 0 then ""
+    else hashToString v
+
 // Attention: we need to keep this similar to FSharp2Fable.TypeHelpers.makeType
 let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
     let t = nonAbbreviatedType t
     if t.IsGenericParameter then
         match genParams.TryGetValue(t.GenericParameter.Name) with
         | true, i -> i
-        | false, _ -> ""
+        | false, _ -> getGenericParamConstrainsHash t.GenericParameter
     elif t.IsTupleType
     then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
     elif t.IsFunctionType
@@ -84,11 +110,6 @@ let private stringHash (s: string) =
     for i = 0 to s.Length - 1 do
         h <- (h * 33) ^^^ (int s.[i])
     h
-
-let private hashToString (i: int) =
-    if i < 0
-    then "Z" + (abs i).ToString("X")
-    else i.ToString("X")
 
 let private getHashPrivate (m: FSharpMemberOrFunctionOrValue) (curriedParams: Params) genParams =
     match tryFindAttributeArgs Atts.overloadSuffix m.Attributes with

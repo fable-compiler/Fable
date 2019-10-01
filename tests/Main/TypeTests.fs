@@ -258,6 +258,13 @@ type TypeWithClassAttribute =
     val Pos : int
     new (pos) = { Pos=pos }
 
+type Default1 = int
+
+type Distinct1 =
+    // Overloads only distinguished by generic constrain work, see #1908
+    static member inline Distinct1 (x: ^``Collection<'T>``, _impl: Default1) = (^``Collection<'T>`` : (static member Distinct1 : _->_) x) : '``Collection<'T>``
+    static member inline Distinct1 (_: ^t when ^t : null and ^t : struct, _mthd: Default1) = id //must
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
