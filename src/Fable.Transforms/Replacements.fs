@@ -1029,8 +1029,8 @@ let defaultof com ctx (t: Type) =
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
     | Builtin BclTimeSpan
-    | Builtin BclDateTime 
-    | Builtin BclDateTimeOffset 
+    | Builtin BclDateTime
+    | Builtin BclDateTimeOffset
     | Builtin (BclInt64|BclUInt64)
     | Builtin BclBigInt
     | Builtin BclDecimal -> getZero com ctx t
@@ -2720,6 +2720,11 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_IsArray" ->
             match exprType with Array _ -> true | _ -> false
             |> BoolConstant |> makeValue r |> Some
+        | "get_IsEnum" ->
+            match exprType with
+            | Enum t -> true
+            | _ -> false
+            |> BoolConstant |> makeValue r |> Some
         | "GetElementType" ->
             match exprType with
             | Array t -> TypeInfo t |> makeValue r |> Some
@@ -2739,7 +2744,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_GenericTypeArguments" | "GetGenericArguments" ->
             Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
         | "get_FullName" | "get_Namespace" | "get_IsArray" | "GetElementType"
-        | "get_IsGenericType" | "GetGenericTypeDefinition" ->
+        | "get_IsGenericType" | "GetGenericTypeDefinition" | "get_IsEnum" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
         | "GetTypeInfo" -> Some thisArg

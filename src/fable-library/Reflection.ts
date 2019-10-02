@@ -162,6 +162,10 @@ export function isGenericType(t: TypeInfo) {
   return t.generics != null && t.generics.length > 0;
 }
 
+export function isEnum(t: TypeInfo) {
+    return t.enumCases != null && t.enumCases.length > 0;
+}
+
 /**
  * This doesn't replace types for fields (records) or cases (unions)
  * but it should be enough for type comparison purposes
