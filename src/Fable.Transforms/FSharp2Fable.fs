@@ -59,10 +59,9 @@ let private transformNewUnion com ctx r fsType
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com ctx.InlinePath r
     | StringEnum(tdef, rule) ->
-        let enumName = defaultArg tdef.TryFullName Naming.unknown
         match argExprs with
-        | [] -> Fable.Enum(applyCaseRule rule unionCase |> Fable.StringEnum, enumName) |> makeValue r
-        | _ -> "StringEnum types cannot have fields: " + enumName
+        | [] -> applyCaseRule rule unionCase
+        | _ -> sprintf "StringEnum types cannot have fields: %O" tdef.TryFullName
                |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion typ ->
         let typ = makeType com ctx.GenericArgs typ

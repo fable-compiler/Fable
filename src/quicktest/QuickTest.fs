@@ -58,14 +58,3 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-open System
-
-type MyEnum =
-    | Foo = 0y
-    | Bar = 5y
-    // | value_ = 10
-
-let test() =
-    let t = MyEnum.Foo.GetType()
-    let v = MyEnum.Bar
-    v

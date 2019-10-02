@@ -285,7 +285,7 @@ module Util =
         | :? NumericLiteral, _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number(Int8 | Int16 | Int32)
-        | _, Fable.EnumType(Fable.NumberEnumType _, _) ->
+        | _, Fable.Enum _ ->
             BinaryExpression(BinaryOrBitwise, e, NumericLiteral(0.)) :> Expression
         | _ -> e
 
@@ -435,10 +435,9 @@ module Util =
         | Fable.Unit    -> primitiveTypeInfo "unit"
         | Fable.Boolean -> primitiveTypeInfo "bool"
         | Fable.Char    -> primitiveTypeInfo "char"
-        | Fable.String
-        | Fable.EnumType(Fable.StringEnumType, _) ->
-            primitiveTypeInfo "string"
-        | Fable.EnumType(Fable.NumberEnumType ent, fullName) ->
+        | Fable.String  -> primitiveTypeInfo "string"
+        | Fable.Enum ent ->
+            let fullName = defaultArg ent.TryFullName Naming.unknown
             let mutable numberKind = Int32
             let cases =
                 ent.FSharpFields |> Seq.choose (fun fi ->
@@ -560,10 +559,8 @@ module Util =
                 then coreLibCall com ctx r "Option" "some" [|e|]
                 else e
             | None -> upcast NullLiteral ()
-        | Fable.Enum(kind,_) ->
-            match kind with
-            | Fable.NumberEnum(x,_)
-            | Fable.StringEnum x -> com.TransformAsExpr(ctx, x)
+        | Fable.EnumConstant(x,_) ->
+            com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, kind, _) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             match kind with
@@ -577,9 +574,9 @@ module Util =
                 |> coreLibCall com ctx r "Types" "anonRecord"
         | Fable.NewUnion(values, uci, ent, _) ->
             // Union cases with EraseAttribute are used for `Custom`-like cases in unions meant for `keyValueList`
-            match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
-            | Some _ -> Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
-            | None ->
+            if FSharp2Fable.Helpers.hasAtt Atts.erase uci.Attributes then
+                Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
+            else
                 let name = getUnionCaseName uci
                 let consRef = jsConstructor com ctx ent
                 let tag = FSharp2Fable.Helpers.unionCaseTag ent uci
@@ -858,8 +855,8 @@ module Util =
         | Fable.Any -> upcast BooleanLiteral true
         | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
-        | Fable.Char | Fable.String _ | Fable.EnumType(Fable.StringEnumType, _) -> jsTypeof "string" expr
-        | Fable.Number _ | Fable.EnumType(Fable.NumberEnumType _, _) -> jsTypeof "number" expr
+        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
+        | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Identifier "RegExp") expr
         // TODO: Fail for functions, arrays, tuples and list because we cannot check generics?
         | Fable.FunctionType _ -> jsTypeof "function" expr

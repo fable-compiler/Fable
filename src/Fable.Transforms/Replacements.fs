@@ -335,14 +335,14 @@ let makeTypeConst r (typ: Type) (value: obj) =
     | Number Float32, (:? float32 as x) -> makeFloat32 r x
     | Number Float64, (:? float as x) -> NumberConstant (float x, Float64) |> makeValue r
     // Enums
-    | EnumType _, (:? int64)
-    | EnumType _, (:? uint64) -> failwith "int64 enums are not supported"
-    | EnumType(NumberEnumType e, name), (:? byte as x) -> Enum(NumberEnum(NumberConstant (float x, UInt8) |> makeValue None, e), name) |> makeValue r
-    | EnumType(NumberEnumType e, name), (:? sbyte as x) -> Enum(NumberEnum(NumberConstant (float x, Int8) |> makeValue None, e), name) |> makeValue r
-    | EnumType(NumberEnumType e, name), (:? int16 as x) -> Enum(NumberEnum(NumberConstant (float x, Int16) |> makeValue None, e), name) |> makeValue r
-    | EnumType(NumberEnumType e, name), (:? uint16 as x) -> Enum(NumberEnum(NumberConstant (float x, UInt16) |> makeValue None, e), name) |> makeValue r
-    | EnumType(NumberEnumType e, name), (:? int as x) -> Enum(NumberEnum(NumberConstant (float x, Int32) |> makeValue None, e), name) |> makeValue r
-    | EnumType(NumberEnumType e, name), (:? uint32 as x) -> Enum(NumberEnum(NumberConstant (float x, UInt32) |> makeValue None, e), name) |> makeValue r
+    | Enum _, (:? int64)
+    | Enum _, (:? uint64) -> failwith "int64 enums are not supported"
+    | Enum e, (:? byte as x) -> EnumConstant(NumberConstant(float x, UInt8) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? sbyte as x) -> EnumConstant(NumberConstant(float x, Int8) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? int16 as x) -> EnumConstant(NumberConstant(float x, Int16) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? uint16 as x) -> EnumConstant(NumberConstant(float x, UInt16) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? int as x) -> EnumConstant(NumberConstant(float x, Int32) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? uint32 as x) -> EnumConstant(NumberConstant(float x, UInt32) |> makeValue None, e) |> makeValue r
     // TODO: Regex
     | Unit, _ -> UnitConstant |> makeValue r
     // Arrays with small data type (ushort, byte) are represented
@@ -390,8 +390,7 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head::tail ->
         match head.Type with
         | Char | String
-        | Builtin BclGuid
-        | EnumType(StringEnumType,_) -> head
+        | Builtin BclGuid -> head
         | Builtin (BclTimeSpan|BclInt64|BclUInt64 as t) ->
             Helper.CoreCall(coreModFor t, "toString", String, args)
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
@@ -466,7 +465,7 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
         | Long _ -> Helper.CoreCall("Long", "toNumber", targetType, args)
         | Decimal -> Helper.CoreCall("Decimal", "toNumber", targetType, args)
         | JsNumber _ -> TypeCast(args.Head, targetType)
-    | EnumType(NumberEnumType _,_) -> TypeCast(args.Head, targetType)
+    | Enum _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
@@ -484,7 +483,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
                     |> makeDecimalFromExpr r targetType
         | Decimal -> args.Head
         | JsNumber _ -> makeDecimalFromExpr r targetType args.Head
-    | EnumType(NumberEnumType _,_) -> makeDecimalFromExpr r targetType args.Head
+    | Enum _ -> makeDecimalFromExpr r targetType args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
@@ -524,14 +523,14 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
             Helper.CoreCall("Long", "fromNumber", targetType, [n; makeBoolConst unsigned])
         | JsNumber (Integer as kind) -> fromInteger kind args.Head
         | JsNumber Float -> Helper.CoreCall("Long", "fromNumber", targetType, args @ [makeBoolConst unsigned])
-    | EnumType(NumberEnumType _,_) -> fromInteger Int32 args.Head
+    | Enum _ -> fromInteger Int32 args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
-    let transformEnumType = function EnumType(NumberEnumType _, _) -> Number Int32 | t -> t
+    let transformEnumType = function Enum _ -> Number Int32 | t -> t
     let sourceType = transformEnumType args.Head.Type
     let targetType = transformEnumType targetType
     let emitCast typeTo arg =
@@ -702,7 +701,7 @@ let isCompatibleWithJsComparison = function
     | GenericParam _ -> false
     | AnonymousRecordType _ -> false
     | Any | Unit | Boolean | Number _ | String | Char | Regex
-    | EnumType _ | ErasedUnion _ | FunctionType _ -> true
+    | Enum _ | ErasedUnion _ | FunctionType _ -> true
 
 // Overview of hash rules:
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.
@@ -710,7 +709,7 @@ let isCompatibleWithJsComparison = function
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 let identityHash r (arg: Expr) =
     match arg.Type with
-    | Boolean | Char | String | Number _ | EnumType _
+    | Boolean | Char | String | Number _ | Enum _
     | Builtin(BclInt64|BclUInt64|BclBigInt)
     | Builtin(BclDateTime|BclDateTimeOffset)
     | Builtin(BclGuid|BclTimeSpan) ->
@@ -736,7 +735,7 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
     | Builtin(BclGuid|BclTimeSpan)
-    | Boolean | Char | String | Number _ | EnumType _ ->
+    | Boolean | Char | String | Number _ | Enum _ ->
         let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
         makeBinOp r Boolean left right op
     | Builtin(BclDateTime|BclDateTimeOffset) ->
@@ -764,7 +763,7 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
 and compare (com: ICompiler) r (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin(BclGuid|BclTimeSpan)
-    | Boolean | Char | String | Number _ | EnumType _ ->
+    | Boolean | Char | String | Number _ | Enum _ ->
         Helper.CoreCall("Util", "comparePrimitives", Number Int32, [left; right], ?loc=r)
     | Builtin(BclDateTime|BclDateTimeOffset) ->
         Helper.CoreCall("Date", "compare", Number Int32, [left; right], ?loc=r)
@@ -790,7 +789,7 @@ and compare (com: ICompiler) r (left: Expr) (right: Expr) =
 and compareIf (com: ICompiler) r (left: Expr) (right: Expr) op =
     match left.Type with
     | Builtin(BclGuid|BclTimeSpan)
-    | Boolean | Char | String | Number _ | EnumType _ ->
+    | Boolean | Char | String | Number _ | Enum _ ->
         makeEqOp r left right op
     | _ ->
         let comparison = compare com r left right
@@ -937,7 +936,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
         ObjectMember(changeCase caseRule name |> makeStrConst, value, ObjectValue)
     match caseRule with
     | Value(NumberConstant(rule, _),_)
-    | Value(Enum(NumberEnum(Value(NumberConstant(rule,_),_),_),_),_) ->
+    | Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_) ->
         let caseRule = enum(int rule)
         match keyValueList with
         | MaybeCasted(ArrayOrListLiteral(ms,_)) ->
@@ -946,14 +945,13 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
                 // Try to get the member key and value at compile time for unions and tuples
                 | Some acc, MaybeCasted(Value(NewUnion(values, uci, _, _),_)) ->
                     // Union cases with EraseAttribute are used for `Custom`-like cases
-                    match FSharp2Fable.Helpers.tryFindAtt Atts.erase uci.Attributes with
-                    | Some _ ->
+                    if FSharp2Fable.Helpers.hasAtt Atts.erase uci.Attributes then
                         match values with
                         | (Value(StringConstant name,_))::values ->
                             // Don't change the case for erased cases
                             makeObjMember CaseRules.None name values::acc |> Some
                         | _ -> None
-                    | None ->
+                    else
                         let name = defaultArg (FSharp2Fable.Helpers.unionCaseCompiledName uci) uci.Name
                         makeObjMember caseRule name values::acc |> Some
                 | Some acc, Value(NewTuple((Value(StringConstant name,_))::values),_) ->
@@ -1559,7 +1557,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [Value(StringConstant _,_) as separator]
         | [Value(NewArray(ArrayValues [separator],_),_)] ->
             Helper.InstanceCall(c, "split", t, [separator]) |> Some
-        | [arg1; ExprType(EnumType _) as arg2] ->
+        | [arg1; ExprType(Enum _) as arg2] ->
             let arg1 =
                 match arg1.Type with
                 | Array _ -> arg1
@@ -1950,7 +1948,7 @@ let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "IsInfinity", [_] when isFloat ->
         Helper.CoreCall("Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,
-            str::Value(Enum(NumberEnum(Value(NumberConstant(style, Int32),_),_),_),_)::_ ->
+            str::Value(EnumConstant(Value(NumberConstant(style, Int32),_),_),_)::_ ->
         let style = int style
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
@@ -2064,12 +2062,13 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GenericOne", _ -> getOne com ctx t |> Some
     | "EnumOfValue", [arg] ->
         match t with
-        | EnumType(NumberEnumType e, fullName) -> Enum(NumberEnum(arg, e), fullName) |> makeValue r |> Some
-        | _ -> None
+        | Enum e -> EnumConstant(arg, e) |> makeValue r |> Some
+        | _ -> "EnumOfValue only works if the enum type is known at compile time, try inlining the function"
+               |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     | "EnumToValue", [arg] ->
         match arg with
         | IdentExpr _ -> arg |> Some
-        | Value(Enum(NumberEnum(v,_),_),_) -> v |> Some
+        | Value(EnumConstant(v,_),_) -> v |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
         structuralHash r arg |> Some
@@ -2394,7 +2393,7 @@ let dates (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option)
         | _ ->
             let last = List.last args
             match args.Length, last.Type with
-            | 7, EnumType(_, "System.DateTimeKind") ->
+            | 7, Enum ent when ent.TryFullName = Some "System.DateTimeKind" ->
                 let args = (List.take 6 args) @ [makeIntConst 0; last]
                 let argTypes = (List.take 6 i.SignatureArgTypes) @ [Number Int32; last.Type]
                 Helper.CoreCall("Date", "create", t, args, argTypes, ?loc=r) |> Some

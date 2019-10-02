@@ -5,7 +5,6 @@ open Fable.AST
 open FSharp.Compiler.SourceCodeServices
 open System
 
-type EnumTypeKind = NumberEnumType of FSharpEntity | StringEnumType
 type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 
 type Type =
@@ -17,7 +16,7 @@ type Type =
     | String
     | Regex
     | Number of NumberKind
-    | EnumType of kind: EnumTypeKind * fullName: string
+    | Enum of FSharpEntity
     | Option of genericArg: Type
     | Tuple of genericArgs: Type list
     | Array of genericArg: Type
@@ -133,7 +132,6 @@ type ImportKind =
     | Library
     | CustomImport
 
-type EnumKind = NumberEnum of Expr * FSharpEntity | StringEnum of Expr
 type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 type NewRecordKind = DeclaredRecord of FSharpEntity | AnonymousRecord of fieldNames: string[]
 
@@ -146,7 +144,7 @@ type ValueKind =
     | StringConstant of string
     | NumberConstant of float * NumberKind
     | RegexConstant of source: string * flags: RegexFlag list
-    | Enum of EnumKind * enumFullName: string
+    | EnumConstant of Expr * FSharpEntity
     | NewOption of value: Expr option * Type
     | NewArray of NewArrayKind * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
@@ -164,12 +162,7 @@ type ValueKind =
         | StringConstant _ -> String
         | NumberConstant(_,kind) -> Number kind
         | RegexConstant _ -> Regex
-        | Enum(kind, fullName) ->
-            let kind =
-                match kind with
-                | NumberEnum(_, ent) -> NumberEnumType ent
-                | StringEnum _ -> StringEnumType
-            EnumType(kind, fullName)
+        | EnumConstant(_, ent) -> Enum ent
         | NewOption(_, t) -> Option t
         | NewArray(_, t) -> Array t
         | NewList(_, t) -> List t

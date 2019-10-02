@@ -149,6 +149,12 @@ module Helpers =
                 if fullName = fullName' then Some att else None
             | None -> None)
 
+    let hasAtt fullName (atts: #seq<FSharpAttribute>) =
+        atts |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some fullName' -> fullName = fullName'
+            | _ -> false)
+
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition then
@@ -269,8 +275,8 @@ module Helpers =
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.bind (fun lastParam -> tryFindAtt Atts.paramList lastParam.Attributes)
-            |> Option.isSome
+            |> Option.map (fun lastParam -> hasAtt Atts.paramList lastParam.Attributes)
+            |> Option.defaultValue false
 
         hasParamArray memb || hasParamSeq memb
 
@@ -556,27 +562,31 @@ module TypeHelpers =
         Fable.FunctionType(Fable.DelegateType argTypes, returnType)
 
     and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
-        match getEntityFullName tdef, tdef with
-        | _ when tdef.IsArrayType -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
-        | _ when tdef.IsDelegate -> makeTypeFromDelegate com ctxTypeArgs genArgs tdef
-        | fullName, _ when tdef.IsEnum -> Fable.EnumType(Fable.NumberEnumType tdef, fullName)
-        // Fable "primitives"
-        | Types.object, _ -> Fable.Any
-        | Types.unit, _ -> Fable.Unit
-        | Types.bool, _ -> Fable.Boolean
-        | Types.char, _ -> Fable.Char
-        | Types.string, _ -> Fable.String
-        | Types.regex, _ -> Fable.Regex
-        | Types.valueOption, _
-        | Types.option, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Option
-        | Types.resizeArray, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
-        | Types.list, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.List
-        | NumberKind kind, _ -> Fable.Number kind
-        // Special attributes
-        | fullName, ContainsAtt Atts.stringEnum _ -> Fable.EnumType(Fable.StringEnumType, fullName)
-        | _, ContainsAtt Atts.erase _ -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
-        // Rest of declared types
-        | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
+        if tdef.IsArrayType then
+            makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
+        elif tdef.IsDelegate then
+            makeTypeFromDelegate com ctxTypeArgs genArgs tdef
+        elif tdef.IsEnum then
+            Fable.Enum tdef
+        else
+            match getEntityFullName tdef with
+            // Fable "primitives"
+            | Types.object -> Fable.Any
+            | Types.unit -> Fable.Unit
+            | Types.bool -> Fable.Boolean
+            | Types.char -> Fable.Char
+            | Types.string -> Fable.String
+            | Types.regex -> Fable.Regex
+            | Types.valueOption
+            | Types.option -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Option
+            | Types.resizeArray -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
+            | Types.list -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.List
+            | NumberKind kind -> Fable.Number kind
+            // Special attributes
+            | _ when hasAtt Atts.stringEnum tdef.Attributes -> Fable.String
+            | _ when hasAtt Atts.erase tdef.Attributes -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
+            // Rest of declared types
+            | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
 
     and makeType (com: ICompiler) (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -633,7 +643,7 @@ module TypeHelpers =
         |> Seq.toList
 
     let isAbstract (ent: FSharpEntity) =
-       tryFindAtt Atts.abstractClass ent.Attributes |> Option.isSome
+       hasAtt Atts.abstractClass ent.Attributes
 
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0

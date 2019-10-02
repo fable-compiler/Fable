@@ -290,10 +290,7 @@ module AST =
         | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> false
         | Value(NewTuple exprs,_) ->
             (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
-        | Value(Enum(kind, _),_) ->
-            match kind with
-            | NumberEnum(e,_)
-            | StringEnum e -> canHaveSideEffects e
+        | Value(EnumConstant(e, _),_) -> canHaveSideEffects e
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
             match kind with
@@ -435,6 +432,10 @@ module AST =
 
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
+        let entEquals (ent1: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen1 (ent2: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen2 =
+            match ent1.TryFullName, ent2.TryFullName with
+            | Some n1, Some n2 when n1 = n2 -> listEquals (typeEquals strict) gen1 gen2
+            | _ -> false
         match typ1, typ2 with
         | Any, Any
         | Unit, Unit
@@ -443,7 +444,7 @@ module AST =
         | String, String
         | Regex, Regex -> true
         | Number kind1, Number kind2 -> kind1 = kind2
-        | EnumType(kind1, name1), EnumType(kind2, name2) -> kind1 = kind2 && name1 = name2
+        | Enum ent1, Enum ent2 -> entEquals ent1 [] ent2 []
         | Option t1, Option t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -461,10 +462,25 @@ module AST =
         | GenericParam name1, GenericParam name2 -> name1 = name2
         | _ -> false
 
-    let rec getTypeFullName prettify = function
+    let rec getTypeFullName prettify t =
+        let getEntityFullName (ent: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen =
+            match ent.TryFullName with
+            | None -> Naming.unknown
+            | Some fullname when List.isEmpty gen -> fullname
+            | Some fullname ->
+                let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
+                let fullname =
+                    if prettify then
+                        match fullname with
+                        | Types.result -> "Result"
+                        | Naming.StartsWith Types.choiceNonGeneric _ -> "Choice"
+                        | _ -> fullname // TODO: Prettify other types?
+                    else fullname
+                fullname + "[" + gen + "]"
+        match t with
         | AnonymousRecordType _ -> ""
         | GenericParam name -> "'" + name
-        | EnumType(_, fullname) -> fullname
+        | Enum ent -> getEntityFullName ent []
         | Regex    -> Types.regex
         | MetaType -> Types.type_
         | Unit    -> Types.unit
@@ -508,19 +524,7 @@ module AST =
             let gen = getTypeFullName prettify gen
             if prettify then gen + " list" else Types.list + "[" + gen + "]"
         | DeclaredType(ent, gen) ->
-            match ent.TryFullName with
-            | None -> Naming.unknown
-            | Some fullname when List.isEmpty gen -> fullname
-            | Some fullname ->
-                let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
-                let fullname =
-                    if prettify then
-                        match fullname with
-                        | Types.result -> "Result"
-                        | Naming.StartsWith Types.choiceNonGeneric _ -> "Choice"
-                        | _ -> fullname // TODO: Prettify other types?
-                    else fullname
-                fullname + "[" + gen + "]"
+            getEntityFullName ent gen
 
     let addRanges (locs: SourceLocation option seq) =
         let addTwo (r1: SourceLocation option) (r2: SourceLocation option) =
