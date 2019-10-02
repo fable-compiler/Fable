@@ -1948,7 +1948,7 @@ let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "IsInfinity", [_] when isFloat ->
         Helper.CoreCall("Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,
-            str::Value(EnumConstant(Value(NumberConstant(style, Int32),_),_),_)::_ ->
+            str::Value(EnumConstant(Value(NumberConstant(style, _),_),_),_)::_ ->
         let style = int style
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
