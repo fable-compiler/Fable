@@ -17,7 +17,7 @@ let visit f e =
         | NumberConstant _ | RegexConstant _ -> e
         | Enum(kind, name) ->
             match kind with
-            | NumberEnum e -> Enum(NumberEnum(f e), name) |> makeValue r
+            | NumberEnum(exp, ent) -> Enum(NumberEnum(f exp, ent), name) |> makeValue r
             | StringEnum e -> Enum(StringEnum(f e), name) |> makeValue r
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> makeValue r
         | NewTuple exprs -> NewTuple(List.map f exprs) |> makeValue r
@@ -119,7 +119,7 @@ let getSubExpressions = function
         | NumberConstant _ | RegexConstant _ -> []
         | Enum(kind, _) ->
             match kind with
-            | NumberEnum e -> [e]
+            | NumberEnum(e,_) -> [e]
             | StringEnum e -> [e]
         | NewOption(e, _) -> Option.toList e
         | NewTuple exprs -> exprs

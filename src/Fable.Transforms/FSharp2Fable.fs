@@ -791,7 +791,9 @@ let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
 let private isRecordLike (ent: FSharpEntity) =
     ent.IsFSharpRecord
         || ent.IsFSharpExceptionDeclaration
-        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent))
+        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure
+                                             && not ent.IsEnum
+                                             && not (hasImplicitConstructor ent))
 
 let private checkAttachedMemberConflicts com isRecordLike (ent: FSharpEntity) =
     let attachedMembers =

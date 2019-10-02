@@ -337,12 +337,12 @@ let makeTypeConst r (typ: Type) (value: obj) =
     // Enums
     | EnumType _, (:? int64)
     | EnumType _, (:? uint64) -> failwith "int64 enums are not supported"
-    | EnumType(_, name), (:? byte as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> makeValue r
-    | EnumType(_, name), (:? sbyte as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> makeValue r
-    | EnumType(_, name), (:? int16 as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> makeValue r
-    | EnumType(_, name), (:? uint16 as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> makeValue r
-    | EnumType(_, name), (:? int as x) -> Enum(NumberEnum(makeIntConst x), name) |> makeValue r
-    | EnumType(_, name), (:? uint32 as x) -> Enum(NumberEnum(makeIntConst(int x)), name) |> makeValue r
+    | EnumType(NumberEnumType e, name), (:? byte as x) -> Enum(NumberEnum(NumberConstant (float x, UInt8) |> makeValue None, e), name) |> makeValue r
+    | EnumType(NumberEnumType e, name), (:? sbyte as x) -> Enum(NumberEnum(NumberConstant (float x, Int8) |> makeValue None, e), name) |> makeValue r
+    | EnumType(NumberEnumType e, name), (:? int16 as x) -> Enum(NumberEnum(NumberConstant (float x, Int16) |> makeValue None, e), name) |> makeValue r
+    | EnumType(NumberEnumType e, name), (:? uint16 as x) -> Enum(NumberEnum(NumberConstant (float x, UInt16) |> makeValue None, e), name) |> makeValue r
+    | EnumType(NumberEnumType e, name), (:? int as x) -> Enum(NumberEnum(NumberConstant (float x, Int32) |> makeValue None, e), name) |> makeValue r
+    | EnumType(NumberEnumType e, name), (:? uint32 as x) -> Enum(NumberEnum(NumberConstant (float x, UInt32) |> makeValue None, e), name) |> makeValue r
     // TODO: Regex
     | Unit, _ -> UnitConstant |> makeValue r
     // Arrays with small data type (ushort, byte) are represented
@@ -466,7 +466,7 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
         | Long _ -> Helper.CoreCall("Long", "toNumber", targetType, args)
         | Decimal -> Helper.CoreCall("Decimal", "toNumber", targetType, args)
         | JsNumber _ -> TypeCast(args.Head, targetType)
-    | EnumType(NumberEnumType,_) -> TypeCast(args.Head, targetType)
+    | EnumType(NumberEnumType _,_) -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
@@ -484,7 +484,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
                     |> makeDecimalFromExpr r targetType
         | Decimal -> args.Head
         | JsNumber _ -> makeDecimalFromExpr r targetType args.Head
-    | EnumType(NumberEnumType,_) -> makeDecimalFromExpr r targetType args.Head
+    | EnumType(NumberEnumType _,_) -> makeDecimalFromExpr r targetType args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
@@ -524,14 +524,14 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
             Helper.CoreCall("Long", "fromNumber", targetType, [n; makeBoolConst unsigned])
         | JsNumber (Integer as kind) -> fromInteger kind args.Head
         | JsNumber Float -> Helper.CoreCall("Long", "fromNumber", targetType, args @ [makeBoolConst unsigned])
-    | EnumType(NumberEnumType,_) -> fromInteger Int32 args.Head
+    | EnumType(NumberEnumType _,_) -> fromInteger Int32 args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
 
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
-    let transformEnumType = function EnumType(NumberEnumType, _) -> Number Int32 | t -> t
+    let transformEnumType = function EnumType(NumberEnumType _, _) -> Number Int32 | t -> t
     let sourceType = transformEnumType args.Head.Type
     let targetType = transformEnumType targetType
     let emitCast typeTo arg =
@@ -937,7 +937,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
         ObjectMember(changeCase caseRule name |> makeStrConst, value, ObjectValue)
     match caseRule with
     | Value(NumberConstant(rule, _),_)
-    | Value(Enum(NumberEnum(Value(NumberConstant(rule,_),_)),_),_) ->
+    | Value(Enum(NumberEnum(Value(NumberConstant(rule,_),_),_),_),_) ->
         let caseRule = enum(int rule)
         match keyValueList with
         | MaybeCasted(ArrayOrListLiteral(ms,_)) ->
@@ -1950,7 +1950,7 @@ let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "IsInfinity", [_] when isFloat ->
         Helper.CoreCall("Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,
-            str::Value(Enum(NumberEnum(Value(NumberConstant(style, Int32),_)),_),_)::_ ->
+            str::Value(Enum(NumberEnum(Value(NumberConstant(style, Int32),_),_),_),_)::_ ->
         let style = int style
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
@@ -2064,12 +2064,12 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "GenericOne", _ -> getOne com ctx t |> Some
     | "EnumOfValue", [arg] ->
         match t with
-        | EnumType(_, fullName) -> Enum(NumberEnum arg, fullName) |> makeValue r |> Some
-        | _ -> Enum(NumberEnum arg, Naming.unknown) |> makeValue r |> Some
+        | EnumType(NumberEnumType e, fullName) -> Enum(NumberEnum(arg, e), fullName) |> makeValue r |> Some
+        | _ -> None
     | "EnumToValue", [arg] ->
         match arg with
         | IdentExpr _ -> arg |> Some
-        | Value(Enum(NumberEnum(v),_),_) -> v |> Some
+        | Value(Enum(NumberEnum(v,_),_),_) -> v |> Some
         | _ -> None
     | ("GenericHash" | "GenericHashIntrinsic"), [arg] ->
         structuralHash r arg |> Some

@@ -559,7 +559,7 @@ module TypeHelpers =
         match getEntityFullName tdef, tdef with
         | _ when tdef.IsArrayType -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
         | _ when tdef.IsDelegate -> makeTypeFromDelegate com ctxTypeArgs genArgs tdef
-        | fullName, _ when tdef.IsEnum -> Fable.EnumType(Fable.NumberEnumType, fullName)
+        | fullName, _ when tdef.IsEnum -> Fable.EnumType(Fable.NumberEnumType tdef, fullName)
         // Fable "primitives"
         | Types.object, _ -> Fable.Any
         | Types.unit, _ -> Fable.Unit

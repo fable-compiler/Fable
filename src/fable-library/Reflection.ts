@@ -13,12 +13,15 @@ export class CaseInfo {
   }
 }
 
+export type EnumCase = [string, number];
+
 export class TypeInfo {
   constructor(public fullname: string,
               public generics?: TypeInfo[],
               public constructor?: Constructor,
               public fields?: () => FieldInfo[],
-              public cases?: () => CaseInfo[]) {
+              public cases?: () => CaseInfo[],
+              public enumCases?: EnumCase[]) {
   }
   public toString() {
     return fullName(this);
@@ -101,6 +104,10 @@ export function list(generic: TypeInfo): TypeInfo {
 
 export function array(generic: TypeInfo): TypeInfo {
   return new TypeInfo(generic.fullname + "[]", [generic]);
+}
+
+export function enumType(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
+  return new TypeInfo(fullname, [underlyingType], null, null, null, enumCases);
 }
 
 export const obj: TypeInfo = new TypeInfo("System.Object");

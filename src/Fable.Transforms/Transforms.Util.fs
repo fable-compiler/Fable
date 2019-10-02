@@ -292,7 +292,7 @@ module AST =
             (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
         | Value(Enum(kind, _),_) ->
             match kind with
-            | NumberEnum e
+            | NumberEnum(e,_)
             | StringEnum e -> canHaveSideEffects e
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->

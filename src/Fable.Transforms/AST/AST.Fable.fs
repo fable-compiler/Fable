@@ -5,7 +5,7 @@ open Fable.AST
 open FSharp.Compiler.SourceCodeServices
 open System
 
-type EnumTypeKind = NumberEnumType | StringEnumType
+type EnumTypeKind = NumberEnumType of FSharpEntity | StringEnumType
 type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 
 type Type =
@@ -133,7 +133,7 @@ type ImportKind =
     | Library
     | CustomImport
 
-type EnumKind = NumberEnum of Expr | StringEnum of Expr
+type EnumKind = NumberEnum of Expr * FSharpEntity | StringEnum of Expr
 type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 type NewRecordKind = DeclaredRecord of FSharpEntity | AnonymousRecord of fieldNames: string[]
 
@@ -167,7 +167,7 @@ type ValueKind =
         | Enum(kind, fullName) ->
             let kind =
                 match kind with
-                | NumberEnum _ -> NumberEnumType
+                | NumberEnum(_, ent) -> NumberEnumType ent
                 | StringEnum _ -> StringEnumType
             EnumType(kind, fullName)
         | NewOption(_, t) -> Option t

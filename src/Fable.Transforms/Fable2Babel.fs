@@ -285,7 +285,7 @@ module Util =
         | :? NumericLiteral, _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number(Int8 | Int16 | Int32)
-        | _, Fable.EnumType(Fable.NumberEnumType, _) ->
+        | _, Fable.EnumType(Fable.NumberEnumType _, _) ->
             BinaryExpression(BinaryOrBitwise, e, NumericLiteral(0.)) :> Expression
         | _ -> e
 
@@ -399,6 +399,17 @@ module Util =
     and transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression>) t: Expression =
         let primitiveTypeInfo name =
            coreValue com ctx "Reflection" name
+        let numberInfo kind =
+            match kind with
+            | Int8 -> "int8"
+            | UInt8 -> "uint8"
+            | Int16 -> "int16"
+            | UInt16 -> "uint16"
+            | Int32 -> "int32"
+            | UInt32 -> "uint32"
+            | Float32 -> "float32"
+            | Float64 -> "float64"
+            |> primitiveTypeInfo        
         let nonGenericTypeInfo fullname =
             [| StringLiteral fullname :> Expression |]
             |> coreLibCall com ctx None "Reflection" "type"
@@ -427,19 +438,26 @@ module Util =
         | Fable.String
         | Fable.EnumType(Fable.StringEnumType, _) ->
             primitiveTypeInfo "string"
-        | Fable.EnumType(Fable.NumberEnumType, _) ->
-            primitiveTypeInfo "int32"
+        | Fable.EnumType(Fable.NumberEnumType ent, fullName) ->
+            let mutable numberKind = Int32
+            let cases =
+                ent.FSharpFields |> Seq.choose (fun fi ->
+                    // F# seems to include a field with this name with the underlying type
+                    match fi.Name with
+                    | "value__" ->
+                        match FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType with
+                        | Fable.Number kind -> numberKind <- kind
+                        | _ -> ()
+                        None
+                    | name ->
+                        let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+                        ArrayExpression [|StringLiteral name; NumericLiteral value|] :> Expression |> Some)
+                |> Seq.toArray
+                |> ArrayExpression
+            [|StringLiteral fullName :> Expression; numberInfo numberKind; cases :> _|]
+            |> coreLibCall com ctx None "Reflection" "enumType"
         | Fable.Number kind ->
-            match kind with
-            | Int8 -> "int8"
-            | UInt8 -> "uint8"
-            | Int16 -> "int16"
-            | UInt16 -> "uint16"
-            | Int32 -> "int32"
-            | UInt32 -> "uint32"
-            | Float32 -> "float32"
-            | Float64 -> "float64"
-            |> primitiveTypeInfo
+            numberInfo kind
         | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
             genericTypeInfo "lambda" [|argType; returnType|]
         | Fable.FunctionType(Fable.DelegateType argTypes, returnType) ->
@@ -544,7 +562,7 @@ module Util =
             | None -> upcast NullLiteral ()
         | Fable.Enum(kind,_) ->
             match kind with
-            | Fable.NumberEnum x
+            | Fable.NumberEnum(x,_)
             | Fable.StringEnum x -> com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, kind, _) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
@@ -841,7 +859,7 @@ module Util =
         | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ | Fable.EnumType(Fable.StringEnumType, _) -> jsTypeof "string" expr
-        | Fable.Number _ | Fable.EnumType(Fable.NumberEnumType, _) -> jsTypeof "number" expr
+        | Fable.Number _ | Fable.EnumType(Fable.NumberEnumType _, _) -> jsTypeof "number" expr
         | Fable.Regex -> jsInstanceof (Identifier "RegExp") expr
         // TODO: Fail for functions, arrays, tuples and list because we cannot check generics?
         | Fable.FunctionType _ -> jsTypeof "function" expr
