@@ -2306,6 +2306,9 @@ let enums (_: ICompiler) (ctx: Context) r _ (i: CallInfo) (thisArg: Expr option)
         makeBinOp r (Number Int32) this arg BinaryAndBitwise
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
+    | None, "GetEnumUnderlyingType", args ->
+        false
+        |> BoolConstant |> makeValue r |> Some
     | _ -> None
 
 let log (_: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2744,7 +2747,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_GenericTypeArguments" | "GetGenericArguments" ->
             Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
         | "get_FullName" | "get_Namespace" | "get_IsArray" | "GetElementType"
-        | "get_IsGenericType" | "GetGenericTypeDefinition" | "get_IsEnum" ->
+        | "get_IsGenericType" | "GetGenericTypeDefinition" | "get_IsEnum" | "GetEnumUnderlyingType" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
         | "GetTypeInfo" -> Some thisArg

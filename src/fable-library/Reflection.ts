@@ -174,6 +174,10 @@ export function getGenericTypeDefinition(t: TypeInfo) {
   return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj));
 }
 
+export function getEnumUnderlyingType(t: TypeInfo) {
+    return t.generics[0];
+}
+
 // FSharpType
 
 export function getUnionCases(t: TypeInfo): CaseInfo[] {
