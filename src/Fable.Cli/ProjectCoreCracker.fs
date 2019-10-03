@@ -132,7 +132,7 @@ let rec private projInfo additionalMSBuildProps (file: string) =
            //| None -> failwith "error, 'TargetPath' property not found"
 
       let compileFilesToAbsolutePath (f: string) =
-          if f.EndsWith(".fs") then
+          if f.EndsWith(".fs") || f.EndsWith(".fsi") then
               if Path.IsPathRooted f then f else Path.Combine(projDir, f)
           else
               f
