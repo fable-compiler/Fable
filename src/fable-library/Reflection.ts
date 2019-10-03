@@ -178,6 +178,14 @@ export function getEnumUnderlyingType(t: TypeInfo) {
     return t.generics[0];
 }
 
+export function getEnumValues(t : TypeInfo) {
+    if (isEnum(t)) {
+        return t.enumCases;
+    } else {
+        throw new Error(`${t.fullname} is not an F# enum type`);
+    }
+}
+
 // FSharpType
 
 export function getUnionCases(t: TypeInfo): CaseInfo[] {
