@@ -1,3 +1,8 @@
+### 2.4.4
+
+* Fix #1918: Enum reflection support @MangelMaxime
+* Fix #1919: Path of .fsi files @krauthaufen
+
 ### 2.4.3
 
 * Fix #1908: Overloads only distinguished by argument generic constrains
