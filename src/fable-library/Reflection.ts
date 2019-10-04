@@ -178,12 +178,45 @@ export function getEnumUnderlyingType(t: TypeInfo) {
     return t.generics[0];
 }
 
-export function getEnumValues(t : TypeInfo) {
+export function getEnumValues(t : TypeInfo): any[] {
     if (isEnum(t)) {
-        return t.enumCases;
+        return t.enumCases.map((kv) => kv[1]);
     } else {
         throw new Error(`${t.fullname} is not an F# enum type`);
     }
+}
+
+function getEnumCase(t: TypeInfo, v: number|string): EnumCase {
+    if (t.enumCases != null) {
+        if (typeof v === "string") {
+            for (const kv of t.enumCases) {
+                if (kv[0] === v) {
+                    return kv;
+                }
+            }
+            throw new Error(`'${v}' was not found in {t.fullname}`);
+        } else {
+            for (const kv of t.enumCases) {
+                if (kv[1] === v) {
+                    return kv;
+                }
+            }
+            // .NET returns the number even if it doesn't match any of the cases
+            return [null, v];
+        }
+    } else {
+        throw new Error(`${t.fullname} is not an enum`);
+    }
+}
+
+export function parseEnum(t: TypeInfo, str: string): any {
+    // TODO: better int parsing here, parseInt ceils floats: "4.8" -> 4
+    const value = parseInt(str);
+    return getEnumCase(t, isNaN(value) ? str : value)[1];
+}
+
+export function getEnumName(t: TypeInfo, v: number): string {
+    return getEnumCase(t, v)[0];
 }
 
 // FSharpType

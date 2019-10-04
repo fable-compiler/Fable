@@ -1,5 +1,6 @@
 module Fable.Tests.Enum
 
+open System
 open FSharp.Core.LanguagePrimitives
 open Util.Testing
 
@@ -32,6 +33,11 @@ type BinaryBoolean =
     | C = 2uy
     | D = 3uy
     | E = 4uy
+
+type MyEnum =
+    | Foo = 1y
+    | Bar = 5y
+    | Baz = 8y
 
 let tests =
   testList "Enum" [
@@ -203,4 +209,26 @@ let tests =
                 | _ -> 1
             | _ -> 0
         test 2 |> equal 1
+
+    testCase "Enum.GetValues works" <| fun () ->
+        let check (ar: Array) =
+            ar
+            |> Seq.cast<sbyte>
+            |> Seq.toList
+            |> equal [1y; 5y; 8y]
+        let t = typeof<MyEnum>
+        Enum.GetValues(t) |> check
+        t.GetEnumValues() |> check
+
+    testCase "Enum.GetName works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.GetName(t, MyEnum.Foo) |> equal "Foo"
+        Enum.GetName(t, box 5y) |> equal "Bar"
+        Enum.GetName(t, MyEnum.Baz) |> equal "Baz"
+
+    testCase "Enum.Parse works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.Parse(t, "Foo") |> equal (box MyEnum.Foo)
+        Enum.Parse(t, "Bar") |> equal (box MyEnum.Bar)
+        Enum.Parse(t, "8") |> equal (box MyEnum.Baz)
   ]

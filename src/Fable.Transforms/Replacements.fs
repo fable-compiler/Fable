@@ -2299,13 +2299,17 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "Compare" -> Helper.CoreCall("Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let enums (com: ICompiler) (ctx: Context) r _ (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let enums (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
     | Some this, "HasFlag", [arg] ->
         // x.HasFlags(y) => (int x) &&& (int y) <> 0
         makeBinOp r (Number Int32) this arg BinaryAndBitwise
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
+    | None, Patterns.DicContains (dict ["Parse", "parseEnum"
+                                        "GetName", "getEnumName"
+                                        "GetValues", "getEnumValues"]) meth, args ->
+        Helper.CoreCall("Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None
 
 let log (_: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2705,52 +2709,56 @@ let controlExtensions (_: ICompiler) (ctx: Context) (_: SourceLocation option) t
 
 let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
     let returnString r x = StringConstant x |> makeValue r |> Some
-    match thisArg with
-    | Some(Value(TypeInfo exprType, exprRange) as thisArg) ->
-        match exprType with
-        | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
-        | _ -> ()
+    let resolved =
+        // Some optimizations when the type is known at compile time
+        match thisArg with
+        | Some(Value(TypeInfo exprType, exprRange) as thisArg) ->
+            match exprType with
+            | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
+            | _ -> ()
+            match i.CompiledName with
+            | "get_FullName" -> getTypeFullName false exprType |> returnString r
+            | "get_Namespace" ->
+                let fullname = getTypeFullName false exprType
+                match fullname.LastIndexOf(".") with
+                | -1 -> "" |> returnString r
+                | i -> fullname.Substring(0, i) |> returnString r
+            | "get_IsArray" ->
+                match exprType with Array _ -> true | _ -> false
+                |> BoolConstant |> makeValue r |> Some
+            | "get_IsEnum" ->
+                match exprType with
+                | Enum t -> true | _ -> false
+                |> BoolConstant |> makeValue r |> Some
+            | "GetElementType" ->
+                match exprType with
+                | Array t -> TypeInfo t |> makeValue r |> Some
+                | _ -> Null t |> makeValue r |> Some
+            | "get_IsGenericType" ->
+                List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
+            | "get_GenericTypeArguments" | "GetGenericArguments" ->
+                let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
+                NewArray(arVals, Any) |> makeValue r |> Some
+            | "GetGenericTypeDefinition" ->
+                let newGen = exprType.Generics |> List.map (fun _ -> Any)
+                exprType.ReplaceGenerics(newGen) |> TypeInfo |> makeValue exprRange |> Some
+            | _ -> None
+        |  _ -> None
+    match resolved, thisArg with
+    | Some _, _ -> resolved
+    | None, Some thisArg ->
         match i.CompiledName with
-        | "get_FullName" -> getTypeFullName false exprType |> returnString r
-        | "get_Namespace" ->
-            let fullname = getTypeFullName false exprType
-            match fullname.LastIndexOf(".") with
-            | -1 -> "" |> returnString r
-            | i -> fullname.Substring(0, i) |> returnString r
-        | "get_IsArray" ->
-            match exprType with Array _ -> true | _ -> false
-            |> BoolConstant |> makeValue r |> Some
-        | "get_IsEnum" ->
-            match exprType with
-            | Enum t -> true
-            | _ -> false
-            |> BoolConstant |> makeValue r |> Some
-        | "GetElementType" ->
-            match exprType with
-            | Array t -> TypeInfo t |> makeValue r |> Some
-            | _ -> Null t |> makeValue r |> Some
-        | "get_IsGenericType" ->
-            List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
-        | "get_GenericTypeArguments" | "GetGenericArguments" ->
-            let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
-            NewArray(arVals, Any) |> makeValue r |> Some
         | "GetTypeInfo" -> Some thisArg
-        | "GetGenericTypeDefinition" ->
-            let newGen = exprType.Generics |> List.map (fun _ -> Any)
-            exprType.ReplaceGenerics(newGen) |> TypeInfo |> makeValue exprRange |> Some
-        | _ -> None
-    | Some thisArg ->
-        match i.CompiledName with
         | "get_GenericTypeArguments" | "GetGenericArguments" ->
             Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
-        | "get_FullName" | "get_Namespace" | "get_IsArray" | "GetElementType"
-        | "get_IsGenericType" | "GetGenericTypeDefinition" | "get_IsEnum" | "GetEnumUnderlyingType"
-        | "GetEnumValues" ->
+        | "get_FullName" | "get_Namespace"
+        | "get_IsArray" | "GetElementType"
+        | "get_IsGenericType" | "GetGenericTypeDefinition"
+        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
-        | "GetTypeInfo" -> Some thisArg
         | _ -> None
-    | None -> None
+    | None, None -> None
 
 let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with

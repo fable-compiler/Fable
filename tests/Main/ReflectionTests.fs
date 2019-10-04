@@ -29,6 +29,11 @@ type TestType5 = class end
 
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
+type MyEnum =
+    | Foo = 1y
+    | Bar = 5y
+    | Baz = 8y
+
 let genericTests = [
   testCase "typedefof works" <| fun () ->
     let tdef1 = typedefof<int list>
@@ -411,6 +416,13 @@ let reflectionTests = [
   testCase "Generic numbers type info doesn't get into runtime" <| fun () ->
     let value = 0.7833263478179128134089M
     value.GetType().FullName |> equal "System.Decimal"
+
+  testCase "Reflection works with enums" <| fun () ->
+      typeof<MyEnum>.IsEnum |> equal true
+      typeof<int>.IsEnum |> equal false
+      let t = typeof<MyEnum>
+      t.IsEnum |> equal true
+      t.GetEnumUnderlyingType() |> equal typeof<sbyte>
 ]
 
 // TODO!!! Add reflection tests for interfaces, erased unions,
