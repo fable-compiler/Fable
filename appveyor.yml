@@ -13,9 +13,9 @@ build:
 # Install scripts. (runs after repo cloning)
 install:
   # Get the latest stable version of .NET Core
-  - cmd: choco install dotnetcore-sdk
+  - cmd: choco install dotnetcore-sdk --no-progress
   # Get the latest stable version of Node.js
-  - ps: choco install nodejs
+  - ps: choco install nodejs --no-progress
   # # Update npm
   # # There seems to be issues with npm 5.4 in Windows
   # # See https://github.com/npm/npm/issues/18380
