@@ -2307,8 +2307,12 @@ let enums (_: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
     | None, Patterns.DicContains (dict ["Parse", "parseEnum"
+                                        "TryParse", "tryParseEnum"
+                                        "IsDefined", "isEnumDefined"
                                         "GetName", "getEnumName"
-                                        "GetValues", "getEnumValues"]) meth, args ->
+                                        "GetNames", "getEnumNames"
+                                        "GetValues", "getEnumValues"
+                                        "GetUnderlyingType", "getEnumUnderlyingType"]) meth, args ->
         Helper.CoreCall("Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None
 
@@ -2754,7 +2758,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_FullName" | "get_Namespace"
         | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition"
-        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" ->
+        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
         | _ -> None

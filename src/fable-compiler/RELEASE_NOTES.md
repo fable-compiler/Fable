@@ -1,4 +1,4 @@
-### 2.4.4
+### 2.4.5
 
 * Fix #1918: Enum reflection support @MangelMaxime
 * Fix #1919: Path of .fsi files @krauthaufen

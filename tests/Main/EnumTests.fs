@@ -220,15 +220,34 @@ let tests =
         Enum.GetValues(t) |> check
         t.GetEnumValues() |> check
 
+    testCase "Enum.GetNames works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.GetNames(t) |> equal [|"Foo"; "Bar"; "Baz"|]
+        t.GetEnumNames() |> equal [|"Foo"; "Bar"; "Baz"|]
+
     testCase "Enum.GetName works" <| fun () ->
         let t = typeof<MyEnum>
         Enum.GetName(t, MyEnum.Foo) |> equal "Foo"
         Enum.GetName(t, box 5y) |> equal "Bar"
         Enum.GetName(t, MyEnum.Baz) |> equal "Baz"
 
+    testCase "Enum.IsDefined works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.IsDefined(t, "Foo") |> equal true
+        Enum.IsDefined(t, "Baz") |> equal true
+        Enum.IsDefined(t, "Ozu") |> equal false
+        Enum.IsDefined(t, 5y) |> equal true
+        Enum.IsDefined(t, 10y) |> equal false
+
     testCase "Enum.Parse works" <| fun () ->
         let t = typeof<MyEnum>
         Enum.Parse(t, "Foo") |> equal (box MyEnum.Foo)
         Enum.Parse(t, "Bar") |> equal (box MyEnum.Bar)
         Enum.Parse(t, "8") |> equal (box MyEnum.Baz)
+
+    testCase "Enum.TryParse works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.TryParse(t, "Foo") |> equal (true, box MyEnum.Foo)
+        Enum.TryParse(t, "Bar") |> equal (true, box MyEnum.Bar)
+        Enum.TryParse(t, "Ozu") |> fst |> equal false
   ]

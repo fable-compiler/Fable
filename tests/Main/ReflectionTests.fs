@@ -423,6 +423,7 @@ let reflectionTests = [
       let t = typeof<MyEnum>
       t.IsEnum |> equal true
       t.GetEnumUnderlyingType() |> equal typeof<sbyte>
+      System.Enum.GetUnderlyingType(t) |> equal typeof<sbyte>
 ]
 
 // TODO!!! Add reflection tests for interfaces, erased unions,
