@@ -372,14 +372,16 @@ export function arrayToGuid(buf: ArrayLike<number>) {
   if (!_convertMapsInitialized) {
     initConvertMaps();
   }
-  return _byteToHex[buf[3]] + _byteToHex[buf[2]] +
-         _byteToHex[buf[1]] + _byteToHex[buf[0]] + "-" +
-         _byteToHex[buf[5]] + _byteToHex[buf[4]] + "-" +
-         _byteToHex[buf[7]] + _byteToHex[buf[6]] + "-" +
-         _byteToHex[buf[8]] + _byteToHex[buf[9]] + "-" +
-         _byteToHex[buf[10]] + _byteToHex[buf[11]] +
-         _byteToHex[buf[12]] + _byteToHex[buf[13]] +
-         _byteToHex[buf[14]] + _byteToHex[buf[15]];
+  const guid =
+    _byteToHex[buf[3]] + _byteToHex[buf[2]] +
+    _byteToHex[buf[1]] + _byteToHex[buf[0]] + "-" +
+    _byteToHex[buf[5]] + _byteToHex[buf[4]] + "-" +
+    _byteToHex[buf[7]] + _byteToHex[buf[6]] + "-" +
+    _byteToHex[buf[8]] + _byteToHex[buf[9]] + "-" +
+    _byteToHex[buf[10]] + _byteToHex[buf[11]] +
+    _byteToHex[buf[12]] + _byteToHex[buf[13]] +
+    _byteToHex[buf[14]] + _byteToHex[buf[15]];
+  return guid;
 }
 
 function notSupported(name: string): never {

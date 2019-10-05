@@ -118,7 +118,7 @@ let tests =
         equal compound utcDate
 
     testCase "DateTimeOffset <-> Ticks isomorphism" <| fun () ->
-        let checkIsomorphism (d: DateTimeOffset) = 
+        let checkIsomorphism (d: DateTimeOffset) =
             try
                 let ticks = d.Ticks
                 let utcTicks = d.UtcTicks
@@ -130,7 +130,7 @@ let tests =
                 equal d fromUtcTicks
                 equal ticks fromTicks.Ticks
                 equal utcTicks fromTicks.UtcTicks
-                if offset <> TimeSpan.Zero 
+                if offset <> TimeSpan.Zero
                 then notEqual ticks utcTicks
                 else equal ticks utcTicks
             with e ->

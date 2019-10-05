@@ -409,7 +409,7 @@ module Util =
             | UInt32 -> "uint32"
             | Float32 -> "float32"
             | Float64 -> "float64"
-            |> primitiveTypeInfo        
+            |> primitiveTypeInfo
         let nonGenericTypeInfo fullname =
             [| StringLiteral fullname :> Expression |]
             |> coreLibCall com ctx None "Reflection" "type"

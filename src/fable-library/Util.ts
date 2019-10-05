@@ -530,13 +530,13 @@ export function escapeUriString(s: string): string {
 // or Dictionaries so we need a runtime check (see #1120)
 export function count<T>(col: Iterable<T>): number {
   if (isArray(col)) {
-      return (col as T[]).length;
+    return (col as T[]).length;
   } else {
-      let count = 0;
-      for (const _ of col) {
-          count++;
-      }
-      return count;
+    let count = 0;
+    for (const _ of col) {
+      count++;
+    }
+    return count;
   }
 }
 
@@ -556,7 +556,7 @@ export function uncurry(arity: number, f: Function) {
 
   // The function is already uncurried
   if (f.length > 1) {
-//   if (CURRIED_KEY in f) { // This doesn't always work
+    // if (CURRIED_KEY in f) { // This doesn't always work
     return f;
   }
 
@@ -595,7 +595,7 @@ export function uncurry(arity: number, f: Function) {
 export function curry(arity: number, f: Function): Function {
   if (f == null) { return null; }
   if (CURRIED_KEY in f) {
-      return (f as any)[CURRIED_KEY];
+    return (f as any)[CURRIED_KEY];
   }
   switch (arity) {
     case 2:
@@ -627,7 +627,7 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
     for (let i = 0; i < args.length; i++) {
-        f = f(args[i]);
+      f = f(args[i]);
     }
     return f;
   } else {
@@ -664,26 +664,26 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
 type CurriedArgMapping = [number, number] | 0;
 
 export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
-    function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {
-        const mapping = mappings[idx];
-        if (mapping !== 0) {
-            const expectedArity = mapping[0];
-            const actualArity = mapping[1];
-            if (expectedArity > 1) {
-                arg = curry(expectedArity, arg);
-            }
-            if (actualArity > 1) {
-                arg = uncurry(actualArity, arg);
-            }
-        }
-        const res = fn(arg);
-        if (idx + 1 === mappings.length) {
-            return res;
-        } else {
-            return (arg: any) => mapArg(res, arg, mappings, idx + 1);
-        }
+  function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {
+    const mapping = mappings[idx];
+    if (mapping !== 0) {
+      const expectedArity = mapping[0];
+      const actualArity = mapping[1];
+      if (expectedArity > 1) {
+        arg = curry(expectedArity, arg);
+      }
+      if (actualArity > 1) {
+        arg = uncurry(actualArity, arg);
+      }
     }
-    return (arg: any) => mapArg(fn, arg, mappings, 0);
+    const res = fn(arg);
+    if (idx + 1 === mappings.length) {
+      return res;
+    } else {
+      return (arg: any) => mapArg(res, arg, mappings, idx + 1);
+    }
+  }
+  return (arg: any) => mapArg(fn, arg, mappings, 0);
 }
 
 export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {

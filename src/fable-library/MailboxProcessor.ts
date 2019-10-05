@@ -99,7 +99,7 @@ export function postAndAsyncReply<Reply, Msg>(
   let continuation: Continuation<Reply>;
   function checkCompletion() {
     if (result !== void 0 && continuation !== void 0) {
-        continuation(result);
+      continuation(result);
     }
   }
   const reply = {

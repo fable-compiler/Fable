@@ -51,7 +51,7 @@ let rec private getGenericParamConstrainsHash genParams (p: FSharpGenericParamet
         elif c.IsSupportsNullConstraint then
             "null"
         elif c.IsMemberConstraint then
-            let d = c.MemberConstraintData // TODO: Full member signature hash?            
+            let d = c.MemberConstraintData // TODO: Full member signature hash?
             (if d.MemberIsStatic then "static " else "") + "member " + d.MemberName
         elif c.IsRequiresDefaultConstructorConstraint then
             "new"

@@ -222,7 +222,7 @@ type ValueType1<'T>(value: 'T) =
 [<Struct>]
 type ValueType2(i: int, j: int) =
     member x.Value = i + j
-    
+
 type ValueType3 =
   struct
     val mutable public X : int

@@ -168,7 +168,7 @@ let tests =
         equal 1 xs.[0]
         equal 4 xs.[1]
         equal 5 xs.[2]
-    
+
     testCase "ResizeArray.Exists works" <| fun () ->
         let xs = ResizeArray<int>()
         for x in [1 .. 5] do xs.Add(x)

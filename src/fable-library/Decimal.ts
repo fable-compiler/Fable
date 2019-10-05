@@ -194,16 +194,16 @@ export function getBits(d: Decimal) {
 export function makeRangeStepFunction(step: Decimal, last: Decimal) {
   const stepComparedWithZero = step.cmp(get_Zero);
   if (stepComparedWithZero === 0) {
-      throw new Error("The step of a range cannot be zero");
+    throw new Error("The step of a range cannot be zero");
   }
   const stepGreaterThanZero = stepComparedWithZero > 0;
   return (x: Decimal) => {
     const comparedWithLast = x.cmp(last);
     if ((stepGreaterThanZero && comparedWithLast <= 0)
-        || (!stepGreaterThanZero && comparedWithLast >= 0)) {
-        return [x, op_Addition(x, step)];
+      || (!stepGreaterThanZero && comparedWithLast >= 0)) {
+      return [x, op_Addition(x, step)];
     } else {
-        return null;
+      return null;
     }
   };
 }

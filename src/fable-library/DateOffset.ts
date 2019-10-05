@@ -60,9 +60,9 @@ export function parse(str: string): IDateTimeOffset {
   const offset = offsetMatch == null
     ? date.getTimezoneOffset() * -60000
     : (offsetMatch[0] === "Z"
-        ? 0
-        : parseInt(offsetMatch[1], 10) * 3600000
-          + parseInt(offsetMatch[2], 10) * 60000);
+      ? 0
+      : parseInt(offsetMatch[1], 10) * 3600000
+      + parseInt(offsetMatch[2], 10) * 60000);
   return DateTimeOffset(date.getTime(), offset);
 }
 
@@ -75,9 +75,9 @@ export function tryParse(v: string): [boolean, IDateTimeOffset] {
 }
 
 export function create(
-    year: number, month: number, day: number,
-    h: number, m: number, s: number,
-    ms: number, offset: number) {
+  year: number, month: number, day: number,
+  h: number, m: number, s: number,
+  ms: number, offset: number) {
   if (offset == null) {
     offset = ms;
     ms = 0;
@@ -97,14 +97,15 @@ export function create(
       date.setFullYear(year, month - 1, day);
     }
   } else {
-    const str = padWithZeros(year, 4)  + "-" +
-                padWithZeros(month, 2) + "-" +
-                padWithZeros(day, 2)   + "T" +
-                padWithZeros(h, 2)     + ":" +
-                padWithZeros(m, 2)     + ":" +
-                padWithZeros(s, 2)     + "." +
-                padWithZeros(ms, 3)    +
-                dateOffsetToString(offset);
+    const str =
+      padWithZeros(year, 4) + "-" +
+      padWithZeros(month, 2) + "-" +
+      padWithZeros(day, 2) + "T" +
+      padWithZeros(h, 2) + ":" +
+      padWithZeros(m, 2) + ":" +
+      padWithZeros(s, 2) + "." +
+      padWithZeros(ms, 3) +
+      dateOffsetToString(offset);
     date = new Date(str);
   }
   const dateValue = date.getTime();

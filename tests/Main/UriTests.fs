@@ -30,7 +30,7 @@ let tests =
         let uri = Uri("/hello.html", UriKind.Relative)
         equal false uri.IsAbsoluteUri
 
-    testCase "Uri from relative uri string without uri kind should throws" <| fun _ ->          
+    testCase "Uri from relative uri string without uri kind should throws" <| fun _ ->
         let createInvalidUri () =
             Uri("hello.html")
 

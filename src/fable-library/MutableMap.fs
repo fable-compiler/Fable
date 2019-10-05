@@ -86,11 +86,11 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             false
 
     interface System.Collections.IEnumerable with
-        member this.GetEnumerator(): System.Collections.IEnumerator = 
+        member this.GetEnumerator(): System.Collections.IEnumerator =
             ((this :> IEnumerable<KeyValuePair<'Key, 'Value>>).GetEnumerator() :> System.Collections.IEnumerator)
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
-        member this.GetEnumerator(): IEnumerator<KeyValuePair<'Key, 'Value>> = 
+        member this.GetEnumerator(): IEnumerator<KeyValuePair<'Key, 'Value>> =
             let elems = seq {
                 for pairs in entries.Values do
                     for pair in pairs do
@@ -98,21 +98,21 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             elems.GetEnumerator()
 
     interface ICollection<KeyValuePair<'Key, 'Value>> with
-        member this.Add(item: KeyValuePair<'Key, 'Value>): unit = 
+        member this.Add(item: KeyValuePair<'Key, 'Value>): unit =
             this.Add(item.Key, item.Value)
-        member this.Clear(): unit = 
+        member this.Clear(): unit =
             this.Clear()
-        member this.Contains(item: KeyValuePair<'Key, 'Value>): bool = 
+        member this.Contains(item: KeyValuePair<'Key, 'Value>): bool =
             match this.TryFind item.Key with
             | Some p when Unchecked.equals p.Value item.Value -> true
             | _ -> false
-        member this.CopyTo(array: KeyValuePair<'Key, 'Value> [], arrayIndex: int): unit = 
+        member this.CopyTo(array: KeyValuePair<'Key, 'Value> [], arrayIndex: int): unit =
             this |> Seq.iteri (fun i e -> array.[arrayIndex + i] <- e)
-        member this.Count: int = 
+        member this.Count: int =
             this.Count
-        member this.IsReadOnly: bool = 
+        member this.IsReadOnly: bool =
             false
-        member this.Remove(item: KeyValuePair<'Key, 'Value>): bool = 
+        member this.Remove(item: KeyValuePair<'Key, 'Value>): bool =
             match this.TryFind item.Key with
             | Some pair ->
                 if Unchecked.equals pair.Value item.Value then
@@ -122,24 +122,24 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
 
 #if !FABLE_COMPILER
     interface IDictionary<'Key, 'Value> with
-        member this.Add(key: 'Key, value: 'Value): unit = 
+        member this.Add(key: 'Key, value: 'Value): unit =
             this.Add(key, value)
-        member this.ContainsKey(key: 'Key): bool = 
+        member this.ContainsKey(key: 'Key): bool =
             this.ContainsKey(key)
         member this.Item
-            with get (key: 'Key): 'Value = 
+            with get (key: 'Key): 'Value =
                 this.[key]
-            and set (key: 'Key) (v: 'Value): unit = 
+            and set (key: 'Key) (v: 'Value): unit =
                 this.[key] <- v
-        member this.Keys: ICollection<'Key> = 
+        member this.Keys: ICollection<'Key> =
             [| for pair in this -> pair.Key |] :> ICollection<'Key>
-        member this.Remove(key: 'Key): bool = 
+        member this.Remove(key: 'Key): bool =
             this.Remove(key)
-        member this.TryGetValue(key: 'Key, value: byref<'Value>): bool = 
+        member this.TryGetValue(key: 'Key, value: byref<'Value>): bool =
             match this.TryFind key with
             | Some pair -> value <- pair.Value; true
             | _ -> false
-        member this.Values: ICollection<'Value> = 
+        member this.Values: ICollection<'Value> =
             [| for pair in this -> pair.Value |] :> ICollection<'Value>
 #endif
 

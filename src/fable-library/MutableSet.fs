@@ -74,11 +74,11 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
             false
 
     interface System.Collections.IEnumerable with
-        member this.GetEnumerator(): System.Collections.IEnumerator = 
+        member this.GetEnumerator(): System.Collections.IEnumerator =
             ((this :> IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
 
     interface IEnumerable<'T> with
-        member this.GetEnumerator(): IEnumerator<'T> = 
+        member this.GetEnumerator(): IEnumerator<'T> =
             let elems = seq {
                 for values in entries.Values do
                     for value in values do
@@ -86,45 +86,45 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
             elems.GetEnumerator()
 
     interface ICollection<'T> with
-        member this.Add(item: 'T): unit = 
+        member this.Add(item: 'T): unit =
             this.Add item |> ignore
-        member this.Clear(): unit = 
+        member this.Clear(): unit =
             this.Clear()
-        member this.Contains(item: 'T): bool = 
+        member this.Contains(item: 'T): bool =
             this.Contains item
-        member this.CopyTo(array: 'T [], arrayIndex: int): unit = 
+        member this.CopyTo(array: 'T [], arrayIndex: int): unit =
             this |> Seq.iteri (fun i e -> array.[arrayIndex + i] <- e)
-        member this.Count: int = 
+        member this.Count: int =
             this.Count
-        member this.IsReadOnly: bool = 
+        member this.IsReadOnly: bool =
             false
-        member this.Remove(item: 'T): bool = 
+        member this.Remove(item: 'T): bool =
             this.Remove item
 
 #if !FABLE_COMPILER
     interface ISet<'T> with
-        member this.Add(item: 'T): bool = 
+        member this.Add(item: 'T): bool =
             this.Add item
-        member this.ExceptWith(other: IEnumerable<'T>): unit = 
+        member this.ExceptWith(other: IEnumerable<'T>): unit =
             for x in other do
                 this.Remove x |> ignore
-        member this.IntersectWith(other: IEnumerable<'T>): unit = 
+        member this.IntersectWith(other: IEnumerable<'T>): unit =
             failwith "Not Implemented"
-        member this.IsProperSubsetOf(other: IEnumerable<'T>): bool = 
+        member this.IsProperSubsetOf(other: IEnumerable<'T>): bool =
             failwith "Not Implemented"
-        member this.IsProperSupersetOf(other: IEnumerable<'T>): bool = 
+        member this.IsProperSupersetOf(other: IEnumerable<'T>): bool =
             failwith "Not Implemented"
-        member this.IsSubsetOf(other: IEnumerable<'T>): bool = 
+        member this.IsSubsetOf(other: IEnumerable<'T>): bool =
             failwith "Not Implemented"
-        member this.IsSupersetOf(other: IEnumerable<'T>): bool = 
+        member this.IsSupersetOf(other: IEnumerable<'T>): bool =
             failwith "Not Implemented"
-        member this.Overlaps(other: IEnumerable<'T>): bool = 
+        member this.Overlaps(other: IEnumerable<'T>): bool =
             failwith "Not Implemented"
-        member this.SetEquals(other: IEnumerable<'T>): bool = 
+        member this.SetEquals(other: IEnumerable<'T>): bool =
             failwith "Not Implemented"
-        member this.SymmetricExceptWith(other: IEnumerable<'T>): unit = 
+        member this.SymmetricExceptWith(other: IEnumerable<'T>): unit =
             failwith "Not Implemented"
-        member this.UnionWith(other: IEnumerable<'T>): unit = 
+        member this.UnionWith(other: IEnumerable<'T>): unit =
             for x in other do
                 this.Add x |> ignore
 #endif
