@@ -301,7 +301,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some(_, Some fullName) ->
             match fullName with
             | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.toSeq t inpExpr
-            | _ -> return Fable.TypeCast(inpExpr, t)            
+            | _ -> return Fable.TypeCast(inpExpr, t)
         | _ -> return Fable.TypeCast(inpExpr, t)
 
     // TypeLambda is a local generic lambda

@@ -11,7 +11,7 @@ import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Uti
  * @param value Value to round
  */
 function signedRound(value: number) {
-    return value < 0 ? Math.ceil(value) : Math.floor(value);
+  return value < 0 ? Math.ceil(value) : Math.floor(value);
 }
 
 export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0) {
@@ -122,13 +122,13 @@ export function toString(ts: number, format = "c") {
   const s = Math.abs(seconds(ts));
   const ms = Math.abs(milliseconds(ts));
   const sign = ts < 0 ? "-" : "";
-  return `${sign}${d === 0 && (format === "c" || format === "g") ? "" : format === "c" ? d + "." : d + ":" }${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 && (format === "c" || format === "g") ? "" : format === "g" ? "." + padWithZeros(ms, 3) : "." + padLeftAndRightWithZeros(ms, 3, 7)}`;
+  return `${sign}${d === 0 && (format === "c" || format === "g") ? "" : format === "c" ? d + "." : d + ":"}${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 && (format === "c" || format === "g") ? "" : format === "g" ? "." + padWithZeros(ms, 3) : "." + padLeftAndRightWithZeros(ms, 3, 7)}`;
 }
 
 export function parse(str: string) {
   const firstDot = str.search("\\.");
   const firstColon = str.search("\\:");
-  if (firstDot === -1 && firstColon === -1 ) { // There is only a day ex: 4
+  if (firstDot === -1 && firstColon === -1) { // There is only a day ex: 4
     const d = parseInt(str, 0);
     if (isNaN(d)) {
       throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
@@ -155,29 +155,15 @@ export function parse(str: string) {
       if (r[8] != null) {
         // Depending on the number of decimals passed, we need to adapt the numbers
         switch (r[8].length) {
-            case 1:
-                ms = +r[8] * 100;
-                break;
-            case 2:
-                ms = +r[8] * 10;
-                break;
-            case 3:
-                ms = +r[8];
-                break;
-            case 4:
-                ms = +r[8] / 10;
-                break;
-            case 5:
-                ms = +r[8] / 100;
-                break;
-            case 6:
-                ms = +r[8] / 1000;
-                break;
-            case 7:
-                ms = +r[8] / 10000;
-                break;
-            default:
-                throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
+          case 1: ms = +r[8] * 100; break;
+          case 2: ms = +r[8] * 10; break;
+          case 3: ms = +r[8]; break;
+          case 4: ms = +r[8] / 10; break;
+          case 5: ms = +r[8] / 100; break;
+          case 6: ms = +r[8] / 1000; break;
+          case 7: ms = +r[8] / 10000; break;
+          default:
+            throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
         }
       }
       return sign * create(d, h, m, s, ms);

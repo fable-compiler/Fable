@@ -175,9 +175,10 @@ export function parseRaw(str: string) {
       let timeInSeconds = 0;
       if (m[2] != null) {
         const timeParts = m[2].split(":");
-        timeInSeconds = parseInt(timeParts[0], 10) * 3600 +
-                        parseInt(timeParts[1] || "0", 10) * 60 +
-                        parseFloat(timeParts[2] || "0");
+        timeInSeconds =
+          parseInt(timeParts[0], 10) * 3600 +
+          parseInt(timeParts[1] || "0", 10) * 60 +
+          parseFloat(timeParts[2] || "0");
         if (m[3] != null && m[3].toUpperCase() === "PM") {
           timeInSeconds += 720;
         }
@@ -237,9 +238,9 @@ export function tryParse(v: string): [boolean, IDateTime] {
 }
 
 export function create(
-    year: number, month: number, day: number,
-    h: number = 0, m: number = 0, s: number = 0,
-    ms: number = 0, kind?: DateKind) {
+  year: number, month: number, day: number,
+  h: number = 0, m: number = 0, s: number = 0,
+  ms: number = 0, kind?: DateKind) {
   const dateValue = kind === DateKind.UTC
     ? Date.UTC(year, month - 1, day, h, m, s, ms)
     : new Date(year, month - 1, day, h, m, s, ms).getTime();
@@ -284,7 +285,7 @@ export function toLocalTime(date: IDateTime) {
 }
 
 export function specifyKind(d: IDateTime, kind: DateKind) {
-    return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), kind);
+  return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), kind);
 }
 
 export function timeOfDay(d: IDateTime) {

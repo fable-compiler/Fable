@@ -220,7 +220,7 @@ module private Transforms =
                 | Function(Lambda arg, body, None) ->
                     inner accBindings (arg::accArgs) body name
                 | Let(bindings, body) ->
-                    inner (accBindings @ bindings) accArgs body name           
+                    inner (accBindings @ bindings) accArgs body name
                 | _ when not(List.isEmpty accArgs) ->
                     Some(List.rev accArgs, Let(accBindings, body), name)
                 | _ -> None
@@ -229,7 +229,7 @@ module private Transforms =
                 inner bindings [] body None
             | Function(Lambda arg, body, name) ->
                 inner [] [arg] body name
-            | _ -> None            
+            | _ -> None
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
@@ -290,7 +290,7 @@ module private Transforms =
                     | Function(args, funBody, _) -> Function(args, funBody, Some ident.Name)
                     | value -> value
                 replaceValues (Map [ident.Name, value]) letBody
-            else e            
+            else e
         | e -> e
 
     /// Returns arity of lambda (or lambda option) types

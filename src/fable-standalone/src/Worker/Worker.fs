@@ -82,9 +82,9 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
                     fable.Manager.CreateChecker(fable.References, fable.Reader, otherFSharpOptions)) ()
                 return { fable with Checker = checker
                                     LoadTime = checkerTime
-                                    OtherFSharpOptions = otherFSharpOptions }   
-    }   
-              
+                                    OtherFSharpOptions = otherFSharpOptions }
+    }
+
 let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     let! msg = box.Receive()
     match state.Fable, msg with

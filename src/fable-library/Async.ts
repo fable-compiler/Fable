@@ -34,10 +34,10 @@ export function bind<T, U>(ctx: IAsyncContext<T>, part1: IAsync<U>, part2: (x: U
   return protectedBind(part1, part2)(ctx);
 }
 
-export function createCancellationToken(arg?: boolean|number): CancellationToken {
+export function createCancellationToken(arg?: boolean | number): CancellationToken {
   const token = new CancellationToken(typeof arg === "boolean" ? arg : false);
   if (typeof arg === "number") {
-      setTimeout(() => { token.cancel(); }, arg);
+    setTimeout(() => { token.cancel(); }, arg);
   }
   return token;
 }
@@ -66,7 +66,7 @@ export function awaitPromise<T>(p: Promise<T>) {
   return fromContinuations((conts: Continuations<T>) =>
     p.then(conts[0]).catch((err) =>
       (err instanceof OperationCanceledError
-      ? conts[2] : conts[1])(err)));
+        ? conts[2] : conts[1])(err)));
 }
 
 export function cancellationToken() {
@@ -101,17 +101,17 @@ export function parallel<T>(computations: Iterable<IAsync<T>>) {
 }
 
 export function sleep(millisecondsDueTime: number) {
-    return protectedCont((ctx: IAsyncContext<void>) => {
-        let tokenId: number;
-        const timeoutId = setTimeout(() => {
-            ctx.cancelToken.removeListener(tokenId);
-            ctx.onSuccess(void 0);
-        }, millisecondsDueTime);
-        tokenId = ctx.cancelToken.addListener(() => {
-            clearTimeout(timeoutId);
-            ctx.onCancel(new OperationCanceledError());
-        });
+  return protectedCont((ctx: IAsyncContext<void>) => {
+    let tokenId: number;
+    const timeoutId = setTimeout(() => {
+      ctx.cancelToken.removeListener(tokenId);
+      ctx.onSuccess(void 0);
+    }, millisecondsDueTime);
+    tokenId = ctx.cancelToken.addListener(() => {
+      clearTimeout(timeoutId);
+      ctx.onCancel(new OperationCanceledError());
     });
+  });
 }
 
 export function start<T>(computation: IAsync<void>, cancellationToken?: CancellationToken) {

@@ -230,52 +230,52 @@ To install additional .NET Core runtimes or SDKs:
 let linuxTests =
      testList "RegexTest with linux host" [
          testCase "Get Host Version with dotnet Core 2" <| fun () ->
-             let actual = 
+             let actual =
                 Process.getHostVersionRegex linuxDotnet2Info
                 |> fun m -> m.Groups.[1].Value
-             Expect.equal actual "2.2.6" "Host Version of linuxDotnet2Info should be 2.2.6" 
-         
+             Expect.equal actual "2.2.6" "Host Version of linuxDotnet2Info should be 2.2.6"
+
          testCase "Get Host Version with dotnet Core 3" <| fun () ->
-            let actual = 
+            let actual =
                Process.getHostVersionRegex linuxDotnet3Info
                |> fun m -> m.Groups.[1].Value
             Expect.equal actual "3.0.0-preview8-28405-07" "Host Version of linuxDotnet3Info should be 3.0.0-preview8-28405-07"
 
          testCase "Get Base Path for dotnet Core 2" <| fun () ->
-            let actual = 
+            let actual =
                 Process.getBasePathRegex linuxDotnet2Info
                 |> fun m -> m.Groups.[1].Value
             Expect.equal actual "/usr/share/dotnet" "Base Path for linuxdDotnet2Info should be /usr/share/dotnet"
- 
+
          testCase "Get Base Path for dotnet Core 3" <| fun () ->
-           let actual = 
+           let actual =
                Process.getBasePathRegex linuxDotnet3Info
                |> fun m -> m.Groups.[1].Value
            Expect.equal actual "/usr/share/dotnet" "Base Path for linuxdDotnet3Info should be /usr/share/dotnet"
      ]
 
-let windowsTests = 
+let windowsTests =
     testList "RegexTest with windows host" [
         testCase "Get Host Version with dotnet Core 2" <| fun () ->
-            let actual = 
+            let actual =
                Process.getHostVersionRegex windowsDotnet2Info
                |> fun m -> m.Groups.[1].Value
-            Expect.equal actual "2.2.6" "Host Version of windowsDotnet2Info should be 2.2.6" 
-    
+            Expect.equal actual "2.2.6" "Host Version of windowsDotnet2Info should be 2.2.6"
+
         testCase "Get Host Version with dotnet Core 3" <| fun () ->
-           let actual = 
+           let actual =
               Process.getHostVersionRegex windowsDotnet3Info
               |> fun m -> m.Groups.[1].Value
            Expect.equal actual "3.0.0-preview8-28405-07" "Host Version of windowsDotnet3Info should be 3.0.0-preview8-28405-07"
 
         testCase "Get Base Path for dotnet Core 2" <| fun () ->
-           let actual = 
+           let actual =
                Process.getBasePathRegex windowsDotnet2Info
                |> fun m -> m.Groups.[1].Value
            Expect.equal actual @"C:\Program Files\dotnet" @"Base Path for windowsDotnet2Info should be C:\Program Files\dotnet"
- 
+
         testCase "Get Base Path for dotnet Core 3" <| fun () ->
-          let actual = 
+          let actual =
               Process.getBasePathRegex windowsDotnet3Info
               |> fun m -> m.Groups.[1].Value
           Expect.equal actual @"C:\Program Files\dotnet" @"Base Path for windowsDotnet3Info should be C:\Program Files\dotnet"

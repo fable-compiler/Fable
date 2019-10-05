@@ -1,5 +1,4 @@
-import { combineHashCodes, compare, compareArrays,
-    equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
+import { combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
 
 function sameType(x: any, y: any) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;

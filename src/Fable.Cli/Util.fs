@@ -297,30 +297,30 @@ module Process =
             logOut
             |> String.concat "\n"
             |> execRegexPattern
-        
+
         let hostVersion =
             matchProcessOutput "dotnet" "--info" getHostVersionRegex
             |> fun m -> m.Groups.[1].Value
         let v = hostVersion.Split('.')
 
         let netappCoreVersion = sprintf "%s.%s" v.[0] v.[1]
-        
+
         let netCoreAssembliesDir =
             match v.[0] with
-            | "3" -> 
-                let sdkInstallDir = 
+            | "3" ->
+                let sdkInstallDir =
                     matchProcessOutput "dotnet" "--info" getBasePathRegex
                     |> fun m -> m.Groups.[1].Value
                 getNetCore3AssembliesDir sdkInstallDir netappCoreVersion hostVersion
             | "2"
-            | _ -> 
+            | _ ->
                 let nugetCache =
                     matchProcessOutput "dotnet" "nuget locals global-packages --list" getNugetPathRegex
                     |> fun m -> m.Groups.[1].Value.Trim()
                 let netCore2AssembliesDir = getNetCore2AssembliesDir nugetCache netappCoreVersion hostVersion
                 if not(Directory.Exists(netCore2AssembliesDir)) then
                     restoreNetcore2InAssembliesDir netappCoreVersion hostVersion
-                netCore2AssembliesDir   
+                netCore2AssembliesDir
 
         netCoreAssembliesDir
 

@@ -186,7 +186,7 @@ let tests =
     testCase "Array.zeroCreate works with KeyValuePair" <| fun () ->
         let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
         equal 0. a.[1].Key
-        equal false a.[2].Value        
+        equal false a.[2].Value
 
     testCase "Array.create works" <| fun () ->
         let xs = Array.create 2 5
@@ -917,7 +917,7 @@ let tests =
         let xs = [|1;2;3;4|] :> System.Array // Numeric array
         let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array
         [ for i in xs do for j in ys do yield (unbox i, unbox j) ]
-        |> equal 
+        |> equal
             [ (1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
               (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
               (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');

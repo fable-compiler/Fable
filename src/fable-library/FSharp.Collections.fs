@@ -12,7 +12,7 @@ module HashIdentity =
     let Reference<'T when 'T : not struct > : IEqualityComparer<'T> =
         FromFunctions LanguagePrimitives.PhysicalHash LanguagePrimitives.PhysicalEquality
 
-module ComparisonIdentity = 
+module ComparisonIdentity =
     let FromFunction comparer : IComparer<'T> =
         { new IComparer<'T> with
             member __.Compare(x, y) = comparer x y }
