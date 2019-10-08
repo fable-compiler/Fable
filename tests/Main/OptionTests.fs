@@ -270,4 +270,9 @@ let tests =
         | Some(Some _) -> 1
         | Some(None) -> 2
         |> equal 2
+
+    testCase "Option.map ignore generates Some ()" <| fun () -> // See #1923
+        let mySome = Some ()
+        let myOtherSome = mySome |> Option.map (ignore)
+        equal mySome myOtherSome
   ]

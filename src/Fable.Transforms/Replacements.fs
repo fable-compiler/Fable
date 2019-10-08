@@ -1895,15 +1895,10 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.CoreCall("Option", "value", t, [c; makeBoolConst true], ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("Map" | "Bind"), [f; arg] ->
-        let fType, argType =
-            match i.SignatureArgTypes with
-            | [fType; argType] -> fType, argType
-            | _ -> f.Type, arg.Type // unexpected
-        let args = [arg; Value(NewOption(None, argType), None); f]
-        Helper.CoreCall("Option", "defaultArg", t, args, [argType; Option argType; fType],  ?loc=r) |> Some
+    | ("Map" | "Bind" as meth), args ->
+        Helper.CoreCall("Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Map2" | "Map3"), args ->
-        Helper.CoreCall("Option", "map", t, args, i.SignatureArgTypes,  ?loc=r) |> Some
+        Helper.CoreCall("Option", "mapMultiple", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Filter", _ ->
         Helper.CoreCall("Option", "filter", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", [arg] ->

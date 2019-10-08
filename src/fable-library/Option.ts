@@ -78,9 +78,17 @@ export function filter<T>(predicate: (arg0: T) => boolean, arg: Option<T>) {
   return arg != null ? (!predicate(value(arg)) ? null : arg) : arg;
 }
 
-export function map<T>(predicate: (arg0: T) => boolean, ...args: T[]) {
-  return args.every((x) => x != null) ? predicate.apply(null, args) : null;
+export function map<T1, T2>(f: (arg0: T1) => T2, arg: Option<T1>) {
+  return arg == null ? arg : some(f(value(arg)));
+}  
+
+export function mapMultiple<T>(predicate: (arg0: T) => boolean, ...args: T[]) {
+    return args.every((x) => x != null) ? predicate.apply(null, args) : null;
 }
+
+export function bind<T1, T2>(f: (arg0: T1) => Option<T2>, arg: Option<T1>) {
+  return arg == null ? arg : f(value(arg));
+}  
 
 // CHOICE
 
