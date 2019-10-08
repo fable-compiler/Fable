@@ -342,27 +342,36 @@ export function dayOfYear(d: IDateTime) {
 }
 
 export function add(d: IDateTime, ts: number) {
-  return DateTime(d.getTime() + ts, d.kind);
+  const newDate = DateTime(d.getTime() + ts, d.kind)
+  if (d.kind === DateKind.Local) {
+    const oldTzOffset = d.getTimezoneOffset();
+    const newTzOffset = newDate.getTimezoneOffset();
+    return oldTzOffset !== newTzOffset
+        ? DateTime(newDate.getTime() + (newTzOffset - oldTzOffset) * 60000, d.kind)
+        : newDate;
+  } else {
+    return newDate;
+  }
 }
 
 export function addDays(d: IDateTime, v: number) {
-  return DateTime(d.getTime() + v * 86400000, d.kind);
+  return add(d, v * 86400000);
 }
 
 export function addHours(d: IDateTime, v: number) {
-  return DateTime(d.getTime() + v * 3600000, d.kind);
+  return add(d, v * 3600000);
 }
 
 export function addMinutes(d: IDateTime, v: number) {
-  return DateTime(d.getTime() + v * 60000, d.kind);
+  return add(d, v * 60000);
 }
 
 export function addSeconds(d: IDateTime, v: number) {
-  return DateTime(d.getTime() + v * 1000, d.kind);
+  return add(d, v * 1000);
 }
 
 export function addMilliseconds(d: IDateTime, v: number) {
-  return DateTime(d.getTime() + v, d.kind);
+  return add(d, v);
 }
 
 export function addYears(d: IDateTime, v: number) {
@@ -395,9 +404,7 @@ export function addMonths(d: IDateTime, v: number) {
 }
 
 export function subtract(d: IDateTime, that: IDateTime | number) {
-  return typeof that === "number"
-    ? DateTime(d.getTime() - that, d.kind)
-    : d.getTime() - that.getTime();
+  return typeof that === "number" ? add(d, -that) : d.getTime() - that.getTime();
 }
 
 export function toLongDateString(d: IDateTime) {
