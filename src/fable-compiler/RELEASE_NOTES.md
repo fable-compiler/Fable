@@ -1,3 +1,8 @@
+### 2.4.6
+
+* Adjust timezone offset when adding local dates
+* Fix #1923: Option.map ignore generates Some ()
+
 ### 2.4.5
 
 * Fix #1918: Enum reflection support @MangelMaxime
