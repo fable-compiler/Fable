@@ -561,4 +561,10 @@ let tests =
             // printfn "%i" acc
             acc > 2 |> equal true
         }
+
+    // In regions with daylight saving time, 20/10/2019 will have different timezone
+    // offset than 29/10/2019
+    testCase "Adding days to a local date works even if daylight saving time changes" <| fun () ->
+        let dt = DateTime(2019, 10, 20, 0, 0, 0, DateTimeKind.Local)
+        dt.AddDays(9.).Day |> equal 29        
   ]
