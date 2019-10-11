@@ -80,6 +80,30 @@ open Fable.Core
 #endif
 type DU = Int of int | Str of string
 
+
+type DD = {
+        a: string
+        b: string
+    }
+
+
+type D =
+    | DA of string
+
+type EE = {
+    a: string
+    b: string
+}
+
+type E =
+    | EA of string
+
+type DDD = DD * D list
+type EEE = EE * E list
+
+type UnionType = Fable.Core.U2<DDD, EEE>
+
+
 let tests =
   testList "Unions" [
     testCase "Union cases matches with no arguments can be generated" <| fun () ->
@@ -218,4 +242,17 @@ let tests =
             | Str s -> "s: " + s
         Str "foo" |> strify |> equal "s: foo"
         Int 42 |> strify |> equal "i: 42"
+
+
+    testCase "Case testing with U2 works" <| fun () ->
+        let a = UnionType.Case1 ({a = "abc"; b = "def"}, [])
+
+
+        match a with
+        | UnionType.Case1 x ->
+            ()
+
+        | UnionType.Case2 x ->
+            failwith "Matched wrong union case"
+
   ]
