@@ -349,9 +349,9 @@ module Publish =
             |> replaceRegex NUGET_PACKAGE_VERSION ["$1"; releaseVersion; "$3"]
             |> writeFile projFile
             try
-                let tempDir = projDir </> "temp"
+                let tempDir = fullPath(projDir </> "temp")
                 removeDirRecursive tempDir
-                runList ["dotnet pack"; projDir; sprintf "-c Release -o temp"]
+                runList ["dotnet pack"; projDir; sprintf "-c Release -o %s" tempDir]
                 let pkgName = filenameWithoutExtension projFile
                 let nupkg =
                     dirFiles tempDir

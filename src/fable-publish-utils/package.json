@@ -1,6 +1,6 @@
 {
   "name": "fable-publish-utils",
-  "version": "1.0.5",
+  "version": "1.1.1",
   "description": "Utilities for publishing NPM packages using an F#/Fable script",
   "main": "index.js",
   "scripts": {
