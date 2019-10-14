@@ -79,6 +79,11 @@ type MyStrings =
     | Vertical
     | [<CompiledName("Horizontal")>] Horizontal
 
+[<StringEnum(CaseRules.SnakeCase)>]
+type MyCssOptions =
+    | ContentBox
+    | BorderBox
+
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
@@ -291,6 +296,10 @@ let tests =
         Horizontal |> unbox |> equal "Horizontal"
         Vertical |> string |> equal "vertical"
         Horizontal |> string |> equal "Horizontal"
+
+    testCase "StringEnum works with CaseRules.SnakeCase" <| fun () ->
+        BorderBox |> unbox |> equal "border-box"
+        ContentBox |> unbox |> equal "content-box"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->

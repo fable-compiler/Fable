@@ -192,6 +192,11 @@ module Naming =
     let upperFirst (s: string) =
         s.Substring(0,1).ToUpperInvariant() + s.Substring(1)
 
+    let snakeCase (s: string) =
+        System.Text.RegularExpressions.Regex.Replace(s, "[a-z]?[A-Z]", fun m ->
+            if m.Value.Length = 1 then m.Value.ToLowerInvariant()
+            else m.Value.Substring(0,1) + "-" + m.Value.Substring(1,1).ToLowerInvariant())
+
     let jsKeywords =
         System.Collections.Generic.HashSet [
             // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords

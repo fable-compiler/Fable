@@ -924,6 +924,7 @@ let makePojoFromLambda arg =
 let changeCase caseRule name =
     match caseRule with
     | CaseRules.LowerFirst -> Naming.lowerFirst name
+    | CaseRules.SnakeCase -> Naming.snakeCase name
     | CaseRules.None | _ -> name
 
 let makePojo (com: Fable.ICompiler) r caseRule keyValueList =

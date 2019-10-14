@@ -1,3 +1,7 @@
+### 3.1.2
+
+* Add CaseRules.SnakeCase
+
 ### 3.1.1
 
 * Fix TypedArray bindings @Titaye

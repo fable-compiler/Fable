@@ -221,6 +221,7 @@ module Helpers =
         | None ->
             match rule with
             | CaseRules.LowerFirst -> Naming.lowerFirst unionCase.Name
+            | CaseRules.SnakeCase -> Naming.snakeCase unionCase.Name
             | CaseRules.None | _ -> unionCase.Name
         |> makeStrConst
 

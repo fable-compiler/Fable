@@ -5,6 +5,7 @@ open System
 type CaseRules =
     | None = 0
     | LowerFirst = 1
+    | SnakeCase = 2
 
 type JsInterfaceAttribute() =
     inherit Attribute()
