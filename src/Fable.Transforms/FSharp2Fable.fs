@@ -60,7 +60,7 @@ let private transformNewUnion com ctx r fsType
                |> addErrorAndReturnNull com ctx.InlinePath r
     | StringEnum(tdef, rule) ->
         match argExprs with
-        | [] -> applyCaseRule rule unionCase
+        | [] -> transformStringEnum rule unionCase
         | _ -> sprintf "StringEnum types cannot have fields: %O" tdef.TryFullName
                |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion typ ->
@@ -258,7 +258,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
         return Fable.Test(unionExpr, kind, r)
     | StringEnum(_, rule) ->
-        return makeEqOp r unionExpr (applyCaseRule rule unionCase) BinaryEqualStrict
+        return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
     | DiscriminatedUnion(tdef,_) ->
         let kind = Fable.UnionCaseTest(unionCase, tdef)
         return Fable.Test(unionExpr, kind, r)

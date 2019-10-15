@@ -421,18 +421,27 @@ export function createAtom<T>(value: T): (v?: T) => T | void {
 const CaseRules = {
   None: 0,
   LowerFirst: 1,
-  SnakeCase: 2
+  SnakeCase: 2,
+  SnakeCaseAllCaps: 3,
+  KebabCase: 4,
 };
+
+function dashify(str: string, separator: string) {
+    return str.replace(/[a-z]?[A-Z]/g, (m) => m.length === 1
+        ? m.toLowerCase()
+        : m.charAt(0) + separator + m.charAt(1).toLowerCase());
+}
 
 function changeCase(str: string, caseRule: number) {
   switch (caseRule) {
     case CaseRules.LowerFirst:
       return str.charAt(0).toLowerCase() + str.slice(1);
     case CaseRules.SnakeCase:
-    return str.replace(/[a-z]?[A-Z]/g, (m) =>
-        m.length === 1
-            ? m.toLowerCase()
-            : m.charAt(0) + "-" + m.charAt(1).toLowerCase());
+      return dashify(str, "_");
+    case CaseRules.SnakeCaseAllCaps:
+      return dashify(str, "_").toUpperCase();
+    case CaseRules.KebabCase:
+      return dashify(str, "-");
     case CaseRules.None:
     default:
       return str;

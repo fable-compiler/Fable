@@ -111,6 +111,8 @@ module Patterns =
         if Set.contains item set then Some SetContains else None
 
 module Naming =
+    open Fable.Core
+    open System.Text.RegularExpressions
 
     let (|StartsWith|_|) (pattern: string) (txt: string) =
         if txt.StartsWith(pattern)
@@ -192,10 +194,18 @@ module Naming =
     let upperFirst (s: string) =
         s.Substring(0,1).ToUpperInvariant() + s.Substring(1)
 
-    let snakeCase (s: string) =
-        System.Text.RegularExpressions.Regex.Replace(s, "[a-z]?[A-Z]", fun m ->
+    let private dashify (separator: string) (input: string) =
+        Regex.Replace(input, "[a-z]?[A-Z]", fun m ->
             if m.Value.Length = 1 then m.Value.ToLowerInvariant()
-            else m.Value.Substring(0,1) + "-" + m.Value.Substring(1,1).ToLowerInvariant())
+            else m.Value.Substring(0,1) + separator + m.Value.Substring(1,1).ToLowerInvariant())
+
+    let applyCaseRule caseRule name =
+        match caseRule with
+        | CaseRules.LowerFirst -> lowerFirst name
+        | CaseRules.SnakeCase -> dashify "_" name
+        | CaseRules.SnakeCaseAllCaps -> (dashify "_" name).ToUpperInvariant()
+        | CaseRules.KebabCase -> dashify "-" name
+        | CaseRules.None | _ -> name
 
     let jsKeywords =
         System.Collections.Generic.HashSet [

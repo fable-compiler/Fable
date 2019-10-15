@@ -215,14 +215,10 @@ module Helpers =
         |> Option.map (fun att -> att.ConstructorArguments.[0] |> snd |> string)
 
     /// Apply case rules to case name if there's no explicit compiled name
-    let applyCaseRule (rule: CaseRules) (unionCase: FSharpUnionCase) =
+    let transformStringEnum (rule: CaseRules) (unionCase: FSharpUnionCase) =
         match unionCaseCompiledName unionCase with
         | Some name -> name
-        | None ->
-            match rule with
-            | CaseRules.LowerFirst -> Naming.lowerFirst unionCase.Name
-            | CaseRules.SnakeCase -> Naming.snakeCase unionCase.Name
-            | CaseRules.None | _ -> unionCase.Name
+        | None -> Naming.applyCaseRule rule unionCase.Name
         |> makeStrConst
 
     // let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =

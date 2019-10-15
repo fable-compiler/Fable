@@ -921,12 +921,6 @@ let makePojoFromLambda arg =
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
     |> Option.defaultWith (fun () -> Helper.CoreCall("Util", "jsOptions", Any, [arg]))
 
-let changeCase caseRule name =
-    match caseRule with
-    | CaseRules.LowerFirst -> Naming.lowerFirst name
-    | CaseRules.SnakeCase -> Naming.snakeCase name
-    | CaseRules.None | _ -> name
-
 let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
     let makeObjMember caseRule name values =
         let value =
@@ -934,7 +928,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
             | [] -> makeBoolConst true
             | [value] -> value
             | values -> Value(NewArray(ArrayValues values, Any), None)
-        ObjectMember(changeCase caseRule name |> makeStrConst, value, ObjectValue)
+        ObjectMember(Naming.applyCaseRule caseRule name |> makeStrConst, value, ObjectValue)
     match caseRule with
     | Value(NumberConstant(rule, _),_)
     | Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_) ->

@@ -79,7 +79,15 @@ type MyStrings =
     | Vertical
     | [<CompiledName("Horizontal")>] Horizontal
 
-[<StringEnum(CaseRules.SnakeCase)>]
+[<StringEnum(CaseRules.SnakeCase); RequireQualifiedAccess>]
+type UserInfo =
+    | UserLoginCount
+
+[<StringEnum(CaseRules.SnakeCaseAllCaps); RequireQualifiedAccess>]
+type UserInfo2 =
+    | UserLoginCount
+
+[<StringEnum(CaseRules.KebabCase)>]
 type MyCssOptions =
     | ContentBox
     | BorderBox
@@ -298,6 +306,12 @@ let tests =
         Horizontal |> string |> equal "Horizontal"
 
     testCase "StringEnum works with CaseRules.SnakeCase" <| fun () ->
+        UserInfo.UserLoginCount |> unbox |> equal "user_login_count"
+
+    testCase "StringEnum works with CaseRules.SnakeCaseAllCaps" <| fun () ->
+        UserInfo2.UserLoginCount |> unbox |> equal "USER_LOGIN_COUNT"
+
+    testCase "StringEnum works with CaseRules.KebabCase" <| fun () ->
         BorderBox |> unbox |> equal "border-box"
         ContentBox |> unbox |> equal "content-box"
 
