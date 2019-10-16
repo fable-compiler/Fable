@@ -142,7 +142,7 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
             |> Array.map (fun r -> r.[3..])
             |> List.ofArray
 
-        Log.verbose(lazy (sprintf "dll refs from checker.GetProjectOptionsFromScript: %A" dllRefs))
+        Log.verbose(lazy (sprintf "dll refs from checker.GetProjectOptionsFromScript:\n%A" dllRefs))
 
         let fablePkgs =
             opts.OtherOptions
