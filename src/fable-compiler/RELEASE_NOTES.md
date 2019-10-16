@@ -1,3 +1,8 @@
+### 2.4.7
+
+* Fix compilation of .fsx files @nojaf
+* Add more CaseRules
+
 ### 2.4.6
 
 * Adjust timezone offset when adding local dates
