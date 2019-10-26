@@ -892,3 +892,22 @@ let windowed (windowSize: int) (source: 'T[]): 'T[][] =
     for i = windowSize to source.Length do
         res.[i - windowSize] <- source.[i-windowSize..i-1]
     res
+
+let splitInto (chunks: int) (array: 'T[]): 'T[][] =
+    if chunks < 1 then
+        invalidArg "chunks" "The input must be positive."
+    if array.Length = 0 then
+        [| [||] |]
+    else
+        let result: 'T[][] = [||]
+        let chunks = FSharp.Core.Operators.min chunks array.Length
+        let minChunkSize = array.Length / chunks
+        let chunksWithExtraItem = array.Length % chunks
+
+        for i = 0 to chunks - 1 do
+            let chunkSize = if i < chunksWithExtraItem then minChunkSize + 1 else minChunkSize
+            let start = i * minChunkSize + (FSharp.Core.Operators.min chunksWithExtraItem i)
+            let slice = subArrayImpl array start chunkSize
+            pushImpl result slice |> ignore
+
+        result

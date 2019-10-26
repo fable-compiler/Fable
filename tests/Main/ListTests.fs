@@ -812,4 +812,11 @@ let tests =
         makeList true |> List.sum |> equal 6
         makeList false |> List.sum |> equal 3
     // #endif
+
+    testCase "List.splitInto works" <| fun () ->
+        List.splitInto 3 [1..10] |> equal [ [1..4]; [5..7]; [8..10] ]
+        List.splitInto 3 [1..11] |> equal [ [1..4]; [5..8]; [9..11] ]
+        List.splitInto 3 [1..12] |> equal [ [1..4]; [5..8]; [9..12] ]
+        List.splitInto 4 [1..5] |> equal [ [1..2]; [3]; [4]; [5] ]
+        List.splitInto 20 [1..4] |> equal [ [1]; [2]; [3]; [4] ]
   ]
