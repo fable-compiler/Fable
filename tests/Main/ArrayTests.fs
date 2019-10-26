@@ -942,4 +942,11 @@ let tests =
         let destination = [| "a"; "b"; "c" |]
         Array.Copy(source, 1, destination, 1, 2)
         equal [| "a"; "xx"; "xyz" |] destination
+
+    testCase "Array.splitInto works" <| fun () ->
+        Array.splitInto 3 [|1..10|] |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
+        Array.splitInto 3 [|1..11|] |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
+        Array.splitInto 3 [|1..12|] |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
+        Array.splitInto 4 [|1..5|] |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
+        Array.splitInto 20 [|1..4|] |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
   ]

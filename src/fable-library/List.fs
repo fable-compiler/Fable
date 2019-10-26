@@ -508,3 +508,10 @@ let windowed (windowSize: int) (source: 'T list): 'T list list =
     for i = length source downto windowSize do
         res <- (slice (Some(i-windowSize)) (Some(i-1)) source) :: res
     res
+
+let splitInto (chunks: int) (source: 'T list): 'T list list =
+    source
+    |> List.toArray
+    |> Array.splitInto chunks
+    |> List.ofArray
+    |> List.map List.ofArray
