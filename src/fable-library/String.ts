@@ -3,7 +3,7 @@ import Decimal from "./Decimal";
 import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as longToString } from "./Long";
 import { escape } from "./RegExp";
 
-const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 // RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
 // const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -136,7 +136,21 @@ export function toFail(arg: IPrintfFormat) {
 
 function formatOnce(str2: any, rep: any) {
   return str2.replace(fsFormatRegExp,
-    (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) => {
+    (_: any, prefix: any, flags: any, padLength: any, precision: any, format: any) => {
+      // TODO: We should check also for values that are not JS numbers in runtime, like decimals and longs
+      let sign = "";
+      if (typeof rep === "number" && format.toLowerCase() !== "x") {
+        if (rep < 0) {
+          rep = Math.abs(rep);
+          sign = "-";
+        } else {
+          if (flags.indexOf(" ") >= 0) {
+            sign = " ";
+          } else if (flags.indexOf("+") >= 0) {
+            sign = "+";
+          }
+        }
+      }
       switch (format) {
         case "f": case "F":
           rep = Number(rep).toFixed(precision || 6); break;
@@ -144,21 +158,26 @@ function formatOnce(str2: any, rep: any) {
           rep = Number(rep).toPrecision(precision); break;
         case "e": case "E":
           rep = Number(rep).toExponential(precision); break;
-        case "O":
-        case "A":
-          rep = String(rep); break;
         case "x":
           rep = toHex(rep); break;
         case "X":
           rep = toHex(rep).toUpperCase(); break;
+        default: // AOid
+          rep = String(rep); break;
       }
-      const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
-      pad = parseInt(pad, 10);
-      if (!isNaN(pad)) {
-        const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-        rep = padLeft(String(rep), Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+      padLength = parseInt(padLength, 10);
+      if (!isNaN(padLength)) {
+        const zeroFlag = flags.indexOf("0") >= 0; // Use '0' for left padding
+        const minusFlag = flags.indexOf("-") >= 0; // Right padding
+        const ch = minusFlag || !zeroFlag ? " " : "0";
+        if (ch === "0") {
+            rep = padLeft(rep, padLength - sign.length, ch, minusFlag);    
+            rep = sign + rep;
+        } else {
+            rep = padLeft(sign + rep, padLength, ch, minusFlag);    
+        }
       }
-      const once = prefix + (plusPrefix ? "+" + rep : rep);
+      const once = prefix + rep;
       return once.replace(/%/g, "%%");
     });
 }

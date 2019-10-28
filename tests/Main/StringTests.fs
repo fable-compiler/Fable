@@ -172,6 +172,12 @@ let tests =
             sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
             sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
 
+      testCase "sprintf integers with sign and padding works" <| fun () -> // See #1931
+          sprintf "%+04i" 1 |> equal "+001"
+          sprintf "%+04i" -1 |> equal "-001"
+          sprintf "%5d" -5 |> equal "   -5"
+          sprintf "%- 4i" 5 |> equal " 5  "
+
       testCase "String.Format {0:x} works" <| fun () ->
             //See above comment on expected values
             String.Format("255: {0:X}", 255) |> equal "255: FF"
