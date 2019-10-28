@@ -1,3 +1,8 @@
+### 2.4.8
+
+* Support Array.splitInto & List.splitInto @kerams
+* Fix #1931: sprint formatting combining sign and padding
+
 ### 2.4.7
 
 * Fix compilation of .fsx files @nojaf
