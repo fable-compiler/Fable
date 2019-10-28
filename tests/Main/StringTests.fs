@@ -178,6 +178,11 @@ let tests =
           sprintf "%5d" -5 |> equal "   -5"
           sprintf "%- 4i" 5 |> equal " 5  "
 
+      testCase "String.Format combingin padding and zeroes pattern works" <| fun () ->
+          String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
+          String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
+          String.Format("{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
+
       testCase "String.Format {0:x} works" <| fun () ->
             //See above comment on expected values
             String.Format("255: {0:X}", 255) |> equal "255: FF"

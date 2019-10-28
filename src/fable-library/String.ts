@@ -1,6 +1,6 @@
 import { toString as dateToString } from "./Date";
 import Decimal from "./Decimal";
-import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as longToString } from "./Long";
+import Long, { compare as compareLong, fromBytes as longFromBytes, op_Multiply as multiplyLong, toBytes as longToBytes, toString as longToString } from "./Long";
 import { escape } from "./RegExp";
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
@@ -9,6 +9,57 @@ const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 // const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 // Relax GUID parsing, see #1637
 const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+type Number = number | Long | Decimal;
+
+// These are used for formatting and only take longs and decimals into account (no bigint)
+function isNumber(x: any) {
+    return typeof x === "number" || x instanceof Long || x instanceof Decimal;
+}
+
+function isLessThan(x: Number, y: number) {
+    if (x instanceof Long) {
+        return compareLong(x, -1);
+    } else if (x instanceof Decimal) {
+        return x.cmp(y) < 0;
+    } else {
+        return x < y;
+    }
+}
+
+function multiply(x: Number, y: number) {
+    if (x instanceof Long) {
+        return multiplyLong(x, y);
+    } else if (x instanceof Decimal) {
+        return x.mul(y);
+    } else {
+        return x * y;
+    }
+}
+
+function toFixed(x: Number, dp?: number) {
+    if (x instanceof Long) {
+        return String(x) + (0).toFixed(dp).substr(1);
+    } else {
+        return x.toFixed(dp);
+    }
+}
+
+function toPrecision(x: Number, sd?: number) {
+    if (x instanceof Long) {
+        return String(x) + (0).toPrecision(sd).substr(1);
+    } else {
+        return x.toPrecision(sd);
+    }
+}
+
+function toExponential(x: Number, dp?: number) {
+    if (x instanceof Long) {
+        return String(x) + (0).toExponential(dp).substr(1);
+    } else {
+        return x.toExponential(dp);
+    }
+}
 
 const enum StringComparison {
   CurrentCulture = 0,
@@ -134,36 +185,43 @@ export function toFail(arg: IPrintfFormat) {
   return arg.cont((x) => { throw new Error(x); });
 }
 
-function formatOnce(str2: any, rep: any) {
-  return str2.replace(fsFormatRegExp,
-    (_: any, prefix: any, flags: any, padLength: any, precision: any, format: any) => {
-      // TODO: We should check also for values that are not JS numbers in runtime, like decimals and longs
+function formatOnce(str2: string, rep: any) {
+  return str2.replace(fsFormatRegExp, (_, prefix, flags, padLength, precision, format) => {
       let sign = "";
-      if (typeof rep === "number" && format.toLowerCase() !== "x") {
-        if (rep < 0) {
-          rep = Math.abs(rep);
-          sign = "-";
-        } else {
-          if (flags.indexOf(" ") >= 0) {
-            sign = " ";
-          } else if (flags.indexOf("+") >= 0) {
-            sign = "+";
-          }
+      if (isNumber(rep)) {
+        if (format.toLowerCase() !== "x") {
+            if (isLessThan(rep, 0)) {
+              rep = multiply(rep, -1);
+              sign = "-";
+            } else {
+              if (flags.indexOf(" ") >= 0) {
+                sign = " ";
+              } else if (flags.indexOf("+") >= 0) {
+                sign = "+";
+              }
+            }
         }
-      }
-      switch (format) {
-        case "f": case "F":
-          rep = Number(rep).toFixed(precision || 6); break;
-        case "g": case "G":
-          rep = Number(rep).toPrecision(precision); break;
-        case "e": case "E":
-          rep = Number(rep).toExponential(precision); break;
-        case "x":
-          rep = toHex(rep); break;
-        case "X":
-          rep = toHex(rep).toUpperCase(); break;
-        default: // AOid
-          rep = String(rep); break;
+        precision = precision == null ? null : parseInt(precision, 10);
+        switch (format) {
+          case "f": case "F":
+            rep = toFixed(rep, precision || 6);
+            break;
+          case "g": case "G":
+            rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+            break;
+         case "e": case "E":
+            rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+            break;
+          case "x":
+            rep = toHex(rep);
+            break;
+          case "X":
+            rep = toHex(rep).toUpperCase();
+            break;
+          default: // AOid
+            rep = String(rep);
+            break;
+        }
       }
       padLength = parseInt(padLength, 10);
       if (!isNaN(padLength)) {
@@ -210,52 +268,50 @@ export function format(str: string, ...args: any[]) {
     args.shift();
   }
 
-  return str.replace(formatRegExp,
-    (match: any, idx: any, pad: any, format: any, precision: any, pattern: any) => {
+  return str.replace(formatRegExp,(_, idx, padLength, format, precision, pattern) => {
       let rep = args[idx];
-      let padSymbol = " ";
-      const isNumericType = (typeof rep === "number") || (rep instanceof Long);
-      // TODO: || (rep instanceof Decimal) || (rep instanceof BigInt);
-      if (isNumericType) {
+      if (isNumber(rep)) {
+        precision = precision == null ? null : parseInt(precision, 10);
         switch (format) {
           case "f": case "F":
-            rep = precision ? rep.toFixed(precision) : rep.toFixed(2);
+            rep = toFixed(rep, precision || 2);
             break;
           case "g": case "G":
-            rep = precision ? rep.toPrecision(precision) : rep.toPrecision();
+            rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
             break;
           case "e": case "E":
-            rep = precision ? rep.toExponential(precision) : rep.toExponential();
+            rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
             break;
           case "p": case "P":
-            rep = (precision ? (rep * 100).toFixed(precision) : (rep * 100).toFixed(2)) + " %";
+            rep = toFixed(multiply(rep, 100), precision || 2) + " %";
             break;
           case "d": case "D":
-            rep = precision ? padLeft(rep.toString(), precision, "0") : rep.toString();
+            rep = precision != null ? padLeft(String(rep), precision, "0") : String(rep);
             break;
           case "x": case "X":
-            rep = precision ? padLeft(toHex(rep), precision, "0") : toHex(rep);
+            rep = precision != null ? padLeft(toHex(rep), precision, "0") : toHex(rep);
             if (format === "X") { rep = rep.toUpperCase(); }
             break;
           default:
-            const m = /^(0+)(\.0+)?$/.exec(pattern);
-            if (m != null) {
-              let decs = 0;
-              if (m[2] != null) {
-                rep = rep.toFixed(decs = m[2].length - 1);
-              }
-              pad = "," + (m[1].length + (decs ? decs + 1 : 0)).toString();
-              padSymbol = "0";
-            } else if (pattern) {
-              rep = pattern;
+            if (pattern) {
+                let sign = "";
+                rep = (pattern as string).replace(/(0+)(\.0+)?/, (_, intPart, decimalPart) => {
+                    if (isLessThan(rep, 0)) {
+                      rep = multiply(rep, -1);
+                      sign = "-";
+                    }
+                    rep = toFixed(rep, decimalPart != null ? decimalPart.length - 1 : 0);
+                    return padLeft(rep, (intPart || "").length - sign.length + (decimalPart != null ? decimalPart.length : 0), "0");
+                });
+                rep = sign + rep;
             }
         }
       } else if (rep instanceof Date) {
         rep = dateToString(rep, pattern || format);
       }
-      pad = parseInt((pad || "").substring(1), 10);
-      if (!isNaN(pad)) {
-        rep = padLeft(String(rep), Math.abs(pad), padSymbol, pad < 0);
+      padLength = parseInt((padLength || " ").substring(1), 10);
+      if (!isNaN(padLength)) {
+        rep = padLeft(String(rep), Math.abs(padLength), " ", padLength < 0);    
       }
       return rep;
     });
