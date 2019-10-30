@@ -83,6 +83,13 @@ let tests =
             let printer2 = printer2 "afternoon"
             printer2 "?" |> equal "Hi Maxime, good afternoon?"
 
+      testCase "sprinf with different decimal digits works" <| fun () -> // See #1932
+          sprintf "Percent: %.0f%%" 5.0 |> equal "Percent: 5%"
+          sprintf "Percent: %.2f%%" 5. |> equal "Percent: 5.00%"
+          sprintf "Percent: %.1f%%" 5.24 |> equal "Percent: 5.2%"
+          sprintf "Percent: %.2f%%" 5.268 |> equal "Percent: 5.27%"
+          sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
+
       testCase "Print.sprintf works" <| fun () -> // See #1216
             let res = Printf.sprintf "%s" "abc"
             equal "res: abc" ("res: " + res)

@@ -204,7 +204,8 @@ function formatOnce(str2: string, rep: any) {
         precision = precision == null ? null : parseInt(precision, 10);
         switch (format) {
           case "f": case "F":
-            rep = toFixed(rep, precision || 6);
+            precision = precision != null ? precision : 6;
+            rep = toFixed(rep, precision);
             break;
           case "g": case "G":
             rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
@@ -274,7 +275,8 @@ export function format(str: string, ...args: any[]) {
         precision = precision == null ? null : parseInt(precision, 10);
         switch (format) {
           case "f": case "F":
-            rep = toFixed(rep, precision || 2);
+            precision = precision != null ? precision : 2;
+            rep = toFixed(rep, precision);
             break;
           case "g": case "G":
             rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
@@ -283,7 +285,8 @@ export function format(str: string, ...args: any[]) {
             rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
             break;
           case "p": case "P":
-            rep = toFixed(multiply(rep, 100), precision || 2) + " %";
+            precision = precision != null ? precision : 2;
+            rep = toFixed(multiply(rep, 100), precision) + " %";
             break;
           case "d": case "D":
             rep = precision != null ? padLeft(String(rep), precision, "0") : String(rep);
