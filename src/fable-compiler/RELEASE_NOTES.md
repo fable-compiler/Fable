@@ -1,3 +1,7 @@
+### 2.4.9
+
+* Fix #1932: regression with sprintf and 0 precision for floats
+
 ### 2.4.8
 
 * Support Array.splitInto & List.splitInto @kerams
