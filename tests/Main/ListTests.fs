@@ -672,6 +672,12 @@ let tests =
             equal 4 ys.[2]
             equal 6 ys.[4]
 
+    testCase "List.chunkBySize works" <| fun () ->
+        List.chunkBySize 4 [1..8]
+        |> equal [ [1..4]; [5..8] ]
+        List.chunkBySize 4 [1..10]
+        |> equal [ [1..4]; [5..8]; [9..10] ]
+
     testCase "List.range works" <| fun () ->
         [1..5]
         |> List.reduce (+)

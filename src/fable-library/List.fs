@@ -368,6 +368,13 @@ let permute f xs =
     |> Array.permute f
     |> ofArray
 
+let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
+    xs
+    |> List.toArray
+    |> Array.chunkBySize chunkSize
+    |> ofArray
+    |> map ofArray
+
 let skip i xs =
     let rec skipInner i xs =
         match i, xs with
@@ -513,5 +520,5 @@ let splitInto (chunks: int) (source: 'T list): 'T list list =
     source
     |> List.toArray
     |> Array.splitInto chunks
-    |> List.ofArray
-    |> List.map List.ofArray
+    |> ofArray
+    |> map ofArray
