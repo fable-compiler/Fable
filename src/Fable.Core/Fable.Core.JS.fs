@@ -10,6 +10,7 @@ namespace Fable.Core
 open System
 open System.Text.RegularExpressions
 
+[<RequireQualifiedAccess>]
 module JS =
     type [<AllowNullLiteral>] PropertyDescriptor =
         abstract configurable: bool option with get, set
