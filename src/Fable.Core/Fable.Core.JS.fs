@@ -10,7 +10,6 @@ namespace Fable.Core
 open System
 open System.Text.RegularExpressions
 
-[<RequireQualifiedAccess>]
 module JS =
     type [<AllowNullLiteral>] PropertyDescriptor =
         abstract configurable: bool option with get, set
@@ -438,48 +437,180 @@ module JS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Number: NumberConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] NaN: float = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Infinity: float = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Object: ObjectConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Math: Math = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Date: DateConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] JSON: JSON = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Map: MapConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] WeakMap: WeakMapConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Set: SetConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] WeakSet: WeakSetConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Promise: PromiseConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] RegExp: RegExpConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] eval: string -> string = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] isFinite: float -> bool = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] isNaN: float -> bool = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] parseFloat: string -> float = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] parseInt: string -> int -> int = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] decodeURI: string -> string = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] decodeURIComponent: string -> string = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] encodeURI: string -> string = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] encodeURIComponent: string -> string = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] console : Console = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] setTimeout (callback: unit -> unit) (ms: int): int = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] clearTimeout (token: int): unit = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] setInterval(callback: unit -> unit) (ms: int) : int = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] clearInterval (token: int): unit = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Emit("debugger")>] debugger () : unit = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Emit("void 0")>] undefined<'a> : 'a = jsNative
 
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Array: ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] DataView: DataViewConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Int8Array: Int8ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Uint8Array: Uint8ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Int16Array: Int16ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Uint16Array: Uint16ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Int32Array: Int32ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Uint32Array: Uint32ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Float32Array: Float32ArrayConstructor = jsNative
+
+    [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
     let [<Global>] Float64Array: Float64ArrayConstructor = jsNative
-    let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
-    // let [<Global>] BigUint64Array: BigUint64ArrayConstructor = jsNative
+
+    // [<Obsolete("JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name")>]
+    // let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
+
+    [<RequireQualifiedAccess>]
+    module Constructors =
+
+        let [<Global>] Number: NumberConstructor = jsNative
+        let [<Global>] NaN: float = jsNative
+        let [<Global>] Infinity: float = jsNative
+        let [<Global>] Object: ObjectConstructor = jsNative
+        let [<Global>] Math: Math = jsNative
+        let [<Global>] Date: DateConstructor = jsNative
+        let [<Global>] JSON: JSON = jsNative
+        let [<Global>] Map: MapConstructor = jsNative
+        let [<Global>] WeakMap: WeakMapConstructor = jsNative
+        let [<Global>] Set: SetConstructor = jsNative
+        let [<Global>] WeakSet: WeakSetConstructor = jsNative
+        let [<Global>] Promise: PromiseConstructor = jsNative
+        let [<Global>] RegExp: RegExpConstructor = jsNative
+        let [<Global>] eval: string -> string = jsNative
+        let [<Global>] isFinite: float -> bool = jsNative
+        let [<Global>] isNaN: float -> bool = jsNative
+        let [<Global>] parseFloat: string -> float = jsNative
+        let [<Global>] parseInt: string -> int -> int = jsNative
+        let [<Global>] decodeURI: string -> string = jsNative
+        let [<Global>] decodeURIComponent: string -> string = jsNative
+        let [<Global>] encodeURI: string -> string = jsNative
+        let [<Global>] encodeURIComponent: string -> string = jsNative
+        let [<Global>] console : Console = jsNative
+        let [<Global>] setTimeout (callback: unit -> unit) (ms: int): int = jsNative
+        let [<Global>] clearTimeout (token: int): unit = jsNative
+        let [<Global>] setInterval(callback: unit -> unit) (ms: int) : int = jsNative
+        let [<Global>] clearInterval (token: int): unit = jsNative
+        let [<Emit("debugger")>] debugger () : unit = jsNative
+        let [<Emit("void 0")>] undefined<'a> : 'a = jsNative
+
+        let [<Global>] Array: ArrayConstructor = jsNative
+        let [<Global>] DataView: DataViewConstructor = jsNative
+        let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
+        let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = jsNative
+        let [<Global>] Int8Array: Int8ArrayConstructor = jsNative
+        let [<Global>] Uint8Array: Uint8ArrayConstructor = jsNative
+        let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = jsNative
+        let [<Global>] Int16Array: Int16ArrayConstructor = jsNative
+        let [<Global>] Uint16Array: Uint16ArrayConstructor = jsNative
+        let [<Global>] Int32Array: Int32ArrayConstructor = jsNative
+        let [<Global>] Uint32Array: Uint32ArrayConstructor = jsNative
+        let [<Global>] Float32Array: Float32ArrayConstructor = jsNative
+        let [<Global>] Float64Array: Float64ArrayConstructor = jsNative
+        let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
+        // let [<Global>] BigUint64Array: BigUint64ArrayConstructor = jsNative
