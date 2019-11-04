@@ -235,6 +235,8 @@ function formatOnce(str2: string, rep: any) {
         } else {
             rep = padLeft(sign + rep, padLength, ch, minusFlag);    
         }
+      } else {
+          rep = sign + rep;
       }
       const once = prefix + rep;
       return once.replace(/%/g, "%%");
