@@ -88,7 +88,15 @@ export function mapMultiple<T>(predicate: (arg0: T) => boolean, ...args: T[]) {
 
 export function bind<T1, T2>(f: (arg0: T1) => Option<T2>, arg: Option<T1>) {
   return arg == null ? arg : f(value(arg));
-}  
+}
+
+export function tryOp<Arg, Result>(op: (x: Arg) => Result, arg: Arg) {
+    try {
+        return some(op(arg));
+    } catch {
+        return null;
+    }
+}
 
 // CHOICE
 

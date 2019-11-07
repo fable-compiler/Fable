@@ -1016,6 +1016,13 @@ let jsConstructor com ent =
         |> sprintf "Cannot find %s constructor"
         |> addErrorAndReturnNull com [] None
 
+let tryOp r t op args =
+    Helper.CoreCall("Option", "tryOp", t, op::args, ?loc=r)
+
+let tryCoreOp r t coreModule coreMember args =
+    let op = Helper.CoreValue(coreModule, coreMember, Any)
+    tryOp r t op args
+
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
@@ -1650,6 +1657,8 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Set" meth i.GenericArgs args
         Helper.CoreCall("Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "TryExactlyOne", args ->
+        tryCoreOp r t "Seq" "exactlyOne" args |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
@@ -1784,6 +1793,8 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "AllPairs", args ->
         let allPairs = Helper.CoreCall("Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
         toArray com t allPairs |> Some
+    | "TryExactlyOne", args ->
+        tryCoreOp r t "Array" "exactlyOne" args |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
@@ -1824,6 +1835,8 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     | "AllPairs", args ->
         let allPairs = Helper.CoreCall("Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
         toList t allPairs |> Some
+    | "TryExactlyOne", args ->
+        tryCoreOp r t "List" "exactlyOne" args |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "List" meth i.GenericArgs args

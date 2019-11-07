@@ -127,6 +127,11 @@ let tests =
             let xs3 = []
             (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
 
+    testCase "List.tryExactlyOne works" <| fun () ->
+            [1.] |> List.tryExactlyOne |> equal (Some 1.)
+            [1.;2.] |> List.tryExactlyOne |> equal None
+            [] |> List.tryExactlyOne |> equal None
+
     testCase "List.exists works" <| fun () ->
             let xs = [1; 2; 3; 4]
             xs |> List.exists (fun x -> x = 2)

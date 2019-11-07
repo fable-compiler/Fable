@@ -732,6 +732,11 @@ let tests =
         xs |> Seq.exactlyOne
         |> equal 1.
 
+    testCase "Seq.tryExactlyOne works" <| fun () ->
+            seq {yield 1.} |> Seq.tryExactlyOne |> equal (Some 1.)
+            seq {yield 1.; yield 2.} |> Seq.tryExactlyOne |> equal None
+            Seq.empty<float> |> Seq.tryExactlyOne |> equal None
+
     testCase "Seq.initInfinite works" <| fun () ->
         Seq.initInfinite (fun i -> 2. * float i)
         |> Seq.take 10

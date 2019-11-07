@@ -949,4 +949,14 @@ let tests =
         Array.splitInto 3 [|1..12|] |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
         Array.splitInto 4 [|1..5|] |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
         Array.splitInto 20 [|1..4|] |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
+
+    testCase "Array.exactlyOne works" <| fun () ->
+            [|1.|] |> Array.exactlyOne |> equal 1.
+            (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
+            (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
+
+    testCase "Array.tryExactlyOne works" <| fun () ->
+            [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
+            [|1.;2.|] |> Array.tryExactlyOne |> equal None
+            [||] |> Array.tryExactlyOne |> equal None
   ]
