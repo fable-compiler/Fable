@@ -1,3 +1,7 @@
+### 3.1.3
+
+* PR #1935: Put JS constructors in different module to prevent conflicts @pauldorehill
+
 ### 3.1.2
 
 * Add CaseRules.SnakeCase

@@ -1,3 +1,8 @@
+### 2.4.10
+
+* Fix #1937: sign in sprintf
+* Fix #1938: tryExactlyOne
+
 ### 2.4.9
 
 * Fix #1932: regression with sprintf and 0 precision for floats
