@@ -18,7 +18,7 @@ function decodeVByteToIntegerArray(buffer: Uint8Array) {
   return ret;
 }
 
-function getCategory() {
+function getCategoryFunc() {
   // unpack Unicode ranges and categories (delta encoded, vbyte encoded, utf8 encoded)
   const unicodeBuffer = Encoding.get_UTF8().getBytes(packedUnicode);
   const unicodeDeltas = decodeVByteToIntegerArray(unicodeBuffer);
@@ -32,8 +32,7 @@ function getCategory() {
     categories[i / 2] = unicodeDeltas[i + 1];
   }
   // binary search in unicode ranges
-  return (s: string, index?: number) => {
-    const cp = s.charCodeAt(index || 0);
+  return (cp: number) => {
     let hi = codepoints.length;
     let lo = 0;
     while (hi - lo > 1) {
@@ -122,7 +121,12 @@ const isWhiteSpaceMask = 0
   | 1 << UnicodeCategory.LineSeparator
   | 1 << UnicodeCategory.ParagraphSeparator;
 
-export const getUnicodeCategory = getCategory();
+export const unicodeCategoryFunc = getCategoryFunc();
+
+export function getUnicodeCategory(s: string, index?: number) {
+  const cp = s.charCodeAt(index || 0);
+  return unicodeCategoryFunc(cp);
+}
 
 export function isControl(s: string, index?: number) {
   const test = 1 << getUnicodeCategory(s, index);

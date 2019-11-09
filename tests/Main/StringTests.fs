@@ -92,8 +92,12 @@ let tests =
 
       testCase "sprintf displays sign correctly" <| fun () -> // See #1937
           sprintf "%i" 1 |> equal "1"
+          sprintf "%d" 1 |> equal "1"
+          sprintf "%d" 1L |> equal "1"
+          sprintf "%.2f" 1. |> equal "1.00"
           sprintf "%i" -1 |> equal "-1"
           sprintf "%d" -1 |> equal "-1"
+          sprintf "%d" -1L |> equal "-1"
           sprintf "%.2f" -1. |> equal "-1.00"
 
       testCase "Print.sprintf works" <| fun () -> // See #1216
@@ -189,6 +193,7 @@ let tests =
           sprintf "%+04i" 1 |> equal "+001"
           sprintf "%+04i" -1 |> equal "-001"
           sprintf "%5d" -5 |> equal "   -5"
+          sprintf "%5d" -5L |> equal "   -5"
           sprintf "%- 4i" 5 |> equal " 5  "
 
       testCase "String.Format combingin padding and zeroes pattern works" <| fun () ->
