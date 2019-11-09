@@ -342,13 +342,13 @@ export function dayOfYear(d: IDateTime) {
 }
 
 export function add(d: IDateTime, ts: number) {
-  const newDate = DateTime(d.getTime() + ts, d.kind)
+  const newDate = DateTime(d.getTime() + ts, d.kind);
   if (d.kind === DateKind.Local) {
     const oldTzOffset = d.getTimezoneOffset();
     const newTzOffset = newDate.getTimezoneOffset();
     return oldTzOffset !== newTzOffset
-        ? DateTime(newDate.getTime() + (newTzOffset - oldTzOffset) * 60000, d.kind)
-        : newDate;
+      ? DateTime(newDate.getTime() + (newTzOffset - oldTzOffset) * 60000, d.kind)
+      : newDate;
   } else {
     return newDate;
   }

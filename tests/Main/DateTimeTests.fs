@@ -566,5 +566,5 @@ let tests =
     // offset than 29/10/2019
     testCase "Adding days to a local date works even if daylight saving time changes" <| fun () ->
         let dt = DateTime(2019, 10, 20, 0, 0, 0, DateTimeKind.Local)
-        dt.AddDays(9.).Day |> equal 29        
+        dt.AddDays(9.).Day |> equal 29
   ]
