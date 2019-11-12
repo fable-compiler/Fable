@@ -1,3 +1,7 @@
+### 2.4.11
+
+* Fix #1937 (again): sign in sprintf for long @ncave
+
 ### 2.4.10
 
 * Fix #1937: sign in sprintf
