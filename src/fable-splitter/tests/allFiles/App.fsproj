@@ -7,6 +7,8 @@
   <ItemGroup>
     <Compile Include="File1.fs" />
     <Compile Include="File2.fs" />
+    <Compile Include="path/File3.fs" />
+    <Compile Include="path/nestedpath/File4.fs" />
   </ItemGroup>
 
 </Project>
