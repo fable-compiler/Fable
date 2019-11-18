@@ -89,11 +89,17 @@ let buildCompiler() =
 
 let buildCompilerJs testLocal =
     let projectDir = "src/fable-compiler-js"
-    cleanDirs [projectDir </> "dist"]
+    cleanDirs [projectDir </> "dist"; projectDir </> "out"]
     if testLocal then
-        buildSplitterWithArgs projectDir "--test-local"
-    else
-        buildSplitter projectDir
+        runInDir projectDir "npm link ../fable-metadata"
+        runInDir projectDir "npm link ../fable-standalone"
+    run (sprintf "npx fable %s/src/fable-compiler-js.fsproj %s/out" projectDir projectDir)
+    run (sprintf "npx rollup %s/out/app.js --file %s/dist/app.js --format umd --name Fable" projectDir projectDir)
+    run (sprintf "npx terser %s/dist/app.js -o %s/dist/app.min.js --mangle --compress" projectDir projectDir)
+    // if testLocal then
+    //     buildSplitterWithArgs projectDir "--test-local"
+    // else
+    //     buildSplitter projectDir
 
 let buildStandalone() =
     let projectDir = "src/fable-standalone"
@@ -132,6 +138,15 @@ let buildStandalone() =
     //     (if comMajor > staMajor || comMinor > staMinor then compilerVersion
     //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
+let testJs() =
+    buildStandalone()
+    // Test fable-compiler-js locally
+    buildCompilerJs true
+    run "node src/fable-compiler-js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs"
+    run "npx mocha build/tests-js --reporter dot -t 10000"
+    // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
+    // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+
 let test() =
     if pathExists "build/fable-library" |> not then
         buildLibrary()
@@ -142,14 +157,7 @@ let test() =
     runInDir "tests/Main" "dotnet run"
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
-        buildStandalone()
-        // Test fable-compiler-js locally
-        buildCompilerJs true
-        run "node src/fable-compiler-js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs"
-        run "npx mocha build/tests-js --reporter dot -t 10000"
-        // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
-        // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
-
+        testJs()
 
 let coverage() =
     // report converter
@@ -265,6 +273,7 @@ let publishPackages restArgs =
 
 match argsLower with
 | "test"::_ -> test()
+| "test-js"::_ -> testJs()
 | "coverage"::_ -> coverage()
 | "quicktest-fast"::_ -> run "npx fable-splitter -c src/quicktest/splitter.config.js --watch --run"
 | "quicktest"::_ -> quicktest []

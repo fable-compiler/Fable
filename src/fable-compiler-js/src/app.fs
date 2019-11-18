@@ -40,16 +40,14 @@ type CmdLineOptions = {
 
 let parseFiles projectFileName outDir options =
     // parse project
-    let projSet = makeHashSetIgnoreCase ()
-    let (dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectFileName
+    let (dllRefs, fileNames, otherOptions) = parseProject projectFileName
+    let sources = fileNames |> Array.map readAllText
+    let nugetPath = Path.Combine(getHomePath().Replace('\\', '/'), ".nuget")
+    let fileNames = fileNames |> Array.map (fun x -> x.Replace(nugetPath, ""))
 
-    // dedup file names
-    let fileSet = makeHashSetIgnoreCase ()
-    let fileNames = dedupFileNames fileSet fileNames
-
-    // find reference dlls
-    let dllRefMap = dllRefs |> Seq.map (fun x -> Path.GetFileName x, x) |> Map
-    let references = dllRefs |> Array.map Path.GetFileNameWithoutExtension |> Array.append references
+    // find referenced dlls
+    let dllRefMap = dllRefs |> Array.rev |> Array.map (fun x -> Path.GetFileName x, x) |> Map
+    let references = Map.toArray dllRefMap |> Array.map fst |> Array.append references
     let findDllPath dllName = Map.tryFind dllName dllRefMap |> Option.defaultValue (metadataPath + dllName)
     let readAllBytes dllName = findDllPath dllName |> readAllBytes
 
@@ -58,14 +56,14 @@ let parseFiles projectFileName outDir options =
     let optimizeFlag = "--optimize" + (if options.optimize then "+" else "-")
     let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
-    let ms0, checker = measureTime createChecker ()
+    let checker, ms0 = measureTime createChecker ()
     printfn "fable-compiler-js v%s" (getVersion())
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
 
     // parse F# files to AST
     let parseFSharpProject () = fable.ParseFSharpProject(checker, projectFileName, fileNames, sources)
-    let ms1, parseRes = measureTime parseFSharpProject ()
+    let parseRes, ms1 = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
     let showWarnings = true
@@ -87,7 +85,7 @@ let parseFiles projectFileName outDir options =
 
     for fileName in fileNames do
         // transform F# AST to Babel AST
-        let ms2, res = measureTime parseFable (parseRes, fileName)
+        let res, ms2 = measureTime parseFable (parseRes, fileName)
         printfn "File: %s, Fable time: %d ms" fileName ms2
         res.FableErrors |> printErrors showWarnings
         // transform and save Babel AST
