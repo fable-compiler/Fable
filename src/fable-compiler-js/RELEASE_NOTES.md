@@ -1,3 +1,7 @@
+### 1.2.0
+
+* Added NuGet packages support
+
 ### 1.1.1
 
 * Update to fable-metadata 1.2.0 & fable-standalone 1.2.3

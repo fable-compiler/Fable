@@ -4,6 +4,9 @@
     "build": "fable build.fsx --run",
     "publish": "fable build.fsx --run publish",
     "test": "fable build.fsx --run test",
+    "build-compiler-js": "fable src/fable-compiler-js/src/fable-compiler-js.fsproj src/fable-compiler-js/out",
+    "postbuild-compiler-js": "rollup src/fable-compiler-js/out/app.js --file src/fable-compiler-js/dist/app.js --format umd --name Fable",
+    "minify-compiler-js": "terser src/fable-compiler-js/dist/app.js -o src/fable-compiler-js/dist/app.min.js --mangle --compress",
     "test-js": "node src/fable-compiler-js/dist/app.js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs",
     "posttest-js": "mocha build/tests-js --reporter dot -t 10000"
   },
