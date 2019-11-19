@@ -17,7 +17,7 @@ Make sure the following **requirements** are installed in your system:
 - [dotnet SDK](https://www.microsoft.com/net/download/core)
 - [node.js](https://nodejs.org) with npm
 
-Then run `npm install` to install dependencies and `npm run build` to start the build. Check [build.fsx](https://github.com/fable-compiler/Fable/blob/4839311afe4cfc3fd0849915c7cdf831ca1ab74c/build.fsx#L218) for other build targets. For example: `npm run build compiler`.
+Then run `npm install` to install dependencies and `npm run build` at the root folder to start the build. Check [build.fsx](https://github.com/fable-compiler/Fable/blob/4839311afe4cfc3fd0849915c7cdf831ca1ab74c/build.fsx#L218) for other build targets. For example: `npm run build compiler`.
 
 After that, if you want to quickly try changes to Fable source, please check `src/quicktest/QuickTest.fs`.
 
