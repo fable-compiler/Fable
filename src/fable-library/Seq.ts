@@ -559,7 +559,8 @@ export function minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>, comp
 }
 
 export function pairwise<T extends number>(xs: Iterable<T>) {
-  return skip(2, scan((last, next) => [last[1], next], [0, 0], xs));
+  const res = Array.from(scan((last, next) => [last[1], next], [null, null], xs));
+  return res.length < 2 ? [] : skip(2, res);
 }
 
 export function rangeChar(first: string, last: string) {

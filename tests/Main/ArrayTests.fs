@@ -959,4 +959,15 @@ let tests =
             [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
             [|1.;2.|] |> Array.tryExactlyOne |> equal None
             [||] |> Array.tryExactlyOne |> equal None
+
+    testCase "Array.pairwise works" <| fun () ->
+        Array.pairwise<int> [||] |> equal [||]
+        Array.pairwise [|1|] |> equal [||]
+        Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
+        let xs = [|1; 2; 3; 4|]
+        let xs2 = xs |> Array.pairwise
+        equal [|(1, 2); (2, 3); (3, 4)|] xs2
+        xs2 |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
+        |> String.concat ""
+        |> equal "122334"            
   ]

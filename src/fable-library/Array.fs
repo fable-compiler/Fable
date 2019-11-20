@@ -340,8 +340,7 @@ let initialize count initializer ([<Inject>] cons: IArrayCons<'T>) =
     result
 
 let pairwise (array: 'T[]) =
-    if array.Length < 2
-    then [||]
+    if array.Length < 2 then [||]
     else
         let count = array.Length - 1
         let result = newDynamicArrayImpl count

@@ -760,6 +760,11 @@ let tests =
         |> String.concat ""
         |> equal "122334"
 
+    testCase "Seq.pairwise works with empty input" <| fun () -> // See #1941
+        ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
+        [1] |> Seq.pairwise |> Seq.toList |> equal []
+        [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
+
     testCase "Seq.readonly works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
         xs |> Seq.readonly
