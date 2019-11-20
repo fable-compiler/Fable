@@ -1,3 +1,7 @@
+### 1.3.0
+
+* Catch up with fable-compiler 2.4.11
+
 ### 1.2.3
 
 * Include System.Net.Requests & System.Net.WebClient in references
