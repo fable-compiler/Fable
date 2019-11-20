@@ -26,6 +26,6 @@
     "@babel/plugin-transform-modules-commonjs": "^7.6.0",
     "fable-babel-plugins": "^2.2.0",
     "fable-metadata": "^1.2.0",
-    "fable-standalone": "^1.2.3"
+    "fable-standalone": "^1.3.0"
   }
 }
