@@ -115,7 +115,6 @@ export function ensureDirExists(dir: string, cont?: () => void) {
     }
 }
 
-// TODO: implement better folder structure
 function getOutPath(path: string, info: CompilationInfo): string {
     let outPath = info.mapInOutPaths.get(path);
     if (!outPath) {
@@ -125,7 +124,7 @@ function getOutPath(path: string, info: CompilationInfo): string {
         const pathDir = Path.dirname(path);
         // If pathDir is same as entry dir don't create nested folder
         const newPath = pathDir === Path.dirname(info.entry)
-            ? fileName : Path.basename(pathDir) + "/" + fileName;
+            ? fileName : Path.relative(Path.dirname(info.entry), pathDir) + "/" + fileName;
         // dedup output path
         let i = 0;
         outPath = newPath;
