@@ -1,6 +1,7 @@
 ### 1.2.1
 
 * fable-standalone 1.3.0
+* removed perf_hooks dependency
 
 ### 1.2.0
 
