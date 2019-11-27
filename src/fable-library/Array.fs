@@ -24,6 +24,9 @@ module Helpers =
     let inline newDynamicArrayImpl (len: int): 'T[] =
         DynamicArrayCons.Create(len)
 
+    let inline isDynamicArrayImpl arr =
+        JS.Array.isArray arr
+
     let inline isTypedArrayImpl arr =
         JS.ArrayBuffer.isView arr
 
@@ -243,8 +246,10 @@ let truncate (count: int) (array: 'T[]): 'T[] =
     let count = max 0 count
     subArrayImpl array 0 count
 
-let concat<'T> (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
-    let arrays = DynamicArrayCons.FromSequence arrays
+let concat (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
+    let arrays =
+        if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
+        else DynamicArrayCons.FromSequence arrays
     match arrays.Length with
     | 0 -> cons.Create 0
     | 1 -> arrays.[0]
@@ -857,14 +862,16 @@ let min (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (array: 'T []) ([<Inject>] averager: IGenericAverager<'T>): 'T =
-    if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    if array.Length = 0 then
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     let mutable total = averager.GetZero()
     for i = 0 to array.Length - 1 do
         total <- averager.Add(total, array.[i])
     averager.DivideByInt(total, array.Length)
 
 let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGenericAverager<'T2>): 'T2 =
-    if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
+    if array.Length = 0 then
+        invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString
     let mutable total = averager.GetZero()
     for i = 0 to array.Length - 1 do
         total <- averager.Add(total, projection array.[i])
@@ -902,11 +909,27 @@ let splitInto (chunks: int) (array: 'T[]): 'T[][] =
         let chunks = FSharp.Core.Operators.min chunks array.Length
         let minChunkSize = array.Length / chunks
         let chunksWithExtraItem = array.Length % chunks
-
         for i = 0 to chunks - 1 do
             let chunkSize = if i < chunksWithExtraItem then minChunkSize + 1 else minChunkSize
             let start = i * minChunkSize + (FSharp.Core.Operators.min chunksWithExtraItem i)
             let slice = subArrayImpl array start chunkSize
             pushImpl result slice |> ignore
+        result
 
+let transpose (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[][] =
+    let arrays =
+        if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
+        else DynamicArrayCons.FromSequence arrays
+    let len = arrays.Length
+    match len with
+    | 0 -> newDynamicArrayImpl 0
+    | _ ->
+        let lenInner = arrays.[0].Length
+        if arrays |> forAll (fun a -> a.Length = lenInner) |> not then
+            failwith "Arrays had different lengths"
+        let result: 'T[][] = newDynamicArrayImpl lenInner
+        for i in 0..lenInner-1 do
+            result.[i] <- cons.Create len
+            for j in 0..len-1 do
+                result.[i].[j] <- arrays.[j].[i]
         result

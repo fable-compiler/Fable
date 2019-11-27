@@ -862,3 +862,31 @@ export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T
     },
   } as Iterable<T[]>;
 }
+
+export function transpose<T>(source: Iterable<Iterable<T>>): Iterable<Iterable<T>> {
+  return {
+    [Symbol.iterator]: () => {
+      const iters = Array.from(source, (x) => x[Symbol.iterator]());
+      return {
+        next: () => {
+          if (iters.length === 0) {
+            return { done: true }; // empty sequence
+          }
+          const results = Array.from(iters, (iter) => iter.next());
+          if (results[0].done) {
+            if (!results.every((x) => x.done)) {
+              throw new Error("Sequences have different lengths");
+            }
+            return { done: true };
+          } else {
+            if (!results.every((x) => !x.done)) {
+              throw new Error("Sequences have different lengths");
+            }
+            const values = results.map((x) => x.value);
+            return { done: false, value: values };
+          }
+        },
+      };
+    },
+  } as Iterable<Iterable<T>>;
+}

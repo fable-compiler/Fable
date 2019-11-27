@@ -1,6 +1,7 @@
 module Fable.Tests.Lists
 
 open Util.Testing
+open Fable.Tests.Util
 
 type List(x: int) =
     member val Value = x
@@ -830,4 +831,31 @@ let tests =
         List.splitInto 3 [1..12] |> equal [ [1..4]; [5..8]; [9..12] ]
         List.splitInto 4 [1..5] |> equal [ [1..2]; [3]; [4]; [5] ]
         List.splitInto 20 [1..4] |> equal [ [1]; [2]; [3]; [4] ]
+
+    testCase "List.transpose works" <| fun () ->
+        // integer list
+        List.transpose (seq [[1..3]; [4..6]])
+        |> equal [[1; 4]; [2; 5]; [3; 6]]
+        List.transpose [[1..3]]
+        |> equal [[1]; [2]; [3]]
+        List.transpose [[1]; [2]]
+        |> equal [[1..2]]
+        // string list
+        List.transpose (seq [["a";"b";"c"]; ["d";"e";"f"]])
+        |> equal [["a";"d"]; ["b";"e"]; ["c";"f"]]
+        // empty list
+        List.transpose []
+        |> equal []
+        // list of empty lists - m x 0 list transposes to 0 x m (i.e. empty)
+        List.transpose [[]]
+        |> equal []
+        List.transpose [[]; []]
+        |> equal []
+        // jagged lists
+        throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
+        throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
+        throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
+        throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
+        throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
+
   ]

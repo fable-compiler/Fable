@@ -230,7 +230,7 @@ let tests =
         let dic = Dictionary<_,_>()
         dic.Add("A", 65)
         // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dic.["B"] |> ignore)
-        throwsAnyError (fun _ -> dic.["B"] |> ignore)
+        throwsAnyError (fun () -> dic.["B"])
 
     testCase "conversion from array works" <| fun () ->
         let dic = [| "A",1; "B",2|] |> dict

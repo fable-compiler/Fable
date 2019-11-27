@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Fable.Cli/ProjectCoreCracker.fs" />
+    <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
     <Compile Include="InjectProcessor.fs" />

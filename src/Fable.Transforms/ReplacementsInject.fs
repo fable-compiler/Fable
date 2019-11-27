@@ -60,6 +60,7 @@ let fableReplacementsModules =
       "averageBy", [("Fable.Core.IGenericAverager`1", 1)]
       "ofSeq", [(Types.arrayCons, 0)]
       "ofList", [(Types.arrayCons, 0)]
+      "transpose", [(Types.arrayCons, 0)]
     ]
     "List", Map [
       "contains", [(Types.equalityComparer, 0)]
@@ -82,7 +83,7 @@ let fableReplacementsModules =
       "countBy", [(Types.equalityComparer, 1)]
     ]
     "Set", Map [
-      "FSharpSet$$Map$$38806891", [(Types.comparer, 1)]
+      "FSharpSet$$Map$$7597B8F7", [(Types.comparer, 1)]
       "singleton", [(Types.comparer, 0)]
       "unionMany", [(Types.comparer, 0)]
       "empty", [(Types.comparer, 0)]

@@ -522,3 +522,9 @@ let splitInto (chunks: int) (source: 'T list): 'T list list =
     |> Array.splitInto chunks
     |> ofArray
     |> map ofArray
+
+let transpose (lists: seq<'T list>): 'T list list =
+    lists
+    |> Seq.transpose
+    |> Seq.map ofSeq
+    |> ofSeq
