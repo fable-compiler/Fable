@@ -69,6 +69,7 @@ let getDirFiles (path: string) (extension: string) =
     if not (Directory.Exists(path)) then [||]
     else Directory.GetFiles(path, "*" + extension, SearchOption.AllDirectories)
     |> Array.map (fun x -> x.Replace('\\', '/'))
+    |> Array.sort
 
 #else
 
@@ -141,6 +142,7 @@ let getDirFiles (path: string) (extension: string) =
     JS.util.getDirFiles(path)
     |> Array.filter (fun x -> x.EndsWith(extension))
     |> Array.map (fun x -> x.Replace('\\', '/'))
+    |> Array.sort
 
 #endif
 
