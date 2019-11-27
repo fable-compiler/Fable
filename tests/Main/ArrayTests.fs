@@ -2,6 +2,7 @@ module Fable.Tests.Arrays
 
 open System
 open Util.Testing
+open Fable.Tests.Util
 
 type ParamArrayTest =
     static member Add([<ParamArray>] xs: int[]) = Array.sum xs
@@ -969,5 +970,29 @@ let tests =
         equal [|(1, 2); (2, 3); (3, 4)|] xs2
         xs2 |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
         |> String.concat ""
-        |> equal "122334"            
+        |> equal "122334"
+
+    testCase "Array.transpose works" <| fun () ->
+        // integer array
+        Array.transpose (seq [[|1..3|]; [|4..6|]])
+        |> equal [|[|1;4|]; [|2;5|]; [|3;6|]|]
+        Array.transpose [|[|1..3|]|]
+        |> equal [|[|1|]; [|2|]; [|3|]|]
+        Array.transpose [|[|1|]; [|2|]|]
+        |> equal [|[|1..2|]|]
+        // string array
+        Array.transpose (seq [[|"a";"b";"c"|]; [|"d";"e";"f"|]])
+        |> equal [|[|"a";"d"|]; [|"b";"e"|]; [|"c";"f"|]|]
+        // empty array
+        Array.transpose [| |]
+        |> equal [| |]
+        // array of empty arrays - m x 0 array transposes to 0 x m (i.e. empty)
+        Array.transpose [| [||] |]
+        |> equal [| |]
+        Array.transpose [| [||]; [||] |]
+        |> equal [| |]
+        // jagged arrays
+        throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
+        throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
+
   ]
