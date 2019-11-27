@@ -66,9 +66,11 @@ let resolvePackage (pkgName, pkgVersion) =
         let binaryPaths = getDirFiles libPath ".dll"
         let nuspecPaths = getDirFiles pkgPath ".nuspec"
         let fsprojPaths = getDirFiles fablePath ".fsproj"
+        if Array.isEmpty nuspecPaths then
+            printfn "ERROR: Cannot find package %s" pkgPath
         let binaryOpt = binaryPaths |> Array.tryLast
-        let dependOpt = nuspecPaths |> Array.tryHead |> Option.map parsePackageSpec
-        let fsprojOpt = fsprojPaths |> Array.tryHead |> Option.map ProjectReference
+        let dependOpt = nuspecPaths |> Array.tryLast |> Option.map parsePackageSpec
+        let fsprojOpt = fsprojPaths |> Array.tryLast |> Option.map ProjectReference
         let pkgRefs, dllPaths =
             match binaryOpt, dependOpt, fsprojOpt with
             | _, _, Some projRef ->

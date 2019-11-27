@@ -65,6 +65,7 @@ let getDirFiles (path: string) (extension: string) =
     JS.util.getDirFiles(path)
     |> Array.filter (fun x -> x.EndsWith(extension))
     |> Array.map (fun x -> x.Replace('\\', '/'))
+    |> Array.sort
 
 
 module Path =
