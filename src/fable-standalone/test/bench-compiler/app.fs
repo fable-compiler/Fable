@@ -23,6 +23,7 @@ type CmdLineOptions = {
     commonjs: bool
     optimize: bool
     watchMode: bool
+    sourceMaps: bool
 }
 
 let parseFiles projectFileName outDir options =
@@ -99,6 +100,7 @@ let parseArguments (argv: string[]) =
             commonjs = opts |> Array.contains "--commonjs"
             optimize = opts |> Array.contains "--optimize-fcs"
             watchMode = opts |> Array.contains "--watch"
+            sourceMaps = opts |> Array.contains "--sourceMaps"
         }
         parseFiles projectFileName outDir options
     | _ -> printfn "%s" usage

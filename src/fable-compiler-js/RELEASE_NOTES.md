@@ -1,7 +1,8 @@
 ### 1.2.1
 
 * fable-standalone 1.3.0
-* removed perf_hooks dependency
+* Removed perf_hooks dependency
+* Added support for source maps
 
 ### 1.2.0
 

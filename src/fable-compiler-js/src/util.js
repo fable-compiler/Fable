@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as Path from "path";
-import * as Babel from "@babel/core";
-import * as BabelPlugins from "fable-babel-plugins";
+import Babel from "@babel/core";
+import BabelPlugins from "fable-babel-plugins";
 
 const customPlugins = [
   BabelPlugins.getRemoveUnneededNulls(),
@@ -132,7 +132,7 @@ export function copyFolder(from, dest) {
   });
 }
 
-export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, libDir, commonjs) {
+export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, libDir, options) {
   try {
     // this solves a weird commonjs issue where some imports are not properly qualified
     babelAst = JSON.parse(serializeToJson(babelAst)); // somehow this helps with that
@@ -141,13 +141,25 @@ export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, li
     let outPath = Path.resolve(outDir, jsPath);
     outPath = ensureUniquePath(sourcePath, outPath);
     ensureDirExists(Path.dirname(outPath));
-    const babelOptions = commonjs ?
+    const babelOptions = options.commonjs ?
       { plugins: customPlugins.concat("@babel/plugin-transform-modules-commonjs") } :
       { plugins: customPlugins };
+    if (options.sourceMaps) {
+      babelOptions.sourceMaps = true;
+    }
     fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions);
-    const res = Babel.transformFromAstSync(babelAst, null, babelOptions);
-    fs.writeFileSync(outPath, res.code);
-  } catch (err) {
+    const babelOpts = Object.assign({}, babelOptions);
+    if (babelOpts.sourceMaps) {
+      const relPath = Path.relative(Path.dirname(outPath), sourcePath);
+      babelOpts.sourceFileName = relPath.replace(/\\/g, "/");
+    }
+    const result = Babel.transformFromAstSync(babelAst, null, babelOpts);
+    fs.writeFileSync(outPath, result.code);
+    if (result.map) {
+      fs.appendFileSync(outPath, "\n//# sourceMappingURL=" + Path.basename(outPath) + ".map");
+      fs.writeFileSync(outPath + ".map", JSON.stringify(result.map));
+  }
+} catch (err) {
     console.error(err);
   }
 }

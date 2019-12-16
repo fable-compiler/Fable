@@ -2,6 +2,13 @@ module Fable.Compiler.Platform
 
 open Fable.Core.JsInterop
 
+type CmdLineOptions = {
+    commonjs: bool
+    optimize: bool
+    watchMode: bool
+    sourceMaps: bool
+}
+
 module JS =
     type IFileSystem =
         abstract readFileSync: string -> byte[]
@@ -26,7 +33,7 @@ module JS =
         abstract getVersion: unit -> string
         abstract ensureDirExists: dir: string -> unit
         abstract copyFolder: from: string * dest: string -> unit
-        abstract transformAndSaveBabelAst: babelAst: obj * outPath: string * projDir: string * outDir: string * libDir: string * commonjs: bool -> unit
+        abstract transformAndSaveBabelAst: babelAst: obj * outPath: string * projDir: string * outDir: string * libDir: string * options: CmdLineOptions -> unit
         abstract runCmdAndExitIfFails: cmd: string -> unit
         abstract getDirFiles: dir: string -> string[]
 
