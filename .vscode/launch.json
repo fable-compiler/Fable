@@ -49,7 +49,6 @@
             "type": "node",
             "request": "launch",
             "name": "bench-compile tests (Node)",
-            "runtimeArgs": ["--experimental-modules"],
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],

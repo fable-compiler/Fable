@@ -32,12 +32,6 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-type CmdLineOptions = {
-    commonjs: bool
-    optimize: bool
-    watchMode: bool
-}
-
 let parseFiles projectFileName outDir options =
     // parse project
     let (dllRefs, fileNames, otherOptions) = parseProject projectFileName
@@ -90,7 +84,7 @@ let parseFiles projectFileName outDir options =
         res.FableErrors |> printErrors showWarnings
         // transform and save Babel AST
         let outPath = getRelativePath projDir fileName |> trimPath
-        transformAndSaveBabelAst(res.BabelAst, outPath, projDir, outDir, libDir, options.commonjs)
+        transformAndSaveBabelAst(res.BabelAst, outPath, projDir, outDir, libDir, options)
 
 let run opts projectFileName outDir =
     let commandToRun =
@@ -104,6 +98,7 @@ let run opts projectFileName outDir =
         commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
         optimize = opts |> Array.contains "--optimize-fcs"
         watchMode = opts |> Array.contains "--watch"
+        sourceMaps = opts |> Array.contains "--sourceMaps"
     }
     parseFiles projectFileName outDir options
     commandToRun |> Option.iter runCmdAndExitIfFails
