@@ -176,7 +176,7 @@ module JS =
         abstract values: unit -> seq<'V>
 
     and [<AllowNullLiteral>] MapConstructor =
-        [<Emit("new $0($1..)")>] abstract Create: ?iterable: seq<'K * 'V> -> Map<'K, 'V>
+        [<Emit("new $0($1...)")>] abstract Create: ?iterable: seq<'K * 'V> -> Map<'K, 'V>
 
     and [<AllowNullLiteral>] WeakMap<'K, 'V> =
         abstract clear: unit -> unit
