@@ -244,14 +244,17 @@ module Helpers =
             | None -> false
         | _ -> false
 
+    let rec getAllInterfaceMembers (ent: FSharpEntity) =
+        seq {
+            yield! ent.MembersFunctionsAndValues
+            for parent in ent.DeclaredInterfaces do
+                match tryDefinition parent with
+                | Some(e, _) -> yield! getAllInterfaceMembers e
+                | None -> ()
+        }
+
     let rec isInterfaceEmpty (ent: FSharpEntity) =
-        ent.MembersFunctionsAndValues.Count = 0
-            && (if ent.DeclaredInterfaces.Count > 0 then
-                    ent.DeclaredInterfaces |> Seq.forall (fun ifc ->
-                        match tryDefinition ifc with
-                        | Some(e, _) -> isInterfaceEmpty e
-                        | None -> true)
-                else true)
+        getAllInterfaceMembers ent |> Seq.isEmpty
 
     /// Test if the name corresponds to this interface or anyone in its hierarchy
     let rec testInterfaceHierarcy interfaceFullname interfaceType =

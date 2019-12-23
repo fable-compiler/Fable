@@ -1124,7 +1124,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | NewAnonymousRecord(_, exprs, fieldNames, _, _),
               [_; (_,DeclaredType(ent, []))] when ent.IsInterface ->
                 // TODO: Check also if there are extra fields in the record not present in the interface?
-                (None, ent.MembersFunctionsAndValues |> Seq.filter (fun memb -> memb.IsPropertyGetterMethod))
+                (None, FSharp2Fable.Helpers.getAllInterfaceMembers ent |> Seq.filter (fun memb -> memb.IsPropertyGetterMethod))
                 ||> Seq.fold (fun err memb ->
                     match err with
                     | Some _ -> err
