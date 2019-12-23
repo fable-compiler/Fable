@@ -303,11 +303,10 @@ module AST =
             | _ -> true
         | _ -> true
 
-    // TODO: Add `Any` too?
-    /// For unit, unresolved generics or nested options, create a runtime wrapper
-    /// See fable-library/Option.ts for more info
+    /// For unit, unresolved generics or nested options or unknown types,
+    /// create a runtime wrapper. See fable-library/Option.ts for more info.
     let rec mustWrapOption = function
-        | Unit | GenericParam _ | Option _ -> true
+        | Any | Unit | GenericParam _ | Option _ -> true
         | _ -> false
 
     /// ATTENTION: Make sure the ident name will be unique within the file

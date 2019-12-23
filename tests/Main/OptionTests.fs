@@ -275,4 +275,8 @@ let tests =
         let mySome = Some ()
         let myOtherSome = mySome |> Option.map (ignore)
         equal mySome myOtherSome
+
+    testCase "Some (box null) |> Option.isSome evals to true" <| fun () -> // See #1948
+        Some (box null) |> Option.isSome |> equal true
+        Some (null) |> Option.isSome |> equal true        
   ]
