@@ -1181,8 +1181,9 @@ module Util =
                 || memb.IsDispatchSlot ->
             callInstanceMember com r typ argInfo memb
         | _ ->
-            if isModuleValue
-            then memberRefTyped com ctx r typ memb
+            if isModuleValue then
+                let typ = makeType com ctx.GenericArgs memb.FullType
+                memberRefTyped com ctx r typ memb
             else
                 let argInfo =
                     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb

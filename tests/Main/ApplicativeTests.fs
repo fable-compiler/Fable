@@ -835,6 +835,9 @@ module private PseudoElmish =
 
 let mul x y = x * y
 
+let addOne (add: int->int->int) x = add 1 x
+let pointFree_addOne = addOne
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -1094,6 +1097,12 @@ let tests7 = [
         f.Invoke(3, 4) |> equal 7
         let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt mul
         f2.Invoke(3, 4) |> equal 12
+
+    testCase "Arguments passed to point-free function are uncurried" <| fun () -> // See #1959
+        let x = pointFree_addOne (+) 2
+        let y = addOne (+) 2
+        equal 3 x
+        equal 3 y
 ]
 
 let tests =
