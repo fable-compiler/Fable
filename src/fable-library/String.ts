@@ -585,3 +585,10 @@ export function trimEnd(str: string, ...chars: string[]) {
 export function filter(pred: (char: string) => boolean, x: string) {
   return x.split("").filter((c) => pred(c)).join("");
 }
+
+export function substring(str: string, startIndex: number, length?: number) {
+    if ((startIndex + (length || 0) > str.length)) {
+        throw new Error("Invalid startIndex and/or length");
+    }
+    return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
+}

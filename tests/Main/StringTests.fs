@@ -553,6 +553,13 @@ let tests =
             "abcdefg".Substring(2, 2)
             |> equal "cd"
 
+      testCase "String.Substring throws error if startIndex or length are out of bounds" <| fun () -> // See #1955
+            let throws f =
+                try f () |> ignore; false
+                with _ -> true
+            throws (fun _ -> "abcdefg".Substring(20)) |> equal true
+            throws (fun _ -> "abcdefg".Substring(2, 10)) |> equal true
+
       testCase "String.ToUpper works" <| fun () ->
             "AbC".ToUpper() |> equal "ABC"
 
