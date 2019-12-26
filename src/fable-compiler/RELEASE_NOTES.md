@@ -1,3 +1,10 @@
+### 2.4.12
+
+* Fix #1959: Uncurry args passed to point-free methods
+* Fix #1955: Substring throws with invalid index and/or length arguments
+* Fix #1948: Wrap Option<obj>.Some in runtime to avoid null ambiguity
+* Fix #1895: Check also member of parent interfaces when casting an anonymous record
+
 ### 2.4.11
 
 * Fix #1937 (again): sign in sprintf for long @ncave
