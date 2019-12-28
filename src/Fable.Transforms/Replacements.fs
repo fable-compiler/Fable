@@ -1468,8 +1468,11 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
     | "GetUnicodeCategory" | "IsControl" | "IsDigit" | "IsLetter"
     | "IsLetterOrDigit" | "IsUpper" | "IsLower" | "IsNumber"
     | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsWhiteSpace"
-    | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" | "IsSurrogatePair"
-    | "Parse" ->
+    | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogate" ->
+        let methName = Naming.lowerFirst i.CompiledName
+        let methName = if List.length args > 1 then methName + "2" else methName
+        Helper.CoreCall("Char", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsSurrogatePair" | "Parse" ->
         let methName = Naming.lowerFirst i.CompiledName
         Helper.CoreCall("Char", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None

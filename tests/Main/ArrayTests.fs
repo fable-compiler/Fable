@@ -335,6 +335,11 @@ let tests =
         let ys = xs |> Array.filter (fun x -> x > 2s)
         ys.Length |> equal 2
 
+    testCase "Array.filter with chars works" <| fun () ->
+        let xs = [|'a'; '2'; 'b'; 'c'|]
+        let ys = xs |> Array.filter Char.IsLetter
+        ys.Length |> equal 3
+
     testCase "Array.find works" <| fun () ->
         let xs = [|1us; 2us; 3us; 4us|]
         xs |> Array.find ((=) 2us)
