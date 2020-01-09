@@ -104,7 +104,7 @@ function objectAssignNonNull(target, source) {
     return target;
 }
 
-function concatIfNotExists(ar, item): any[] {
+function concatSafe(ar, item): any[] {
     if (ar == null) {
         return [item];
     } else {
@@ -156,7 +156,8 @@ function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish
         }
         const [isRun, runArgs] = mustRun(args);
         if (isRun) {
-            const job = runScript(getMainScriptPath(opts, info), runArgs);
+            const isDebug = ((opts.fable || {}).define || []).indexOf("DEBUG") >= 0;
+            const job = runScript(getMainScriptPath(opts, info), runArgs, isDebug);
             if (mustFinish) {
                 job.then((code) => { process.exit(code); });
                 return;
@@ -187,7 +188,7 @@ function run(entry, args) {
 
     if (findFlag(args, ["-d", "--debug"])) {
         const fableOpts = opts.fable || {};
-        fableOpts.define = concatIfNotExists(fableOpts.define, "DEBUG");
+        fableOpts.define = concatSafe(fableOpts.define, "DEBUG");
         opts.fable = fableOpts;
     }
 
@@ -195,7 +196,7 @@ function run(entry, args) {
     // TODO: In the future, we may want to use ES2015 modules and .mjs files
     if (findFlag(args, ["--commonjs", "--run"])) {
         const babelOpts = opts.babel || {};
-        babelOpts.plugins = concatIfNotExists(babelOpts.define, "@babel/plugin-transform-modules-commonjs");
+        babelOpts.plugins = concatSafe(babelOpts.define, "@babel/plugin-transform-modules-commonjs");
         opts.babel = babelOpts;
     }
 

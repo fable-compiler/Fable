@@ -1,3 +1,7 @@
+### 2.1.12
+
+* Pass `--inspect` option to node, when running script in debug mode
+
 ### 2.1.11
 
 * Add --usePolling flag @drk-mtr
