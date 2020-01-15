@@ -5,7 +5,8 @@
 export function extend(target: any, ...sources: any[]) {
   for (const source of sources) {
     for (const key of Object.keys(source)) {
-      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+      const descr = Object.getOwnPropertyDescriptor(source, key);
+      if (descr) { Object.defineProperty(target, key, descr); }
     }
   }
   return target;
@@ -86,7 +87,7 @@ export function containsValue<K, V>(v: V, map: Map<K, V>) {
   return false;
 }
 
-export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V): [boolean, V] {
+export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V): [boolean, V | undefined] {
   return map.has(key) ? [true, map.get(key)] : [false, defaultValue];
 }
 
@@ -120,7 +121,7 @@ export class Lazy<T> {
   public factory: () => T;
   public isValueCreated: boolean;
 
-  private createdValue: T;
+  private createdValue?: T;
 
   constructor(factory: () => T) {
     this.factory = factory;
@@ -389,10 +390,10 @@ export function compare(x: any, y: any): number {
     return x < y ? -1 : 1;
   } else if (typeof x.CompareTo === "function") {
     return x.CompareTo(y);
-  } else if (isArray(x)) {
-    return isArray(y) && compareArrays(x, y);
-  } else if (x instanceof Date) {
-    return (y instanceof Date) && compareDates(x, y);
+  } else if (isArray(x) && isArray(y)) {
+    return compareArrays(x, y);
+  } else if (x instanceof Date && y instanceof Date) {
+    return compareDates(x, y);
   } else {
     return 1;
   }
@@ -408,7 +409,7 @@ export function max<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
 
 export function createAtom<T>(value: T): (v?: T) => T | void {
   let atom = value;
-  return (value: T) => {
+  return (value?: T) => {
     if (value === void 0) {
       return atom;
     } else {
@@ -427,9 +428,9 @@ const CaseRules = {
 };
 
 function dashify(str: string, separator: string) {
-    return str.replace(/[a-z]?[A-Z]/g, (m) => m.length === 1
-        ? m.toLowerCase()
-        : m.charAt(0) + separator + m.charAt(1).toLowerCase());
+  return str.replace(/[a-z]?[A-Z]/g, (m) => m.length === 1
+    ? m.toLowerCase()
+    : m.charAt(0) + separator + m.charAt(1).toLowerCase());
 }
 
 function changeCase(str: string, caseRule: number) {
@@ -607,8 +608,8 @@ export function uncurry(arity: number, f: Function) {
   return uncurriedFn;
 }
 
-export function curry(arity: number, f: Function): Function {
-  if (f == null) { return null; }
+export function curry(arity: number, f: Function): Function | undefined {
+  if (f == null) { return undefined; }
   if (CURRIED_KEY in f) {
     return (f as any)[CURRIED_KEY];
   }
@@ -708,7 +709,7 @@ export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {
   dict.set(k, v);
 }
 
-export function getItemFromDict<K, V>(map: Map<K, V>, key: K): V {
+export function getItemFromDict<K, V>(map: Map<K, V>, key: K): V | undefined {
   if (map.has(key)) {
     return map.get(key);
   } else {

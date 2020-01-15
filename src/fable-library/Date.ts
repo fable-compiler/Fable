@@ -78,14 +78,14 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
 }
 
 function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
-  const d = new Date(date.getTime() + date.offset);
+  const d = new Date(date.getTime() + (date.offset ?? 0));
   if (typeof format !== "string") {
-    return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString(date.offset);
+    return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
     switch (format) {
       case "D": case "d": return dateToHalfUTCString(d, "first");
       case "T": case "t": return dateToHalfUTCString(d, "second");
-      case "O": case "o": return dateToISOStringWithOffset(d, date.offset);
+      case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
       default: throw new Error("Unrecognized Date print format");
     }
   } else {
@@ -145,7 +145,7 @@ export function fromDateTimeOffset(date: IDateTimeOffset, kind: DateKind) {
     case DateKind.UTC: return DateTime(date.getTime(), DateKind.UTC);
     case DateKind.Local: return DateTime(date.getTime(), DateKind.Local);
     default:
-      const d = DateTime(date.getTime() + date.offset, kind);
+      const d = DateTime(date.getTime() + (date.offset ?? 0), kind);
       return DateTime(d.getTime() - dateOffset(d), kind);
   }
 }
@@ -171,7 +171,7 @@ export function parseRaw(str: string) {
     // tslint:disable-next-line:max-line-length
     const m = /^\s*(\d+[^\w\s:]\d+[^\w\s:]\d+)?\s*(\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*([AaPp][Mm])?\s*([+-]\d+(?::\d+)?)?\s*$/.exec(str);
     if (m != null) {
-      let baseDate: Date = null;
+      let baseDate: Date;
       let timeInSeconds = 0;
       if (m[2] != null) {
         const timeParts = m[2].split(":");

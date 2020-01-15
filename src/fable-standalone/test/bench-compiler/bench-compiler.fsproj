@@ -10,13 +10,15 @@
   </PropertyGroup>
 
   <!-- CoreRT optimization settings (https://aka.ms/OptimizeCoreRT) -->
-  <!-- <PropertyGroup>
+  <PropertyGroup>
+    <IlcDisableReflection>false</IlcDisableReflection>
     <RootAllApplicationAssemblies>false</RootAllApplicationAssemblies>
+    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
     <IlcGenerateCompleteTypeMetadata>false</IlcGenerateCompleteTypeMetadata>
     <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+    <IlcInvariantGlobalization>true</IlcInvariantGlobalization>
     <IlcOptimizationPreference>Size</IlcOptimizationPreference>
-    <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
-  </PropertyGroup> -->
+  </PropertyGroup>
 
   <ItemGroup>
     <RdXmlFile Include="rd.xml" />
@@ -24,8 +26,8 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="4.7.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
-    <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="3.1.0" /> -->
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="1.0.0-alpha-*" />
   </ItemGroup>
 
   <ItemGroup>

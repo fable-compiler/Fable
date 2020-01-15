@@ -118,7 +118,7 @@ export function protectedBind<T, U>(computation: IAsync<T>, binder: (x: T) => IA
   });
 }
 
-export function protectedReturn<T>(value?: T) {
+export function protectedReturn<T>(value: T) {
   return protectedCont((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
 }
 

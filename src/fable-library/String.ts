@@ -524,9 +524,9 @@ export function getCharAtIndex(input: string, index: number) {
 }
 
 export function split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
-  count = typeof count === "number" ? count : null;
-  removeEmpty = typeof removeEmpty === "number" ? removeEmpty : null;
-  if (count < 0) {
+  count = typeof count === "number" ? count : undefined;
+  removeEmpty = typeof removeEmpty === "number" ? removeEmpty : undefined;
+  if (count && count < 0) {
     throw new Error("Count cannot be less than zero");
   }
   if (count === 0) {
@@ -587,8 +587,8 @@ export function filter(pred: (char: string) => boolean, x: string) {
 }
 
 export function substring(str: string, startIndex: number, length?: number) {
-    if ((startIndex + (length || 0) > str.length)) {
-        throw new Error("Invalid startIndex and/or length");
-    }
-    return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
+  if ((startIndex + (length || 0) > str.length)) {
+    throw new Error("Invalid startIndex and/or length");
+  }
+  return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
 }

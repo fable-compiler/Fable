@@ -135,7 +135,7 @@ export function toLocalTime(date: Date) {
 }
 
 export function timeOfDay(d: IDateTimeOffset) {
-  const d2 = new Date(d.getTime() + d.offset);
+  const d2 = new Date(d.getTime() + (d.offset ?? 0));
   return d2.getUTCHours() * 3600000
     + d2.getUTCMinutes() * 60000
     + d2.getUTCSeconds() * 1000
@@ -143,44 +143,44 @@ export function timeOfDay(d: IDateTimeOffset) {
 }
 
 export function date(d: IDateTimeOffset) {
-  const d2 = new Date(d.getTime() + d.offset);
+  const d2 = new Date(d.getTime() + (d.offset ?? 0));
   return createDate(d2.getUTCFullYear(), d2.getUTCMonth() + 1, d2.getUTCDate(), 0, 0, 0, 0);
 }
 
 export function day(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCDate();
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCDate();
 }
 
 export function hour(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCHours();
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCHours();
 }
 
 export function millisecond(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCMilliseconds();
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCMilliseconds();
 }
 
 export function minute(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCMinutes();
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCMinutes();
 }
 
 export function month(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCMonth() + 1;
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCMonth() + 1;
 }
 
 export function second(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCSeconds();
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCSeconds();
 }
 
 export function year(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCFullYear();
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCFullYear();
 }
 
 export function dayOfWeek(d: IDateTimeOffset) {
-  return new Date(d.getTime() + d.offset).getUTCDay();
+  return new Date(d.getTime() + (d.offset ?? 0)).getUTCDay();
 }
 
 export function dayOfYear(d: IDateTimeOffset) {
-  const d2 = new Date(d.getTime() + d.offset);
+  const d2 = new Date(d.getTime() + (d.offset ?? 0));
   const _year = d2.getUTCFullYear();
   const _month = d2.getUTCMonth() + 1;
   let _day = d2.getUTCDate();
@@ -191,27 +191,27 @@ export function dayOfYear(d: IDateTimeOffset) {
 }
 
 export function add(d: IDateTimeOffset, ts: number) {
-  return DateTimeOffset(d.getTime() + ts, d.offset);
+  return DateTimeOffset(d.getTime() + ts, (d.offset ?? 0));
 }
 
 export function addDays(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 86400000, d.offset);
+  return DateTimeOffset(d.getTime() + v * 86400000, (d.offset ?? 0));
 }
 
 export function addHours(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 3600000, d.offset);
+  return DateTimeOffset(d.getTime() + v * 3600000, (d.offset ?? 0));
 }
 
 export function addMinutes(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 60000, d.offset);
+  return DateTimeOffset(d.getTime() + v * 60000, (d.offset ?? 0));
 }
 
 export function addSeconds(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v * 1000, d.offset);
+  return DateTimeOffset(d.getTime() + v * 1000, (d.offset ?? 0));
 }
 
 export function addMilliseconds(d: IDateTimeOffset, v: number) {
-  return DateTimeOffset(d.getTime() + v, d.offset);
+  return DateTimeOffset(d.getTime() + v, (d.offset ?? 0));
 }
 
 export function addYears(d: IDateTimeOffset, v: number) {
@@ -220,11 +220,11 @@ export function addYears(d: IDateTimeOffset, v: number) {
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, d.getUTCDate());
   return create(newYear, newMonth, newDay, d.getUTCHours(), d.getUTCMinutes(),
-    d.getUTCSeconds(), d.getUTCMilliseconds(), d.offset);
+    d.getUTCSeconds(), d.getUTCMilliseconds(), (d.offset ?? 0));
 }
 
 export function addMonths(d: IDateTimeOffset, v: number) {
-  const d2 = new Date(d.getTime() + d.offset);
+  const d2 = new Date(d.getTime() + (d.offset ?? 0));
   let newMonth = d2.getUTCMonth() + 1 + v;
   let newMonth_ = 0;
   let yearOffset = 0;
@@ -241,12 +241,12 @@ export function addMonths(d: IDateTimeOffset, v: number) {
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, d2.getUTCDate());
   return create(newYear, newMonth, newDay, d2.getUTCHours(), d2.getUTCMinutes(),
-    d2.getUTCSeconds(), d2.getUTCMilliseconds(), d.offset);
+    d2.getUTCSeconds(), d2.getUTCMilliseconds(), (d.offset ?? 0));
 }
 
 export function subtract(d: IDateTimeOffset, that: IDateTimeOffset | number) {
   return typeof that === "number"
-    ? DateTimeOffset(d.getTime() - that, d.offset)
+    ? DateTimeOffset(d.getTime() - that, (d.offset ?? 0))
     : d.getTime() - that.getTime();
 }
 

@@ -24,7 +24,7 @@ export enum NumberStyles {
 }
 
 function validResponse(regexMatch: RegExpExecArray, radix: number) {
-  const [_all, sign, prefix, digits] = regexMatch;
+  const [/*all*/, sign, prefix, digits] = regexMatch;
   return {
     sign: sign || "",
     prefix: prefix || "",
@@ -70,7 +70,7 @@ export function isValid(str: string, style: number, radix?: number) {
   const integerRegex = /^\s*([\+\-])?(0[xXoObB])?([0-9a-fA-F]+)\s*$/;
   const res = integerRegex.exec(str.replace(/_/g, ""));
   if (res != null) {
-    const [_all, sign, prefix, digits] = res;
+    const [/*all*/, /*sign*/, prefix, digits] = res;
     radix = radix || getRadix(prefix, style);
     const invalidDigits = getInvalidDigits(radix);
     if (!invalidDigits.test(digits)) {

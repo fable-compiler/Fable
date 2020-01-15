@@ -10,10 +10,10 @@ import { choice1, choice2 } from "./Option";
 import { map } from "./Seq";
 
 // Implemented just for type references
-export default class Async<T> {
+export default class Async<_T> {
 }
 
-function emptyContinuation<T>(x: T) {
+function emptyContinuation<T>(_x: T) {
   // NOP
 }
 
@@ -93,7 +93,7 @@ export function fromContinuations<T>(f: (conts: Continuations<T>) => void) {
 }
 
 export function ignore<T>(computation: IAsync<T>) {
-  return protectedBind(computation, (x) => protectedReturn(void 0));
+  return protectedBind(computation, (_x) => protectedReturn(void 0));
 }
 
 export function parallel<T>(computations: Iterable<IAsync<T>>) {
@@ -114,11 +114,11 @@ export function sleep(millisecondsDueTime: number) {
   });
 }
 
-export function start<T>(computation: IAsync<void>, cancellationToken?: CancellationToken) {
+export function start<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
   return startWithContinuations(computation, cancellationToken);
 }
 
-export function startImmediate(computation: IAsync<void>, cancellationToken?: CancellationToken) {
+export function startImmediate<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
   return start(computation, cancellationToken);
 }
 
@@ -130,7 +130,7 @@ export function startWithContinuations<T>(
   cancelToken?: CancellationToken) {
   if (typeof continuation !== "function") {
     cancelToken = continuation as CancellationToken;
-    continuation = null;
+    continuation = undefined;
   }
   const trampoline = new Trampoline();
   computation({

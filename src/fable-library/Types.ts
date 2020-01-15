@@ -1,3 +1,4 @@
+// tslint:disable: space-before-function-paren
 import { combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
 
 function sameType(x: any, y: any) {
@@ -35,15 +36,15 @@ export function SystemObject() {
   return;
 }
 
-SystemObject.prototype.toString = function() {
+SystemObject.prototype.toString = function () {
   return "{" + Object.keys(this).map((k) => k + " = " + String(this[k])).join(";\n ") + "}";
 };
 
-SystemObject.prototype.GetHashCode = function() {
+SystemObject.prototype.GetHashCode = function () {
   return identityHash(this);
 };
 
-SystemObject.prototype.Equals = function(other: any) {
+SystemObject.prototype.Equals = function (other: any) {
   return this === other;
 };
 
@@ -65,20 +66,25 @@ function compareList(self: { tail: any; head: any; }, other: { tail: any; head: 
   }
 }
 
-export function List(this: any, head: any, tail: any) {
+interface List<T> {
+  head: T;
+  tail: List<T>;
+}
+
+export function List<T>(this: List<T>, head: T, tail: List<T>) {
   this.head = head;
   this.tail = tail;
 }
 
-List.prototype.toString = function() {
+List.prototype.toString = function () {
   return "[" + Array.from(this).map((x) => String(x)).join("; ") + "]";
 };
 
-List.prototype.toJSON = function() {
+List.prototype.toJSON = function () {
   return Array.from(this);
 };
 
-List.prototype[Symbol.iterator] = function() {
+List.prototype[Symbol.iterator] = function () {
   let cur = this;
   return {
     next: () => {
@@ -89,16 +95,16 @@ List.prototype[Symbol.iterator] = function() {
   };
 };
 
-List.prototype.GetHashCode = function() {
+List.prototype.GetHashCode = function () {
   const hashes = Array.from(this).map(structuralHash);
   return combineHashCodes(hashes);
 };
 
-List.prototype.Equals = function(other: any) {
+List.prototype.Equals = function (other: any) {
   return compareList(this, other) === 0;
 };
 
-List.prototype.CompareTo = function(other: any) {
+List.prototype.CompareTo = function (other: any) {
   return compareList(this, other);
 };
 
@@ -108,7 +114,7 @@ export function Union(this: any, tag: number, name: any, ...fields: any[]) {
   this.fields = fields;
 }
 
-Union.prototype.toString = function() {
+Union.prototype.toString = function () {
   const len = this.fields.length;
   if (len === 0) {
     return this.name;
@@ -119,26 +125,26 @@ Union.prototype.toString = function() {
   }
 };
 
-Union.prototype.toJSON = function() {
+Union.prototype.toJSON = function () {
   return this.fields.length === 0
     ? this.name
     : [this.name].concat(this.fields);
 };
 
-Union.prototype.GetHashCode = function() {
+Union.prototype.GetHashCode = function () {
   const hashes = this.fields.map((x: any) => structuralHash(x));
   hashes.splice(0, 0, numberHash(this.tag));
   return combineHashCodes(hashes);
 };
 
-Union.prototype.Equals = function(other: any) {
+Union.prototype.Equals = function (other: any) {
   return this === other
     || (sameType(this, other)
-        && this.tag === other.tag
-        && equalArrays(this.fields, other.fields));
+      && this.tag === other.tag
+      && equalArrays(this.fields, other.fields));
 };
 
-Union.prototype.CompareTo = function(other: any) {
+Union.prototype.CompareTo = function (other: any) {
   if (this === other) {
     return 0;
   } else if (!sameType(this, other)) {
@@ -196,24 +202,24 @@ export function Record() {
   return;
 }
 
-Record.prototype.toString = function() {
+Record.prototype.toString = function () {
   return "{" + Object.keys(this).map((k) => k + " = " + String(this[k])).join(";\n ") + "}";
 };
 
-Record.prototype.toJSON = function() {
+Record.prototype.toJSON = function () {
   return recordToJson(this);
 };
 
-Record.prototype.GetHashCode = function() {
+Record.prototype.GetHashCode = function () {
   const hashes = Object.keys(this).map((k) => structuralHash(this[k]));
   return combineHashCodes(hashes);
 };
 
-Record.prototype.Equals = function(other: any) {
+Record.prototype.Equals = function (other: any) {
   return recordEquals(this, other);
 };
 
-Record.prototype.CompareTo = function(other: any) {
+Record.prototype.CompareTo = function (other: any) {
   return recordCompare(this, other);
 };
 
@@ -244,7 +250,7 @@ export const FSharpException = declare(function FSharpException(this: any) {
   Exception.call(this);
 }, Exception);
 
-FSharpException.prototype.toString = function() {
+FSharpException.prototype.toString = function () {
   const fieldNames = getFSharpExceptionFieldNames(this);
   const len = fieldNames.length;
   if (len === 0) {
@@ -256,29 +262,29 @@ FSharpException.prototype.toString = function() {
   }
 };
 
-FSharpException.prototype.toJSON = function() {
+FSharpException.prototype.toJSON = function () {
   return recordToJson(this, getFSharpExceptionFieldNames);
 };
 
-FSharpException.prototype.GetHashCode = function() {
+FSharpException.prototype.GetHashCode = function () {
   const hashes = getFSharpExceptionFieldNames(this).map((k) => structuralHash(this[k]));
   return combineHashCodes(hashes);
 };
 
-FSharpException.prototype.Equals = function(other: any) {
+FSharpException.prototype.Equals = function (other: any) {
   return recordEquals(this, other, getFSharpExceptionFieldNames);
 };
 
-FSharpException.prototype.CompareTo = function(other: any) {
+FSharpException.prototype.CompareTo = function (other: any) {
   return recordCompare(this, other, getFSharpExceptionFieldNames);
 };
 
 export const MatchFailureException = declare(
-    function MatchFailureException(this: any, arg1: any, arg2: number, arg3: number) {
-  this.arg1 = arg1;
-  this.arg2 = arg2 | 0;
-  this.arg3 = arg3 | 0;
-  this.message = "The match cases were incomplete";
-}, FSharpException);
+  function MatchFailureException(this: any, arg1: any, arg2: number, arg3: number) {
+    this.arg1 = arg1;
+    this.arg2 = arg2 | 0;
+    this.arg3 = arg3 | 0;
+    this.message = "The match cases were incomplete";
+  }, FSharpException);
 
 export const Attribute = declare(function Attribute() { return; });

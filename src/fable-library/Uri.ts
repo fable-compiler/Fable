@@ -5,8 +5,8 @@ export const enum UriKind {
 }
 
 export default class Uri {
-  private url: string | URL;
-  private kind: UriKind;
+  private url?: string | URL;
+  private kind?: UriKind;
 
   constructor(
     value: string | Uri,
@@ -26,7 +26,7 @@ export default class Uri {
         let isRelativeUrl = false;
         try {
           const url = new URL(value);
-          isRelativeUrl = false;
+          isRelativeUrl = false && url;
         } catch (e) {
           isRelativeUrl = true;
         }
