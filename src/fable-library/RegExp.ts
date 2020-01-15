@@ -71,7 +71,7 @@ export function replace(
   limit?: number, offset: number = 0): string {
   function replacer() {
     let res = arguments[0];
-    if (limit !== 0) {
+    if (limit) {
       limit--;
       const match: any = [];
       const len = arguments.length;
@@ -86,7 +86,7 @@ export function replace(
   }
   if (typeof reg === "string") {
     const tmp = reg as string;
-    reg = create(input, limit);
+    reg = create(input, limit ?? 0);
     input = tmp;
     limit = undefined;
   }
@@ -95,7 +95,7 @@ export function replace(
     return input.substring(0, offset) + input.substring(offset).replace(reg as RegExp, replacer);
   } else {
     // $0 doesn't work with JS regex, see #1155
-    replacement = replacement.replace(/\$0/g, (s) => "$&");
+    replacement = replacement.replace(/\$0/g, (_s) => "$&");
     if (limit != null) {
       let m: RegExpExecArray;
       const sub1 = input.substring(offset);
@@ -112,7 +112,7 @@ export function replace(
 export function split(reg: string | RegExp, input: string, limit?: number, offset: number = 0) {
   if (typeof reg === "string") {
     const tmp = reg as string;
-    reg = create(input, limit);
+    reg = create(input, limit ?? 0);
     input = tmp;
     limit = undefined;
   }

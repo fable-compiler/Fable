@@ -75,7 +75,7 @@ export function record(
 }
 
 export function anonRecord(...fields: FieldInfo[]): TypeInfo {
-  return new TypeInfo("", null, null, () => fields);
+  return new TypeInfo("", undefined, undefined, () => fields);
 }
 
 export type CaseInfoInput = string | [string, TypeInfo[]];
@@ -85,7 +85,7 @@ export function union(
   generics: TypeInfo[],
   constructor: Constructor,
   cases: () => CaseInfoInput[]): TypeInfo {
-  const t: TypeInfo = new TypeInfo(fullname, generics, constructor, null, () => cases().map((x, i) =>
+  const t: TypeInfo = new TypeInfo(fullname, generics, constructor, undefined, () => cases().map((x, i) =>
     typeof x === "string" ? new CaseInfo(t, i, x) : new CaseInfo(t, i, x[0], x[1])));
   return t;
 }
@@ -115,7 +115,7 @@ export function array(generic: TypeInfo): TypeInfo {
 }
 
 export function enumType(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
-  return new TypeInfo(fullname, [underlyingType], null, null, null, enumCases);
+  return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, enumCases);
 }
 
 export const obj: TypeInfo = new TypeInfo("System.Object");
@@ -162,8 +162,8 @@ export function isArray(t: TypeInfo): boolean {
   return t.fullname.endsWith("[]");
 }
 
-export function getElementType(t: TypeInfo): TypeInfo {
-  return isArray(t) ? t.generics[0] : null;
+export function getElementType(t: TypeInfo): TypeInfo | undefined {
+  return isArray(t) ? t.generics?.[0] : undefined;
 }
 
 export function isGenericType(t: TypeInfo) {
@@ -183,11 +183,11 @@ export function getGenericTypeDefinition(t: TypeInfo) {
 }
 
 export function getEnumUnderlyingType(t: TypeInfo) {
-  return t.generics[0];
+  return t.generics?.[0];
 }
 
 export function getEnumValues(t: TypeInfo): number[] {
-  if (isEnum(t)) {
+  if (isEnum(t) && t.enumCases != null) {
     return t.enumCases.map((kv) => kv[1]);
   } else {
     throw new Error(`${t.fullname} is not an enum type`);
@@ -195,7 +195,7 @@ export function getEnumValues(t: TypeInfo): number[] {
 }
 
 export function getEnumNames(t: TypeInfo): string[] {
-  if (isEnum(t)) {
+  if (isEnum(t) && t.enumCases != null) {
     return t.enumCases.map((kv) => kv[0]);
   } else {
     throw new Error(`${t.fullname} is not an enum type`);
@@ -218,7 +218,7 @@ function getEnumCase(t: TypeInfo, v: number | string): EnumCase {
         }
       }
       // .NET returns the number even if it doesn't match any of the cases
-      return [null, v];
+      return ["", v];
     }
   } else {
     throw new Error(`${t.fullname} is not an enum type`);
@@ -238,7 +238,7 @@ export function tryParseEnum(t: TypeInfo, str: string): [boolean, number] {
   } catch {
     // supress error
   }
-  return [false, null];
+  return [false, NaN];
 }
 
 export function getEnumName(t: TypeInfo, v: number): string {
@@ -248,7 +248,7 @@ export function getEnumName(t: TypeInfo, v: number): string {
 export function isEnumDefined(t: TypeInfo, v: string | number): boolean {
   try {
     const kv = getEnumCase(t, v);
-    return kv[0] != null;
+    return kv[0] != null && kv[0] !== "";
   } catch {
     // supress error
   }
@@ -274,7 +274,7 @@ export function getRecordElements(t: TypeInfo): FieldInfo[] {
 }
 
 export function getTupleElements(t: TypeInfo): TypeInfo[] {
-  if (isTuple(t)) {
+  if (isTuple(t) && t.generics != null) {
     return t.generics;
   } else {
     throw new Error(`${t.fullname} is not a tuple type`);
@@ -282,7 +282,7 @@ export function getTupleElements(t: TypeInfo): TypeInfo[] {
 }
 
 export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
-  if (isFunction(t)) {
+  if (isFunction(t) && t.generics != null) {
     const gen = t.generics;
     return [gen[0], gen[1]];
   } else {
@@ -343,7 +343,9 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
   if (values.length !== expectedLength) {
     throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
   }
-  return new uci.declaringType.constructor(uci.tag, uci.name, ...values);
+  return uci.declaringType.constructor != null
+    ? new uci.declaringType.constructor(uci.tag, uci.name, ...values)
+    : {};
 }
 
 export function makeRecord(t: TypeInfo, values: any[]): any {
@@ -359,7 +361,7 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
     }, {} as any));
 }
 
-export function makeTuple(values: any[], t: TypeInfo): any {
+export function makeTuple(values: any[], _t: TypeInfo): any {
   return values;
 }
 

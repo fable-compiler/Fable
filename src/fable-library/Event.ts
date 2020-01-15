@@ -18,8 +18,8 @@ export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
 
 export default class Event<T> implements IEvent<T> {
   public delegates: Array<Delegate<T>>;
-  private _subscriber: (o: IObserver<T>) => IDisposable;
-  private _dotnetDelegates: Map<DotNetDelegate<T>, Delegate<T>>;
+  private _subscriber?: (o: IObserver<T>) => IDisposable;
+  private _dotnetDelegates?: Map<DotNetDelegate<T>, Delegate<T>>;
 
   constructor(_subscriber?: (o: IObserver<T>) => IDisposable, delegates?: any[]) {
     this._subscriber = _subscriber;
@@ -102,7 +102,7 @@ export function add<T>(callback: (x: T) => void, sourceEvent: IEvent<T>) {
 
 export function choose<T, U>(chooser: (x: T) => Option<U>, sourceEvent: IEvent<T>) {
   const source = sourceEvent as Event<T>;
-  return new Event<U>((observer) =>
+  return new Event<U | null>((observer) =>
     source.Subscribe(new Observer<T>((t) =>
       protect(
         () => chooser(t),
@@ -184,7 +184,7 @@ export function merge<T>(event1: IEvent<T>, event2: IEvent<T>) {
 export function pairwise<T>(sourceEvent: IEvent<T>) {
   const source = sourceEvent as Event<T>;
   return new Event<[T, T]>((observer) => {
-    let last: T = null;
+    let last: T;
     return source.Subscribe(new Observer<T>((next) => {
       if (last != null) {
         observer.OnNext([last, next]);
@@ -210,7 +210,7 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: 
   }, source.delegates) as IEvent<U>;
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => /* Choice<U1, U2> */ any, sourceEvent: IEvent<T>) {
+export function split<T, _U1, _U2>(splitter: (x: T) => /* Choice<U1, U2> */ any, sourceEvent: IEvent<T>) {
   return [
     choose((v) => tryValueIfChoice1(splitter(v)), sourceEvent),
     choose((v) => tryValueIfChoice2(splitter(v)), sourceEvent),

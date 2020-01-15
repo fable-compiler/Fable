@@ -10,13 +10,13 @@ import { compare, equals, structuralHash } from "./Util";
 // 2- To get the value of an option the `getValue` helper
 //    below must **always** be used.
 
-export type Option<T> = T | Some<T>;
+export type Option<T> = T | Some<T> | null;
 
 // Using a class here for better compatibility with TS files importing Some
 export class Some<T> {
-  public value: T;
+  public value: T | null;
 
-  constructor(value: T) {
+  constructor(value: T | null) {
     this.value = value;
   }
 
@@ -50,7 +50,7 @@ export class Some<T> {
   }
 }
 
-export function some<T>(x: T): Option<T> {
+export function some<T>(x: T | null): Option<T> {
   x = (x === undefined) ? null : x;
   return x == null || x instanceof Some ? new Some(x) : x;
 }
@@ -66,7 +66,7 @@ export function value<T>(x: Option<T>, acceptNull?: boolean) {
   }
 }
 
-export function defaultArg<T>(arg: Option<T>, defaultValue: T, f?: (arg0: T) => T) {
+export function defaultArg<T>(arg: Option<T>, defaultValue: T, f?: (arg0: T | null) => T) {
   return arg == null ? defaultValue : (f != null ? f(value(arg)) : value(arg));
 }
 
@@ -74,19 +74,19 @@ export function defaultArgWith<T>(arg: Option<T>, defThunk: () => T) {
   return arg == null ? defThunk() : value(arg);
 }
 
-export function filter<T>(predicate: (arg0: T) => boolean, arg: Option<T>) {
+export function filter<T>(predicate: (arg0: T | null) => boolean, arg: Option<T>) {
   return arg != null ? (!predicate(value(arg)) ? null : arg) : arg;
 }
 
-export function map<T1, T2>(f: (arg0: T1) => T2, arg: Option<T1>) {
+export function map<T1, T2>(f: (arg0: T1 | null) => T2, arg: Option<T1>) {
   return arg == null ? arg : some(f(value(arg)));
 }
 
-export function mapMultiple<T>(predicate: (arg0: T) => boolean, ...args: T[]) {
+export function mapMultiple<T>(predicate: (...args: T[]) => boolean, ...args: T[]) {
   return args.every((x) => x != null) ? predicate.apply(null, args) : null;
 }
 
-export function bind<T1, T2>(f: (arg0: T1) => Option<T2>, arg: Option<T1>) {
+export function bind<T1, T2>(f: (arg0: T1 | null) => Option<T2>, arg: Option<T1>) {
   return arg == null ? arg : f(value(arg));
 }
 

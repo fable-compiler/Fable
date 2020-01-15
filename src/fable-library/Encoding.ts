@@ -91,7 +91,9 @@ function utf8_decode(bytes: Uint8Array) {
 class UTF16LE {
 
   public getBytes(str: string, index?: number, count?: number) {
-    if (index != null) { str = str.substring(index, index + count); }
+    if (index != null && count != null) {
+      str = str.substring(index, index + count);
+    }
     if (typeof Buffer !== "undefined") {
       return Buffer.from(str, "utf16le");
     } else {
@@ -100,7 +102,9 @@ class UTF16LE {
   }
 
   public getString(bytes: Uint8Array, index?: number, count?: number) {
-    if (index != null) { bytes = bytes.subarray(index, index + count); }
+    if (index != null && count != null) {
+      bytes = bytes.subarray(index, index + count);
+    }
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder("utf-16le").decode(bytes);
     } else if (typeof Buffer !== "undefined") {
@@ -115,7 +119,9 @@ class UTF16LE {
 class UTF8 {
 
   public getBytes(str: string, index?: number, count?: number) {
-    if (index != null) { str = str.substring(index, index + count); }
+    if (index != null && count != null) {
+      str = str.substring(index, index + count);
+    }
     if (typeof TextEncoder !== "undefined") {
       return new TextEncoder().encode(str);
     } else if (typeof Buffer !== "undefined") {
@@ -126,7 +132,9 @@ class UTF8 {
   }
 
   public getString(bytes: Uint8Array, index?: number, count?: number) {
-    if (index != null) { bytes = bytes.subarray(index, index + count); }
+    if (index != null && count != null) {
+      bytes = bytes.subarray(index, index + count);
+    }
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder().decode(bytes);
     } else if (typeof Buffer !== "undefined") {

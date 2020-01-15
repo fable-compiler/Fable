@@ -1,10 +1,10 @@
 import Decimal, { makeRangeStepFunction as makeDecimalRangeStepFunction } from "./Decimal";
 import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long";
 import { Option, some, value } from "./Option";
-import { compare, equals, IComparer, IDisposable, isDisposable } from "./Util";
+import { compare, equals, IComparer, IDisposable } from "./Util";
 
 export interface IEnumerator<T> {
-  Current: T;
+  Current: T | undefined;
   MoveNext(): boolean;
   // Dispose(): void;
   // Reset(): void;
@@ -26,7 +26,7 @@ interface IGenericAverager<T> {
 }
 
 export class Enumerator<T> implements IEnumerator<T> {
-  private current: T;
+  private current?: T;
   constructor(private iter: Iterator<T>) { }
   public MoveNext() {
     const cur = this.iter.next();
@@ -74,7 +74,7 @@ function __failIfNone<T>(res: Option<T>) {
 }
 
 export function ofArray<T>(xs: ArrayLike<T>) {
-  return delay(() => unfold((i) => i < xs.length ? [xs[i], i + 1] : null, 0));
+  return delay(() => unfold((i) => i != null && i < xs.length ? [xs[i], i + 1] : null, 0));
 }
 
 export function allPairs<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): Iterable<[T1, T2]> {
@@ -100,20 +100,20 @@ export function append<T>(xs: Iterable<T>, ys: Iterable<T>) {
   return delay(() => {
     let firstDone = false;
     const i = xs[Symbol.iterator]();
-    let iters = [i, null as Iterator<T>];
+    let iters = [i, null];
     return unfold(() => {
-      let cur: IteratorResult<T>;
+      let cur: IteratorResult<T> | undefined;
       if (!firstDone) {
-        cur = iters[0].next();
-        if (!cur.done) {
+        cur = iters[0]?.next();
+        if (cur != null && !cur.done) {
           return [cur.value, iters];
         } else {
           firstDone = true;
-          iters = [null as Iterator<T>, ys[Symbol.iterator]()];
+          iters = [null, ys[Symbol.iterator]()];
         }
       }
-      cur = iters[1].next();
-      return !cur.done ? [cur.value, iters] : null;
+      cur = iters[1]?.next();
+      return cur != null && !cur.done ? [cur.value, iters] : null;
     }, iters);
   });
 }
@@ -161,7 +161,7 @@ export function concat<T>(xs: Iterable<Iterable<T>>): Iterable<T> {
         }
       }
       return innerIter != null && output != null ? [output.value, innerIter] : null;
-    }, null);
+    }, null as Iterator<T> | null);
   });
 }
 
@@ -195,7 +195,7 @@ export function delay<T>(f: () => Iterable<T>) {
 }
 
 export function empty<T>() {
-  return unfold((): [T, T] => void 0);
+  return unfold((): [T, T] | null => null, undefined);
 }
 
 export function enumerateFromFunctions<T, Enumerator>(
@@ -206,7 +206,7 @@ export function enumerateFromFunctions<T, Enumerator>(
 }
 
 export function enumerateWhile<T>(cond: () => boolean, xs: Iterable<T>) {
-  return concat(unfold(() => cond() ? [xs, true] : null));
+  return concat(unfold(() => cond() ? [xs, true] : null, undefined));
 }
 
 export function enumerateThenFinally<T>(xs: Iterable<T>, finalFn: () => void) {
@@ -215,7 +215,7 @@ export function enumerateThenFinally<T>(xs: Iterable<T>, finalFn: () => void) {
     try {
       iter = xs[Symbol.iterator]();
     } catch (err) {
-      return void 0;
+      return empty<T>();
     } finally {
       finalFn();
     }
@@ -224,7 +224,7 @@ export function enumerateThenFinally<T>(xs: Iterable<T>, finalFn: () => void) {
         const cur = it.next();
         return !cur.done ? [cur.value, it] : null;
       } catch (err) {
-        return void 0;
+        return null;
       } finally {
         finalFn();
       }
@@ -375,7 +375,7 @@ export function tryHead<T>(xs: Iterable<T>): Option<T> {
   return cur.done ? null : some(cur.value);
 }
 
-export function head<T>(xs: Iterable<T>): T {
+export function head<T>(xs: Iterable<T>): T | null {
   return __failIfNone(tryHead(xs));
 }
 
@@ -408,24 +408,24 @@ export function tryItem<T>(i: number, xs: Iterable<T>): Option<T> {
   return null;
 }
 
-export function item<T>(i: number, xs: Iterable<T>): T {
+export function item<T>(i: number, xs: Iterable<T>): T | null {
   return __failIfNone(tryItem(i, xs));
 }
 
 export function iterate<T>(f: (x: T) => void, xs: Iterable<T>) {
-  fold((_, x) => f(x), null, xs);
+  fold((_, x) => (f(x), null), null, xs);
 }
 
 export function iterate2<T1, T2>(f: (x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
-  fold2((_, x, y) => f(x, y), null, xs, ys);
+  fold2((_, x, y) => (f(x, y), null), null, xs, ys);
 }
 
 export function iterateIndexed<T>(f: (i: number, x: T) => void, xs: Iterable<T>) {
-  fold((_, x, i) => f(i, x), null, xs);
+  fold((_, x, i) => (f(i ?? 0, x), null), null, xs);
 }
 
 export function iterateIndexed2<T1, T2>(f: (i: number, x: T1, y: T2) => void, xs: Iterable<T1>, ys: Iterable<T2>) {
-  fold2((_, x, y, i) => f(i, x, y), null, xs, ys);
+  fold2((_, x, y, i) => (f(i ?? 0, x, y), null), null, xs, ys);
 }
 
 export function isEmpty<T>(xs: Iterable<T>) {
@@ -437,14 +437,14 @@ export function tryLast<T>(xs: Iterable<T>): Option<T> {
   return isEmpty(xs) ? null : some(reduce((_, x) => x, xs));
 }
 
-export function last<T>(xs: Iterable<T>): T {
+export function last<T>(xs: Iterable<T>): T | null {
   return __failIfNone(tryLast(xs));
 }
 
 export function length<T>(xs: Iterable<T>) {
   return Array.isArray(xs) || ArrayBuffer.isView(xs)
     ? (xs as T[]).length
-    : fold((acc, x) => acc + 1, 0, xs);
+    : fold((acc, _x) => acc + 1, 0, xs);
 }
 
 export function map<T, U>(f: (x: T) => U, xs: Iterable<T>): Iterable<U> {
@@ -476,7 +476,7 @@ export function map2<T1, T2, U>(f: (x: T1, y: T2) => U, xs: Iterable<T1>, ys: It
       const cur1 = iter1.next();
       const cur2 = iter2.next();
       return !cur1.done && !cur2.done ? [f(cur1.value, cur2.value), null] : null;
-    });
+    }, undefined);
   });
 }
 
@@ -489,7 +489,7 @@ export function mapIndexed2<T1, T2, U>(f: (i: number, x: T1, y: T2) => U, xs: It
       const cur1 = iter1.next();
       const cur2 = iter2.next();
       return !cur1.done && !cur2.done ? [f(i++, cur1.value, cur2.value), null] : null;
-    });
+    }, undefined);
   });
 }
 
@@ -504,7 +504,7 @@ export function map3<T1, T2, T3, U>(
       const cur2 = iter2.next();
       const cur3 = iter3.next();
       return !cur1.done && !cur2.done && !cur3.done ? [f(cur1.value, cur2.value, cur3.value), null] : null;
-    });
+    }, undefined);
   });
 }
 
@@ -559,7 +559,7 @@ export function minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>, comp
 }
 
 export function pairwise<T extends number>(xs: Iterable<T>) {
-  const res = Array.from(scan((last, next) => [last[1], next], [null, null], xs));
+  const res = Array.from(scan((last, next) => [last[1], next], [0, 0], xs));
   return res.length < 2 ? [] : skip(2, res);
 }
 
@@ -641,8 +641,8 @@ export function scan<T, ST>(f: (st: ST, x: T) => ST, seed: ST, xs: Iterable<T>) 
         acc = f(acc, cur.value);
         return [acc, acc];
       }
-      return void 0;
-    }, null as ST);
+      return null;
+    }, null as ST | null);
   });
 }
 
@@ -712,7 +712,7 @@ export function take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
           throw new Error("Seq has not enough elements");
         }
       }
-      return void 0;
+      return null;
     }, 0);
   });
 }
@@ -724,12 +724,12 @@ export function truncate<T>(n: number, xs: Iterable<T>) {
 export function takeWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
-    return unfold((i) => {
+    return unfold(() => {
       const cur = iter.next();
       if (!cur.done && f(cur.value)) {
         return [cur.value, null];
       }
-      return void 0;
+      return null;
     }, 0);
   });
 }
@@ -747,7 +747,7 @@ export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, de
   return defaultValue === void 0 ? null : some(defaultValue);
 }
 
-export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T {
+export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T | null {
   return __failIfNone(tryFind(f, xs));
 }
 
@@ -756,7 +756,7 @@ export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>
   return tryFind(f, arr.reverse(), defaultValue);
 }
 
-export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T {
+export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T | null {
   return __failIfNone(tryFindBack(f, xs));
 }
 
@@ -773,7 +773,7 @@ export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T
   return null;
 }
 
-export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number {
+export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number | null {
   return __failIfNone(tryFindIndex(f, xs));
 }
 
@@ -787,7 +787,7 @@ export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterab
   return null;
 }
 
-export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number {
+export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number | null {
   return __failIfNone(tryFindIndexBack(f, xs));
 }
 
@@ -805,11 +805,11 @@ export function tryPick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T
   return null;
 }
 
-export function pick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>): U {
+export function pick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>): U | null {
   return __failIfNone(tryPick(f, xs));
 }
 
-export function unfold<T, ST>(f: (st: ST) => [T, ST], fst?: ST) {
+export function unfold<T, ST>(f: (st: ST) => [T, ST] | null, fst: ST) {
   return {
     [Symbol.iterator]: () => {
       // Capture a copy of the first value in the closure

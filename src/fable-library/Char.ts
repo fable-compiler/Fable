@@ -226,11 +226,11 @@ export function isSurrogate2(s: string, index: number) {
   return (0xD800 <= cp && cp <= 0xDFFF);
 }
 
-export function isSurrogatePair(s: string, index: string|number) {
+export function isSurrogatePair(s: string, index: string | number) {
   return typeof index === "number"
     ? isHighSurrogate2(s, index) && isLowSurrogate2(s, index + 1)
     : isHighSurrogate(s) && isLowSurrogate(index);
-  }
+}
 
 export function parse(input: string) {
   if (input.length === 1) {
