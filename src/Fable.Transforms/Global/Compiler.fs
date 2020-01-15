@@ -11,6 +11,7 @@ type CompilerOptions =
       clampByteArrays: bool
       debugMode: bool
       verbosity: Verbosity
+      typedDeclarations: bool
       /// Meant for precompiled libraries (like the Repl Lib)
       /// to make public inlined functions part of the JS
       outputPublicInlinedFunctions: bool

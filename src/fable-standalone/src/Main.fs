@@ -219,6 +219,7 @@ let makeCompiler fableLibrary fileName (project: Project) precompiledLib (otherF
           clampByteArrays = false
           debugMode = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
           verbosity = Fable.Verbosity.Normal
+          typedDeclarations = false
           outputPublicInlinedFunctions = false
           precompiledLib = precompiledLib }
     let com = Compiler(fileName, project, options, fableLibrary)
