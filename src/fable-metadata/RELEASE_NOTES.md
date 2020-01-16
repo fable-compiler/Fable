@@ -1,3 +1,8 @@
+### 1.3.0
+
+* Fable.Core 3.1.4
+* .NET Core 3.1.101
+
 ### 1.2.0
 
 * Update FSharp.Core to 4.7.0

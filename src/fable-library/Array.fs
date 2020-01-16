@@ -25,10 +25,10 @@ module Helpers =
         DynamicArrayCons.Create(len)
 
     let inline isDynamicArrayImpl arr =
-        JS.Array.isArray arr
+        JS.Constructors.Array.isArray arr
 
     let inline isTypedArrayImpl arr =
-        JS.ArrayBuffer.isView arr
+        JS.Constructors.ArrayBuffer.isView arr
 
     let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
         !!target?set(source, offset)

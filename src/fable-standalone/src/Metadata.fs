@@ -13,6 +13,7 @@ let references_core = [|
     "System.Console"
     "System.Core"
     "System.Diagnostics.Debug"
+    "System.Diagnostics.Tools"
     "System.Diagnostics.Tracing"
     "System.Globalization"
     "System"
