@@ -9,4 +9,6 @@ type StringBuilder(value: string, capacity: int) =
     member x.Append(s: string) = buf.Add(s); x
     member x.Append(c: char) = buf.Add(string c); x
     member x.AppendFormat(fmt: string, o: obj) = buf.Add(System.String.Format(fmt, o)); x
+    member x.AppendLine() = buf.Add(System.Environment.NewLine); x
+    member x.AppendLine(s: string) = buf.Add(s); buf.Add(System.Environment.NewLine); x
     override __.ToString() = System.String.Concat(buf)

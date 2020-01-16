@@ -33,6 +33,16 @@ let tests =
 
       // Format
 
+      testCase "StringBuilder works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append "Hello" |> ignore
+            sb.AppendLine () |> ignore
+            sb.AppendLine "World!" |> ignore
+            let expected = System.Text.StringBuilder()
+                              .AppendFormat("Hello{0}World!{0}", Environment.NewLine)
+                              .ToString()
+            sb.ToString() |> equal expected
+
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"
