@@ -66,12 +66,12 @@ function compareList(self: { tail: any; head: any; }, other: { tail: any; head: 
   }
 }
 
-interface List<T> {
-  head: T;
-  tail: List<T>;
+export interface List<T> {
+  head?: T;
+  tail?: List<T>;
 }
 
-export function List<T>(this: List<T>, head: T, tail: List<T>) {
+export function List<T>(this: List<T>, head?: T, tail?: List<T>) {
   this.head = head;
   this.tail = tail;
 }

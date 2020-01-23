@@ -992,17 +992,18 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
 
 // TODO!!! How to add other entities?
 let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
-    match ent.FullName with
-    | Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
-    | Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
-    | Types.result -> makeCoreRef Any "Result" "Option" |> Some
-    | Naming.StartsWith Types.choiceNonGeneric _ -> makeCoreRef Any "Choice" "Option" |> Some
-    | entFullName ->
+    match ent.TryFullName with
+    | Some Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
+    | Some Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
+    | Some Types.result -> makeCoreRef Any "Result" "Option" |> Some
+    | Some (Naming.StartsWith Types.choiceNonGeneric _) -> makeCoreRef Any "Choice" "Option" |> Some
+    | Some entFullName ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib entFullName)
         |> Option.map (fun (entityName, importPath) ->
             let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
             makeCustomImport Any entityName importPath)
+    | None -> None
 
 let tryJsConstructor com ent =
     if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
@@ -1303,7 +1304,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", _ -> "($0, null)" |> emitJs r t args |> Some
+    | "Ignore", _ -> "void ($0)" |> emitJs r t args |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
