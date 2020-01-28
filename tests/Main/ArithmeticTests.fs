@@ -619,4 +619,15 @@ let tests =
         formatNumber 0.020M |> equal "0,02"
         formatNumber 0.20M |> equal "0,20"
         formatNumber 2.0M |> equal "2,00"
+
+        
+    testCase "Formatting of decimal works with inline" <| fun () ->
+    
+        let inline formatNumber (d:decimal) =
+            (sprintf "%.2f" d).Replace(",","").Replace(".",",")
+
+        formatNumber 0.0M |> equal "0,00"
+        formatNumber 0.020M |> equal "0,02"
+        formatNumber 0.20M |> equal "0,20"
+        formatNumber 2.0M |> equal "2,00"        
 ]
