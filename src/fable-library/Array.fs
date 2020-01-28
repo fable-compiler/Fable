@@ -17,18 +17,15 @@ type IArrayCons<'T> =
 let [<Emit("Array")>] DynamicArrayCons<'T> : IArrayCons<'T> = jsNative
 
 module Helpers =
-    /// Creates an empty array with the same type and length as another
-    [<Emit("new $0.constructor($0.length)")>]
-    let createArrayFromImpl (_: 'T[]): 'T[] = jsNative
 
     let inline newDynamicArrayImpl (len: int): 'T[] =
         DynamicArrayCons.Create(len)
 
     let inline isDynamicArrayImpl arr =
-        JS.Array.isArray arr
+        JS.Constructors.Array.isArray arr
 
     let inline isTypedArrayImpl arr =
-        JS.ArrayBuffer.isView arr
+        JS.Constructors.ArrayBuffer.isView arr
 
     let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
         !!target?set(source, offset)
@@ -602,7 +599,7 @@ let forAll predicate (array: 'T[]) =
 
 let permute f (array: 'T[]) =
     let size = array.Length
-    let res = createArrayFromImpl array
+    let res = copyImpl array
     let checkFlags = newDynamicArrayImpl size
     iterateIndexed (fun i x ->
         let j = f i
@@ -635,26 +632,20 @@ let inline internal sortInPlaceWith (comparer: 'T -> 'T -> int) (xs: 'T[]) =
     sortInPlaceWithImpl comparer xs
     xs
 
-let private copyArray (array: 'T[]) =
-    let result = createArrayFromImpl array
-    for i = 0 to array.Length - 1 do
-        result.[i] <- array.[i]
-    result
-
 let sort (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (copyArray xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (copyImpl xs)
 
 let sortBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (copyArray xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (copyImpl xs)
 
 let sortDescending (xs: 'T[]) ([<Inject>] comparer: IComparer<'T>): 'T[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (copyArray xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (copyImpl xs)
 
 let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): 'a[] =
-    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (copyArray xs)
+    sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (copyImpl xs)
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
-    sortInPlaceWith comparer (copyArray xs)
+    sortInPlaceWith comparer (copyImpl xs)
 
 let unfold<'T,'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'State[] =
     let res = [||]

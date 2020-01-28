@@ -44,12 +44,40 @@ export interface IEquatable<T> {
   Equals(x: T): boolean;
 }
 
+export interface IHashable {
+  GetHashCode(): number;
+}
+
 export interface IDisposable {
   Dispose(): void;
 }
 
-export function isDisposable(x: any) {
-  return x != null && typeof x.Dispose === "function";
+export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
+  return x != null && typeof x === "object" && Symbol.iterator in x;
+}
+
+export function isArrayLike<T>(x: T | ArrayLike<T>): x is ArrayLike<T> {
+  return x != null && (Array.isArray(x) || ArrayBuffer.isView(x));
+}
+
+export function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
+  return x != null && typeof (x as IComparer<T>).Compare === "function";
+}
+
+export function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
+  return x != null && typeof (x as IComparable<T>).CompareTo === "function";
+}
+
+export function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
+  return x != null && typeof (x as IEquatable<T>).Equals === "function";
+}
+
+export function isHashable<T>(x: T | IHashable): x is IHashable {
+  return x != null && typeof (x as IHashable).GetHashCode === "function";
+}
+
+export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
+  return x != null && typeof (x as IDisposable).Dispose === "function";
 }
 
 export class Comparer<T> implements IComparer<T> {
@@ -60,10 +88,10 @@ export class Comparer<T> implements IComparer<T> {
   }
 }
 
-export function comparerFromEqualityComparer<T>(comparer: IEqualityComparer<T>) {
+export function comparerFromEqualityComparer<T>(comparer: IEqualityComparer<T>): IComparer<T> {
   // Sometimes IEqualityComparer also implements IComparer
-  if (typeof (comparer as any).Compare === "function") {
-    return new Comparer<T>((comparer as any).Compare);
+  if (isComparer(comparer)) {
+    return new Comparer<T>((comparer as any as IComparer<T>).Compare);
   } else {
     return new Comparer<T>((x: T, y: T) => {
       const xhash = comparer.GetHashCode(x);
@@ -215,7 +243,7 @@ export function combineHashCodes(hashes: number[]) {
   });
 }
 
-export function identityHash(x: any): number {
+export function identityHash<T>(x: T): number {
   if (x == null) {
     return 0;
   }
@@ -231,7 +259,7 @@ export function identityHash(x: any): number {
   }
 }
 
-export function structuralHash(x: any): number {
+export function structuralHash<T>(x: T): number {
   if (x == null) {
     return 0;
   }
@@ -243,14 +271,13 @@ export function structuralHash(x: any): number {
     case "string":
       return stringHash(x);
     default: {
-      if (typeof x.GetHashCode === "function") {
+      if (isHashable(x)) {
         return x.GetHashCode();
-      } else if (isArray(x)) {
-        const ar = (x as ArrayLike<any>);
-        const len = ar.length;
+      } else if (isArrayLike(x)) {
+        const len = x.length;
         const hashes: number[] = new Array(len);
         for (let i = 0; i < len; i++) {
-          hashes[i] = structuralHash(ar[i]);
+          hashes[i] = structuralHash(x[i]);
         }
         return combineHashCodes(hashes);
       } else {
@@ -258,14 +285,6 @@ export function structuralHash(x: any): number {
       }
     }
   }
-}
-
-export function isArray(x: any) {
-  return Array.isArray(x) || ArrayBuffer.isView(x);
-}
-
-export function isIterable(x: any) {
-  return x != null && typeof x === "object" && Symbol.iterator in x;
 }
 
 export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {
@@ -300,7 +319,7 @@ export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
 //   return true;
 // }
 
-export function equals(x: any, y: any): boolean {
+export function equals<T>(x: T, y: T): boolean {
   if (x === y) {
     return true;
   } else if (x == null) {
@@ -309,10 +328,10 @@ export function equals(x: any, y: any): boolean {
     return false;
   } else if (typeof x !== "object") {
     return false;
-  } else if (typeof x.Equals === "function") {
+  } else if (isEquatable(x)) {
     return x.Equals(y);
-  } else if (isArray(x)) {
-    return isArray(y) && equalArrays(x, y);
+  } else if (isArrayLike(x)) {
+    return isArrayLike(y) && equalArrays(x, y);
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
@@ -379,7 +398,7 @@ export function compareObjects(x: { [k: string]: any }, y: { [k: string]: any })
   return 0;
 }
 
-export function compare(x: any, y: any): number {
+export function compare<T>(x: T, y: T): number {
   if (x === y) {
     return 0;
   } else if (x == null) {
@@ -388,9 +407,9 @@ export function compare(x: any, y: any): number {
     return 1;
   } else if (typeof x !== "object") {
     return x < y ? -1 : 1;
-  } else if (typeof x.CompareTo === "function") {
+  } else if (isComparable(x)) {
     return x.CompareTo(y);
-  } else if (isArray(x) && isArray(y)) {
+  } else if (isArrayLike(x) && isArrayLike(y)) {
     return compareArrays(x, y);
   } else if (x instanceof Date && y instanceof Date) {
     return compareDates(x, y);
@@ -545,8 +564,8 @@ export function escapeUriString(s: string): string {
 // ICollection.Clear and Count members can be called on Arrays
 // or Dictionaries so we need a runtime check (see #1120)
 export function count<T>(col: Iterable<T>): number {
-  if (isArray(col)) {
-    return (col as T[]).length;
+  if (isArrayLike(col)) {
+    return col.length;
   } else {
     let count = 0;
     for (const _ of col) {
@@ -557,8 +576,8 @@ export function count<T>(col: Iterable<T>): number {
 }
 
 export function clear<T>(col: Iterable<T>) {
-  if (isArray(col)) {
-    (col as any).splice(0);
+  if (isArrayLike(col)) {
+    (col as any as T[]).splice(0);
   } else {
     (col as any).clear();
   }

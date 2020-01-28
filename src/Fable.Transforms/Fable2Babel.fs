@@ -861,7 +861,7 @@ module Util =
         // TODO: Fail for functions, arrays, tuples and list because we cannot check generics?
         | Fable.FunctionType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
-            coreLibCall com ctx None "Util" "isArray" [|com.TransformAsExpr(ctx, expr)|]
+            coreLibCall com ctx None "Util" "isArrayLike" [|com.TransformAsExpr(ctx, expr)|]
         | Fable.List _ ->
             jsInstanceof (coreValue com ctx "Types" "List") expr
         | Replacements.Builtin kind ->
@@ -898,7 +898,7 @@ module Util =
             | Some Types.ienumerable ->
                 [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx None "Util" "isIterable"
             | Some Types.array ->
-                [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx None "Util" "isArray"
+                [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx None "Util" "isArrayLike"
             | _ when ent.IsInterface ->
                 fail (sprintf "interface %A" ent.FullName)
             | _ when FSharp2Fable.Util.isReplacementCandidate ent ->
