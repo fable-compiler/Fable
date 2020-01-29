@@ -27,8 +27,8 @@ module Helpers =
     let inline isTypedArrayImpl arr =
         JS.Constructors.ArrayBuffer.isView arr
 
-    let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
-        !!target?set(source, offset)
+    // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
+    //     !!target?set(source, offset)
 
     let inline appendImpl (array1: 'T[]) (array2: 'T[]): 'T[] =
         !!array1?concat(array2)
@@ -616,11 +616,12 @@ let setSlice (target: 'T[]) (lower: int option) (upper: int option) (source: 'T[
     let lower = defaultArg lower 0
     let upper = defaultArg upper 0
     let length = (if upper > 0 then upper else target.Length - 1) - lower
-    if isTypedArrayImpl target && source.Length <= length then
-        typedArraySetImpl target source lower
-    else
-        for i = 0 to length do
-            target.[i + lower] <- source.[i]
+    // can't cast to TypedArray, so can't use TypedArray-specific methods
+    // if isTypedArrayImpl target && source.Length <= length then
+    //     typedArraySetImpl target source lower
+    // else
+    for i = 0 to length do
+        target.[i + lower] <- source.[i]
 
 let sortInPlaceBy (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComparer<'b>): unit =
     sortInPlaceWithImpl (fun x y -> comparer.Compare(projection x, projection y)) xs

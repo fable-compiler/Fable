@@ -48,7 +48,7 @@ SystemObject.prototype.Equals = function (other: any) {
   return this === other;
 };
 
-function compareList(self: { tail: any; head: any; }, other: { tail: any; head: any; }) {
+function compareList<T>(self: List<T>, other: List<T>) {
   if (self === other) {
     return 0;
   } else {
@@ -66,7 +66,7 @@ function compareList(self: { tail: any; head: any; }, other: { tail: any; head: 
   }
 }
 
-export interface List<T> {
+export interface List<T> extends Iterable<T> {
   head?: T;
   tail?: List<T>;
 }
