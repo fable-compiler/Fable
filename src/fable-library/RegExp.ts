@@ -18,11 +18,11 @@ export function create(pattern: string, options: number) {
 // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
 
 export function escape(str: string) {
-  return str.replace(/[\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 }
 
 export function unescape(str: string) {
-  return str.replace(/\\([\-\[\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
+  return str.replace(/\\([\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
 }
 
 export function isMatch(str: string | RegExp, pattern: string, options: number = 0) {

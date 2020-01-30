@@ -528,6 +528,10 @@ let tests =
             @"\\\abc///".Trim('\\','/')
             |> equal "abc"
 
+      testCase "String.Trim with special chars works" <| fun () ->
+            @"()[]{}abc/.?*+-^$|\".Trim(@"()[]{}/.?*+-^$|\".ToCharArray())
+            |> equal "abc"
+
       testCase "String.TrimStart works" <| fun () ->
             "!!--abc   ".TrimStart('!','-')
             |> equal "abc   "

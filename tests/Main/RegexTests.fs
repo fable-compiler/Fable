@@ -26,12 +26,13 @@ let tests =
         test "^bc" false
 
     testCase "Regex.Escape works" <| fun _ ->
-        Regex.Escape("[(.*?)]") |> equal "\\[\\(\\.\\*\\?\\)]"
-        Regex.Escape(@"C:\Temp") |> equal "C:\\\\Temp"
+        // TODO: a few chars are not escaped (e.g. # and white space)
+        Regex.Escape(@"\*+?|{[()^$") |> equal @"\\\*\+\?\|\{\[\(\)\^\$"
+        Regex.Escape(@"C:\Temp") |> equal @"C:\\Temp"
 
     testCase "Regex.Unescape works" <| fun _ ->
-        Regex.Unescape("\[\(\.\*\?\)]") |> equal "[(.*?)]"
-        Regex.Unescape(@"C:\\Temp") |> equal "C:\\Temp"
+        Regex.Unescape(@"\\\*\+\?\|\{\[\(\)\^\$") |> equal @"\*+?|{[()^$"
+        Regex.Unescape(@"C:\\Temp") |> equal @"C:\Temp"
 
     testCase "Regex instance IsMatch works" <| fun _ ->
         let str = "For more information, see Chapter 3.4.5.1"
