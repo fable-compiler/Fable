@@ -64,7 +64,8 @@ let parseFiles projectFileName outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
+    let config: Fable.Standalone.CompilerConfig = { precompiledLib = None; typeDecls = options.typeDecls }
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, config)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
     let libDir = getFableLibDir() |> normalizeFullPath
@@ -89,8 +90,9 @@ let run opts projectFileName outDir =
     let options = {
         commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
         optimize = opts |> Array.contains "--optimize-fcs"
-        watchMode = opts |> Array.contains "--watch"
         sourceMaps = opts |> Array.contains "--sourceMaps"
+        typeDecls = opts |> Array.contains "--typed"
+        watchMode = opts |> Array.contains "--watch"
     }
     parseFiles projectFileName outDir options
     commandToRun |> Option.iter runCmdAndExitIfFails

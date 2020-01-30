@@ -285,7 +285,7 @@ type ForOfStatement(left, right, body, ?loc) =
     member __.Right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, ``params``, body, ?generator_, ?async_, ?returnType, ?typeParameters, ?loc) =
+type FunctionDeclaration(id, ``params``, body, ?generator_, ?async_, ?returnType, ?typeParams, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
     let generator = defaultArg generator_ false
     let async = defaultArg async_ false
@@ -295,7 +295,7 @@ type FunctionDeclaration(id, ``params``, body, ?generator_, ?async_, ?returnType
     member __.Generator = generator
     member __.Async = async
     member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams
 
 // Expressions
 
@@ -307,7 +307,7 @@ type ThisExpression(?loc) =
     inherit Expression("ThisExpression", ?loc = loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression(``params``, body, ?async_, ?returnType, ?typeParameters, ?loc) =
+type ArrowFunctionExpression(``params``, body, ?async_, ?returnType, ?typeParams, ?loc) =
     inherit Expression("ArrowFunctionExpression", ?loc = loc)
     let async = defaultArg async_ false
     let expression = match body with U2.Case1 _ -> false | U2.Case2 _ -> true
@@ -316,9 +316,9 @@ type ArrowFunctionExpression(``params``, body, ?async_, ?returnType, ?typeParame
     member __.Body: U2<BlockStatement, Expression> = body
     member __.Async: bool = async
     member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams
 
-type FunctionExpression(``params``, body, ?generator_, ?async_, ?id, ?returnType, ?typeParameters, ?loc) =
+type FunctionExpression(``params``, body, ?generator_, ?async_, ?id, ?returnType, ?typeParams, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
     let generator = defaultArg generator_ false
     let async = defaultArg async_ false
@@ -328,7 +328,7 @@ type FunctionExpression(``params``, body, ?generator_, ?async_, ?id, ?returnType
     member __.Generator: bool = generator
     member __.Async: bool = async
     member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams
 
 /// e.g., x = do { var t = f(); t * t + 1 };
 /// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
@@ -382,7 +382,7 @@ type ObjectProperty(key, value, ?shorthand_, ?computed_, ?loc) =
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?generator_, ?async_, ?returnType, ?typeParameters, ?loc) =
+type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?generator_, ?async_, ?returnType, ?typeParams, ?loc) =
     inherit ObjectMember("ObjectMethod", key, ?computed_=computed_, ?loc=loc)
     let generator = defaultArg generator_ false
     let async = defaultArg async_ false
@@ -397,7 +397,7 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?generator_, ?async_
     member __.Generator: bool = generator
     member __.Async: bool = async
     member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -556,7 +556,7 @@ type RestElement(argument, ?typeAnnotation, ?loc) =
 type ClassMethodKind =
     | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind_, key, ``params``, body, computed, ``static``, ?returnType, ?typeParameters, ?loc) =
+type ClassMethod(kind_, key, ``params``, body, computed, ``static``, ?returnType, ?typeParams, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     let kind =
         match kind_ with
@@ -571,7 +571,7 @@ type ClassMethod(kind_, key, ``params``, body, computed, ``static``, ?returnType
     member __.Computed: bool = computed
     member __.Static: bool = ``static``
     member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams
     // member __.Decorators: Decorator array = defaultArg decorators []
     // This appears in astexplorer.net but it's not documented
     // member __.expression: bool = false
@@ -589,21 +589,21 @@ type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)
     member __.Body: U2<ClassMethod, ClassProperty> array = body
 
-type ClassDeclaration(body, id, ?superClass, ?typeParameters, ?loc) =
+type ClassDeclaration(body, id, ?superClass, ?typeParams, ?loc) =
     inherit Declaration("ClassDeclaration", ?loc = loc)
     member __.Body: ClassBody = body
     member __.Id: Identifier = id
     member __.SuperClass: Expression option = superClass
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams
     // member __.Decorators: Decorator array = defaultArg decorators []
 
 /// Anonymous class: e.g., var myClass = class { }
-type ClassExpression(body, ?id, ?superClass, ?typeParameters, ?loc) =
+type ClassExpression(body, ?id, ?superClass, ?typeParams, ?loc) =
     inherit Expression("ClassExpression", ?loc = loc)
     member __.Body: ClassBody = body
     member __.Id: Identifier option = id
     member __.SuperClass: Expression option = superClass
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams
     // member __.Decorators: Decorator array = defaultArg decorators []
 
 // type MetaProperty(meta, property, ?loc) =
@@ -725,14 +725,14 @@ type ObjectTypeAnnotation(properties) =
     member __.CallProperties: obj list = []
     member __.Indexers: obj list = []
 
-type InterfaceExtends(id, ?typeParameters) =
+type InterfaceExtends(id, ?typeParams) =
     member __.Type = "InterfaceExtends"
     member __.Id: Identifier = id
-    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
+    member __.TypeParameters: TypeParameterInstantiation option = typeParams
 
-type InterfaceDeclaration(body, id, extends, ?typeParameters, ?loc) =
+type InterfaceDeclaration(body, id, extends, ?typeParams, ?loc) =
     inherit Declaration("InterfaceDeclaration", ?loc = loc)
     member __.Id: Identifier = id
     member __.Body: ObjectTypeAnnotation = body
     member __.Extends: InterfaceExtends list = extends
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.TypeParameters: TypeParameterDeclaration option = typeParams

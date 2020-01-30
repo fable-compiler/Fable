@@ -55,7 +55,7 @@ let toCompilerOptions (msg: Message): CompilerOptions =
       clampByteArrays = msg.clampByteArrays
       debugMode = Array.contains "DEBUG" msg.define
       verbosity = GlobalParams.Singleton.Verbosity
-      typedDeclarations = false
+      typeDecls = msg.extra.ContainsKey("typed")
       outputPublicInlinedFunctions = Array.contains "FABLE_REPL_LIB" msg.define
       precompiledLib = None
     }

@@ -5,8 +5,9 @@ open Fable.Core.JsInterop
 type CmdLineOptions = {
     commonjs: bool
     optimize: bool
-    watchMode: bool
     sourceMaps: bool
+    typeDecls: bool
+    watchMode: bool
 }
 
 module JS =

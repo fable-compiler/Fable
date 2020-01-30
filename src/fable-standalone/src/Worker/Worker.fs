@@ -115,7 +115,10 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let! fable = makeFableState (Initialized fable) otherFSharpOptions
             let (parseResults, parsingTime) = measureTime (fun () -> fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             let (res, fableTransformTime) = measureTime (fun () ->
-                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, fun x -> resolveLibCall(fable.LibMap, x))) ()
+                let config = {
+                    precompiledLib = Some (fun x -> resolveLibCall(fable.LibMap, x))
+                    typeDecls = false }
+                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, config)) ()
             let (jsCode, babelTime, babelErrors) =
                 try
                     let code, t = measureTime fable.BabelAstCompiler res.BabelAst

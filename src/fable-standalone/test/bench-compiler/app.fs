@@ -18,13 +18,6 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-type CmdLineOptions = {
-    commonjs: bool
-    optimize: bool
-    watchMode: bool
-    sourceMaps: bool
-}
-
 let parseFiles projectFileName outDir options =
     // parse project
     let (dllRefs, fileNames, otherOptions) = parseProject projectFileName
@@ -64,7 +57,8 @@ let parseFiles projectFileName outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
+    let config: Fable.Standalone.CompilerConfig = { precompiledLib = None; typeDecls = options.typeDecls }
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, config)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
 
@@ -98,8 +92,9 @@ let parseArguments (argv: string[]) =
         let options = {
             commonjs = opts |> Array.contains "--commonjs"
             optimize = opts |> Array.contains "--optimize-fcs"
-            watchMode = opts |> Array.contains "--watch"
             sourceMaps = opts |> Array.contains "--sourceMaps"
+            typeDecls = opts |> Array.contains "--typed"
+            watchMode = opts |> Array.contains "--watch"
         }
         parseFiles projectFileName outDir options
     | _ -> printfn "%s" usage

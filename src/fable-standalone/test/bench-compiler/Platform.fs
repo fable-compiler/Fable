@@ -1,5 +1,13 @@
 module Fable.Compiler.Platform
 
+type CmdLineOptions = {
+    commonjs: bool
+    optimize: bool
+    sourceMaps: bool
+    typeDecls: bool
+    watchMode: bool
+}
+
 #if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
 open System.IO

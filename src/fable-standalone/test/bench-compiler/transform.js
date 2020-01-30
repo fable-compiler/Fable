@@ -5,7 +5,8 @@ import BabelPlugins from "fable-babel-plugins";
 
 const customPlugins = [
   BabelPlugins.getRemoveUnneededNulls(),
-  BabelPlugins.getTransformMacroExpressions(Babel.template)
+  BabelPlugins.getTransformMacroExpressions(Babel.template),
+  // "babel-plugin-closure-elimination"
 ];
 
 const FSHARP_EXT = /\.(fs|fsx)$/i;
@@ -109,6 +110,7 @@ function main() {
   const libDir = Path.resolve(process.argv[4]);
   const commonjs = process.argv.find(v => v === "--commonjs");
   const sourceMaps = process.argv.find(v => v === "--sourceMaps");
+  const typeDecls = process.argv.find(v => v === "--typed");
 
   const babelOptions = commonjs ?
     { plugins: customPlugins.concat("@babel/plugin-transform-modules-commonjs") } :
@@ -123,7 +125,7 @@ function main() {
       const babelJson = fs.readFileSync(filePath, "utf8");
       const babelAst = JSON.parse(babelJson);
       const sourcePath = babelAst.fileName;
-      const outPath = filePath.replace(/\.json$/, ".js");
+      const outPath = filePath.replace(/\.json$/, typeDecls ? ".ts" : ".js");
       fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions);
       const babelOpts = Object.assign({}, babelOptions);
       if (babelOpts.sourceMaps) {
