@@ -99,8 +99,9 @@ export function tryOp<Arg, Result>(op: (x: Arg) => Result, arg: Arg) {
 }
 
 // CHOICE
+export type Choice = Union;
 
-export const Choice = declare(function Choice(this: any, tag: number, name: string, field: any) {
+export const Choice = declare(function Choice(this: Choice, tag: number, name: string, field: any) {
   Union.call(this, tag, name, field);
 }, Union);
 
@@ -112,17 +113,18 @@ export function choice2(x: any) {
   return new Choice(1, "Choice2Of2", x);
 }
 
-export function tryValueIfChoice1(x: any) {
+export function tryValueIfChoice1(x: Choice) {
   return x.tag === 0 ? some(x.fields[0]) : null;
 }
 
-export function tryValueIfChoice2(x: any) {
+export function tryValueIfChoice2(x: Choice) {
   return x.tag === 1 ? some(x.fields[0]) : null;
 }
 
 // RESULT
+export type Result = Union;
 
-export const Result = declare(function Result(this: any, tag: number, name: string, field: any) {
+export const Result = declare(function Result(this: Result, tag: number, name: string, field: any) {
   Union.call(this, tag, name, field);
 }, Union);
 
@@ -134,14 +136,14 @@ export function error(x: any) {
   return new Result(1, "Error", x);
 }
 
-export function mapOk(f: (arg: any) => any, result: any) {
+export function mapOk(f: (arg: any) => any, result: Result) {
   return result.tag === 0 ? ok(f(result.fields[0])) : result;
 }
 
-export function mapError(f: (arg: any) => any, result: any) {
+export function mapError(f: (arg: any) => any, result: Result) {
   return result.tag === 1 ? error(f(result.fields[0])) : result;
 }
 
-export function bindOk(f: (arg: any) => any, result: any) {
+export function bindOk(f: (arg: any) => any, result: Result) {
   return result.tag === 0 ? f(result.fields[0]) : result;
 }

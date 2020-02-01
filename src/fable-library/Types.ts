@@ -32,6 +32,15 @@ export function declare(cons: any, superClass?: any) {
   return cons;
 }
 
+export interface IComparable {
+  CompareTo(other: any): number;
+}
+
+export interface SystemObject {
+  Equals(other: any): boolean;
+  GetHashCode(): number;
+}
+
 export function SystemObject() {
   return;
 }
@@ -66,7 +75,7 @@ function compareList<T>(self: List<T>, other: List<T>) {
   }
 }
 
-export interface List<T> extends Iterable<T> {
+export interface List<T> extends SystemObject, IComparable, Iterable<T> {
   head?: T;
   tail?: List<T>;
 }
@@ -108,7 +117,13 @@ List.prototype.CompareTo = function (other: any) {
   return compareList(this, other);
 };
 
-export function Union(this: any, tag: number, name: any, ...fields: any[]) {
+export interface Union extends SystemObject, IComparable {
+  tag: number;
+  name: string;
+  fields: any[];
+}
+
+export function Union(this: Union, tag: number, name: string, ...fields: any[]) {
   this.tag = tag | 0;
   this.name = name;
   this.fields = fields;
@@ -198,6 +213,9 @@ function recordCompare(self: any, other: any, getFieldNames?: (arg: any) => any)
   }
 }
 
+export interface Record extends SystemObject, IComparable {
+}
+
 export function Record() {
   return;
 }
@@ -227,16 +245,25 @@ export function anonRecord(o: any) {
   return Object.assign(Object.create(Record.prototype), o);
 }
 
-export const FSharpRef = declare(function FSharpRef(this: any, contents: any) {
+export interface FSharpRef extends Record {
+  contents: any;
+}
+
+export const FSharpRef = declare(function FSharpRef(this: FSharpRef, contents: any) {
   this.contents = contents;
 }, Record);
 
 // EXCEPTIONS
 
-export const Exception = declare(function Exception(this: any, msg: any) {
+export interface Exception extends SystemObject {
+  stack?: string;
+  message: string;
+}
+
+export const Exception = declare(function Exception(this: Exception, message: string) {
   this.stack = Error().stack;
-  this.message = msg;
-});
+  this.message = message;
+}, SystemObject);
 
 export function isException(x: any) {
   return x instanceof Error || x instanceof Exception;
@@ -246,7 +273,10 @@ function getFSharpExceptionFieldNames(self: any) {
   return Object.keys(self).filter((k) => k !== "message" && k !== "stack");
 }
 
-export const FSharpException = declare(function FSharpException(this: any) {
+export interface FSharpException extends Exception, IComparable {
+}
+
+export const FSharpException = declare(function FSharpException(this: FSharpException) {
   Exception.call(this);
 }, Exception);
 
@@ -279,12 +309,18 @@ FSharpException.prototype.CompareTo = function (other: any) {
   return recordCompare(this, other, getFSharpExceptionFieldNames);
 };
 
+export interface MatchFailureException extends FSharpException {
+  arg1: string;
+  arg2: number;
+  arg3: number;
+}
+
 export const MatchFailureException = declare(
-  function MatchFailureException(this: any, arg1: any, arg2: number, arg3: number) {
+  function MatchFailureException(this: MatchFailureException, arg1: string, arg2: number, arg3: number) {
     this.arg1 = arg1;
     this.arg2 = arg2 | 0;
     this.arg3 = arg3 | 0;
     this.message = "The match cases were incomplete";
   }, FSharpException);
 
-export const Attribute = declare(function Attribute() { return; });
+export const Attribute = declare(function Attribute() { return; }, SystemObject);
