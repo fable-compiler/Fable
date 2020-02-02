@@ -257,10 +257,10 @@ export const FSharpRef = declare(function FSharpRef(this: FSharpRef, contents: a
 
 export interface Exception extends SystemObject {
   stack?: string;
-  message: string;
+  message?: string;
 }
 
-export const Exception = declare(function Exception(this: Exception, message: string) {
+export const Exception = declare(function Exception(this: Exception, message?: string) {
   this.stack = Error().stack;
   this.message = message;
 }, SystemObject);
