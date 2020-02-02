@@ -90,7 +90,7 @@ export function bind<T1, T2>(f: (arg0: T1 | null) => Option<T2>, arg: Option<T1>
   return arg == null ? arg : f(value(arg));
 }
 
-export function tryOp<Arg, Result>(op: (x: Arg) => Result, arg: Arg) {
+export function tryOp<T1, T2>(op: (x: T1) => T2, arg: T1): Option<T2> {
   try {
     return some(op(arg));
   } catch {
@@ -99,51 +99,51 @@ export function tryOp<Arg, Result>(op: (x: Arg) => Result, arg: Arg) {
 }
 
 // CHOICE
-export type Choice = Union;
+export type Choice<T1, T2> = Union;
 
-export const Choice = declare(function Choice(this: Choice, tag: number, name: string, field: any) {
+export const Choice = declare(function Choice<T1, T2>(this: Choice<T1, T2>, tag: number, name: string, field: T1 | T2) {
   Union.call(this, tag, name, field);
 }, Union);
 
-export function choice1(x: any) {
+export function choice1<T1, T2>(x: T1 | T2): Choice<T1, T2> {
   return new Choice(0, "Choice1Of2", x);
 }
 
-export function choice2(x: any) {
+export function choice2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
   return new Choice(1, "Choice2Of2", x);
 }
 
-export function tryValueIfChoice1(x: Choice) {
+export function tryValueIfChoice1<T1, T2>(x: Choice<T1, T2>): Option<T1> {
   return x.tag === 0 ? some(x.fields[0]) : null;
 }
 
-export function tryValueIfChoice2(x: Choice) {
+export function tryValueIfChoice2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
   return x.tag === 1 ? some(x.fields[0]) : null;
 }
 
 // RESULT
-export type Result = Union;
+export type Result<T1, T2> = Union;
 
-export const Result = declare(function Result(this: Result, tag: number, name: string, field: any) {
+export const Result = declare(function Result<T1, T2>(this: Result<T1, T2>, tag: number, name: string, field: T1 | T2) {
   Union.call(this, tag, name, field);
 }, Union);
 
-export function ok(x: any) {
+export function ok<T1, T2>(x: T1 | T2): Result<T1, T2> {
   return new Result(0, "Ok", x);
 }
 
-export function error(x: any) {
+export function error<T1, T2>(x: T1 | T2): Result<T1, T2> {
   return new Result(1, "Error", x);
 }
 
-export function mapOk(f: (arg: any) => any, result: Result) {
+export function mapOk<T1, T2>(f: (arg: T1) => T1, result: Result<T1, T2>) {
   return result.tag === 0 ? ok(f(result.fields[0])) : result;
 }
 
-export function mapError(f: (arg: any) => any, result: Result) {
+export function mapError<T1, T2>(f: (arg: T2) => T2, result: Result<T1, T2>) {
   return result.tag === 1 ? error(f(result.fields[0])) : result;
 }
 
-export function bindOk(f: (arg: any) => any, result: Result) {
+export function bindOk<T1, T2>(f: (arg: T1) => Result<T1, T2>, result: Result<T1, T2>) {
   return result.tag === 0 ? f(result.fields[0]) : result;
 }
