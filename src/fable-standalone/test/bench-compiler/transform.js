@@ -141,6 +141,18 @@ function main() {
       }
     }
   }
+
+  // fix import paths from /fable-library/ to /
+  if (projPath.endsWith("Fable.Library.fsproj")) {
+    const filePaths = getFilePaths(outDir);
+    for (const filePath of filePaths) {
+      if (filePath.endsWith(".ts")) {
+        const code = fs.readFileSync(filePath, "utf8");
+        const replaced = code.replace(/(?<=import .* from "\.+)\/fable-library\//g, "/");
+        fs.writeFileSync(filePath, replaced);
+      }
+    }
+  }
 }
 
 main()

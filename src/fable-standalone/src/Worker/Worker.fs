@@ -117,7 +117,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let (res, fableTransformTime) = measureTime (fun () ->
                 let config = {
                     precompiledLib = Some (fun x -> resolveLibCall(fable.LibMap, x))
-                    typeDecls = false }
+                    typeDecls = false } // TODO: Expose as option in msg
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, config)) ()
             let (jsCode, babelTime, babelErrors) =
                 try
