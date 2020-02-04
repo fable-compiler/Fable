@@ -2860,6 +2860,8 @@ let private replacedModules =
     Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
     "System.Collections.Generic.ICollection`1", resizeArrays
+    "System.Collections.IList", resizeArrays
+    "System.Collections.ICollection", resizeArrays
     Types.hashset, hashSets
     Types.iset, hashSets
     Types.option, options

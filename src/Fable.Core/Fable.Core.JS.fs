@@ -268,142 +268,143 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?byteLength: float -> DataView
 
     and TypedArray =
-      abstract buffer: ArrayBuffer
-      abstract byteLength: int
-      abstract byteOffset: int
-      abstract length: int
-      abstract copyWithin: targetStartIndex:int * start:int * ? ``end``:int -> unit
-      abstract entries: unit -> obj
-      abstract keys: unit -> obj
-      abstract join: separator:string -> string
+        abstract buffer: ArrayBuffer
+        abstract byteLength: int
+        abstract byteOffset: int
+        abstract length: int
+        abstract copyWithin: targetStartIndex:int * start:int * ? ``end``:int -> unit
+        abstract entries: unit -> obj
+        abstract keys: unit -> obj
+        abstract join: separator:string -> string
 
     and TypedArray<'T> =
-      inherit TypedArray
-      abstract fill: value:'T * ?``begin``:int * ?``end``:int -> TypedArray<'T>
-      abstract filter: ('T -> int -> TypedArray<'T> -> bool) -> TypedArray<'T>
-      abstract filter: ('T -> int -> bool) -> TypedArray<'T>
-      abstract filter: ('T -> bool) -> TypedArray<'T>
-      abstract find: ('T -> int -> TypedArray<'T> -> bool) -> 'T option
-      abstract find: ('T -> int -> bool) -> 'T option
-      abstract find: ('T -> bool) -> 'T option
-      abstract findIndex: ('T -> int -> TypedArray<'T> -> bool) -> int
-      abstract findIndex: ('T -> int -> bool) -> int
-      abstract findIndex: ('T -> bool) -> int
-      abstract forEach: ('T -> int -> TypedArray<'T> -> bool) -> unit
-      abstract forEach: ('T -> int -> bool) -> unit
-      abstract forEach: ('T -> bool) -> unit
-      abstract includes: searchElement:'T * ?fromIndex:int -> bool
-      abstract indexOf: searchElement:'T * ?fromIndex:int -> int
-      abstract lastIndexOf: searchElement:'T * ?fromIndex:int -> int
-      abstract map: ('T -> int -> TypedArray<'T> -> 'U) -> TypedArray<'U>
-      abstract map: ('T -> int -> 'U) -> TypedArray<'U>
-      abstract map: ('T -> 'U) -> TypedArray<'U>
-      abstract reduce: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state:'State -> 'State
-      abstract reduce: ('State -> 'T -> int -> 'State) * state:'State -> 'State
-      abstract reduce: ('State -> 'T -> 'State) * state:'State -> 'State
-      abstract reduceRight: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state:'State -> 'State
-      abstract reduceRight: ('State -> 'T -> int -> 'State) * state:'State -> 'State
-      abstract reduceRight: ('State -> 'T -> 'State) * state:'State -> 'State
-      abstract reverse: unit -> TypedArray<'T>
-      abstract set: source:Array * ?offset:int -> TypedArray<'T>
-      abstract set: source:#TypedArray * ?offset:int -> TypedArray<'T>
-      abstract slice: ?``begin``:int * ?``end``:int -> TypedArray<'T>
-      abstract some: ('T -> int -> TypedArray<'T> -> bool) -> bool
-      abstract some: ('T -> int -> bool) -> bool
-      abstract some: ('T -> bool) -> bool
-      abstract sort: ?sortFunction:('T -> 'T -> int) -> bool
-      abstract subarray: ?``begin``:int * ?``end``:int -> TypedArray<'T>
-      abstract values: unit -> obj
+        inherit TypedArray
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> 'T with get, set
+        abstract fill: value:'T * ?``begin``:int * ?``end``:int -> TypedArray<'T>
+        abstract filter: ('T -> int -> TypedArray<'T> -> bool) -> TypedArray<'T>
+        abstract filter: ('T -> int -> bool) -> TypedArray<'T>
+        abstract filter: ('T -> bool) -> TypedArray<'T>
+        abstract find: ('T -> int -> TypedArray<'T> -> bool) -> 'T option
+        abstract find: ('T -> int -> bool) -> 'T option
+        abstract find: ('T -> bool) -> 'T option
+        abstract findIndex: ('T -> int -> TypedArray<'T> -> bool) -> int
+        abstract findIndex: ('T -> int -> bool) -> int
+        abstract findIndex: ('T -> bool) -> int
+        abstract forEach: ('T -> int -> TypedArray<'T> -> bool) -> unit
+        abstract forEach: ('T -> int -> bool) -> unit
+        abstract forEach: ('T -> bool) -> unit
+        abstract includes: searchElement:'T * ?fromIndex:int -> bool
+        abstract indexOf: searchElement:'T * ?fromIndex:int -> int
+        abstract lastIndexOf: searchElement:'T * ?fromIndex:int -> int
+        abstract map: ('T -> int -> TypedArray<'T> -> 'U) -> TypedArray<'U>
+        abstract map: ('T -> int -> 'U) -> TypedArray<'U>
+        abstract map: ('T -> 'U) -> TypedArray<'U>
+        abstract reduce: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state:'State -> 'State
+        abstract reduce: ('State -> 'T -> int -> 'State) * state:'State -> 'State
+        abstract reduce: ('State -> 'T -> 'State) * state:'State -> 'State
+        abstract reduceRight: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state:'State -> 'State
+        abstract reduceRight: ('State -> 'T -> int -> 'State) * state:'State -> 'State
+        abstract reduceRight: ('State -> 'T -> 'State) * state:'State -> 'State
+        abstract reverse: unit -> TypedArray<'T>
+        abstract set: source:Array * ?offset:int -> TypedArray<'T>
+        abstract set: source:#TypedArray * ?offset:int -> TypedArray<'T>
+        abstract slice: ?``begin``:int * ?``end``:int -> TypedArray<'T>
+        abstract some: ('T -> int -> TypedArray<'T> -> bool) -> bool
+        abstract some: ('T -> int -> bool) -> bool
+        abstract some: ('T -> bool) -> bool
+        abstract sort: ?sortFunction:('T -> 'T -> int) -> bool
+        abstract subarray: ?``begin``:int * ?``end``:int -> TypedArray<'T>
+        abstract values: unit -> obj
 
 
     and Int8Array = TypedArray<int8>
 
     and Int8ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Int8Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int8Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int8Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Int8Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Int8Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int8Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int8Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Int8Array
 
 
     and Uint8Array = TypedArray<uint8>
 
     and Uint8ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint8Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint8Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint8Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint8Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8Array
 
 
     and Uint8ClampedArray = TypedArray<uint8>
 
     and Uint8ClampedArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8ClampedArray
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint8ClampedArray
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint8ClampedArray
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8ClampedArray
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8ClampedArray
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint8ClampedArray
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint8ClampedArray
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8ClampedArray
 
 
     and Int16Array = TypedArray<int16>
 
     and Int16ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Int16Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int16Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int16Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Int16Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Int16Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int16Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int16Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Int16Array
 
 
     and Uint16Array = TypedArray<uint16>
 
     and Uint16ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Uint16Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint16Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint16Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint16Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint16Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint16Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint16Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint16Array
 
 
     and Int32Array = TypedArray<int32>
 
     and Int32ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Int32Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int32Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int32Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Int32Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Int32Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int32Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int32Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Int32Array
 
 
     and Uint32Array = TypedArray<uint32>
 
     and Uint32ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Uint32Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint32Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint32Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint32Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint32Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint32Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint32Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint32Array
 
 
     and Float32Array = TypedArray<float32>
 
     and Float32ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Float32Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Float32Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Float32Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Float32Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Float32Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Float32Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Float32Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Float32Array
 
 
     and Float64Array = TypedArray<float>
 
     and Float64ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> Float64Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Float64Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Float64Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> Float64Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Float64Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Float64Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Float64Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Float64Array
 
 
     and BigInt64Array = TypedArray<bigint>
 
     and BigInt64ArrayConstructor =
-      [<Emit "new $0($1...)">] abstract Create: size: int -> BigInt64Array
-      [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> BigInt64Array
-      [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> BigInt64Array
-      [<Emit "new $0($1...)">] abstract Create: data:obj -> BigInt64Array
+        [<Emit "new $0($1...)">] abstract Create: size: int -> BigInt64Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> BigInt64Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> BigInt64Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> BigInt64Array
 
 
     // no equivalent ?

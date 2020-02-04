@@ -1,7 +1,7 @@
 ### 1.3.0
 
-* Fable.Core 3.1.4
-* .NET Core 3.1.101
+* Updated Fable.Core to 3.1.4 + #1972 fix.
+* Updated .NET Core to 3.1.101.
 
 ### 1.2.0
 

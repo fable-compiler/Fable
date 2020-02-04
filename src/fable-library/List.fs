@@ -68,7 +68,7 @@ let ofSeq (xs: 'a seq): 'a list =
     Seq.fold (fun acc x -> x::acc) [] xs
     |> reverse
 
-let concat (lists : #seq<'a list>) =
+let concat (lists: seq<'a list>) =
     Seq.fold (fold (fun acc x -> x::acc)) [] lists
     |> reverse
 
@@ -100,7 +100,7 @@ let rec foldIndexed3Aux f i acc bs cs ds =
     | x::xs, y::ys, z::zs -> foldIndexed3Aux f (i+1) (f i acc x y z) xs ys zs
     | _ -> invalidOp "Lists had different lengths"
 
-let foldIndexed3<'a, 'b, 'c, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
+let foldIndexed3<'a, 'b, 'c, 'acc> f (seed: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
     foldIndexed3Aux f 0 seed xs ys zs
 
 let fold3<'a, 'b, 'c, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
@@ -118,7 +118,7 @@ let length xs =
 let append xs ys =
     fold (fun acc x -> x::acc) ys (reverse xs)
 
-let collect f (xs: 'a list) =
+let collect (f: 'a -> 'b list) (xs: 'a list) =
     Seq.collect f xs |> ofSeq
 
 let map f xs =
@@ -260,7 +260,6 @@ let choose f xs =
         | Some y -> y:: acc
         | None -> acc) [] xs |> reverse
 
-
 let contains<'T> (value: 'T) (list: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
     let rec loop xs =
         match xs with
@@ -321,19 +320,19 @@ let zip xs ys =
 let zip3 xs ys zs =
     map3 (fun x y z -> x, y, z) xs ys zs
 
-let sort (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
+let sort (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (List.toArray xs) |> ofArray
 
-let sortBy (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
+let sortBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (List.toArray xs) |> ofArray
 
-let sortDescending (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
+let sortDescending (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (List.toArray xs) |> ofArray
 
-let sortByDescending (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
+let sortByDescending (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (List.toArray xs) |> ofArray
 
-let sortWith (comparer: 'T -> 'T -> int) (xs : 'T list): 'T list =
+let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list): 'T list =
     Array.sortInPlaceWith comparer (List.toArray xs) |> ofArray
 
 let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
@@ -342,16 +341,16 @@ let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
 let sumBy (f: 'T -> 'T2) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T2>): 'T2 =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-let maxBy (projection:'a->'b) (xs:'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let maxBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
 
 let max (li:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) li
 
-let minBy (projection:'a->'b) (xs:'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let minBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
 
-let min (xs:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
+let min (xs: 'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>): 'T =
@@ -449,7 +448,7 @@ let slice (lower: int option) (upper: int option) (xs: 'T list) =
         if lower > (lastIndex + 1) || (hasUpper && upper.Value > lastIndex) then outOfRange()
         reverse res
 
-let distinctBy (projection: 'T -> 'Key) (xs:'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
+let distinctBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let hashSet = HashSet<'Key>(eq)
     xs |> filter (projection >> hashSet.Add)
 

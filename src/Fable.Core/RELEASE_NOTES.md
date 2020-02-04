@@ -1,3 +1,7 @@
+### 3.1.5
+
+* Fixed missing indexer in JS TypedArray.
+
 ### 3.1.4
 
 * Fix JS Map constructor @Luiz-Monad
