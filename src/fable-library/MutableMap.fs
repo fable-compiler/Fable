@@ -20,7 +20,7 @@ type IMutableMap<'Key, 'Value> =
 type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Value> seq, comparer: IEqualityComparer<'Key>) as this =
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of KeyValuePair<'Key, 'Value>.
-    let entries = Dictionary<int, ResizeArray<KeyValuePair<'Key, 'Value>>>()
+    let hashMap = Dictionary<int, ResizeArray<KeyValuePair<'Key, 'Value>>>()
     do for pair in pairs do this.Add(pair.Key, pair.Value)
 
     // new () = MutableMap (Seq.empty, EqualityComparer.Default)
@@ -28,7 +28,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
 
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
-        match entries.TryGetValue h with
+        match hashMap.TryGetValue h with
         | true, pairs ->
             true, h, pairs.FindIndex (fun pair -> comparer.Equals(k, pair.Key))
         | false, _ ->
@@ -36,17 +36,17 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
 
     member this.TryFind(k) =
         match this.TryFindIndex(k) with
-        | true, h, i when i > -1 -> Some entries.[h].[i]
+        | true, h, i when i > -1 -> Some hashMap.[h].[i]
         | _, _, _ -> None
 
     member this.Comparer =
         comparer
 
     member this.Clear() =
-        entries.Clear()
+        hashMap.Clear()
 
     member this.Count =
-        entries.Values |> Seq.sumBy (fun pairs -> pairs.Count)
+        hashMap.Values |> Seq.sumBy (fun pairs -> pairs.Count)
 
     member this.Item
         with get (k: 'Key) =
@@ -56,11 +56,11 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
         and set (k: 'Key) (v: 'Value) =
             match this.TryFindIndex(k) with
             | true, h, i when i > -1 ->
-                entries.[h].[i] <- KeyValuePair(k, v) // replace
+                hashMap.[h].[i] <- KeyValuePair(k, v) // replace
             | true, h, _ ->
-                entries.[h].Add(KeyValuePair(k, v)) |> ignore // append
+                hashMap.[h].Add(KeyValuePair(k, v)) |> ignore // append
             | false, h, _ ->
-                entries.[h] <- ResizeArray([| KeyValuePair(k, v) |]) // add new
+                hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |]) // add new
 
     member this.Add(k, v) =
         match this.TryFindIndex(k) with
@@ -68,9 +68,9 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             let msg = sprintf "An item with the same key has already been added. Key: %A" k
             raise (System.ArgumentException(msg))
         | true, h, _ ->
-            entries.[h].Add(KeyValuePair(k, v)) |> ignore // append
+            hashMap.[h].Add(KeyValuePair(k, v)) |> ignore // append
         | false, h, _ ->
-            entries.[h] <- ResizeArray([| KeyValuePair(k, v) |]) // add new
+            hashMap.[h] <- ResizeArray([| KeyValuePair(k, v) |]) // add new
 
     member this.ContainsKey(k) =
         match this.TryFindIndex(k) with
@@ -80,7 +80,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
     member this.Remove(k) =
         match this.TryFindIndex(k) with
         | true, h, i when i > -1 ->
-            entries.[h].RemoveAt(i)
+            hashMap.[h].RemoveAt(i)
             true
         | _, _, _ ->
             false
@@ -92,7 +92,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member this.GetEnumerator(): IEnumerator<KeyValuePair<'Key, 'Value>> =
             let elems = seq {
-                for pairs in entries.Values do
+                for pairs in hashMap.Values do
                     for pair in pairs do
                         yield pair }
             elems.GetEnumerator()

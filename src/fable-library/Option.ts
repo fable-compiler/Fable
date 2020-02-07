@@ -78,19 +78,19 @@ export function filter<T>(predicate: (arg0: T | null) => boolean, arg: Option<T>
   return arg != null ? (!predicate(value(arg)) ? null : arg) : arg;
 }
 
-export function map<T1, T2>(f: (arg0: T1 | null) => T2, arg: Option<T1>) {
-  return arg == null ? arg : some(f(value(arg)));
+export function map<T, U>(f: (arg0: T | null) => U, arg: Option<T>): Option<U> {
+  return arg == null ? null : some(f(value(arg)));
 }
 
 export function mapMultiple<T>(predicate: (...args: T[]) => boolean, ...args: T[]) {
   return args.every((x) => x != null) ? predicate.apply(null, args) : null;
 }
 
-export function bind<T1, T2>(f: (arg0: T1 | null) => Option<T2>, arg: Option<T1>) {
-  return arg == null ? arg : f(value(arg));
+export function bind<T, U>(f: (arg0: T | null) => Option<U>, arg: Option<T>): Option<U> {
+  return arg == null ? null : f(value(arg));
 }
 
-export function tryOp<T1, T2>(op: (x: T1) => T2, arg: T1): Option<T2> {
+export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
   try {
     return some(op(arg));
   } catch {
@@ -99,51 +99,51 @@ export function tryOp<T1, T2>(op: (x: T1) => T2, arg: T1): Option<T2> {
 }
 
 // CHOICE
-export type Choice<T1, T2> = Union;
+export type Choice<T, U> = Union;
 
-export const Choice = declare(function Choice<T1, T2>(this: Choice<T1, T2>, tag: number, name: string, field: T1 | T2) {
+export const Choice = declare(function Choice<T, U>(this: Choice<T, U>, tag: number, name: string, field: T | U) {
   Union.call(this, tag, name, field);
 }, Union);
 
-export function choice1<T1, T2>(x: T1 | T2): Choice<T1, T2> {
+export function choice1<T, U>(x: T | U): Choice<T, U> {
   return new Choice(0, "Choice1Of2", x);
 }
 
-export function choice2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
+export function choice2<T, U>(x: T | U): Choice<T, U> {
   return new Choice(1, "Choice2Of2", x);
 }
 
-export function tryValueIfChoice1<T1, T2>(x: Choice<T1, T2>): Option<T1> {
+export function tryValueIfChoice1<T, U>(x: Choice<T, U>): Option<T> {
   return x.tag === 0 ? some(x.fields[0]) : null;
 }
 
-export function tryValueIfChoice2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
+export function tryValueIfChoice2<T, U>(x: Choice<T, U>): Option<U> {
   return x.tag === 1 ? some(x.fields[0]) : null;
 }
 
 // RESULT
-export type Result<T1, T2> = Union;
+export type Result<T, U> = Union;
 
-export const Result = declare(function Result<T1, T2>(this: Result<T1, T2>, tag: number, name: string, field: T1 | T2) {
+export const Result = declare(function Result<T, U>(this: Result<T, U>, tag: number, name: string, field: T | U) {
   Union.call(this, tag, name, field);
 }, Union);
 
-export function ok<T1, T2>(x: T1 | T2): Result<T1, T2> {
+export function ok<T, U>(x: T | U): Result<T, U> {
   return new Result(0, "Ok", x);
 }
 
-export function error<T1, T2>(x: T1 | T2): Result<T1, T2> {
+export function error<T, U>(x: T | U): Result<T, U> {
   return new Result(1, "Error", x);
 }
 
-export function mapOk<T1, T2>(f: (arg: T1) => T1, result: Result<T1, T2>) {
+export function mapOk<T, U>(f: (arg: T) => T, result: Result<T, U>) {
   return result.tag === 0 ? ok(f(result.fields[0])) : result;
 }
 
-export function mapError<T1, T2>(f: (arg: T2) => T2, result: Result<T1, T2>) {
+export function mapError<T, U>(f: (arg: U) => U, result: Result<T, U>) {
   return result.tag === 1 ? error(f(result.fields[0])) : result;
 }
 
-export function bindOk<T1, T2>(f: (arg: T1) => Result<T1, T2>, result: Result<T1, T2>) {
+export function bindOk<T, U>(f: (arg: T) => Result<T, U>, result: Result<T, U>) {
   return result.tag === 0 ? f(result.fields[0]) : result;
 }

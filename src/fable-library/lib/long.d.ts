@@ -111,7 +111,7 @@ export function isLong(obj: any): boolean;
 /**
  * Converts the specified value to a Long.
  */
-export function fromValue(val: Long | number | string | { low: number, high: number, unsigned: boolean }): Long;
+export function fromValue(val: Long | number | string | { low: number, high: number, unsigned: boolean }, unsigned?: boolean): Long;
 
 /**
  * Returns the sum of this and the specified Long.

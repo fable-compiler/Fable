@@ -122,7 +122,8 @@ module Helpers =
 
 open Helpers
 
-let private indexNotFound() = failwith "An index satisfying the predicate was not found in the collection."
+let private indexNotFoundMsg = "An index satisfying the predicate was not found in the collection."
+let inline indexNotFound() = failwith indexNotFoundMsg
 
 // Pay attention when benchmarking to append and filter functions below
 // if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
