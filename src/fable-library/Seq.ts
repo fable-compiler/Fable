@@ -188,14 +188,14 @@ export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: I
   return nonZero != null ? value(nonZero) : length(xs) - length(ys);
 }
 
-export function delay<T>(f: () => Iterable<T>) {
+export function delay<T>(f: () => Iterable<T>): Iterable<T> {
   return {
     [Symbol.iterator]: () => f()[Symbol.iterator](),
-  } as Iterable<T>;
+  };
 }
 
-export function empty<T>() {
-  return unfold((): [T, T] | null => null, undefined);
+export function empty<T>(): Iterable<T> {
+  return unfold(() => null, undefined);
 }
 
 export function enumerateFromFunctions<T, Enumerator>(
@@ -375,7 +375,7 @@ export function tryHead<T>(xs: Iterable<T>): Option<T> {
   return cur.done ? null : some(cur.value);
 }
 
-export function head<T>(xs: Iterable<T>): T | null {
+export function head<T>(xs: Iterable<T>) {
   return __failIfNone(tryHead(xs));
 }
 
@@ -408,7 +408,7 @@ export function tryItem<T>(i: number, xs: Iterable<T>): Option<T> {
   return null;
 }
 
-export function item<T>(i: number, xs: Iterable<T>): T | null {
+export function item<T>(i: number, xs: Iterable<T>) {
   return __failIfNone(tryItem(i, xs));
 }
 
@@ -650,11 +650,11 @@ export function scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: 
   return reverse(scan((acc, x) => f(x, acc), seed, reverse(xs)));
 }
 
-export function singleton<T>(y: T) {
+export function singleton<T>(y: T): Iterable<T> {
   return [y];
 }
 
-export function skip<T>(n: number, xs: Iterable<T>) {
+export function skip<T>(n: number, xs: Iterable<T>): Iterable<T> {
   return {
     [Symbol.iterator]: () => {
       const iter = xs[Symbol.iterator]();
@@ -665,7 +665,7 @@ export function skip<T>(n: number, xs: Iterable<T>) {
       }
       return iter;
     },
-  } as Iterable<T>;
+  };
 }
 
 export function skipWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
@@ -688,7 +688,7 @@ export function sumBy<T, T2>(f: (x: T) => T2, xs: Iterable<T>, adder: IGenericAd
   return fold((acc, x) => adder.Add(acc, f(x)), adder.GetZero(), xs);
 }
 
-export function tail<T>(xs: Iterable<T>) {
+export function tail<T>(xs: Iterable<T>): Iterable<T> {
   const iter = xs[Symbol.iterator]();
   const cur = iter.next();
   if (cur.done) {
@@ -696,7 +696,7 @@ export function tail<T>(xs: Iterable<T>) {
   }
   return {
     [Symbol.iterator]: () => iter,
-  } as Iterable<T>;
+  };
 }
 
 export function take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
@@ -747,7 +747,7 @@ export function tryFind<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, de
   return defaultValue === void 0 ? null : some(defaultValue);
 }
 
-export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T | null {
+export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   return __failIfNone(tryFind(f, xs));
 }
 
@@ -756,11 +756,11 @@ export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>
   return tryFind(f, arr.reverse(), defaultValue);
 }
 
-export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): T | null {
+export function findBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   return __failIfNone(tryFindBack(f, xs));
 }
 
-export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): Option<number> {
   for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
     const cur = iter.next();
     if (cur.done) {
@@ -773,11 +773,11 @@ export function tryFindIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T
   return null;
 }
 
-export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number | null {
+export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   return __failIfNone(tryFindIndex(f, xs));
 }
 
-export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
+export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): Option<number> {
   const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
   for (let i = arr.length - 1; i >= 0; i--) {
     if (f(arr[i], i)) {
@@ -787,7 +787,7 @@ export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterab
   return null;
 }
 
-export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): number | null {
+export function findIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
   return __failIfNone(tryFindIndexBack(f, xs));
 }
 
@@ -805,28 +805,32 @@ export function tryPick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T
   return null;
 }
 
-export function pick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>): U | null {
+export function pick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>) {
   return __failIfNone(tryPick(f, xs));
 }
 
-export function unfold<T, ST>(f: (st: ST) => [T, ST] | null, fst: ST) {
+export function unfold<T, ST>(f: (st: ST) => Option<[T, ST]>, fst: ST): Iterable<T> {
   return {
     [Symbol.iterator]: () => {
       // Capture a copy of the first value in the closure
       // so the sequence is restarted every time, see #1230
       let acc = fst;
-      return {
+      const iter: Iterator<T> = {
         next: () => {
           const res = f(acc);
           if (res != null) {
-            acc = res[1];
-            return { done: false, value: res[0] };
+            const v = value(res);
+            if (v != null) {
+              acc = v[1];
+              return { done: false, value: v[0] };
+            }
           }
-          return { done: true };
+          return { done: true, value: undefined };
         },
       };
+      return iter;
     },
-  } as Iterable<T>;
+  };
 }
 
 export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {
@@ -845,12 +849,12 @@ export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T
     [Symbol.iterator]: () => {
       let window: T[] = [];
       const iter = source[Symbol.iterator]();
-      return {
+      const iter2: Iterator<T[]> = {
         next: () => {
           let cur: IteratorResult<T>;
           while (window.length < windowSize) {
             if ((cur = iter.next()).done) {
-              return { done: true };
+              return { done: true, value: undefined };
             }
             window.push(cur.value);
           }
@@ -859,34 +863,36 @@ export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T
           return { done: false, value };
         },
       };
+      return iter2;
     },
-  } as Iterable<T[]>;
+  };
 }
 
 export function transpose<T>(source: Iterable<Iterable<T>>): Iterable<Iterable<T>> {
   return {
     [Symbol.iterator]: () => {
       const iters = Array.from(source, (x) => x[Symbol.iterator]());
-      return {
+      const iter: Iterator<Iterable<T>> = {
         next: () => {
           if (iters.length === 0) {
-            return { done: true }; // empty sequence
+            return { done: true, value: undefined }; // empty sequence
           }
           const results = Array.from(iters, (iter) => iter.next());
           if (results[0].done) {
             if (!results.every((x) => x.done)) {
               throw new Error("Sequences have different lengths");
             }
-            return { done: true };
+            return { done: true, value: undefined };
           } else {
             if (!results.every((x) => !x.done)) {
               throw new Error("Sequences have different lengths");
             }
-            const values = results.map((x) => x.value);
+            const values: T[] = results.map((x) => x.value);
             return { done: false, value: values };
           }
         },
       };
+      return iter;
     },
-  } as Iterable<Iterable<T>>;
+  };
 }

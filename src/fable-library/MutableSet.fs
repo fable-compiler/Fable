@@ -21,7 +21,7 @@ type IMutableSet<'T> =
 type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer<'T>) as this =
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of 'T.
-    let entries = Dictionary<int, ResizeArray<'T>>()
+    let hashMap = Dictionary<int, ResizeArray<'T>>()
     do for item in items do this.Add(item) |> ignore
 
     // new () = MutableSet (Seq.empty, EqualityComparer.Default)
@@ -29,7 +29,7 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
 
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
-        match entries.TryGetValue h with
+        match hashMap.TryGetValue h with
         | true, values ->
             true, h, values.FindIndex (fun v -> comparer.Equals(k, v))
         | false, _ ->
@@ -37,27 +37,27 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
 
     member private this.TryFind(k) =
         match this.TryFindIndex(k) with
-        | true, h, i when i > -1 -> Some entries.[h].[i]
+        | true, h, i when i > -1 -> Some hashMap.[h].[i]
         | _, _, _ -> None
 
     member this.Comparer =
         comparer
 
     member this.Clear() =
-        entries.Clear()
+        hashMap.Clear()
 
     member this.Count =
-        entries.Values |> Seq.sumBy (fun pairs -> pairs.Count)
+        hashMap.Values |> Seq.sumBy (fun pairs -> pairs.Count)
 
     member this.Add(k) =
         match this.TryFindIndex(k) with
         | true, h, i when i > -1 ->
             false
         | true, h, _ ->
-            entries.[h].Add(k) |> ignore
+            hashMap.[h].Add(k) |> ignore
             true
         | false, h, _ ->
-            entries.[h] <- ResizeArray([| k |])
+            hashMap.[h] <- ResizeArray([| k |])
             true
 
     member this.Contains(k) =
@@ -68,7 +68,7 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
     member this.Remove(k) =
         match this.TryFindIndex(k) with
         | true, h, i when i > -1 ->
-            entries.[h].RemoveAt(i)
+            hashMap.[h].RemoveAt(i)
             true
         | _, _, _ ->
             false
@@ -80,7 +80,7 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
     interface IEnumerable<'T> with
         member this.GetEnumerator(): IEnumerator<'T> =
             let elems = seq {
-                for values in entries.Values do
+                for values in hashMap.Values do
                     for value in values do
                         yield value }
             elems.GetEnumerator()
