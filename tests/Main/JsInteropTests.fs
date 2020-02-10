@@ -323,6 +323,11 @@ let tests =
     testCase "Local import with curried signatures works" <| fun () ->
         let add (x:int) (y:int): int = importMember "./js/1foo.js"
         3 |> add 2 |> equal 5
+
+    testCase "TypedArray element can be set and get using index" <| fun () ->
+        let arr = JS.Uint8Array.Create(5)
+        arr.[0] <- 5uy
+        equal 5uy arr.[0] 
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
