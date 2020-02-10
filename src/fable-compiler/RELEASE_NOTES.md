@@ -1,3 +1,12 @@
+### 2.4.13
+
+* Use strict mode in fable-library
+* Fix #1964: Add AppendLine to StringBuiler
+* Fix #1971: Trim in String.js fails for leading/following brackets
+* Fix #1972: Add back Item member to Typed arrays
+* Fixed error message formatting
+* Fixed tryEntityRef
+
 ### 2.4.12
 
 * Fix #1959: Uncurry args passed to point-free methods
