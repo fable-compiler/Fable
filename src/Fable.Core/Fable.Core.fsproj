@@ -4,8 +4,8 @@
     <Description>Fable Core Library</Description>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>3.1.4</Version>
-    <PackageVersion>3.1.4</PackageVersion>
+    <Version>3.1.5</Version>
+    <PackageVersion>3.1.5</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
