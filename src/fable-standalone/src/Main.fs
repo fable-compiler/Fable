@@ -223,7 +223,7 @@ let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: str
         otherFSharpOptions
         |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
     let options: Fable.CompilerOptions =
-        { typedArrays = false
+        { typedArrays = true
           clampByteArrays = false
           debugMode = isDebug
           verbosity = Fable.Verbosity.Normal

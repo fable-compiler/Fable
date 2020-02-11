@@ -457,6 +457,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         return Replacements.defaultof com ctx typ
 
+    // variable type mapping
+    | BasicPatterns.Let((var, value), BasicPatterns.Application(body, genArgs, [])) ->
+        let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
+        let ctx = { ctx with GenericArgs = matchGenericParamsFrom var genArgs |> Map }
+        let! value = transformExpr com ctx value
+        let ctx, ident = putBindingInScope com ctx var value
+        let! body = transformExpr com ctx body
+        return Fable.Let([ident, value], body)
+
     // Assignments
     | BasicPatterns.Let((var, value), body) ->
         if isInline var then

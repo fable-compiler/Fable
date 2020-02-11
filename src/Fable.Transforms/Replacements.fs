@@ -2812,7 +2812,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
     | "MakeTupleType" ->
-        Helper.CoreCall("Reflection", "tuple", t, args, i.SignatureArgTypes, hasSpread=true, ?loc=r) |> Some
+        Helper.CoreCall("Reflection", "tuple_type", t, args, i.SignatureArgTypes, hasSpread=true, ?loc=r) |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
         Helper.CoreCall("Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc=r) |> Some

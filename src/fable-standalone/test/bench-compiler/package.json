@@ -23,7 +23,7 @@
     "build-lib-dotnet": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib --typed && npm run build-lib-transform",
     "build-lib-transform": "node transform ../../../fable-library/Fable.Library.fsproj out-lib ../../../../build/fable-library --typed",
     "postbuild-lib-transform": "rmdir /s /q out-lib\\fable-library && xcopy /s /y ..\\..\\..\\fable-library\\*.ts out-lib\\",
-    "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test && npm run build-test-transform",
+    "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --typed && npm run build-test-transform",
     "build-test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --typed && npm run build-test-transform",
     "build-test-dotnet-opt": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --optimize-fcs && npm run build-test-transform",
     "build-test-transform": "node transform ../../../../../fable-test/fable-test.fsproj out-test ../../../../build/fable-library --sourceMaps --typed",

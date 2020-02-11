@@ -108,11 +108,11 @@ module Util =
     let ident (id: Fable.Ident) =
         Identifier(id.Name, ?loc=id.Range)
 
-    let identAsPattern (id: Fable.Ident): Pattern =
-        Identifier(id.Name, ?loc=id.Range) |> toPattern
+    let identAsPattern (id: Fable.Ident) =
+        ident id |> toPattern
 
     let identAsExpr (id: Fable.Ident) =
-        Identifier(id.Name, ?loc=id.Range) :> Expression
+        (ident id) :> Expression
 
     let thisExpr =
         ThisExpression() :> Expression
@@ -163,6 +163,9 @@ module Util =
 
     let coreValue (com: IBabelCompiler) ctx moduleName memberName =
         com.TransformImport(ctx, memberName, moduleName, Fable.Library)
+
+    let coreReflectionCall (com: IBabelCompiler) ctx r memberName args =
+        coreLibCall com ctx r "Reflection" (memberName + "_type") args
 
     let tryJsConstructor (com: IBabelCompiler) ctx ent =
         match Replacements.tryJsConstructor com ent with
@@ -222,12 +225,13 @@ module Util =
         // Use an arrow function in case we need to capture `this`
         CallExpression(ArrowFunctionExpression([||], body), [||])
 
-    let multiVarDeclaration kind (namesAndValue: (string * Expression option) list) =
+    let multiVarDeclaration kind (variables: (Identifier * Expression option) list) =
         let varDeclarators =
             // TODO: Log error if there're duplicated non-empty var declarations
-            List.distinctBy fst namesAndValue
-            |> List.mapToArray (fun (name, value) ->
-                VariableDeclarator(Identifier name |> toPattern, ?init=value))
+            variables
+            |> List.distinctBy (fun (id, value) -> id.Name)
+            |> List.mapToArray (fun (id, value) ->
+                VariableDeclarator(id |> toPattern, ?init=value))
         VariableDeclaration(kind, varDeclarators) :> Statement
 
     let varDeclaration (var: Identifier) (isMutable: bool) value =
@@ -246,13 +250,21 @@ module Util =
     let macroExpression range (txt: string) args =
         MacroExpression(txt, List.toArray args, ?loc=range) :> Expression
 
-    let getTypeParams (args: Fable.Ident list) (body: Fable.Expr) =
+    let getGenTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
             | Fable.GenericParam name -> [name]
             | t -> t.Generics |> List.collect getGenParams
-        let types = (args |> List.map (fun i -> i.Type)) @ [body.Type]
-        ([], types) ||> List.fold (fun acc t -> acc @ (getGenParams t))
+        types
+        |> List.collect getGenParams
         |> Set.ofList
+
+    let getTypeParameterDecl typeNames =
+        if (Set.isEmpty typeNames) then
+            None
+        else
+            typeNames
+            |> Set.toArray |> Array.map TypeParameter
+            |> TypeParameterDeclaration |> Some
 
     let uncurryLambdaType t =
         let rec uncurryLambdaArgs acc = function
@@ -260,6 +272,10 @@ module Util =
                 uncurryLambdaArgs (paramType::acc) returnType
             | t -> List.rev acc, t
         uncurryLambdaArgs [] t
+
+    let importType (com: IBabelCompiler) ctx moduleName typeName =
+        com.GetImportExpr(ctx, typeName, moduleName, Fable.Library)
+        |> ignore // just adds the import
 
     let rec typeAnnotation com ctx typ: TypeAnnotationInfo =
         match typ with
@@ -270,15 +286,19 @@ module Util =
         | Fable.Char -> upcast StringTypeAnnotation()
         | Fable.String -> upcast StringTypeAnnotation()
         | Fable.Regex -> upcast AnyTypeAnnotation()
-        | Fable.Number _kind -> upcast NumberTypeAnnotation()
+        | Replacements.NumberExt kind -> // this covers Fable.Number too
+            makeNumericTypeAnnotation com ctx kind
+        | Fable.Number _kind -> upcast NumberTypeAnnotation() // already covered above, but needed to prevent warning
         | Fable.Enum _ent -> upcast NumberTypeAnnotation()
         | Fable.Option genArg ->
+            importType com ctx "Option" "Option"
             Identifier("Option") |> makeGenericTypeAnnotation com ctx [genArg]
         | Fable.Tuple genArgs ->
             makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array genArg ->
             Identifier("Array") |> makeGenericTypeAnnotation com ctx [genArg] // TODO: Typed arrays?
         | Fable.List genArg ->
+            importType com ctx "Types" "List"
             Identifier("List") |> makeGenericTypeAnnotation com ctx [genArg]
         | Fable.FunctionType(kind, returnType) ->
             makeFunctionTypeAnnotation com ctx typ kind returnType
@@ -300,12 +320,23 @@ module Util =
         | Fable.AnonymousRecordType(fieldNames, genericArgs) ->
             upcast AnyTypeAnnotation()
 
+    and makeNumericTypeAnnotation com ctx kind =
+        let moduleName, typeName =
+            match kind with
+            | Replacements.JsNumber kind -> "Int32", getNumberKindName kind
+            | Replacements.Long unsigned -> "Long", if unsigned then "uint64" else "int64"
+            | Replacements.Decimal -> "Decimal", "decimal"
+            | Replacements.BigInt -> "BigInt/z", "BigInteger"
+        importType com ctx moduleName typeName
+        GenericTypeAnnotation(Identifier(typeName))
+        :> TypeAnnotationInfo
+
     and makeGenericTypeAnnotation com ctx genArgs id =
         let typeParams =
             match List.map (typeAnnotation com ctx) genArgs with
             | [] -> None
             | xs -> TypeParameterInstantiation(xs |> List.toArray) |> Some
-        GenericTypeAnnotation(id, ?typeParams=typeParams)
+        GenericTypeAnnotation(id, ?typeParameters=typeParams)
         :> TypeAnnotationInfo
 
     and makeTupleTypeAnnotation com ctx genArgs =
@@ -321,18 +352,22 @@ module Util =
     and makeFunctionTypeAnnotation com ctx typ kind returnType =
         let argTypes, returnType =
             match kind with
-            | Fable.LambdaType argType -> uncurryLambdaType typ
+            | Fable.LambdaType _argType -> uncurryLambdaType typ
             | Fable.DelegateType argTypes -> argTypes, returnType
-        argTypes
-        |> List.mapi (fun i argType ->
-            FunctionTypeParam(
-                Identifier("arg" + (string i)),
-                typeAnnotation com ctx argType))
-        |> fun argTypes ->
-            FunctionTypeAnnotation(
-                argTypes |> List.toArray,
-                typeAnnotation com ctx returnType)
-            :> TypeAnnotationInfo
+        let params_ =
+            argTypes
+            |> List.mapi (fun i argType ->
+                FunctionTypeParam(
+                    Identifier("arg" + (string i)),
+                    typeAnnotation com ctx argType))
+            |> List.toArray
+        let genTypeParams = getGenTypeParams (argTypes @ [returnType])
+        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+        let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
+        let returnType = typeAnnotation com ctx returnType
+        let typeParams = getTypeParameterDecl newTypeParams
+        FunctionTypeAnnotation(params_, returnType, ?typeParameters=typeParams)
+        :> TypeAnnotationInfo
 
     and makeEntityTypeAnnotation com ctx ent genArgs =
         match tryJsConstructor com ctx ent with
@@ -350,9 +385,19 @@ module Util =
             | _ -> upcast AnyTypeAnnotation()
         | None -> upcast AnyTypeAnnotation()
 
-    let transformFunc (com: IBabelCompiler) ctx name args body =
+    let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
+        let typeAnnotation =
+            if com.Options.typeDecls then
+                typeAnnotation com ctx id.Type
+                |> TypeAnnotation |> Some
+            else None
+        Identifier(id.Name, ?typeAnnotation=typeAnnotation, ?loc=id.Range)
+
+    let transformFunc (com: IBabelCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         if com.Options.typeDecls then
-            let newTypeParams = Set.difference (getTypeParams args body) ctx.ScopedTypeParams
+            let argTypes = args |> List.map (fun id -> id.Type)
+            let genTypeParams = getGenTypeParams (argTypes @ [body.Type])
+            let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
             let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
             let args', body' = com.TransformFunction(ctx, name, args, body)
             let args'' = args' |> Array.mapi (fun i arg ->
@@ -366,13 +411,7 @@ module Util =
                     |> U2.Case2
                 | arg -> arg)
             let returnType = TypeAnnotation(typeAnnotation com ctx body.Type) |> Some
-            let typeParams =
-                if (Set.isEmpty newTypeParams) then
-                    None
-                else
-                    newTypeParams
-                    |> Set.toArray |> Array.map TypeParameter
-                    |> TypeParameterDeclaration |> Some
+            let typeParams = getTypeParameterDecl newTypeParams
             args'', body', returnType, typeParams
         else
             let args', body' = com.TransformFunction(ctx, name, args, body)
@@ -438,7 +477,7 @@ module Util =
             match body with
             | U2.Case1 body -> body
             | U2.Case2 e -> BlockStatement [|ReturnStatement(e, ?loc=e.Loc)|]
-        upcast FunctionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParams=typeParams)
+        upcast FunctionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParams)
 
     let optimizeTailCall (com: IBabelCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
         let rec checkCrossRefs tempVars allArgs = function
@@ -512,7 +551,7 @@ module Util =
             |> Seq.toArray
         let fields = ArrowFunctionExpression([||], ArrayExpression fields :> Expression |> U2.Case2) :> Expression
         [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; fields|]
-        |> coreLibCall com ctx None "Reflection" "record"
+        |> coreReflectionCall com ctx None "record"
 
     and transformUnionReflectionInfo com ctx r (ent: FSharpEntity) generics =
         let fullname = defaultArg ent.TryFullName Naming.unknown
@@ -545,35 +584,27 @@ module Util =
                 caseInfo) |> Seq.toArray
         let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
         [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; cases|]
-        |> coreLibCall com ctx None "Reflection" "union"
+        |> coreReflectionCall com ctx None "union"
 
     and transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression>) t: Expression =
         let primitiveTypeInfo name =
-           coreValue com ctx "Reflection" name
+           coreValue com ctx "Reflection" (name + "_type")
         let numberInfo kind =
-            match kind with
-            | Int8 -> "int8"
-            | UInt8 -> "uint8"
-            | Int16 -> "int16"
-            | UInt16 -> "uint16"
-            | Int32 -> "int32"
-            | UInt32 -> "uint32"
-            | Float32 -> "float32"
-            | Float64 -> "float64"
+            getNumberKindName kind
             |> primitiveTypeInfo
         let nonGenericTypeInfo fullname =
             [| StringLiteral fullname :> Expression |]
-            |> coreLibCall com ctx None "Reflection" "type"
+            |> coreReflectionCall com ctx None "generic"
         let resolveGenerics generics: Expression[] =
             generics |> Array.map (transformTypeInfo com ctx r genMap)
         let genericTypeInfo name genArgs =
             let resolved = resolveGenerics genArgs
-            coreLibCall com ctx None "Reflection" name resolved
+            coreReflectionCall com ctx None name resolved
         let genericEntity (ent: FSharpEntity) generics =
             let fullname = defaultArg ent.TryFullName Naming.unknown
             let fullnameExpr = StringLiteral fullname :> Expression
             let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
-            coreLibCall com ctx None "Reflection" "type" args
+            coreReflectionCall com ctx None "generic" args
         match t with
         | Fable.ErasedUnion _genArgs -> primitiveTypeInfo "obj" // TODO: Type info for ErasedUnion?
         | Fable.Any -> primitiveTypeInfo "obj"
@@ -605,7 +636,7 @@ module Util =
                 |> Seq.toArray
                 |> ArrayExpression
             [|StringLiteral fullName :> Expression; numberInfo numberKind; cases :> _|]
-            |> coreLibCall com ctx None "Reflection" "enumType"
+            |> coreReflectionCall com ctx None "enum"
         | Fable.Number kind ->
             numberInfo kind
         | Fable.FunctionType(Fable.LambdaType argType, returnType) ->
@@ -622,7 +653,7 @@ module Util =
             let genArgs = resolveGenerics (List.toArray genArgs)
             Array.zip fieldNames genArgs
             |> Array.map (fun (k, t) -> ArrayExpression [|StringLiteral k; t|] :> Expression)
-            |> coreLibCall com ctx None "Reflection" "anonRecord"
+            |> coreReflectionCall com ctx None "anonRecord"
         | Fable.DeclaredType(ent, generics) ->
             match ent, generics with
             | Replacements.BuiltinEntity kind ->
@@ -677,7 +708,7 @@ module Util =
             let fullname = defaultArg ent.TryFullName Naming.unknown
             let fullnameExpr = StringLiteral fullname :> Expression
             let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
-            coreLibCall com ctx None "Reflection" "type" args
+            coreReflectionCall com ctx None "generic" args
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
         match value with
@@ -741,7 +772,7 @@ module Util =
             let args, body, returnType, typeParams =
                 getMemberArgsAndBody com ctx None boundThis args hasSpread body
             ObjectMethod(kind, prop, args, body, computed=computed,
-                ?returnType=returnType, ?typeParams=typeParams) |> U3.Case2 |> Some
+                ?returnType=returnType, ?typeParameters=typeParams) |> U3.Case2 |> Some
         let pojo =
             members |> List.choose (fun (Fable.ObjectMember(key, expr, kind)) ->
                 match kind, expr with
@@ -750,7 +781,7 @@ module Util =
                     let args, body', returnType, typeParams = getMemberArgsAndBody com ctx None None args false body
                     let prop, computed = memberFromExpr com ctx key
                     ObjectMethod(ObjectMeth, prop, args, body', computed,
-                        ?returnType=returnType, ?typeParams=typeParams) |> U3.Case2 |> Some
+                        ?returnType=returnType, ?typeParameters=typeParams) |> U3.Case2 |> Some
                 | Fable.ObjectValue, TransformExpr com ctx value ->
                     let prop, computed = memberFromExpr com ctx key
                     ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
@@ -896,7 +927,7 @@ module Util =
         let ctx = { ctx with TailCallOpportunity = None }
         let handler =
             catch |> Option.map (fun (param, body) ->
-                CatchClause (ident param |> toPattern,
+                CatchClause (identAsPattern param,
                     transformBlock com ctx returnStrategy body))
         let finalizer =
             finalizer |> Option.map (transformBlock com ctx None)
@@ -937,7 +968,7 @@ module Util =
             get range expr fieldName
         | Fable.TupleGet index -> getExpr range expr (ofInt index)
         | Fable.OptionValue ->
-            if mustWrapOption typ
+            if mustWrapOption typ || com.Options.typeDecls
             then coreLibCall com ctx None "Option" "value" [|expr|]
             else expr
         | Fable.UnionTag -> getUnionExprTag range expr
@@ -1235,18 +1266,18 @@ module Util =
     let transformDecisionTreeWithTwoSwitches (com: IBabelCompiler) ctx returnStrategy
                     (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
         // Declare $target and bound idents
-        let targetId = com.GetUniqueVar("target")
+        let targetId = makeIdentUnique com "target"
         let varDeclaration =
             let boundIdents = targets |> List.collect (fun (idents,_) ->
-                idents |> List.map (fun i -> i.Name, None))
-            multiVarDeclaration Var ((targetId, None)::boundIdents)
+                idents |> List.map (fun id -> typedIdent com ctx id, None))
+            multiVarDeclaration Var ((typedIdent com ctx targetId, None)::boundIdents)
         // Transform targets as switch
         let switch2 =
             // TODO: Declare the last case as the default case?
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
-            transformSwitch com ctx true returnStrategy (makeIdentNonMangled targetId |> Fable.IdentExpr) cases None
+            transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
         // Transform decision tree
-        let targetAssign = Target(Identifier targetId)
+        let targetAssign = Target(ident targetId)
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
@@ -1369,7 +1400,7 @@ module Util =
             [|transformValue com ctx r kind |> resolveExpr kind.Type returnStrategy|]
 
         | Fable.IdentExpr id ->
-            [|ident id :> Expression |> resolveExpr id.Type returnStrategy|]
+            [|identAsExpr id |> resolveExpr id.Type returnStrategy|]
 
         | Fable.Import(selector, path, kind, t, r) ->
             [|transformImport com ctx r selector path kind |> resolveExpr t returnStrategy|]
@@ -1480,11 +1511,13 @@ module Util =
             | true, Some tc, U2.Case1 body ->
                 // Replace args, see NamedTailCallOpportunity constructor
                 let args, body =
-                    let varDeclaration =
-                        List.zip args tc.Args |> List.map (fun (arg, tempVar) ->
-                            arg.Name, Some(Identifier tempVar :> Expression))
+                    let tcArgs = tc.Args |> List.map Identifier
+                    let varDecls =
+                        tcArgs
+                        |> List.map (fun arg -> Some (arg :> Expression))
+                        |> List.zip args
                         |> multiVarDeclaration Const
-                    tc.Args |> List.map Identifier, BlockStatement(Array.append [|varDeclaration|] body.Body)
+                    tcArgs, BlockStatement(Array.append [|varDecls|] body.Body)
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = BlockStatement(Array.append body.Body [|BreakStatement()|])
                 args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
@@ -1495,7 +1528,7 @@ module Util =
             then body
             else
                 let varDeclStatement =
-                    multiVarDeclaration Var [for v in declaredVars -> v.Name, None]
+                    multiVarDeclaration Var [for v in declaredVars -> typedIdent com ctx v, None]
                 let bodyStatements =
                     match body with
                     | U2.Case1 bodyBlock -> bodyBlock.Body
@@ -1515,10 +1548,11 @@ module Util =
         let decl: Declaration =
             match expr with
             | :? ClassExpression as e ->
-                upcast ClassDeclaration(e.Body, privateIdent,
-                    ?superClass=e.SuperClass, ?typeParams=e.TypeParameters, ?loc=r)
+                upcast ClassDeclaration(e.Body, ?id=Some privateIdent,
+                    ?superClass=e.SuperClass, ?typeParameters=e.TypeParameters, ?loc=r)
             | :? FunctionExpression as e ->
-                upcast FunctionDeclaration(privateIdent, e.Params, e.Body, ?returnType=e.ReturnType, ?typeParams=e.TypeParameters, ?loc=r)
+                upcast FunctionDeclaration(e.Params, e.Body, ?id=Some privateIdent,
+                    ?returnType=e.ReturnType, ?typeParameters=e.TypeParameters, ?loc=r)
             | _ -> upcast varDeclaration privateIdent isMutable expr
         if not isPublic
         then U2.Case1 (decl :> Statement)
@@ -1544,7 +1578,9 @@ module Util =
 
     let makeInterfaceExpression com ctx r (ent: FSharpEntity) name (baseExpr: Expression option) =
         let properties =
-            ent.FSharpFields |> Seq.map (fun x ->
+            ent.FSharpFields
+            |> Seq.filter (fun x -> not (x.Name.Contains("@")))
+            |> Seq.map (fun x ->
                 let id = Identifier(x.Name)
                 let ta =
                     FSharp2Fable.TypeHelpers.makeType com Map.empty x.FieldType
@@ -1558,12 +1594,12 @@ module Util =
                     let typeParams =
                         FSharp2Fable.Helpers.tryEntityBase ent
                         |> Option.bind makeGenericTypeParamInst
-                    [| InterfaceExtends(id, ?typeParams=typeParams) |] |> Some
+                    [| InterfaceExtends(id, ?typeParameters=typeParams) |] |> Some
                 | _ -> None)
         let id = Identifier(name)
         let body = ObjectTypeAnnotation(properties)
         let typeParams = makeGenericTypeParamDecl ent
-        InterfaceDeclaration(id, body, ?extends=extends, ?typeParams=typeParams, ?loc=r)
+        InterfaceDeclaration(id, body, ?extends=extends, ?typeParameters=typeParams, ?loc=r)
 
     let declareObjectType (com: IBabelCompiler) ctx r isPublic (ent: FSharpEntity) name (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr =
         let displayName =
@@ -1583,7 +1619,7 @@ module Util =
         let key = Identifier "constructor"
         let returnType = None
         let typeParams = if com.Options.typeDecls then makeGenericTypeParamDecl ent else None
-        let classMethod = ClassMethod(ClassImplicitConstructor, key, consArgs, consBody, false, false, ?returnType=returnType, ?typeParams=typeParams, ?loc=r)
+        let classMethod = ClassMethod(ClassImplicitConstructor, key, consArgs, consBody, false, false, ?returnType=returnType, ?typeParameters=typeParams, ?loc=r)
         let classBody = ClassBody([| U2.Case1 classMethod |], ?loc=r)
         let classExpr = ClassExpression(classBody, ?superClass=baseExpr, ?loc=r)
         classExpr |> declareModuleMember r isPublic name false
@@ -1610,7 +1646,7 @@ module Util =
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
         let args, body, returnType, typeParams = getMemberArgsAndBody com ctx (Some info.Name) None args info.HasSpread body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
-        let expr: Expression = upcast FunctionExpression(args, body, ?returnType=returnType, ?typeParams=typeParams)
+        let expr: Expression = upcast FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParams)
         if info.IsEntryPoint then
             declareEntryPoint com ctx expr |> U2.Case1
         else
@@ -1631,7 +1667,7 @@ module Util =
         let funcExpr (args, body) =
             let boundThis, args = prepareBoundThis "this" args
             let args, body, returnType, typeParams = getMemberArgsAndBody com ctx None boundThis args false body
-            FunctionExpression(args, body, ?returnType=returnType, ?typeParams=typeParams)
+            FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParams)
         let getterFuncExpr = Option.map funcExpr getter
         let setterFuncExpr = Option.map funcExpr setter
         let funcCons = Identifier info.EntityName :> Expression
@@ -1659,7 +1695,7 @@ module Util =
             | _ -> info.Name, false, body
         let boundThis, args = prepareBoundThis "this" args
         let args, body, returnType, typeParams = getMemberArgsAndBody com ctx None boundThis args hasSpread body
-        let funcExpr = FunctionExpression(args, body, ?returnType=returnType, ?typeParams=typeParams)
+        let funcExpr = FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParams)
         let protoMember =
             match memberName with
             | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
@@ -1710,15 +1746,30 @@ module Util =
         let boundThis = Some("this", info.BoundConstructorThis)
         let consIdent = Identifier(info.EntityName) :> Expression
         let args, body, returnType, typeParams = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread info.Body
-        let returnType =
+        let returnType, typeParams =
             // change constructor's return type from void to entity type
             if com.Options.typeDecls then
                 let id = Identifier(info.EntityName)
-                let typeParams = makeGenericTypeParamInst info.Entity
-                GenericTypeAnnotation(id, ?typeParams=typeParams) :> TypeAnnotationInfo
-                |> TypeAnnotation |> Some
+                let genTypeParamInst = makeGenericTypeParamInst info.Entity
+                let returnType =
+                    GenericTypeAnnotation(id, ?typeParameters=genTypeParamInst) :> TypeAnnotationInfo
+                    |> TypeAnnotation |> Some
+                let genTypeParamDecl = makeGenericTypeParamDecl info.Entity
+                let typeParams =
+                    match typeParams, genTypeParamDecl with
+                    | Some d1, Some d2 ->
+                        Array.append
+                            (d1.Params |> Array.map (fun x -> x.Name))
+                            (d2.Params |> Array.map (fun x -> x.Name))
+                        |> Array.distinct
+                        |> Array.map TypeParameter
+                        |> TypeParameterDeclaration |> Some
+                    | Some _, None -> typeParams
+                    | None, Some _ -> genTypeParamDecl
+                    | None, None -> None
+                returnType, typeParams
             else
-                returnType
+                returnType, typeParams
         let argIdents, argExprs: Pattern list * Expression list =
             match info.Arguments with
             | [] -> [], []
@@ -1738,7 +1789,7 @@ module Util =
                             callFunctionWithThisContext None consIdent thisExpr argExprs,
                             NewExpression(consIdent,List.toArray argExprs))
                     ) |]
-            FunctionExpression(List.toArray argIdents, body, ?returnType=returnType, ?typeParams=typeParams)
+            FunctionExpression(List.toArray argIdents, body, ?returnType=returnType, ?typeParameters=typeParams)
         let baseExpr =
             match info.Base with
             | Some(TransformExpr com ctx baseRef) -> Some baseRef
