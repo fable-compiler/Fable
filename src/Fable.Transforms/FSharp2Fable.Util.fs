@@ -49,7 +49,10 @@ type IFableCompiler =
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
-        if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType
+        let isSameType (t1: FSharpType) (t2: FSharpType) =
+            t1.HasTypeDefinition && t2.HasTypeDefinition && (t1.TypeDefinition = t2.TypeDefinition)
+        if t.IsAbbreviation && not (isSameType t t.AbbreviatedType) then
+            nonAbbreviatedType t.AbbreviatedType
         elif t.HasTypeDefinition then
             let abbr = t.AbbreviatedType
             // .IsAbbreviation doesn't eval to true for generic numbers

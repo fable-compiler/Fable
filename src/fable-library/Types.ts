@@ -245,11 +245,11 @@ export function anonRecord(o: any) {
   return Object.assign(Object.create(Record.prototype), o);
 }
 
-export interface FSharpRef extends Record {
-  contents: any;
+export interface FSharpRef<T> extends Record {
+  contents: T;
 }
 
-export const FSharpRef = declare(function FSharpRef(this: FSharpRef, contents: any) {
+export const FSharpRef = declare(function FSharpRef<T>(this: FSharpRef<T>, contents: T) {
   this.contents = contents;
 }, Record);
 

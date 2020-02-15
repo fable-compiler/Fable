@@ -202,7 +202,7 @@ let mapIndexed3 (f: int->'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (s
         result.[i] <- f i source1.[i] source2.[i] source3.[i]
     result
 
-let map3 f (source1: 'T[]) (source2: 'U[]) (source3: 'U[]) ([<Inject>] cons: IArrayCons<'W>): 'W[] =
+let map3 (f: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then failwith "Arrays had different lengths"
     let result = cons.Create(source1.Length)
     for i = 0 to source1.Length - 1 do
