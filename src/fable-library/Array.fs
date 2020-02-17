@@ -427,6 +427,10 @@ let takeWhile predicate (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
     else
         subArrayImpl array 0 count
 
+let addInPlace (x: 'T) (array: 'T[]) =
+    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
+    pushImpl array x |> ignore
+
 let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
     Seq.iter (fun x -> pushImpl array x |> ignore) range

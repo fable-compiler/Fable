@@ -293,8 +293,8 @@ let coreModFor = function
     | FSharpResult _ -> "Option"
     | FSharpChoice _ -> "Option"
     | FSharpReference _ -> "Types"
-    | BclHashSet _
-    | BclDictionary _
+    | BclHashSet _ -> "MutableSet"
+    | BclDictionary _ -> "MutableMap"
     | BclKeyValuePair _ -> failwith "Cannot decide core module"
 
 let makeLongInt r t signed (x: uint64) =
@@ -1683,8 +1683,8 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
-    | "Add", Some ar, args ->
-        Helper.InstanceCall(ar, "push", t, args, ?loc=r) |> Some
+    | "Add", Some ar, [arg] ->
+        Helper.CoreCall("Array", "addInPlace", t, [arg; ar], ?loc=r) |> Some
     | "Remove", Some ar, [arg] ->
         Helper.CoreCall("Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "RemoveAll", Some ar, [arg] ->

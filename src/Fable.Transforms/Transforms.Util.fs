@@ -401,6 +401,17 @@ module AST =
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
 
+    let getNumberKindName kind =
+        match kind with
+        | Int8 -> "int8"
+        | UInt8 -> "uint8"
+        | Int16 -> "int16"
+        | UInt16 -> "uint16"
+        | Int32 -> "int32"
+        | UInt32 -> "uint32"
+        | Float32 -> "float32"
+        | Float64 -> "float64"
+
     let getTypedArrayName (com: ICompiler) numberKind =
         match numberKind with
         | Int8 -> "Int8Array"
