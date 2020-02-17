@@ -1,6 +1,7 @@
 import Decimal from "./lib/big";
 
 export default Decimal;
+export type decimal = Decimal;
 
 export const get_Zero = new Decimal(0);
 export const get_One = new Decimal(1);

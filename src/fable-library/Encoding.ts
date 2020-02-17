@@ -1,4 +1,4 @@
-// Polyfills
+import { uint8 } from "./Int32";
 
 const littleEndian = true;
 
@@ -12,8 +12,9 @@ function utf16le_encode(str: string) {
   return bytes;
 }
 
-function utf16le_decode(bytes: Uint8Array) {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+function utf16le_decode(bytes: ArrayLike<uint8>) {
+  const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
+  const view = new DataView(array.buffer, array.byteOffset, array.byteLength);
   const chars = new Array<string>(view.byteLength / 2);
   for (let i = 0; i < chars.length; i++) {
     const code = view.getUint16(i * 2, littleEndian);
@@ -58,7 +59,7 @@ function utf8_encode(str: string) {
   return buf;
 }
 
-function utf8_decode(bytes: Uint8Array) {
+function utf8_decode(bytes: ArrayLike<uint8>) {
   let pos = 0;
   const decodeUtf8 = () => {
     const i1 = bytes[pos++];
@@ -101,14 +102,16 @@ class UTF16LE {
     }
   }
 
-  public getString(bytes: Uint8Array, index?: number, count?: number) {
+  public getString(bytes: ArrayLike<uint8>, index?: number, count?: number) {
+    const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
+    let buffer = Buffer.from(array.buffer, array.byteOffset, array.byteLength);
     if (index != null && count != null) {
-      bytes = bytes.subarray(index, index + count);
+      buffer = buffer.subarray(index, index + count);
     }
     if (typeof TextDecoder !== "undefined") {
-      return new TextDecoder("utf-16le").decode(bytes);
+      return new TextDecoder("utf-16le").decode(buffer);
     } else if (typeof Buffer !== "undefined") {
-      return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf16le");
+      return buffer.toString("utf16le");
     } else {
       return utf16le_decode(bytes); // polyfill
     }
@@ -131,14 +134,16 @@ class UTF8 {
     }
   }
 
-  public getString(bytes: Uint8Array, index?: number, count?: number) {
+  public getString(bytes: ArrayLike<uint8>, index?: number, count?: number) {
+    const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
+    let buffer = Buffer.from(array.buffer, array.byteOffset, array.byteLength);
     if (index != null && count != null) {
-      bytes = bytes.subarray(index, index + count);
+      buffer = buffer.subarray(index, index + count);
     }
     if (typeof TextDecoder !== "undefined") {
-      return new TextDecoder().decode(bytes);
+      return new TextDecoder().decode(buffer);
     } else if (typeof Buffer !== "undefined") {
-      return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("utf8");
+      return buffer.toString("utf8");
     } else {
       return utf8_decode(bytes); // polyfill
     }

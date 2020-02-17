@@ -3,6 +3,8 @@ import * as Long from "./lib/long";
 
 export default Long.Long;
 export type Long = Long.Long;
+export type int64 = Long;
+export type uint64 = Long;
 
 export const get_Zero = Long.ZERO;
 export const get_One = Long.ONE;

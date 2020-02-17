@@ -1907,12 +1907,8 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.CoreCall("Option", "value", t, [c; makeBoolConst true], ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("Map" | "Bind" as meth), args ->
+    | ("Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
         Helper.CoreCall("Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Map2" | "Map3"), args ->
-        Helper.CoreCall("Option", "mapMultiple", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "Filter", _ ->
-        Helper.CoreCall("Option", "filter", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", [arg] ->
         toArray r t arg |> Some
     | "FoldBack", [folder; opt; state] ->
@@ -2332,23 +2328,28 @@ let log (_: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
         | _ -> [args.Head]
     Helper.GlobalCall("console", t, args, memb="log", ?loc=r)
 
-let bitConvert (_: ICompiler) (ctx: Context) r (_: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let memberName =
-        if i.CompiledName = "GetBytes" then
+let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "GetBytes" ->
+        let memberName =
             match args.Head.Type with
             | Boolean -> "getBytesBoolean"
             | Char | String -> "getBytesChar"
             | Number Int16 -> "getBytesInt16"
             | Number Int32 -> "getBytesInt32"
-            | Builtin BclInt64 -> "getBytesInt64"
             | Number UInt16 -> "getBytesUInt16"
-            | Builtin BclUInt64 -> "getBytesUInt64"
             | Number UInt32 -> "getBytesUInt32"
             | Number Float32 -> "getBytesSingle"
             | Number Float64 -> "getBytesDouble"
+            | Builtin BclInt64 -> "getBytesInt64"
+            | Builtin BclUInt64 -> "getBytesUInt64"
             | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
-        else Naming.lowerFirst i.CompiledName
-    Helper.CoreCall("BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let expr = Helper.CoreCall("BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r)
+        if com.Options.typedArrays then expr |> Some
+        else toArray com t expr |> Some // convert to dynamic array
+    | _ ->
+        let memberName = Naming.lowerFirst i.CompiledName
+        Helper.CoreCall("BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2587,11 +2588,16 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.CoreCall("RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
-let encoding (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args.Length with
     | ("get_Unicode" | "get_UTF8"), _, _ ->
         Helper.CoreCall("Encoding", i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("GetBytes" | "GetString"), Some callee, (1 | 3) ->
+    | "GetBytes", Some callee, (1 | 3) ->
+        let meth = Naming.lowerFirst i.CompiledName
+        let expr = Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r)
+        if com.Options.typedArrays then expr |> Some
+        else toArray com t expr |> Some // convert to dynamic array
+    | "GetString", Some callee, (1 | 3) ->
         let meth = Naming.lowerFirst i.CompiledName
         Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None

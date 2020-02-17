@@ -1,3 +1,15 @@
+export type int8 = number;
+export type uint8 = number;
+export type int16 = number;
+export type uint16 = number;
+export type int32 = number;
+export type uint32 = number;
+// export type int64 = Long;
+// export type uint64 = Long;
+export type float32 = number;
+export type float64 = number;
+// export type decimal = Decimal;
+
 export enum NumberStyles {
   // None = 0x00000000,
   // AllowLeadingWhite = 0x00000001,

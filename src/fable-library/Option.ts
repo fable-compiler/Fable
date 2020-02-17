@@ -66,28 +66,36 @@ export function value<T>(x: Option<T>, acceptNull?: boolean) {
   }
 }
 
-export function defaultArg<T>(arg: Option<T>, defaultValue: T, f?: (arg0: T | null) => T) {
-  return arg == null ? defaultValue : (f != null ? f(value(arg)) : value(arg));
+export function defaultArg<T>(opt: Option<T>, defaultValue: T, f?: (arg: T | null) => T) {
+  return (opt != null) ? (f != null ? f(value(opt)) : value(opt)) : defaultValue;
 }
 
-export function defaultArgWith<T>(arg: Option<T>, defThunk: () => T) {
-  return arg == null ? defThunk() : value(arg);
+export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T) {
+  return (opt != null) ? value(opt) : defThunk();
 }
 
-export function filter<T>(predicate: (arg0: T | null) => boolean, arg: Option<T>) {
-  return arg != null ? (!predicate(value(arg)) ? null : arg) : arg;
+export function filter<T>(predicate: (arg: T | null) => boolean, opt: Option<T>) {
+  return (opt != null) ? (predicate(value(opt)) ? opt : null) : opt;
 }
 
-export function map<T, U>(f: (arg0: T | null) => U, arg: Option<T>): Option<U> {
-  return arg == null ? null : some(f(value(arg)));
+export function map<T, U>(mapping: (arg: T | null) => U, opt: Option<T>): Option<U> {
+  return (opt != null) ? some(mapping(value(opt))) : null;
 }
 
-export function mapMultiple<T>(predicate: (...args: T[]) => boolean, ...args: T[]) {
-  return args.every((x) => x != null) ? predicate.apply(null, args) : null;
+export function map2<T1, T2, U>(
+  mapping: (arg1: T1 | null, arg2: T2 | null) => Option<U>,
+  opt1: Option<T1>, opt2: Option<T2>) {
+  return (opt1 != null && opt2 != null) ? mapping(value(opt1), value(opt2)) : null;
 }
 
-export function bind<T, U>(f: (arg0: T | null) => Option<U>, arg: Option<T>): Option<U> {
-  return arg == null ? null : f(value(arg));
+export function map3<T1, T2, T3, U>(
+  mapping: (arg1: T1 | null, arg2: T2 | null, arg3: T3 | null) => Option<U>,
+  opt1: Option<T1>, opt2: Option<T2>, opt3: Option<T3>) {
+  return (opt1 != null && opt2 != null && opt3 != null) ? mapping(value(opt1), value(opt2), value(opt3)) : null;
+}
+
+export function bind<T, U>(binder: (arg: T | null) => Option<U>, opt: Option<T>): Option<U> {
+  return opt != null ? binder(value(opt)) : null;
 }
 
 export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
