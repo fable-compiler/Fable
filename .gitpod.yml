@@ -3,8 +3,8 @@ image:
 
 tasks:
   - init: >
-    npm install &&
-    npm run build compiler
+      npm install &&
+      npm run build compiler
 
 github:
   prebuilds:
