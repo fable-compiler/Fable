@@ -258,6 +258,28 @@ type TypeWithClassAttribute =
     val Pos : int
     new (pos) = { Pos=pos }
 
+// -------------------------------------------------------------
+// Issue #1975: https://github.com/fable-compiler/Fable/issues/1975
+// In previous version of Fable, using type with parametrized units of measure was causing an endless loops in the compiler
+
+type TestTypeWithParametrizedUnitMeasure<[<Measure>] 't> =
+    private | TestTypeWithParametrizedUnitMeasureType of float<'t>
+
+    member this.Value =
+        match this with
+        | TestTypeWithParametrizedUnitMeasureType value -> value
+
+let makeTestTypeWithParametrizedUnitMeasureType (value: float<_>) : TestTypeWithParametrizedUnitMeasure<_> =
+    TestTypeWithParametrizedUnitMeasureType value
+
+open FSharp.Data.UnitSystems.SI.UnitSymbols
+
+type Test_TestTypeWithParametrizedUnitMeasure = {
+    Field: TestTypeWithParametrizedUnitMeasure<m>
+}
+
+// -------------------------------------------------------------
+
 type Default1 = int
 
 type Distinct1 =
@@ -643,4 +665,9 @@ let tests =
     testCase "ClassAttribute works" <| fun () -> // See #573
         let t1 = TypeWithClassAttribute(8)
         t1.Pos |> equal 8
+
+
+    testCase "Issue #1975: Compile type with parametried units of mesuseare as generic" <| fun () ->
+        let a = makeTestTypeWithParametrizedUnitMeasureType 2.
+        equal 2. a.Value
   ]
