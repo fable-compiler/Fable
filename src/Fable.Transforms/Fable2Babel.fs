@@ -211,7 +211,7 @@ module Util =
     let makeJsObject pairs =
         pairs |> Seq.map (fun (name, value) ->
             let prop, computed = memberFromName name
-            ObjectProperty(prop, value, computed=computed) |> U3.Case1)
+            ObjectProperty(prop, value, computed_=computed) |> U3.Case1)
         |> Seq.toArray
         |> ObjectExpression :> Expression
 
@@ -273,10 +273,6 @@ module Util =
             | t -> List.rev acc, t
         uncurryLambdaArgs [] t
 
-    let importType (com: IBabelCompiler) ctx moduleName typeName =
-        com.GetImportExpr(ctx, typeName, moduleName, Fable.Library)
-        |> ignore // just adds the import
-
     let rec typeAnnotation com ctx typ: TypeAnnotationInfo =
         match typ with
         | Fable.MetaType -> upcast AnyTypeAnnotation()
@@ -286,68 +282,89 @@ module Util =
         | Fable.Char -> upcast StringTypeAnnotation()
         | Fable.String -> upcast StringTypeAnnotation()
         | Fable.Regex -> upcast AnyTypeAnnotation()
-        | Replacements.NumberExt kind -> // this covers Fable.Number too
-            makeNumericTypeAnnotation com ctx kind
-        | Fable.Number _kind -> upcast NumberTypeAnnotation() // already covered above, but needed to prevent warning
+        | Fable.Number kind -> makeNumericTypeAnnotation com ctx kind
         | Fable.Enum _ent -> upcast NumberTypeAnnotation()
-        | Fable.Option genArg ->
-            importType com ctx "Option" "Option"
-            Identifier("Option") |> makeGenericTypeAnnotation com ctx [genArg]
-        | Fable.Tuple genArgs ->
-            makeTupleTypeAnnotation com ctx genArgs
-        | Fable.Array genArg ->
-            Identifier("Array") |> makeGenericTypeAnnotation com ctx [genArg] // TODO: Typed arrays?
-        | Fable.List genArg ->
-            importType com ctx "Types" "List"
-            Identifier("List") |> makeGenericTypeAnnotation com ctx [genArg]
+        | Fable.Option genArg -> makeOptionTypeAnnotation com ctx genArg
+        | Fable.Tuple genArgs -> makeTupleTypeAnnotation com ctx genArgs
+        | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
+        | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
+        | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.FunctionType(kind, returnType) ->
             makeFunctionTypeAnnotation com ctx typ kind returnType
-        | Fable.GenericParam name ->
-            upcast GenericTypeAnnotation(Identifier(name))
-        | Fable.ErasedUnion genArgs ->
-            makeUnionTypeAnnotation com ctx genArgs
-        | Fable.DeclaredType(ent, genArgs) when ent.TryFullName = Some Types.result ->
-            makeUnionTypeAnnotation com ctx genArgs // Result
-        | Fable.DeclaredType(ent, genArgs)
-                when (defaultArg ent.TryFullName Naming.unknown).StartsWith(Types.choiceNonGeneric) ->
-            makeUnionTypeAnnotation com ctx genArgs // Choice
-        | Fable.DeclaredType(ent, [genArg]) when ent.TryFullName = Some Types.ienumerableGeneric ->
-            Identifier("Iterable") |> makeGenericTypeAnnotation com ctx [genArg]
-        | Fable.DeclaredType(ent, genArgs) when ent.IsInterface ->
-            upcast AnyTypeAnnotation() // TODO:
+        | Fable.GenericParam name -> makeSimpleTypeAnnotation com ctx name
+        | Fable.ErasedUnion genArgs -> makeUnionTypeAnnotation com ctx genArgs
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
-        | Fable.AnonymousRecordType(fieldNames, genericArgs) ->
-            upcast AnyTypeAnnotation()
+        | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+            makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs
 
-    and makeNumericTypeAnnotation com ctx kind =
-        let moduleName, typeName =
-            match kind with
-            | Replacements.JsNumber kind -> "Int32", getNumberKindName kind
-            | Replacements.Long unsigned -> "Long", if unsigned then "uint64" else "int64"
-            | Replacements.Decimal -> "Decimal", "decimal"
-            | Replacements.BigInt -> "BigInt/z", "BigInteger"
-        importType com ctx moduleName typeName
-        GenericTypeAnnotation(Identifier(typeName))
+    and makeSimpleTypeAnnotation _com _ctx name =
+        GenericTypeAnnotation(Identifier(name))
         :> TypeAnnotationInfo
 
     and makeGenericTypeAnnotation com ctx genArgs id =
         let typeParams =
-            match List.map (typeAnnotation com ctx) genArgs with
+            match genArgs |> List.map (typeAnnotation com ctx) with
             | [] -> None
-            | xs -> TypeParameterInstantiation(xs |> List.toArray) |> Some
+            | xs -> xs |> List.toArray |> TypeParameterInstantiation |> Some
         GenericTypeAnnotation(id, ?typeParameters=typeParams)
         :> TypeAnnotationInfo
+
+    and makeImportTypeAnnotation (com: IBabelCompiler) ctx genArgs moduleName typeName =
+        let expr = com.GetImportExpr(ctx, typeName, moduleName, Fable.Library)
+        let id =
+            match expr with
+            | :? Identifier as id -> id
+            | _ -> Identifier(typeName)
+        makeGenericTypeAnnotation com ctx genArgs id
+
+    and makeNumericTypeAnnotation com ctx kind =
+        let typeName = getNumberKindName kind
+        makeImportTypeAnnotation com ctx [] "Int32" typeName
+
+    and makeOptionTypeAnnotation com ctx genArg =
+        makeImportTypeAnnotation com ctx [genArg] "Option" "Option"
 
     and makeTupleTypeAnnotation com ctx genArgs =
         List.map (typeAnnotation com ctx) genArgs
         |> List.toArray |> TupleTypeAnnotation
         :> TypeAnnotationInfo
 
+    and makeArrayTypeAnnotation com ctx genArg =
+        match genArg with
+        | Fable.Number kind when com.Options.typedArrays ->
+            let name = getTypedArrayName com kind
+            makeSimpleTypeAnnotation com ctx name
+        | _ ->
+            Identifier("Array") |> makeGenericTypeAnnotation com ctx [genArg]
+
+    and makeListTypeAnnotation com ctx genArg =
+        makeImportTypeAnnotation com ctx [genArg] "Types" "List"
+
     and makeUnionTypeAnnotation com ctx genArgs =
         List.map (typeAnnotation com ctx) genArgs
         |> List.toArray |> UnionTypeAnnotation
         :> TypeAnnotationInfo
+
+    and makeBuiltinTypeAnnotation com ctx kind =
+        match kind with
+        | Replacements.BclGuid -> upcast StringTypeAnnotation()
+        | Replacements.BclTimeSpan -> upcast NumberTypeAnnotation()
+        | Replacements.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.BclDateTimeOffset -> makeSimpleTypeAnnotation com ctx "Date"
+        | Replacements.BclTimer -> makeImportTypeAnnotation com ctx [] "Timer" "Timer"
+        | Replacements.BclInt64 -> makeImportTypeAnnotation com ctx [] "Long" "int64"
+        | Replacements.BclUInt64 -> makeImportTypeAnnotation com ctx [] "Long" "uint64"
+        | Replacements.BclDecimal -> makeImportTypeAnnotation com ctx [] "Decimal" "decimal"
+        | Replacements.BclBigInt -> makeImportTypeAnnotation com ctx [] "BigInt/z" "BigInteger"
+        | Replacements.BclHashSet key -> Identifier("Set") |> makeGenericTypeAnnotation com ctx [key]
+        | Replacements.BclDictionary (key, value) -> Identifier("Map") |> makeGenericTypeAnnotation com ctx [key; value]
+        | Replacements.BclKeyValuePair (key, value) -> makeTupleTypeAnnotation com ctx [key; value]
+        | Replacements.FSharpSet key -> Identifier("Set") |> makeGenericTypeAnnotation com ctx [key]
+        | Replacements.FSharpMap (key, value) -> Identifier("Map") |> makeGenericTypeAnnotation com ctx [key; value]
+        | Replacements.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Option" "Result"
+        | Replacements.FSharpChoice genArgs -> makeUnionTypeAnnotation com ctx genArgs
+        | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
 
     and makeFunctionTypeAnnotation com ctx typ kind returnType =
         let argTypes, returnType =
@@ -370,20 +387,33 @@ module Util =
         :> TypeAnnotationInfo
 
     and makeEntityTypeAnnotation com ctx ent genArgs =
-        match tryJsConstructor com ctx ent with
-        | Some entRef ->
-            match entRef with
-            | :? StringLiteral as str ->
-                match str.Value with
-                | "number" -> upcast NumberTypeAnnotation()
-                | "boolean" -> upcast BooleanTypeAnnotation()
-                | "string" -> upcast StringTypeAnnotation()
+        match ent.TryFullName with
+        | Some Types.ienumerableGeneric ->
+            Identifier("Iterable") |> makeGenericTypeAnnotation com ctx genArgs
+        | Some Types.result ->
+            makeUnionTypeAnnotation com ctx genArgs
+        | Some entName when entName.StartsWith(Types.choiceNonGeneric) ->
+            makeUnionTypeAnnotation com ctx genArgs
+        | _ when ent.IsInterface ->
+            upcast AnyTypeAnnotation() // TODO:
+        | _ ->
+            match tryJsConstructor com ctx ent with
+            | Some entRef ->
+                match entRef with
+                | :? StringLiteral as str ->
+                    match str.Value with
+                    | "number" -> upcast NumberTypeAnnotation()
+                    | "boolean" -> upcast BooleanTypeAnnotation()
+                    | "string" -> upcast StringTypeAnnotation()
+                    | _ -> upcast AnyTypeAnnotation()
+                | :? Identifier as id ->
+                    makeGenericTypeAnnotation com ctx genArgs id
+                // TODO: Resolve references to types in nested modules
                 | _ -> upcast AnyTypeAnnotation()
-            | :? Identifier as id ->
-                makeGenericTypeAnnotation com ctx genArgs id
-            // TODO: Resolve references to types in nested modules
-            | _ -> upcast AnyTypeAnnotation()
-        | None -> upcast AnyTypeAnnotation()
+            | None -> upcast AnyTypeAnnotation()
+
+    and makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs =
+         upcast AnyTypeAnnotation() // TODO:
 
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
         let typeAnnotation =
@@ -771,7 +801,7 @@ module Util =
             let boundThis, args = prepareBoundThis boundThis args
             let args, body, returnType, typeParams =
                 getMemberArgsAndBody com ctx None boundThis args hasSpread body
-            ObjectMethod(kind, prop, args, body, computed=computed,
+            ObjectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParams) |> U3.Case2 |> Some
         let pojo =
             members |> List.choose (fun (Fable.ObjectMember(key, expr, kind)) ->
@@ -784,7 +814,7 @@ module Util =
                         ?returnType=returnType, ?typeParameters=typeParams) |> U3.Case2 |> Some
                 | Fable.ObjectValue, TransformExpr com ctx value ->
                     let prop, computed = memberFromExpr com ctx key
-                    ObjectProperty(prop, value, computed=computed) |> U3.Case1 |> Some
+                    ObjectProperty(prop, value, computed_=computed) |> U3.Case1 |> Some
                 | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body, _) ->
                     let prop, computed =
                         match key with
@@ -884,7 +914,7 @@ module Util =
                         |> getExpr None (get None baseClassExpr "prototype")
                     callFunctionWithThisContext range baseProtoMember (ident thisIdent) args
                 | Some thisArg, None ->
-                    upcast CallExpression(com.TransformAsExpr(ctx, thisArg),List.toArray args, ?loc=range)
+                    upcast CallExpression(com.TransformAsExpr(ctx, thisArg), List.toArray args, ?loc=range)
                 | Some thisArg, Some(TransformExpr com ctx m) ->
                     let thisArg = com.TransformAsExpr(ctx, thisArg)
                     upcast CallExpression(getExpr None thisArg m, List.toArray args, ?loc=range)
@@ -1017,13 +1047,13 @@ module Util =
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if isJsStatement ctx false value then
-            let var = ident var
+            let var = typedIdent com ctx var
             let decl = VariableDeclaration(toPattern var) :> Statement
             let body = com.TransformAsStatements(ctx, Some(Assign var), value)
             Array.append [|decl|] body
         else
             let value = transformBindingExprBody com ctx var value
-            [|varDeclaration (ident var) var.IsMutable value :> Statement|]
+            [|varDeclaration (typedIdent com ctx var) var.IsMutable value :> Statement|]
 
     let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
         let fail msg =
@@ -1048,29 +1078,28 @@ module Util =
         | Fable.FunctionType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
             coreLibCall com ctx None "Util" "isArrayLike" [|com.TransformAsExpr(ctx, expr)|]
-        | Fable.List _ ->
-            jsInstanceof (coreValue com ctx "Types" "List") expr
+        | Fable.List _ -> jsInstanceof (coreValue com ctx "Types" "List") expr
         | Replacements.Builtin kind ->
             match kind with
             | Replacements.BclGuid -> jsTypeof "string" expr
             | Replacements.BclTimeSpan -> jsTypeof "number" expr
-            | Replacements.BclDateTime
+            | Replacements.BclDateTime -> jsInstanceof (Identifier "Date") expr
             | Replacements.BclDateTimeOffset -> jsInstanceof (Identifier "Date") expr
             | Replacements.BclTimer -> jsInstanceof (coreValue com ctx "Timer" "default") expr
-            | Replacements.BclInt64
+            | Replacements.BclInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
             | Replacements.BclUInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
             | Replacements.BclDecimal -> jsInstanceof (coreValue com ctx "Decimal" "default") expr
             | Replacements.BclBigInt -> coreLibCall com ctx None "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
-            | Replacements.BclHashSet _
-            | Replacements.BclDictionary _
-            | Replacements.BclKeyValuePair _
-            | Replacements.FSharpSet _
-            | Replacements.FSharpMap _ -> fail "set/maps"
-            | Replacements.FSharpResult _
-            | Replacements.FSharpChoice _
-            | Replacements.FSharpReference _ -> fail "result/choice/reference"
+            | Replacements.BclHashSet _ -> fail "MutableSet" // TODO:
+            | Replacements.BclDictionary _ -> fail "MutableMap" // TODO:
+            | Replacements.BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
+            | Replacements.FSharpSet _ -> fail "Set" // TODO:
+            | Replacements.FSharpMap _ -> fail "Map" // TODO:
+            | Replacements.FSharpResult _ -> fail "Result" // TODO:
+            | Replacements.FSharpChoice _ -> fail "Choice" // TODO:
+            | Replacements.FSharpReference _ -> fail "FSharpRef" // TODO:
         | Fable.AnonymousRecordType _ ->
-            "Type testing is not yet supported for anonymous records" // TODO
+            "Type testing is not yet supported for anonymous records" // TODO:
             |> addWarning com [] range
             upcast BooleanLiteral false
         | Fable.DeclaredType (ent, genArgs) ->
@@ -1484,7 +1513,7 @@ module Util =
                     else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
                 ForStatement(
                     transformBlock com ctx None body,
-                    start |> varDeclaration (ident var) true |> U2.Case1,
+                    start |> varDeclaration (typedIdent com ctx var) true |> U2.Case1,
                     BinaryExpression (op1, ident var, limit),
                     UpdateExpression (op2, false, ident var), ?loc=range) :> Statement
             |> Array.singleton
@@ -1599,7 +1628,7 @@ module Util =
         let id = Identifier(name)
         let body = ObjectTypeAnnotation(properties)
         let typeParams = makeGenericTypeParamDecl ent
-        InterfaceDeclaration(id, body, ?extends=extends, ?typeParameters=typeParams, ?loc=r)
+        InterfaceDeclaration(id, body, ?extends_=extends, ?typeParameters=typeParams, ?loc=r)
 
     let declareObjectType (com: IBabelCompiler) ctx r isPublic (ent: FSharpEntity) name (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr =
         let displayName =
@@ -1968,7 +1997,7 @@ module Compiler =
             let importFile = Array.last sourceFiles
             StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
             |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> Array.singleton
-        Program(facadeFile, decls, sourceFiles=sourceFiles)
+        Program(facadeFile, decls, sourceFiles_ = sourceFiles)
 
     let transformFile (com: ICompiler) (file: Fable.File) =
         try
@@ -1983,9 +2012,10 @@ module Compiler =
                 ScopedTypeParams = Set.empty }
             let rootDecls = transformDeclarations com ctx file.Declarations []
             let importDecls = com.GetAllImports() |> transformImports
-            Program(file.SourcePath, importDecls@rootDecls |> List.toArray,
-                    // We don't add imports as dependencies because those will be handled by Webpack
-                    // TODO: Do it for other clients, like fable-splitter?
-                    dependencies = Array.ofSeq file.InlineDependencies)
+            let body = importDecls @ rootDecls |> List.toArray
+            // We don't add imports as dependencies because those will be handled by Webpack
+            // TODO: Do it for other clients, like fable-splitter?
+            let dependencies = Array.ofSeq file.InlineDependencies
+            Program(file.SourcePath, body, dependencies_ = dependencies)
         with
         | ex -> exn (sprintf "%s (%s)" ex.Message file.SourcePath, ex) |> raise

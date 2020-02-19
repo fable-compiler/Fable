@@ -9,9 +9,9 @@ type Verbosity =
 type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
+      typeDecls: bool
       debugMode: bool
       verbosity: Verbosity
-      typeDecls: bool
       /// Meant for precompiled libraries (like the Repl Lib)
       /// to make public inlined functions part of the JS
       outputPublicInlinedFunctions: bool

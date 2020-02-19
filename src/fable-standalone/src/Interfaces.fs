@@ -48,8 +48,11 @@ type IBabelResult =
     abstract FableErrors: Error[]
 
 type CompilerConfig =
-    { precompiledLib: (string -> (string * string) option) option
-      typeDecls: bool }
+    { typedArrays: bool
+      clampByteArrays: bool
+      typeDecls: bool
+      precompiledLib: (string -> (string * string) option) option
+    }
 
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker

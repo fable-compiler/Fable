@@ -53,9 +53,9 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
 let toCompilerOptions (msg: Message): CompilerOptions =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
+      typeDecls = msg.extra.ContainsKey("typed")
       debugMode = Array.contains "DEBUG" msg.define
       verbosity = GlobalParams.Singleton.Verbosity
-      typeDecls = msg.extra.ContainsKey("typed")
       outputPublicInlinedFunctions = Array.contains "FABLE_REPL_LIB" msg.define
       precompiledLib = None
     }

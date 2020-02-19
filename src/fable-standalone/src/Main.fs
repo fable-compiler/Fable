@@ -214,23 +214,21 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
 }
 
 let defaultCompilerConfig: CompilerConfig =
-    { precompiledLib = None
-      typeDecls = false }
+    { typedArrays = true
+      clampByteArrays = false
+      typeDecls = false
+      precompiledLib = None }
 
-let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: string[]) =
+let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: string[]): Fable.CompilerOptions =
     let config = defaultArg config defaultCompilerConfig
-    let isDebug =
-        otherFSharpOptions
-        |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
-    let options: Fable.CompilerOptions =
-        { typedArrays = true
-          clampByteArrays = false
-          debugMode = isDebug
-          verbosity = Fable.Verbosity.Normal
-          typeDecls = config.typeDecls
-          outputPublicInlinedFunctions = false
-          precompiledLib = config.precompiledLib }
-    options
+    let isDebug = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
+    { typedArrays = config.typedArrays
+      clampByteArrays = config.clampByteArrays
+      typeDecls = config.typeDecls
+      debugMode = isDebug
+      verbosity = Fable.Verbosity.Normal
+      outputPublicInlinedFunctions = false
+      precompiledLib = config.precompiledLib }
 
 let compileAst (com: Compiler) (project: Project) =
     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
