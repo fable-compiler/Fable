@@ -1,3 +1,10 @@
+### 2.4.14
+
+* Fix #1975: Fix endless loop (by @ncave)
+* Made ResizeArray.Add void (by @ncave)
+* Updated option and numeric types (by @ncave)
+* Minor update to fable-library (by @ncave)
+
 ### 2.4.13
 
 * Use strict mode in fable-library
