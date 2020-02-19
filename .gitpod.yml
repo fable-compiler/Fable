@@ -4,6 +4,7 @@ image:
 tasks:
   - init: >
       npm install &&
+      dotnet restore &&
       npm run build compiler
 
 github:
