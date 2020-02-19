@@ -209,28 +209,28 @@ let map3 (f: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[
         result.[i] <- f source1.[i] source2.[i] source3.[i]
     result
 
-let mapFold<'T,'State,'Result> (mapping: 'State -> 'T -> 'Result * 'State) state (array: 'T[]) ([<Inject>] cons: IArrayCons<'Result>) =
+let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) state (array: 'T[]) ([<Inject>] cons: IArrayCons<'Result>) =
     match array.Length with
     | 0 -> [| |], state
     | len ->
         let mutable acc = state
         let res = cons.Create len
         for i = 0 to array.Length-1 do
-            let h',s' = mapping acc array.[i]
-            res.[i] <- h'
-            acc <- s'
+            let h,s = mapping acc array.[i]
+            res.[i] <- h
+            acc <- s
         res, acc
 
-let mapFoldBack<'T,'State,'Result> (mapping: 'T -> 'State -> 'Result * 'State) (array: 'T[]) state ([<Inject>] cons: IArrayCons<'Result>) =
+let mapFoldBack<'T, 'State, 'Result> (mapping: 'T -> 'State -> 'Result * 'State) (array: 'T[]) state ([<Inject>] cons: IArrayCons<'Result>) =
     match array.Length with
     | 0 -> [| |], state
     | len ->
         let mutable acc = state
         let res = cons.Create len
         for i = array.Length-1 downto 0 do
-            let h',s' = mapping array.[i] acc
-            res.[i] <- h'
-            acc <- s'
+            let h,s = mapping array.[i] acc
+            res.[i] <- h
+            acc <- s
         res, acc
 
 let indexed (source: 'T[]) =
@@ -273,7 +273,7 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>
 
 let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, int>(eq)
-    let keys = [||]
+    let keys: 'Key[] = [||]
     for value in array do
         let key = projection value
         match dict.TryGetValue(key) with
@@ -313,7 +313,7 @@ let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComp
 
 let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let dict = Dictionary<'Key, 'T list>(eq)
-    let keys = [||]
+    let keys: 'Key[] = [||]
     for v in array do
         let key = projection v
         match dict.TryGetValue(key) with
@@ -605,14 +605,14 @@ let forAll predicate (array: 'T[]) =
 let permute f (array: 'T[]) =
     let size = array.Length
     let res = copyImpl array
-    let checkFlags = newDynamicArrayImpl size
+    let checkFlags = Array.zeroCreate size
     iterateIndexed (fun i x ->
         let j = f i
         if j < 0 || j >= size then
             invalidOp "Not a valid permutation"
         res.[j] <- x
         checkFlags.[j] <- 1) array
-    let isValid = forAll ((=) 1) checkFlags
+    let isValid = checkFlags |> forAllImpl ((=) 1)
     if not isValid then
         invalidOp "Not a valid permutation"
     res
@@ -653,14 +653,14 @@ let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComp
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
     sortInPlaceWith comparer (copyImpl xs)
 
-let unfold<'T,'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'State[] =
-    let res = [||]
+let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'T[] =
+    let res: 'T[] = [||]
     let rec loop state =
         match generator state with
         | None -> ()
-        | Some (x,s') ->
+        | Some (x, s) ->
             pushImpl res x |> ignore
-            loop s'
+            loop s
     loop state
     res
 
@@ -765,7 +765,7 @@ let tryItem index (array: 'T[]) =
     if index < 0 || index >= array.Length then None
     else Some array.[index]
 
-let foldBackIndexed<'T,'State> folder (array: 'T[]) (state: 'State) =
+let foldBackIndexed<'T, 'State> folder (array: 'T[]) (state: 'State) =
     // if isTypedArrayImpl array then
     //     let mutable acc = state
     //     let size = array.Length
@@ -775,7 +775,7 @@ let foldBackIndexed<'T,'State> folder (array: 'T[]) (state: 'State) =
     // else
     foldBackIndexedImpl (fun acc x i -> folder i x acc) state array
 
-let foldBack<'T,'State> folder (array: 'T[]) (state: 'State) =
+let foldBack<'T, 'State> folder (array: 'T[]) (state: 'State) =
     // if isTypedArrayImpl array then
     //     foldBackIndexed (fun _ x acc -> folder x acc) array state
     // else
@@ -891,7 +891,7 @@ let toList (source: 'T[]) =
 let windowed (windowSize: int) (source: 'T[]): 'T[][] =
     if windowSize <= 0 then
         failwith "windowSize must be positive"
-    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> Helpers.newDynamicArrayImpl
+    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> newDynamicArrayImpl
     for i = windowSize to source.Length do
         res.[i - windowSize] <- source.[i-windowSize..i-1]
     res
