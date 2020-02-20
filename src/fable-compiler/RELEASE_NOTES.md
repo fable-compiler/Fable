@@ -1,3 +1,7 @@
+### 2.4.15
+
+* Fix #1979: Add support for LanguagePrimitives.xxxWithMeasure (by @ncave)
+
 ### 2.4.14
 
 * Fix #1975: Fix endless loop (by @ncave)
