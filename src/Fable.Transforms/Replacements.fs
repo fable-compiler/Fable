@@ -2063,6 +2063,13 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | "GenericZero", _ -> getZero com ctx t |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some
+    | ("SByteWithMeasure"
+    | "Int16WithMeasure"
+    | "Int32WithMeasure"
+    | "Int64WithMeasure"
+    | "Float32WithMeasure"
+    | "FloatWithMeasure"
+    | "DecimalWithMeasure"), [arg] -> arg |> Some
     | "EnumOfValue", [arg] ->
         match t with
         | Enum e -> EnumConstant(arg, e) |> makeValue r |> Some
