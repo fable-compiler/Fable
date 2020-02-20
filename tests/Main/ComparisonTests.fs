@@ -5,6 +5,7 @@ open Util.Testing
 open Fable.Tests.Util
 open Fable.Core.JsInterop
 open System.Collections.Generic
+open FSharp.Data.UnitSystems.SI.UnitSymbols
 
 type UTest = A of int | B of int
 type RTest = { a: int; b: int }
@@ -535,4 +536,32 @@ let tests =
         LanguagePrimitives.PhysicalEquality "2" "3" |> equal false
         LanguagePrimitives.PhysicalEquality [1] [1] |> equal false
         LanguagePrimitives.PhysicalEquality [2] [3] |> equal false
+
+    testCase "LanguagePrimitives.SByteWithMeasure works" <| fun () ->
+        let distance: sbyte<m> = LanguagePrimitives.SByteWithMeasure 1y
+        distance |> equal 1y<m>
+
+    testCase "LanguagePrimitives.Int16WithMeasure works" <| fun () ->
+        let distance: int16<m> = LanguagePrimitives.Int16WithMeasure 1s
+        distance |> equal 1s<m>
+
+    testCase "LanguagePrimitives.Int32WithMeasure works" <| fun () ->
+        let distance: int<m> = LanguagePrimitives.Int32WithMeasure 1
+        distance |> equal 1<m>
+
+    testCase "LanguagePrimitives.Int64WithMeasure works" <| fun () ->
+        let distance: int64<m> = LanguagePrimitives.Int64WithMeasure 1L
+        distance |> equal 1L<m>
+
+    testCase "LanguagePrimitives.Float32WithMeasure works" <| fun () ->
+        let distance: float32<m> = LanguagePrimitives.Float32WithMeasure 1.0f
+        distance |> equal 1.0f<m>
+
+    testCase "LanguagePrimitives.FloatWithMeasure works" <| fun () ->
+        let distance: float<m> = LanguagePrimitives.FloatWithMeasure 1.0
+        distance |> equal 1.0<m>
+
+    testCase "LanguagePrimitives.DecimalWithMeasure works" <| fun () ->
+        let distance: decimal<m> = LanguagePrimitives.DecimalWithMeasure 1.0m
+        distance |> equal 1.0m<m>
   ]
