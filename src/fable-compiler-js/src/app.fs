@@ -25,7 +25,7 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
         failwith "Too many errors."
 
 let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
-    { typedArrays = true
+    { typedArrays = not (options.typeDecls)
       clampByteArrays = false
       typeDecls = options.typeDecls
       precompiledLib = None }
