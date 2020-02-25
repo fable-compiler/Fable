@@ -294,8 +294,8 @@ let tests =
 
     testCase "Seq.isEmpty works" <| fun () ->
         let xs = [1]
-        Seq.isEmpty xs
-        |> equal false
+        Seq.isEmpty xs |> equal false
+        Seq.isEmpty [] |> equal true
 
     testCase "Seq.iter works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
@@ -550,8 +550,13 @@ let tests =
     testCase "Seq.scan works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
         let ys = xs |> Seq.scan (+) 0.
-        sumFirstTwo ys
-        |> equal 1.
+        sumFirstTwo ys |> equal 1.
+
+    testCase "Seq.scan works with empty input" <| fun () ->
+        let xs = Seq.empty
+        let ys = xs |> Seq.scan (+) 3
+        Seq.head ys |> equal 3
+        Seq.length ys |> equal 1
 
     testCase "Seq.sort works" <| fun () ->
         let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq

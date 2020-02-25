@@ -538,29 +538,38 @@ export function mapFoldBack<T, ST, R>(
   return transform !== void 0 ? [transform(result), acc] : [result, acc];
 }
 
-export function max<T extends number>(xs: Iterable<T>, comparer?: IComparer<T>) {
+export function max<T>(xs: Iterable<T>, comparer?: IComparer<T>) {
   const compareFn = comparer != null ? comparer.Compare : compare;
   return reduce((acc: T, x: T) => compareFn(acc, x) === 1 ? acc : x, xs);
 }
 
-export function maxBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>, comparer?: IComparer<U>) {
+export function maxBy<T, U>(f: (x: T) => U, xs: Iterable<T>, comparer?: IComparer<U>) {
   const compareFn = comparer != null ? comparer.Compare : compare;
   return reduce((acc: T, x: T) => compareFn(f(acc), f(x)) === 1 ? acc : x, xs);
 }
 
-export function min<T extends number>(xs: Iterable<T>, comparer?: IComparer<T>) {
+export function min<T>(xs: Iterable<T>, comparer?: IComparer<T>) {
   const compareFn = comparer != null ? comparer.Compare : compare;
   return reduce((acc: T, x: T) => compareFn(acc, x) === -1 ? acc : x, xs);
 }
 
-export function minBy<T, U extends number>(f: (x: T) => U, xs: Iterable<T>, comparer?: IComparer<U>) {
+export function minBy<T, U>(f: (x: T) => U, xs: Iterable<T>, comparer?: IComparer<U>) {
   const compareFn = comparer != null ? comparer.Compare : compare;
   return reduce((acc: T, x: T) => compareFn(f(acc), f(x)) === -1 ? acc : x, xs);
 }
 
-export function pairwise<T extends number>(xs: Iterable<T>) {
-  const res = Array.from(scan((last, next) => [last[1], next], [0, 0], xs));
-  return res.length < 2 ? [] : skip(2, res);
+export function pairwise<T>(xs: Iterable<T>): Iterable<T[]> {
+  return delay(() => {
+    const iter = xs[Symbol.iterator]();
+    const cur = iter.next();
+    if (cur.done) {
+      return empty<T[]>();
+    }
+    const hd = cur.value;
+    const tl = tail(xs);
+    const ys = scan((last: T[], next) => [last[1], next], [hd, hd], tl);
+    return skip(1, ys);
+  });
 }
 
 export function rangeChar(first: string, last: string) {
