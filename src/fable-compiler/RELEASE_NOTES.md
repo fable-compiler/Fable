@@ -1,3 +1,7 @@
+### 2.4.16
+
+* PR #1984: Minor update to fable-library, rewrite `Seq.pairwise` implementation (by @ncave)
+
 ### 2.4.15
 
 * Fix #1979: Add support for LanguagePrimitives.xxxWithMeasure (by @ncave)
