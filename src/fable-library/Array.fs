@@ -348,7 +348,7 @@ let pairwise (array: 'T[]) =
         let count = array.Length - 1
         let result = newDynamicArrayImpl count
         for i = 0 to count - 1 do
-            result.[i] <-  array.[i], array.[i+1]
+            result.[i] <- array.[i], array.[i+1]
         result
 
 let replicate count initial ([<Inject>] cons: IArrayCons<'T>) =
