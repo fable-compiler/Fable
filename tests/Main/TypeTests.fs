@@ -1,4 +1,4 @@
-﻿module Fable.Tests.TypeTests
+module Fable.Tests.TypeTests
 
 open System
 open Util.Testing
@@ -279,6 +279,12 @@ type Test_TestTypeWithParameterizedUnitMeasure = {
 }
 
 // -------------------------------------------------------------
+
+// Tested ported from https://github.com/fable-compiler/Fable/pull/1336/files
+type TestTypeWithDefaultValue() =
+    [<DefaultValue>] val mutable IntValue: int
+    [<DefaultValue>] val mutable StringValue: string
+    [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
 
 type Default1 = int
 
@@ -669,4 +675,18 @@ let tests =
     testCase "Issue #1975: Compile type with parameterized units of measure as generic" <| fun () ->
         let a = makeTestTypeWithParameterizedUnitMeasureType 2.
         equal 2. a.Value
+
+    // Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
+    testCase "default value attributes works" <| fun _ ->
+        let withDefaultValue = TestTypeWithDefaultValue()
+
+        withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
+        withDefaultValue.IntValue |> equal 0
+
+        withDefaultValue.StringValue |> equal Unchecked.defaultof<string>
+        withDefaultValue.StringValue |> equal null
+
+        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
+        withDefaultValue.ObjValue |> equal null
+
   ]
