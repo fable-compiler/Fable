@@ -558,16 +558,16 @@ export function minBy<T, U>(f: (x: T) => U, xs: Iterable<T>, comparer?: ICompare
   return reduce((acc: T, x: T) => compareFn(f(acc), f(x)) === -1 ? acc : x, xs);
 }
 
-export function pairwise<T>(xs: Iterable<T>): Iterable<T[]> {
+export function pairwise<T>(xs: Iterable<T>): Iterable<[T, T]> {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
     const cur = iter.next();
     if (cur.done) {
-      return empty<T[]>();
+      return empty<[T, T]>();
     }
     const hd = cur.value;
     const tl = tail(xs);
-    const ys = scan((last: T[], next) => [last[1], next], [hd, hd], tl);
+    const ys = scan<T, [T, T]>(([_, last], next) => [last, next], [hd, hd], tl);
     return skip(1, ys);
   });
 }

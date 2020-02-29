@@ -115,8 +115,8 @@ export function containsValue<K, V>(v: V, map: Map<K, V>) {
   return false;
 }
 
-export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V): [boolean, V] {
-  return map.has(key) ? [true, map.get(key) as V] : [false, defaultValue];
+export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V | null): [boolean, V] {
+  return map.has(key) ? [true, map.get(key) as V] : [false, defaultValue as V];
 }
 
 export function addToSet<T>(v: T, set: Set<T>) {
