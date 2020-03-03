@@ -1904,7 +1904,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
     | ("OfObj" | "OfNullable"), [c] -> TypeCast(c, t) |> Some
     | ("ToObj" | "ToNullable" | "Flatten"), [c] ->
-        Helper.CoreCall("Option", "value", t, [c; makeBoolConst true], ?loc=r) |> Some
+        Helper.CoreCall("Option", "tryValue", t, args, ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
     | ("Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
@@ -2044,6 +2044,9 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | Decimal -> toDecimal com ctx r t args |> Some
             | BigInt -> None
         | _ -> None
+    | None, "DivRem" ->
+        let args = List.take 2 args // implementation takes 2 args, ignore the third arg
+        Helper.CoreCall("BigInt", "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth when meth.StartsWith("get_") ->
         Helper.CoreValue("BigInt", meth, t) |> Some
     | callee, meth ->

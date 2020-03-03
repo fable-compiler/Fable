@@ -10,7 +10,7 @@
     "build-dotnet-opt": "dotnet run -c Release bench-compiler.fsproj out-node --optimize-fcs && npm run build-transform",
     "build-transform": "node transform bench-compiler.fsproj out-node ../../../../build/fable-library --sourceMaps",
     "postbuild-transform": "npm run rollup-bundle",
-    "build-node": "node dist/bundle.min.js bench-compiler.fsproj out-node2 && npm run build-node-transform",
+    "build-node": "node dist/bundle.js bench-compiler.fsproj out-node2 && npm run build-node-transform",
     "build-node-es": "node out-node/app.js bench-compiler.fsproj out-node2 && npm run build-node-transform",
     "build-node-transform": "node transform bench-compiler.fsproj out-node2 ../../../../build/fable-library --sourceMaps",
     "compile-native": "dotnet publish -c Release -r win-x64",

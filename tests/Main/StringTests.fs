@@ -183,6 +183,18 @@ let tests =
             sprintf "%A" o |> ignore
       #endif
 
+      testCase "sprintf \"%A\" with lists works" <| fun () ->
+            let xs = ["Hi"; "Hello"; "Hola"]
+            (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+
+      testCase "sprintf \"%A\" with nested lists works" <| fun () ->
+            let xs = [["Hi"]; ["Hello"]; ["Hola"]]
+            (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+
+      testCase "sprintf \"%A\" with sequences works" <| fun () ->
+            let xs = seq { "Hi"; "Hello"; "Hola" }
+            (sprintf "%A" xs).Replace("\"", "") |> equal "seq [Hi; Hello; Hola]"
+
       testCase "sprintf \"%X\" works" <| fun () ->
             //These should all be the Native JS Versions (except int64 / uint64)
             //See #1530 for more information.

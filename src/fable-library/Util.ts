@@ -115,8 +115,8 @@ export function containsValue<K, V>(v: V, map: Map<K, V>) {
   return false;
 }
 
-export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V): [boolean, V | undefined] {
-  return map.has(key) ? [true, map.get(key)] : [false, defaultValue];
+export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V | null): [boolean, V] {
+  return map.has(key) ? [true, map.get(key) as V] : [false, defaultValue as V];
 }
 
 export function addToSet<T>(v: T, set: Set<T>) {
@@ -728,9 +728,9 @@ export function addToDict<K, V>(dict: Map<K, V>, k: K, v: V) {
   dict.set(k, v);
 }
 
-export function getItemFromDict<K, V>(map: Map<K, V>, key: K): V | undefined {
+export function getItemFromDict<K, V>(map: Map<K, V>, key: K) {
   if (map.has(key)) {
-    return map.get(key);
+    return map.get(key) as V;
   } else {
     throw new Error(`The given key '${key}' was not present in the dictionary.`);
   }

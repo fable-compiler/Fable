@@ -73,6 +73,14 @@ function __failIfNone<T>(res: Option<T>) {
   return value(res);
 }
 
+function makeSeq<T>(f: () => Iterator<T>): Iterable<T> {
+  const seq = {
+    [Symbol.iterator]: f,
+    toString: () => "seq [" + Array.from(seq).join("; ") + "]",
+  };
+  return seq;
+}
+
 export function ofArray<T>(xs: ArrayLike<T>) {
   return delay(() => unfold((i) => i != null && i < xs.length ? [xs[i], i + 1] : null, 0));
 }
@@ -189,9 +197,7 @@ export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: I
 }
 
 export function delay<T>(f: () => Iterable<T>): Iterable<T> {
-  return {
-    [Symbol.iterator]: () => f()[Symbol.iterator](),
-  };
+  return makeSeq(() => f()[Symbol.iterator]());
 }
 
 export function empty<T>(): Iterable<T> {
@@ -558,16 +564,16 @@ export function minBy<T, U>(f: (x: T) => U, xs: Iterable<T>, comparer?: ICompare
   return reduce((acc: T, x: T) => compareFn(f(acc), f(x)) === -1 ? acc : x, xs);
 }
 
-export function pairwise<T>(xs: Iterable<T>): Iterable<T[]> {
+export function pairwise<T>(xs: Iterable<T>): Iterable<[T, T]> {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
     const cur = iter.next();
     if (cur.done) {
-      return empty<T[]>();
+      return empty<[T, T]>();
     }
     const hd = cur.value;
     const tl = tail(xs);
-    const ys = scan((last: T[], next) => [last[1], next], [hd, hd], tl);
+    const ys = scan<T, [T, T]>(([_, last], next) => [last, next], [hd, hd], tl);
     return skip(1, ys);
   });
 }
@@ -664,17 +670,15 @@ export function singleton<T>(y: T): Iterable<T> {
 }
 
 export function skip<T>(n: number, xs: Iterable<T>): Iterable<T> {
-  return {
-    [Symbol.iterator]: () => {
-      const iter = xs[Symbol.iterator]();
-      for (let i = 1; i <= n; i++) {
-        if (iter.next().done) {
-          throw new Error("Seq has not enough elements");
-        }
+  return makeSeq(() => {
+    const iter = xs[Symbol.iterator]();
+    for (let i = 1; i <= n; i++) {
+      if (iter.next().done) {
+        throw new Error("Seq has not enough elements");
       }
-      return iter;
-    },
-  };
+    }
+    return iter;
+  });
 }
 
 export function skipWhile<T>(f: (x: T) => boolean, xs: Iterable<T>) {
@@ -703,9 +707,7 @@ export function tail<T>(xs: Iterable<T>): Iterable<T> {
   if (cur.done) {
     throw new Error("Seq was empty");
   }
-  return {
-    [Symbol.iterator]: () => iter,
-  };
+  return makeSeq(() => iter);
 }
 
 export function take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
@@ -819,27 +821,25 @@ export function pick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>) 
 }
 
 export function unfold<T, ST>(f: (st: ST) => Option<[T, ST]>, fst: ST): Iterable<T> {
-  return {
-    [Symbol.iterator]: () => {
-      // Capture a copy of the first value in the closure
-      // so the sequence is restarted every time, see #1230
-      let acc = fst;
-      const iter: Iterator<T> = {
-        next: () => {
-          const res = f(acc);
-          if (res != null) {
-            const v = value(res);
-            if (v != null) {
-              acc = v[1];
-              return { done: false, value: v[0] };
-            }
+  return makeSeq(() => {
+    // Capture a copy of the first value in the closure
+    // so the sequence is restarted every time, see #1230
+    let acc = fst;
+    const iter: Iterator<T> = {
+      next: () => {
+        const res = f(acc);
+        if (res != null) {
+          const v = value(res);
+          if (v != null) {
+            acc = v[1];
+            return { done: false, value: v[0] };
           }
-          return { done: true, value: undefined };
-        },
-      };
-      return iter;
-    },
-  };
+        }
+        return { done: true, value: undefined };
+      },
+    };
+    return iter;
+  });
 }
 
 export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {
@@ -854,54 +854,50 @@ export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T
   if (windowSize <= 0) {
     throw new Error("windowSize must be positive");
   }
-  return {
-    [Symbol.iterator]: () => {
-      let window: T[] = [];
-      const iter = source[Symbol.iterator]();
-      const iter2: Iterator<T[]> = {
-        next: () => {
-          let cur: IteratorResult<T>;
-          while (window.length < windowSize) {
-            if ((cur = iter.next()).done) {
-              return { done: true, value: undefined };
-            }
-            window.push(cur.value);
+  return makeSeq(() => {
+    let window: T[] = [];
+    const iter = source[Symbol.iterator]();
+    const iter2: Iterator<T[]> = {
+      next: () => {
+        let cur: IteratorResult<T>;
+        while (window.length < windowSize) {
+          if ((cur = iter.next()).done) {
+            return { done: true, value: undefined };
           }
-          const value = window;
-          window = window.slice(1);
-          return { done: false, value };
-        },
-      };
-      return iter2;
-    },
-  };
+          window.push(cur.value);
+        }
+        const value = window;
+        window = window.slice(1);
+        return { done: false, value };
+      },
+    };
+    return iter2;
+  });
 }
 
 export function transpose<T>(source: Iterable<Iterable<T>>): Iterable<Iterable<T>> {
-  return {
-    [Symbol.iterator]: () => {
-      const iters = Array.from(source, (x) => x[Symbol.iterator]());
-      const iter: Iterator<Iterable<T>> = {
-        next: () => {
-          if (iters.length === 0) {
-            return { done: true, value: undefined }; // empty sequence
+  return makeSeq(() => {
+    const iters = Array.from(source, (x) => x[Symbol.iterator]());
+    const iter: Iterator<Iterable<T>> = {
+      next: () => {
+        if (iters.length === 0) {
+          return { done: true, value: undefined }; // empty sequence
+        }
+        const results = Array.from(iters, (iter) => iter.next());
+        if (results[0].done) {
+          if (!results.every((x) => x.done)) {
+            throw new Error("Sequences have different lengths");
           }
-          const results = Array.from(iters, (iter) => iter.next());
-          if (results[0].done) {
-            if (!results.every((x) => x.done)) {
-              throw new Error("Sequences have different lengths");
-            }
-            return { done: true, value: undefined };
-          } else {
-            if (!results.every((x) => !x.done)) {
-              throw new Error("Sequences have different lengths");
-            }
-            const values: T[] = results.map((x) => x.value);
-            return { done: false, value: values };
+          return { done: true, value: undefined };
+        } else {
+          if (!results.every((x) => !x.done)) {
+            throw new Error("Sequences have different lengths");
           }
-        },
-      };
-      return iter;
-    },
-  };
+          const values: T[] = results.map((x) => x.value);
+          return { done: false, value: values };
+        }
+      },
+    };
+    return iter;
+  });
 }
