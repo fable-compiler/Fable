@@ -1,3 +1,8 @@
+### 2.4.17
+
+* Fix #1988: Allow to use `printfn "%A"` against `seq` (by @ncave)
+* Minor update to fable-library (by @ncave)
+
 ### 2.4.16
 
 * PR #1984: Minor update to fable-library, rewrite `Seq.pairwise` implementation (by @ncave)
