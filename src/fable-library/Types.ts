@@ -85,7 +85,7 @@ export class List<T> implements SystemObject, IComparable, Iterable<T> {
   }
 
   public toString() {
-    return "[" + Array.from(this).map((x) => String(x)).join("; ") + "]";
+    return "[" + Array.from(this).join("; ") + "]";
   }
 
   public toJSON() {
