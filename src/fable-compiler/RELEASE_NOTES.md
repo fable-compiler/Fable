@@ -1,3 +1,8 @@
+### 2.4.18
+
+* Minor update to fable-library (by @ncave)
+* Minor update to Replacements.fs making it easier to read some methods (by @ncave)
+
 ### 2.4.17
 
 * Fix #1988: Allow to use `printfn "%A"` against `seq` (by @ncave)
