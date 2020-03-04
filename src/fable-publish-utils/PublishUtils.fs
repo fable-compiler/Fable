@@ -373,6 +373,11 @@ module Publish =
             (JS.JSON.parse json)?version |> Option.ofObj
         let releaseVersion = loadReleaseVersion projDir
         if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
+            let nugetKey =
+                match envVarOrNone "NPM_TOKEN" with
+                | Some nugetKey -> nugetKey
+                | None -> failwith "The npm token key must be set in a NPM_TOKEN environmental variable"
+            runInDir projDir @"npm config set '//registry.npmjs.org/:_authToken' ""${NPM_TOKEN}"""
             buildAction()
             bumpNpmVersion projDir releaseVersion
             try
