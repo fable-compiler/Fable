@@ -1,6 +1,6 @@
 export type MatchEvaluator = (match: any) => string;
 
-export function create(pattern: string, options: number) {
+export function create(pattern: string, options: number = 0) {
   // Supported RegexOptions
   // * IgnoreCase:  0x0001
   // * Multiline:   0x0002

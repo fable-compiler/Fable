@@ -842,11 +842,11 @@ export function unfold<T, ST>(f: (st: ST) => Option<[T, ST]>, fst: ST): Iterable
   });
 }
 
-export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>) {
+export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): Iterable<[T1, T2]> {
   return map2((x, y) => [x, y], xs, ys);
 }
 
-export function zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>) {
+export function zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>): Iterable<[T1, T2, T3]> {
   return map3((x, y, z) => [x, y, z], xs, ys, zs);
 }
 

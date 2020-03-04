@@ -1,5 +1,5 @@
 import { IObservable, IObserver, Observer, protect } from "./Observable";
-import { Option, some, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
+import { Choice, Option, some, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
 import { iterate as seqIterate } from "./Seq";
 import { IDisposable } from "./Util";
 
@@ -102,14 +102,14 @@ export function add<T>(callback: (x: T) => void, sourceEvent: IEvent<T>) {
 
 export function choose<T, U>(chooser: (x: T) => Option<U>, sourceEvent: IEvent<T>) {
   const source = sourceEvent as Event<T>;
-  return new Event<U | null>((observer) =>
+  return new Event<U>((observer) =>
     source.Subscribe(new Observer<T>((t) =>
       protect(
         () => chooser(t),
         (u) => { if (u != null) { observer.OnNext(value(u)); } },
         observer.OnError),
       observer.OnError, observer.OnCompleted)),
-    source.delegates) as IEvent<U>;
+    source.delegates);
 }
 
 export function filter<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
@@ -125,7 +125,7 @@ export function map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {
         observer.OnNext,
         observer.OnError),
       observer.OnError, observer.OnCompleted)),
-    source.delegates) as IEvent<U>;
+    source.delegates);
 }
 
 export function merge<T>(event1: IEvent<T>, event2: IEvent<T>) {
@@ -178,7 +178,7 @@ export function merge<T>(event1: IEvent<T>, event2: IEvent<T>) {
         h2.Dispose();
       },
     } as IDisposable;
-  }, source1.delegates.concat(source2.delegates)) as IEvent<T>;
+  }, source1.delegates.concat(source2.delegates));
 }
 
 export function pairwise<T>(sourceEvent: IEvent<T>) {
@@ -191,10 +191,10 @@ export function pairwise<T>(sourceEvent: IEvent<T>) {
       }
       last = next;
     }, observer.OnError, observer.OnCompleted));
-  }, source.delegates) as IEvent<[T, T]>;
+  }, source.delegates);
 }
 
-export function partition<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
+export function partition<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>): [IEvent<T>, IEvent<T>] {
   return [filter(predicate, sourceEvent), filter((x) => !predicate(x), sourceEvent)];
 }
 
@@ -207,10 +207,10 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: 
         (u) => { state = u; observer.OnNext(u); },
         observer.OnError);
     }, observer.OnError, observer.OnCompleted));
-  }, source.delegates) as IEvent<U>;
+  }, source.delegates);
 }
 
-export function split<T, _U1, _U2>(splitter: (x: T) => /* Choice<U1, U2> */ any, sourceEvent: IEvent<T>) {
+export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>): [IEvent<T>, IEvent<T>] {
   return [
     choose((v) => tryValueIfChoice1(splitter(v)), sourceEvent),
     choose((v) => tryValueIfChoice2(splitter(v)), sourceEvent),

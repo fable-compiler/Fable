@@ -1704,16 +1704,14 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Clear", Some ar, _ ->
         Helper.CoreCall("Util", "clear", t, [ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
-        Helper.CoreCall("Option", "value", t,
-          [ Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof com ctx t], ?loc=r)
-            Value(BoolConstant true, None) ], ?loc=r) |> Some
+        let opt = Helper.CoreCall("Seq", "tryFind", t, [arg; ar; defaultof com ctx t], ?loc=r)
+        Helper.CoreCall("Option", "value", t, [opt], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
         let left = Helper.InstanceCall(ar, "findIndex", Number Int32, [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
-        Helper.CoreCall("Option", "value", t,
-          [ Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof com ctx t], ?loc=r)
-            Value(BoolConstant true, None) ], ?loc=r) |> Some
+        let opt = Helper.CoreCall("Seq", "tryFindBack", t, [arg; ar; defaultof com ctx t], ?loc=r)
+        Helper.CoreCall("Option", "value", t, [opt], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
         Helper.CoreCall("Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
     | "AddRange", Some ar, [arg] ->
@@ -2471,7 +2469,9 @@ let dates (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option)
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
-    | ".ctor" -> Helper.CoreCall("TimeSpan", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | ".ctor" ->
+        let meth = match args with [ticks] -> "fromTicks" | _ -> "create"
+        Helper.CoreCall("TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
     | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
     | "ToString" when (args.Length = 1) ->

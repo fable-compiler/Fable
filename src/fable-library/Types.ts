@@ -32,6 +32,14 @@ export function declare(cons: any, superClass?: any) {
   return cons;
 }
 
+export interface IEquatable {
+  Equals(other: any): boolean;
+}
+
+export interface IHashable {
+  GetHashCode(): number;
+}
+
 export interface IComparable {
   CompareTo(other: any): number;
 }
