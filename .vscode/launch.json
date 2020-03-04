@@ -48,7 +48,7 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "bench-compile tests (Node)",
+            "name": "bench-compile (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
@@ -57,7 +57,7 @@
         {
             "type": "coreclr",
             "request": "launch",
-            "name": "bench-compile tests (.NET)",
+            "name": "bench-compile (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],

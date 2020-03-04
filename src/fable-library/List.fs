@@ -491,21 +491,12 @@ let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityCompa
     keys |> iterate (fun key -> result <- (key, dict.[key]) :: result)
     result
 
-let where predicate xs = filter predicate xs
+let where predicate source =
+    filter predicate source
 
-let pairwise xs =
-    let rec inner xs acc x1 =
-        match xs with
-        | [] -> ofArray acc
-        | x2::xs ->
-            acc.Add((x1, x2))
-            inner xs acc x2
-    match xs with
-    | [] | [_] -> []
-    | x1::x2::xs ->
-        let acc = ResizeArray()
-        acc.Add((x1, x2))
-        inner xs acc x2
+let pairwise source =
+    Seq.pairwise source
+    |> ofSeq
 
 let windowed (windowSize: int) (source: 'T list): 'T list list =
     if windowSize <= 0 then

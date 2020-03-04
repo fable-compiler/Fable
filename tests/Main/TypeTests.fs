@@ -1,4 +1,4 @@
-﻿module Fable.Tests.TypeTests
+module Fable.Tests.TypeTests
 
 open System
 open Util.Testing
@@ -257,6 +257,34 @@ type DowncastTest(value: int) =
 type TypeWithClassAttribute =
     val Pos : int
     new (pos) = { Pos=pos }
+
+// -------------------------------------------------------------
+// Issue #1975: https://github.com/fable-compiler/Fable/issues/1975
+// In previous version of Fable, using type with parameterized units of measure was causing an endless loops in the compiler
+
+type TestTypeWithParameterizedUnitMeasure<[<Measure>] 't> =
+    private | TestTypeWithParameterizedUnitMeasureType of float<'t>
+
+    member this.Value =
+        match this with
+        | TestTypeWithParameterizedUnitMeasureType value -> value
+
+let makeTestTypeWithParameterizedUnitMeasureType (value: float<_>) : TestTypeWithParameterizedUnitMeasure<_> =
+    TestTypeWithParameterizedUnitMeasureType value
+
+open FSharp.Data.UnitSystems.SI.UnitSymbols
+
+type Test_TestTypeWithParameterizedUnitMeasure = {
+    Field: TestTypeWithParameterizedUnitMeasure<m>
+}
+
+// -------------------------------------------------------------
+
+// Tested ported from https://github.com/fable-compiler/Fable/pull/1336/files
+type TestTypeWithDefaultValue() =
+    [<DefaultValue>] val mutable IntValue: int
+    [<DefaultValue>] val mutable StringValue: string
+    [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
 
 type Default1 = int
 
@@ -643,4 +671,22 @@ let tests =
     testCase "ClassAttribute works" <| fun () -> // See #573
         let t1 = TypeWithClassAttribute(8)
         t1.Pos |> equal 8
+
+    testCase "Issue #1975: Compile type with parameterized units of measure as generic" <| fun () ->
+        let a = makeTestTypeWithParameterizedUnitMeasureType 2.
+        equal 2. a.Value
+
+    // Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
+    testCase "default value attributes works" <| fun _ ->
+        let withDefaultValue = TestTypeWithDefaultValue()
+
+        withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
+        withDefaultValue.IntValue |> equal 0
+
+        withDefaultValue.StringValue |> equal Unchecked.defaultof<string>
+        withDefaultValue.StringValue |> equal null
+
+        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
+        withDefaultValue.ObjValue |> equal null
+
   ]

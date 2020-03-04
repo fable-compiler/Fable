@@ -65,7 +65,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
     member this.Add(k, v) =
         match this.TryFindIndex(k) with
         | true, h, i when i > -1 ->
-            let msg = sprintf "An item with the same key has already been added. Key: %A" k
+            let msg = System.String.Format("An item with the same key has already been added. Key: {0}", k)
             raise (System.ArgumentException(msg))
         | true, h, _ ->
             hashMap.[h].Add(KeyValuePair(k, v)) |> ignore // append

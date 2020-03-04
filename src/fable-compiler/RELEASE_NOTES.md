@@ -1,3 +1,23 @@
+### 2.4.17
+
+* Fix #1988: Allow to use `printfn "%A"` against `seq` (by @ncave)
+* Minor update to fable-library (by @ncave)
+
+### 2.4.16
+
+* PR #1984: Minor update to fable-library, rewrite `Seq.pairwise` implementation (by @ncave)
+
+### 2.4.15
+
+* Fix #1979: Add support for LanguagePrimitives.xxxWithMeasure (by @ncave)
+
+### 2.4.14
+
+* Fix #1975: Fix endless loop (by @ncave)
+* Made ResizeArray.Add void (by @ncave)
+* Updated option and numeric types (by @ncave)
+* Minor update to fable-library (by @ncave)
+
 ### 2.4.13
 
 * Use strict mode in fable-library

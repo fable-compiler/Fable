@@ -1,9 +1,9 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
+# Visual Studio 15 
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Quicktest", "src\quicktest\Quicktest.fsproj", "{661A1972-0D06-46E8-958C-55325E5D520C}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Quicktest", "src\quicktest\QuickTest.fsproj", "{661A1972-0D06-46E8-958C-55325E5D520C}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Transforms", "src\Fable.Transforms\Fable.Transforms.fsproj", "{E55F3DA2-86B7-4E73-9700-EC6490043268}"
 EndProject

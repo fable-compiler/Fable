@@ -75,47 +75,48 @@ function compareList<T>(self: List<T>, other: List<T>) {
   }
 }
 
-export interface List<T> extends SystemObject, IComparable, Iterable<T> {
-  head?: T;
-  tail?: List<T>;
+export class List<T> implements SystemObject, IComparable, Iterable<T> {
+  public head: T;
+  public tail?: List<T>;
+
+  constructor(head?: T, tail?: List<T>) {
+    this.head = head as T;
+    this.tail = tail;
+  }
+
+  public toString() {
+    return "[" + Array.from(this).join("; ") + "]";
+  }
+
+  public toJSON() {
+    return Array.from(this);
+  }
+
+  public [Symbol.iterator](): Iterator<T> {
+    let cur: List<T> | undefined = this;
+    return {
+      next: (): IteratorResult<T> => {
+        const value = cur?.head as T;
+        const done = cur?.tail == null;
+        cur = cur?.tail;
+        return { done, value };
+      },
+    };
+  }
+
+  public GetHashCode() {
+    const hashes = Array.from(this).map(structuralHash);
+    return combineHashCodes(hashes);
+  }
+
+  public Equals(other: List<T>): boolean {
+    return compareList(this, other) === 0;
+  }
+
+  public CompareTo(other: List<T>): number {
+    return compareList(this, other);
+  }
 }
-
-export function List<T>(this: List<T>, head?: T, tail?: List<T>) {
-  this.head = head;
-  this.tail = tail;
-}
-
-List.prototype.toString = function () {
-  return "[" + Array.from(this).map((x) => String(x)).join("; ") + "]";
-};
-
-List.prototype.toJSON = function () {
-  return Array.from(this);
-};
-
-List.prototype[Symbol.iterator] = function () {
-  let cur = this;
-  return {
-    next: () => {
-      const tmp = cur;
-      cur = cur.tail;
-      return { done: tmp.tail == null, value: tmp.head };
-    },
-  };
-};
-
-List.prototype.GetHashCode = function () {
-  const hashes = Array.from(this).map(structuralHash);
-  return combineHashCodes(hashes);
-};
-
-List.prototype.Equals = function (other: any) {
-  return compareList(this, other) === 0;
-};
-
-List.prototype.CompareTo = function (other: any) {
-  return compareList(this, other);
-};
 
 export interface Union extends SystemObject, IComparable {
   tag: number;
@@ -245,11 +246,11 @@ export function anonRecord(o: any) {
   return Object.assign(Object.create(Record.prototype), o);
 }
 
-export interface FSharpRef extends Record {
-  contents: any;
+export interface FSharpRef<T> extends Record {
+  contents: T;
 }
 
-export const FSharpRef = declare(function FSharpRef(this: FSharpRef, contents: any) {
+export const FSharpRef = declare(function FSharpRef<T>(this: FSharpRef<T>, contents: T) {
   this.contents = contents;
 }, Record);
 

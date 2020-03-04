@@ -408,7 +408,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> makeLoop (makeRangeFrom fsExpr)
 
     // Values
-    | BasicPatterns.Const(value, FableType com ctx typ) ->
+    | BasicPatterns.Const(value, typ) ->
+        let typ = nonAbbreviatedType typ
+        let typ = makeType com ctx.GenericArgs typ
         return Replacements.makeTypeConst (makeRangeFrom fsExpr) typ value
 
     | BasicPatterns.BaseValue typ ->
