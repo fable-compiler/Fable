@@ -113,7 +113,7 @@ function dateToStringWithKind(date: IDateTime, format?: string) {
   }
 }
 
-export function toString(date: IDateTime | IDateTimeOffset, format?: string) {
+export function toString(date: IDateTime | IDateTimeOffset, format?: string, _provider?: any) {
   return (date as IDateTimeOffset).offset != null
     ? dateToStringWithOffset(date, format)
     : dateToStringWithKind(date, format);
@@ -225,7 +225,7 @@ export function parse(str: string, detectUTC = false): IDateTime {
   return DateTime(date.getTime(), kind);
 }
 
-export function tryParse(v: string): [boolean, IDateTime] {
+export function tryParse(v: string, _refValue?: any): [boolean, IDateTime] {
   try {
     // if value is null or whitespace, parsing fails
     if (v == null || v.trim() === "") {
@@ -404,7 +404,9 @@ export function addMonths(d: IDateTime, v: number) {
 }
 
 export function subtract(d: IDateTime, that: IDateTime | number) {
-  return typeof that === "number" ? add(d, -that) : d.getTime() - that.getTime();
+  return typeof that === "number"
+    ? add(d, -that)
+    : d.getTime() - that.getTime();
 }
 
 export function toLongDateString(d: IDateTime) {
@@ -434,7 +436,7 @@ export function op_Addition(x: IDateTime, y: number) {
   return add(x, y);
 }
 
-export function op_Subtraction(x: IDateTime, y: number | Date) {
+export function op_Subtraction(x: IDateTime, y: number | IDateTime) {
   return subtract(x, y);
 }
 

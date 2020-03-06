@@ -112,7 +112,7 @@ export function duration(x: number) {
   return Math.abs(x);
 }
 
-export function toString(ts: number, format = "c") {
+export function toString(ts: number, format = "c", _provider?: any) {
   if (["c", "g", "G"].indexOf(format) === -1) {
     throw new Error("Custom formats are not supported");
   }
@@ -172,7 +172,7 @@ export function parse(str: string) {
   throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
 }
 
-export function tryParse(v: any): [boolean, number] {
+export function tryParse(v: string, _refValue?: any): [boolean, number] {
   try {
     return [true, parse(v)];
   } catch (_err) {

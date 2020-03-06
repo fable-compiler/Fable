@@ -66,7 +66,7 @@ export function parse(str: string): IDateTimeOffset {
   return DateTimeOffset(date.getTime(), offset);
 }
 
-export function tryParse(v: string): [boolean, IDateTimeOffset] {
+export function tryParse(v: string, _refValue?: any): [boolean, IDateTimeOffset] {
   try {
     return [true, parse(v)];
   } catch (_err) {
@@ -77,7 +77,7 @@ export function tryParse(v: string): [boolean, IDateTimeOffset] {
 export function create(
   year: number, month: number, day: number,
   h: number, m: number, s: number,
-  ms: number, offset: number) {
+  ms: number, offset?: number) {
   if (offset == null) {
     offset = ms;
     ms = 0;
