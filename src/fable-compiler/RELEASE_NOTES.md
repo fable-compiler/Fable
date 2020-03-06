@@ -1,3 +1,8 @@
+### 2.4.19
+
+* Fix #1991: Trait calls for Tuple getters don't work (by @ncave)
+* Minor update to fable-library (by @ncave)
+
 ### 2.4.18
 
 * Minor update to fable-library (by @ncave)
