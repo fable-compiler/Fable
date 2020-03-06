@@ -6,6 +6,7 @@ open Util.Testing
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
+open Fable.Core.DynamicExtensions
 open Fable.Core.Experimental
 
 [<Global>]
@@ -270,6 +271,13 @@ let tests =
         let style = createEmpty<TextStyle>
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
+
+    testCase "Assigning null with emit works" <| fun () ->
+        let x = createEmpty<obj>
+        x.["prop"] <- "prop value"
+        x.["prop"] |> isNull |> equal false
+        x.["prop"] <- null
+        x.["prop"] |> equal null
 
     testCase "Emit attribute conditional parameters works" <| fun () ->
         let style = createEmpty<TextStyle>
