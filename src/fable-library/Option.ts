@@ -66,8 +66,12 @@ export function tryValue<T>(x: Option<T>) {
   return x instanceof Some ? x.value : x;
 }
 
-export function defaultArg<T>(opt: Option<T>, defaultValue: T, f?: (arg: T) => T) {
-  return (opt != null) ? (f != null ? f(value(opt)) : value(opt)) : defaultValue;
+export function toArray<T>(opt: Option<T>) {
+  return (opt == null) ? [] : [value(opt)];
+}
+
+export function defaultArg<T>(opt: Option<T>, defaultValue: T) {
+  return (opt != null) ? value(opt) : defaultValue;
 }
 
 export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T) {

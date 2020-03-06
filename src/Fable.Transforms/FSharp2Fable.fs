@@ -115,13 +115,17 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
 
-    sourceTypes |> Seq.tryPick (fun t ->
-        match makeType com ctx.GenericArgs t with
+    sourceTypes |> Seq.tryPick (fun sourceType ->
+        let t = makeType com ctx.GenericArgs sourceType
+        match t with
         // Types with specific entry in Fable.AST
         // TODO: Check other types like booleans or numbers?
         | Fable.String ->
             let info = makeCallInfo traitName Types.string argTypes []
             Replacements.strings com ctx r typ info thisArg args
+        | Fable.Tuple genArgs ->
+            let info = makeCallInfo traitName (getTypeFullName false t) argTypes genArgs
+            Replacements.tuples com ctx r typ info thisArg args
         | Fable.Option genArg ->
             let info = makeCallInfo traitName Types.option argTypes [genArg]
             Replacements.options com ctx r typ info thisArg args

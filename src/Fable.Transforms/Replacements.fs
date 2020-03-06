@@ -1753,6 +1753,17 @@ let nativeArrayFunctions =
             "SortInPlace", "sort"
             "SortInPlaceWith", "sort" |]
 
+let tuples (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | "get_Item1", Some x -> Get(x, TupleGet 0, t, r) |> Some
+    | "get_Item2", Some x -> Get(x, TupleGet 1, t, r) |> Some
+    | "get_Item3", Some x -> Get(x, TupleGet 2, t, r) |> Some
+    | "get_Item4", Some x -> Get(x, TupleGet 3, t, r) |> Some
+    | "get_Item5", Some x -> Get(x, TupleGet 4, t, r) |> Some
+    | "get_Item6", Some x -> Get(x, TupleGet 5, t, r) |> Some
+    | "get_Item7", Some x -> Get(x, TupleGet 6, t, r) |> Some
+    | _ -> None
+
 let arrays (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Length", Some ar, _ -> get r t ar "length" |> Some
@@ -1890,13 +1901,7 @@ let options (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
 
 let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let toArray r t arg =
-        let ident = makeIdentUnique com "x"
-        let f =
-            [IdentExpr ident]
-            |> makeArray Any
-            |> makeDelegate [ident]
-        // Prevent functions being run twice, see #198
-        Helper.CoreCall("Option", "defaultArg", t, [arg; makeArray Any []; f], ?loc=r)
+        Helper.CoreCall("Option", "toArray", Array t, [arg], ?loc=r)
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t) |> makeValue r |> Some
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
@@ -1910,13 +1915,13 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     | "ToArray", [arg] ->
         toArray r t arg |> Some
     | "FoldBack", [folder; opt; state] ->
-        Helper.CoreCall("Seq", "foldBack", t, [folder; toArray None Any opt; state], i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.CoreCall("Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
     | ("DefaultValue" | "OrElse"), _ ->
         Helper.CoreCall("Option", "defaultArg", t, List.rev args, ?loc=r) |> Some
     | ("DefaultWith" | "OrElseWith"), _ ->
         Helper.CoreCall("Option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
     | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" | "ToList" as meth), _ ->
-        let args = args |> List.replaceLast (toArray None Any)
+        let args = args |> List.replaceLast (toArray None t)
         let moduleName, meth =
             if meth = "ToList"
             then "List", "ofArray"
@@ -1924,7 +1929,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
-let parse (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseCall meth str style =
         let kind =
             match i.DeclaringEntityFullName with
@@ -1992,7 +1997,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | "GetBits", _ ->
         Helper.CoreCall("Decimal", "getBits", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse"), _ ->
-        parse com ctx r t i thisArg args
+        parseNum com ctx r t i thisArg args
     | Operators.lessThan, [left; right] -> compareIf com r left right BinaryLess |> Some
     | Operators.lessThanOrEqual, [left; right] -> compareIf com r left right BinaryLessOrEqual |> Some
     | Operators.greaterThan, [left; right] -> compareIf com r left right BinaryGreater |> Some
@@ -2892,16 +2897,16 @@ let private replacedModules =
     Types.valueType, valueTypes
     "System.Enum", enums
     "System.BitConverter", bitConvert
-    Types.int8, parse
-    Types.uint8, parse
-    Types.int16, parse
-    Types.uint16, parse
-    Types.int32, parse
-    Types.uint32, parse
-    Types.int64, parse
-    Types.uint64, parse
-    Types.float32, parse
-    Types.float64, parse
+    Types.int8, parseNum
+    Types.uint8, parseNum
+    Types.int16, parseNum
+    Types.uint16, parseNum
+    Types.int32, parseNum
+    Types.uint32, parseNum
+    Types.int64, parseNum
+    Types.uint64, parseNum
+    Types.float32, parseNum
+    Types.float64, parseNum
     Types.decimal, decimals
     "System.Convert", convert
     "System.Console", console

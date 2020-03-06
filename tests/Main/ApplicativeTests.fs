@@ -389,6 +389,8 @@ let update (model: RecordA) action =
     | CheckboxChanged (id, value, lens) ->
         Optic.set (RecordA.RecordB_ >-> lens) value model
 
+type Item2 = static member inline Invoke value = (^t : (member Item2 : _) value)
+
 type Id = Id of string
 
 type Ideable =
@@ -500,6 +502,9 @@ let tests5 = [
         let input2, checkbox2 = view a2
         input2 |> equal "bar"
         checkbox2 |> equal true
+
+    testCase "Trait calls work with tuples" <| fun () ->
+        Item2.Invoke (1,2,3) |> equal 2
 
     testCase "Trait calls work with record fields" <| fun () ->
         let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
@@ -1112,7 +1117,7 @@ let private SomeFunction (s: string): string = s
 [<Fable.Core.Emit("$0.name")>]
 let private getName (f: obj) = failwith "JS only"
 
-let tests8 = 
+let tests8 =
     [
         #if FABLE_COMPILER
         testCase "Functions passed as parameters don't generate intermediate anonymous functions" <| fun () ->
