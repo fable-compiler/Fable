@@ -1762,6 +1762,7 @@ let tuples (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     | "get_Item5", Some x -> Get(x, TupleGet 4, t, r) |> Some
     | "get_Item6", Some x -> Get(x, TupleGet 5, t, r) |> Some
     | "get_Item7", Some x -> Get(x, TupleGet 6, t, r) |> Some
+    | "get_Rest", Some x -> Get(x, TupleGet 7, t, r) |> Some
     | _ -> None
 
 let arrays (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
