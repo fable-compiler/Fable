@@ -1,3 +1,7 @@
+### 2.4.20
+
+* Added missing `Tuple.Rest` (by @ncave)
+
 ### 2.4.19
 
 * Fix #1991: Trait calls for Tuple getters don't work (by @ncave)

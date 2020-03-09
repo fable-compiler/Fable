@@ -1,6 +1,6 @@
 {
   "name": "fable-loader",
-  "version": "2.1.8",
+  "version": "2.1.9",
   "main": "index.js",
   "description": "Webpack loader for Fable compiler",
   "keywords": [
@@ -28,6 +28,6 @@
     "@types/babel__core": "^7.0.3"
   },
   "dependencies": {
-    "fable-babel-plugins": "^2.2.0"
+    "fable-babel-plugins": "^2.3.0"
   }
 }

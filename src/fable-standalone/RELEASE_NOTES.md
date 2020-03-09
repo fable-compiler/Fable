@@ -1,3 +1,7 @@
+### 1.3.7
+
+* fable-compiler 2.4.20
+
 ### 1.3.6
 
 * fable-compiler 2.4.19

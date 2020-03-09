@@ -1,3 +1,7 @@
+### 2.1.13
+
+* Update to fable-babel-plugins 2.3.0
+
 ### 2.1.12
 
 * Pass `--inspect` option to node, when running script in debug mode
