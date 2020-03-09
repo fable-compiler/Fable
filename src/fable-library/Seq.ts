@@ -702,12 +702,7 @@ export function sumBy<T, T2>(f: (x: T) => T2, xs: Iterable<T>, adder: IGenericAd
 }
 
 export function tail<T>(xs: Iterable<T>): Iterable<T> {
-  const iter = xs[Symbol.iterator]();
-  const cur = iter.next();
-  if (cur.done) {
-    throw new Error("Seq was empty");
-  }
-  return makeSeq(() => iter);
+  return skip(1, xs);
 }
 
 export function take<T>(n: number, xs: Iterable<T>, truncate: boolean = false) {
