@@ -195,6 +195,18 @@ let tests =
             let xs = seq { "Hi"; "Hello"; "Hola" }
             (sprintf "%A" xs).Replace("\"", "") |> equal "seq [Hi; Hello; Hola]"
 
+      testCase "Storing result of Seq.tail and printing the result several times works. Related to #1996" <| fun () ->
+            let tweets = seq { "Hi"; "Hello"; "Hola" }
+            let tweetsTailR: seq<string> = tweets |> Seq.tail
+
+            let a = sprintf "%A" (tweetsTailR)
+            let b = sprintf "%A" (tweetsTailR)
+
+            let expected = "seq [Hello; Hola]"
+
+            equal expected (a.Replace("\"", ""))
+            equal expected (b.Replace("\"", ""))
+
       testCase "sprintf \"%X\" works" <| fun () ->
             //These should all be the Native JS Versions (except int64 / uint64)
             //See #1530 for more information.
