@@ -61,6 +61,10 @@ export default class Uri {
     }
   }
 
+  public toString() {
+    return decodeURIComponent(this.parseUrl().toString());
+  }
+
   private parseUrl(): URL {
     if (this.kind === UriKind.Absolute) {
       return this.url as URL;
@@ -76,7 +80,6 @@ export default class Uri {
   get isAbsoluteUri() {
     try {
       this.parseUrl();
-
       return true;
     } catch (e) {
       return false;
