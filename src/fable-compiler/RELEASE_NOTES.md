@@ -1,3 +1,7 @@
+### 2.4.22
+
+* Fix #1999: Add support for Uri toString (by @ncave)
+
 ### 2.4.21
 
 * Fix #1996: Storing result of Seq.tail and printing the result several times works (by @ncave)
