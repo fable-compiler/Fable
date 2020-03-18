@@ -2,8 +2,13 @@ FROM gitpod/workspace-full:latest
 
 USER root
 
-RUN wget -q https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb && \
-    dpkg -i packages-microsoft-prod.deb && rm -rf packages-microsoft-prod.deb && \
-    add-apt-repository universe && \
-    apt-get update && apt-get -y -o APT::Install-Suggests="true" install dotnet-sdk-3.1 && \
-    apt -y clean;
+# Add here the instruction who needs root user
+
+
+USER gitpod
+
+# Install dotnet core
+ENV PATH=$HOME/.dotnet:$PATH
+RUN wget https://dotnetwebsite.azurewebsites.net/download/dotnet-core/scripts/v1/dotnet-install.sh && \
+    bash dotnet-install.sh -v 3.1.200 && \
+    rm -rf dotnet-install.sh;
