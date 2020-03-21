@@ -9,6 +9,7 @@ open System.Xml.Linq
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 open Fable
+open Globbing.Operators
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -208,8 +209,15 @@ let getSourcesFromFsproj (projFile: string) =
                     | att -> att.Value::src
             else src))
     |> List.concat
-    |> List.map (fun fileName ->
-        Path.Combine(projDir, fileName) |> Path.normalizeFullPath)
+    |> List.collect (fun fileName ->
+        Path.Combine(projDir, fileName) 
+        |> Path.normalizeFullPath
+        |> function
+        | badPath when File.Exists badPath |> not ->
+            match !! badPath |> List.ofSeq with
+            | [] -> [ badPath ]
+            | globResults -> globResults
+        | path -> [ path ])
 
 let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')

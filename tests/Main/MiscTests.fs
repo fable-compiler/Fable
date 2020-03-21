@@ -915,4 +915,8 @@ let tests =
     testCase "Ignore shouldn't return value" <| fun () -> // See #1360
         let producer () = 7
         equal (box ()) (box(ignore(producer())))
+
+    testCase "Can import files specified via globbing patterns" <| fun () -> // See #1942
+        Glob.hello "Albert"
+        |> equal "Hello Albert from Glob"
   ]
