@@ -1,3 +1,7 @@
+### 1.4.0
+
+* Updated .NET Core to 3.1.201
+
 ### 1.3.0
 
 * Updated Fable.Core to 3.1.5
