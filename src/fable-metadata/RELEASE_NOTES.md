@@ -1,5 +1,6 @@
 ### 1.4.0
 
+* Update FSharp.Core to 4.7.1
 * Updated .NET Core to 3.1.201
 
 ### 1.3.0
