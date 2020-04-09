@@ -94,9 +94,12 @@ class UTF16LE {
   public getBytes(str: string, index?: number, count?: number) {
     if (index != null && count != null) {
       str = str.substring(index, index + count);
+    } else if (index != null) {
+      str = str.substring(index);
     }
     if (typeof Buffer !== "undefined") {
-      return Buffer.from(str, "utf16le");
+      const bytes = Buffer.from(str, "utf16le");
+      return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     } else {
       return utf16le_encode(str); // polyfill
     }
@@ -104,16 +107,18 @@ class UTF16LE {
 
   public getString(bytes: ArrayLike<uint8>, index?: number, count?: number) {
     const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
-    let buffer = Buffer.from(array.buffer, array.byteOffset, array.byteLength);
+    let buffer = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
     if (index != null && count != null) {
       buffer = buffer.subarray(index, index + count);
+    } else if (index != null) {
+      buffer = buffer.subarray(index);
     }
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder("utf-16le").decode(buffer);
     } else if (typeof Buffer !== "undefined") {
-      return buffer.toString("utf16le");
+      return Buffer.from(buffer).toString("utf16le");
     } else {
-      return utf16le_decode(bytes); // polyfill
+      return utf16le_decode(buffer); // polyfill
     }
   }
 
@@ -124,11 +129,14 @@ class UTF8 {
   public getBytes(str: string, index?: number, count?: number) {
     if (index != null && count != null) {
       str = str.substring(index, index + count);
+    } else if (index != null) {
+      str = str.substring(index);
     }
     if (typeof TextEncoder !== "undefined") {
       return new TextEncoder().encode(str);
     } else if (typeof Buffer !== "undefined") {
-      return Buffer.from(str, "utf8");
+      const bytes = Buffer.from(str, "utf8");
+      return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     } else {
       return utf8_encode(str); // polyfill
     }
@@ -136,16 +144,18 @@ class UTF8 {
 
   public getString(bytes: ArrayLike<uint8>, index?: number, count?: number) {
     const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
-    let buffer = Buffer.from(array.buffer, array.byteOffset, array.byteLength);
+    let buffer = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
     if (index != null && count != null) {
       buffer = buffer.subarray(index, index + count);
+    } else if (index != null) {
+      buffer = buffer.subarray(index);
     }
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder().decode(buffer);
     } else if (typeof Buffer !== "undefined") {
-      return buffer.toString("utf8");
+      return Buffer.from(buffer).toString("utf8");
     } else {
-      return utf8_decode(bytes); // polyfill
+      return utf8_decode(buffer); // polyfill
     }
   }
 

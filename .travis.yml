@@ -2,7 +2,7 @@ language: csharp
 os: linux
 dist: xenial
 sudo: required
-# dotnet: 3.0.100
+# dotnet: 3.1.201
 mono: none
 
 # cache:
@@ -16,11 +16,12 @@ addons:
 
 before_script:
   - sudo snap alias dotnet-sdk.dotnet dotnet
-  - nvm install 10.16.3
-  - nvm use 10.16.3
+  - nvm install node
+  - nvm use node
   # # Update npm
   # - npm install -g npm
 
 script:
   - dotnet --version
+  - node --version
   - npm install && npm test

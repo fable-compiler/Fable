@@ -9,7 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
-    <PackageReference Include="FSharp.Core" Version="4.7.0" />
+    <PackageReference Include="FSharp.Core" Version="4.7.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
@@ -68,22 +68,22 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
 
-  
+
   <Target Name="Collect_Coverage" DependsOnTargets="Restore;BuildProject">
       <!-- Altcover fails if _Reports folder doesn't exist -->
-     <MakeDir  
-            Directories="$(OutputPath)/_Reports"/>   
-      <AltCover.Prepare 
-        InputDirectory="$(OutputPath)"  
-        SymbolDirectories="$(OutputPath)"  
-        OutputDirectory="$(OutputPath)/__Saved$([System.DateTime]::UtcNow.ToString().Replace(':','-').Replace('/','-').Replace(' ','+'))" 
+     <MakeDir
+            Directories="$(OutputPath)/_Reports"/>
+      <AltCover.Prepare
+        InputDirectory="$(OutputPath)"
+        SymbolDirectories="$(OutputPath)"
+        OutputDirectory="$(OutputPath)/__Saved$([System.DateTime]::UtcNow.ToString().Replace(':','-').Replace('/','-').Replace(' ','+'))"
         XmlReport="../../build/coverage/$(TargetFramework)/coverage.xml"
         OpenCover="true"
         />
       <Exec Command="dotnet run -f $(TargetFramework) --no-build" ContinueOnError="WarnAndContinue"/>
-      <AltCover.Collect 
-        RecorderDirectory="$(OutputPath)"   
+      <AltCover.Collect
+        RecorderDirectory="$(OutputPath)"
         LcovReport="../../build/coverage/$(TargetFramework)/lcov.info"
-        />  
+        />
   </Target>
 </Project>

@@ -1,3 +1,7 @@
+### 1.2.4
+
+* fable-metadata 1.4.0
+
 ### 1.2.3
 
 * Update to fable-babel-plugins 2.3.0
