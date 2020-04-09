@@ -1,3 +1,7 @@
+### 2.4.23
+
+* Fixed buffer usage in fable-library encoding. (by @ncave)
+
 ### 2.4.22
 
 * Fix #1999: Add support for Uri toString (by @ncave)
