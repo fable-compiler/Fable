@@ -1,3 +1,7 @@
+### 1.3.0
+
+* Add globbing support in fsproj
+
 ### 1.2.4
 
 * fable-metadata 1.4.0

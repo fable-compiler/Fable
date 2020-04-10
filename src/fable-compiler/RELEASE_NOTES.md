@@ -1,3 +1,7 @@
+### 2.5.0
+
+* Add globbing support in fsproj (by @Shmew)
+
 ### 2.4.23
 
 * Fixed buffer usage in fable-library encoding. (by @ncave)
@@ -110,7 +114,7 @@
 ### 2.3.25
 
 * Fix #1900: gen param names conflict
-* Fixed large String.join and concat @ncave 
+* Fixed large String.join and concat @ncave
 
 ### 2.3.24
 
