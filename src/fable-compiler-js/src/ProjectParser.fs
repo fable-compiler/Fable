@@ -6,6 +6,9 @@ open System.Text.RegularExpressions
 open Fable.Core
 open Fable.Core.JsInterop
 
+module Fs =
+    let [<Import("existsSync", "fs")>] existsSync (path : string) = jsNative
+
 type ReferenceType =
     | ProjectReference of string
     | PackageReference of string * string
@@ -203,7 +206,7 @@ let parseProjectFile projectFilePath =
         |> getXmlTagAttributes1 "Compile" "Include"
         |> Seq.map (makeFullPath projectDir)
         |> Seq.collect (fun path ->
-            if not (Node.Api.fs.existsSync !^path) then
+            if not (Fs.existsSync path) then
                 Glob.glob.sync(path)
             else
                 [| path |]

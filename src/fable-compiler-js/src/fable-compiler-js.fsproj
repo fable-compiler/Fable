@@ -19,8 +19,4 @@
     <Compile Include="app.fs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Fable.Node" Version="1.0.2" />
-  </ItemGroup>
-
 </Project>
