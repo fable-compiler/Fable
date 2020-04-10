@@ -14,7 +14,5 @@
     },
     "files.trimTrailingWhitespace": true,
     "files.trimFinalNewlines": true,
-    "workbench.iconTheme": "material-icon-theme",
-    "workbench.colorTheme": "One Dark Pro",
     "gitlens.codeLens.enabled": false
 }

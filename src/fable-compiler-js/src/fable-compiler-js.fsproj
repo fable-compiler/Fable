@@ -11,11 +11,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../fable-standalone/src/Interfaces.fs"/>
-    <Compile Include="../../fable-standalone/src/Metadata.fs"/>
-    <Compile Include="Platform.fs"/>
-    <Compile Include="ProjectParser.fs"/>
-    <Compile Include="app.fs"/>
+    <Compile Include="../../fable-standalone/src/Interfaces.fs" />
+    <Compile Include="../../fable-standalone/src/Metadata.fs" />
+    <Compile Include="Glob.fs" />
+    <Compile Include="Platform.fs" />
+    <Compile Include="ProjectParser.fs" />
+    <Compile Include="app.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Node" Version="1.0.2" />
   </ItemGroup>
 
 </Project>
