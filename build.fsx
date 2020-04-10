@@ -102,21 +102,33 @@ let buildCompilerJs testLocal =
     //     buildSplitter projectDir
 
 let buildStandalone() =
-    let projectDir = "src/fable-standalone"
+    let buildDir = "build/fable-standalone"
     let libraryDir = "build/fable-library"
+    let projectDir = "src/fable-standalone"
+    let distDir = "src/fable-standalone/dist"
     if pathExists libraryDir |> not then
         buildLibrary()
 
-    cleanDirs [projectDir </> "dist"]
-    // bundle.min.js
-    buildWebpack projectDir
-    fileSizeInBytes (projectDir </> "dist/bundle.min.js") / 1000
-    |> printfn "Bundle size: %iKB"
-    // worker.min.js
-    buildWebpack "src/fable-standalone/src/Worker"
+    // cleanup
+    cleanDirs [buildDir; distDir]
+    mkDirRecursive distDir
+    // build
+    buildSplitterWithArgs projectDir ("--outDir " + buildDir + "/out-bundle")
+    buildSplitterWithArgs (projectDir + "/src/Worker") ("--outDir " + buildDir + "/out-worker")
+    // bundle
+    run (sprintf "npx rollup %s/out-bundle/Main.js --file %s/bundle.js --format umd --name __FABLE_STANDALONE__" buildDir buildDir)
+    run (sprintf "npx rollup %s/out-worker/Worker.js --file %s/worker.js --format esm" buildDir buildDir)
+    // minimize
+    run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
+    // run (sprintf "npx terser %s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir)
+    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/worker.config.js" buildDir distDir projectDir)
+
+    // print bundle size
+    fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
+    fileSizeInBytes (distDir </> "worker.min.js") / 1000 |> printfn "Worker size: %iKB"
 
     // Put fable-library files next to bundle
-    let libraryTarget = projectDir </> "dist/fable-library"
+    let libraryTarget = distDir </> "fable-library"
     copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)

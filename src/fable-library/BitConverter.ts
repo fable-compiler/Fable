@@ -163,7 +163,7 @@ export function toDouble(bytes: ArrayLike<uint8>, offset: number) {
 
 export function toString(bytes: ArrayLike<uint8>, offset?: number, count?: number) {
   const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
-  let buffer = Buffer.from(array.buffer, array.byteOffset, array.byteLength);
+  let buffer = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
   if (offset != null && count != null) {
     buffer = buffer.subarray(offset, offset + count);
   } else if (offset != null) {

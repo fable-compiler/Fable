@@ -6,8 +6,8 @@
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.7.0" />
-    <PackageReference Include="Fable.Core" Version="3.0.0" />
+    <PackageReference Include="FSharp.Core" Version="4.7.1" />
+    <PackageReference Include="Fable.Core" Version="3.1.5" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="QuickTest.fs" />

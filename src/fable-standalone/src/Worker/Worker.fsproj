@@ -11,8 +11,8 @@
     <Compile Include="Worker.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.7.0" />
-    <PackageReference Include="Fable.Core" Version="3.0.0" />
-    <PackageReference Include="Thoth.Json" Version="3.1.0" />
+    <PackageReference Include="FSharp.Core" Version="4.7.1" />
+    <PackageReference Include="Fable.Core" Version="3.1.5" />
+    <PackageReference Include="Thoth.Json" Version="4.0.0" />
   </ItemGroup>
 </Project>
