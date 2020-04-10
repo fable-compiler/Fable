@@ -3,6 +3,11 @@ module Fable.Compiler.ProjectParser
 open Fable.Compiler.Platform
 open System.Collections.Generic
 open System.Text.RegularExpressions
+open Fable.Core
+open Fable.Core.JsInterop
+
+module Fs =
+    let [<Import("existsSync", "fs")>] existsSync (path : string) = jsNative
 
 type ReferenceType =
     | ProjectReference of string
@@ -82,7 +87,7 @@ let resolvePackage (pkgName, pkgVersion) =
     else [||], [||]
 
 let parseCompilerOptions projectXml =
-    // get project settings, 
+    // get project settings,
     let target = projectXml |> getXmlTagContentsFirstOrDefault "OutputType" ""
     let langVersion = projectXml |> getXmlTagContentsFirstOrDefault "LangVersion" ""
     let warnLevel = projectXml |> getXmlTagContentsFirstOrDefault "WarningLevel" ""
@@ -200,6 +205,12 @@ let parseProjectFile projectFilePath =
         projectXml
         |> getXmlTagAttributes1 "Compile" "Include"
         |> Seq.map (makeFullPath projectDir)
+        |> Seq.collect (fun path ->
+            if not (Fs.existsSync path) then
+                Glob.glob.sync(path)
+            else
+                [| path |]
+        )
         |> Seq.toArray
 
     let dllRefs = [||]
