@@ -1684,7 +1684,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet idx, value, r) |> Some
     | "Add", Some ar, [arg] ->
-        Helper.CoreCall("Array", "addInPlace", t, [arg; ar], ?loc=r) |> Some
+        "void ($0)" |> emitJs r t [Helper.InstanceCall(ar, "push", t, [arg])] |> Some
     | "Remove", Some ar, [arg] ->
         Helper.CoreCall("Array", "removeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "RemoveAll", Some ar, [arg] ->

@@ -1,4 +1,4 @@
-const path = require("path");
+const resolve = (path) => require("path").join(__dirname, path);
 
 const testLocal = process.argv.find(v => v === "--test-local");
 if (testLocal) {
@@ -6,8 +6,9 @@ if (testLocal) {
 }
 
 module.exports = {
-  entry: path.join(__dirname, "./src/fable-compiler-js.fsproj"),
-  outDir: path.join(__dirname, "./dist"),
+  cli: { path: resolve("../Fable.Cli") },
+  entry: resolve("./src/fable-compiler-js.fsproj"),
+  outDir: resolve("./dist"),
   babel: {
     plugins: ["@babel/plugin-transform-modules-commonjs"],
   },
