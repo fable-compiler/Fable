@@ -1,7 +1,11 @@
+### 1.3.10
+
+* fable-compiler 2.5.1
+
 ### 1.3.9
 
 * fable-compiler 2.4.23
-* Use fable-splitter and rollup to generate the bundles 
+* Use fable-splitter and rollup to generate the bundles
 
 ### 1.3.8
 

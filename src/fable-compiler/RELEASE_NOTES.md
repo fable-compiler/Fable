@@ -1,3 +1,8 @@
+### 2.5.1
+
+* Improve globbing support (by @ncave)
+* Fix #2010: Remove cycle dependencies in fable-library code (by @ncave)
+
 ### 2.5.0
 
 * Add globbing support in fsproj (by @Shmew)

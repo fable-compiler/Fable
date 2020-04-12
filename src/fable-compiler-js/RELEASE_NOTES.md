@@ -1,3 +1,7 @@
+### 1.3.1
+
+* Improve globbing support (by @ncave)
+
 ### 1.3.0
 
 * Add globbing support in fsproj

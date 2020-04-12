@@ -12,7 +12,7 @@ open Fable.Core.JsInterop
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
-let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH + "&pr=false"
+let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH //+ "&pr=false"
 let APPVEYOR_REPL_ARTIFACT_URL =
     "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip"
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
