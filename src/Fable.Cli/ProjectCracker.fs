@@ -210,12 +210,12 @@ let getSourcesFromFsproj (projFile: string) =
             else src))
     |> List.concat
     |> List.collect (fun fileName ->
-        Path.Combine(projDir, fileName) 
+        Path.Combine(projDir, fileName)
         |> Path.normalizeFullPath
         |> function
-        | badPath when File.Exists badPath |> not ->
-            match !! badPath |> List.ofSeq with
-            | [] -> [ badPath ]
+        | path when (path.Contains("*") || path.Contains("?")) ->
+            match !! path |> List.ofSeq with
+            | [] -> [ path ]
             | globResults -> globResults
         | path -> [ path ])
 

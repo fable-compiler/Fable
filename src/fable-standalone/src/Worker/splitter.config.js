@@ -1,4 +1,4 @@
-const path = require("path");
+const resolve = (path) => require("path").join(__dirname, path);
 
 const useCommonjs = process.argv.find(v => v === "--commonjs");
 console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
@@ -14,8 +14,9 @@ const fableOptions = {
 };
 
 module.exports = {
-  entry: path.join(__dirname, "./Worker.fsproj"),
-  outDir: path.join(__dirname, "../../../../build/fable-standalone/out-worker"),
+  cli: { path: resolve("../../../Fable.Cli") },
+  entry: resolve("./Worker.fsproj"),
+  outDir: resolve("../../../../build/fable-standalone/out-worker"),
   // port: 61225,
   babel: babelOptions,
   fable: fableOptions,

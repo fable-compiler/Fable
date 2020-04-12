@@ -1,4 +1,4 @@
-var path = require("path");
+const resolve = (path) => require("path").join(__dirname, path);
 
 module.exports = {
     entry: resolve('src/Fable.Standalone.fsproj'),
@@ -34,9 +34,5 @@ module.exports = {
             }
           }
         ]
-    }    
+    }
 };
-
-function resolve(x) {
-    return path.join(__dirname, x);
-}

@@ -1,3 +1,5 @@
+const resolve = (path) => require("path").join(__dirname, path);
+
 module.exports = {
     target: "webworker",
     entry: resolve('Worker.fsproj'),
@@ -26,7 +28,3 @@ module.exports = {
         ]
     }
 };
-
-function resolve(x) {
-    return require("path").join(__dirname, x);
-}
