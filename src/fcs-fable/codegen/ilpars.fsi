@@ -59,7 +59,6 @@ type token =
   | INSTR_TOK of (TokenInstr)
   | INSTR_STRING of (StringInstr)
   | INSTR_NONE of (NoArgInstr)
-  | INSTR_METHOD of (MethodSpecInstr)
   | INSTR_R of (DoubleInstr)
   | INSTR_I8 of (Int64Instr)
   | INSTR_I32_I32 of (Int32Int32Instr)
@@ -125,7 +124,6 @@ type tokenId =
     | TOKEN_INSTR_TOK
     | TOKEN_INSTR_STRING
     | TOKEN_INSTR_NONE
-    | TOKEN_INSTR_METHOD
     | TOKEN_INSTR_R
     | TOKEN_INSTR_I8
     | TOKEN_INSTR_I32_I32
@@ -143,13 +141,7 @@ type nonTerminalId =
     | NONTERM_compQstring
     | NONTERM_methodName
     | NONTERM_instrs2
-    | NONTERM_methodSpecMaybeArrayMethod
     | NONTERM_instr
-    | NONTERM_sigArgs0
-    | NONTERM_sigArgs1
-    | NONTERM_sigArgs1a
-    | NONTERM_sigArg
-    | NONTERM_opt_id
     | NONTERM_name1
     | NONTERM_className
     | NONTERM_slashedName

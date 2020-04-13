@@ -12,8 +12,7 @@ let printErrors showWarnings (errors: FSharpErrorInfo[]) =
         e.Severity = FSharpErrorSeverity.Warning
     let printError (e: FSharpErrorInfo) =
         let errorType = (if isWarning e then "Warning" else "Error")
-        printfn "%s (%d,%d--%d,%d): %s: %s" e.FileName e.EndLineAlternate
-            e.StartColumn e.EndLineAlternate e.EndColumn errorType e.Message
+        printfn "%s (%d,%d): %s: %s" e.FileName e.StartLineAlternate e.StartColumn errorType e.Message
     let warnings, errors = errors |> Array.partition isWarning
     let hasErrors = not (Array.isEmpty errors)
     if showWarnings then

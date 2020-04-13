@@ -8,7 +8,8 @@
 namespace FSharp.Compiler.SourceCodeServices
 
 open FSharp.Compiler.Range
-open FSharp.Compiler.Ast
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.SyntaxTreeOps
 
 /// Represents the different kinds of items that can appear in the navigation bar
 type FSharpNavigationDeclarationItemKind =
@@ -97,15 +98,15 @@ module NavigationImpl =
     /// Get information for implementation file      
     let getNavigationFromImplFile (modules: SynModuleOrNamespace list) =
         // Map for dealing with name conflicts
-        let nameMap = ref Map.empty 
+        let mutable nameMap = Map.empty 
 
         let addItemName name = 
-            let count = defaultArg (!nameMap |> Map.tryFind name) 0
-            nameMap := (Map.add name (count + 1) (!nameMap))
+            let count = defaultArg (nameMap |> Map.tryFind name) 0
+            nameMap <- (Map.add name (count + 1) (nameMap))
             (count + 1)
         
         let uniqueName name idx = 
-            let total = Map.find name (!nameMap)
+            let total = Map.find name nameMap
             sprintf "%s_%d_of_%d" name idx total
 
         // Create declaration (for the left dropdown)                
@@ -127,13 +128,13 @@ module NavigationImpl =
             FSharpNavigationDeclarationItem.Create(id.idText, kind, baseGlyph, m, m, false, enclosingEntityKind, isAbstract, access), (addItemName(id.idText))
 
         // Process let-binding
-        let processBinding isMember enclosingEntityKind isAbstract (Binding(_, _, _, _, _, _, SynValData(memebrOpt, _, _), synPat, _, synExpr, _, _)) =
+        let processBinding isMember enclosingEntityKind isAbstract (Binding(_, _, _, _, _, _, SynValData(memberOpt, _, _), synPat, _, synExpr, _, _)) =
             let m = 
                 match synExpr with 
                 | SynExpr.Typed (e, _, _) -> e.Range // fix range for properties with type annotations
                 | _ -> synExpr.Range
 
-            match synPat, memebrOpt with
+            match synPat, memberOpt with
             | SynPat.LongIdent(longDotId=LongIdentWithDots(lid,_); accessibility=access), Some(flags) when isMember -> 
                 let icon, kind =
                   match flags.MemberKind with
@@ -305,13 +306,13 @@ module NavigationImpl =
     /// Get information for signature file      
     let getNavigationFromSigFile (modules: SynModuleOrNamespaceSig list) =
         // Map for dealing with name conflicts
-        let nameMap = ref Map.empty 
+        let mutable nameMap = Map.empty 
         let addItemName name = 
-            let count = defaultArg (!nameMap |> Map.tryFind name) 0
-            nameMap := (Map.add name (count + 1) (!nameMap))
+            let count = defaultArg (nameMap |> Map.tryFind name) 0
+            nameMap <- (Map.add name (count + 1) (nameMap))
             (count + 1)
         let uniqueName name idx = 
-            let total = Map.find name (!nameMap)
+            let total = Map.find name nameMap
             sprintf "%s_%d_of_%d" name idx total
 
         // Create declaration (for the left dropdown)                
@@ -632,7 +633,7 @@ module NavigateTo =
             | SynMemberSig.Inherit _
             | SynMemberSig.Interface _ -> ()
     
-        and walkImplFileInpit (ParsedImplFileInput (fileName = fileName; modules = moduleOrNamespaceList)) = 
+        and walkImplFileInput (ParsedImplFileInput (fileName = fileName; modules = moduleOrNamespaceList)) = 
             let container = { Type = ContainerType.File; Name = fileName }
             for item in moduleOrNamespaceList do
                 walkSynModuleOrNamespace item container
@@ -732,7 +733,7 @@ module NavigateTo =
 
         match parsedInput with
         | ParsedInput.SigFile input -> walkSigFileInput input
-        | ParsedInput.ImplFile input -> walkImplFileInpit input
+        | ParsedInput.ImplFile input -> walkImplFileInput input
     
         result.ToArray()
 
