@@ -9,6 +9,10 @@ module Util =
         try failwith "JS only" // try/catch is just for padding so it doesn't get optimized
         with ex -> raise ex
 
+    let using (resource : 'T when 'T :> System.IDisposable) action =
+        try action(resource)
+        finally match (box resource) with null -> () | _ -> resource.Dispose()
+
 module Experimental =
     /// Reads the name of an identifier, a property or a type
     let inline nameof(expr: 'a): string = jsNative
