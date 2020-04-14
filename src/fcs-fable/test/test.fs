@@ -8,7 +8,7 @@ let references = Metadata.references_core
 let metadataPath = "/Projects/Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 [<EntryPoint>]
-let main argv =
+let main _argv =
     printfn "Parsing begins..."
 
     let defines = [||]
