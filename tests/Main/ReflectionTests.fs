@@ -27,11 +27,6 @@ type TestType3 = class end
 type TestType4 = class end
 type TestType5 = class end
 
-type TestType6 =
-    | CaseA of string
-    | CaseB of SomeField: string
-    | CaseC of string * SomeField: string
-
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
 type MyEnum =
