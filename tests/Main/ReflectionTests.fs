@@ -172,8 +172,8 @@ type TestRecord = {
 }
 
 type TestUnion =
-    | StringCase of String: string * string
-    | IntCase of Int: int
+    | StringCase of SomeString: string * string
+    | IntCase of SomeInt: int
 
 type RecordF = { F : int -> string }
 
@@ -354,8 +354,8 @@ let reflectionTests = [
     let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
     let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
 
-    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| box "a"; box "b" |]
-    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| box 1 |]
+    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| "SomeString"; "Item2" |], [| box "a"; box "b" |]
+    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| "SomeInt" |], [| box 1 |]
     let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
 
     let unionFields =
@@ -364,7 +364,10 @@ let reflectionTests = [
             let types =
                 info.GetFields()
                 |> Array.map (fun field -> field.PropertyType)
-            info.Tag, info.Name, types, values)
+            let names =
+                info.GetFields()
+                |> Array.map (fun field -> field.Name)
+            info.Tag, info.Name, types, names, values)
 
     let canMakeSameUnionCases =
         unbox<TestUnion> (FSharpValue.MakeUnion(unionCase1Info, unionCase1ValueFields)) = unionCase1

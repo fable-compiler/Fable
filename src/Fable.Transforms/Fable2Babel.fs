@@ -379,17 +379,25 @@ module Util =
             Array.zip genParamNames generics |> Map
         let cases =
             ent.UnionCases |> Seq.map (fun uci ->
-                let fieldTypes =
-                    uci.UnionCaseFields |> Seq.map (fun fi ->
-                        FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType
-                        |> transformTypeInfo com ctx r genMap) |> Seq.toArray
+                let fieldInfos =
+                    uci.UnionCaseFields
+                    |> Seq.map (fun fi ->
+                        let fieldType =
+                            FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType
+                            |> transformTypeInfo com ctx r genMap
+                        ArrayExpression [|
+                            fi.Name |> StringLiteral :> Expression
+                            fieldType
+                        |] :> Expression
+                    )
+                    |> Seq.toArray
                 let caseInfo =
-                    if fieldTypes.Length = 0 then
+                    if fieldInfos.Length = 0 then
                         getUnionCaseName uci |> StringLiteral :> Expression
                     else
                         ArrayExpression [|
                             getUnionCaseName uci |> StringLiteral :> Expression
-                            ArrayExpression fieldTypes :> Expression
+                            ArrayExpression fieldInfos :> Expression
                         |] :> Expression
                 caseInfo) |> Seq.toArray
         let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
