@@ -12,3 +12,7 @@ type StringBuilder(value: string, capacity: int) =
     member x.AppendLine() = buf.Add(System.Environment.NewLine); x
     member x.AppendLine(s: string) = buf.Add(s); buf.Add(System.Environment.NewLine); x
     override __.ToString() = System.String.Concat(buf)
+    member x.Length = buf |> Seq.sumBy String.length
+    member x.ToString(firstIndex: int, length: int) =
+        let str = x.ToString()
+        str.Substring(firstIndex, length)
