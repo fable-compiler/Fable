@@ -5,50 +5,26 @@
 
 namespace FSharp.Compiler.SourceCodeServices
 
-open System
 open System.Collections.Generic
 open System.Collections.Concurrent
-open System.Diagnostics
-open System.IO
-open System.Reflection
-open System.Text
 
-open Microsoft.FSharp.Core.Printf
-open FSharp.Compiler 
-open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.IL
-open FSharp.Compiler.AbstractIL.ILBinaryReader
-open FSharp.Compiler.AbstractIL.Diagnostics
-open FSharp.Compiler.AbstractIL.Internal  
-open FSharp.Compiler.AbstractIL.Internal.Library  
-
-open FSharp.Compiler.AccessibilityLogic
-open FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.CompileOps
 open FSharp.Compiler.CompileOptions
-#if !FABLE_COMPILER
-open FSharp.Compiler.Driver
-#endif
+open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.ErrorLogger
-open FSharp.Compiler.Lib
-open FSharp.Compiler.PrettyNaming
+open FSharp.Compiler.NameResolution
 open FSharp.Compiler.Parser
 open FSharp.Compiler.Range
-open FSharp.Compiler.Lexhelp
-open FSharp.Compiler.Layout
-open FSharp.Compiler.Tast
-open FSharp.Compiler.Tastops
-open FSharp.Compiler.TcGlobals 
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Text
-open FSharp.Compiler.Infos
-open FSharp.Compiler.InfoReader
-open FSharp.Compiler.NameResolution
 open FSharp.Compiler.TypeChecker
-open FSharp.Compiler.SourceCodeServices.SymbolHelpers 
+open FSharp.Compiler.TypedTree
 
 open Internal.Utilities
 open Internal.Utilities.Collections
-open FSharp.Compiler.Layout.TaggedTextOps
 
 
 //-------------------------------------------------------------------------
@@ -72,7 +48,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
     static member Create(references: string[], readAllBytes: string -> byte[], otherOptions: string[]) =
         let projectFileName = "Project"
         let toRefOption (fileName: string) =
-            if fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+            if fileName.EndsWith(".dll", System.StringComparison.OrdinalIgnoreCase)
             then "-r:" + fileName
             else "-r:" + fileName + ".dll"
         let otherOptions = references |> Array.map toRefOption |> Array.append otherOptions
@@ -100,7 +76,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
         let tcConfig =
             let tcConfigB = TcConfigBuilder.Initial
-            tcConfigB.implicitIncludeDir <- Path.GetDirectoryName (projectOptions.ProjectFileName)
+            tcConfigB.implicitIncludeDir <- System.IO.Path.GetDirectoryName (projectOptions.ProjectFileName)
             let sourceFiles = projectOptions.SourceFiles |> Array.toList
             let argv = projectOptions.OtherOptions |> Array.toList
             let _sourceFiles = ApplyCommandLineArgs(tcConfigB, sourceFiles, argv)

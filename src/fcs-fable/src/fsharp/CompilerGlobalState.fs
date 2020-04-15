@@ -2,13 +2,11 @@
 
 /// Defines the global environment for all type checking.
 
-namespace FSharp.Compiler
+module FSharp.Compiler.CompilerGlobalState
 
 open System.Collections.Generic
-open FSharp.Compiler.AbstractIL 
 open FSharp.Compiler.Range
 open FSharp.Compiler.PrettyNaming
-
 
 /// Generates compiler-generated names. Each name generated also includes the StartLine number of the range passed in
 /// at the point of first generation.
@@ -94,3 +92,21 @@ type internal CompilerGlobalState () =
     member __.StableNameGenerator = globalStableNameGenerator
 
     member __.IlxGenNiceNameGenerator = ilxgenGlobalNng
+
+/// Unique name generator for stamps attached to lambdas and object expressions
+type Unique = int64
+
+//++GLOBAL MUTABLE STATE (concurrency-safe)
+#if FABLE_COMPILER
+let newUnique = let i = ref 0L in fun () -> i := !i + 1L; !i
+#else
+let newUnique = let i = ref 0L in fun () -> System.Threading.Interlocked.Increment i
+#endif
+
+/// Unique name generator for stamps attached to to val_specs, tycon_specs etc.
+//++GLOBAL MUTABLE STATE (concurrency-safe)
+#if FABLE_COMPILER
+let newStamp = let i = ref 0L in fun () -> i := !i + 1L; !i
+#else
+let newStamp = let i = ref 0L in fun () -> System.Threading.Interlocked.Increment i
+#endif

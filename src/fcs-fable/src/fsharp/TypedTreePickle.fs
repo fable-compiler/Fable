@@ -1,25 +1,30 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-module internal FSharp.Compiler.TastPickle
+module internal FSharp.Compiler.TypedTreePickle
 
 open System.Collections.Generic
 open System.Text
+
 open Internal.Utilities
+
 open FSharp.Compiler
-open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.Internal
 open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.AbstractIL.Diagnostics
-open FSharp.Compiler.Tastops
+open FSharp.Compiler.CompilerGlobalState
+open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.Lib
 open FSharp.Compiler.Lib.Bits
 open FSharp.Compiler.Range
 open FSharp.Compiler.Rational
-open FSharp.Compiler.Ast
-open FSharp.Compiler.Tast
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.SyntaxTreeOps
+open FSharp.Compiler.TypedTree
+open FSharp.Compiler.TypedTreeBasics
+open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TcGlobals
-open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.XmlDoc
 
 
 let verbose = false
@@ -28,7 +33,6 @@ let ffailwith fileName str =
     let msg = FSComp.SR.pickleErrorReadingWritingMetadata(fileName, str)
     System.Diagnostics.Debug.Assert(false, msg)
     failwith msg
-
 
 // Fixup pickled data w.r.t. a set of CCU thunks indexed by name
 [<NoEquality; NoComparison>]
@@ -50,7 +54,6 @@ type PickledDataWithReferences<'rawData> =
             | Some loaded -> reqd.Fixup loaded
             | None -> reqd.FixupOrphaned() )
         x.RawData
-
 
 //---------------------------------------------------------------------------
 // Basic pickle/unpickle state
@@ -167,7 +170,9 @@ let ufailwith st str = ffailwith st.ifile str
 type 'T pickler = 'T -> WriterState -> unit
 
 let p_byte b st = st.os.EmitIntAsByte b
+
 let p_bool b st = p_byte (if b then 1 else 0) st
+
 let prim_p_int32 i st =
     p_byte (b0 i) st
     p_byte (b1 i) st
@@ -285,9 +290,12 @@ let u_int32 st =
         assert(b0 = 0xFF)
         prim_u_int32 st
 
-let u_bytes st =
+let u_byte_memory st =
     let n =  (u_int32 st)
     st.is.ReadBytes n
+
+let u_bytes st =
+    (u_byte_memory st).ToArray()
 
 let u_prim_string st =
     let len =  (u_int32 st)
@@ -552,12 +560,12 @@ let p_maybe_lazy p (x: MaybeLazy<_>) st =
     p_lazy_impl p x.Value st
 
 let p_hole () =
-    let h = ref (None : ('T -> WriterState -> unit) option)
-    (fun f -> h := Some f), (fun x st -> match !h with Some f -> f x st | None -> pfailwith st "p_hole: unfilled hole")
+    let mutable h = None
+    (fun f -> h <- Some f), (fun x st -> match h with Some f -> f x st | None -> pfailwith st "p_hole: unfilled hole")
 
 let p_hole2 () =
-    let h = ref (None : ('Arg -> 'T -> WriterState -> unit) option)
-    (fun f -> h := Some f), (fun arg x st -> match !h with Some f -> f arg x st | None -> pfailwith st "p_hole2: unfilled hole")
+    let mutable h = None
+    (fun f -> h <- Some f), (fun arg x st -> match h with Some f -> f arg x st | None -> pfailwith st "p_hole2: unfilled hole")
 
 let u_array_core f n st =
     let res = Array.zeroCreate n
@@ -582,8 +590,7 @@ let u_array_ext extraf f st =
     extraItem, arr
 
 let u_list_core f n st =
-    [ for _ in 1..n do
-         yield f st ]
+    List.init n (fun _ -> f st)
 
 let u_list f st =
     let n = u_int st
@@ -674,8 +681,8 @@ let u_lazy u st =
 
 
 let u_hole () =
-    let h = ref (None : 'T unpickler option)
-    (fun f -> h := Some f), (fun st -> match !h with Some f -> f st | None -> ufailwith st "u_hole: unfilled hole")
+    let mutable h = None
+    (fun f -> h <- Some f), (fun st -> match h with Some f -> f st | None -> ufailwith st "u_hole: unfilled hole")
 
 //---------------------------------------------------------------------------
 // Pickle/unpickle F# interface data
@@ -834,7 +841,7 @@ let check (ilscope: ILScopeRef) (inMap : NodeInTable<_, _>) =
         // an identical copy of the source for the DLL containing the data being unpickled.  A message will
         // then be printed indicating the name of the item.
 
-let unpickleObjWithDanglingCcus file ilscope (iILModule: ILModuleDef option) u (phase2bytes: byte[]) =
+let unpickleObjWithDanglingCcus file ilscope (iILModule: ILModuleDef option) u (phase2bytes: ReadOnlyByteMemory) =
     let st2 =
        { is = ByteStream.FromBytes (phase2bytes, 0, phase2bytes.Length)
          iilscope= ilscope
@@ -860,7 +867,7 @@ let unpickleObjWithDanglingCcus file ilscope (iILModule: ILModuleDef option) u (
             (u_array u_encoded_pubpath)
             (u_array u_encoded_nleref)
             (u_array u_encoded_simpletyp)
-            u_bytes
+            u_byte_memory
             st2
     let ccuTab       = new_itbl "iccus"       (Array.map (CcuThunk.CreateDelayed) ccuNameTab)
     let stringTab    = new_itbl "istrings"    (Array.map decode_string stringTab)
@@ -918,9 +925,11 @@ let p_ILAssemblyRef (x: ILAssemblyRef) st =
 
 let p_ILScopeRef x st =
     match x with
-    | ILScopeRef.Local         -> p_byte 0 st
-    | ILScopeRef.Module mref   -> p_byte 1 st; p_ILModuleRef mref st
-    | ILScopeRef.Assembly aref -> p_byte 2 st; p_ILAssemblyRef aref st
+    | ILScopeRef.Local           -> p_byte 0 st
+    | ILScopeRef.Module mref     -> p_byte 1 st; p_ILModuleRef mref st
+    | ILScopeRef.Assembly aref   -> p_byte 2 st; p_ILAssemblyRef aref st
+    // Encode primary assembly as a normal assembly ref
+    | ILScopeRef.PrimaryAssembly -> p_byte 2 st; p_ILAssemblyRef st.oglobals.ilg.primaryAssemblyRef st
 
 let u_ILPublicKey st =
     let tag = u_byte st
@@ -1306,11 +1315,23 @@ let u_ILInstr st =
 // Pickle/unpickle for F# types and module signatures
 //---------------------------------------------------------------------------
 
-let p_Map pk pv = p_wrap Map.toList (p_list (p_tup2 pk pv))
+let p_Map_core pk pv xs st =
+    xs |> Map.iter (fun k v -> pk k st; pv v st)
+
+let p_Map pk pv x st =
+    p_int (Map.count x) st
+    p_Map_core pk pv x st
+
 let p_qlist pv = p_wrap QueueList.toList (p_list pv)
 let p_namemap p = p_Map p_string p
 
-let u_Map uk uv = u_wrap Map.ofList (u_list (u_tup2 uk uv))
+let u_Map_core uk uv n st =
+    Map.ofSeq (seq { for _ in 1..n -> (uk st, uv st) })
+
+let u_Map uk uv st = 
+    let n = u_int st
+    u_Map_core uk uv n st
+
 let u_qlist uv = u_wrap QueueList.ofList (u_list uv)
 let u_namemap u = u_Map u_string u
 
@@ -1332,7 +1353,6 @@ let u_dummy_range : range unpickler = fun _st -> range0
 let u_ident st = let a = u_string st in let b = u_range st in ident(a, b)
 let u_xmldoc st = XmlDoc (u_array u_string st)
 
-
 let p_local_item_ref ctxt tab st = p_osgn_ref ctxt tab st
 
 let p_tcref ctxt (x: EntityRef) st =
@@ -1340,8 +1360,8 @@ let p_tcref ctxt (x: EntityRef) st =
     | ERefLocal x -> p_byte 0 st; p_local_item_ref ctxt st.oentities x st
     | ERefNonLocal x -> p_byte 1 st; p_nleref x st
 
-let p_ucref (UCRef(a, b)) st = p_tup2 (p_tcref "ucref") p_string (a, b) st
-let p_rfref (RFRef(a, b)) st = p_tup2 (p_tcref "rfref") p_string (a, b) st
+let p_ucref (UnionCaseRef(a, b)) st = p_tup2 (p_tcref "ucref") p_string (a, b) st
+let p_rfref (RecdFieldRef(a, b)) st = p_tup2 (p_tcref "rfref") p_string (a, b) st
 let p_tpref x st = p_local_item_ref "typar" st.otypars  x st
 
 let u_local_item_ref tab st = u_osgn_ref tab st
@@ -1353,9 +1373,9 @@ let u_tcref st =
     | 1 -> u_nleref                     st |> ERefNonLocal
     | _ -> ufailwith st "u_item_ref"
 
-let u_ucref st  = let a, b = u_tup2 u_tcref u_string st in UCRef(a, b)
+let u_ucref st  = let a, b = u_tup2 u_tcref u_string st in UnionCaseRef(a, b)
 
-let u_rfref st = let a, b = u_tup2 u_tcref u_string st in RFRef(a, b)
+let u_rfref st = let a, b = u_tup2 u_tcref u_string st in RecdFieldRef(a, b)
 
 let u_tpref st = u_local_item_ref st.itypars st
 
@@ -1368,7 +1388,7 @@ let p_tys = (p_list p_ty)
 let fill_p_attribs, p_attribs = p_hole()
 
 // In F# 4.5, the type of the "this" pointer for structs is considered to be inref for the purposes of checking the implementation
-// of the struct.  However for backwards compat reaons we can't serialize this as the type.
+// of the struct.  However for backwards compat reasons we can't serialize this as the type.
 let checkForInRefStructThisArg st ty =
     let g = st.oglobals
     let _, tauTy = tryDestForallTy g ty
@@ -2008,7 +2028,7 @@ and u_tycon_repr st =
             (fun _flagBit -> TRecdRepr v)
         | 1 ->
             let v = u_list u_unioncase_spec  st
-            (fun _flagBit -> MakeUnionRepr v)
+            (fun _flagBit -> Construct.MakeUnionRepr v)
         | 2 ->
             let v = u_ILType st
             // This is the F# 3.0 extension to the format used for F# provider-generated types, which record an ILTypeRef in the format
@@ -2114,7 +2134,7 @@ and u_recdfield_spec st =
       rfield_name_generated = false
       rfield_other_range = None }
 
-and u_rfield_table st = MakeRecdFieldsTable (u_list u_recdfield_spec st)
+and u_rfield_table st = Construct.MakeRecdFieldsTable (u_list u_recdfield_spec st)
 
 and u_entity_spec_data st : Entity =
     let x1, x2a, x2b, x2c, x3, (x4a, x4b), x6, x7f, x8, x9, _x10, x10b, x11, x12, x13, x14, x15 =
@@ -2163,7 +2183,7 @@ and u_entity_spec_data st : Entity =
                        entity_xmldoc= defaultArg x15 XmlDoc.Empty
                        entity_xmldocsig = System.String.Empty
                        entity_tycon_abbrev = x8
-                       entity_accessiblity = x4a
+                       entity_accessibility = x4a
                        entity_tycon_repr_accessibility = x4b
                        entity_exn_info = x14 }
     }
@@ -2382,7 +2402,8 @@ and p_dtree_discrim x st =
     | DecisionTreeTest.IsNull                    -> p_byte 2 st
     | DecisionTreeTest.IsInst (srcty, tgty)       -> p_byte 3 st; p_ty srcty st; p_ty tgty st
     | DecisionTreeTest.ArrayLength (n, ty)       -> p_byte 4 st; p_tup2 p_int p_ty (n, ty) st
-    | DecisionTreeTest.ActivePatternCase _                   -> pfailwith st "DecisionTreeTest.ActivePatternCase: only used during pattern match compilation"
+    | DecisionTreeTest.ActivePatternCase _ -> pfailwith st "DecisionTreeTest.ActivePatternCase: only used during pattern match compilation"
+    | DecisionTreeTest.Error _ -> pfailwith st "DecisionTreeTest.Error: only used during pattern match compilation"
 
 and p_target (TTarget(a, b, _)) st = p_tup2 p_Vals p_expr (a, b) st
 and p_bind (TBind(a, b, _)) st = p_tup2 p_Val p_expr (a, b) st
@@ -2415,9 +2436,9 @@ and u_dtree_discrim st =
     | 4 -> u_tup2 u_int u_ty st    |> DecisionTreeTest.ArrayLength
     | _ -> ufailwith st "u_dtree_discrim"
 
-and u_target st = let a, b = u_tup2 u_Vals u_expr st in (TTarget(a, b, SuppressSequencePointAtTarget))
+and u_target st = let a, b = u_tup2 u_Vals u_expr st in (TTarget(a, b, DebugPointForTarget.No))
 
-and u_bind st = let a = u_Val st in let b = u_expr st in TBind(a, b, NoSequencePointAtStickyBinding)
+and u_bind st = let a = u_Val st in let b = u_expr st in TBind(a, b, NoDebugPointAtStickyBinding)
 
 and u_lval_op_kind st =
     match u_byte st with
@@ -2524,12 +2545,12 @@ and u_op st =
             let d = u_tys st
             TOp.ILCall (a1, a2, a3, a4, a5, a7, a8, a9, b, c, d)
     | 19 -> TOp.Array
-    | 20 -> TOp.While (NoSequencePointAtWhileLoop, NoSpecialWhileLoopMarker)
+    | 20 -> TOp.While (DebugPointAtWhile.No, NoSpecialWhileLoopMarker)
     | 21 -> let dir = match u_int st with 0 -> FSharpForLoopUp | 1 -> CSharpForLoopUp | 2 -> FSharpForLoopDown | _ -> failwith "unknown for loop"
-            TOp.For (NoSequencePointAtForLoop, dir)
+            TOp.For (DebugPointAtFor.No, dir)
     | 22 -> TOp.Bytes (u_bytes st)
-    | 23 -> TOp.TryCatch (NoSequencePointAtTry, NoSequencePointAtWith)
-    | 24 -> TOp.TryFinally (NoSequencePointAtTry, NoSequencePointAtFinally)
+    | 23 -> TOp.TryCatch (DebugPointAtTry.No, DebugPointAtWith.No)
+    | 24 -> TOp.TryFinally (DebugPointAtTry.No, DebugPointAtFinally.No)
     | 25 -> let a = u_rfref st
             TOp.ValFieldGetAddr (a, false)
     | 26 -> TOp.UInt16s (u_array u_uint16 st)
@@ -2585,7 +2606,7 @@ and u_expr st =
            let b = u_expr st
            let c = u_int st
            let d = u_dummy_range  st
-           Expr.Sequential (a, b, (match c with 0 -> NormalSeq | 1 -> ThenDoSeq | _ -> ufailwith st "specialSeqFlag"), SuppressSequencePointOnExprOfSequential, d)
+           Expr.Sequential (a, b, (match c with 0 -> NormalSeq | 1 -> ThenDoSeq | _ -> ufailwith st "specialSeqFlag"), DebugPointAtSequential.StmtOnly, d)
     | 4 -> let a0 = u_option u_Val st
            let b0 = u_option u_Val st
            let b1 = u_Vals st
@@ -2607,17 +2628,17 @@ and u_expr st =
     | 7 ->  let a = u_binds st
             let b = u_expr st
             let c = u_dummy_range st
-            Expr.LetRec (a, b, c, NewFreeVarsCache())
+            Expr.LetRec (a, b, c, Construct.NewFreeVarsCache())
     | 8 ->  let a = u_bind st
             let b = u_expr st
             let c = u_dummy_range st
-            Expr.Let (a, b, c, NewFreeVarsCache())
+            Expr.Let (a, b, c, Construct.NewFreeVarsCache())
     | 9 ->  let a = u_dummy_range st
             let b = u_dtree st
             let c = u_targets st
             let d = u_dummy_range st
             let e = u_ty st
-            Expr.Match (NoSequencePointAtStickyBinding, a, b, c, d, e)
+            Expr.Match (NoDebugPointAtStickyBinding, a, b, c, d, e)
     | 10 -> let b = u_ty st
             let c = (u_option u_Val) st
             let d = u_expr st

@@ -43,6 +43,20 @@ let tests =
                               .ToString()
             sb.ToString() |> equal expected
 
+      testCase "StringBuilder.Lengh works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append("Hello") |> ignore
+            // We don't test the AppendLine for Length because depending on the OS
+            // the result is different. Unix \n VS Windows \r\n 
+            // sb.AppendLine() |> ignore 
+            equal 5 sb.Length
+      
+      testCase "StringBuilder.ToString works with index and length" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append("Hello") |> ignore
+            sb.AppendLine() |> ignore
+            equal "ll" (sb.ToString(2, 2))
+
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"

@@ -2,6 +2,7 @@ import { anonRecord as makeAnonRecord, Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
+export type PropertyInfo = FieldInfo;
 
 export type Constructor = new (...args: any[]) => any;
 
@@ -10,7 +11,7 @@ export class CaseInfo {
     public declaringType: TypeInfo,
     public tag: number,
     public name: string,
-    public fields?: TypeInfo[]) {
+    public fields?: FieldInfo[]) {
   }
 }
 
@@ -78,7 +79,7 @@ export function anonRecord(...fields: FieldInfo[]): TypeInfo {
   return new TypeInfo("", undefined, undefined, () => fields);
 }
 
-export type CaseInfoInput = string | [string, TypeInfo[]];
+export type CaseInfoInput = string | [string, FieldInfo[]];
 
 export function union(
   fullname: string,
@@ -86,7 +87,9 @@ export function union(
   constructor: Constructor,
   cases: () => CaseInfoInput[]): TypeInfo {
   const t: TypeInfo = new TypeInfo(fullname, generics, constructor, undefined, () => cases().map((x, i) =>
-    typeof x === "string" ? new CaseInfo(t, i, x) : new CaseInfo(t, i, x[0], x[1])));
+    typeof x === "string"
+        ? new CaseInfo(t, i, x)
+        : new CaseInfo(t, i, x[0], x[1])));
   return t;
 }
 
@@ -319,10 +322,10 @@ export function getUnionFields(v: any, t: TypeInfo): [CaseInfo, any[]] {
 }
 
 export function getUnionCaseFields(uci: CaseInfo): FieldInfo[] {
-  return uci.fields == null ? [] : uci.fields.map((t, i) => ["Data" + i, t] as FieldInfo);
+  return uci.fields == null ? [] : uci.fields;
 }
 
-export function getRecordFields(v: any): any[] {
+export function getRecordFields(v: any): FieldInfo[] {
   return Object.keys(v).map((k) => v[k]);
 }
 
@@ -363,6 +366,10 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
 
 export function makeTuple(values: any[], _t: TypeInfo): any {
   return values;
+}
+
+export function getValue(propertyInfo : PropertyInfo, v : any) : any {
+  return v[propertyInfo[0]] ;
 }
 
 // Fable.Core.Reflection

@@ -1,3 +1,15 @@
+### 2.7.0
+
+* Fix #2015: Add `PropertyInfo.GetValue` support
+
+### 2.6.0
+
+* Fixed `List.init` to match `FSharp.Core` behavior (when initializing with side effects). (by @ncave)
+* Update FCS to latest F# master (by @ncave)
+* Fix #2017: Fix field name reflection for union case (by @anchann)
+* Add `Length` member to `StringBuilder` (by @ThisFunctionalTom)
+* Add `ToString(firstIndex, length)` override to `StringBuilder` (by @ThisFunctionalTom)
+
 ### 2.5.1
 
 * Improve globbing support (by @ncave)

@@ -172,8 +172,8 @@ type TestRecord = {
 }
 
 type TestUnion =
-    | StringCase of String: string * string
-    | IntCase of Int: int
+    | StringCase of SomeString: string * string
+    | IntCase of SomeInt: int
 
 type RecordF = { F : int -> string }
 
@@ -193,6 +193,11 @@ type B() = member __.Value = 10
 
 type AnonRec1 = {| name: string; child: {| name: string |} |}
 type AnonRec2 = {| numbers: int list |}
+
+type RecordGetValueType = {
+    Firstname : string
+    Age : int
+}
 
 let reflectionTests = [
   testCase "Reflection: Array" <| fun () ->
@@ -258,6 +263,28 @@ let reflectionTests = [
 
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
+
+  testCase "PropertyInfo.GetValue works" <| fun () ->
+    let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
+
+    let theType: System.Type = typeof<RecordGetValueType>
+
+    // now we want to print out the fields
+    let fieldNameToValue: Map<string, obj> =
+        match theType with
+        | t when FSharpType.IsRecord t ->
+            FSharpType.GetRecordFields(t)
+            |> Seq.fold
+                (fun acc field ->
+                    let fieldValue = field.GetValue value
+                    acc.Add (field.Name, fieldValue)
+                )
+                Map.empty
+        | _ -> Map.empty
+
+    let expected = "map [(Age, 12); (Firstname, Maxime)]"
+
+    equal expected (sprintf "%O" fieldNameToValue)
 
   testCase "Comparing anonymous record types works" <| fun () ->
       let x = {| numbers = [3; 4] |}
@@ -354,8 +381,8 @@ let reflectionTests = [
     let unionCaseInfos = [| unionCase1Info; unionCase2Info |]
     let unionCaseValueFields = [| unionCase1ValueFields; unionCase2ValueFields |]
 
-    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| box "a"; box "b" |]
-    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| box 1 |]
+    let expectedUnionCase1Fields = 0, "StringCase", [| typeof<string>; typeof<string> |], [| "SomeString"; "Item2" |], [| box "a"; box "b" |]
+    let expectedUnionCase2Fields = 1, "IntCase", [| typeof<int> |], [| "SomeInt" |], [| box 1 |]
     let expectedUnionFields = [| expectedUnionCase1Fields; expectedUnionCase2Fields |]
 
     let unionFields =
@@ -364,7 +391,10 @@ let reflectionTests = [
             let types =
                 info.GetFields()
                 |> Array.map (fun field -> field.PropertyType)
-            info.Tag, info.Name, types, values)
+            let names =
+                info.GetFields()
+                |> Array.map (fun field -> field.Name)
+            info.Tag, info.Name, types, names, values)
 
     let canMakeSameUnionCases =
         unbox<TestUnion> (FSharpValue.MakeUnion(unionCase1Info, unionCase1ValueFields)) = unionCase1

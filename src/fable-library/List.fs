@@ -278,8 +278,8 @@ let except (itemsToExclude: seq<'t>) (array: 't list) ([<Inject>] eq: IEqualityC
 
 let initialize n f =
     let mutable xs = []
-    for i = 1 to n do xs <- f (n - i):: xs
-    xs
+    for i = 0 to n-1 do xs <- (f i)::xs
+    reverse xs
 
 let replicate n x =
     initialize n (fun _ -> x)

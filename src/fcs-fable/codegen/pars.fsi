@@ -2,17 +2,17 @@
 module internal FSharp.Compiler.Parser
 open FSharp.Compiler
 type token = 
-  | HASH_IF of (range * string * Ast.LexerWhitespaceContinuation)
-  | HASH_ELSE of (range * string * Ast.LexerWhitespaceContinuation)
-  | HASH_ENDIF of (range * string * Ast.LexerWhitespaceContinuation)
-  | COMMENT of (Ast.LexerWhitespaceContinuation)
-  | WHITESPACE of (Ast.LexerWhitespaceContinuation)
-  | HASH_LINE of (Ast.LexerWhitespaceContinuation)
-  | HASH_LIGHT of (Ast.LexerWhitespaceContinuation)
-  | INACTIVECODE of (Ast.LexerWhitespaceContinuation)
-  | LINE_COMMENT of (Ast.LexerWhitespaceContinuation)
-  | STRING_TEXT of (Ast.LexerWhitespaceContinuation)
-  | EOF of (Ast.LexerWhitespaceContinuation)
+  | HASH_IF of (range * string * ParseHelpers.LexerWhitespaceContinuation)
+  | HASH_ELSE of (range * string * ParseHelpers.LexerWhitespaceContinuation)
+  | HASH_ENDIF of (range * string * ParseHelpers.LexerWhitespaceContinuation)
+  | COMMENT of (ParseHelpers.LexerWhitespaceContinuation)
+  | WHITESPACE of (ParseHelpers.LexerWhitespaceContinuation)
+  | HASH_LINE of (ParseHelpers.LexerWhitespaceContinuation)
+  | HASH_LIGHT of (ParseHelpers.LexerWhitespaceContinuation)
+  | INACTIVECODE of (ParseHelpers.LexerWhitespaceContinuation)
+  | LINE_COMMENT of (ParseHelpers.LexerWhitespaceContinuation)
+  | STRING_TEXT of (ParseHelpers.LexerWhitespaceContinuation)
+  | EOF of (ParseHelpers.LexerWhitespaceContinuation)
   | LEX_FAILURE of (string)
   | ODUMMY of (token)
   | FIXED
@@ -33,6 +33,7 @@ type token =
   | OTHEN
   | ODO_BANG
   | ODO
+  | OAND_BANG of (bool)
   | OBINDER of (string)
   | OLET of (bool)
   | HIGH_PRECEDENCE_TYAPP
@@ -146,6 +147,7 @@ type token =
   | ELIF
   | END
   | DOT_DOT
+  | DOT_DOT_HAT
   | BAR_BAR
   | UPCAST
   | DOWNCAST
@@ -166,6 +168,7 @@ type token =
   | LET of (bool)
   | YIELD of (bool)
   | YIELD_BANG of (bool)
+  | AND_BANG of (bool)
   | BIGNUM of ((string * string))
   | DECIMAL of (System.Decimal)
   | CHAR of (char)
@@ -228,6 +231,7 @@ type tokenId =
     | TOKEN_OTHEN
     | TOKEN_ODO_BANG
     | TOKEN_ODO
+    | TOKEN_OAND_BANG
     | TOKEN_OBINDER
     | TOKEN_OLET
     | TOKEN_HIGH_PRECEDENCE_TYAPP
@@ -341,6 +345,7 @@ type tokenId =
     | TOKEN_ELIF
     | TOKEN_END
     | TOKEN_DOT_DOT
+    | TOKEN_DOT_DOT_HAT
     | TOKEN_BAR_BAR
     | TOKEN_UPCAST
     | TOKEN_DOWNCAST
@@ -361,6 +366,7 @@ type tokenId =
     | TOKEN_LET
     | TOKEN_YIELD
     | TOKEN_YIELD_BANG
+    | TOKEN_AND_BANG
     | TOKEN_BIGNUM
     | TOKEN_DECIMAL
     | TOKEN_CHAR
@@ -589,6 +595,7 @@ type nonTerminalId =
     | NONTERM_typedSeqExprEOF
     | NONTERM_seqExpr
     | NONTERM_recover
+    | NONTERM_moreBinders
     | NONTERM_declExpr
     | NONTERM_dynamicArg
     | NONTERM_withClauses
@@ -608,6 +615,7 @@ type nonTerminalId =
     | NONTERM_atomicExprQualification
     | NONTERM_optRangeSeqExpr
     | NONTERM_optRange
+    | NONTERM_rangeDeclExpr
     | NONTERM_atomicExprAfterType
     | NONTERM_beginEndExpr
     | NONTERM_quoteExpr
@@ -626,10 +634,10 @@ type nonTerminalId =
     | NONTERM_forLoopRange
     | NONTERM_forLoopDirection
     | NONTERM_inlineAssemblyExpr
-    | NONTERM_opt_curriedArgExprs
+    | NONTERM_optCurriedArgExprs
     | NONTERM_opt_atomicExprAfterType
     | NONTERM_opt_inlineAssemblyTypeArg
-    | NONTERM_opt_inlineAssemblyReturnTypes
+    | NONTERM_optInlineAssemblyReturnTypes
     | NONTERM_recdExpr
     | NONTERM_recdExprCore
     | NONTERM_opt_seps_recd
@@ -731,8 +739,8 @@ val prodIdxToNonTerminal: int -> nonTerminalId
 
 /// This function gets the name of a token as a string
 val token_to_string: token -> string
-val signatureFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (Ast.ParsedSigFile) 
-val implementationFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (Ast.ParsedImplFile) 
-val interaction : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (Ast.ParsedFsiInteraction) 
-val typedSeqExprEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (Ast.SynExpr) 
-val typEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (Ast.SynType) 
+val signatureFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.ParsedSigFile) 
+val implementationFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.ParsedImplFile) 
+val interaction : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.ParsedFsiInteraction) 
+val typedSeqExprEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.SynExpr) 
+val typEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.SynType) 

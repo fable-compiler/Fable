@@ -1,7 +1,7 @@
 module rec Fable.Transforms.FSharp2Fable.Compiler
 
 open System.Collections.Generic
-open FSharp.Compiler.Ast
+open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.SourceCodeServices
 
 open Fable

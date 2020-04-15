@@ -2987,6 +2987,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
         | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
         | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
+        | Some c, "GetValue" -> Helper.CoreCall("Reflection", "getValue", t, c::args, ?loc=r) |> Some
         | Some c, "get_Name" ->
             match c with
             | Value(TypeInfo exprType, loc) ->

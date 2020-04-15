@@ -2,24 +2,23 @@
 
 namespace Internal.Utilities.Collections
 
-open System
 open System.Collections.Generic
 open Microsoft.FSharp.Collections
                                  
 // Each entry in the HashMultiMap dictionary has at least one entry. Under normal usage each entry has _only_
 // one entry. So use two hash tables: one for the main entries and one for the overflow.
 [<Sealed>]
-type internal HashMultiMap<'Key,'Value>(n: int, hasheq: IEqualityComparer<'Key>) = 
+type internal HashMultiMap<'Key,'Value>(n: int, hashEq: IEqualityComparer<'Key>) = 
 
-    let firstEntries = Dictionary<_,_>(n,hasheq)
+    let firstEntries = Dictionary<_,_>(n,hashEq)
 
-    let rest = Dictionary<_,_>(3,hasheq)
+    let rest = Dictionary<_,_>(3,hashEq)
  
 #if !FABLE_COMPILER
-    new (hasheq : IEqualityComparer<'Key>) = HashMultiMap<'Key,'Value>(11, hasheq)
+    new (hashEq : IEqualityComparer<'Key>) = HashMultiMap<'Key,'Value>(11, hashEq)
 
-    new (seq : seq<'Key * 'Value>, hasheq : IEqualityComparer<'Key>) as x = 
-        new HashMultiMap<'Key,'Value>(11, hasheq)
+    new (seq : seq<'Key * 'Value>, hashEq : IEqualityComparer<'Key>) as x = 
+        new HashMultiMap<'Key,'Value>(11, hashEq)
         then seq |> Seq.iter (fun (k,v) -> x.Add(k,v))
 #endif
 
@@ -45,7 +44,7 @@ type internal HashMultiMap<'Key,'Value>(n: int, hasheq: IEqualityComparer<'Key>)
 
     member x.Copy() = 
 #if FABLE_COMPILER
-        let res = HashMultiMap<'Key,'Value>(firstEntries.Count, hasheq)
+        let res = HashMultiMap<'Key,'Value>(firstEntries.Count, hashEq)
 #else
         let res = HashMultiMap<'Key,'Value>(firstEntries.Count,firstEntries.Comparer)
 #endif
