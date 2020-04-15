@@ -1,3 +1,7 @@
+### 1.3.12
+
+* fable-compiler 2.7.0
+
 ### 1.3.11
 
 * fable-compiler 2.6.0

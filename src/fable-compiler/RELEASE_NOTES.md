@@ -1,3 +1,7 @@
+### 2.7.0
+
+* Fix #2015: Add `PropertyInfo.GetValue` support
+
 ### 2.6.0
 
 * Fixed `List.init` to match `FSharp.Core` behavior (when initializing with side effects). (by @ncave)
