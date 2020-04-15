@@ -195,7 +195,6 @@ type AnonRec1 = {| name: string; child: {| name: string |} |}
 type AnonRec2 = {| numbers: int list |}
 
 type RecordGetValueType = {
-    IsGood: bool
     Firstname : string
     Age : int
 }
@@ -265,8 +264,8 @@ let reflectionTests = [
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
-  testCase "Something" <| fun () ->
-    let value: obj = { IsGood = true; Firstname = "Maxime"; Age = 12 } :> obj
+  testCase "PropertyInfo.GetValue works" <| fun () ->
+    let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
 
     let theType: System.Type = typeof<RecordGetValueType>
 
@@ -283,10 +282,9 @@ let reflectionTests = [
                 Map.empty
         | _ -> Map.empty
 
-    let expected = "map [(Age, 12); (Firstname, Maxime); (IsGood, true)]"
+    let expected = "map [(Age, 12); (Firstname, Maxime)]"
 
     equal expected (sprintf "%O" fieldNameToValue)
-
 
   testCase "Comparing anonymous record types works" <| fun () ->
       let x = {| numbers = [3; 4] |}
