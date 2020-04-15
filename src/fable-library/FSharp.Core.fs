@@ -28,6 +28,11 @@ module Operators =
     [<CompiledName("NullArg")>]
     let nullArg x = raise(System.ArgumentNullException(x))
 
+    [<CompiledName("Using")>]
+    let using (resource : 'T when 'T :> System.IDisposable) (action: 'T -> 'a) =
+        try action(resource)
+        finally match (box resource) with null -> () | _ -> resource.Dispose()
+
     [<CompiledName("Lock")>]
     let lock _lockObj action = action() // no locking, just invoke
 

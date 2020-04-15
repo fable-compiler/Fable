@@ -1358,6 +1358,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     |  "LazyPattern"     // (|Lazy|_|)
     |  "Lock"            // lock
     |  "NullArg"         // nullArg
+    |  "Using"           // using
        ), _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [msg] | "InvalidOp", [msg] ->
