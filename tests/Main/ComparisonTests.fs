@@ -377,7 +377,7 @@ let tests =
         let mutable disposed = false
         let resource = { new IDisposable with member __.Dispose() = disposed <- true }
         using resource (fun _resource -> ())
-        equal disposed true
+        equal true disposed
 
     testCase "using function disposes the resource when action fails" <| fun () ->
         let mutable disposed = false
@@ -386,7 +386,7 @@ let tests =
             using resource (fun _resource -> failwith "action failed")
         with
         | _ -> () // ignore
-        equal disposed true
+        equal true disposed
 
     testCase "isNull with primitives works" <| fun () ->
         isNull null |> equal true
