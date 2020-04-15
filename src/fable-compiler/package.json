@@ -1,6 +1,6 @@
 {
   "name": "fable-compiler",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "main": "dist/index.js",
   "description": "Fable compiler",
   "keywords": [

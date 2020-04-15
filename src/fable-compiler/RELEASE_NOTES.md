@@ -1,3 +1,7 @@
+### 2.8.0
+
+* Add support for `using` function (by @ThisFunctionalTom)
+
 ### 2.7.0
 
 * Fix #2015: Add `PropertyInfo.GetValue` support
