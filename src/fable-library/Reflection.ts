@@ -2,6 +2,7 @@ import { anonRecord as makeAnonRecord, Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
+export type PropertyInfo = FieldInfo;
 
 export type Constructor = new (...args: any[]) => any;
 
@@ -324,7 +325,7 @@ export function getUnionCaseFields(uci: CaseInfo): FieldInfo[] {
   return uci.fields == null ? [] : uci.fields;
 }
 
-export function getRecordFields(v: any): any[] {
+export function getRecordFields(v: any): FieldInfo[] {
   return Object.keys(v).map((k) => v[k]);
 }
 
@@ -365,6 +366,10 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
 
 export function makeTuple(values: any[], _t: TypeInfo): any {
   return values;
+}
+
+export function getValue(propertyInfo : PropertyInfo, v : any) : any {
+  return v[propertyInfo[0]] ;
 }
 
 // Fable.Core.Reflection

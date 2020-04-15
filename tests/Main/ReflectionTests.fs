@@ -194,6 +194,12 @@ type B() = member __.Value = 10
 type AnonRec1 = {| name: string; child: {| name: string |} |}
 type AnonRec2 = {| numbers: int list |}
 
+type RecordGetValueType = {
+    IsGood: bool
+    Firstname : string
+    Age : int
+}
+
 let reflectionTests = [
   testCase "Reflection: Array" <| fun () ->
     let arType = typeof<int[]>
@@ -258,6 +264,29 @@ let reflectionTests = [
 
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
+
+  testCase "Something" <| fun () ->
+    let value: obj = { IsGood = true; Firstname = "Maxime"; Age = 12 } :> obj
+
+    let theType: System.Type = typeof<RecordGetValueType>
+
+    // now we want to print out the fields
+    let fieldNameToValue: Map<string, obj> =
+        match theType with
+        | t when FSharpType.IsRecord t ->
+            FSharpType.GetRecordFields(t)
+            |> Seq.fold
+                (fun acc field ->
+                    let fieldValue = field.GetValue value
+                    acc.Add (field.Name, fieldValue)
+                )
+                Map.empty
+        | _ -> Map.empty
+
+    let expected = "map [(Age, 12); (Firstname, Maxime); (IsGood, true)]"
+
+    equal expected (sprintf "%O" fieldNameToValue)
+
 
   testCase "Comparing anonymous record types works" <| fun () ->
       let x = {| numbers = [3; 4] |}
