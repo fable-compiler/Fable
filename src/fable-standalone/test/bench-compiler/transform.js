@@ -110,7 +110,7 @@ function main() {
   const libDir = Path.resolve(process.argv[4]);
   const commonjs = process.argv.find(v => v === "--commonjs");
   const sourceMaps = process.argv.find(v => v === "--sourceMaps");
-  const typeDecls = process.argv.find(v => v === "--typed");
+  const typeDecls = process.argv.find(v => v === "--typescript");
 
   const babelOptions = commonjs ?
     { plugins: customPlugins.concat("@babel/plugin-transform-modules-commonjs") } :

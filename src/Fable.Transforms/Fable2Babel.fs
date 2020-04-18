@@ -1717,12 +1717,12 @@ module Util =
         let classExpr = ClassExpression(classBody, ?superClass=baseExpr, ?loc=r)
         classExpr |> declareModuleMember r isPublic name false
 
-    let declareType com ctx r isPublic (ent: FSharpEntity) name (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr: U2<Statement, ModuleDeclaration> list =
+    let declareType (com: IBabelCompiler) ctx r isPublic (ent: FSharpEntity) name (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr: U2<Statement, ModuleDeclaration> list =
         let typeDeclaration =
-            // if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType || ent.IsFSharpExceptionDeclaration
+            // if com.Options.typeDecls && (ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType || ent.IsFSharpExceptionDeclaration)
             // then declareClassType com ctx r isPublic ent name consArgs consBody baseExpr
             // else
-            declareObjectType com ctx r isPublic ent name consArgs consBody baseExpr
+                 declareObjectType com ctx r isPublic ent name consArgs consBody baseExpr
         let reflectionDeclaration =
             let genArgs = Array.init ent.GenericParameters.Count (fun _ -> makeIdentUnique com "gen" |> typedIdent com ctx)
             let body = transformReflectionInfo com ctx r ent (Array.map (fun x -> x :> _) genArgs)
@@ -1812,15 +1812,18 @@ module Util =
               Identifier "name" |> toPattern
               Identifier "fields" |> restElement|]
         let body =
-            [Identifier "tag" :> Expression; Identifier "name" :> _; SpreadElement(Identifier "fields") :> _]
-            |> callFunctionWithThisContext None baseRef thisExpr |> ExpressionStatement
-        declareType com ctx r info.IsPublic info.Entity info.EntityName args (BlockStatement [|body|]) (Some baseRef)
+            [Identifier "tag" :> Expression
+             Identifier "name" :> Expression
+             SpreadElement(Identifier "fields") :> Expression]
+            |> callFunctionWithThisContext None baseRef thisExpr
+            |> ExpressionStatement :> Statement |> Array.singleton |> BlockStatement
+        declareType com ctx r info.IsPublic info.Entity info.EntityName args body (Some baseRef)
 
     let transformCompilerGeneratedConstructor (com: IBabelCompiler) ctx r (info: Fable.CompilerGeneratedConstructorInfo) =
         let args =
             [| for i = 1 to info.Entity.FSharpFields.Count do
                 yield Identifier("arg" + string i) |]
-        let setters =
+        let body =
             info.Entity.FSharpFields
             |> Seq.mapi (fun i field ->
                 let left = get None (ThisExpression()) field.Name
@@ -1830,7 +1833,7 @@ module Util =
                     then BinaryExpression(BinaryOrBitwise, args.[i], NumericLiteral(0.)) :> Expression
                     else args.[i] :> _
                 assign None left right |> ExpressionStatement :> Statement)
-            |> Seq.toArray
+            |> Seq.toArray |> BlockStatement
         let baseExpr =
             if info.Entity.IsFSharpExceptionDeclaration
             then coreValue com ctx "Types" "FSharpException" |> Some
@@ -1838,7 +1841,7 @@ module Util =
             then coreValue com ctx "Types" "Record" |> Some
             else None
         let args = [|for arg in args do yield arg |> toPattern|]
-        declareType com ctx r info.IsPublic info.Entity info.EntityName args (BlockStatement setters) baseExpr
+        declareType com ctx r info.IsPublic info.Entity info.EntityName args body baseExpr
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx r (info: Fable.ClassImplicitConstructorInfo) =
         let boundThis = Some("this", info.BoundConstructorThis)

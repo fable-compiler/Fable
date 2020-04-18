@@ -29,7 +29,7 @@ module Operators =
     let nullArg x = raise(System.ArgumentNullException(x))
 
     [<CompiledName("Using")>]
-    let using (resource : 'T when 'T :> System.IDisposable) (action: 'T -> 'a) =
+    let using (resource: System.IDisposable) action =
         try action(resource)
         finally match (box resource) with null -> () | _ -> resource.Dispose()
 

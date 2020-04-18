@@ -97,7 +97,7 @@ let run opts projectFileName outDir =
         commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
         optimize = opts |> Array.contains "--optimize-fcs"
         sourceMaps = opts |> Array.contains "--sourceMaps"
-        typeDecls = opts |> Array.contains "--typed"
+        typeDecls = opts |> Array.contains "--typescript"
         watchMode = opts |> Array.contains "--watch"
     }
     parseFiles projectFileName outDir options
