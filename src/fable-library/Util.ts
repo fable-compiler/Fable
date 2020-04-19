@@ -587,7 +587,7 @@ const CURRIED_KEY = "__CURRIED__";
 
 export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
-  if (f == null) { return null; }
+  if (f == null) { return undefined; }
 
   // The function is already uncurried
   if (f.length > 1) {
@@ -658,7 +658,7 @@ export function curry(arity: number, f: Function): Function | undefined {
 
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
-    return null;
+    return undefined;
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
     for (let i = 0; i < args.length; i++) {
@@ -671,25 +671,25 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
         // Wrap arguments to make sure .concat doesn't destruct arrays. Example
         // [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
         // [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
-        return (a1: any) => f.apply(null, args.concat([a1]));
+        return (a1: any) => f.apply(undefined, args.concat([a1]));
       case 2:
-        return (a1: any) => (a2: any) => f.apply(null, args.concat([a1, a2]));
+        return (a1: any) => (a2: any) => f.apply(undefined, args.concat([a1, a2]));
       case 3:
-        return (a1: any) => (a2: any) => (a3: any) => f.apply(null, args.concat([a1, a2, a3]));
+        return (a1: any) => (a2: any) => (a3: any) => f.apply(undefined, args.concat([a1, a2, a3]));
       case 4:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(null, args.concat([a1, a2, a3, a4]));
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(undefined, args.concat([a1, a2, a3, a4]));
       case 5:
         return (a1: any) => (a2: any) => (a3: any) =>
-          (a4: any) => (a5: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5]));
+          (a4: any) => (a5: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5]));
       case 6:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
-          (a5: any) => (a6: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6]));
+          (a5: any) => (a6: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6]));
       case 7:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
-          (a6: any) => (a7: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6, a7]));
+          (a6: any) => (a7: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7]));
       case 8:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
-          (a7: any) => (a8: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
+          (a7: any) => (a8: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
       default:
         throw new Error("Partially applying to more than 8-arity is not supported: " + arity);
     }
