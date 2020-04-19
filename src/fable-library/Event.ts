@@ -17,7 +17,7 @@ export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
 }
 
 export default class Event<T> implements IEvent<T> {
-  public delegates: Array<Delegate<T>>;
+  public delegates: Delegate<T>[];
   private _subscriber?: (o: IObserver<T>) => IDisposable;
   private _dotnetDelegates?: Map<DotNetDelegate<T>, Delegate<T>>;
 
@@ -113,7 +113,7 @@ export function choose<T, U>(chooser: (x: T) => Option<U>, sourceEvent: IEvent<T
 }
 
 export function filter<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
-  return choose((x) => predicate(x) ? some(x) : null, sourceEvent);
+  return choose((x) => predicate(x) ? some(x) : undefined, sourceEvent);
 }
 
 export function map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {

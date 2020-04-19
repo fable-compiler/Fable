@@ -3,14 +3,14 @@ import { compare, equals, structuralHash } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
-// to null in runtime. These two rules must be followed:
+// to `undefined` in runtime. These two rules must be followed:
 
-// 1- None is always null in runtime, a non-strict null check
+// 1- `None` is always `undefined` in runtime, a non-strict null check
 //    (`x == null`) is enough to check the case of an option.
 // 2- To get the value of an option the `getValue` helper
 //    below must **always** be used.
 
-export type Option<T> = T | Some<T> | null | undefined;
+export type Option<T> = T | Some<T> | undefined;
 
 // Using a class here for better compatibility with TS files importing Some
 export class Some<T> {
@@ -66,47 +66,47 @@ export function tryValue<T>(x: Option<T>) {
   return x instanceof Some ? x.value : x;
 }
 
-export function toArray<T>(opt: Option<T>) {
+export function toArray<T>(opt: Option<T>): T[] {
   return (opt == null) ? [] : [value(opt)];
 }
 
-export function defaultArg<T>(opt: Option<T>, defaultValue: T) {
+export function defaultArg<T>(opt: Option<T>, defaultValue: T): T {
   return (opt != null) ? value(opt) : defaultValue;
 }
 
-export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T) {
+export function defaultArgWith<T>(opt: Option<T>, defThunk: () => T): T {
   return (opt != null) ? value(opt) : defThunk();
 }
 
-export function filter<T>(predicate: (arg: T) => boolean, opt: Option<T>) {
-  return (opt != null) ? (predicate(value(opt)) ? opt : null) : opt;
+export function filter<T>(predicate: (arg: T) => boolean, opt: Option<T>): Option<T> {
+  return (opt != null) ? (predicate(value(opt)) ? opt : undefined) : opt;
 }
 
 export function map<T, U>(mapping: (arg: T) => U, opt: Option<T>): Option<U> {
-  return (opt != null) ? some(mapping(value(opt))) : null;
+  return (opt != null) ? some(mapping(value(opt))) : undefined;
 }
 
 export function map2<T1, T2, U>(
   mapping: (arg1: T1, arg2: T2) => Option<U>,
-  opt1: Option<T1>, opt2: Option<T2>) {
-  return (opt1 != null && opt2 != null) ? mapping(value(opt1), value(opt2)) : null;
+  opt1: Option<T1>, opt2: Option<T2>): Option<U> {
+  return (opt1 != null && opt2 != null) ? mapping(value(opt1), value(opt2)) : undefined;
 }
 
 export function map3<T1, T2, T3, U>(
   mapping: (arg1: T1, arg2: T2, arg3: T3) => Option<U>,
-  opt1: Option<T1>, opt2: Option<T2>, opt3: Option<T3>) {
-  return (opt1 != null && opt2 != null && opt3 != null) ? mapping(value(opt1), value(opt2), value(opt3)) : null;
+  opt1: Option<T1>, opt2: Option<T2>, opt3: Option<T3>): Option<U> {
+  return (opt1 != null && opt2 != null && opt3 != null) ? mapping(value(opt1), value(opt2), value(opt3)) : undefined;
 }
 
 export function bind<T, U>(binder: (arg: T) => Option<U>, opt: Option<T>): Option<U> {
-  return opt != null ? binder(value(opt)) : null;
+  return opt != null ? binder(value(opt)) : undefined;
 }
 
 export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
   try {
     return some(op(arg));
   } catch {
-    return null;
+    return undefined;
   }
 }
 
@@ -126,11 +126,11 @@ export function choice2<T, U>(x: T | U): Choice<T, U> {
 }
 
 export function tryValueIfChoice1<T, U>(x: Choice<T, U>): Option<T> {
-  return x.tag === 0 ? some(x.fields[0]) : null;
+  return x.tag === 0 ? some(x.fields[0]) : undefined;
 }
 
 export function tryValueIfChoice2<T, U>(x: Choice<T, U>): Option<U> {
-  return x.tag === 1 ? some(x.fields[0]) : null;
+  return x.tag === 1 ? some(x.fields[0]) : undefined;
 }
 
 // RESULT

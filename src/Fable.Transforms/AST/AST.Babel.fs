@@ -99,6 +99,9 @@ type RegExpLiteral(pattern, flags_, ?loc) =
     member __.Pattern: string = pattern
     member __.Flags = flags
 
+type Undefined(?loc) =
+    inherit Identifier("undefined", ?loc = loc)
+
 type NullLiteral(?loc) =
     inherit Literal("NullLiteral", ?loc = loc)
 

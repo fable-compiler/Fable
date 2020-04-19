@@ -566,7 +566,7 @@ module Util =
                 if mustWrapOption t
                 then coreLibCall com ctx r "Option" "some" [|e|]
                 else e
-            | None -> upcast NullLiteral ()
+            | None -> upcast Undefined(?loc=r)
         | Fable.EnumConstant(x,_) ->
             com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, kind, _) ->
