@@ -20,7 +20,7 @@ let fableReplacementsModules =
       "mapIndexed2", [(Types.arrayCons, 2)]
       "map2", [(Types.arrayCons, 2)]
       "mapIndexed3", [(Types.arrayCons, 3)]
-      "map3", [(Types.arrayCons, 2)]
+      "map3", [(Types.arrayCons, 3)]
       "mapFold", [(Types.arrayCons, 2)]
       "mapFoldBack", [(Types.arrayCons, 2)]
       "concat", [(Types.arrayCons, 0)]
