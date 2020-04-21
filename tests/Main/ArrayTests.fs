@@ -476,6 +476,13 @@ let tests =
         let zs = Array.map2 (*) xs ys
         zs.[0] |> equal 2.
 
+    testCase "Array.map3 works" <| fun () ->
+        let value1 = [|1.|]
+        let value2 = [|2.|]
+        let value3 = [|3.|]
+        let zs = Array.map3 (fun a b c -> a * b * c) value1 value2 value3
+        zs.[0] |> equal 6.
+
     testCase "Array.mapi works" <| fun () ->
         let xs = [|1.; 2.|]
         let ys = xs |> Array.mapi (fun i x -> float i + x)
