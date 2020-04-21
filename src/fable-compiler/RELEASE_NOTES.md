@@ -1,3 +1,7 @@
+### 2.8.1
+
+* Fix #2030: Fix Array.map3 implementation (by @ncave)
+
 ### 2.8.0
 
 * Add support for `using` function (by @ThisFunctionalTom)
