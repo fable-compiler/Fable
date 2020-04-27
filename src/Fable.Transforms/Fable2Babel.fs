@@ -819,10 +819,10 @@ module Util =
     let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         match value with
         // Check imports with name placeholder
-        | Fable.Import((Fable.Value(Fable.StringConstant Naming.placeholder,_)), path, kind, _, r) ->
-            transformImport com ctx r (makeStrConst var.Name) path kind
-        | Fable.Function(_,Fable.Import((Fable.Value(Fable.StringConstant Naming.placeholder,_)), path, kind, _, r),_) ->
-            transformImport com ctx r (makeStrConst var.Name) path kind
+        | Fable.Import((Fable.Value(Fable.StringConstant selector,_)), path, kind, _, r)
+        | Fable.Function(_,Fable.Import((Fable.Value(Fable.StringConstant selector,_)), path, kind, _, r),_) ->
+            let selector = if selector = Naming.placeholder then var.Name else selector
+            transformImport com ctx r (makeStrConst selector) path kind
         | Fable.Function(args, body, _) ->
             let args =
                 match args with

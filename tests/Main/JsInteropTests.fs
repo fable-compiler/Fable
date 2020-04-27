@@ -331,6 +331,8 @@ let tests =
     testCase "Local import with curried signatures works" <| fun () ->
         let add (x:int) (y:int): int = importMember "./js/1foo.js"
         3 |> add 2 |> equal 5
+        let add2 (x:int) (y:int): int = import "add" "./js/1foo.js"
+        3 |> add2 2 |> equal 5
 
     testCase "TypedArray element can be set and get using index" <| fun () ->
         let arr = JS.Uint8Array.Create(5)
