@@ -123,7 +123,7 @@ module Util =
         StringLiteral s :> Expression
 
     let memberFromName memberName: Expression * bool =
-        if Naming.hasIdentForbiddenChars memberName
+        if Naming.hasIdentForbiddenChars Naming.isIdentChar memberName
         then upcast StringLiteral(memberName), true
         else upcast Identifier(memberName), false
 
@@ -1627,7 +1627,7 @@ module Util =
                     :> ModuleDeclaration |> U2.Case2 |> Some))
         |> Seq.toList
 
-    let getLocalIdent (ctx: Context) (imports: Dictionary<string,Import>) (path: string) (selector: string) =
+    let getLocalIdentForImport (ctx: Context) (imports: Dictionary<string,Import>) (path: string) (selector: string) =
         match selector with
         | "" -> None
         | "*" | "default" ->
@@ -1635,9 +1635,15 @@ module Util =
             x.Substring(x.LastIndexOf '/' + 1) |> Some
         | selector -> Some selector
         |> Option.map (fun selector ->
-            (selector, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun s ->
-            ctx.File.UsedVarNames.Contains s
-                || (imports.Values |> Seq.exists (fun i -> i.LocalIdent = Some s))))
+            // Imported members will contain the dollar sign as Fable uses it for mangling
+            // so allow it in the local identifier to prevent re-mangling
+            Naming.sanitizeIdentWith
+                (fun idx char -> Naming.isIdentChar idx char || char = '$')
+                (fun s ->
+                    ctx.File.UsedVarNames.Contains s
+                    || (imports.Values |> Seq.exists (fun i -> i.LocalIdent = Some s)))
+                selector
+                Naming.NoMemberPart)
 
 module Compiler =
     open Util
@@ -1658,7 +1664,7 @@ module Compiler =
                     | Some localIdent -> upcast Identifier(localIdent)
                     | None -> upcast NullLiteral ()
                 | false, _ ->
-                    let localId = getLocalIdent ctx imports path selector
+                    let localId = getLocalIdentForImport ctx imports path selector
                     let i =
                       { Selector =
                             if selector = Naming.placeholder
@@ -1688,7 +1694,7 @@ module Compiler =
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
-    let makeCompiler com = new BabelCompiler(com)
+    let makeCompiler com = BabelCompiler(com)
 
     let createFacade (sourceFiles: string[]) (facadeFile: string) =
         // Remove signature files so fable-splitter doesn't try to compile them
