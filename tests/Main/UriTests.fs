@@ -30,7 +30,7 @@ let tests =
         let uri = Uri("/hello.html", UriKind.Relative)
         equal false uri.IsAbsoluteUri
 
-    testCase "Uri from relative uri string without uri kind should throws" <| fun _ ->          
+    testCase "Uri from relative uri string without uri kind should throws" <| fun _ ->
         let createInvalidUri () =
             Uri("hello.html")
 
@@ -58,4 +58,9 @@ let tests =
         equal "/hello?a=b" newUri.PathAndQuery
         equal "?a=b" newUri.Query
         equal "#c" newUri.Fragment
+
+    testCase "Uri.ToString works" <| fun _ ->
+        let uri = Uri("HTTP://www.test4.com:80/a%20b%20c.html")
+        uri.ToString() |> equal "http://www.test4.com/a b c.html"
+        sprintf "%A" uri |> equal "http://www.test4.com/a b c.html"
   ]

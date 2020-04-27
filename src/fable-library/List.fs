@@ -68,7 +68,7 @@ let ofSeq (xs: 'a seq): 'a list =
     Seq.fold (fun acc x -> x::acc) [] xs
     |> reverse
 
-let concat (lists : #seq<'a list>) =
+let concat (lists: seq<'a list>) =
     Seq.fold (fold (fun acc x -> x::acc)) [] lists
     |> reverse
 
@@ -100,7 +100,7 @@ let rec foldIndexed3Aux f i acc bs cs ds =
     | x::xs, y::ys, z::zs -> foldIndexed3Aux f (i+1) (f i acc x y z) xs ys zs
     | _ -> invalidOp "Lists had different lengths"
 
-let foldIndexed3<'a, 'b, 'c, 'acc> f (seed:'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
+let foldIndexed3<'a, 'b, 'c, 'acc> f (seed: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
     foldIndexed3Aux f 0 seed xs ys zs
 
 let fold3<'a, 'b, 'c, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
@@ -118,7 +118,7 @@ let length xs =
 let append xs ys =
     fold (fun acc x -> x::acc) ys (reverse xs)
 
-let collect f (xs: 'a list) =
+let collect (f: 'a -> 'b list) (xs: 'a list) =
     Seq.collect f xs |> ofSeq
 
 let map f xs =
@@ -260,7 +260,6 @@ let choose f xs =
         | Some y -> y:: acc
         | None -> acc) [] xs |> reverse
 
-
 let contains<'T> (value: 'T) (list: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
     let rec loop xs =
         match xs with
@@ -279,8 +278,8 @@ let except (itemsToExclude: seq<'t>) (array: 't list) ([<Inject>] eq: IEqualityC
 
 let initialize n f =
     let mutable xs = []
-    for i = 1 to n do xs <- f (n - i):: xs
-    xs
+    for i = 0 to n-1 do xs <- (f i)::xs
+    reverse xs
 
 let replicate n x =
     initialize n (fun _ -> x)
@@ -321,19 +320,19 @@ let zip xs ys =
 let zip3 xs ys zs =
     map3 (fun x y z -> x, y, z) xs ys zs
 
-let sort (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
+let sort (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (List.toArray xs) |> ofArray
 
-let sortBy (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
+let sortBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (List.toArray xs) |> ofArray
 
-let sortDescending (xs : 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
+let sortDescending (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (List.toArray xs) |> ofArray
 
-let sortByDescending (projection:'a->'b) (xs : 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
+let sortByDescending (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
     Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (List.toArray xs) |> ofArray
 
-let sortWith (comparer: 'T -> 'T -> int) (xs : 'T list): 'T list =
+let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list): 'T list =
     Array.sortInPlaceWith comparer (List.toArray xs) |> ofArray
 
 let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
@@ -342,16 +341,16 @@ let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
 let sumBy (f: 'T -> 'T2) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T2>): 'T2 =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-let maxBy (projection:'a->'b) (xs:'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let maxBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
 
 let max (li:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) li
 
-let minBy (projection:'a->'b) (xs:'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let minBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
 
-let min (xs:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
+let min (xs: 'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>): 'T =
@@ -367,6 +366,13 @@ let permute f xs =
     |> List.toArray
     |> Array.permute f
     |> ofArray
+
+let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
+    xs
+    |> List.toArray
+    |> Array.chunkBySize chunkSize
+    |> ofArray
+    |> map ofArray
 
 let skip i xs =
     let rec skipInner i xs =
@@ -442,7 +448,7 @@ let slice (lower: int option) (upper: int option) (xs: 'T list) =
         if lower > (lastIndex + 1) || (hasUpper && upper.Value > lastIndex) then outOfRange()
         reverse res
 
-let distinctBy (projection: 'T -> 'Key) (xs:'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
+let distinctBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
     let hashSet = HashSet<'Key>(eq)
     xs |> filter (projection >> hashSet.Add)
 
@@ -452,51 +458,45 @@ let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
 let exactlyOne (xs: 'T list) =
     match xs with
     | [] -> invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
-    | x::[] -> x
+    | [x] -> x
     | x1::x2::xs -> invalidArg "list" "Input list too long"
 
 let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
     let dict = Dictionary<'Key, 'T list>(eq)
-    let keys = ResizeArray()
-    for v in xs do
+    let mutable keys = []
+    xs |> iterate (fun v ->
         let key = projection v
         match dict.TryGetValue(key) with
         | true, prev ->
             dict.[key] <- v::prev
         | false, _ ->
             dict.Add(key, [v])
-            keys.Add(key)
-    keys |> Seq.map (fun key -> key, reverse dict.[key]) |> ofSeq
-
-let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
-    let dict = Dictionary<'Key, int ref>(eq)
-    iterate (fun v ->
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev -> prev.contents <- prev.contents + 1
-        | false, _ ->
-            dict.[key] <- ref 1) xs
-
+            keys <- key::keys )
     let mutable result = []
-    for group in dict do
-        result <- (group.Key, group.Value.contents)::result
+    keys |> iterate (fun key -> result <- (key, reverse dict.[key]) :: result)
     result
 
-let where predicate xs = filter predicate xs
+let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
+    let dict = Dictionary<'Key, int>(eq)
+    let mutable keys = []
+    xs |> iterate (fun v ->
+        let key = projection v
+        match dict.TryGetValue(key) with
+        | true, prev ->
+            dict.[key] <- prev + 1
+        | false, _ ->
+            dict.[key] <- 1
+            keys <- key::keys )
+    let mutable result = []
+    keys |> iterate (fun key -> result <- (key, dict.[key]) :: result)
+    result
 
-let pairwise xs =
-    let rec inner xs acc x1 =
-        match xs with
-        | [] -> ofArray acc
-        | x2::xs ->
-            acc.Add((x1, x2))
-            inner xs acc x2
-    match xs with
-    | [] | [_] -> []
-    | x1::x2::xs ->
-        let acc = ResizeArray()
-        acc.Add((x1, x2))
-        inner xs acc x2
+let where predicate source =
+    filter predicate source
+
+let pairwise source =
+    Seq.pairwise source
+    |> ofSeq
 
 let windowed (windowSize: int) (source: 'T list): 'T list list =
     if windowSize <= 0 then
@@ -505,3 +505,16 @@ let windowed (windowSize: int) (source: 'T list): 'T list list =
     for i = length source downto windowSize do
         res <- (slice (Some(i-windowSize)) (Some(i-1)) source) :: res
     res
+
+let splitInto (chunks: int) (source: 'T list): 'T list list =
+    source
+    |> List.toArray
+    |> Array.splitInto chunks
+    |> ofArray
+    |> map ofArray
+
+let transpose (lists: seq<'T list>): 'T list list =
+    lists
+    |> Seq.transpose
+    |> Seq.map ofSeq
+    |> ofSeq

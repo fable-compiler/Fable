@@ -9,6 +9,7 @@ open System.Xml.Linq
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 open Fable
+open Globbing.Operators
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -131,21 +132,16 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
         for constant in define do yield "--define:" + constant
     |]
     let checker = FSharpChecker.Create()
-    checker.GetProjectOptionsFromScript(scriptFile, File.readAllTextNonBlocking scriptFile,
+    checker.GetProjectOptionsFromScript(scriptFile,
+                                        File.readAllTextNonBlocking scriptFile |> FSharp.Compiler.Text.SourceText.ofString,
                                         assumeDotNetFramework=false, otherFlags=otherFlags)
     |> Async.RunSynchronously
     |> fun (opts, _errors) -> // TODO: Check errors
-        // The FCS resolver uses a wrong dir for System.XXX.dll refs, we need to replace them
-        let badSystemDllDir = opts.OtherOptions |> Array.pick (fun o ->
-            if o.EndsWith("mscorlib.dll") then IO.Path.GetDirectoryName o.[3..] |> Some else None)
-        let goodSystemDllDir = Process.getNetcoreAssembliesDir()
         let dllRefs =
-            [ yield! Literals.SYSTEM_CORE_REFERENCES |> Seq.map (fun x -> IO.Path.Combine(goodSystemDllDir, x + ".dll"))
-              yield! opts.OtherOptions |> Seq.choose (fun o ->
-                if o.StartsWith("-r:") then
-                    let dllRef = o.[3..]
-                    if not(dllRef.StartsWith(badSystemDllDir)) then Some dllRef else None
-                else None) ]
+            opts.OtherOptions
+            |> Array.filter (fun r -> r.StartsWith("-r:"))
+            |> Array.map (fun r -> r.[3..])
+            |> List.ofArray
 
         let fablePkgs =
             opts.OtherOptions
@@ -213,8 +209,15 @@ let getSourcesFromFsproj (projFile: string) =
                     | att -> att.Value::src
             else src))
     |> List.concat
-    |> List.map (fun fileName ->
-        Path.Combine(projDir, fileName) |> Path.normalizeFullPath)
+    |> List.collect (fun fileName ->
+        Path.Combine(projDir, fileName)
+        |> Path.normalizeFullPath
+        |> function
+        | path when (path.Contains("*") || path.Contains("?")) ->
+            match !! path |> List.ofSeq with
+            | [] -> [ path ]
+            | globResults -> globResults
+        | path -> [ path ])
 
 let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
@@ -223,7 +226,8 @@ let private getDllName (dllFullPath: string) =
 let private isUsefulOption (opt : string) =
     [ "--nowarn"
       "--warnon"
-      "--warnaserror" ]
+      "--warnaserror"
+      "--langversion" ]
     |> List.exists opt.StartsWith
 
 /// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild

@@ -4,9 +4,7 @@ open Fable
 open Fable.AST
 open FSharp.Compiler.SourceCodeServices
 open System
-open System.Reflection
 
-type EnumTypeKind = NumberEnumType | StringEnumType
 type FunctionTypeKind = LambdaType of Type | DelegateType of Type list
 
 type Type =
@@ -19,7 +17,7 @@ type Type =
     | Regex
     | Expr of gen : Option<Type>
     | Number of NumberKind
-    | EnumType of kind: EnumTypeKind * fullName: string
+    | Enum of FSharpEntity
     | Option of genericArg: Type
     | Tuple of genericArgs: Type list
     | Array of genericArg: Type
@@ -87,7 +85,8 @@ type ValueDeclarationInfo =
       IsPublic: bool
       IsMutable: bool
       IsEntryPoint: bool
-      HasSpread: bool }
+      HasSpread: bool
+      Range: SourceLocation option }
 
 type ClassImplicitConstructorInfo =
     { Name: string
@@ -140,7 +139,6 @@ type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
 type IdentKind =
     | UserDeclared
     | CompilerGenerated
-    | InlinedArg
     | BaseValueIdent
     | ThisArgIdentDeclaration
 
@@ -152,8 +150,6 @@ type Ident =
       Range: SourceLocation option }
       member x.IsCompilerGenerated =
         match x.Kind with CompilerGenerated -> true | _ -> false
-      member x.IsInlinedArg =
-        match x.Kind with InlinedArg -> true | _ -> false
       member x.IsBaseValue =
         match x.Kind with BaseValueIdent -> true | _ -> false
       member x.IsThisArgDeclaration =
@@ -168,7 +164,6 @@ type ImportKind =
     | Library
     | CustomImport
 
-type EnumKind = NumberEnum of Expr | StringEnum of Expr
 type NewArrayKind = ArrayValues of Expr list | ArrayAlloc of Expr
 type NewRecordKind = DeclaredRecord of FSharpEntity | AnonymousRecord of fieldNames: string[]
 
@@ -181,7 +176,7 @@ type ValueKind =
     | StringConstant of string
     | NumberConstant of float * NumberKind
     | RegexConstant of source: string * flags: RegexFlag list
-    | Enum of EnumKind * enumFullName: string
+    | EnumConstant of Expr * FSharpEntity
     | NewOption of value: Expr option * Type
     | NewArray of NewArrayKind * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
@@ -199,12 +194,7 @@ type ValueKind =
         | StringConstant _ -> String
         | NumberConstant(_,kind) -> Number kind
         | RegexConstant _ -> Regex
-        | Enum(kind, fullName) ->
-            let kind =
-                match kind with
-                | NumberEnum _ -> NumberEnumType
-                | StringEnum _ -> StringEnumType
-            EnumType(kind, fullName)
+        | EnumConstant(_, ent) -> Enum ent
         | NewOption(_, t) -> Option t
         | NewArray(_, t) -> Array t
         | NewList(_, t) -> List t
@@ -279,7 +269,7 @@ type OperationKind =
 type GetKind =
     | ExprGet of Expr
     | TupleGet of int
-    | FieldGet of string * hasDoubleEvalRisk: bool * fieldType: Type
+    | FieldGet of string * isFieldMutable: bool * fieldType: Type
     | UnionField of FSharpField * FSharpUnionCase * fieldType: Type
     | UnionTag
     | ListHead

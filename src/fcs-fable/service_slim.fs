@@ -5,49 +5,26 @@
 
 namespace FSharp.Compiler.SourceCodeServices
 
-open System
 open System.Collections.Generic
 open System.Collections.Concurrent
-open System.Diagnostics
-open System.IO
-open System.Reflection
-open System.Text
 
-open Microsoft.FSharp.Core.Printf
-open FSharp.Compiler 
-open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.IL
-open FSharp.Compiler.AbstractIL.ILBinaryReader
-open FSharp.Compiler.AbstractIL.Diagnostics
-open FSharp.Compiler.AbstractIL.Internal  
-open FSharp.Compiler.AbstractIL.Internal.Library  
-
-open FSharp.Compiler.AccessibilityLogic
-open FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.CompileOps
 open FSharp.Compiler.CompileOptions
-#if !FABLE_COMPILER
-open FSharp.Compiler.Driver
-#endif
+open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.ErrorLogger
-open FSharp.Compiler.Lib
-open FSharp.Compiler.PrettyNaming
+open FSharp.Compiler.NameResolution
 open FSharp.Compiler.Parser
 open FSharp.Compiler.Range
-open FSharp.Compiler.Lexhelp
-open FSharp.Compiler.Layout
-open FSharp.Compiler.Tast
-open FSharp.Compiler.Tastops
-open FSharp.Compiler.TcGlobals 
-open FSharp.Compiler.Infos
-open FSharp.Compiler.InfoReader
-open FSharp.Compiler.NameResolution
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.TcGlobals
+open FSharp.Compiler.Text
 open FSharp.Compiler.TypeChecker
-open FSharp.Compiler.SourceCodeServices.SymbolHelpers 
+open FSharp.Compiler.TypedTree
 
 open Internal.Utilities
 open Internal.Utilities.Collections
-open FSharp.Compiler.Layout.TaggedTextOps
 
 
 //-------------------------------------------------------------------------
@@ -59,6 +36,7 @@ type internal TcErrors = FSharpErrorInfo[]
 
 type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState, ctok, reactorOps, parseCache, checkCache) =
     let userOpName = "Unknown"
+    let suggestNamesForErrors = true
 
     static member Create(references: string[], readAllBytes: string -> byte[], defines: string[], optimize: bool) =
         let otherOptions = [|
@@ -70,7 +48,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
     static member Create(references: string[], readAllBytes: string -> byte[], otherOptions: string[]) =
         let projectFileName = "Project"
         let toRefOption (fileName: string) =
-            if fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+            if fileName.EndsWith(".dll", System.StringComparison.OrdinalIgnoreCase)
             then "-r:" + fileName
             else "-r:" + fileName + ".dll"
         let otherOptions = references |> Array.map toRefOption |> Array.append otherOptions
@@ -98,6 +76,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
         let tcConfig =
             let tcConfigB = TcConfigBuilder.Initial
+            tcConfigB.implicitIncludeDir <- System.IO.Path.GetDirectoryName (projectOptions.ProjectFileName)
             let sourceFiles = projectOptions.SourceFiles |> Array.toList
             let argv = projectOptions.OtherOptions |> Array.toList
             let _sourceFiles = ApplyCommandLineArgs(tcConfigB, sourceFiles, argv)
@@ -154,7 +133,8 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let parseCacheKey = fileName, hash source
         parseCache.GetOrAdd(parseCacheKey, fun _ ->
             x.ClearStaleCache(fileName, parsingOptions)
-            let parseErrors, parseTreeOpt, anyErrors = Parser.parseFile (source, fileName, parsingOptions, userOpName)
+            let sourceText = SourceText.ofString source
+            let parseErrors, parseTreeOpt, anyErrors = ParseAndCheckFile.parseFile (sourceText, fileName, parsingOptions, userOpName, suggestNamesForErrors)
             let dependencyFiles = [||] // interactions have no dependencies
             FSharpParseFileResults (parseErrors, parseTreeOpt, anyErrors, dependencyFiles) )
 
@@ -173,7 +153,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
             |> Eventually.force ctok
 
         let fileName = parseResults.FileName
-        let tcErrors = ErrorHelpers.CreateErrorInfos (tcConfig.errorSeverityOptions, false, fileName, (capturingErrorLogger.GetErrors()))
+        let tcErrors = ErrorHelpers.CreateErrorInfos (tcConfig.errorSeverityOptions, false, fileName, (capturingErrorLogger.GetErrors()), suggestNamesForErrors)
         (tcResult, tcErrors), (tcState, moduleNamesDict)
 
     member private x.CheckFile (projectFileName: string, parseResults: FSharpParseFileResults, tcState: TcState, moduleNamesDict: ModuleNamesDict) =
@@ -187,7 +167,6 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
             checkCache.[fileName] <- ((tcResult, tcErrors), (tcState, moduleNamesDict))
 
             let loadClosure = None
-            let checkAlive () = true
             let textSnapshotInfo = None
             let keepAssemblyContents = true
 
@@ -196,7 +175,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
             let scope = TypeCheckInfo (tcConfig, tcGlobals, ccuSigForFile, tcState.Ccu, tcImports, tcEnvAtEnd.AccessRights,
                                     projectFileName, fileName, sink.GetResolutions(), sink.GetSymbolUses(), tcEnvAtEnd.NameEnv,
-                                    loadClosure, reactorOps, checkAlive, textSnapshotInfo, implFile, sink.GetOpenDeclarations())
+                                    loadClosure, reactorOps, textSnapshotInfo, implFile, sink.GetOpenDeclarations())
             FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, reactorOps, keepAssemblyContents)
             |> Some
         | None ->
@@ -231,24 +210,24 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
     /// Parses and checks single file only, left as is for backwards compatibility.
     /// Despite the name, there is no support for #load etc.
     member x.ParseAndCheckScript (projectFileName: string, fileName: string, source: string) =
+        let sourceText = SourceText.ofString source
         let fileNames = [| fileName |]
         let parsingOptions = FSharpParsingOptions.FromTcConfig(tcConfig, fileNames, false)
         let parseResults = x.ParseFile (fileName, source, parsingOptions)
         let moduleNamesDict = Map.empty
         let loadClosure = None
         let backgroundErrors = [||]
-        let checkAlive () = true
         let textSnapshotInfo = None
         let tcState = tcInitialState
-        let tcResults = Parser.CheckOneFile(
-                            parseResults, source, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
-                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, checkAlive, textSnapshotInfo, userOpName)
+        let tcResults = ParseAndCheckFile.CheckOneFile(
+                            parseResults, sourceText, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
+                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, textSnapshotInfo, userOpName, suggestNamesForErrors)
         match tcResults with
-        | tcErrors, Parser.TypeCheckAborted.No scope ->
+        | tcErrors, Result.Ok tcFileInfo ->
             let errors = Array.append parseResults.Errors tcErrors
-            let tcImplFilesOpt = match scope.ImplementationFile with Some x -> Some [x] | None -> None
-            let typeCheckResults = FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, reactorOps, true)
-            let symbolUses = [scope.ScopeSymbolUses]
+            let tcImplFilesOpt = match tcFileInfo.ImplementationFile with Some x -> Some [x] | None -> None
+            let typeCheckResults = FSharpCheckFileResults (fileName, errors, Some tcFileInfo, parseResults.DependencyFiles, None, reactorOps, true)
+            let symbolUses = [tcFileInfo.ScopeSymbolUses]
             let projectResults = x.MakeProjectResults (projectFileName, [|parseResults|], tcState, errors, symbolUses, None, tcImplFilesOpt)
             parseResults, typeCheckResults, projectResults
         | _ ->

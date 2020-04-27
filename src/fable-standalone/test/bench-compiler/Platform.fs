@@ -12,7 +12,7 @@ let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
     let res = f x
     sw.Stop()
-    sw.ElapsedMilliseconds, res
+    res, sw.ElapsedMilliseconds
 
 module Json =
     open Newtonsoft.Json
@@ -51,14 +51,25 @@ module Json =
 
 let serializeToJson = Json.serializeToJson
 
-let ensureDirExists (dir: string): unit =
-    Directory.CreateDirectory(dir) |> ignore
+let ensureDirExists (path: string): unit =
+    Directory.CreateDirectory(path) |> ignore
 
 let normalizeFullPath (path: string) =
+    let path = if System.String.IsNullOrWhiteSpace path then "." else path
     Path.GetFullPath(path).Replace('\\', '/')
 
-let getRelativePath (pathFrom: string) (pathTo: string) =
-    Path.GetRelativePath(pathFrom, pathTo).Replace('\\', '/')
+let getRelativePath (path: string) (pathTo: string) =
+    let path = if System.String.IsNullOrWhiteSpace path then "." else path
+    Path.GetRelativePath(path, pathTo).Replace('\\', '/')
+
+let getHomePath () =
+    System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile)
+
+let getDirFiles (path: string) (extension: string) =
+    if not (Directory.Exists(path)) then [||]
+    else Directory.GetFiles(path, "*" + extension, SearchOption.AllDirectories)
+    |> Array.map (fun x -> x.Replace('\\', '/'))
+    |> Array.sort
 
 #else
 
@@ -69,6 +80,12 @@ module JS =
         abstract readFileSync: string -> byte[]
         abstract readFileSync: string * string -> string
         abstract writeFileSync: string * string -> unit
+
+    type IOperSystem =
+        abstract homedir: unit -> string
+        abstract tmpdir: unit -> string
+        abstract platform: unit -> string
+        abstract arch: unit -> string
 
     type IProcess =
         abstract hrtime: unit -> float []
@@ -81,30 +98,51 @@ module JS =
     type IUtil =
         abstract serializeToJson: data: obj -> string
         abstract ensureDirExists: dir: string -> unit
+        abstract getDirFiles: dir: string -> string[]
 
-    let FileSystem: IFileSystem = importAll "fs"
-    let Process: IProcess = importAll "process"
-    let Path: IPath = importAll "path"
-    let Util: IUtil = importAll "./util.js"
+    // type IPerformance =
+    //     abstract now: unit -> float
 
-let readAllBytes (filePath: string) = JS.FileSystem.readFileSync(filePath)
-let readAllText (filePath: string) = JS.FileSystem.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
-let writeAllText (filePath: string) (text: string) = JS.FileSystem.writeFileSync(filePath, text)
+    let fs: IFileSystem = importAll "fs"
+    let os: IOperSystem = importAll "os"
+    let proc: IProcess = importAll "process"
+    let path: IPath = importAll "path"
+    let util: IUtil = importAll "./util.js"
+    // let performance: IPerformance = importMember "perf_hooks"
+
+let readAllBytes (filePath: string) = JS.fs.readFileSync(filePath)
+let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
+
+// let measureTime (f: 'a -> 'b) x =
+//     let t0 = JS.performance.now()
+//     let res = f x
+//     let t1 = JS.performance.now()
+//     res, int64 (t1 - t0)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.Process.hrtime()
+    let startTime = JS.proc.hrtime()
     let res = f x
-    let elapsed = JS.Process.hrtime(startTime)
-    int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
+    let elapsed = JS.proc.hrtime(startTime)
+    res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
-let serializeToJson = JS.Util.serializeToJson
-let ensureDirExists = JS.Util.ensureDirExists
+let serializeToJson = JS.util.serializeToJson
+let ensureDirExists = JS.util.ensureDirExists
 
 let normalizeFullPath (path: string) =
-    JS.Path.resolve(path).Replace('\\', '/')
+    JS.path.resolve(path).Replace('\\', '/')
 
-let getRelativePath (pathFrom: string) (pathTo: string) =
-    JS.Path.relative(pathFrom, pathTo).Replace('\\', '/')
+let getRelativePath (path: string) (pathTo: string) =
+    JS.path.relative(path, pathTo).Replace('\\', '/')
+
+let getHomePath () =
+    JS.os.homedir()
+
+let getDirFiles (path: string) (extension: string) =
+    JS.util.getDirFiles(path)
+    |> Array.filter (fun x -> x.EndsWith(extension))
+    |> Array.map (fun x -> x.Replace('\\', '/'))
+    |> Array.sort
 
 #endif
 
@@ -122,17 +160,17 @@ module Path =
         else path.Substring(0, i) + ext
 
     let GetFileName (path: string) =
-        let normPath = path.Replace("\\", "/").TrimEnd('/')
-        let i = normPath.LastIndexOf("/")
+        let normPath = path.Replace('\\', '/').TrimEnd('/')
+        let i = normPath.LastIndexOf('/')
         normPath.Substring(i + 1)
 
     let GetFileNameWithoutExtension (path: string) =
         let path = GetFileName path
-        let i = path.LastIndexOf(".")
+        let i = path.LastIndexOf('.')
         path.Substring(0, i)
 
     let GetDirectoryName (path: string) =
-        let normPath = path.Replace("\\", "/")
-        let i = normPath.LastIndexOf("/")
+        let normPath = path.Replace('\\', '/')
+        let i = normPath.LastIndexOf('/')
         if i < 0 then ""
         else normPath.Substring(0, i)

@@ -125,16 +125,23 @@ let rec removeDirRecursive (p: string): unit =
 let mkDirRecursive (p: string): unit =
     fs?mkdirSync(p, %["recursive" ==> true])
 
-let rec copyDirRecursive (source: string) (target: string): unit =
+let rec copyDir (source: string) (target: string) (recursive: bool): unit =
     if fs?existsSync(target) |> not then
         mkDirRecursive target
     for file in dirFiles source do
         let source = source </> file
         let target = target </> file
         if isDirectory source then
-            copyDirRecursive source target
+            if recursive then
+                copyDir source target recursive
         else
             fs?copyFileSync(source, target)
+
+let copyDirNonRecursive (source: string) (target: string): unit =
+    copyDir source target false
+
+let copyDirRecursive (source: string) (target: string): unit =
+    copyDir source target true
 
 let copyFile (source: string) (target: string): unit =
     if isDirectory source then
@@ -342,7 +349,7 @@ module Publish =
             |> replaceRegex NUGET_PACKAGE_VERSION ["$1"; releaseVersion; "$3"]
             |> writeFile projFile
             try
-                let tempDir = projDir </> "temp"
+                let tempDir = fullPath(projDir </> "temp")
                 removeDirRecursive tempDir
                 runList ["dotnet pack"; projDir; sprintf "-c Release -o %s" tempDir]
                 let pkgName = filenameWithoutExtension projFile
@@ -366,6 +373,11 @@ module Publish =
             (JS.JSON.parse json)?version |> Option.ofObj
         let releaseVersion = loadReleaseVersion projDir
         if needsPublishing checkPkgVersion releaseVersion (projDir </> "package.json") then
+            let nugetKey =
+                match envVarOrNone "NPM_TOKEN" with
+                | Some nugetKey -> nugetKey
+                | None -> failwith "The npm token key must be set in a NPM_TOKEN environmental variable"
+            runInDir projDir @"npm config set '//registry.npmjs.org/:_authToken' ""${NPM_TOKEN}"""
             buildAction()
             bumpNpmVersion projDir releaseVersion
             try

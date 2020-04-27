@@ -8,18 +8,18 @@ open PublishUtils
 open System
 open System.Text.RegularExpressions
 open Fable.Core
-open Fable.Import
+open Fable.Core.JsInterop
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
-let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH + "&pr=false"
+let APPVEYOR_REPL_ARTIFACT_URL_PARAMS = "?branch=" + FABLE_BRANCH //+ "&pr=false"
 let APPVEYOR_REPL_ARTIFACT_URL =
     "https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip"
     + APPVEYOR_REPL_ARTIFACT_URL_PARAMS
 
 // ncave FCS fork
-let FCS_REPO = "https://github.com/ncave/FSharp.Compiler.Service"
-let FCS_REPO_LOCAL = "../FSharp.Compiler.Service_fable"
+let FCS_REPO = "https://github.com/ncave/fsharp"
+let FCS_REPO_LOCAL = "../fsharp_fable"
 let FCS_REPO_FABLE_BRANCH = "fable"
 let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
@@ -28,6 +28,8 @@ type GhRealeases =
         $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
             err != null ? fail(err) : succeed(res)))""")>]
     abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
+
+let concurrently(commands: string[]): unit = importDefault "concurrently"
 
 let cleanDirs dirs =
     for dir in dirs do
@@ -64,39 +66,62 @@ let buildLibrary() =
     buildTypescript "src/fable-library"
     buildSplitter "src/fable-library"
 
+let quicktest additionalCommands =
+    cleanDirs ["build/fable-library"]
+    concurrently [|
+        // Watch fable-library
+        yield "npx tsc --project src/fable-library --watch"
+        // Restart splitter on changes so latest fable-library and compiler are picked
+        yield "npx nodemon --watch src/quicktest -e \"fs\" --exec \"fable-splitter -c src/quicktest/splitter.config.js --run\""
+        yield! additionalCommands
+    |]
+
 let buildCompiler() =
     let projectDir = "src/fable-compiler"
     let libraryDir = "build/fable-library"
     cleanDirs [projectDir </> "dist"; projectDir </> "bin"]
     buildTypescript projectDir
     updateVersionInCliUtil()
-    run "dotnet publish -c Release -o ../fable-compiler/bin/fable-cli src/Fable.Cli/Fable.Cli.fsproj"
+    run "dotnet publish -c Release -o src/fable-compiler/bin/fable-cli src/Fable.Cli/Fable.Cli.fsproj"
     buildLibrary()
     copyDirRecursive libraryDir (projectDir </> "bin/fable-library")
 
-let buildCompilerJs testLocal =
+let buildCompilerJs() =
     let projectDir = "src/fable-compiler-js"
-    cleanDirs [projectDir </> "dist"]
-    if testLocal then
-        buildSplitterWithArgs projectDir "--test-local"
-    else
-        buildSplitter projectDir
+    let buildDir = "build/fable-compiler-js"
+    cleanDirs [buildDir; projectDir </> "dist"]
+    buildSplitterWithArgs projectDir ("--outDir " + buildDir + "/out")
+    run (sprintf "npx rollup %s/out/app.js --file %s/dist/app.js --format umd --name Fable" buildDir projectDir)
+    run (sprintf "npx terser %s/dist/app.js -o %s/dist/app.min.js --mangle --compress" projectDir projectDir)
 
 let buildStandalone() =
-    let projectDir = "src/fable-standalone"
+    let buildDir = "build/fable-standalone"
     let libraryDir = "build/fable-library"
-    cleanDirs [projectDir </> "dist"]
-    buildLibrary()
+    let projectDir = "src/fable-standalone"
+    let distDir = "src/fable-standalone/dist"
+    if pathExists libraryDir |> not then
+        buildLibrary()
 
-    // bundle.min.js
-    buildWebpack projectDir
-    fileSizeInBytes (projectDir </> "dist/bundle.min.js") / 1000
-    |> printfn "Bundle size: %iKB"
-    // worker.min.js
-    buildWebpack "src/fable-standalone/src/Worker"
+    // cleanup
+    cleanDirs [buildDir; distDir]
+    mkDirRecursive distDir
+    // build
+    buildSplitterWithArgs projectDir ("--outDir " + buildDir + "/out-bundle")
+    buildSplitterWithArgs (projectDir + "/src/Worker") ("--outDir " + buildDir + "/out-worker")
+    // bundle
+    run (sprintf "npx rollup %s/out-bundle/Main.js --file %s/bundle.js --format umd --name __FABLE_STANDALONE__" buildDir buildDir)
+    run (sprintf "npx rollup %s/out-worker/Worker.js --file %s/worker.js --format esm" buildDir buildDir)
+    // minimize
+    run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
+    // run (sprintf "npx terser %s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir)
+    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/worker.config.js" buildDir distDir projectDir)
+
+    // print bundle size
+    fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
+    fileSizeInBytes (distDir </> "worker.min.js") / 1000 |> printfn "Worker size: %iKB"
 
     // Put fable-library files next to bundle
-    let libraryTarget = projectDir </> "dist/fable-library"
+    let libraryTarget = distDir </> "fable-library"
     copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
     let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
@@ -118,6 +143,31 @@ let buildStandalone() =
     //     (if comMajor > staMajor || comMinor > staMinor then compilerVersion
     //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
+let testJs() =
+    let projectDir = "src/fable-compiler-js"
+    let buildDir = "build/tests-js"
+    if not (pathExists "build/fable-standalone") then
+        buildStandalone()
+    if not (pathExists "build/fable-compiler-js") then
+        buildCompilerJs()
+
+    cleanDirs [buildDir]
+
+    // Link fable-compiler-js to local packages
+    runInDir projectDir "npm link ../fable-metadata"
+    runInDir projectDir "npm link ../fable-standalone"
+
+    // Test fable-compiler-js locally
+    run ("node " + projectDir + " tests/Main/Fable.Tests.fsproj " + buildDir + " --commonjs")
+    run ("npx mocha " + buildDir + " --reporter dot -t 10000")
+    // and another test
+    runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
+    runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+
+    // Unlink local packages after test
+    runInDir projectDir "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
+    runInDir projectDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
+
 let test() =
     if pathExists "build/fable-library" |> not then
         buildLibrary()
@@ -128,13 +178,32 @@ let test() =
     runInDir "tests/Main" "dotnet run"
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
-        buildStandalone()
-        // Test fable-compiler-js locally
-        buildCompilerJs true
-        run "node src/fable-compiler-js tests/Main/Fable.Tests.fsproj build/tests-js --commonjs"
-        run "npx mocha build/tests-js --reporter dot -t 10000"
-        // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
-        // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+        testJs()
+
+let coverage() =
+    // report converter
+    // https://github.com/danielpalme/ReportGenerator
+    // dotnet tool install dotnet-reportgenerator-globaltool --tool-path tools
+    if not (pathExists "./bin/tools/reportgenerator") && not (pathExists "./bin/tools/reportgenerator.exe") then
+        runInDir "." "dotnet tool install dotnet-reportgenerator-globaltool --tool-path bin/tools"
+    let reportGen =
+        if pathExists "./bin/tools/reportgenerator" then "bin/tools/reportgenerator"
+        else "bin\\tools\\reportgenerator.exe"
+
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
+
+    cleanDirs ["build/tests"]
+    buildSplitter "tests"
+
+    // JS
+    run "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
+    runInDir "." (reportGen + " \"-reports:build/coverage/nyc/lcov.info\" -reporttypes:Html \"-targetdir:build/coverage/nyc/html\" ")
+
+    // .NET
+    //runInDir "tests/Main" "dotnet build /t:Collect_Coverage"
+    cleanDirs ["build/coverage/netcoreapp2.0/out"]
+    runInDir "." (reportGen + " \"-reports:build/coverage/netcoreapp2.0/coverage.xml\" -reporttypes:Html \"-targetdir:build/coverage/netcoreapp2.0/html\" ")
 
 let downloadStandalone() =
     let targetDir = "src/fable-standalone/dist"
@@ -177,8 +246,8 @@ let syncFcsRepo() =
     runInDir FCS_REPO_LOCAL "git pull"
     cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
         runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
 
     // fcs-fable
     runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_FABLE_BRANCH)
@@ -186,7 +255,12 @@ let syncFcsRepo() =
     cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
         runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
     copyDirRecursive (FCS_REPO_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
-    copyDirRecursive (FCS_REPO_LOCAL </> "src") "src/fcs-fable/src"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/absil") "src/fcs-fable/src/absil"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp") "src/fcs-fable/src/fsharp"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp/service") "src/fcs-fable/src/fsharp/service"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp/symbols") "src/fcs-fable/src/fsharp/symbols"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/ilx") "src/fcs-fable/src/ilx"
+    copyDirNonRecursive (FCS_REPO_LOCAL </> "src/utils") "src/fcs-fable/src/utils"
     removeFile "src/fcs-fable/.gitignore"
     let fcsFableProj = "src/fcs-fable/fcs-fable.fsproj"
     Regex.Replace(
@@ -199,7 +273,7 @@ let packages =
     ["Fable.Core", doNothing
      "fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
-     "fable-compiler-js", (fun () -> buildCompilerJs false)
+     "fable-compiler-js", buildCompilerJs
      "fable-loader", doNothing
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
@@ -220,9 +294,17 @@ let publishPackages restArgs =
 
 match argsLower with
 | "test"::_ -> test()
+| "test-js"::_ -> testJs()
+| "coverage"::_ -> coverage()
+| "quicktest-fast"::_ -> run "npx fable-splitter -c src/quicktest/splitter.config.js --watch --run"
+| "quicktest"::_ -> quicktest []
+| "check-sourcemaps"::_ ->
+    ("src/quicktest/Quicktest.fs", "src/quicktest/bin/Quicktest.js", "src/quicktest/bin/Quicktest.js.map")
+    |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
+    |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
-| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs false
+| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
 | ("fable-splitter"|"splitter")::_ -> buildFableSplitter()
 | ("fable-standalone"|"standalone")::_ -> buildStandalone()
 | "download-standalone"::_ -> downloadStandalone()

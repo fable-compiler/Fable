@@ -6,13 +6,13 @@ export default class Timer implements IDisposable {
   public AutoReset: boolean;
 
   private _elapsed: Event<Date>;
-  private _enabled: boolean;
-  private _isDisposed: boolean;
-  private _intervalId: number;
-  private _timeoutId: number;
+  private _enabled: boolean = false;
+  private _isDisposed: boolean = false;
+  private _intervalId: number = 0;
+  private _timeoutId: number = 0;
 
   constructor(interval?: number) {
-    this.Interval = interval > 0 ? interval : 100;
+    this.Interval = interval && interval > 0 ? interval : 100;
     this.AutoReset = true;
     this._elapsed = new Event<Date>();
   }

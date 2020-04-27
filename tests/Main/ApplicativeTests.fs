@@ -389,6 +389,8 @@ let update (model: RecordA) action =
     | CheckboxChanged (id, value, lens) ->
         Optic.set (RecordA.RecordB_ >-> lens) value model
 
+type Item2 = static member inline Invoke value = (^t : (member Item2 : _) value)
+
 type Id = Id of string
 
 type Ideable =
@@ -500,6 +502,9 @@ let tests5 = [
         let input2, checkbox2 = view a2
         input2 |> equal "bar"
         checkbox2 |> equal true
+
+    testCase "Trait calls work with tuples" <| fun () ->
+        Item2.Invoke (1,2,3) |> equal 2
 
     testCase "Trait calls work with record fields" <| fun () ->
         let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
@@ -833,6 +838,11 @@ module private PseudoElmish =
         setState = (fun m d -> setStateAccumulated <- setStateAccumulated + m)
     }
 
+let mul x y = x * y
+
+let addOne (add: int->int->int) x = add 1 x
+let pointFree_addOne = addOne
+
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
         (lengthWrapper []) |> equal 0
@@ -1086,7 +1096,37 @@ let tests7 = [
         setState 2
         doMapCalled |> equal 1
         doMapResultCalled |> equal 2
+
+    testCase "OptimizedClosures.FSharpFunc<_,_,_>.Adapt works" <| fun () -> // See #1904
+        let f = OptimizedClosures.FSharpFunc<_,_,_>.Adapt (fun x y -> x + y)
+        f.Invoke(3, 4) |> equal 7
+        let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt mul
+        f2.Invoke(3, 4) |> equal 12
+
+    testCase "Arguments passed to point-free function are uncurried" <| fun () -> // See #1959
+        let x = pointFree_addOne (+) 2
+        let y = addOne (+) 2
+        equal 3 x
+        equal 3 y
 ]
+
+// Test ported directly from https://github.com/fable-compiler/Fable/pull/1336/files
+let private SomeProcedure (s: string): unit = failwith "Never called"
+let private SomeFunction (s: string): string = s
+
+[<Fable.Core.Emit("$0.name")>]
+let private getName (f: obj) = failwith "JS only"
+
+let tests8 =
+    [
+        #if FABLE_COMPILER
+        testCase "Functions passed as parameters don't generate intermediate anonymous functions" <| fun () ->
+            let functionName = getName SomeFunction
+            equal "SomeFunction" functionName
+            let procedureName = getName SomeProcedure
+            equal "SomeProcedure" procedureName
+        #endif
+    ]
 
 let tests =
     testList "Applicative" (
@@ -1097,5 +1137,6 @@ let tests =
         @ tests5
         @ tests6
         @ tests7
+        @ tests8
         @ CurriedApplicative.tests
     )

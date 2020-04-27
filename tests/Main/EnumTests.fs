@@ -1,5 +1,6 @@
 module Fable.Tests.Enum
 
+open System
 open FSharp.Core.LanguagePrimitives
 open Util.Testing
 
@@ -23,8 +24,8 @@ let myRootValue =
 module EnumOperations =
     let inline enumOfValue1<'T,'U when 'U: enum<'T>> (value: 'T) : 'U = LanguagePrimitives.EnumOfValue<'T,'U>(value)
     let inline enumOfValue2 value = LanguagePrimitives.EnumOfValue value
-    let enumOfValue3 value = LanguagePrimitives.EnumOfValue value
-    let enumOfValue4 = LanguagePrimitives.EnumOfValue
+    // let enumOfValue3 value = LanguagePrimitives.EnumOfValue value
+    // let enumOfValue4 = LanguagePrimitives.EnumOfValue
 
 type BinaryBoolean =
     | A = 0uy
@@ -32,6 +33,11 @@ type BinaryBoolean =
     | C = 2uy
     | D = 3uy
     | E = 4uy
+
+type MyEnum =
+    | Foo = 1y
+    | Bar = 5y
+    | Baz = 8y
 
 let tests =
   testList "Enum" [
@@ -130,17 +136,17 @@ let tests =
         EnumOfValue 2 |> equal Fruits.Banana
         EnumOfValue 4 |> equal Fruits.Coconut
 
-    testCase "EnumOfValue works when type is unknown at compile time" <| fun () -> // #1536
+    testCase "EnumOfValue works in inlined functions" <| fun () -> // #1536
         let e0 : BinaryBoolean = LanguagePrimitives.EnumOfValue 0uy
         let e1 : BinaryBoolean = EnumOperations.enumOfValue1 1uy
         let e2 : BinaryBoolean = EnumOperations.enumOfValue2 2uy
-        let e3 : BinaryBoolean = EnumOperations.enumOfValue3 3uy
-        let e4 : BinaryBoolean = EnumOperations.enumOfValue4 4uy
+        // let e3 : BinaryBoolean = EnumOperations.enumOfValue3 3uy
+        // let e4 : BinaryBoolean = EnumOperations.enumOfValue4 4uy
         e0 |> equal BinaryBoolean.A
         e1 |> equal BinaryBoolean.B
         e2 |> equal BinaryBoolean.C
-        e3 |> equal BinaryBoolean.D
-        e4 |> equal BinaryBoolean.E
+        // e3 |> equal BinaryBoolean.D
+        // e4 |> equal BinaryBoolean.E
         match e2 with
         | BinaryBoolean.C -> ()
         | _ -> failwith "unexpected"
@@ -203,4 +209,45 @@ let tests =
                 | _ -> 1
             | _ -> 0
         test 2 |> equal 1
+
+    testCase "Enum.GetValues works" <| fun () ->
+        let check (ar: Array) =
+            ar
+            |> Seq.cast<sbyte>
+            |> Seq.toList
+            |> equal [1y; 5y; 8y]
+        let t = typeof<MyEnum>
+        Enum.GetValues(t) |> check
+        t.GetEnumValues() |> check
+
+    testCase "Enum.GetNames works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.GetNames(t) |> equal [|"Foo"; "Bar"; "Baz"|]
+        t.GetEnumNames() |> equal [|"Foo"; "Bar"; "Baz"|]
+
+    testCase "Enum.GetName works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.GetName(t, MyEnum.Foo) |> equal "Foo"
+        Enum.GetName(t, box 5y) |> equal "Bar"
+        Enum.GetName(t, MyEnum.Baz) |> equal "Baz"
+
+    testCase "Enum.IsDefined works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.IsDefined(t, "Foo") |> equal true
+        Enum.IsDefined(t, "Baz") |> equal true
+        Enum.IsDefined(t, "Ozu") |> equal false
+        Enum.IsDefined(t, 5y) |> equal true
+        Enum.IsDefined(t, 10y) |> equal false
+
+    testCase "Enum.Parse works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.Parse(t, "Foo") |> equal (box MyEnum.Foo)
+        Enum.Parse(t, "Bar") |> equal (box MyEnum.Bar)
+        Enum.Parse(t, "8") |> equal (box MyEnum.Baz)
+
+    testCase "Enum.TryParse works" <| fun () ->
+        let t = typeof<MyEnum>
+        Enum.TryParse(t, "Foo") |> equal (true, box MyEnum.Foo)
+        Enum.TryParse(t, "Bar") |> equal (true, box MyEnum.Bar)
+        Enum.TryParse(t, "Ozu") |> fst |> equal false
   ]

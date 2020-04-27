@@ -294,8 +294,8 @@ let tests =
 
     testCase "Seq.isEmpty works" <| fun () ->
         let xs = [1]
-        Seq.isEmpty xs
-        |> equal false
+        Seq.isEmpty xs |> equal false
+        Seq.isEmpty [] |> equal true
 
     testCase "Seq.iter works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
@@ -522,6 +522,26 @@ let tests =
         |> Seq.reduce (+)
         |> equal 20UL
 
+    testCase "Seq.range works with decimal" <| fun () ->
+        seq{1M .. 50M}
+        |> Seq.reduce (+)
+        |> equal 1275M
+
+    testCase "Seq.range step works with decimal" <| fun () ->
+        seq {-3M .. -0.4359698987M .. -50M}
+        |> Seq.reduce (+)
+        |> equal -2843.0340746886M
+
+    testCase "Seq.range works with bigint" <| fun () ->
+        seq{1I..2000I}
+        |> Seq.reduce (+)
+        |> equal 2001000I
+
+    testCase "Seq.range step works with bigint" <| fun () ->
+        seq {1I .. 10000000000000I .. 20000000000000000I}
+        |> Seq.reduce (+)
+        |> equal 19990000000000002000I
+
     testCase "Seq.reduce works" <| fun () ->
         let xs = [1.; 2.]
         xs |> Seq.reduce (+)
@@ -530,8 +550,13 @@ let tests =
     testCase "Seq.scan works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
         let ys = xs |> Seq.scan (+) 0.
-        sumFirstTwo ys
-        |> equal 1.
+        sumFirstTwo ys |> equal 1.
+
+    testCase "Seq.scan works with empty input" <| fun () ->
+        let xs = Seq.empty
+        let ys = xs |> Seq.scan (+) 3
+        Seq.head ys |> equal 3
+        Seq.length ys |> equal 1
 
     testCase "Seq.sort works" <| fun () ->
         let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
@@ -677,6 +702,24 @@ let tests =
         ys |> Seq.length |> equal 2
         ys |> Seq.head |> fst >= 4 |> equal true
 
+    testCase "Seq.distinct works on infinite sequences" <| fun () ->
+        let rec numbersFrom n =
+          seq { yield n; yield n; yield! numbersFrom (n + 1) }
+        let xs =
+            numbersFrom 1
+            |> Seq.distinct
+            |> Seq.take 5
+        xs |> Seq.toList |> equal [1; 2; 3; 4; 5]
+
+    testCase "Seq.distinctBy works on infinite sequences" <| fun () ->
+        let rec numbersFrom n =
+          seq { yield n; yield n; yield! numbersFrom (n + 1) }
+        let xs =
+            numbersFrom 1
+            |> Seq.distinctBy (fun x -> x / 5)
+            |> Seq.take 5
+        xs |> Seq.toList |> equal [1; 5; 10; 15; 20]
+
     testCase "Seq.groupBy works" <| fun () ->
         let xs = [1; 2; 3; 4]
         let ys = xs |> Seq.groupBy (fun x -> x % 2)
@@ -693,6 +736,11 @@ let tests =
         let xs = [1.]
         xs |> Seq.exactlyOne
         |> equal 1.
+
+    testCase "Seq.tryExactlyOne works" <| fun () ->
+            seq {yield 1.} |> Seq.tryExactlyOne |> equal (Some 1.)
+            seq {yield 1.; yield 2.} |> Seq.tryExactlyOne |> equal None
+            Seq.empty<float> |> Seq.tryExactlyOne |> equal None
 
     testCase "Seq.initInfinite works" <| fun () ->
         Seq.initInfinite (fun i -> 2. * float i)
@@ -716,6 +764,11 @@ let tests =
         |> Seq.map (fun (x, y) -> sprintf "%i%i" x y)
         |> String.concat ""
         |> equal "122334"
+
+    testCase "Seq.pairwise works with empty input" <| fun () -> // See #1941
+        ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
+        [1] |> Seq.pairwise |> Seq.toList |> equal []
+        [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
 
     testCase "Seq.readonly works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
@@ -810,4 +863,51 @@ let tests =
         Seq.windowed 5 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Seq.windowed 6 nums |> Seq.toArray |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Seq.windowed 7 nums |> Seq.isEmpty |> equal true
+
+    testCase "Seq.allPairs works" <| fun () ->
+        let mutable accX = 0
+        let mutable accY = 0
+        let xs = seq { accX <- accX + 1; for i = 1 to 4 do yield i }
+        let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do yield i }
+        let res = Seq.allPairs xs ys
+        let res1 = List.ofSeq res
+        let res2 = List.ofSeq res
+        let expected =
+            [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+             (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+             (4, 'd'); (4, 'e'); (4, 'f')]
+        accX |> equal 2
+        accY |> equal 1
+        equal expected res1
+        equal expected res2
+
+    testCase "Seq.transpose works" <| fun () ->
+        let seqEqual (expected: seq<'T seq>) (actual: seq<'T seq>) =
+            (actual |> Seq.map Seq.toArray |> Seq.toArray)
+            |> equal (expected |> Seq.map Seq.toArray |> Seq.toArray)
+        // integer seq
+        Seq.transpose (seq [seq {1..3}; seq {4..6}])
+        |> seqEqual [seq [1; 4]; seq [2; 5]; seq [3; 6]]
+        Seq.transpose (seq [seq {1..3}])
+        |> seqEqual [seq [1]; seq [2]; seq [3]]
+        Seq.transpose (seq [seq [1]; seq [2]])
+        |> seqEqual [seq {1..2}]
+        // string seq
+        Seq.transpose (seq [seq ["a";"b";"c"]; seq ["d";"e";"f"]])
+        |> seqEqual [seq ["a";"d"]; seq ["b";"e"]; seq ["c";"f"]]
+        // empty seq
+        Seq.transpose Seq.empty
+        |> seqEqual Seq.empty
+        // seq of empty seqs - m x 0 seq transposes to 0 x m (i.e. empty)
+        Seq.transpose (seq [Seq.empty])
+        |> seqEqual Seq.empty
+        Seq.transpose (seq [Seq.empty; Seq.empty])
+        |> seqEqual Seq.empty
+        // sequences of lists
+        Seq.transpose [["a";"b"]; ["c";"d"]]
+        |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
+        Seq.transpose (seq { yield ["a";"b"]; yield ["c";"d"] })
+        |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
+
   ]

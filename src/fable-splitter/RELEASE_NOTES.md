@@ -1,3 +1,19 @@
+### 2.1.13
+
+* Update to fable-babel-plugins 2.3.0
+
+### 2.1.12
+
+* Pass `--inspect` option to node, when running script in debug mode
+
+### 2.1.11
+
+* Add --usePolling flag @drk-mtr
+
+### 2.1.10
+
+* Add `onCompiled` hook
+
 ### 2.1.8
 
 * Add back possibility to connect to TCP port

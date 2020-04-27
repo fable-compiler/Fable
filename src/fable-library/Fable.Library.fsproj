@@ -10,8 +10,11 @@
     <Compile Include="BigInt/z.fs" />
     <Compile Include="BigInt.fs" />
     <Compile Include="System.Text.fs" />
+    <Compile Include="System.Collections.Generic.fs" />
     <Compile Include="FSharp.Collections.fs" />
     <Compile Include="FSharp.Core.fs" />
+    <Compile Include="MutableMap.fs" />
+    <Compile Include="MutableSet.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Set.fs" />
@@ -20,6 +23,6 @@
     <Compile Include="ExprUtils.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="3.0.0" />
+    <PackageReference Include="Fable.Core" Version="3.1.5" />
   </ItemGroup>
 </Project>

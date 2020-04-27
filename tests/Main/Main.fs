@@ -56,14 +56,23 @@ open Fable.Core.JsInterop
 // but not available in node.js runtime
 importSideEffects "./js/polyfill"
 
-let [<Global>] describe (name: string) (f: unit->unit) = jsNative
-let [<Global>] it (msg: string) (f: unit->unit) = jsNative
+let [<Global>] describe (name: string) (f: unit->unit) : unit = jsNative
+let [<Global>] it (msg: string) (f: unit->unit) : unit = jsNative
+
+
+let rec flattenTest (test:Fable.Tests.Util.Testing.TestKind) : unit =
+    match test with
+    | Fable.Tests.Util.Testing.TestKind.TestList(name, tests) ->
+        describe name (fun () ->
+          for t in tests do
+            flattenTest t)
+    | Fable.Tests.Util.Testing.TestKind.TestCase (name, test) ->
+        it name (unbox test)
+
 
 let run () =
-    for (name, tests) in allTests do
-        describe name (fun () ->
-            for (msg, test) in tests do
-                it msg (unbox test))
+    for t in allTests do
+        flattenTest t
 run()
 
 #else
@@ -72,8 +81,8 @@ open Expecto
 
 [<EntryPoint>]
 let main args =
-  Array.toList allTests
-  |> testList "All"
-  |> runTestsWithArgs defaultConfig args
+    Array.toList allTests
+    |> testList "All"
+    |> runTestsWithArgs defaultConfig args
 
 #endif

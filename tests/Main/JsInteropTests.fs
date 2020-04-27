@@ -6,6 +6,7 @@ open Util.Testing
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.JsInterop
+open Fable.Core.DynamicExtensions
 open Fable.Core.Experimental
 
 [<Global>]
@@ -78,6 +79,19 @@ type Record = {
 type MyStrings =
     | Vertical
     | [<CompiledName("Horizontal")>] Horizontal
+
+[<StringEnum(CaseRules.SnakeCase); RequireQualifiedAccess>]
+type UserInfo =
+    | UserLoginCount
+
+[<StringEnum(CaseRules.SnakeCaseAllCaps); RequireQualifiedAccess>]
+type UserInfo2 =
+    | UserLoginCount
+
+[<StringEnum(CaseRules.KebabCase)>]
+type MyCssOptions =
+    | ContentBox
+    | BorderBox
 
 [<StringEnum>]
 #endif
@@ -201,12 +215,11 @@ let tests =
     //     opts2?foo2?flag1 |> unbox |> equal true
     //     opts2?bar2?(1) |> unbox |> equal 3
 
-    // TODO
-    // testCase "Array inside keyValueList is preserved" <| fun () ->
-    //     let props = [ Names [| { Name = "name" } |] ]
-    //     let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> toJson
-    //     let expected = props |> keyValueList CaseRules.LowerFirst |> toJson
-    //     actual |> equal expected
+    testCase "Array inside keyValueList is preserved" <| fun () ->
+        let props = [ Names [| { Name = "name" } |] ]
+        let actual = [ Names [| { Name = "name" } |] ] |> keyValueList CaseRules.LowerFirst |> JS.JSON.stringify
+        let expected = props |> keyValueList CaseRules.LowerFirst |> JS.JSON.stringify
+        actual |> equal expected
 
     testCase "Erased union cases work with keyValueList" <| fun () ->
         let props: Props list = [ Custom("Foo", 5); Names [|{Name = "Mikhail"}|] ]
@@ -259,6 +272,13 @@ let tests =
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
 
+    testCase "Assigning null with emit works" <| fun () ->
+        let x = createEmpty<obj>
+        x.["prop"] <- "prop value"
+        x.["prop"] |> isNull |> equal false
+        x.["prop"] <- null
+        x.["prop"] |> equal null
+
     testCase "Emit attribute conditional parameters works" <| fun () ->
         let style = createEmpty<TextStyle>
         style.FontFamily <- Some "ha"
@@ -280,9 +300,8 @@ let tests =
         nameof(record.Int) |> equal "Int"
         nameof(record.InnerRecord) + "." + nameof(record.InnerRecord.Float)
         |> equal "InnerRecord.Float"
-        // TODO!!!
-        // nameof(typeof<Record>) |> equal "Record"
-        // nameof(typeof<InnerRecord>) |> equal "InnerRecord"
+        nameof(typeof<Record>) |> equal "Record"
+        nameof(typeof<InnerRecord>) |> equal "InnerRecord"
 
     testCase "nameofLambda works" <| fun () ->
         nameofLambda(fun (x:Record) -> x.String) |> equal "String"
@@ -291,6 +310,18 @@ let tests =
     testCase "StringEnum attribute works" <| fun () ->
         Vertical |> unbox |> equal "vertical"
         Horizontal |> unbox |> equal "Horizontal"
+        Vertical |> string |> equal "vertical"
+        Horizontal |> string |> equal "Horizontal"
+
+    testCase "StringEnum works with CaseRules.SnakeCase" <| fun () ->
+        UserInfo.UserLoginCount |> unbox |> equal "user_login_count"
+
+    testCase "StringEnum works with CaseRules.SnakeCaseAllCaps" <| fun () ->
+        UserInfo2.UserLoginCount |> unbox |> equal "USER_LOGIN_COUNT"
+
+    testCase "StringEnum works with CaseRules.KebabCase" <| fun () ->
+        BorderBox |> unbox |> equal "border-box"
+        ContentBox |> unbox |> equal "content-box"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->
@@ -300,6 +331,11 @@ let tests =
     testCase "Local import with curried signatures works" <| fun () ->
         let add (x:int) (y:int): int = importMember "./js/1foo.js"
         3 |> add 2 |> equal 5
+
+    testCase "TypedArray element can be set and get using index" <| fun () ->
+        let arr = JS.Constructors.Uint8Array.Create(5)
+        arr.[0] <- 5uy
+        equal 5uy arr.[0]
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

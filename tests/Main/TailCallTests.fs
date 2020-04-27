@@ -99,6 +99,14 @@ and parseTokens tokens = function
   | x::xs -> parseTokens tokens xs
   | [] -> List.rev tokens
 
+type Element =
+    | Element of action: (unit->unit) * children: Element list
+    member this.Activate() =
+        match this with
+        | Element(action, children) ->
+            action()
+            for child in children do child.Activate()
+
 let tests =
   testList "TailCalls" [
     testCase "Recursive functions can be tailcall optimized" <| fun () ->
@@ -192,4 +200,52 @@ let tests =
           then yield i + i + 3 }
       seq { yield 2; yield! oddprms }
       |> Seq.length |> equal 23000
+
+    testCase "Expressiones captured in a closure don't change after tail-call optimizations" <| fun () -> // See #1859
+        let mutable accValue = 0
+        let el action children = Element(action, children)
+
+        let init () =
+            [|1 .. 4|] |> Array.map (fun i -> i, false) |> Map.ofArray
+
+        let update msg (model: Map<int,bool>) =
+            accValue <- accValue + msg
+            let b = model.[msg]
+            Map.add msg (not b) model
+
+        let view model dispatch =
+            let rec looper acc x =
+                match x with
+                |(i1,b1)::(i2,b2)::rest ->
+                    let newParent =
+                        el ignore [
+                            el (fun _ ->
+                                // Force the x argument to be captured
+                                // by the closure
+                                match x with
+                                |(i1,_)::_ -> i1 |> dispatch
+                                | _ -> ()) []
+                            el (fun _ -> i2 |> dispatch) []
+                        ]
+                    looper (newParent::acc) rest
+                |(i,b)::rest ->
+                    let newParent =
+                        el (fun _ -> i |> dispatch) []
+                    looper (newParent::acc) rest
+                |[] -> acc
+
+            // Use two looper references to prevent the binding
+            // beta reduction and force the tail-call optimization
+            model |> Map.toList |> looper [] |> ignore
+            model |> Map.toList |> looper [] |> el ignore
+
+        let main init view update =
+            let mutable model = init()
+            let dispatch m msg =
+                model <- update msg m
+            let el: Element = view model (dispatch model)
+            el.Activate()
+
+        main init view update
+        accValue |> equal 10
   ]

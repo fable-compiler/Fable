@@ -2,9 +2,8 @@
 
 namespace FSharp.Compiler.SourceCodeServices
 
-open FSharp.Compiler
-open FSharp.Compiler.Range
-open FSharp.Compiler.Ast
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.Text
 
 /// Represent an Xml documentation block in source code
 type public XmlDocable =
@@ -16,6 +15,7 @@ module public XmlDocComment =
     val isBlank : string -> int option
 
 module public XmlDocParser =
+
     /// Get the list of Xml documentation from current source code
-    val getXmlDocables : sourceCodeOfTheFile : string * input : Ast.ParsedInput option -> XmlDocable list
+    val getXmlDocables : ISourceText * input: ParsedInput option -> XmlDocable list
     

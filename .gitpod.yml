@@ -1,0 +1,36 @@
+image:
+  file: .docker/Dockerfile
+
+tasks:
+  - before: dotnet restore 
+  - init: npm install && npm run build compiler
+
+github:
+  prebuilds:
+    # enable for the master/default branch (defaults to true)
+    master: true
+    # enable for all branches in this repo (defaults to false)
+    branches: false
+    # enable for pull requests coming from this repo (defaults to true)
+    pullRequests: true
+    # enable for pull requests coming from forks (defaults to false)
+    pullRequestsFromForks: true
+    # add a check to pull requests (defaults to true)
+    addCheck: true
+    # add a "Review in Gitpod" button as a comment to pull requests (defaults to false)
+    addComment: true
+    # add a "Review in Gitpod" button to the pull request's description (defaults to false)
+    addBadge: false
+    # add a label once the prebuild is ready to pull requests (defaults to false)
+    addLabel: false
+
+vscode:
+  extensions:
+    - christian-kohler.path-intellisense@1.4.2:QnOrf5fk6KiVaQs4cNEP+w==
+    - wayou.vscode-todo-highlight@1.0.4:8IqxuxCVol2WnScJc5xVzg==
+    - mrmlnc.vscode-scss@0.9.0:/wXbNRm+2kunH5HbQqfnXA==
+    - PKief.material-icon-theme@3.9.2:xeHlNzPEF04yFqz/xKCD5w==
+    - Ionide.Ionide-fsharp@4.5.0:0qxXuhq6eO066etkNQrKCQ==
+    - zhuangtongfa.material-theme@3.2.2:jGTZwg0ChZg3eEKHC+UO+w==
+    - mhutchie.git-graph@1.21.0:zoSeoEOMfrwN0BMBC8VvqQ==
+    - eamodio.gitlens@10.2.0:GNDO73Cmp0fYDiLNxVkbsQ==

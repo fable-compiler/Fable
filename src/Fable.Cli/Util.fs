@@ -2,45 +2,49 @@ namespace Fable.Cli
 
 module Literals =
 
-  let [<Literal>] VERSION = "2.3.10"
-  let [<Literal>] CORE_VERSION = "2.1.0"
-  let [<Literal>] DEFAULT_PORT = 61225
-  let [<Literal>] FORCE = "force:"
-  let [<Literal>] EXIT = "exit"
+    let [<Literal>] VERSION = "2.8.1"
+    let [<Literal>] CORE_VERSION = "2.1.0"
+    let [<Literal>] DEFAULT_PORT = 61225
+    let [<Literal>] FORCE = "force:"
+    let [<Literal>] EXIT = "exit"
 
-  /// System references needed to compile Fable projects, see fable-standalone/src/Metadata
-  let SYSTEM_CORE_REFERENCES =
-        [| // "Fable.Core"
-           // "FSharp.Core"
-           "mscorlib"
-           "netstandard"
-           "System.Collections"
-           "System.Collections.Concurrent"
-           "System.ComponentModel"
-           "System.ComponentModel.Primitives"
-           "System.ComponentModel.TypeConverter"
-           "System.Console"
-           "System.Core"
-           "System.Diagnostics.Debug"
-           "System.Diagnostics.Tracing"
-           "System.Globalization"
-           "System"
-           "System.IO"
-           "System.Numerics"
-           "System.Reflection"
-           "System.Reflection.Extensions"
-           "System.Reflection.Metadata"
-           "System.Reflection.Primitives"
-           "System.Reflection.TypeExtensions"
-           "System.Runtime"
-           "System.Runtime.Extensions"
-           "System.Runtime.Numerics"
-           "System.Text.Encoding"
-           "System.Text.Encoding.Extensions"
-           "System.Text.RegularExpressions"
-           "System.Threading"
-           "System.Threading.Tasks"
-           "System.ValueTuple" |]
+    /// System references needed to compile Fable projects, see fable-standalone/src/Metadata
+    let SYSTEM_CORE_REFERENCES = [|
+        // "Fable.Core"
+        // "FSharp.Core"
+        "mscorlib"
+        "netstandard"
+        "System.Collections"
+        "System.Collections.Concurrent"
+        "System.ComponentModel"
+        "System.ComponentModel.Primitives"
+        "System.ComponentModel.TypeConverter"
+        "System.Console"
+        "System.Core"
+        "System.Diagnostics.Debug"
+        "System.Diagnostics.Tools"
+        "System.Diagnostics.Tracing"
+        "System.Globalization"
+        "System"
+        "System.IO"
+        "System.Net.Requests"
+        "System.Net.WebClient"
+        "System.Numerics"
+        "System.Reflection"
+        "System.Reflection.Extensions"
+        "System.Reflection.Metadata"
+        "System.Reflection.Primitives"
+        "System.Reflection.TypeExtensions"
+        "System.Runtime"
+        "System.Runtime.Extensions"
+        "System.Runtime.Numerics"
+        "System.Text.Encoding"
+        "System.Text.Encoding.Extensions"
+        "System.Text.RegularExpressions"
+        "System.Threading"
+        "System.Threading.Tasks"
+        "System.ValueTuple"
+        |]
 
 open System.IO
 open System.Reflection
@@ -57,9 +61,9 @@ type AgentMsg =
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbose, forcePkgs, fableLibraryPath, workingDir) =
+type GlobalParams private (verbosity, forcePkgs, fableLibraryPath, workingDir) =
     static let mutable singleton: GlobalParams option = None
-    let mutable _verbose = verbose
+    let mutable _verbosity = verbosity
     let mutable _forcePkgs = forcePkgs
     let mutable _fableLibraryPath = fableLibraryPath
     let mutable _workingDir = workingDir
@@ -83,19 +87,19 @@ type GlobalParams private (verbose, forcePkgs, fableLibraryPath, workingDir) =
                 defaultFableLibraryPaths
                 |> List.tryFind Directory.Exists
                 |> Option.defaultValue (List.last defaultFableLibraryPaths)
-            let p = GlobalParams(false, false, fableLibraryPath, workingDir)
+            let p = GlobalParams(Fable.Verbosity.Normal, false, fableLibraryPath, workingDir)
             singleton <- Some p
             p
 
-    member __.Verbose: bool = _verbose
+    member __.Verbosity: Fable.Verbosity = _verbosity
     member __.ForcePkgs: bool = _forcePkgs
     member __.FableLibraryPath: string = _fableLibraryPath
     member __.WorkingDir: string = _workingDir
     member __.ReplaceFiles = _replaceFiles
     member __.Experimental = _experimental
 
-    member __.SetValues(?verbose, ?forcePkgs, ?fableLibraryPath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
-        _verbose        <- defaultArg verbose _verbose
+    member __.SetValues(?verbosity, ?forcePkgs, ?fableLibraryPath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
+        _verbosity      <- defaultArg verbosity _verbosity
         _forcePkgs      <- defaultArg forcePkgs _forcePkgs
         _fableLibraryPath  <- defaultArg fableLibraryPath _fableLibraryPath
         _workingDir     <- defaultArg workingDir _workingDir
@@ -121,12 +125,13 @@ module Log =
     let writerLock = obj()
 
     let always (msg: string) =
-        lock writerLock (fun () ->
-            Console.Out.WriteLine(msg)
-            Console.Out.Flush())
+        if GlobalParams.Singleton.Verbosity <> Fable.Verbosity.Silent then
+            lock writerLock (fun () ->
+                Console.Out.WriteLine(msg)
+                Console.Out.Flush())
 
     let verbose (msg: Lazy<string>) =
-        if GlobalParams.Singleton.Verbose then
+        if GlobalParams.Singleton.Verbosity = Fable.Verbosity.Verbose then
             always msg.Value
 
 module Json =
@@ -254,48 +259,6 @@ module Process =
         |> log
 
         exitCode
-
-    let getNetcoreAssembliesDir() =
-        let matchProcessOutput exe args regexPattern =
-            let _, logOut, _ =
-                runProcess "." exe args
-            Regex.Match(String.concat " " logOut, regexPattern)
-        let nugetCache =
-            matchProcessOutput "dotnet" "nuget locals global-packages --list"
-                               @"info\s*:\s*global-packages\s*:\s*(.+)"
-            |> fun m -> m.Groups.[1].Value.Trim()
-        let hostVersion =
-            matchProcessOutput "dotnet" "--info"
-                               @"Host[\s\S]*?Version\s*:\s*([\d.]+)"
-            |> fun m -> m.Groups.[1].Value
-        let v = hostVersion.Split('.')
-        let netCoreAssembliesDir = Path.Combine(nugetCache, "microsoft.netcore.app", hostVersion, "ref", "netcoreapp" + v.[0] + "." + v.[1])
-        
-        if not(Directory.Exists(netCoreAssembliesDir)) then
-            // Create a temp proj file that has the current Microsoft.NETCore.App as dependency.
-            // Restore the proj file which will add the nuget package in the global cache.
-            // We do this because using the System dll listed in C:\Program Files\dotnet\sdk\2.1.503
-            // lead to weird behavior in the checkedProject.AssemblyContents.ImplementationFiles in Agent.fs.
-            let netappCore = sprintf "%s.%s" v.[0] v.[1]
-            let proj = sprintf """<?xml version="1.0" encoding="utf-8"?>
-                                    <Project Sdk="Microsoft.NET.Sdk">
-                                      <PropertyGroup>
-                                        <TargetFramework>netcoreapp%s</TargetFramework>
-                                      </PropertyGroup>
-                                      <ItemGroup>
-                                        <PackageReference Include="Microsoft.NETCore.App" Version="%s" />
-                                      </ItemGroup>
-                                    </Project>
-                                    """ netappCore hostVersion
-                                    
-            let tempFolder = Path.GetTempPath()
-            let tempProj = System.IO.Path.Combine(tempFolder, (sprintf "%s.proj" (System.Guid.NewGuid().ToString("N"))))
-            
-            System.IO.File.WriteAllText(tempProj, proj)
-            let restoreCode = runProcess tempFolder "dotnet" (sprintf "restore \"%s\"" tempProj)
-            System.IO.File.Delete(tempProj)
-            
-        netCoreAssembliesDir
 
 [<RequireQualifiedAccess>]
 module Async =

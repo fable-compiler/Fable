@@ -5,15 +5,14 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let references = Metadata.references_core
-let metadataPath = "/temp/repl/metadata2/" // .NET BCL binaries
+let metadataPath = "/Projects/Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 let printErrors showWarnings (errors: FSharpErrorInfo[]) =
     let isWarning (e: FSharpErrorInfo) =
         e.Severity = FSharpErrorSeverity.Warning
     let printError (e: FSharpErrorInfo) =
         let errorType = (if isWarning e then "Warning" else "Error")
-        printfn "%s (%d,%d--%d,%d): %s: %s" e.FileName e.EndLineAlternate
-            e.StartColumn e.EndLineAlternate e.EndColumn errorType e.Message
+        printfn "%s (%d,%d): %s: %s" e.FileName e.StartLineAlternate e.StartColumn errorType e.Message
     let warnings, errors = errors |> Array.partition isWarning
     let hasErrors = not (Array.isEmpty errors)
     if showWarnings then
@@ -22,10 +21,10 @@ let printErrors showWarnings (errors: FSharpErrorInfo[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
-let parseFiles projectPath outDir optimize =
+let parseFiles projectFileName outDir optimize =
     // parse project
     let projSet = makeHashSetIgnoreCase ()
-    let (projectFileName, dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectPath
+    let (dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectFileName
 
     // dedup file names
     let fileSet = makeHashSetIgnoreCase ()
@@ -95,10 +94,10 @@ let parseArguments (argv: string[]) =
     let usage = "Usage: bench <PROJECT_PATH> [--options]"
     let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
     match args with
-    | [| projectPath |] ->
+    | [| projectFileName |] ->
         let outDir = "./out-test"
         let optimize = opts |> Array.contains "--optimize-fcs"
-        parseFiles projectPath outDir optimize
+        parseFiles projectFileName outDir optimize
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]

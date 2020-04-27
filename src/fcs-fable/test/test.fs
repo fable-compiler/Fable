@@ -5,10 +5,10 @@ open FSharp.Compiler.SourceCodeServices
 open Fable.Compiler.Platform
 
 let references = Metadata.references_core
-let metadataPath = "/temp/repl/metadata2/" // .NET BCL binaries
+let metadataPath = "/Projects/Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 [<EntryPoint>]
-let main argv =
+let main _argv =
     printfn "Parsing begins..."
 
     let defines = [||]

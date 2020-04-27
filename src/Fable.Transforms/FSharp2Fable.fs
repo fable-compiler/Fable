@@ -1,7 +1,7 @@
 module rec Fable.Transforms.FSharp2Fable.Compiler
 
 open System.Collections.Generic
-open FSharp.Compiler.Ast
+open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.SourceCodeServices
 
 open Fable
@@ -59,10 +59,9 @@ let private transformNewUnion com ctx r (fsType : FSharpType)
         | _ -> "Erased Union Cases must have one single field: " + (getFsTypeFullName fsType)
                |> addErrorAndReturnNull com ctx.InlinePath r
     | StringEnum(tdef, rule) ->
-        let enumName = defaultArg tdef.TryFullName Naming.unknown
         match argExprs with
-        | [] -> Fable.Enum(applyCaseRule rule unionCase |> Fable.StringEnum, enumName) |> makeValue r
-        | _ -> "StringEnum types cannot have fields: " + enumName
+        | [] -> transformStringEnum rule unionCase
+        | _ -> sprintf "StringEnum types cannot have fields: %O" tdef.TryFullName
                |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion typ ->
         let typ = makeType com ctx.GenericArgs typ
@@ -116,13 +115,17 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
 
-    sourceTypes |> Seq.tryPick (fun t ->
-        match makeType com ctx.GenericArgs t with
+    sourceTypes |> Seq.tryPick (fun sourceType ->
+        let t = makeType com ctx.GenericArgs sourceType
+        match t with
         // Types with specific entry in Fable.AST
         // TODO: Check other types like booleans or numbers?
         | Fable.String ->
             let info = makeCallInfo traitName Types.string argTypes []
             Replacements.strings com ctx r typ info thisArg args
+        | Fable.Tuple genArgs ->
+            let info = makeCallInfo traitName (getTypeFullName false t) argTypes genArgs
+            Replacements.tuples com ctx r typ info thisArg args
         | Fable.Option genArg ->
             let info = makeCallInfo traitName Types.option argTypes [genArg]
             Replacements.options com ctx r typ info thisArg args
@@ -244,7 +247,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
             let fi = unionCase.UnionCaseFields.[0]
             let typ =
                 if fi.FieldType.IsGenericParameter then
-                    let name = fi.FieldType.GenericParameter.Name
+                    let name = genParamName fi.FieldType.GenericParameter
                     let index =
                         tdef.GenericParameters
                         |> Seq.findIndex (fun arg -> arg.Name = name)
@@ -259,7 +262,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
         return Fable.Test(unionExpr, kind, r)
     | StringEnum(_, rule) ->
-        return makeEqOp r unionExpr (applyCaseRule rule unionCase) BinaryEqualStrict
+        return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
     | DiscriminatedUnion(tdef,_) ->
         let kind = Fable.UnionCaseTest(unionCase, tdef)
         return Fable.Test(unionExpr, kind, r)
@@ -308,7 +311,7 @@ let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharp
         match ctor with
         | Some ctor ->
             let args =
-                a.ConstructorArguments |> Seq.toList |> List.map (fun (t,v) ->
+                a.ConstructorArguments |> Seq.toList |> List.map (fun (_,v) ->
                     match v with
                     | :? string as str -> Fable.Value(Fable.StringConstant str, None)
                     | :? int8 as v -> Fable.Value(Fable.NumberConstant(float v, NumberKind.Int8), None)
@@ -550,8 +553,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
         let t = makeType com ctx.GenericArgs targetType
         match tryDefinition targetType with
-        | Some(_, Some (Types.ienumerableGeneric | Types.ienumerable)) ->
-            return Replacements.toSeq t inpExpr
+        | Some(_, Some fullName) ->
+            match fullName with
+            | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.toSeq t inpExpr
+            | _ -> return Fable.TypeCast(inpExpr, t)
         | _ -> return Fable.TypeCast(inpExpr, t)
 
     // TypeLambda is a local generic lambda
@@ -618,13 +623,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let body = Fable.Let([ident1, id1Expr], Fable.Let([ident2, id2Expr], restExpr))
         return Fable.Let([tupleIdent, tupleExpr], body)
 
-    | CreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
+    | CallCreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let! callee = transformExpr com ctx callee
         let! args = transformExprList com ctx membArgs
         let callee = get None Fable.Any callee eventName
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs (Some callee) args memb
+
+    | BindCreateEvent (var, value, eventName, body) ->
+        let! value = transformExpr com ctx value
+        let value = get None Fable.Any value eventName
+        let ctx, ident = putBindingInScope com ctx var value
+        let! body = transformExpr com ctx body
+        return Fable.Let([ident, value], body)
 
     // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
     | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->
@@ -651,7 +663,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> makeLoop (makeRangeFrom fsExpr)
 
     // Values
-    | BasicPatterns.Const(value, FableType com ctx typ) ->
+    | BasicPatterns.Const(value, typ) ->
+        let typ = nonAbbreviatedType typ
+        let typ = makeType com ctx.GenericArgs typ
         return Replacements.makeTypeConst (makeRangeFrom fsExpr) typ value
 
     | BasicPatterns.BaseValue typ ->
@@ -693,7 +707,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return makeValueFrom com ctx r var
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
-        return Replacements.defaultof typ
+        return Replacements.defaultof com ctx typ
 
     // Assignments
     | BasicPatterns.Let((var, value), body) ->
@@ -1063,7 +1077,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                                 let mem =  transformMemberInfo com ctx m |> Option.get
                                 let margs = margs |> List.toArray |> Array.map (makeType com ctx.GenericArgs)
                                 d, t, mem, margs
-                            | QuotationPickler.MemberDescription.UnionCase (c, targs) ->
+                            | QuotationPickler.MemberDescription.UnionCase (c, _targs) ->
                                 let d = c.ReturnType.TypeDefinition
                                 let t = makeType com ctx.GenericArgs c.ReturnType
                                 let mem = transformUnionCaseAsMember com ctx c
@@ -1115,7 +1129,9 @@ let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
 let private isRecordLike (ent: FSharpEntity) =
     ent.IsFSharpRecord
         || ent.IsFSharpExceptionDeclaration
-        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure && not (hasImplicitConstructor ent))
+        || ((ent.IsClass || ent.IsValueType) && not ent.IsMeasure
+                                             && not ent.IsEnum
+                                             && not (hasImplicitConstructor ent))
 
 let private checkAttachedMemberConflicts com isRecordLike (ent: FSharpEntity) =
     let attachedMembers =
@@ -1274,7 +1290,8 @@ let private transformImport com r typ isMutable isPublic name selector path =
           // TODO: Check if they're mutable, see #1314
           IsMutable = isMutable
           IsEntryPoint = false
-          HasSpread = false }
+          HasSpread = false
+          Range = None}
     let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ, r)
     [Fable.ValueDeclaration(fableValue, info)]
 
@@ -1298,7 +1315,8 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
               IsPublic = isPublic
               IsMutable = memb.IsMutable
               IsEntryPoint = false
-              HasSpread = false }
+              HasSpread = false
+              Range = makeRange memb.DeclarationLocation |> Some }
         [Fable.ValueDeclaration(fableValue, info)]
 
 let private functionDeclarationInfo name isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.ValueDeclarationInfo =
@@ -1306,7 +1324,8 @@ let private functionDeclarationInfo name isPublic (memb: FSharpMemberOrFunctionO
       IsPublic = isPublic
       IsMutable = memb.IsMutable
       IsEntryPoint = memb.Attributes |> hasAttribute Atts.entryPoint
-      HasSpread = hasSeqSpread memb }
+      HasSpread = hasSeqSpread memb
+      Range = makeRange memb.DeclarationLocation |> Some }
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args

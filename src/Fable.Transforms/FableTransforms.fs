@@ -16,10 +16,7 @@ let visit f e =
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> e
-        | Enum(kind, name) ->
-            match kind with
-            | NumberEnum e -> Enum(NumberEnum(f e), name) |> makeValue r
-            | StringEnum e -> Enum(StringEnum(f e), name) |> makeValue r
+        | EnumConstant(exp, ent) -> EnumConstant(f exp, ent) |> makeValue r
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> makeValue r
         | NewTuple exprs -> NewTuple(List.map f exprs) |> makeValue r
         | NewArray(kind, t) ->
@@ -119,10 +116,7 @@ let getSubExpressions = function
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> []
-        | Enum(kind, _) ->
-            match kind with
-            | NumberEnum e -> [e]
-            | StringEnum e -> [e]
+        | EnumConstant(e, _) -> [e]
         | NewOption(e, _) -> Option.toList e
         | NewTuple exprs -> exprs
         | NewArray(kind, _) ->
@@ -209,39 +203,10 @@ let countReferences limit identName body =
         | _ -> false) |> ignore
     count
 
-/// Values with risk of double evaluation must be captured. If it appears in the body
-/// of a function it can leak, so consider as it had exceeded the references limit.
-let countReferencesPreventingLeak limit identName body =
-    let rec traverse f (insideFunction: bool) (exprs: Expr list) =
-        (false, exprs) ||> List.fold (fun stop expr ->
-            stop ||
-                let stop, insideFunction', exprs = f insideFunction expr
-                stop ||
-                    match exprs with
-                    | [] -> false
-                    | exprs -> traverse f (insideFunction || insideFunction') exprs)
-    let mutable count = 0
-    (false, [body]) ||> traverse (fun insideFunction expr ->
-        match expr with
-        | IdentExpr id2 when id2.Name = identName ->
-            count <- (if insideFunction then limit else count) + 1
-            count > limit, false, []
-        // If the function is immediately applied we don't have to worry about leaks
-        // | NestedApply(NestedLambda(args, body, _), argExprs, _, _) when List.sameLength args argExprs ->
-        //     false, false, argExprs @ [body]
-        | Function(_,body,_) ->
-            false, true, [body]
-        | e ->
-            false, false, getSubExpressions e) |> ignore
-    count
-
 let canInlineArg identName value body =
-    // Don't erase expressions referenced 0 times, they may have side-effects
-    if not(hasDoubleEvalRisk value) then true
-    else
-        match value with
-        | Function _ -> countReferences 1 identName body = 1
-        | _ -> countReferencesPreventingLeak 1 identName body = 1
+    match value with
+    | Function _ -> countReferences 1 identName body <= 1
+    | value -> canHaveSideEffects value |> not
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -249,12 +214,29 @@ module private Transforms =
         | Function(Delegate args, body, name) -> Some(args, body, name)
         | _ -> None
 
-    let lambdaBetaReduction (_: ICompiler) e =
+    let lambdaBetaReduction (com: ICompiler) e =
+        // Sometimes the F# compiler creates a lot of binding closures, as with printfn
+        let (|NestedLetsAndLambdas|_|) expr =
+            let rec inner accBindings accArgs body name =
+                match body with
+                | Function(Lambda arg, body, None) ->
+                    inner accBindings (arg::accArgs) body name
+                | Let(bindings, body) ->
+                    inner (accBindings @ bindings) accArgs body name
+                | _ when not(List.isEmpty accArgs) ->
+                    Some(List.rev accArgs, Let(accBindings, body), name)
+                | _ -> None
+            match expr with
+            | Let(bindings, body) ->
+                inner bindings [] body None
+            | Function(Lambda arg, body, name) ->
+                inner [] [arg] body name
+            | _ -> None
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if canInlineArg ident.Name expr body
+                    if (not com.Options.debugMode) && canInlineArg ident.Name expr body
                     then bindings, Map.add ident.Name expr replacements
                     else (ident, expr)::bindings, replacements)
             match bindings with
@@ -264,22 +246,9 @@ module private Transforms =
         // TODO: Other binary operations and numeric types, also recursive?
         | Operation(BinaryOperation(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
             Value(StringConstant(str1 + str2), addRanges [r1; r2])
-        // The F# compiler converts non-curried module and class members to curried lambdas when necessary
-        // but we can remove all the wrapping if the result is immediately applied
-        // We assume the compiler generated bindings/args can be inlined
-        | NestedApply(NestedCompilerGeneratedLetsAndLambdas(identValues, lambdaArgs, body), appliedArgs,_,_)
-                when List.sameLength lambdaArgs appliedArgs ->
-            let replacements =
-                List.zip lambdaArgs appliedArgs
-                |> List.map (fun (i,v) -> i.Name,v) |> Map
-            let replacements =
-                (replacements, identValues)
-               ||> List.fold (fun replacements (i,v) ->
-                    Map.add i.Name (replaceValues replacements v) replacements)
-            replaceValues replacements body
-        | Operation(CurriedApply(NestedLambda(args, body, None) as lambda, argExprs), _, _) ->
-            if List.sameLength args argExprs
-            then applyArgs args argExprs body
+        | NestedApply(NestedLetsAndLambdas(lambdaArgs, body, _) as lambda, argExprs,_,_) ->
+            if List.sameLength lambdaArgs argExprs then
+                applyArgs lambdaArgs argExprs body
             else
                 // Partial apply
                 match List.length argExprs, lambda with
@@ -301,31 +270,29 @@ module private Transforms =
         | e -> e
 
     let bindingBetaReduction (com: ICompiler) e =
-        let isTuple = function
-            | Tuple _ -> true
-            | _ -> false
+        // Don't erase user-declared bindings in debug mode for better source maps
+        let isErasingCandidate (ident: Ident) =
+            (not com.Options.debugMode) || ident.IsCompilerGenerated
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
-        | Let([ident, value], letBody) when not ident.IsMutable ->
-            match value with
-            // Erase bindings for getters of compiler-generated tuples (as in pattern matching or lambdas destructuring tuple args)
-            | Get(IdentExpr tupleIdent, TupleGet _, _, _) as value when tupleIdent.IsCompilerGenerated ->
+        | Let([ident, value], letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
+            let canEraseBinding =
+                match value with
+                | NestedLambda(_, lambdaBody, _) ->
+                    match lambdaBody with
+                    | Import _ -> false
+                    // Check the lambda doesn't reference itself recursively
+                    | _ -> countReferences 0 ident.Name lambdaBody = 0
+                           && canInlineArg ident.Name value letBody
+                | _ -> canInlineArg ident.Name value letBody
+            if canEraseBinding then
+                let value =
+                    match value with
+                    // Ident becomes the name of the function (mainly used for tail call optimizations)
+                    | Function(args, funBody, _) -> Function(args, funBody, Some ident.Name)
+                    | value -> value
                 replaceValues (Map [ident.Name, value]) letBody
-            | Function(args, funBody, currentName) when ident.IsCompilerGenerated
-                                                    && (countReferences 1 ident.Name letBody <= 1) ->
-                if Option.isSome currentName then
-                    sprintf "Unexpected named function when erasing binding (%s > %s)" currentName.Value ident.Name
-                    |> addWarning com [] ident.Range
-                let replacement = Function(args, funBody, Some ident.Name)
-                replaceValues (Map [ident.Name, replacement]) letBody
-            | value when (ident.IsInlinedArg || ident.IsCompilerGenerated)
-                    // Don't erase the binding if the compiler-generated ident is a tuple, because the getters
-                    // will be erased later (see above) and there's a risk the expression gets totally removed
-                    && not (isTuple ident.Type)
-                    && not (ident.Name.StartsWith("patternInput")) // tuple may be split into multiple getters
-                    && canInlineArg ident.Name value letBody ->
-                replaceValues (Map [ident.Name, value]) letBody
-            | _ -> e
+            else e
         | e -> e
 
     /// Returns arity of lambda (or lambda option) types
@@ -381,7 +348,7 @@ module private Transforms =
 
     // For function arguments check if the arity of their own function arguments is expected or not
     // TODO: Do we need to do this recursively, and check options and delegates too?
-    let checkSubArguments com expectedType (expr: Expr) =
+    let checkSubArguments _com expectedType (expr: Expr) =
         match expectedType, expr with
         | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_))
                 when List.sameLength expectedArgs actualArgs ->
@@ -435,12 +402,12 @@ module private Transforms =
         let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
-        | Let([ident, NestedLambda(args, fnBody, _)], letBody) when List.isMultiple args ->
+        | Let([ident, NestedLambdaWithSameArity(args, fnBody, _)], letBody) when List.isMultiple args ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
             Let([ident, Function(Delegate args, fnBody, None)], letBody)
         // Anonymous lambda immediately applied
-        | Operation(CurriedApply((NestedLambda(args, fnBody, Some name)), argExprs), t, r)
+        | Operation(CurriedApply((NestedLambdaWithSameArity(args, fnBody, Some name)), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let fnBody = curryIdentInBody name args fnBody
             let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Typed)

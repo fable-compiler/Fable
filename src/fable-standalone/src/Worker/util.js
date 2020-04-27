@@ -61,13 +61,9 @@ export function getBabelAstCompiler() {
     // an asynchronous chunk if necessary
     return new Promise(function (resolve) {
         resolve(function(ast) {
-            try {
-                var optionsES2015 = babelOptions(template);
-                var codeES2015 = transformFromAstSync(ast, null, optionsES2015).code;
-                return codeES2015;
-            } catch (err) {
-                console.error(err.message + "\n" + err.stack);
-            }
+            var optionsES2015 = babelOptions(template);
+            var codeES2015 = transformFromAstSync(ast, null, optionsES2015).code;
+            return codeES2015;
         });
     });
 }

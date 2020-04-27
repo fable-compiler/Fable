@@ -31,9 +31,9 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Quicktest.js",
-            "program": "${workspaceRoot}/src/tools/temp/QuickTest.js",
+            "program": "${workspaceRoot}/src/quicktest/bin/QuickTest.js",
             "args": ["--help"],
-            "cwd": "${workspaceRoot}/src/tools/temp",
+            "cwd": "${workspaceRoot}/src/quicktest",
             "stopOnEntry": true
         },
         {
@@ -48,19 +48,19 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "bench-compile tests (Node)",
+            "name": "bench-compile (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
-            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
-            // "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
+            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "coreclr",
             "request": "launch",
-            "name": "bench-compile tests (.NET)",
+            "name": "bench-compile (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
-            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
-            // "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
+            // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {

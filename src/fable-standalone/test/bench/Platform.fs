@@ -1,6 +1,6 @@
 module Bench.Platform
 
-#if DOTNET_FILE_SYSTEM
+#if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
 open System.IO
 
@@ -15,7 +15,7 @@ let measureTime (f: 'a -> 'b) x =
     sw.ElapsedMilliseconds, res
 
 // not really serializing, just a stub
-let toJson (value: obj) = sprintf "%A" value // Newtonsoft.Json.JsonConvert.SerializeObject(value)
+// let toJson (value: obj) = sprintf "%A" value // Newtonsoft.Json.JsonConvert.SerializeObject(value)
 
 #else
 
@@ -41,6 +41,6 @@ let measureTime (f: 'a -> 'b) x =
     let elapsed = Process.hrtime(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
 
-let toJson (value: obj) = value |> Fable.Core.JsInterop.toJson
+// let toJson (value: obj) = value |> Fable.Core.JsInterop.toJson
 
 #endif

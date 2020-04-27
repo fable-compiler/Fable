@@ -1,5 +1,5 @@
-.vscode/
 .idea/
+.ionide/
 
 node_modules/
 temp/

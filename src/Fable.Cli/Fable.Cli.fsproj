@@ -3,11 +3,13 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <RuntimeFrameworkVersion>2.1.0</RuntimeFrameworkVersion>
+    <!-- Allow users with dotnet SDK 3 to run Fable, see #1910 -->
+    <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
+    <Compile Include="Globbing.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
@@ -24,8 +26,8 @@
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.33.0" />
-    <PackageReference Include="FSharp.Core" Version="4.6.2" />
+    <PackageReference Include="Dotnet.ProjInfo" Version="0.36.0" />
+    <PackageReference Include="FSharp.Core" Version="4.7.1" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
   </ItemGroup>
 </Project>

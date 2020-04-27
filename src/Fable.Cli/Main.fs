@@ -109,8 +109,13 @@ let startServerWithProcess workingDir port exec args =
         p.ExitCode
 
 let setGlobalParams(args: string[]) =
+    let verbosity =
+        match tryFindArgValue "--verbose" args, tryFindArgValue "--silent" args with
+        | Some _, _ -> Verbosity.Verbose
+        | None, Some _ -> Verbosity.Silent
+        | None, None -> Verbosity.Normal
     GlobalParams.Singleton.SetValues(
-        verbose   = (tryFindArgValue "--verbose" args |> Option.isSome),
+        verbosity = verbosity,
         forcePkgs = (tryFindArgValue "--force-pkgs" args |> Option.isSome),
         ?replaceFiles = (tryFindArgValue "--replace-files" args),
         ?experimental = (tryFindArgValue "--experimental" args),
@@ -140,6 +145,7 @@ Fable arguments:
   --cwd               Working directory where the subprocess should run
   --port              Port number where the Fable daemon should run
   --verbose           Print more info during execution
+  --silent            Don't print any log
   --force-pkgs        Force a new copy of package sources into `.fable` folder.
 
 To pass arguments to the script, write them after `--`. Example:

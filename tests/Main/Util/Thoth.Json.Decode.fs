@@ -13,12 +13,12 @@ module Helpers =
 
     let inline isNumber (o: obj) : bool = jsTypeof o = "number"
 
-    let inline isArray (o: obj) : bool = JS.Array.isArray(o)
+    let inline isArray (o: obj) : bool = JS.Constructors.Array.isArray(o)
 
     [<Emit("Object.getPrototypeOf($0 || false) === Object.prototype")>]
     let isObject (_ : obj) : bool = jsNative
 
-    let inline isNaN (o: obj) : bool = JS.Number.isNaN(!!o)
+    let inline isNaN (o: obj) : bool = JS.Constructors.Number.isNaN(!!o)
 
     [<Emit("-2147483648 < $0 && $0 < 2147483647 && ($0 | 0) === $0")>]
     let isValidIntRange (_: obj) : bool = jsNative
@@ -34,7 +34,7 @@ module Helpers =
 
     let inline isFunction (o: obj) : bool = jsTypeof o = "function"
 
-    let inline objectKeys (o: obj) : string seq = upcast JS.Object.keys(o)
+    let inline objectKeys (o: obj) : string seq = upcast JS.Constructors.Object.keys(o)
 
 type ErrorReason =
     | BadPrimitive of string * obj

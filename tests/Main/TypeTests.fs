@@ -1,4 +1,4 @@
-﻿module Fable.Tests.TypeTests
+module Fable.Tests.TypeTests
 
 open System
 open Util.Testing
@@ -223,6 +223,11 @@ type ValueType1<'T>(value: 'T) =
 type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
+type ValueType3 =
+  struct
+    val mutable public X : int
+  end
+
 [<Struct>]
 type StructUnion = Value of string
 
@@ -252,6 +257,41 @@ type DowncastTest(value: int) =
 type TypeWithClassAttribute =
     val Pos : int
     new (pos) = { Pos=pos }
+
+// -------------------------------------------------------------
+// Issue #1975: https://github.com/fable-compiler/Fable/issues/1975
+// In previous version of Fable, using type with parameterized units of measure was causing an endless loops in the compiler
+
+type TestTypeWithParameterizedUnitMeasure<[<Measure>] 't> =
+    private | TestTypeWithParameterizedUnitMeasureType of float<'t>
+
+    member this.Value =
+        match this with
+        | TestTypeWithParameterizedUnitMeasureType value -> value
+
+let makeTestTypeWithParameterizedUnitMeasureType (value: float<_>) : TestTypeWithParameterizedUnitMeasure<_> =
+    TestTypeWithParameterizedUnitMeasureType value
+
+open FSharp.Data.UnitSystems.SI.UnitSymbols
+
+type Test_TestTypeWithParameterizedUnitMeasure = {
+    Field: TestTypeWithParameterizedUnitMeasure<m>
+}
+
+// -------------------------------------------------------------
+
+// Tested ported from https://github.com/fable-compiler/Fable/pull/1336/files
+type TestTypeWithDefaultValue() =
+    [<DefaultValue>] val mutable IntValue: int
+    [<DefaultValue>] val mutable StringValue: string
+    [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
+
+type Default1 = int
+
+type Distinct1 =
+    // Overloads only distinguished by generic constrain work, see #1908
+    static member inline Distinct1 (x: ^``Collection<'T>``, _impl: Default1) = (^``Collection<'T>`` : (static member Distinct1 : _->_) x) : '``Collection<'T>``
+    static member inline Distinct1 (_: ^t when ^t : null and ^t : struct, _mthd: Default1) = id //must
 
 let tests =
   testList "Types" [
@@ -409,6 +449,10 @@ let tests =
         let g1 = Guid.Empty
         string g1 |> equal "00000000-0000-0000-0000-000000000000"
 
+    testCase "Guid.ToString works" <| fun () ->
+        let g1 = Guid.Parse "dec42487-c02b-42a6-9a10-0263a5a7fdf1"
+        string g1 |> equal "dec42487-c02b-42a6-9a10-0263a5a7fdf1"
+
     testCase "lazy works" <| fun () ->
         let mutable snitch = 0
         let lazyVal =
@@ -449,57 +493,6 @@ let tests =
         let search e = items.Value |> List.tryFind (fun m -> m = e)
         search "b" |> equal (Some "b")
         search "d" |> equal None
-
-    // testCase "Classes can be JSON serialized forth and back" <| fun () ->
-    //     let x = Serializable(5)
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson x
-    //     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
-    //     string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let x2 = Fable.Core.JsInterop.ofJsonAsType json (x.GetType()) :?> Serializable
-    //     string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Serializable> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
-    //     #endif
-    //     string x |> equal "Public: 1 - Private: 5 - Deserialized: false"
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-
-    // testCase "Null values can be JSON serialized forth and back" <| fun () ->
-    //     let x: Serializable = null
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson x
-    //     let x2 = Fable.Core.JsInterop.ofJsonAsType json (typedefof<Serializable>)
-    //     equal x2 null
-    //     let json = Fable.Core.JsInterop.toJson x
-    //     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
-    //     equal x2 null
-    //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Serializable> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
-    //     #endif
-    //     equal x2 null
-
-    // testCase "Classes serialized with Json.NET can be deserialized" <| fun () ->
-    //     // let x = Serializable(5)
-    //     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    //     let json = """{"$type":"Fable.Tests.TypeTests+Serializable","PublicValue":1}"""
-    //     #if FABLE_COMPILER
-    //     let x2 = Fable.Core.JsInterop.ofJson<Serializable> json
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let x2 = Fable.Core.JsInterop.ofJsonAsType json typedefof<Serializable>
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Serializable> json
-    //     #else
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Serializable> json
-    //     #endif
-    //     string x2 |> equal "Public: 1 - Private: 0 - Deserialized: true"
 
     testCase "Secondary constructors work" <| fun () ->
         let s1 = SecondaryCons(3)
@@ -623,6 +616,18 @@ let tests =
         let p = Point2D(2.)
         p.Y |> equal 2.
 
+    testCase "struct without explicit ctor works" <| fun () ->
+        let t1 = ValueType3(X=10)
+        t1.X |> equal 10
+        let mutable t2 = ValueType3()
+        t2.X |> equal 0
+        t1 |> notEqual t2
+        (compare t1 t2) |> equal 1
+        t2.X <- 10
+        t1 |> equal t2
+
+        (compare t1 t2) |> equal 0
+
     testCase "Custom F# exceptions work" <| fun () ->
         try
             MyEx(4,"ERROR") |> raise
@@ -666,4 +671,22 @@ let tests =
     testCase "ClassAttribute works" <| fun () -> // See #573
         let t1 = TypeWithClassAttribute(8)
         t1.Pos |> equal 8
+
+    testCase "Issue #1975: Compile type with parameterized units of measure as generic" <| fun () ->
+        let a = makeTestTypeWithParameterizedUnitMeasureType 2.
+        equal 2. a.Value
+
+    // Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
+    testCase "default value attributes works" <| fun _ ->
+        let withDefaultValue = TestTypeWithDefaultValue()
+
+        withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
+        withDefaultValue.IntValue |> equal 0
+
+        withDefaultValue.StringValue |> equal Unchecked.defaultof<string>
+        withDefaultValue.StringValue |> equal null
+
+        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
+        withDefaultValue.ObjValue |> equal null
+
   ]

@@ -7,7 +7,7 @@ import { CancellationToken } from "./AsyncBuilder";
 
 class QueueCell<Msg> {
   public value: Msg;
-  public next: QueueCell<Msg>;
+  public next?: QueueCell<Msg>;
 
   constructor(message: Msg) {
     this.value = message;
@@ -15,7 +15,7 @@ class QueueCell<Msg> {
 }
 
 class MailboxQueue<Msg> {
-  private firstAndLast: [QueueCell<Msg>, QueueCell<Msg>];
+  private firstAndLast?: [QueueCell<Msg>, QueueCell<Msg>];
 
   public add(message: Msg) {
     const itCell = new QueueCell(message);
@@ -52,7 +52,7 @@ export default class MailboxProcessor<Msg> {
   public cancellationToken: CancellationToken;
   public messages: MailboxQueue<Msg>;
 
-  public continuation: Continuation<Msg>;
+  public continuation?: Continuation<Msg>;
 
   constructor(body: MailboxBody<Msg>, cancellationToken?: CancellationToken) {
     this.body = body;
@@ -99,7 +99,7 @@ export function postAndAsyncReply<Reply, Msg>(
   let continuation: Continuation<Reply>;
   function checkCompletion() {
     if (result !== void 0 && continuation !== void 0) {
-        continuation(result);
+      continuation(result);
     }
   }
   const reply = {

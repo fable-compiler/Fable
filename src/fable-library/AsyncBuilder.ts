@@ -9,38 +9,38 @@ export type Continuations<T> = [
 ];
 
 export class CancellationToken {
-    private _id: number;
-    private _cancelled: boolean;
-    private _listeners: Map<number, () => void>;
-    constructor(cancelled = false) {
-        this._id = 0;
-        this._cancelled = cancelled;
-        this._listeners = new Map();
+  private _id: number;
+  private _cancelled: boolean;
+  private _listeners: Map<number, () => void>;
+  constructor(cancelled = false) {
+    this._id = 0;
+    this._cancelled = cancelled;
+    this._listeners = new Map();
+  }
+  get isCancelled() {
+    return this._cancelled;
+  }
+  public cancel() {
+    if (!this._cancelled) {
+      this._cancelled = true;
+      for (const [, listener] of this._listeners) {
+        listener();
+      }
     }
-    get isCancelled() {
-        return this._cancelled;
-    }
-    cancel() {
-        if (!this._cancelled) {
-            this._cancelled = true;
-            for (const [, listener] of this._listeners) {
-                listener();
-            }
-        }
-    }
-    addListener(f: () => void) {
-        const id = this._id;
-        this._listeners.set(this._id++, f);
-        return id;
-    }
-    removeListener(id: number) {
-        return this._listeners.delete(id);
-    }
-    register(f: (state?: any)=>void, state?: any) {
-        const $ = this;
-        const id = this.addListener(state == null ? f : () => f(state));
-        return { Dispose() { $.removeListener(id); } }
-    }
+  }
+  public addListener(f: () => void) {
+    const id = this._id;
+    this._listeners.set(this._id++, f);
+    return id;
+  }
+  public removeListener(id: number) {
+    return this._listeners.delete(id);
+  }
+  public register(f: (state?: any) => void, state?: any) {
+    const $ = this;
+    const id = this.addListener(state == null ? f : () => f(state));
+    return { Dispose() { $.removeListener(id); } };
+  }
 }
 
 export class OperationCanceledError extends Error {
@@ -118,7 +118,7 @@ export function protectedBind<T, U>(computation: IAsync<T>, binder: (x: T) => IA
   });
 }
 
-export function protectedReturn<T>(value?: T) {
+export function protectedReturn<T>(value: T) {
   return protectedCont((ctx: IAsyncContext<T>) => ctx.onSuccess(value));
 }
 

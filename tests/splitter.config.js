@@ -1,19 +1,7 @@
-const path = require("path");
-
-module.exports = {
-  cli: { path: resolve("../src/Fable.Cli") },
-  entry: resolve("Main/Fable.Tests.fsproj"),
-  outDir: resolve("../build/tests"),
-  fable: { define: defineConstants() },
-  babel: {
-    plugins: ["@babel/plugin-transform-modules-commonjs"],
-    // presets: [ ["@babel/preset-env", {"modules": false}] ]
-  },
-  // allFiles: true
-};
+const resolve = (path) => require("path").join(__dirname, path);
 
 function defineConstants() {
-  var ar = ["DEBUG"];
+  var ar = [] // ["DEBUG"];
   if (process.env.APPVEYOR) {
     console.log("Running on APPVEYOR...");
     ar.push("APPVEYOR");
@@ -29,6 +17,15 @@ function defineConstants() {
   return ar;
 }
 
-function resolve(p) {
-  return path.join(__dirname, p);
-}
+module.exports = {
+  cli: { path: resolve("../src/Fable.Cli") },
+  entry: resolve("Main/Fable.Tests.fsproj"),
+  outDir: resolve("../build/tests"),
+  fable: { define: defineConstants() },
+  babel: {
+    plugins: ["@babel/plugin-transform-modules-commonjs"],
+    sourceMaps: true,
+    // presets: [ ["@babel/preset-env", {"modules": false}] ]
+  },
+  // allFiles: true
+};

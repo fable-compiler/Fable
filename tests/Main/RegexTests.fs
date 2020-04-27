@@ -26,12 +26,13 @@ let tests =
         test "^bc" false
 
     testCase "Regex.Escape works" <| fun _ ->
-        Regex.Escape("[(.*?)]") |> equal "\\[\\(\\.\\*\\?\\)]"
-        Regex.Escape(@"C:\Temp") |> equal "C:\\\\Temp"
+        // TODO: a few chars are not escaped (e.g. # and white space)
+        Regex.Escape(@"\*+?|{[()^$") |> equal @"\\\*\+\?\|\{\[\(\)\^\$"
+        Regex.Escape(@"C:\Temp") |> equal @"C:\\Temp"
 
     testCase "Regex.Unescape works" <| fun _ ->
-        Regex.Unescape("\[\(\.\*\?\)]") |> equal "[(.*?)]"
-        Regex.Unescape(@"C:\\Temp") |> equal "C:\\Temp"
+        Regex.Unescape(@"\\\*\+\?\|\{\[\(\)\^\$") |> equal @"\*+?|{[()^$"
+        Regex.Unescape(@"C:\\Temp") |> equal @"C:\Temp"
 
     testCase "Regex instance IsMatch works" <| fun _ ->
         let str = "For more information, see Chapter 3.4.5.1"
@@ -79,6 +80,13 @@ let tests =
         Regex.IsMatch(str, "^ab", RegexOptions.Multiline) |> equal true
         Regex.IsMatch(str, "^cd", RegexOptions.Multiline) |> equal true
         Regex.IsMatch(str, "^AB", RegexOptions.Multiline) |> equal false
+
+    testCase "RegexOptions.Singleline works" <| fun _ ->
+        let str = "ab\ncd"
+        let m1 = Regex.Match(str, ".+")
+        let m2 = Regex.Match(str, ".+", RegexOptions.Singleline)
+        m1.Length |> equal 2
+        m2.Length |> equal 5
 
     testCase "Regex.Match works" <| fun _ ->
         let str = "For more information, see Chapter 3.4.5.1"

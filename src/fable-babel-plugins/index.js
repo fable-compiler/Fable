@@ -86,7 +86,7 @@ function getTransformMacroExpressions(babelTemplate) {
                     })
                     .replace(/\{\{([^\}]*\$(\d+).*?)\}\}/g, (_, g1, g2) => {
                         const i = parseInt(g2, 10);
-                        return typeof args[i] === "object" && args[i].type !== "NullLiteral" ? g1 : "";
+                        return typeof args[i] === "object" ? g1 : "";
                     })
                     .replace(/\$(\d+)!/, (_, i) => {
                         const arg = args[parseInt(i, 10)]

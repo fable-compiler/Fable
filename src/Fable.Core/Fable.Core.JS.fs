@@ -60,14 +60,14 @@ module JS =
         abstract defineProperty: o: obj * propertyKey: obj * attributes: PropertyDescriptor -> obj
 
     and [<AllowNullLiteral>] Math =
-        abstract E: float with get, set
-        abstract LN10: float with get, set
-        abstract LN2: float with get, set
-        abstract LOG2E: float with get, set
-        abstract LOG10E: float with get, set
-        abstract PI: float with get, set
-        abstract SQRT1_2: float with get, set
-        abstract SQRT2: float with get, set
+        abstract E: float
+        abstract LN10: float
+        abstract LN2: float
+        abstract LOG2E: float
+        abstract LOG10E: float
+        abstract PI: float
+        abstract SQRT1_2: float
+        abstract SQRT2: float
         abstract abs: x: float -> float
         abstract acos: x: float -> float
         abstract asin: x: float -> float
@@ -164,7 +164,7 @@ module JS =
         abstract stringify: value: obj * ?replacer: (string->obj->obj) * ?space: obj -> string
 
     and [<AllowNullLiteral>] Map<'K, 'V> =
-        abstract size: float with get, set
+        abstract size: int
         abstract clear: unit -> unit
         abstract delete: key: 'K -> bool
         abstract entries: unit -> seq<'K * 'V>
@@ -176,7 +176,7 @@ module JS =
         abstract values: unit -> seq<'V>
 
     and [<AllowNullLiteral>] MapConstructor =
-        [<Emit("new $0($1..)")>] abstract Create: ?iterable: seq<'K * 'V> -> Map<'K, 'V>
+        [<Emit("new $0($1...)")>] abstract Create: ?iterable: seq<'K * 'V> -> Map<'K, 'V>
 
     and [<AllowNullLiteral>] WeakMap<'K, 'V> =
         abstract clear: unit -> unit
@@ -189,7 +189,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: ?iterable: seq<'K * 'V> -> WeakMap<'K, 'V>
 
     and [<AllowNullLiteral>] Set<'T> =
-        abstract size: float with get, set
+        abstract size: int
         abstract add: value: 'T -> Set<'T>
         abstract clear: unit -> unit
         abstract delete: value: 'T -> bool
@@ -228,7 +228,7 @@ module JS =
         [<Emit("new $0($1...)")>] abstract Create: pattern: string * ?flags: string -> Regex
 
     and [<AllowNullLiteral>] ArrayBuffer =
-        abstract byteLength: int with get, set
+        abstract byteLength: int
         abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
 
     and [<AllowNullLiteral>] ArrayBufferConstructor =
@@ -239,6 +239,9 @@ module JS =
         abstract buffer: ArrayBuffer
         abstract byteLength: int
         abstract byteOffset: int
+
+    and ArrayBufferViewConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> ArrayBufferView
 
     and [<AllowNullLiteral>] DataView =
         abstract buffer: ArrayBuffer
@@ -261,9 +264,158 @@ module JS =
         abstract setUint16: byteOffset: int * value: uint16 * ?littleEndian: bool -> unit
         abstract setUint32: byteOffset: int * value: uint32 * ?littleEndian: bool -> unit
 
-    // TODO: Add constructors for other typed arrays from buffer?
     and [<AllowNullLiteral>] DataViewConstructor =
         [<Emit("new $0($1...)")>] abstract Create: buffer: ArrayBuffer * ?byteOffset: int * ?byteLength: float -> DataView
+
+    and TypedArray =
+        abstract buffer: ArrayBuffer
+        abstract byteLength: int
+        abstract byteOffset: int
+        abstract length: int
+        abstract copyWithin: targetStartIndex:int * start:int * ? ``end``:int -> unit
+        abstract entries: unit -> obj
+        abstract keys: unit -> obj
+        abstract join: separator:string -> string
+
+    and TypedArray<'T> =
+        inherit TypedArray
+        [<Emit("$0[$1]{{=$2}}")>] abstract Item: index: int -> 'T with get, set
+        abstract fill: value:'T * ?``begin``:int * ?``end``:int -> TypedArray<'T>
+        abstract filter: ('T -> int -> TypedArray<'T> -> bool) -> TypedArray<'T>
+        abstract filter: ('T -> int -> bool) -> TypedArray<'T>
+        abstract filter: ('T -> bool) -> TypedArray<'T>
+        abstract find: ('T -> int -> TypedArray<'T> -> bool) -> 'T option
+        abstract find: ('T -> int -> bool) -> 'T option
+        abstract find: ('T -> bool) -> 'T option
+        abstract findIndex: ('T -> int -> TypedArray<'T> -> bool) -> int
+        abstract findIndex: ('T -> int -> bool) -> int
+        abstract findIndex: ('T -> bool) -> int
+        abstract forEach: ('T -> int -> TypedArray<'T> -> bool) -> unit
+        abstract forEach: ('T -> int -> bool) -> unit
+        abstract forEach: ('T -> bool) -> unit
+        abstract includes: searchElement:'T * ?fromIndex:int -> bool
+        abstract indexOf: searchElement:'T * ?fromIndex:int -> int
+        abstract lastIndexOf: searchElement:'T * ?fromIndex:int -> int
+        abstract map: ('T -> int -> TypedArray<'T> -> 'U) -> TypedArray<'U>
+        abstract map: ('T -> int -> 'U) -> TypedArray<'U>
+        abstract map: ('T -> 'U) -> TypedArray<'U>
+        abstract reduce: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state:'State -> 'State
+        abstract reduce: ('State -> 'T -> int -> 'State) * state:'State -> 'State
+        abstract reduce: ('State -> 'T -> 'State) * state:'State -> 'State
+        abstract reduceRight: ('State -> 'T -> int -> TypedArray<'T> -> 'State) * state:'State -> 'State
+        abstract reduceRight: ('State -> 'T -> int -> 'State) * state:'State -> 'State
+        abstract reduceRight: ('State -> 'T -> 'State) * state:'State -> 'State
+        abstract reverse: unit -> TypedArray<'T>
+        abstract set: source:Array * ?offset:int -> TypedArray<'T>
+        abstract set: source:#TypedArray * ?offset:int -> TypedArray<'T>
+        abstract slice: ?``begin``:int * ?``end``:int -> TypedArray<'T>
+        abstract some: ('T -> int -> TypedArray<'T> -> bool) -> bool
+        abstract some: ('T -> int -> bool) -> bool
+        abstract some: ('T -> bool) -> bool
+        abstract sort: ?sortFunction:('T -> 'T -> int) -> bool
+        abstract subarray: ?``begin``:int * ?``end``:int -> TypedArray<'T>
+        abstract values: unit -> obj
+
+
+    and Int8Array = TypedArray<int8>
+
+    and Int8ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Int8Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int8Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int8Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Int8Array
+
+
+    and Uint8Array = TypedArray<uint8>
+
+    and Uint8ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint8Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint8Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8Array
+
+
+    and Uint8ClampedArray = TypedArray<uint8>
+
+    and Uint8ClampedArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint8ClampedArray
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint8ClampedArray
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint8ClampedArray
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint8ClampedArray
+
+
+    and Int16Array = TypedArray<int16>
+
+    and Int16ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Int16Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int16Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int16Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Int16Array
+
+
+    and Uint16Array = TypedArray<uint16>
+
+    and Uint16ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint16Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint16Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint16Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint16Array
+
+
+    and Int32Array = TypedArray<int32>
+
+    and Int32ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Int32Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Int32Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Int32Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Int32Array
+
+
+    and Uint32Array = TypedArray<uint32>
+
+    and Uint32ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Uint32Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Uint32Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Uint32Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Uint32Array
+
+
+    and Float32Array = TypedArray<float32>
+
+    and Float32ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Float32Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Float32Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Float32Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Float32Array
+
+
+    and Float64Array = TypedArray<float>
+
+    and Float64ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> Float64Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> Float64Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> Float64Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> Float64Array
+
+
+    and BigInt64Array = TypedArray<bigint>
+
+    and BigInt64ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> BigInt64Array
+        [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> BigInt64Array
+        [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> BigInt64Array
+        [<Emit "new $0($1...)">] abstract Create: data:obj -> BigInt64Array
+
+
+    // no equivalent ?
+    //and BigUint64Array = TypedArray<BigUint64Array>
+
+    // and BigUint64ArrayConstructor =
+    //   [<Emit "new $0($1...)">] abstract Create: size: int -> BigUint64Array
+    //   [<Emit "new $0($1...)">] abstract Create: typedArray: TypedArray -> BigUint64Array
+    //   [<Emit "new $0($1...)">] abstract Create: buffer: ArrayBuffer * ?offset:int * ?length:int -> BigUint64Array
+    //   [<Emit "new $0($1...)">] abstract Create: data:obj -> BigUint64Array
+
 
     and [<AllowNullLiteral>] Console =
         abstract ``assert``: ?test: bool * ?message: string * [<ParamArray>] optionalParams: obj[] -> unit
@@ -286,22 +438,10 @@ module JS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
-    let [<Global>] Array: ArrayConstructor = jsNative
-    let [<Global>] Number: NumberConstructor = jsNative
     let [<Global>] NaN: float = jsNative
     let [<Global>] Infinity: float = jsNative
-    let [<Global>] Object: ObjectConstructor = jsNative
     let [<Global>] Math: Math = jsNative
-    let [<Global>] Date: DateConstructor = jsNative
     let [<Global>] JSON: JSON = jsNative
-    let [<Global>] Map: MapConstructor = jsNative
-    let [<Global>] WeakMap: WeakMapConstructor = jsNative
-    let [<Global>] Set: SetConstructor = jsNative
-    let [<Global>] WeakSet: WeakSetConstructor = jsNative
-    let [<Global>] Promise: PromiseConstructor = jsNative
-    let [<Global>] RegExp: RegExpConstructor = jsNative
-    let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
-    let [<Global>] DataView: DataViewConstructor = jsNative
     let [<Global>] eval: string -> string = jsNative
     let [<Global>] isFinite: float -> bool = jsNative
     let [<Global>] isNaN: float -> bool = jsNative
@@ -318,3 +458,103 @@ module JS =
     let [<Global>] clearInterval (token: int): unit = jsNative
     let [<Emit("debugger")>] debugger () : unit = jsNative
     let [<Emit("void 0")>] undefined<'a> : 'a = jsNative
+
+    [<Literal>]
+    let private CONSTRUCTORS_WARNING = "JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name"
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Number: NumberConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Object: ObjectConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Date: DateConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Map: MapConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] WeakMap: WeakMapConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Set: SetConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] WeakSet: WeakSetConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Promise: PromiseConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] RegExp: RegExpConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Array: ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] DataView: DataViewConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Int8Array: Int8ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Uint8Array: Uint8ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Int16Array: Int16ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Uint16Array: Uint16ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Int32Array: Int32ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Uint32Array: Uint32ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Float32Array: Float32ArrayConstructor = jsNative
+
+    [<Obsolete(CONSTRUCTORS_WARNING)>]
+    let [<Global>] Float64Array: Float64ArrayConstructor = jsNative
+
+    // [<ObsoleCONSTRUCTORS_WARNING)>]
+    // let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
+
+    [<RequireQualifiedAccess>]
+    module Constructors =
+
+        let [<Global>] Number: NumberConstructor = jsNative
+        let [<Global>] Object: ObjectConstructor = jsNative
+        let [<Global>] Date: DateConstructor = jsNative
+        let [<Global>] Map: MapConstructor = jsNative
+        let [<Global>] WeakMap: WeakMapConstructor = jsNative
+        let [<Global>] Set: SetConstructor = jsNative
+        let [<Global>] WeakSet: WeakSetConstructor = jsNative
+        let [<Global>] Promise: PromiseConstructor = jsNative
+        let [<Global>] RegExp: RegExpConstructor = jsNative
+        let [<Global>] Array: ArrayConstructor = jsNative
+        let [<Global>] DataView: DataViewConstructor = jsNative
+        let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
+        let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = jsNative
+        let [<Global>] Int8Array: Int8ArrayConstructor = jsNative
+        let [<Global>] Uint8Array: Uint8ArrayConstructor = jsNative
+        let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = jsNative
+        let [<Global>] Int16Array: Int16ArrayConstructor = jsNative
+        let [<Global>] Uint16Array: Uint16ArrayConstructor = jsNative
+        let [<Global>] Int32Array: Int32ArrayConstructor = jsNative
+        let [<Global>] Uint32Array: Uint32ArrayConstructor = jsNative
+        let [<Global>] Float32Array: Float32ArrayConstructor = jsNative
+        let [<Global>] Float64Array: Float64ArrayConstructor = jsNative
+        let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
+        // let [<Global>] BigUint64Array: BigUint64ArrayConstructor = jsNative

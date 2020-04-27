@@ -4,22 +4,24 @@ init:
 build:
   verbosity: detailed
 
-environment:
-  nodejs_version: "10.15.0"
+# environment:
+#   nodejs_version: "10.16.3"
 
 # cache:
 #  - "%LOCALAPPDATA%\\Yarn"
 
 # Install scripts. (runs after repo cloning)
 install:
+  # Get the latest stable version of .NET Core
+  - cmd: choco install dotnetcore-sdk --no-progress
   # Get the latest stable version of Node.js
-  - ps: Install-Product node $env:nodejs_version
+  - ps: choco install nodejs --no-progress
   # # Update npm
   # # There seems to be issues with npm 5.4 in Windows
   # # See https://github.com/npm/npm/issues/18380
   # - npm install -g npm@6.1.0
 
-os: Visual Studio 2015
+os: Visual Studio 2019
 # before_build:
 #   - cmd: set PATH=C:\Program Files (x86)\MSBuild\14.0\Bin;%PATH%
 build_script:

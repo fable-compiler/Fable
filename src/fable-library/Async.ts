@@ -10,10 +10,10 @@ import { choice1, choice2 } from "./Option";
 import { map } from "./Seq";
 
 // Implemented just for type references
-export default class Async<T> {
+export default class Async<_T> {
 }
 
-function emptyContinuation<T>(x: T) {
+function emptyContinuation<T>(_x: T) {
   // NOP
 }
 
@@ -34,10 +34,10 @@ export function bind<T, U>(ctx: IAsyncContext<T>, part1: IAsync<U>, part2: (x: U
   return protectedBind(part1, part2)(ctx);
 }
 
-export function createCancellationToken(arg?: boolean|number): CancellationToken {
+export function createCancellationToken(arg?: boolean | number): CancellationToken {
   const token = new CancellationToken(typeof arg === "boolean" ? arg : false);
   if (typeof arg === "number") {
-      setTimeout(() => { token.cancel(); }, arg);
+    setTimeout(() => { token.cancel(); }, arg);
   }
   return token;
 }
@@ -66,7 +66,7 @@ export function awaitPromise<T>(p: Promise<T>) {
   return fromContinuations((conts: Continuations<T>) =>
     p.then(conts[0]).catch((err) =>
       (err instanceof OperationCanceledError
-      ? conts[2] : conts[1])(err)));
+        ? conts[2] : conts[1])(err)));
 }
 
 export function cancellationToken() {
@@ -93,7 +93,7 @@ export function fromContinuations<T>(f: (conts: Continuations<T>) => void) {
 }
 
 export function ignore<T>(computation: IAsync<T>) {
-  return protectedBind(computation, (x) => protectedReturn(void 0));
+  return protectedBind(computation, (_x) => protectedReturn(void 0));
 }
 
 export function parallel<T>(computations: Iterable<IAsync<T>>) {
@@ -101,24 +101,24 @@ export function parallel<T>(computations: Iterable<IAsync<T>>) {
 }
 
 export function sleep(millisecondsDueTime: number) {
-    return protectedCont((ctx: IAsyncContext<void>) => {
-        let tokenId: number;
-        const timeoutId = setTimeout(() => {
-            ctx.cancelToken.removeListener(tokenId);
-            ctx.onSuccess(void 0);
-        }, millisecondsDueTime);
-        tokenId = ctx.cancelToken.addListener(() => {
-            clearTimeout(timeoutId);
-            ctx.onCancel(new OperationCanceledError());
-        });
+  return protectedCont((ctx: IAsyncContext<void>) => {
+    let tokenId: number;
+    const timeoutId = setTimeout(() => {
+      ctx.cancelToken.removeListener(tokenId);
+      ctx.onSuccess(void 0);
+    }, millisecondsDueTime);
+    tokenId = ctx.cancelToken.addListener(() => {
+      clearTimeout(timeoutId);
+      ctx.onCancel(new OperationCanceledError());
     });
+  });
 }
 
-export function start<T>(computation: IAsync<void>, cancellationToken?: CancellationToken) {
+export function start<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
   return startWithContinuations(computation, cancellationToken);
 }
 
-export function startImmediate(computation: IAsync<void>, cancellationToken?: CancellationToken) {
+export function startImmediate<T>(computation: IAsync<T>, cancellationToken?: CancellationToken) {
   return start(computation, cancellationToken);
 }
 
@@ -130,7 +130,7 @@ export function startWithContinuations<T>(
   cancelToken?: CancellationToken) {
   if (typeof continuation !== "function") {
     cancelToken = continuation as CancellationToken;
-    continuation = null;
+    continuation = undefined;
   }
   const trampoline = new Trampoline();
   computation({

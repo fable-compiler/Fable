@@ -2,12 +2,123 @@
 
 #nowarn "47" // recursive initialization of LexBuffer
 
+namespace FSharp.Compiler.Text
+
+open System
+open System.IO
+
+type ISourceText =
+
+    abstract Item : int -> char with get
+
+    abstract GetLineString : lineIndex: int -> string
+
+    abstract GetLineCount : unit -> int
+
+    abstract GetLastCharacterPosition : unit -> int * int
+
+    abstract GetSubTextString : start: int * length: int -> string
+
+    abstract SubTextEquals : target: string * startIndex: int -> bool
+
+    abstract Length : int
+
+    abstract ContentEquals : sourceText: ISourceText -> bool
+
+    abstract CopyTo : sourceIndex: int * destination: char [] * destinationIndex: int * count: int -> unit
+
+[<Sealed>]
+type StringText(str: string) =
+
+    let getLines (str: string) =
+#if FABLE_COMPILER
+        System.Text.RegularExpressions.Regex.Split(str, "\r\n|\r|\n");
+#else
+        use reader = new StringReader(str)
+        [|
+        let mutable line = reader.ReadLine()
+        while not (isNull line) do
+            yield line
+            line <- reader.ReadLine()
+        if str.EndsWith("\n", StringComparison.Ordinal) then
+            // last trailing space not returned
+            // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
+            yield String.Empty
+        |]
+#endif
+
+    let getLines =
+        // This requires allocating and getting all the lines.
+        // However, likely whoever is calling it is using a different implementation of ISourceText
+        // So, it's ok that we do this for now.
+        lazy getLines str
+
+    member __.String = str
+
+    override __.GetHashCode() = str.GetHashCode()
+    override __.Equals(obj: obj) = str.Equals(obj)
+
+    interface ISourceText with
+
+        member __.Item with get index = str.[index]
+
+        member __.GetLastCharacterPosition() =
+            let lines = getLines.Value
+            if lines.Length > 0 then
+                (lines.Length, lines.[lines.Length - 1].Length)
+            else
+                (0, 0)
+
+        member __.GetLineString(lineIndex) = 
+            getLines.Value.[lineIndex]
+
+        member __.GetLineCount() = getLines.Value.Length
+
+        member __.GetSubTextString(start, length) = 
+            str.Substring(start, length)
+
+        member __.SubTextEquals(target, startIndex) =
+            if startIndex < 0 || startIndex >= str.Length then
+                invalidArg "startIndex" "Out of range."
+
+            if String.IsNullOrEmpty(target) then
+                invalidArg "target" "Is null or empty."
+
+            let lastIndex = startIndex + target.Length
+            if lastIndex <= startIndex || lastIndex >= str.Length then
+                invalidArg "target" "Too big."
+
+#if FABLE_COMPILER
+            str.IndexOf(target, startIndex) <> -1
+#else
+            str.IndexOf(target, startIndex, target.Length) <> -1              
+#endif
+
+        member __.Length = str.Length
+
+        member this.ContentEquals(sourceText) =
+            match sourceText with
+            | :? StringText as sourceText when sourceText = this || sourceText.String = str -> true
+            | _ -> false
+
+        member __.CopyTo(sourceIndex, destination, destinationIndex, count) =
+#if FABLE_COMPILER
+            Array.blit (str.ToCharArray()) sourceIndex destination destinationIndex count
+#else
+            str.CopyTo(sourceIndex, destination, destinationIndex, count)
+#endif
+
+module SourceText =
+
+    let ofString str = StringText(str) :> ISourceText
 // NOTE: the code in this file is a drop-in replacement runtime for Lexing.fs from the FsLexYacc repository
 
 namespace Internal.Utilities.Text.Lexing
 
+    open FSharp.Compiler.Text
     open Microsoft.FSharp.Core
     open Microsoft.FSharp.Collections
+    open FSharp.Compiler.Features
     open System.Collections.Generic
 
     [<Struct>]
@@ -70,11 +181,17 @@ namespace Internal.Utilities.Text.Lexing
                       0,
                       0)
 
-    type internal LexBufferFiller<'Char> = (LexBuffer<'Char> -> unit) 
-        
+#if FABLE_COMPILER
+    type internal LexBufferChar = uint16
+#else
+    type internal LexBufferChar = char
+#endif
+
+    type internal LexBufferFiller<'Char> = (LexBuffer<'Char> -> unit)
+
     and [<Sealed>]
-        internal LexBuffer<'Char>(filler: LexBufferFiller<'Char>) = 
-        let context = new Dictionary<string,obj>(1) 
+        internal LexBuffer<'Char>(filler: LexBufferFiller<'Char>, supportsFeature:LanguageFeature -> bool) =
+        let context = new Dictionary<string,obj>(1)
         let mutable buffer = [||]
         /// number of valid characters beyond bufferScanStart.
         let mutable bufferMaxScanLength = 0
@@ -97,8 +214,7 @@ namespace Internal.Utilities.Text.Lexing
             Array.blit keep 0 buffer 0 nkeep
             bufferScanStart <- 0
             bufferMaxScanLength <- nkeep
-                 
-              
+
         member lexbuf.EndOfScan () : int =
             //Printf.eprintf "endOfScan, lexBuffer.lexemeLength = %d\n" lexBuffer.lexemeLength;
             if bufferAcceptAction < 0 then 
@@ -113,14 +229,14 @@ namespace Internal.Utilities.Text.Lexing
         member lexbuf.StartPos
            with get() = startPos
            and  set b =  startPos <- b
-           
+
         member lexbuf.EndPos 
            with get() = endPos
            and  set b =  endPos <- b
 
         member lexbuf.Lexeme         = Array.sub buffer bufferScanStart lexemeLength
         member lexbuf.LexemeChar(n)  = buffer.[n+bufferScanStart]
-        
+
         member lexbuf.BufferLocalStore = (context :> IDictionary<_,_>)
         member lexbuf.LexemeLength        with get() : int = lexemeLength    and set v = lexemeLength <- v
         member lexbuf.Buffer              with get() : 'Char[] = buffer              and set v = buffer <- v
@@ -147,47 +263,65 @@ namespace Internal.Utilities.Text.Lexing
         member x.BufferScanPos = bufferScanStart + bufferScanLength
 
         member lexbuf.EnsureBufferSize n = 
-            if lexbuf.BufferScanPos + n >= buffer.Length then 
-                let repl = Array.zeroCreate (lexbuf.BufferScanPos + n) 
+            if lexbuf.BufferScanPos + n >= buffer.Length then
+                let repl = Array.zeroCreate (lexbuf.BufferScanPos + n)
                 Array.blit buffer bufferScanStart repl bufferScanStart bufferScanLength
                 buffer <- repl
 
+        member __.SupportsFeature featureId = supportsFeature featureId
 
-        static member FromFunction (f : 'Char[] * int * int -> int) : LexBuffer<'Char> = 
+        static member FromFunction (supportsFeature:LanguageFeature -> bool, f : 'Char[] * int * int -> int) : LexBuffer<'Char> =
             let extension= Array.zeroCreate 4096
             let filler (lexBuffer: LexBuffer<'Char>) =
                  let n = f (extension,0,extension.Length)
                  lexBuffer.EnsureBufferSize n
                  Array.blit extension 0 lexBuffer.Buffer lexBuffer.BufferScanPos n
                  lexBuffer.BufferMaxScanLength <- lexBuffer.BufferScanLength + n
-            new LexBuffer<'Char>(filler)
-              
+            new LexBuffer<'Char>(filler, supportsFeature)
+
         // Important: This method takes ownership of the array
-        static member FromArrayNoCopy (buffer: 'Char[]) : LexBuffer<'Char> = 
-            let lexBuffer = new LexBuffer<'Char>(fun _ -> ())
+        static member FromArrayNoCopy (supportsFeature:LanguageFeature -> bool, buffer: 'Char[]) : LexBuffer<'Char> =
+            let lexBuffer = new LexBuffer<'Char>((fun _ -> ()), supportsFeature)
             lexBuffer.Buffer <- buffer
             lexBuffer.BufferMaxScanLength <- buffer.Length
             lexBuffer
 
         // Important: this method does copy the array
-        static member FromArray (s: 'Char[]) : LexBuffer<'Char> = 
+        static member FromArray (supportsFeature: LanguageFeature -> bool, s: 'Char[]) : LexBuffer<'Char> = 
             let buffer = Array.copy s 
-            LexBuffer<'Char>.FromArrayNoCopy buffer
+            LexBuffer<'Char>.FromArrayNoCopy(supportsFeature, buffer)
 
-        static member FromString (s: string) =
+        // Important: This method takes ownership of the array
+        static member FromChars (supportsFeature:LanguageFeature -> bool, arr:LexBufferChar[]) = LexBuffer.FromArrayNoCopy (supportsFeature, arr)
+
+        static member FromSourceText (supportsFeature: LanguageFeature -> bool, sourceText: ISourceText) =
+#if FABLE_COMPILER
+            let arr = Array.init sourceText.Length (fun i -> uint16 (sourceText.Item i))
+            LexBuffer.FromArrayNoCopy (supportsFeature, arr)
+#else
+            let mutable currentSourceIndex = 0
+            LexBuffer<char>.FromFunction(supportsFeature, fun (chars, start, length) ->
+                let lengthToCopy = 
+                    if currentSourceIndex + length <= sourceText.Length then
+                        length
+                    else
+                        sourceText.Length - currentSourceIndex
+
+                if lengthToCopy <= 0 then 0
+                else
+                    sourceText.CopyTo(currentSourceIndex, chars, start, lengthToCopy)
+                    currentSourceIndex <- currentSourceIndex + lengthToCopy
+                    lengthToCopy
+            )
+#endif
+
+        static member FromString (supportsFeature: LanguageFeature -> bool, s: string) =
 #if FABLE_COMPILER
             let arr = Array.init s.Length (fun i -> uint16 s.[i])
-            LexBuffer.FromArrayNoCopy arr
+            LexBuffer.FromArrayNoCopy (supportsFeature, arr)
 #else
-            LexBuffer.FromArrayNoCopy (s.ToCharArray())
+            LexBuffer.FromArrayNoCopy (supportsFeature, s.ToCharArray())
 #endif
-
-#if FABLE_COMPILER
-    and internal LexBufferChar = uint16
-#else
-    and internal LexBufferChar = char
-#endif
-
 
     module GenericImplFragments = 
         let startInterpret(lexBuffer:LexBuffer<LexBufferChar>) = 
@@ -217,7 +351,6 @@ namespace Internal.Utilities.Text.Lexing
 
     open GenericImplFragments
 
-
     [<Sealed>]
     type internal UnicodeTables(trans: uint16[] array, accept: uint16[]) = 
         let sentinel = 255 * 256 + 255 
@@ -239,10 +372,10 @@ namespace Internal.Utilities.Text.Lexing
                         // ways
                         let baseForUnicodeCategories = numLowUnicodeChars+numSpecificUnicodeChars*2
                         let unicodeCategory = 
-#if FX_RESHAPED_GLOBALIZATION
-                            System.Globalization.CharUnicodeInfo.GetUnicodeCategory(char inp)
-#else
+#if FABLE_COMPILER
                             System.Char.GetUnicodeCategory(char inp)
+#else
+                            System.Char.GetUnicodeCategory(inp)
 #endif
                         //System.Console.WriteLine("inp = {0}, unicodeCategory = {1}", [| box inp; box unicodeCategory |]);
                         int trans.[state].[baseForUnicodeCategories + int32 unicodeCategory]
@@ -254,10 +387,9 @@ namespace Internal.Utilities.Text.Lexing
                         if c = inp
                         then int trans.[state].[baseForSpecificUnicodeChars+i*2+1]
                         else loop(i+1)
-                
                 loop 0
         let eofPos    = numLowUnicodeChars + 2*numSpecificUnicodeChars + numUnicodeCategories 
-        
+
         let rec scanUntilSentinel lexBuffer state =
             // Return an endOfScan after consuming the input 
             let a = int accept.[state] 

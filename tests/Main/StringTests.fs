@@ -33,6 +33,30 @@ let tests =
 
       // Format
 
+      testCase "StringBuilder works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append "Hello" |> ignore
+            sb.AppendLine () |> ignore
+            sb.AppendLine "World!" |> ignore
+            let expected = System.Text.StringBuilder()
+                              .AppendFormat("Hello{0}World!{0}", Environment.NewLine)
+                              .ToString()
+            sb.ToString() |> equal expected
+
+      testCase "StringBuilder.Lengh works" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append("Hello") |> ignore
+            // We don't test the AppendLine for Length because depending on the OS
+            // the result is different. Unix \n VS Windows \r\n 
+            // sb.AppendLine() |> ignore 
+            equal 5 sb.Length
+      
+      testCase "StringBuilder.ToString works with index and length" <| fun () ->
+            let sb = System.Text.StringBuilder()
+            sb.Append("Hello") |> ignore
+            sb.AppendLine() |> ignore
+            equal "ll" (sb.ToString(2, 2))
+
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"
@@ -82,6 +106,23 @@ let tests =
             let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
             let printer2 = printer2 "afternoon"
             printer2 "?" |> equal "Hi Maxime, good afternoon?"
+
+      testCase "sprintf with different decimal digits works" <| fun () -> // See #1932
+          sprintf "Percent: %.0f%%" 5.0 |> equal "Percent: 5%"
+          sprintf "Percent: %.2f%%" 5. |> equal "Percent: 5.00%"
+          sprintf "Percent: %.1f%%" 5.24 |> equal "Percent: 5.2%"
+          sprintf "Percent: %.2f%%" 5.268 |> equal "Percent: 5.27%"
+          sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
+
+      testCase "sprintf displays sign correctly" <| fun () -> // See #1937
+          sprintf "%i" 1 |> equal "1"
+          sprintf "%d" 1 |> equal "1"
+          sprintf "%d" 1L |> equal "1"
+          sprintf "%.2f" 1. |> equal "1.00"
+          sprintf "%i" -1 |> equal "-1"
+          sprintf "%d" -1 |> equal "-1"
+          sprintf "%d" -1L |> equal "-1"
+          sprintf "%.2f" -1. |> equal "-1.00"
 
       testCase "Print.sprintf works" <| fun () -> // See #1216
             let res = Printf.sprintf "%s" "abc"
@@ -156,6 +197,30 @@ let tests =
             sprintf "%A" o |> ignore
       #endif
 
+      testCase "sprintf \"%A\" with lists works" <| fun () ->
+            let xs = ["Hi"; "Hello"; "Hola"]
+            (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+
+      testCase "sprintf \"%A\" with nested lists works" <| fun () ->
+            let xs = [["Hi"]; ["Hello"]; ["Hola"]]
+            (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+
+      testCase "sprintf \"%A\" with sequences works" <| fun () ->
+            let xs = seq { "Hi"; "Hello"; "Hola" }
+            (sprintf "%A" xs).Replace("\"", "") |> equal "seq [Hi; Hello; Hola]"
+
+      testCase "Storing result of Seq.tail and printing the result several times works. Related to #1996" <| fun () ->
+            let tweets = seq { "Hi"; "Hello"; "Hola" }
+            let tweetsTailR: seq<string> = tweets |> Seq.tail
+
+            let a = sprintf "%A" (tweetsTailR)
+            let b = sprintf "%A" (tweetsTailR)
+
+            let expected = "seq [Hello; Hola]"
+
+            equal expected (a.Replace("\"", ""))
+            equal expected (b.Replace("\"", ""))
+
       testCase "sprintf \"%X\" works" <| fun () ->
             //These should all be the Native JS Versions (except int64 / uint64)
             //See #1530 for more information.
@@ -171,6 +236,18 @@ let tests =
             sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
             sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
             sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
+
+      testCase "sprintf integers with sign and padding works" <| fun () -> // See #1931
+          sprintf "%+04i" 1 |> equal "+001"
+          sprintf "%+04i" -1 |> equal "-001"
+          sprintf "%5d" -5 |> equal "   -5"
+          sprintf "%5d" -5L |> equal "   -5"
+          sprintf "%- 4i" 5 |> equal " 5  "
+
+      testCase "String.Format combingin padding and zeroes pattern works" <| fun () ->
+          String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
+          String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
+          String.Format("{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
 
       testCase "String.Format {0:x} works" <| fun () ->
             //See above comment on expected values
@@ -489,6 +566,10 @@ let tests =
             @"\\\abc///".Trim('\\','/')
             |> equal "abc"
 
+      testCase "String.Trim with special chars works" <| fun () ->
+            @"()[]{}abc/.?*+-^$|\".Trim(@"()[]{}/.?*+-^$|\".ToCharArray())
+            |> equal "abc"
+
       testCase "String.TrimStart works" <| fun () ->
             "!!--abc   ".TrimStart('!','-')
             |> equal "abc   "
@@ -523,6 +604,13 @@ let tests =
       testCase "String.Substring works with length" <| fun () ->
             "abcdefg".Substring(2, 2)
             |> equal "cd"
+
+      testCase "String.Substring throws error if startIndex or length are out of bounds" <| fun () -> // See #1955
+            let throws f =
+                try f () |> ignore; false
+                with _ -> true
+            throws (fun _ -> "abcdefg".Substring(20)) |> equal true
+            throws (fun _ -> "abcdefg".Substring(2, 10)) |> equal true
 
       testCase "String.ToUpper works" <| fun () ->
             "AbC".ToUpper() |> equal "ABC"
@@ -595,6 +683,42 @@ let tests =
             |> equal "abc"
             String.Concat(seq { yield "a"; yield "b"; yield "c" })
             |> equal "abc"
+
+      testCase "System.String.Join with long array works" <| fun () ->
+            let n = 1_000_000
+            let a = Array.init n (fun _i -> "a")
+            let s = String.Join("", a)
+            s.Length |> equal n
+
+      testCase "System.String.Join with long seq works" <| fun () ->
+            let n = 1_000_000
+            let a = seq { for i in 1..n -> "a" }
+            let s = String.Join("", a)
+            s.Length |> equal n
+
+      testCase "System.String.Concat with long array works" <| fun () ->
+            let n = 1_000_000
+            let a = Array.init n (fun _i -> "a")
+            let s = String.Concat(a)
+            s.Length |> equal n
+
+      testCase "System.String.Concat with long seq works" <| fun () ->
+            let n = 1_000_000
+            let a = seq { for i in 1..n -> "a" }
+            let s = String.Concat(a)
+            s.Length |> equal n
+
+      testCase "String.concat with long array works" <| fun () ->
+            let n = 1_000_000
+            let a = Array.init n (fun _i -> "a")
+            let s = String.concat "" a
+            s.Length |> equal n
+
+      testCase "String.concat with long seq works" <| fun () ->
+            let n = 1_000_000
+            let a = seq { for i in 1..n -> "a" }
+            let s = String.concat "" a
+            s.Length |> equal n
 
       testCase "String.Remove works" <| fun () ->
             "abcd".Remove(2)

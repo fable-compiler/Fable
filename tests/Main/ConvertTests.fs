@@ -353,6 +353,13 @@ let tests =
         xnu |> int32 |> equal -1
         xnu |> uint32 |> equal 0xFFFFFFFFu
 
+    testCase "Special cases conversion to UInt64 work" <| fun () -> // See #1880
+        uint64 "0x9fffffffffffffff" |> equal 11529215046068469759UL
+        uint64 "0xafffffffffffffff" |> equal 12682136550675316735UL
+        uint64 "0xAFFFFFFFFFFFFFFF" |> equal 12682136550675316735UL
+        uint64 "0x9fffffff_ffffffff" |> equal 11529215046068469759UL
+        uint64 "0x9fff_ffff_ffff_ffff" |> equal 11529215046068469759UL
+
     testCase "System.Convert.ToInt64 works" <| fun () ->
         let x = 1L
         int64(1y) |> equal x
@@ -1145,61 +1152,4 @@ let tests =
         System.Text.Encoding.UTF8.GetString(bytes, 6, 6)
         |> equal "\u03B2\uD8FF\uDCFF"
 
-
-    // testCase "int64 can be JSON serialized forth and back" <| fun () ->
-    //     let val1 = 5348937298839933899L
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson val1
-    //     let val2 = Fable.Core.JsInterop.ofJson<int64> json
-    //     equal true (box val2 :? int64) // Type is kept
-    //     equal val1 val2
-    //     equal val2 5348937298839933899L
-    //     let val2 = Fable.Core.JsInterop.ofJsonAsType json (val1.GetType())
-    //     equal true (val2 :? int64) // Type is kept
-    //     let val2 = val2 :?> int64
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject val1
-    //     let val2 = Newtonsoft.Json.JsonConvert.DeserializeObject<int64> json
-    //     #endif
-    //     // printfn "JSON: %s" json
-    //     equal val1 val2
-    //     equal val2 5348937298839933899L
-
-    // testCase "uint64 can be JSON serialized forth and back" <| fun () ->
-    //     let val1 = 9348937298839933899UL
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson val1
-    //     let val2 = Fable.Core.JsInterop.ofJson<uint64> json
-    //     equal true (box val2 :? uint64) // Type is kept
-    //     equal val1 val2
-    //     equal val2 9348937298839933899UL
-    //     let val2 = Fable.Core.JsInterop.ofJsonAsType json (val1.GetType())
-    //     equal true (val2 :? uint64) // Type is kept
-    //     let val2 = val2 :?> uint64
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject val1
-    //     let val2 = Newtonsoft.Json.JsonConvert.DeserializeObject<uint64> json
-    //     #endif
-    //     // printfn "JSON: %s" json
-    //     equal val1 val2
-    //     equal val2 9348937298839933899UL
-
-    // testCase "BigInts can be JSON serialized forth and back" <| fun () ->
-    //     let val1 = 59823749821707124891298739821798327321028091380980I
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson val1
-    //     let val2 = Fable.Core.JsInterop.ofJson<bigint> json
-    //     equal true (box val2 :? bigint) // Type is kept
-    //     equal val1 val2
-    //     equal val2 59823749821707124891298739821798327321028091380980I
-    //     let val2 = Fable.Core.JsInterop.ofJsonAsType json (val1.GetType())
-    //     equal true (val2 :? bigint) // Type is kept
-    //     let val2 = val2 :?> bigint
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject val1
-    //     let val2 = Newtonsoft.Json.JsonConvert.DeserializeObject<bigint> json
-    //     #endif
-    //     // printfn "JSON: %s" json
-    //     equal val1 val2
-    //     equal val2 59823749821707124891298739821798327321028091380980I
   ]

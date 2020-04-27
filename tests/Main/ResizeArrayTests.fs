@@ -22,6 +22,11 @@ let tests =
         Seq.sum li
         |> equal 15
 
+    testCase "ResizeArray creation with literal list works" <| fun () ->
+        let li = ResizeArray<_> [1;2;3;4;5]
+        Seq.sum li
+        |> equal 15
+
     testCase "ResizeArray casting to seq works" <| fun () ->
         let xs = ResizeArray<_>(seq{1..5}) :> seq<_>
         Seq.sum xs
@@ -163,7 +168,7 @@ let tests =
         equal 1 xs.[0]
         equal 4 xs.[1]
         equal 5 xs.[2]
-    
+
     testCase "ResizeArray.Exists works" <| fun () ->
         let xs = ResizeArray<int>()
         for x in [1 .. 5] do xs.Add(x)

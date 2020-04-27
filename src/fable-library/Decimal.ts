@@ -1,6 +1,7 @@
 import Decimal from "./lib/big";
 
 export default Decimal;
+export type decimal = Decimal;
 
 export const get_Zero = new Decimal(0);
 export const get_One = new Decimal(1);
@@ -21,7 +22,7 @@ export function abs(x: Decimal) {
 }
 
 export function round(x: Decimal, digits: number = 0) {
-  return x.round(digits, x.cmp(0) >= 0 ? 1 /* ROUND_HALF_UP */ : 2 /* ROUND_HALF_EVEN */);
+  return x.round(digits, 2 /* ROUND_HALF_EVEN */);
 }
 
 export function truncate(x: Decimal) {
@@ -189,4 +190,21 @@ export function getBits(d: Decimal) {
   const scale = dotPos < 0 ? 0 : decStr.length - dotPos - 1;
   const signExp = ((scale & 0x7F) << 16) | (d.s < 0 ? 0x80000000 : 0);
   return [low, mid, high, signExp];
+}
+
+export function makeRangeStepFunction(step: Decimal, last: Decimal) {
+  const stepComparedWithZero = step.cmp(get_Zero);
+  if (stepComparedWithZero === 0) {
+    throw new Error("The step of a range cannot be zero");
+  }
+  const stepGreaterThanZero = stepComparedWithZero > 0;
+  return (x: Decimal) => {
+    const comparedWithLast = x.cmp(last);
+    if ((stepGreaterThanZero && comparedWithLast <= 0)
+      || (!stepGreaterThanZero && comparedWithLast >= 0)) {
+      return [x, op_Addition(x, step)];
+    } else {
+      return null;
+    }
+  };
 }

@@ -12,10 +12,6 @@ open System.Reflection
 open System.Threading
 open System.Runtime.CompilerServices
 
-#if FX_RESHAPED_REFLECTION
-open Microsoft.FSharp.Core.ReflectionAdapters
-#endif
-
 // Logical shift right treating int32 as unsigned integer.
 // Code that uses this should probably be adjusted to use unsigned integer types.
 let (>>>&) (x: int32) (n: int32) = int32 (uint32 x >>> n)
@@ -44,23 +40,23 @@ let inline nonNull msg x = if isNull x then failwith ("null: " + msg) else x
 let inline (===) x y = LanguagePrimitives.PhysicalEquality x y
 
 /// Per the docs the threshold for the Large Object Heap is 85000 bytes: https://docs.microsoft.com/en-us/dotnet/standard/garbage-collection/large-object-heap#how-an-object-ends-up-on-the-large-object-heap-and-how-gc-handles-them
-/// We set the limit to slightly under that to allow for some 'slop'
-let LOH_SIZE_THRESHOLD_BYTES = 84_900
+/// We set the limit to be 80k to account for larger pointer sizes for when F# is running 64-bit.
+let LOH_SIZE_THRESHOLD_BYTES = 80_000
 
 #if !FABLE_COMPILER // no Process support
 //---------------------------------------------------------------------
 // Library: ReportTime
 //---------------------------------------------------------------------
 let reportTime =
-    let tFirst = ref None
-    let tPrev = ref None
+    let mutable tFirst =None
+    let mutable tPrev = None
     fun showTimes descr ->
         if showTimes then 
             let t = Process.GetCurrentProcess().UserProcessorTime.TotalSeconds
-            let prev = match !tPrev with None -> 0.0 | Some t -> t
-            let first = match !tFirst with None -> (tFirst := Some t; t) | Some t -> t
+            let prev = match tPrev with None -> 0.0 | Some t -> t
+            let first = match tFirst with None -> (tFirst <- Some t; t) | Some t -> t
             printf "ilwrite: TIME %10.3f (total)   %10.3f (delta) - %s\n" (t - first) (t - prev) descr
-            tPrev := Some t
+            tPrev <- Some t
 #endif
 
 //-------------------------------------------------------------------------
@@ -176,12 +172,12 @@ module Array =
     /// pass an array byref to reverse it in place
     let revInPlace (array: 'T []) =
         if Array.isEmpty array then () else
-        let arrlen, revlen = array.Length-1, array.Length/2 - 1
-        for idx in 0 .. revlen do
+        let arrLen, revLen = array.Length-1, array.Length/2 - 1
+        for idx in 0 .. revLen do
             let t1 = array.[idx] 
-            let t2 = array.[arrlen-idx]
+            let t2 = array.[arrLen-idx]
             array.[idx] <- t2
-            array.[arrlen-idx] <- t1
+            array.[arrLen-idx] <- t1
 
     /// Async implementation of Array.map.
     let mapAsync (mapping : 'T -> Async<'U>) (array : 'T[]) : Async<'U[]> =
@@ -266,24 +262,18 @@ module Option =
         
 module List = 
 
-    //let item n xs = List.nth xs n
-#if FX_RESHAPED_REFLECTION
-    open PrimReflectionAdapters
-    open Microsoft.FSharp.Core.ReflectionAdapters
-#endif
-
     let sortWithOrder (c: IComparer<'T>) elements = List.sortWith (Order.toFunction c) elements
     
     let splitAfter n l = 
-        let rec split_after_acc n l1 l2 = if n <= 0 then List.rev l1, l2 else split_after_acc (n-1) ((List.head l2):: l1) (List.tail l2) 
+        let rec split_after_acc n l1 l2 = if n <= 0 then List.rev l1, l2 else split_after_acc (n-1) ((List.head l2) :: l1) (List.tail l2) 
         split_after_acc n [] l
 
     let existsi f xs = 
-       let rec loop i xs = match xs with [] -> false | h::t -> f i h || loop (i+1) t
+       let rec loop i xs = match xs with [] -> false | h :: t -> f i h || loop (i+1) t
        loop 0 xs
     
     let existsTrue (xs: bool list) = 
-       let rec loop i xs = match xs with [] -> false | h::t -> h || loop (i+1) t
+       let rec loop i xs = match xs with [] -> false | h :: t -> h || loop (i+1) t
        loop 0 xs
 
     let lengthsEqAndForall2 p l1 l2 = 
@@ -293,27 +283,27 @@ module List =
     let rec findi n f l = 
         match l with 
         | [] -> None
-        | h::t -> if f h then Some (h, n) else findi (n+1) f t
+        | h :: t -> if f h then Some (h, n) else findi (n+1) f t
 
     let rec drop n l = 
         match l with 
         | [] -> []
-        | _::xs -> if n=0 then l else drop (n-1) xs
+        | _ :: xs -> if n=0 then l else drop (n-1) xs
 
     let splitChoose select l =
         let rec ch acc1 acc2 l = 
             match l with 
             | [] -> List.rev acc1, List.rev acc2
-            | x::xs -> 
+            | x :: xs -> 
                 match select x with
-                | Choice1Of2 sx -> ch (sx::acc1) acc2 xs
-                | Choice2Of2 sx -> ch acc1 (sx::acc2) xs
+                | Choice1Of2 sx -> ch (sx :: acc1) acc2 xs
+                | Choice2Of2 sx -> ch acc1 (sx :: acc2) xs
 
         ch [] [] l
 
     let rec checkq l1 l2 = 
         match l1, l2 with 
-        | h1::t1, h2::t2 -> h1 === h2 && checkq t1 t2
+        | h1 :: t1, h2 :: t2 -> h1 === h2 && checkq t1 t2
         | _ -> true
 
     let mapq (f: 'T -> 'T) inp =
@@ -345,14 +335,14 @@ module List =
                 Debug.Assert(false, "empty list")
                 invalidArg "l" "empty list" 
             | [h] -> List.rev acc, h
-            | h::t -> loop (h::acc) t
+            | h :: t -> loop (h :: acc) t
         loop [] l
 
     let tryRemove f inp = 
         let rec loop acc l = 
             match l with
             | [] -> None
-            | h :: t -> if f h then Some (h, List.rev acc @ t) else loop (h::acc) t
+            | h :: t -> if f h then Some (h, List.rev acc @ t) else loop (h :: acc) t
         loop [] inp
             
     let headAndTail l =
@@ -360,7 +350,7 @@ module List =
         | [] -> 
             Debug.Assert(false, "empty list")
             failwith "List.headAndTail"
-        | h::t -> h, t
+        | h :: t -> h, t
 
     let zip4 l1 l2 l3 l4 = 
         List.zip l1 (List.zip3 l2 l3 l4) |> List.map (fun (x1, (x2, x3, x4)) -> (x1, x2, x3, x4))
@@ -372,7 +362,7 @@ module List =
 
     let rec iter3 f l1 l2 l3 = 
         match l1, l2, l3 with 
-        | h1::t1, h2::t2, h3::t3 -> f h1 h2 h3; iter3 f t1 t2 t3
+        | h1 :: t1, h2 :: t2, h3 :: t3 -> f h1 h2 h3; iter3 f t1 t2 t3
         | [], [], [] -> ()
         | _ -> failwith "iter3"
 
@@ -380,7 +370,7 @@ module List =
         let rec loop acc l =
             match l with
             | [] -> List.rev acc, []
-            | x::xs -> if p x then List.rev acc, l else loop (x::acc) xs
+            | x :: xs -> if p x then List.rev acc, l else loop (x :: acc) xs
         loop [] l
 
     let order (eltOrder: IComparer<'T>) =
@@ -391,7 +381,7 @@ module List =
                       | [], [] -> 0
                       | [], _ -> -1
                       | _, [] -> 1
-                      | x::xs, y::ys -> 
+                      | x :: xs, y :: ys -> 
                           let cxy = eltOrder.Compare(x, y)
                           if cxy=0 then loop xs ys else cxy 
                   loop xs ys }
@@ -406,22 +396,22 @@ module List =
     let rec assoc x l = 
         match l with 
         | [] -> indexNotFound()
-        | ((h, r)::t) -> if x = h then r else assoc x t
+        | ((h, r) :: t) -> if x = h then r else assoc x t
 
     let rec memAssoc x l = 
         match l with 
         | [] -> false
-        | ((h, _)::t) -> x = h || memAssoc x t
+        | ((h, _) :: t) -> x = h || memAssoc x t
 
     let rec memq x l = 
         match l with 
         | [] -> false 
-        | h::t -> LanguagePrimitives.PhysicalEquality x h || memq x t
+        | h :: t -> LanguagePrimitives.PhysicalEquality x h || memq x t
 
     let mapNth n f xs =
         let rec mn i = function
           | []    -> []
-          | x::xs -> if i=n then f x::xs else x::mn (i+1) xs
+          | x :: xs -> if i=n then f x :: xs else x :: mn (i+1) xs
        
         mn 0 xs
     let count pred xs = List.fold (fun n x -> if pred x then n+1 else n) 0 xs
@@ -430,7 +420,7 @@ module List =
     let mapHeadTail fhead ftail = function
       | []    -> []
       | [x]   -> [fhead x]
-      | x::xs -> fhead x :: List.map ftail xs
+      | x :: xs -> fhead x :: List.map ftail xs
 
     let collectFold f s l = 
       let l, s = List.mapFold f s l
@@ -509,10 +499,10 @@ module ValueOptionInternal =
     let inline bind f x = match x with ValueSome x -> f x | ValueNone -> ValueNone
 
 type String with
-    member inline x.StartsWithOrdinal(value) =
+    member inline x.StartsWithOrdinal value =
         x.StartsWith(value, StringComparison.Ordinal)
 
-    member inline x.EndsWithOrdinal(value) =
+    member inline x.EndsWithOrdinal value =
         x.EndsWith(value, StringComparison.Ordinal)
 
 module String =
@@ -522,7 +512,7 @@ module String =
 
     let sub (s: string) (start: int) (len: int) = s.Substring(start, len)
 
-    let contains (s: string) (c: char) = s.IndexOf(c) <> -1
+    let contains (s: string) (c: char) = s.IndexOf c <> -1
 
     let order = LanguagePrimitives.FastGenericComparer<string>
    
@@ -557,7 +547,7 @@ module String =
         | None -> str
         | Some c  -> 
             strArr.[0] <- Char.ToLower c
-            String (strArr)
+            String strArr
 
     let extractTrailingIndex (str: string) =
         match str with
@@ -583,7 +573,7 @@ module String =
     let (|StartsWith|_|) (pattern: string) value =
         if String.IsNullOrWhiteSpace value then
             None
-        elif value.StartsWithOrdinal(pattern) then
+        elif value.StartsWithOrdinal pattern then
             Some()
         else None
 
@@ -594,18 +584,20 @@ module String =
             Some()
         else None
 
-#if !FABLE_COMPILER
     let getLines (str: string) =
+#if FABLE_COMPILER
+        System.Text.RegularExpressions.Regex.Split(str, "\r\n|\r|\n");
+#else
         use reader = new StringReader(str)
         [|
-        let line = ref (reader.ReadLine())
-        while not (isNull !line) do
-            yield !line
-            line := reader.ReadLine()
-        if str.EndsWithOrdinal("\n") then
-            // last trailing space not returned
-            // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
-            yield String.Empty
+            let mutable line = reader.ReadLine()
+            while not (isNull line) do
+                yield line
+                line <- reader.ReadLine()
+            if str.EndsWithOrdinal("\n") then
+                // last trailing space not returned
+                // http://stackoverflow.com/questions/19365404/stringreader-omits-trailing-linebreak
+                yield String.Empty
         |]
 #endif
 
@@ -650,7 +642,7 @@ type CompilationThreadToken() = interface ExecutionToken
 let RequireCompilationThread (_ctok: CompilationThreadToken) = ()
 
 /// Represents a place in the compiler codebase where we are passed a CompilationThreadToken unnecessarily.
-/// This reprents code that may potentially not need to be executed on the compilation thread.
+/// This represents code that may potentially not need to be executed on the compilation thread.
 let DoesNotRequireCompilerThreadTokenAndCouldPossiblyBeMadeConcurrent (_ctok: CompilationThreadToken) = ()
 
 /// Represents a place in the compiler codebase where we assume we are executing on a compilation thread
@@ -777,7 +769,7 @@ module Cancellable =
     /// ValueOrCancelled.Cancelled.
     let runWithoutCancellation comp = 
 #if FABLE_COMPILER
-        let res = run (System.Threading.CancellationToken()) comp
+        let res = run (CancellationToken()) comp
 #else
         let res = run CancellationToken.None comp 
 #endif
@@ -832,9 +824,9 @@ type CancellableBuilder() =
 
     member x.Bind(e, k) = Cancellable.bind k e
 
-    member x.Return(v) = Cancellable.ret v
+    member x.Return v = Cancellable.ret v
 
-    member x.ReturnFrom(v) = v
+    member x.ReturnFrom v = v
 
     member x.Combine(e1, e2) = e1 |> Cancellable.bind (fun () -> e2)
 
@@ -844,7 +836,7 @@ type CancellableBuilder() =
 
     member x.TryFinally(e, compensation) =  Cancellable.tryFinally e compensation
 
-    member x.Delay(f) = Cancellable.delay f
+    member x.Delay f = Cancellable.delay f
 
     member x.Zero() = Cancellable.ret ()
 
@@ -872,12 +864,12 @@ module Eventually =
     let rec box e = 
         match e with 
         | Done x -> Done (Operators.box x) 
-        | NotYetDone (work) -> NotYetDone (fun ctok -> box (work ctok))
+        | NotYetDone work -> NotYetDone (fun ctok -> box (work ctok))
 
     let rec forceWhile ctok check e = 
         match e with 
-        | Done x -> Some(x)
-        | NotYetDone (work) -> 
+        | Done x -> Some x
+        | NotYetDone work -> 
             if not(check()) 
             then None
             else forceWhile ctok check (work ctok) 
@@ -942,7 +934,7 @@ module Eventually =
     let delay (f: unit -> Eventually<'T>) = NotYetDone (fun _ctok -> f())
 
     let tryFinally e compensation =
-        catch (e) 
+        catch e 
         |> bind (fun res -> 
             compensation()
             match res with 
@@ -961,9 +953,9 @@ type EventuallyBuilder() =
 
     member x.Bind(e, k) = Eventually.bind k e
 
-    member x.Return(v) = Eventually.Done v
+    member x.Return v = Eventually.Done v
 
-    member x.ReturnFrom(v) = v
+    member x.ReturnFrom v = v
 
     member x.Combine(e1, e2) = e1 |> Eventually.bind (fun () -> e2)
 
@@ -971,7 +963,7 @@ type EventuallyBuilder() =
 
     member x.TryFinally(e, compensation) = Eventually.tryFinally e compensation
 
-    member x.Delay(f) = Eventually.delay f
+    member x.Delay f = Eventually.delay f
 
     member x.Zero() = Eventually.Done ()
 
@@ -990,7 +982,7 @@ type UniqueStampGenerator<'T when 'T : equality>() =
     let encodeTab = new Dictionary<'T, int>(HashIdentity.Structural)
     let mutable nItems = 0
     let encode str =
-        match encodeTab.TryGetValue(str) with
+        match encodeTab.TryGetValue str with
         | true, idx -> idx
         | _ ->
             let idx = nItems
@@ -998,7 +990,7 @@ type UniqueStampGenerator<'T when 'T : equality>() =
             nItems <- nItems + 1
             idx
 
-    member this.Encode(str) = encode str
+    member this.Encode str = encode str
 
     member this.Table = encodeTab.Keys
 
@@ -1007,22 +999,15 @@ type MemoizationTable<'T, 'U>(compute: 'T -> 'U, keyComparer: IEqualityComparer<
     
     let table = new Dictionary<'T, 'U>(keyComparer) 
 
-    member t.Apply(x) = 
+    member t.Apply x = 
         if (match canMemoize with None -> true | Some f -> f x) then 
-#if FABLE_COMPILER // no byref
-            (
-                    let ok, res = table.TryGetValue(x)
-#else
-            let mutable res = Unchecked.defaultof<'U>
-            let ok = table.TryGetValue(x, &res)
-            if ok then res 
-            else
+            match table.TryGetValue x with
+            | true, res -> res
+            | _ ->
                 lock table (fun () -> 
-                    let mutable res = Unchecked.defaultof<'U> 
-                    let ok = table.TryGetValue(x, &res)
-#endif
-                    if ok then res 
-                    else
+                    match table.TryGetValue x with
+                    | true, res -> res
+                    | _ ->
                         let res = compute x
                         table.[x] <- res
                         res)
@@ -1076,14 +1061,14 @@ type LazyWithContext<'T, 'ctxt> =
             x.UnsynchronizedForce(ctxt)
 #else
             // Enter the lock in case another thread is in the process of evaluating the result
-            Monitor.Enter(x);
+            Monitor.Enter x;
             try 
-                x.UnsynchronizedForce(ctxt)
+                x.UnsynchronizedForce ctxt
             finally
-                Monitor.Exit(x)
+                Monitor.Exit x
 #endif
 
-    member x.UnsynchronizedForce(ctxt) = 
+    member x.UnsynchronizedForce ctxt = 
         match x.funcOrException with 
         | null -> x.value 
         | :? LazyWithContextFailure as res -> 
@@ -1107,22 +1092,12 @@ module Tables =
     let memoize f = 
         let t = new Dictionary<_, _>(1000, HashIdentity.Structural)
         fun x -> 
-#if FABLE_COMPILER
-            match t.TryGetValue(x) with
+            match t.TryGetValue x with
             | true, res -> res
             | _ ->
                 let res = f x
                 t.[x] <- res
                 res
-#else
-            let mutable res = Unchecked.defaultof<_>
-            if t.TryGetValue(x, &res) then 
-                res 
-            else
-                res <- f x
-                t.[x] <- res
-                res
-#endif
 
 /// Interface that defines methods for comparing objects using partial equality relation
 type IPartialEqualityComparer<'T> = 
@@ -1146,15 +1121,15 @@ module IPartialEqualityComparer =
     let partialDistinctBy (per: IPartialEqualityComparer<'T>) seq =
         let wper = 
             { new IPartialEqualityComparer<WrapType<'T>> with
-                member __.InEqualityRelation (Wrap x) = per.InEqualityRelation (x)
+                member __.InEqualityRelation (Wrap x) = per.InEqualityRelation x
                 member __.Equals(Wrap x, Wrap y) = per.Equals(x, y)
-                member __.GetHashCode (Wrap x) = per.GetHashCode(x) }
+                member __.GetHashCode (Wrap x) = per.GetHashCode x }
         // Wrap a Wrap _ around all keys in case the key type is itself a type using null as a representation
         let dict = Dictionary<WrapType<'T>, obj>(wper)
         seq |> List.filter (fun v -> 
-            let key = Wrap(v)
-            if (per.InEqualityRelation(v)) then 
-                if dict.ContainsKey(key) then false else (dict.[key] <- null; true)
+            let key = Wrap v
+            if (per.InEqualityRelation v) then 
+                if dict.ContainsKey key then false else (dict.[key] <- null; true)
             else true)
 
 //-------------------------------------------------------------------------
@@ -1317,11 +1292,6 @@ type LayeredMultiMap<'Key, 'Value when 'Key : equality and 'Key : comparison>(co
 [<AutoOpen>]
 module Shim =
 
-#if FX_RESHAPED_REFLECTION
-    open PrimReflectionAdapters
-    open Microsoft.FSharp.Core.ReflectionAdapters
-#endif
-
     type IFileSystem = 
 
 #if !FABLE_COMPILER
@@ -1400,18 +1370,18 @@ module Shim =
 
             member __.IsInvalidPathShim(path: string) = 
                 let isInvalidPath(p: string) = 
-                    String.IsNullOrEmpty(p) || p.IndexOfAny(Path.GetInvalidPathChars()) <> -1
+                    String.IsNullOrEmpty p || p.IndexOfAny(Path.GetInvalidPathChars()) <> -1
 
                 let isInvalidFilename(p: string) = 
-                    String.IsNullOrEmpty(p) || p.IndexOfAny(Path.GetInvalidFileNameChars()) <> -1
+                    String.IsNullOrEmpty p || p.IndexOfAny(Path.GetInvalidFileNameChars()) <> -1
 
                 let isInvalidDirectory(d: string) = 
                     d=null || d.IndexOfAny(Path.GetInvalidPathChars()) <> -1
 
-                isInvalidPath (path) || 
-                let directory = Path.GetDirectoryName(path)
-                let filename = Path.GetFileName(path)
-                isInvalidDirectory(directory) || isInvalidFilename(filename)
+                isInvalidPath path || 
+                let directory = Path.GetDirectoryName path
+                let filename = Path.GetFileName path
+                isInvalidDirectory directory || isInvalidFilename filename
 
 #if !FABLE_COMPILER
             member __.GetTempPathShim() = Path.GetTempPath()
@@ -1423,7 +1393,7 @@ module Shim =
             member __.FileDelete (fileName: string) = File.Delete fileName
 
             member __.IsStableFileHeuristic (fileName: string) = 
-                let directory = Path.GetDirectoryName(fileName)
+                let directory = Path.GetDirectoryName fileName
                 directory.Contains("Reference Assemblies/") || 
                 directory.Contains("Reference Assemblies\\") || 
                 directory.Contains("packages/") || 
@@ -1431,9 +1401,47 @@ module Shim =
                 directory.Contains("lib/mono/")
 #endif
 
-    let mutable FileSystem = DefaultFileSystem() :> IFileSystem 
+    let mutable FileSystem = DefaultFileSystem() :> IFileSystem
 
 #if !FABLE_COMPILER
+
+    // The choice of 60 retries times 50 ms is not arbitrary. The NTFS FILETIME structure 
+    // uses 2 second resolution for LastWriteTime. We retry long enough to surpass this threshold 
+    // plus 1 second. Once past the threshold the incremental builder will be able to retry asynchronously based
+    // on plain old timestamp checking.
+    //
+    // The sleep time of 50ms is chosen so that we can respond to the user more quickly for Intellisense operations.
+    //
+    // This is not run on the UI thread for VS but it is on a thread that must be stopped before Intellisense
+    // can return any result except for pending.
+    let private retryDelayMilliseconds = 50
+    let private numRetries = 60
+
+    let private getReader (filename, codePage: int option, retryLocked: bool) =
+        // Retry multiple times since other processes may be writing to this file.
+        let rec getSource retryNumber =
+          try 
+            // Use the .NET functionality to auto-detect the unicode encoding
+            let stream = FileSystem.FileStreamReadShim(filename) 
+            match codePage with 
+            | None -> new  StreamReader(stream,true)
+            | Some n -> new  StreamReader(stream,System.Text.Encoding.GetEncoding(n))
+          with 
+              // We can get here if the file is locked--like when VS is saving a file--we don't have direct
+              // access to the HRESULT to see that this is EONOACCESS.
+              | :? System.IO.IOException as err when retryLocked && err.GetType() = typeof<System.IO.IOException> -> 
+                   // This second check is to make sure the exception is exactly IOException and none of these for example:
+                   //   DirectoryNotFoundException 
+                   //   EndOfStreamException 
+                   //   FileNotFoundException 
+                   //   FileLoadException 
+                   //   PathTooLongException
+                   if retryNumber < numRetries then 
+                       System.Threading.Thread.Sleep (retryDelayMilliseconds)
+                       getSource (retryNumber + 1)
+                   else 
+                       reraise()
+        getSource 0
 
     type File with 
 
@@ -1445,5 +1453,8 @@ module Shim =
             while n < len do 
                 n <- n + stream.Read(buffer, n, len-n)
             buffer
+
+        static member OpenReaderAndRetry (filename, codepage, retryLocked)  =
+            getReader (filename, codepage, retryLocked)
 
 #endif

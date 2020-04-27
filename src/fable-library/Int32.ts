@@ -1,3 +1,15 @@
+export type int8 = number;
+export type uint8 = number;
+export type int16 = number;
+export type uint16 = number;
+export type int32 = number;
+export type uint32 = number;
+// export type int64 = Long;
+// export type uint64 = Long;
+export type float32 = number;
+export type float64 = number;
+// export type decimal = Decimal;
+
 export enum NumberStyles {
   // None = 0x00000000,
   // AllowLeadingWhite = 0x00000001,
@@ -24,7 +36,7 @@ export enum NumberStyles {
 }
 
 function validResponse(regexMatch: RegExpExecArray, radix: number) {
-  const [_all, sign, prefix, digits] = regexMatch;
+  const [/*all*/, sign, prefix, digits] = regexMatch;
   return {
     sign: sign || "",
     prefix: prefix || "",
@@ -68,9 +80,9 @@ function getRadix(prefix: string, style: number) {
 
 export function isValid(str: string, style: number, radix?: number) {
   const integerRegex = /^\s*([\+\-])?(0[xXoObB])?([0-9a-fA-F]+)\s*$/;
-  const res = integerRegex.exec(str.replace("_", ""));
+  const res = integerRegex.exec(str.replace(/_/g, ""));
   if (res != null) {
-    const [_all, sign, prefix, digits] = res;
+    const [/*all*/, /*sign*/, prefix, digits] = res;
     radix = radix || getRadix(prefix, style);
     const invalidDigits = getInvalidDigits(radix);
     if (!invalidDigits.test(digits)) {

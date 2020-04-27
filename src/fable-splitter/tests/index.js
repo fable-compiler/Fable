@@ -1,7 +1,7 @@
 const shell = require("shelljs");
-const ava = require("ava");
+const test = require("ava").default;
 
-ava.test("allFiles in config works", (t) => {
+test("allFiles in config works", (t) => {
     shell.cd(__dirname);
     shell.rm("-rf", "temp")
     shell.exec("node ../dist/cli allFiles -o temp -c allFiles/config.js");

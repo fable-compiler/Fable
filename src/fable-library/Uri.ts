@@ -5,8 +5,8 @@ export const enum UriKind {
 }
 
 export default class Uri {
-  private url: string | URL;
-  private kind: UriKind;
+  private url?: string | URL;
+  private kind?: UriKind;
 
   constructor(
     value: string | Uri,
@@ -26,7 +26,7 @@ export default class Uri {
         let isRelativeUrl = false;
         try {
           const url = new URL(value);
-          isRelativeUrl = false;
+          isRelativeUrl = false && url;
         } catch (e) {
           isRelativeUrl = true;
         }
@@ -61,6 +61,10 @@ export default class Uri {
     }
   }
 
+  public toString() {
+    return decodeURIComponent(this.parseUrl().toString());
+  }
+
   private parseUrl(): URL {
     if (this.kind === UriKind.Absolute) {
       return this.url as URL;
@@ -76,7 +80,6 @@ export default class Uri {
   get isAbsoluteUri() {
     try {
       this.parseUrl();
-
       return true;
     } catch (e) {
       return false;

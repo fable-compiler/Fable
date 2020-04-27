@@ -44,12 +44,6 @@ let resources =
       ( "NotUpperCaseConstructor",
         "Discriminated union cases and exception labels must be uppercase identifiers"
       );
-      ( "PossibleOverload",
-        "Possible overload: '{0}'. {1}."
-      );
-      ( "PossibleBestOverload",
-        "\n\nPossible best overload: '{0}'."
-      );
       ( "FunctionExpected",
         "This function takes too many arguments, or is used in a context where a function is not expected"
       );
@@ -211,6 +205,9 @@ let resources =
       );
       ( "Parser.TOKEN.DOT.DOT",
         "symbol '..'"
+      );
+      ( "Parser.TOKEN.DOT.DOT.HAT",
+        "symbol '..^'"
       );
       ( "Parser.TOKEN.QUOTE",
         "quote symbol"
@@ -448,6 +445,9 @@ let resources =
       );
       ( "Parser.TOKEN.AND",
         "keyword 'and'"
+      );
+      ( "Parser.TOKEN.AND.BANG",
+        "keyword 'and!'"
       );
       ( "Parser.TOKEN.AS",
         "keyword 'as'"

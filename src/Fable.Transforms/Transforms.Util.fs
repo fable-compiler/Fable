@@ -64,10 +64,13 @@ module Types =
     let [<Literal>] idictionary = "System.Collections.Generic.IDictionary`2"
     let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
     let [<Literal>] iset = "System.Collections.Generic.ISet`1"
+    let [<Literal>] keyValuePair = "System.Collections.Generic.KeyValuePair`2"
     let [<Literal>] fsharpMap = "Microsoft.FSharp.Collections.FSharpMap`2"
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] ienumerableGeneric = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] ienumerable = "System.Collections.IEnumerable"
+    let [<Literal>] iequatableGeneric = "System.IEquatable`1"
+    let [<Literal>] iequatable = "System.IEquatable"
     let [<Literal>] icomparable = "System.IComparable"
     let [<Literal>] idisposable = "System.IDisposable"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
@@ -206,20 +209,6 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|IdentType|) (id: Ident) = id.Type
 
-    /// ATTENTION: Only intended to be used in lambdaBetaReduction
-    let rec (|NestedCompilerGeneratedLetsAndLambdas|_|) expr =
-        let rec nestedLetsAndLambdas identValues lambdaArgs body =
-            match body with
-            | Let([ident, value], body) when ident.IsCompilerGenerated ->
-                nestedLetsAndLambdas ((ident, value)::identValues) lambdaArgs body
-            | Function(Lambda arg, body, None) when arg.IsCompilerGenerated ->
-                nestedLetsAndLambdas identValues (arg::lambdaArgs) body
-            | _ -> List.rev identValues, List.rev lambdaArgs, body
-        match expr with
-        | Let([ident, value], body) when ident.IsCompilerGenerated ->
-            nestedLetsAndLambdas [ident, value] [] body |> Some
-        | _ -> None
-
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
             | FunctionType(LambdaType arg, returnType) ->
@@ -230,19 +219,30 @@ module AST =
         | _ -> None
 
     /// Only matches lambda immediately nested within each other
-    let rec (|NestedLambda|_|) expr =
-        let rec nestedLambda accArgs body name =
+    let rec nestedLambda checkArity expr =
+        let rec inner accArgs body name =
             match body with
             | Function(Lambda arg, body, None) ->
-                nestedLambda (arg::accArgs) body name
+                inner (arg::accArgs) body name
             | _ -> List.rev accArgs, body, name
         match expr with
         | Function(Lambda arg, body, name) ->
-            let args, body, name = nestedLambda [arg] body name
-            match expr.Type with
-            | NestedLambdaType(argTypes, _) when List.sameLength args argTypes -> Some(args, body, name)
-            | _ -> None
+            let args, body, name = inner [arg] body name
+            if checkArity then
+                match expr.Type with
+                | NestedLambdaType(argTypes, _)
+                    when List.sameLength args argTypes -> Some(args, body, name)
+                | _ -> None
+            else
+                Some(args, body, name)
         | _ -> None
+
+    let (|NestedLambdaWithSameArity|_|) expr =
+        nestedLambda true expr
+
+    /// Doesn't check the type of lambda body has same arity as discovered arguments
+    let (|NestedLambda|_|) expr =
+        nestedLambda false expr
 
     let (|NestedApply|_|) expr =
         let rec nestedApply r t accArgs applied =
@@ -285,30 +285,30 @@ module AST =
         | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda
         | e -> e
 
-    /// When referenced multiple times, is there a risk of double evaluation?
-    /// Functions return true because we don't want to duplicate them in the code
+    // Functions return yes because we don't want to duplicate them in the code
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
-    let rec hasDoubleEvalRisk = function
+    let rec canHaveSideEffects = function
         | Import _ -> false
-        | IdentExpr id -> id.IsMutable
         | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> false
-        | Value(NewTuple exprs,_) -> exprs |> List.exists hasDoubleEvalRisk
-        | Value(Enum(kind, _),_) ->
-            match kind with NumberEnum e | StringEnum e -> hasDoubleEvalRisk e
-        | Get(_,kind,_,_) ->
+        | Value(NewTuple exprs,_) ->
+            (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
+        | Value(EnumConstant(e, _),_) -> canHaveSideEffects e
+        | IdentExpr id -> id.IsMutable
+        | Get(e,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check
             | ListHead | ListTail | TupleGet _
-            | UnionTag | UnionField _ -> false
-            | FieldGet(_,hasDoubleEvalRisk,_) -> hasDoubleEvalRisk
+            | UnionTag | UnionField _ -> canHaveSideEffects e
+            | FieldGet(_,isFieldMutable,_) ->
+                if isFieldMutable then true
+                else canHaveSideEffects e
             | _ -> true
         | _ -> true
 
-    /// TODO: Add string and other nullable types?
-    /// For unit, unresolved generics or nested options, create a runtime wrapper
-    /// See fable-library/Option.ts for more info
+    /// For unit, unresolved generics or nested options or unknown types,
+    /// create a runtime wrapper. See fable-library/Option.ts for more info.
     let rec mustWrapOption = function
-        | Unit | GenericParam _ | Option _ -> true
+        | Any | Unit | GenericParam _ | Option _ -> true
         | _ -> false
 
     /// ATTENTION: Make sure the ident name will be unique within the file
@@ -403,6 +403,17 @@ module AST =
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
 
+    let getNumberKindName kind =
+        match kind with
+        | Int8 -> "int8"
+        | UInt8 -> "uint8"
+        | Int16 -> "int16"
+        | UInt16 -> "uint16"
+        | Int32 -> "int32"
+        | UInt32 -> "uint32"
+        | Float32 -> "float32"
+        | Float64 -> "float64"
+
     let getTypedArrayName (com: ICompiler) numberKind =
         match numberKind with
         | Int8 -> "Int8Array"
@@ -433,6 +444,10 @@ module AST =
 
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
+        let entEquals (ent1: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen1 (ent2: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen2 =
+            match ent1.TryFullName, ent2.TryFullName with
+            | Some n1, Some n2 when n1 = n2 -> listEquals (typeEquals strict) gen1 gen2
+            | _ -> false
         match typ1, typ2 with
         | Any, Any
         | Unit, Unit
@@ -441,7 +456,7 @@ module AST =
         | String, String
         | Regex, Regex -> true
         | Number kind1, Number kind2 -> kind1 = kind2
-        | EnumType(kind1, name1), EnumType(kind2, name2) -> kind1 = kind2 && name1 = name2
+        | Enum ent1, Enum ent2 -> entEquals ent1 [] ent2 []
         | Option t1, Option t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -459,10 +474,25 @@ module AST =
         | GenericParam name1, GenericParam name2 -> name1 = name2
         | _ -> false
 
-    let rec getTypeFullName prettify = function
+    let rec getTypeFullName prettify t =
+        let getEntityFullName (ent: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen =
+            match ent.TryFullName with
+            | None -> Naming.unknown
+            | Some fullname when List.isEmpty gen -> fullname
+            | Some fullname ->
+                let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
+                let fullname =
+                    if prettify then
+                        match fullname with
+                        | Types.result -> "Result"
+                        | Naming.StartsWith Types.choiceNonGeneric _ -> "Choice"
+                        | _ -> fullname // TODO: Prettify other types?
+                    else fullname
+                fullname + "[" + gen + "]"
+        match t with
         | AnonymousRecordType _ -> ""
         | GenericParam name -> "'" + name
-        | EnumType(_, fullname) -> fullname
+        | Enum ent -> getEntityFullName ent []
         | Regex    -> Types.regex
         | MetaType -> Types.type_
         | Unit    -> Types.unit
@@ -507,19 +537,7 @@ module AST =
             let gen = getTypeFullName prettify gen
             if prettify then gen + " list" else Types.list + "[" + gen + "]"
         | DeclaredType(ent, gen) ->
-            match ent.TryFullName with
-            | None -> Naming.unknown
-            | Some fullname when List.isEmpty gen -> fullname
-            | Some fullname ->
-                let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
-                let fullname =
-                    if prettify then
-                        match fullname with
-                        | Types.result -> "Result"
-                        | Naming.StartsWith Types.choiceNonGeneric _ -> "Choice"
-                        | _ -> fullname // TODO: Prettify other types?
-                    else fullname
-                fullname + "[" + gen + "]"
+            getEntityFullName ent gen
 
     let addRanges (locs: SourceLocation option seq) =
         let addTwo (r1: SourceLocation option) (r2: SourceLocation option) =

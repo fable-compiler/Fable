@@ -76,12 +76,6 @@ type R = {
 #if FABLE_COMPILER
 open Fable.Core
 
-[<Emit("JSON.parse($0)")>]
-let jsonParse (json: string) = jsNative
-
-[<Emit("JSON.stringify($0)")>]
-let jsonStringify (json): string = jsNative
-
 [<Erase>]
 #endif
 type DU = Int of int | Str of string
@@ -174,108 +168,6 @@ let tests =
         Some(5, Some 2) |> test |> equal 7
         Some(5, None) |> test |> equal 0
         None |> test |> equal 0
-
-    // TODO
-    // #if FABLE_COMPILER
-    // testCase "Pattern matching json parse union cases still works" <| fun () ->
-    //     // Test IntType
-    //     match jsonParse """{"tag":0,"data":1}""" with
-    //     | IntType x -> x
-    //     | _ -> failwith "unexpected"
-    //     |> equal 1
-    //     // Test StringType
-    //     match jsonParse """{"tag":1,"data":"value1"}""" with
-    //     | StringType x -> x
-    //     | _ -> failwith "unexpected"
-    //     |> equal "value1"
-    //     // Test TupleType
-    //     match jsonParse """{"tag":2,"data":["value1",2]}""" with
-    //     | TupleType(x, y) -> x, y
-    //     | _ -> failwith "unexpected"
-    //     |> fun (x, y) ->
-    //         x |> equal "value1"
-    //         y |> equal 2
-    //     // Test ObjectType
-    //     match jsonParse """{"tag":3,"data":{"Prop1":"value1","Prop2":2}}""" with
-    //     | ObjectType(x) -> x
-    //     | _ -> failwith "unexpected"
-    //     |> fun x ->
-    //         x.Prop1 |> equal "value1"
-    //         x.Prop2 |> equal 2
-
-    // testCase "Union cases json stringify is as we expect" <| fun () ->
-    //     ObjectType({Prop1 = "value1"; Prop2 = 2})
-    //     |> jsonStringify
-    //     |> equal """{"tag":3,"data":{"Prop1":"value1","Prop2":2}}"""
-    // #endif
-
-    // testCase "Unions can be JSON serialized forth and back" <| fun () ->
-    //     let tree = Branch [|Leaf 1; Leaf 2; Branch [|Leaf 3; Leaf 4|]|]
-    //     let sum1 = tree.Sum()
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson tree
-    //     let tree2 = Fable.Core.JsInterop.ofJson<Tree> json
-    //     let sum2 = tree2.Sum()
-    //     equal true (box tree2 :? Tree) // Type is kept
-    //     equal true (sum1 = sum2) // Prototype methods can be accessed
-    //     let tree2 = Fable.Core.JsInterop.ofJsonAsType json (tree.GetType()) :?> Tree
-    //     let sum2 = tree2.Sum()
-    //     equal true (box tree2 :? Tree) // Type is kept
-    //     equal true (sum1 = sum2) // Prototype methods can be accessed
-    //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo tree
-    //     let tree2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Tree> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject tree
-    //     let tree2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Tree> json
-    //     #endif
-    //     let sum2 = tree2.Sum()
-    //     equal true (box tree2 :? Tree) // Type is kept
-    //     equal true (sum1 = sum2) // Prototype methods can be accessed
-
-    // #if !FABLE_COMPILER
-    // open FSharp.Reflection
-    // open Newtonsoft.Json
-    // open Newtonsoft.Json.Linq
-
-    // type UnionTypeInfoConverter() =
-    //     inherit JsonConverter()
-    //     override x.CanConvert t = FSharpType.IsUnion t
-    //     override x.ReadJson(reader, t, _, serializer) =
-    //         let token = JObject()
-    //         for prop in JToken.ReadFrom(reader).Children<JProperty>() do
-    //             if prop.Name <> "$type" then
-    //                 token.Add(prop)
-    //         token.ToObject(t)
-    //     override x.WriteJson(writer, v, serializer) =
-    //         let t = v.GetType()
-    //         let typeFulName = t.FullName.Substring(0, t.FullName.LastIndexOf("+"))
-    //         let uci, fields = FSharpValue.GetUnionFields(v, t)
-    //         writer.WriteStartObject()
-    //         writer.WritePropertyName("$type")
-    //         writer.WriteValue(typeFulName)
-    //         writer.WritePropertyName("Case")
-    //         writer.WriteValue(uci.Name)
-    //         writer.WritePropertyName("Fields")
-    //         writer.WriteStartArray()
-    //         for field in fields do writer.WriteValue(field)
-    //         writer.WriteEndArray()
-    //         writer.WriteEndObject()
-    // #endif
-
-    // testCase "Unions serialized with Json.NET can be deserialized" <| fun () ->
-    //     #if FABLE_COMPILER
-    //     let json = """{"$type":"Fable.Tests.UnionTypes+Tree","Leaf":5}"""
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Tree> json
-    //     #else
-    //     let x = Leaf 5
-    //     let settings =
-    //         JsonSerializerSettings(
-    //             Converters = [|UnionTypeInfoConverter()|],
-    //             TypeNameHandling = TypeNameHandling.All)
-    //     let json = JsonConvert.SerializeObject(x, settings)
-    //     let x2 = JsonConvert.DeserializeObject<Tree>(json, settings)
-    //     #endif
-    //     x2.Sum() |> equal 5
 
     testCase "Types can have Exception fields" <| fun () ->
         let (MyExUnionCase ex) =

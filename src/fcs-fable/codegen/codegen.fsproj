@@ -3,11 +3,12 @@
     <FSharpSourcesRoot>$(MSBuildProjectDirectory)\..\..\..\src</FSharpSourcesRoot>
   </PropertyGroup>
   <!-- <Import Project="..\..\fcs.props" /> -->
-  <Import Project="..\..\..\src\buildtools\buildtools.targets" />
+  <!-- <Import Project="..\..\..\src\buildtools\buildtools.targets" /> -->
   <!-- <Import Project="fssrgen.targets" /> -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RollForward>Major</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <!-- <FsSrGen Include="$(FSharpSourcesRoot)\fsharp\FSComp.txt">

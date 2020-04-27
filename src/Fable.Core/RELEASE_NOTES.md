@@ -1,3 +1,28 @@
+### 3.1.5
+
+* Fixed missing indexer in JS TypedArray.
+
+### 3.1.4
+
+* Fix JS Map constructor @Luiz-Monad
+
+### 3.1.3
+
+* PR #1935: Put JS constructors in different module to prevent conflicts @pauldorehill
+
+### 3.1.2
+
+* Add CaseRules.SnakeCase
+
+### 3.1.1
+
+* Fix TypedArray bindings @Titaye
+
+### 3.1.0
+
+* Add JS Typed Arrays @Titaye
+* Fix names of arguments in Testing.Assert @zanaptak
+
 ### 3.0.0
 
 * Add `JsInterop.importValueDynamic`

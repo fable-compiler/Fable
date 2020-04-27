@@ -2,7 +2,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import fableSplitter from "./index";
+import fableSplitter, { CompilationInfo } from "./index";
 import runScript from "./run";
 
 const chokidarLazy = requireLazy("chokidar");
@@ -53,6 +53,8 @@ Arguments:
   --commonjs        [FLAG] Compile to commonjs modules
   --run             [FLAG] Run script with node after compilation
                     Arguments after --run will be passed to the script
+  --usePolling      [FLAG] Option for watch mode, may help capture file
+                    save events in certain editors (suboptimal)
 
 Examples:
   fable-splitter src/App.fsproj -o dist/
@@ -102,7 +104,7 @@ function objectAssignNonNull(target, source) {
     return target;
 }
 
-function concatIfNotExists(ar, item): any[] {
+function concatSafe(ar, item): any[] {
     if (ar == null) {
         return [item];
     } else {
@@ -146,6 +148,28 @@ function mustRun(args: string[]): [boolean, string[]] {
     return i >= 0 ? [true, args.slice(i + 1)] : [false, []];
 }
 
+function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish = false) {
+    const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
+    if (!hasError) {
+        if (typeof opts.onCompiled === "function") {
+            opts.onCompiled();
+        }
+        const [isRun, runArgs] = mustRun(args);
+        if (isRun) {
+            const isDebug = ((opts.fable || {}).define || []).indexOf("DEBUG") >= 0;
+            const job = runScript(getMainScriptPath(opts, info), runArgs, isDebug);
+            if (mustFinish) {
+                job.then((code) => { process.exit(code); });
+                return;
+            }
+        }
+    }
+    if (mustFinish) {
+        process.exit(hasError ? 1 : 0);
+    }
+
+}
+
 function run(entry, args) {
     const cfgFile = findArgValue(args, ["-c", "--config"]);
 
@@ -164,7 +188,7 @@ function run(entry, args) {
 
     if (findFlag(args, ["-d", "--debug"])) {
         const fableOpts = opts.fable || {};
-        fableOpts.define = concatIfNotExists(fableOpts.define, "DEBUG");
+        fableOpts.define = concatSafe(fableOpts.define, "DEBUG");
         opts.fable = fableOpts;
     }
 
@@ -172,7 +196,7 @@ function run(entry, args) {
     // TODO: In the future, we may want to use ES2015 modules and .mjs files
     if (findFlag(args, ["--commonjs", "--run"])) {
         const babelOpts = opts.babel || {};
-        babelOpts.plugins = concatIfNotExists(babelOpts.define, "@babel/plugin-transform-modules-commonjs");
+        babelOpts.plugins = concatSafe(babelOpts.define, "@babel/plugin-transform-modules-commonjs");
         opts.babel = babelOpts;
     }
 
@@ -180,10 +204,7 @@ function run(entry, args) {
     console.log(`fable-splitter ${getVersion()}`);
     fableSplitter(opts).then((info) => {
         if (findFlag(args, ["-w", "--watch"])) {
-            const [isRun, runArgs] = mustRun(args);
-            if (isRun) {
-                runScript(getMainScriptPath(opts, info), runArgs);
-            }
+            onCompiled(args, opts, info);
             let cachedInfo = info;
             let ready = false;
             let next: [string, Date]|null = null;
@@ -192,6 +213,7 @@ function run(entry, args) {
                 .watch(Array.from(info.compiledPaths), {
                     ignored: /node_modules/,
                     persistent: true,
+                    usePolling: findFlag(args, ["--usePolling"])
                 })
                 .on("ready", () => {
                     console.log("fable: Watching...");
@@ -213,23 +235,13 @@ function run(entry, args) {
                                     watcher.add(newFiles);
                                 }
                                 cachedInfo = info2;
-                                if (isRun) {
-                                    runScript(getMainScriptPath(opts, info2), runArgs);
-                                }
+                                onCompiled(args, opts, info2);
                             });
                         }
                     }
                 });
         } else {
-            const [isRun, runArgs] = mustRun(args);
-            const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
-            if (!hasError && isRun) {
-                runScript(getMainScriptPath(opts, info), runArgs).then((code) => {
-                    process.exit(code);
-                });
-            } else {
-                process.exit(hasError ? 1 : 0);
-            }
+            onCompiled(args, opts, info, true);
         }
     });
 }

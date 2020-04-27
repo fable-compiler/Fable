@@ -26,7 +26,7 @@ type ILiteral =
 
 
 type BinaryStream(arr : byte[]) =
-    let view = DataView.Create(arr.buffer, arr?byteOffset, arr?byteLength)
+    let view = Constructors.DataView.Create(arr.buffer, arr?byteOffset, arr?byteLength)
     let mutable position = 0
 
     member x.Position = position

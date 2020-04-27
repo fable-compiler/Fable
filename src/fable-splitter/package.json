@@ -1,6 +1,6 @@
 {
   "name": "fable-splitter",
-  "version": "2.1.8",
+  "version": "2.1.13",
   "description": "File splitter for Fable (F# to JavaScript compiler)",
   "author": "ncave",
   "license": "Apache-2.0",
@@ -8,8 +8,8 @@
   "bin": {
     "fable-splitter": "./dist/cli.js"
   },
-  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/fable-splitter#readme",
-  "repository": "https://github.com/fable-compiler/Fable/tree/master/src/typescript/fable-splitter",
+  "homepage": "https://github.com/fable-compiler/Fable/tree/master/src/fable-splitter#readme",
+  "repository": "https://github.com/fable-compiler/Fable/blob/master/src/fable-splitter",
   "keywords": [
     "fable",
     "fsharp",
@@ -26,17 +26,20 @@
     "test": "node build.js test"
   },
   "peerDependencies": {
-    "fable-compiler": "^2.1.0"
+    "fable-compiler": "^2.5.1"
   },
   "dependencies": {
-    "@babel/core": "^7.1.6",
-    "@babel/plugin-transform-modules-commonjs": "^7.1.0",
+    "@babel/core": "^7.9.0",
+    "@babel/plugin-transform-modules-commonjs": "^7.9.0",
+    "chalk": "^2.4.1",
     "chokidar": "^2.0.4",
-    "fable-babel-plugins": "^2.2.0",
-    "fs-extra": "^7.0.0",
-    "chalk": "^2.4.1"
+    "fable-babel-plugins": "^2.3.0",
+    "fs-extra": "^7.0.0"
   },
   "devDependencies": {
-    "@types/fs-extra": "^5.0.4"
+    "@types/fs-extra": "^5.0.4",
+    "@types/node": "^13.11.1",
+    "ava": "^1.4.1",
+    "shelljs": "^0.8.3"
   }
 }

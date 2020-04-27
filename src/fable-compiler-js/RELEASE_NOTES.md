@@ -1,6 +1,59 @@
+### 1.3.1
+
+* Improve globbing support (by @ncave)
+
+### 1.3.0
+
+* Add globbing support in fsproj
+
+### 1.2.4
+
+* fable-metadata 1.4.0
+
+### 1.2.3
+
+* Update to fable-babel-plugins 2.3.0
+
+### 1.2.2
+
+* fable-metadata 1.3.0
+
+### 1.2.1
+
+* fable-standalone 1.3.0
+* Removed perf_hooks dependency
+* Added support for source maps
+
+### 1.2.0
+
+* Added NuGet packages support
+
+### 1.1.1
+
+* Update to fable-metadata 1.2.0 & fable-standalone 1.2.3
+
+### 1.1.0
+
+* fable-standalone 1.2.0
+* Define FABLE_COMPILER_JS constant
+
+### 1.0.6
+
+* fable-standalone 1.1.8
+
+### 1.0.5
+
+* fable-standalone 1.1.5
+
+### 1.0.4
+
+* fable-metadata 1.1.2
+* fable-standalone 1.1.4
+
 ### 1.0.3
 
-* Update dependencies
+* fable-metadata 1.0.1
+* fable-standalone 1.0.3
 
 ### 1.0.2
 

@@ -44,18 +44,6 @@ let tests =
     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
 
-    // testCase "DateTime can be JSON serialized forth and back" <| fun () ->
-    //     let utc = DateTime(2016, 8, 4, 17, 30, 0, DateTimeKind.Utc)
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson utc
-    //     let utc = Fable.Core.JsInterop.ofJson<DateTime> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject utc
-    //     let utc = Newtonsoft.Json.JsonConvert.DeserializeObject<DateTime> json
-    //     #endif
-    //     utc.Kind = DateTimeKind.Utc |> equal true
-    //     utc.ToString("HH:mm") |> equal "17:30"
-
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
         let date = DateTime(1, 1, 1)
         date.Year |> equal 1
@@ -271,6 +259,14 @@ let tests =
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
         d.ToUniversalTime().Kind <> d.Kind
         |> equal true
+
+    testCase "DateTime.SpecifyKind works" <| fun () -> // See #1844
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+        let d2 = DateTime.SpecifyKind(d, DateTimeKind.Utc)
+        d2.Kind |> equal DateTimeKind.Utc
+        d.Ticks = d2.Ticks |> equal true
+        // let d3 = d.ToUniversalTime()
+        // d.Ticks = d3.Ticks |> equal false
 
     testCase "DateTime.Date works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30)
@@ -535,4 +531,40 @@ let tests =
             equal 10 !res
             t.Stop()
         }
+
+    testCaseAsync "Assigning an event to a variable works" <| fun () -> // See #1863
+        let createTimerAndObservable timerInterval =
+            // setup a timer
+            let timer = new System.Timers.Timer(float timerInterval)
+            timer.AutoReset <- true
+            // events are automatically IObservable
+            let observable = timer.Elapsed
+            // return an async task
+            let task = async {
+                timer.Start()
+                do! Async.Sleep 200
+                timer.Stop()
+            }
+            // return a async task and the observable
+            (task,observable)
+        // create the timer and the corresponding observable
+        let basicTimer2 , timerEventStream = createTimerAndObservable 50
+
+        let mutable acc = 1
+        // register that everytime something happens on the
+        // event stream, print the time.
+        timerEventStream |> Observable.subscribe (fun _ ->
+            acc <- acc + 1) |>ignore
+
+        async {
+            do! basicTimer2
+            // printfn "%i" acc
+            acc > 2 |> equal true
+        }
+
+    // In regions with daylight saving time, 20/10/2019 will have different timezone
+    // offset than 29/10/2019
+    testCase "Adding days to a local date works even if daylight saving time changes" <| fun () ->
+        let dt = DateTime(2019, 10, 20, 0, 0, 0, DateTimeKind.Local)
+        dt.AddDays(9.).Day |> equal 29
   ]

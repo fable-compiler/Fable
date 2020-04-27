@@ -51,3 +51,6 @@ module Path =
     let IsPathRooted (path: string) = //TODO: proper xplat implementation
         let normPath = path.Replace("\\", "/").TrimEnd('/')
         normPath.StartsWith("/")
+
+    let DirectorySeparatorChar = '/'
+    let AltDirectorySeparatorChar = '/'

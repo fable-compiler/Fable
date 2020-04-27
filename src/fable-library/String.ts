@@ -1,14 +1,65 @@
 import { toString as dateToString } from "./Date";
 import Decimal from "./Decimal";
-import Long, { fromBytes as longFromBytes, toBytes as longToBytes, toString as longToString } from "./Long";
+import Long, * as _Long from "./Long";
 import { escape } from "./RegExp";
 
-const fsFormatRegExp = /(^|[^%])%([0+ ]*)(-?\d+)?(?:\.(\d+))?(\w)/;
+const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 // RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
 // const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 // Relax GUID parsing, see #1637
 const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+type Numeric = number | Long | Decimal;
+
+// These are used for formatting and only take longs and decimals into account (no bigint)
+function isNumeric(x: any) {
+  return typeof x === "number" || x instanceof Long || x instanceof Decimal;
+}
+
+function isLessThan(x: Numeric, y: number) {
+  if (x instanceof Long) {
+    return _Long.compare(x, y) < 0;
+  } else if (x instanceof Decimal) {
+    return x.cmp(y) < 0;
+  } else {
+    return x < y;
+  }
+}
+
+function multiply(x: Numeric, y: number) {
+  if (x instanceof Long) {
+    return _Long.op_Multiply(x, y);
+  } else if (x instanceof Decimal) {
+    return x.mul(y);
+  } else {
+    return x * y;
+  }
+}
+
+function toFixed(x: Numeric, dp?: number) {
+  if (x instanceof Long) {
+    return String(x) + (0).toFixed(dp).substr(1);
+  } else {
+    return x.toFixed(dp);
+  }
+}
+
+function toPrecision(x: Numeric, sd?: number) {
+  if (x instanceof Long) {
+    return String(x) + (0).toPrecision(sd).substr(1);
+  } else {
+    return x.toPrecision(sd);
+  }
+}
+
+function toExponential(x: Numeric, dp?: number) {
+  if (x instanceof Long) {
+    return String(x) + (0).toExponential(dp).substr(1);
+  } else {
+    return x.toExponential(dp);
+  }
+}
 
 const enum StringComparison {
   CurrentCulture = 0,
@@ -96,7 +147,7 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
 
 function toHex(x: any) {
   if (x instanceof Long) {
-    return longToString(x.unsigned ? x : longFromBytes(longToBytes(x), true), 16);
+    return _Long.toString(x.unsigned ? x : _Long.fromBytes(_Long.toBytes(x), true), 16);
   } else {
     return (Number(x) >>> 0).toString(16);
   }
@@ -134,33 +185,62 @@ export function toFail(arg: IPrintfFormat) {
   return arg.cont((x) => { throw new Error(x); });
 }
 
-function formatOnce(str2: any, rep: any) {
-  return str2.replace(fsFormatRegExp,
-    (_: any, prefix: any, flags: any, pad: any, precision: any, format: any) => {
+function formatOnce(str2: string, rep: any) {
+  return str2.replace(fsFormatRegExp, (_, prefix, flags, padLength, precision, format) => {
+    let sign = "";
+    if (isNumeric(rep)) {
+      if (format.toLowerCase() !== "x") {
+        if (isLessThan(rep, 0)) {
+          rep = multiply(rep, -1);
+          sign = "-";
+        } else {
+          if (flags.indexOf(" ") >= 0) {
+            sign = " ";
+          } else if (flags.indexOf("+") >= 0) {
+            sign = "+";
+          }
+        }
+      }
+      precision = precision == null ? null : parseInt(precision, 10);
       switch (format) {
         case "f": case "F":
-          rep = Number(rep).toFixed(precision || 6); break;
+          precision = precision != null ? precision : 6;
+          rep = toFixed(rep, precision);
+          break;
         case "g": case "G":
-          rep = Number(rep).toPrecision(precision); break;
+          rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+          break;
         case "e": case "E":
-          rep = Number(rep).toExponential(precision); break;
-        case "O":
-        case "A":
-          rep = String(rep); break;
+          rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+          break;
         case "x":
-          rep = toHex(rep); break;
+          rep = toHex(rep);
+          break;
         case "X":
-          rep = toHex(rep).toUpperCase(); break;
+          rep = toHex(rep).toUpperCase();
+          break;
+        default: // AOid
+          rep = String(rep);
+          break;
       }
-      const plusPrefix = flags.indexOf("+") >= 0 && parseInt(rep, 10) >= 0;
-      pad = parseInt(pad, 10);
-      if (!isNaN(pad)) {
-        const ch = pad >= 0 && flags.indexOf("0") >= 0 ? "0" : " ";
-        rep = padLeft(String(rep), Math.abs(pad) - (plusPrefix ? 1 : 0), ch, pad < 0);
+    }
+    padLength = parseInt(padLength, 10);
+    if (!isNaN(padLength)) {
+      const zeroFlag = flags.indexOf("0") >= 0; // Use '0' for left padding
+      const minusFlag = flags.indexOf("-") >= 0; // Right padding
+      const ch = minusFlag || !zeroFlag ? " " : "0";
+      if (ch === "0") {
+        rep = padLeft(rep, padLength - sign.length, ch, minusFlag);
+        rep = sign + rep;
+      } else {
+        rep = padLeft(sign + rep, padLength, ch, minusFlag);
       }
-      const once = prefix + (plusPrefix ? "+" + rep : rep);
-      return once.replace(/%/g, "%%");
-    });
+    } else {
+      rep = sign + rep;
+    }
+    const once = prefix + rep;
+    return once.replace(/%/g, "%%");
+  });
 }
 
 function createPrinter(str: string, cont: (...args: any[]) => any) {
@@ -191,55 +271,55 @@ export function format(str: string, ...args: any[]) {
     args.shift();
   }
 
-  return str.replace(formatRegExp,
-    (match: any, idx: any, pad: any, format: any, precision: any, pattern: any) => {
-      let rep = args[idx];
-      let padSymbol = " ";
-      const isNumericType = (typeof rep === "number") || (rep instanceof Long);
-      // TODO: || (rep instanceof Decimal) || (rep instanceof BigInt);
-      if (isNumericType) {
-        switch (format) {
-          case "f": case "F":
-            rep = precision ? rep.toFixed(precision) : rep.toFixed(2);
-            break;
-          case "g": case "G":
-            rep = precision ? rep.toPrecision(precision) : rep.toPrecision();
-            break;
-          case "e": case "E":
-            rep = precision ? rep.toExponential(precision) : rep.toExponential();
-            break;
-          case "p": case "P":
-            rep = (precision ? (rep * 100).toFixed(precision) : (rep * 100).toFixed(2)) + " %";
-            break;
-          case "d": case "D":
-            rep = precision ? padLeft(rep.toString(), precision, "0") : rep.toString();
-            break;
-          case "x": case "X":
-            rep = precision ? padLeft(toHex(rep), precision, "0") : toHex(rep);
-            if (format === "X") { rep = rep.toUpperCase(); }
-            break;
-          default:
-            const m = /^(0+)(\.0+)?$/.exec(pattern);
-            if (m != null) {
-              let decs = 0;
-              if (m[2] != null) {
-                rep = rep.toFixed(decs = m[2].length - 1);
+  return str.replace(formatRegExp, (_, idx, padLength, format, precision, pattern) => {
+    let rep = args[idx];
+    if (isNumeric(rep)) {
+      precision = precision == null ? null : parseInt(precision, 10);
+      switch (format) {
+        case "f": case "F":
+          precision = precision != null ? precision : 2;
+          rep = toFixed(rep, precision);
+          break;
+        case "g": case "G":
+          rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+          break;
+        case "e": case "E":
+          rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+          break;
+        case "p": case "P":
+          precision = precision != null ? precision : 2;
+          rep = toFixed(multiply(rep, 100), precision) + " %";
+          break;
+        case "d": case "D":
+          rep = precision != null ? padLeft(String(rep), precision, "0") : String(rep);
+          break;
+        case "x": case "X":
+          rep = precision != null ? padLeft(toHex(rep), precision, "0") : toHex(rep);
+          if (format === "X") { rep = rep.toUpperCase(); }
+          break;
+        default:
+          if (pattern) {
+            let sign = "";
+            rep = (pattern as string).replace(/(0+)(\.0+)?/, (_, intPart, decimalPart) => {
+              if (isLessThan(rep, 0)) {
+                rep = multiply(rep, -1);
+                sign = "-";
               }
-              pad = "," + (m[1].length + (decs ? decs + 1 : 0)).toString();
-              padSymbol = "0";
-            } else if (pattern) {
-              rep = pattern;
-            }
-        }
-      } else if (rep instanceof Date) {
-        rep = dateToString(rep, pattern || format);
+              rep = toFixed(rep, decimalPart != null ? decimalPart.length - 1 : 0);
+              return padLeft(rep, (intPart || "").length - sign.length + (decimalPart != null ? decimalPart.length : 0), "0");
+            });
+            rep = sign + rep;
+          }
       }
-      pad = parseInt((pad || "").substring(1), 10);
-      if (!isNaN(pad)) {
-        rep = padLeft(String(rep), Math.abs(pad), padSymbol, pad < 0);
-      }
-      return rep;
-    });
+    } else if (rep instanceof Date) {
+      rep = dateToString(rep, pattern || format);
+    }
+    padLength = parseInt((padLength || " ").substring(1), 10);
+    if (!isNaN(padLength)) {
+      rep = padLeft(String(rep), Math.abs(padLength), " ", padLength < 0);
+    }
+    return rep;
+  });
 }
 
 export function endsWith(str: string, search: string) {
@@ -273,16 +353,24 @@ export function isNullOrWhiteSpace(str: string | any) {
   return typeof str !== "string" || /^\s*$/.test(str);
 }
 
-export function join(delimiter: string, ...xs: any[]): string {
-  return xs.map((x) => String(x)).join(delimiter);
+export function concat(...xs: any[]): string {
+  return xs.map((x) => String(x)).join("");
 }
 
-export function joinWithIndices<T>(delimiter: string, xs: string[], startIndex: number, count: number) {
+export function join<T>(delimiter: string, xs: Iterable<T>): string {
+  if (Array.isArray(xs)) {
+    return xs.join(delimiter);
+  } else {
+    return Array.from(xs).join(delimiter);
+  }
+}
+
+export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {
   const endIndexPlusOne = startIndex + count;
   if (endIndexPlusOne > xs.length) {
     throw new Error("Index and count must refer to a location within the buffer.");
   }
-  return join(delimiter, ...xs.slice(startIndex, endIndexPlusOne));
+  return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
 }
 
 /** Validates UUID as specified in RFC4122 (versions 1-5). Trims braces. */
@@ -364,14 +452,16 @@ export function arrayToGuid(buf: ArrayLike<number>) {
   if (!_convertMapsInitialized) {
     initConvertMaps();
   }
-  return _byteToHex[buf[3]] + _byteToHex[buf[2]] +
-         _byteToHex[buf[1]] + _byteToHex[buf[0]] + "-" +
-         _byteToHex[buf[5]] + _byteToHex[buf[4]] + "-" +
-         _byteToHex[buf[7]] + _byteToHex[buf[6]] + "-" +
-         _byteToHex[buf[8]] + _byteToHex[buf[9]] + "-" +
-         _byteToHex[buf[10]] + _byteToHex[buf[11]] +
-         _byteToHex[buf[12]] + _byteToHex[buf[13]] +
-         _byteToHex[buf[14]] + _byteToHex[buf[15]];
+  const guid =
+    _byteToHex[buf[3]] + _byteToHex[buf[2]] +
+    _byteToHex[buf[1]] + _byteToHex[buf[0]] + "-" +
+    _byteToHex[buf[5]] + _byteToHex[buf[4]] + "-" +
+    _byteToHex[buf[7]] + _byteToHex[buf[6]] + "-" +
+    _byteToHex[buf[8]] + _byteToHex[buf[9]] + "-" +
+    _byteToHex[buf[10]] + _byteToHex[buf[11]] +
+    _byteToHex[buf[12]] + _byteToHex[buf[13]] +
+    _byteToHex[buf[14]] + _byteToHex[buf[15]];
+  return guid;
 }
 
 function valueToCharCode(c: number) {
@@ -493,9 +583,9 @@ export function getCharAtIndex(input: string, index: number) {
 }
 
 export function split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
-  count = typeof count === "number" ? count : null;
-  removeEmpty = typeof removeEmpty === "number" ? removeEmpty : null;
-  if (count < 0) {
+  count = typeof count === "number" ? count : undefined;
+  removeEmpty = typeof removeEmpty === "number" ? removeEmpty : undefined;
+  if (count && count < 0) {
     throw new Error("Count cannot be less than zero");
   }
   if (count === 0) {
@@ -553,4 +643,11 @@ export function trimEnd(str: string, ...chars: string[]) {
 
 export function filter(pred: (char: string) => boolean, x: string) {
   return x.split("").filter((c) => pred(c)).join("");
+}
+
+export function substring(str: string, startIndex: number, length?: number) {
+  if ((startIndex + (length || 0) > str.length)) {
+    throw new Error("Invalid startIndex and/or length");
+  }
+  return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
 }

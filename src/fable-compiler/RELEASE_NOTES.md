@@ -1,3 +1,226 @@
+### 2.8.1
+
+* Fix #2030: Fix Array.map3 implementation (by @ncave)
+
+### 2.8.0
+
+* Add support for `using` function (by @ThisFunctionalTom)
+
+### 2.7.0
+
+* Fix #2015: Add `PropertyInfo.GetValue` support
+
+### 2.6.0
+
+* Fixed `List.init` to match `FSharp.Core` behavior (when initializing with side effects). (by @ncave)
+* Update FCS to latest F# master (by @ncave)
+* Fix #2017: Fix field name reflection for union case (by @anchann)
+* Add `Length` member to `StringBuilder` (by @ThisFunctionalTom)
+* Add `ToString(firstIndex, length)` override to `StringBuilder` (by @ThisFunctionalTom)
+
+### 2.5.1
+
+* Improve globbing support (by @ncave)
+* Fix #2010: Remove cycle dependencies in fable-library code (by @ncave)
+
+### 2.5.0
+
+* Add globbing support in fsproj (by @Shmew)
+
+### 2.4.23
+
+* Fixed buffer usage in fable-library encoding. (by @ncave)
+
+### 2.4.22
+
+* Fix #1999: Add support for Uri toString (by @ncave)
+
+### 2.4.21
+
+* Fix #1996: Storing result of Seq.tail and printing the result several times works (by @ncave)
+
+### 2.4.20
+
+* Added missing `Tuple.Rest` (by @ncave)
+
+### 2.4.19
+
+* Fix #1991: Trait calls for Tuple getters don't work (by @ncave)
+* Minor update to fable-library (by @ncave)
+
+### 2.4.18
+
+* Minor update to fable-library (by @ncave)
+* Minor update to Replacements.fs making it easier to read some methods (by @ncave)
+
+### 2.4.17
+
+* Fix #1988: Allow to use `printfn "%A"` against `seq` (by @ncave)
+* Minor update to fable-library (by @ncave)
+
+### 2.4.16
+
+* PR #1984: Minor update to fable-library, rewrite `Seq.pairwise` implementation (by @ncave)
+
+### 2.4.15
+
+* Fix #1979: Add support for LanguagePrimitives.xxxWithMeasure (by @ncave)
+
+### 2.4.14
+
+* Fix #1975: Fix endless loop (by @ncave)
+* Made ResizeArray.Add void (by @ncave)
+* Updated option and numeric types (by @ncave)
+* Minor update to fable-library (by @ncave)
+
+### 2.4.13
+
+* Use strict mode in fable-library
+* Fix #1964: Add AppendLine to StringBuiler
+* Fix #1971: Trim in String.js fails for leading/following brackets
+* Fix #1972: Add back Item member to Typed arrays
+* Fixed error message formatting
+* Fixed tryEntityRef
+
+### 2.4.12
+
+* Fix #1959: Uncurry args passed to point-free methods
+* Fix #1955: Substring throws with invalid index and/or length arguments
+* Fix #1948: Wrap Option<obj>.Some in runtime to avoid null ambiguity
+* Fix #1895: Check also member of parent interfaces when casting an anonymous record
+
+### 2.4.11
+
+* Fix #1937 (again): sign in sprintf for long @ncave
+
+### 2.4.10
+
+* Fix #1937: sign in sprintf
+* Fix #1938: tryExactlyOne
+
+### 2.4.9
+
+* Fix #1932: regression with sprintf and 0 precision for floats
+
+### 2.4.8
+
+* Support Array.splitInto & List.splitInto @kerams
+* Fix #1931: sprint formatting combining sign and padding
+
+### 2.4.7
+
+* Fix compilation of .fsx files @nojaf
+* Add more CaseRules
+
+### 2.4.6
+
+* Adjust timezone offset when adding local dates
+* Fix #1923: Option.map ignore generates Some ()
+
+### 2.4.5
+
+* Fix #1918: Enum reflection support @MangelMaxime
+* Fix #1919: Path of .fsi files @krauthaufen
+
+### 2.4.3
+
+* Fix #1908: Overloads only distinguished by argument generic constrains
+* Parse LangVersion from .fsproj
+
+### 2.4.2
+
+* Build Fable.Cli with dotnet SDK 3 (but still target netcoreapp2.1)
+
+### 2.4.0
+
+* Support F# 4.7 (implicit yields) @ncave
+* Fix #1910: Roll forward major version to run on dotnet SDK 3 @forki
+
+### 2.3.25
+
+* Fix #1900: gen param names conflict
+* Fixed large String.join and concat @ncave
+
+### 2.3.24
+
+* Fix #1896: Don't dupe casting to untyped array @zanaptak
+* Fix #1895: anonymous record !! casting warnings @giulioungaretti
+* Moar cleanup for beta reduction optimization
+
+### 2.3.23
+
+* Fix #1894: Seq.distinct with infinite sequence @et1975
+* Fix #1891: Overloads with anonymous records @Zaid-Ajaj
+* Fix #1886: Handle .fsx file with dotnet core 3 @rfrerebe
+
+### 2.3.22
+
+* Fix `Count` on ICollection @forki
+
+### 2.3.21
+
+* Added O(1) mutable map and set, with equality comparer (using native JS Map/Set) @ncave
+* Reduced fable-library module inter-dependency @ncave
+* Fixed Array.zeroCreate issue in REPL build @ncave
+
+### 2.3.20
+
+* Fix `Array.zeroCreate` with KeyValuePair @ncave
+* Fixes for untyped arrays (System.Array)
+* Fix optimization of ResizeArray constructor
+* Fix optimization of Guid and StringEnum string conversion
+* Fix `nameof(typeof<MyType>)`
+
+### 2.3.19
+
+* Fix #1876 (bis): script (fsx) compilation @nojaf
+* Fix #1880: parsing uint64
+* Support RegexOptions.Singleline
+* Minor optimization and sourcemaps improvement
+
+### 2.3.18
+
+* Fix #1876: script (fsx) compilation @nojaf
+* Fix struct without explicit constructor @0x53A
+
+### 2.3.17
+
+* Update FSharp.Compiler.Services and Dotnet.ProjInfo
+* Fix #1868: Type provider ResolutionFolder is empty @ncave
+
+### 2.3.16
+
+* Fix #1871: comparing anonymous record types
+* Fix `TimeSpan.ToString` for negative values @MangelMaxime
+* Some more source map improvements
+
+### 2.3.15
+
+* Fix negative timespan + milliseconds value when parsing a string @MangelMaxime
+* Improve source maps @matthid
+
+### 2.3.14
+
+* Fix Timespan and Guid reflection info @MangelMaxime
+* Fix #1864: npm security issues
+* Fix #1863: Binding event to a value
+* Fix #1862: Add `--silent` option
+
+* Fix #1859: Binding optimization vs tailcalls
+* Fix #1857, #1729: Maps casted to IDictionary
+* Fix #1856: Decimal and BigInt ranges
+
+### 2.3.12
+
+* Fix #1848: decimal should round up .5
+
+### 2.3.11
+
+* Fix #1845: Seq/Array/List.allPairs
+* Fix #1844: DateTime.SpecifyKind
+* Fix #1843: Remove project.assets.json check
+* Fix #1842: Add Option.map2/map3
+
 ### 2.3.10
 
 * Fix #1836: Partial Applying caches side-effects
@@ -22,7 +245,7 @@
 
 ### 2.3.4
 
-* Fix #1821: decimal devision @ncave
+* Fix #1821: decimal division @ncave
 * Fix #1817: List slicing
 
 ### 2.3.3

@@ -230,37 +230,16 @@ let tests =
         let dic = Dictionary<_,_>()
         dic.Add("A", 65)
         // throwsError "The given key 'B' was not present in the dictionary." (fun _ -> dic.["B"] |> ignore)
-        throwsAnyError (fun _ -> dic.["B"] |> ignore)
+        throwsAnyError (fun () -> dic.["B"])
 
-    // testCase "Dictionaries can be JSON serialized forth and back" <| fun () ->
-    //     let x = Dictionary<_,_>()
-    //     x.Add("a", { i=1; s="1" })
-    //     x.Add("b", { i=2; s="2" })
-    //     #if FABLE_COMPILER
-    //     let json = Fable.Core.JsInterop.toJson x
-    //     let x2 = Fable.Core.JsInterop.ofJson<Dictionary<string, R>> json
-    //     (0, x2) ||> Seq.fold (fun acc kv -> acc + kv.Value.i)
-    //     |> equal 3
-    //     let json = Fable.Core.JsInterop.toJsonWithTypeInfo x
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Dictionary<string, R>> json
-    //     #else
-    //     let json = Newtonsoft.Json.JsonConvert.SerializeObject x
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, R>> json
-    //     #endif
-    //     (0, x2) ||> Seq.fold (fun acc kv -> acc + kv.Value.i)
-    //     |> equal 3
+    testCase "conversion from array works" <| fun () ->
+        let dic = [| "A",1; "B",2|] |> dict
+        dic.Values.Count
+        |> equal 2
 
-    // testCase "Dictionaries serialized with Json.NET can be deserialized" <| fun () ->
-    //     // let x = Dictionary<_,_>()
-    //     // x.Add("a", { i=1; s="1" })
-    //     // x.Add("b", { i=2; s="2" })
-    //     // let json = JsonConvert.SerializeObject(x, JsonSerializerSettings(TypeNameHandling=TypeNameHandling.All))
-    //     let json = """{"$type":"System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[Fable.Tests.Maps+R, Fable.Tests]], FSharp.Core","a":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":1,"s":"1"},"b":{"$type":"Fable.Tests.Maps+R, Fable.Tests","i":2,"s":"2"}}"""
-    //     #if FABLE_COMPILER
-    //     let x2 = Fable.Core.JsInterop.ofJsonWithTypeInfo<Dictionary<string, R>> json
-    //     #else
-    //     let x2 = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, R>> json
-    //     #endif
-    //     (0, x2) ||> Seq.fold (fun acc kv -> acc + kv.Value.i)
-    //     |> equal 3
+    testCase "conversion from array works with duplicates" <| fun () ->
+        let dic = [| "A",1; "A",3; "B",2|] |> dict
+        dic.Values.Count
+        |> equal 2
+
   ]

@@ -6,6 +6,12 @@ import * as readline from "readline";
 
 const BIN_PATH = path.join(__dirname, "../bin/fable-cli/Fable.Cli.dll");
 
+function log(args: {[x: string]: any} | undefined, msg: string) {
+    if (!(args && args.silent)) {
+        console.log(msg);
+    }
+}
+
 // From https://gist.github.com/LeverOne/1308368
 /* tslint:disable:no-bitwise */
 function uuid() {
@@ -32,7 +38,7 @@ function processArgs(args?: {[x: string]: any}) {
     if (args != null) {
         if (args.path) {
             const filePath = path.resolve(args.path);
-            console.log(`dotnet binary: ${filePath}`);
+            log(args, `dotnet binary: ${filePath}`);
             cliArgs = filePath.endsWith(".dll")
                 ? [filePath, "start-stdin", "--force-pkgs"]
                 : ["run", "-c", "Release", "-p", filePath, "start-stdin", "--force-pkgs"];
@@ -56,7 +62,7 @@ export interface ICompilerProxy {
 }
 
 export default function start(cliArgs?: {}): ICompilerProxy {
-    console.log(`fable-compiler ${getVersion()}`);
+    log(cliArgs, `fable-compiler ${getVersion()}`);
     const child = spawn("dotnet", processArgs(cliArgs));
 
     // Error handling
@@ -67,7 +73,7 @@ export default function start(cliArgs?: {}): ICompilerProxy {
         console.error(`child proccess errored: ${data}`);
     });
     // child.on("close", (code) => {
-    //     console.log(`child process exited with code ${code}`);
+    //     log(cliArgs, `child process exited with code ${code}`);
     // });
 
     // Pending promises
@@ -86,7 +92,7 @@ export default function start(cliArgs?: {}): ICompilerProxy {
                 resolve(JSON.parse(data.substr(pattern[0].length)));
             }
         } else { // LOG
-            console.log(data);
+            log(cliArgs, data);
         }
     });
 

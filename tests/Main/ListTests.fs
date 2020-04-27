@@ -1,6 +1,7 @@
 module Fable.Tests.Lists
 
 open Util.Testing
+open Fable.Tests.Util
 
 type List(x: int) =
     member val Value = x
@@ -126,6 +127,11 @@ let tests =
 
             let xs3 = []
             (try List.exactlyOne xs3 |> ignore; false with | _ -> true) |> equal true
+
+    testCase "List.tryExactlyOne works" <| fun () ->
+            [1.] |> List.tryExactlyOne |> equal (Some 1.)
+            [1.;2.] |> List.tryExactlyOne |> equal None
+            [] |> List.tryExactlyOne |> equal None
 
     testCase "List.exists works" <| fun () ->
             let xs = [1; 2; 3; 4]
@@ -672,6 +678,12 @@ let tests =
             equal 4 ys.[2]
             equal 6 ys.[4]
 
+    testCase "List.chunkBySize works" <| fun () ->
+        List.chunkBySize 4 [1..8]
+        |> equal [ [1..4]; [5..8] ]
+        List.chunkBySize 4 [1..10]
+        |> equal [ [1..4]; [5..8]; [9..10] ]
+
     testCase "List.range works" <| fun () ->
         [1..5]
         |> List.reduce (+)
@@ -788,4 +800,62 @@ let tests =
         let res = revert [2;3;4]
         equal 3 res.Length
         equal 4 res.Head
+
+    testCase "List.allPairs works" <| fun () ->
+        let xs = [1;2;3;4]
+        let ys = ['a';'b';'c';'d';'e';'f']
+        List.allPairs xs ys
+        |> equal
+            [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+             (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+             (4, 'd'); (4, 'e'); (4, 'f')]
+
+    // TODO: Remove conditional compilation after upgrading to dotnet SDK with F# 4.7
+    // #if FABLE_COMPILER
+    testCase "Implicit yields work" <| fun () ->
+        let makeList condition =
+            [
+                1
+                2
+                if condition then
+                    3
+            ]
+        makeList true |> List.sum |> equal 6
+        makeList false |> List.sum |> equal 3
+    // #endif
+
+    testCase "List.splitInto works" <| fun () ->
+        List.splitInto 3 [1..10] |> equal [ [1..4]; [5..7]; [8..10] ]
+        List.splitInto 3 [1..11] |> equal [ [1..4]; [5..8]; [9..11] ]
+        List.splitInto 3 [1..12] |> equal [ [1..4]; [5..8]; [9..12] ]
+        List.splitInto 4 [1..5] |> equal [ [1..2]; [3]; [4]; [5] ]
+        List.splitInto 20 [1..4] |> equal [ [1]; [2]; [3]; [4] ]
+
+    testCase "List.transpose works" <| fun () ->
+        // integer list
+        List.transpose (seq [[1..3]; [4..6]])
+        |> equal [[1; 4]; [2; 5]; [3; 6]]
+        List.transpose [[1..3]]
+        |> equal [[1]; [2]; [3]]
+        List.transpose [[1]; [2]]
+        |> equal [[1..2]]
+        // string list
+        List.transpose (seq [["a";"b";"c"]; ["d";"e";"f"]])
+        |> equal [["a";"d"]; ["b";"e"]; ["c";"f"]]
+        // empty list
+        List.transpose []
+        |> equal []
+        // list of empty lists - m x 0 list transposes to 0 x m (i.e. empty)
+        List.transpose [[]]
+        |> equal []
+        List.transpose [[]; []]
+        |> equal []
+        // jagged lists
+        throwsAnyError (fun () -> List.transpose [[1; 2]; [3]])
+        throwsAnyError (fun () -> List.transpose [[1]; [2; 3]])
+        throwsAnyError (fun () -> List.transpose [[]; [1; 2]; [3; 4]])
+        throwsAnyError (fun () -> List.transpose [[1; 2]; []; [3; 4]])
+        throwsAnyError (fun () -> List.transpose [[1; 2]; [3; 4]; []])
+
   ]

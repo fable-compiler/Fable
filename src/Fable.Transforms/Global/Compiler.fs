@@ -1,9 +1,16 @@
 namespace Fable
 
+[<RequireQualifiedAccessAttribute>]
+type Verbosity =
+    | Normal
+    | Verbose
+    | Silent
+
 type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
-      verbose: bool
+      debugMode: bool
+      verbosity: Verbosity
       /// Meant for precompiled libraries (like the Repl Lib)
       /// to make public inlined functions part of the JS
       outputPublicInlinedFunctions: bool

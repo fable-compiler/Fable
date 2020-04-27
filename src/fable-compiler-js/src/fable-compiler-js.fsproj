@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>
+    <RollForward>Major</RollForward>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,11 +11,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../fable-standalone/src/Interfaces.fs"/>
-    <Compile Include="../../fable-standalone/src/Metadata.fs"/>
-    <Compile Include="Platform.fs"/>
-    <Compile Include="ProjectParser.fs"/>
-    <Compile Include="app.fs"/>
+    <Compile Include="../../fable-standalone/src/Interfaces.fs" />
+    <Compile Include="../../fable-standalone/src/Metadata.fs" />
+    <Compile Include="Glob.fs" />
+    <Compile Include="Platform.fs" />
+    <Compile Include="ProjectParser.fs" />
+    <Compile Include="app.fs" />
   </ItemGroup>
 
 </Project>

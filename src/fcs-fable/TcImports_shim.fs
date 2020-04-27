@@ -5,50 +5,28 @@
 
 namespace FSharp.Compiler.SourceCodeServices
 
-open System
-open System.Collections.Generic
-open System.Collections.Concurrent
-open System.Diagnostics
-open System.IO
-open System.Reflection
-open System.Text
-
-open Microsoft.FSharp.Core.Printf
-open FSharp.Compiler 
+open FSharp.Compiler
 open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.ILBinaryReader
-open FSharp.Compiler.AbstractIL.Diagnostics
-open FSharp.Compiler.AbstractIL.Internal  
-open FSharp.Compiler.AbstractIL.Internal.Library  
-
-open FSharp.Compiler.AccessibilityLogic
-open FSharp.Compiler.Ast
+open FSharp.Compiler.AbstractIL.Internal
+open FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.AbstractIL.Internal.Utils
 open FSharp.Compiler.CompileOps
 open FSharp.Compiler.CompileOptions
-#if !FABLE_COMPILER
-open FSharp.Compiler.Driver
-#endif
+open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.Lib
-open FSharp.Compiler.PrettyNaming
-open FSharp.Compiler.Parser
 open FSharp.Compiler.Range
-open FSharp.Compiler.Lexhelp
-open FSharp.Compiler.Layout
-open FSharp.Compiler.Tast
-open FSharp.Compiler.Tastops
-open FSharp.Compiler.TcGlobals 
-open FSharp.Compiler.Infos
-open FSharp.Compiler.InfoReader
-open FSharp.Compiler.NameResolution
-open FSharp.Compiler.TypeChecker
-open FSharp.Compiler.SourceCodeServices.SymbolHelpers 
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.TcGlobals
+open FSharp.Compiler.Text
+open FSharp.Compiler.TypedTree
+open FSharp.Compiler.TypedTreeOps
+open FSharp.Compiler.TypedTreePickle
 
 open Internal.Utilities
 open Internal.Utilities.Collections
-open FSharp.Compiler.Layout.TaggedTextOps
-
 
 //-------------------------------------------------------------------------
 // TcImports shim
@@ -74,13 +52,12 @@ module TcImports =
 
         let LoadMod (ccuName: string) =
             let fileName =
-                if ccuName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+                if ccuName.EndsWith(".dll", System.StringComparison.OrdinalIgnoreCase)
                 then ccuName
                 else ccuName + ".dll"
             let bytes = readAllBytes fileName
             let opts: ILReaderOptions =
-                  { ilGlobals = ilGlobals
-                    metadataOnly = MetadataOnlyFlag.Yes
+                  { metadataOnly = MetadataOnlyFlag.Yes
                     reduceMemoryUsage = ReduceMemoryFlag.Yes
                     pdbDirPath = None
                     tryGetMetadataSnapshot = (fun _ -> None) }
@@ -88,11 +65,11 @@ module TcImports =
             let reader = ILBinaryReader.OpenILModuleReaderFromBytes fileName bytes opts
             reader.ILModuleDef //reader.ILAssemblyRefs
 
-        let GetSignatureData (fileName:string, ilScopeRef, ilModule:ILModuleDef option, bytes:byte[]) = 
-            TastPickle.unpickleObjWithDanglingCcus fileName ilScopeRef ilModule TastPickle.unpickleCcuInfo bytes
+        let GetSignatureData (fileName:string, ilScopeRef, ilModule:ILModuleDef option, bytes: ReadOnlyByteMemory) =
+            unpickleObjWithDanglingCcus fileName ilScopeRef ilModule unpickleCcuInfo bytes
 
-        let GetOptimizationData (fileName:string, ilScopeRef, ilModule:ILModuleDef option, bytes:byte[]) = 
-            TastPickle.unpickleObjWithDanglingCcus fileName ilScopeRef ilModule Optimizer.u_CcuOptimizationInfo bytes
+        let GetOptimizationData (fileName:string, ilScopeRef, ilModule:ILModuleDef option, bytes: ReadOnlyByteMemory) =
+            unpickleObjWithDanglingCcus fileName ilScopeRef ilModule Optimizer.u_CcuOptimizationInfo bytes
 
         let memoize_mod = new MemoizationTable<_,_> (LoadMod, keyComparer=HashIdentity.Structural)
 
@@ -146,6 +123,7 @@ module TcImports =
                 | ILScopeRef.Local -> failwith "Unsupported reference"
                 | ILScopeRef.Module x -> memoize_mod.Apply x.Name
                 | ILScopeRef.Assembly x -> memoize_mod.Apply x.Name
+                | ILScopeRef.PrimaryAssembly -> failwith "Unsupported reference"
             let ilModule = memoize_mod.Apply ccuName
             let ilShortAssemName = ilModule.ManifestOfAssembly.Name
             let ilScopeRef = ILScopeRef.Assembly (mkSimpleAssemblyRef ilShortAssemName)
@@ -186,7 +164,7 @@ module TcImports =
                     ImportProvidedType = (fun ty -> Import.ImportProvidedType (tcImports.GetImportMap()) m ty)
 #endif
                     UsesFSharp20PlusQuotations = minfo.usesQuotations
-                    MemberSignatureEquality = (fun ty1 ty2 -> Tastops.typeEquivAux EraseAll (tcImports.GetTcGlobals()) ty1 ty2)
+                    MemberSignatureEquality = (fun ty1 ty2 -> typeEquivAux EraseAll (tcImports.GetTcGlobals()) ty1 ty2)
                     TryGetILModuleDef = (fun () -> Some ilModule)
                     TypeForwarders = Import.ImportILAssemblyTypeForwarders(tcImports.GetImportMap, m, GetRawTypeForwarders ilModule)
                     }
@@ -216,7 +194,7 @@ module TcImports =
                 refCcus
                 |> List.tryFind (fun (x: ImportedAssembly) -> x.FSharpViewOfMetadata.AssemblyName = name)
                 |> Option.map (fun x -> x.FSharpViewOfMetadata)
-            let fixup (data: TastPickle.PickledDataWithReferences<_>) =
+            let fixup (data: PickledDataWithReferences<_>) =
                 data.OptionalFixup findCcuInfo |> ignore
             refCcusUnfixed |> List.choose snd |> List.iter fixup
             refCcus
@@ -258,12 +236,12 @@ module TcImports =
         let tcGlobals = TcGlobals (
                             tcConfig.compilingFslib, ilGlobals, fslibCcu.FSharpViewOfMetadata,
                             tcConfig.implicitIncludeDir, tcConfig.mlCompatibility,
-                            tcConfig.isInteractive, tryFindSysTypeCcu,
-                            tcConfig.emitDebugInfoInQuotations, tcConfig.noDebugData)
+                            tcConfig.isInteractive, tryFindSysTypeCcu, tcConfig.emitDebugInfoInQuotations,
+                            tcConfig.noDebugData, tcConfig.pathMap, tcConfig.langVersion)
 
 #if DEBUG
         // the global_g reference cell is used only for debug printing
-        do global_g := Some tcGlobals
+        do global_g <- Some tcGlobals
 #endif
         // do this prior to parsing, since parsing IL assembly code may refer to mscorlib
         do tcImports.SetCcuMap(ccuMap)

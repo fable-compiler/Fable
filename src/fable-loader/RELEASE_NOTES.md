@@ -1,3 +1,11 @@
+### 2.1.9
+
+* Update to fable-babel-plugins 2.3.0
+
+### 2.1.8
+
+* Add `silent` option
+
 ### 2.1.7
 
 * Enable different compiler implementations

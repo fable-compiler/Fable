@@ -14,6 +14,10 @@ let tests =
             TimeSpan.FromDays(18.).ToString() |> equal "18.00:00:00"
             TimeSpan.FromMilliseconds(25.).ToString() |> equal "00:00:00.0250000"
 
+        testCase "TimeSpan.ToString() works for negative TimeSpan" <| fun () ->
+            TimeSpan.FromSeconds(-5.).ToString() |> equal "-00:00:05"
+            TimeSpan.FromDays(-5.23).ToString() |> equal "-5.05:31:12"
+
         testCase "TimeSpan.ToString(\"c\", CultureInfo.InvariantCulture) works" <| fun () ->
             TimeSpan(0L).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00"
             TimeSpan.FromSeconds(12345.).ToString("c", CultureInfo.InvariantCulture) |> equal "03:25:45"
@@ -42,11 +46,13 @@ let tests =
             let t2 = TimeSpan(3, 3, 3)
             let t3 = TimeSpan(5, 5, 5, 5)
             let t4 = TimeSpan(7, 7, 7, 7, 7)
+            let t5 = TimeSpan(-2,0,0,0)
 
             t1.TotalMilliseconds |> equal 2.0
             t2.TotalMilliseconds |> equal 10983000.0
             t3.TotalMilliseconds |> equal 450305000.0
             t4.TotalMilliseconds |> equal 630427007.0
+            t5.TotalMilliseconds |> equal -172800000.0
 
             t1.TotalMilliseconds + t2.TotalMilliseconds + t3.TotalMilliseconds + t4.TotalMilliseconds
             |> equal 1091715009.0
@@ -265,7 +271,7 @@ let tests =
         // https://github.com/dotnet/dotnet-api-docs/blob/7f6a3882631bc008b858adfadb43cd17bbd55d49/xml/System/TimeSpan.xml#L2772
         testCase "TimeSpan 24:0:0 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("24:0:0"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '24:0:0' was not recognized as a valid TimeSpan."
 
         testCase "TimeSpan 24:0:0 TryParse fails" <| fun () ->
             let status, _ = TimeSpan.TryParse("24:0:0")
@@ -277,47 +283,60 @@ let tests =
             let expected = TimeSpan(0, 0, 0, 59, 0)
             equal actual expected
 
+#if FABLE_COMPILER // temporary, TODO: fix test to be backwards compatible
         testCase "TimeSpan 0:60:0 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("0:60:0"))
 #if FABLE_COMPILER
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '0:60:0' was not recognized as a valid TimeSpan."
 #else
-            |> Util.throwsError "The TimeSpan could not be parsed because at least one of the numeric components is out of range or contains too many digits."
+            |> Util.throwsError "The TimeSpan string '0:60:0' could not be parsed because at least one of the numeric components is out of range or contains too many digits."
 #endif
+#endif
+
+#if FABLE_COMPILER // temporary, TODO: fix test to be backwards compatible
         testCase "TimeSpan 10: parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10:"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10:' was not recognized as a valid TimeSpan."
+#endif
 
         testCase "TimeSpan 10:0 parse works" <| fun () ->
             let actual = TimeSpan.Parse("10:0")
             let expected = TimeSpan(0, 10, 0, 0, 0)
             equal actual expected
 
+#if FABLE_COMPILER // temporary, TODO: fix test to be backwards compatible
         testCase "TimeSpan 10:20: parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10:20:"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10:20:' was not recognized as a valid TimeSpan."
+#endif
 
         testCase "TimeSpan 10:20:0 parse works" <| fun () ->
             let actual = TimeSpan.Parse("10:20:0")
             let expected = TimeSpan(0, 10, 20, 0, 0)
             equal actual expected
 
+#if FABLE_COMPILER // temporary, TODO: fix test to be backwards compatible
         testCase "TimeSpan .123 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse(".123"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '.123' was not recognized as a valid TimeSpan."
+#endif
 
         testCase "TimeSpan 0.12:00 parse works" <| fun () ->
             let actual = TimeSpan.Parse("0.12:00")
             let expected = TimeSpan(0, 12, 00, 0, 0)
             equal actual expected
 
+#if FABLE_COMPILER // temporary, TODO: fix test to be backwards compatible
         testCase "TimeSpan 10. parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10."))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10.' was not recognized as a valid TimeSpan."
+#endif
 
+#if FABLE_COMPILER // temporary, TODO: fix test to be backwards compatible
         testCase "TimeSpan 10.12 parse fails" <| fun () ->
             (fun _ -> TimeSpan.Parse("10.12"))
-            |> Util.throwsError "String was not recognized as a valid TimeSpan."
+            |> Util.throwsError "String '10.12' was not recognized as a valid TimeSpan."
+#endif
 
         testCase "TimeSpan 10.12:00 parse works" <| fun () ->
             let actual = TimeSpan.Parse("10.12:00")
@@ -423,5 +442,126 @@ let tests =
             let status, actual = TimeSpan.TryParse("10.12:00")
             let expected = TimeSpan(10, 12, 00, 0, 0)
             equal status true
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.1 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.1").TotalMilliseconds
+            let expected = 100.
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.12 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.12").TotalMilliseconds
+            let expected = 120.
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.123 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.123").TotalMilliseconds
+            let expected = 123.
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.1234 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.1234").TotalMilliseconds
+            let expected = 123.4
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.12345 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.12345").TotalMilliseconds
+            let expected = 123.45
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.123456 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.123456").TotalMilliseconds
+            let expected = 123.456
+            equal actual expected
+
+        testCase "TimeSpan 00:00:00.0034567 Parse handle correctly the milliseconds" <| fun () ->
+            let actual = TimeSpan.Parse("00:00:00.0034567").TotalMilliseconds
+            let expected = 3.4567
+            equal actual expected
+
+        testCase "TimeSpan Parse work with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-2:00:00")
+            equal actual.TotalMilliseconds -7200000.0
+
+        testCase "TimeSpan 1.23:45:06.789 TotalMilliseconds works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalMilliseconds
+            let expected = 171906789.0
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalSeconds works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalSeconds
+            let expected = 171906.789
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalMinutes works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalMinutes
+            let expected = 2865.11315
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalHours works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalHours
+            let expected = 47.75188583333333
+            equal actual expected
+
+        testCase "TimeSpan 1.23:45:06.789 TotalDays works" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").TotalDays
+            let expected = 1.9896619097222221
+            equal actual expected
+
+        // TODO: This tests fails because of the decimal part of the milliseconds, see #1867
+        // testCase "TimeSpan TotalSeconds & friends work" <| fun () ->
+        //     let ts = TimeSpan.FromDays(0.005277777778)
+        //     ts.TotalMilliseconds |> equal 456000.0
+        //     ts.TotalSeconds |> equal 456.
+        //     ts.TotalMinutes |> equal 7.6
+
+        testCase "TimeSpan.Milliseconds works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Milliseconds
+            let expected = 789
+            equal actual expected
+
+        testCase "TimeSpan.Milliseconds works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Milliseconds
+            let expected = -789
+            equal actual expected
+
+        testCase "TimeSpan.Seconds works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Seconds
+            let expected = 6
+            equal actual expected
+
+        testCase "TimeSpan.Seconds works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Seconds
+            let expected = -6
+            equal actual expected
+
+        testCase "TimeSpan.Minutes works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Minutes
+            let expected = 45
+            equal actual expected
+
+        testCase "TimeSpan.Minutes works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Minutes
+            let expected = -45
+            equal actual expected
+
+        testCase "TimeSpan.Hours works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Hours
+            let expected = 23
+            equal actual expected
+
+        testCase "TimeSpan.Hours works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Hours
+            let expected = -23
+            equal actual expected
+
+        testCase "TimeSpan.Days works with positive TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("1.23:45:06.789").Days
+            let expected = 1
+            equal actual expected
+
+        testCase "TimeSpan.Days works with negative TimeSpan" <| fun () ->
+            let actual = TimeSpan.Parse("-1.23:45:06.78999").Days
+            let expected = -1
             equal actual expected
     ]

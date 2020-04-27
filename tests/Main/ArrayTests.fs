@@ -2,6 +2,7 @@ module Fable.Tests.Arrays
 
 open System
 open Util.Testing
+open Fable.Tests.Util
 
 type ParamArrayTest =
     static member Add([<ParamArray>] xs: int[]) = Array.sum xs
@@ -116,7 +117,7 @@ let tests =
         ar.[0] <- ar.[0] + 255uy
         equal 4uy ar.[0]
 
-    // TODO: How to test at the same time that both clamped and non-clampled arrays work?
+    // TODO: How to test at the same time that both clamped and non-clamped arrays work?
 // #if FABLE_COMPILER
 //     testCase "Clamped byte arrays work" <| fun () ->
 //         let ar = DllRef.Lib.createClampedArray()
@@ -181,6 +182,12 @@ let tests =
         let xs = Array.zeroCreate 2
         equal 2 xs.Length
         equal 0 xs.[1]
+
+    // See https://github.com/fable-compiler/repl/issues/96
+    testCase "Array.zeroCreate works with KeyValuePair" <| fun () ->
+        let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
+        equal 0. a.[1].Key
+        equal false a.[2].Value
 
     testCase "Array.create works" <| fun () ->
         let xs = Array.create 2 5
@@ -328,6 +335,11 @@ let tests =
         let ys = xs |> Array.filter (fun x -> x > 2s)
         ys.Length |> equal 2
 
+    testCase "Array.filter with chars works" <| fun () ->
+        let xs = [|'a'; '2'; 'b'; 'c'|]
+        let ys = xs |> Array.filter Char.IsLetter
+        ys.Length |> equal 3
+
     testCase "Array.find works" <| fun () ->
         let xs = [|1us; 2us; 3us; 4us|]
         xs |> Array.find ((=) 2us)
@@ -463,6 +475,13 @@ let tests =
         let ys = [|2.|]
         let zs = Array.map2 (*) xs ys
         zs.[0] |> equal 2.
+
+    testCase "Array.map3 works" <| fun () ->
+        let value1 = [|1.|]
+        let value2 = [|2.|]
+        let value3 = [|3.|]
+        let zs = Array.map3 (fun a b c -> a * b * c) value1 value2 value3
+        zs.[0] |> equal 6.
 
     testCase "Array.mapi works" <| fun () ->
         let xs = [|1.; 2.|]
@@ -896,4 +915,96 @@ let tests =
         Array.windowed 5 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0 |]; [| 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
         Array.windowed 7 nums |> Array.isEmpty |> equal true
+
+    testCase "Array.allPairs works" <| fun () ->
+        let xs = [|1;2;3;4|]
+        let ys = [|'a';'b';'c';'d';'e';'f'|]
+        Array.allPairs xs ys
+        |> equal
+            [|(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+              (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+              (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+              (4, 'd'); (4, 'e'); (4, 'f')|]
+
+    testCase "Casting to System.Array works" <| fun () ->
+        let xs = [|1;2;3;4|] :> System.Array // Numeric array
+        let ys = [|'a';'b';'c';'d';'e';'f'|] :> System.Array
+        [ for i in xs do for j in ys do yield (unbox i, unbox j) ]
+        |> equal
+            [ (1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+              (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+              (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+              (4, 'd'); (4, 'e'); (4, 'f') ]
+
+    testCase "Testing against System.Array works" <| fun () ->
+        let xs = box [|1;2;3;4|]
+        let ys = box [|'a';'b';'c';'d';'e';'f'|]
+        let zs = box [1;2;3;4]
+        xs :? System.Array |> equal true
+        ys :? System.Array |> equal true
+        zs :? System.Array |> equal false
+
+    testCase "Array.Copy works with numeric arrays" <| fun () ->
+        let source = [| 99 |]
+        let destination = [| 1; 2; 3 |]
+        Array.Copy(source, 0, destination, 0, 1)
+        equal [| 99; 2; 3 |] destination
+
+    testCase "Array.Copy works with non-numeric arrays" <| fun () ->
+        let source = [| "xy"; "xx"; "xyz" |]
+        let destination = [| "a"; "b"; "c" |]
+        Array.Copy(source, 1, destination, 1, 2)
+        equal [| "a"; "xx"; "xyz" |] destination
+
+    testCase "Array.splitInto works" <| fun () ->
+        Array.splitInto 3 [|1..10|] |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
+        Array.splitInto 3 [|1..11|] |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
+        Array.splitInto 3 [|1..12|] |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
+        Array.splitInto 4 [|1..5|] |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
+        Array.splitInto 20 [|1..4|] |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
+
+    testCase "Array.exactlyOne works" <| fun () ->
+            [|1.|] |> Array.exactlyOne |> equal 1.
+            (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
+            (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
+
+    testCase "Array.tryExactlyOne works" <| fun () ->
+            [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
+            [|1.;2.|] |> Array.tryExactlyOne |> equal None
+            [||] |> Array.tryExactlyOne |> equal None
+
+    testCase "Array.pairwise works" <| fun () ->
+        Array.pairwise<int> [||] |> equal [||]
+        Array.pairwise [|1|] |> equal [||]
+        Array.pairwise [|1; 2|] |> equal [|(1, 2)|]
+        let xs = [|1; 2; 3; 4|]
+        let xs2 = xs |> Array.pairwise
+        equal [|(1, 2); (2, 3); (3, 4)|] xs2
+        xs2 |> Array.map (fun (x, y) -> sprintf "%i%i" x y)
+        |> String.concat ""
+        |> equal "122334"
+
+    testCase "Array.transpose works" <| fun () ->
+        // integer array
+        Array.transpose (seq [[|1..3|]; [|4..6|]])
+        |> equal [|[|1;4|]; [|2;5|]; [|3;6|]|]
+        Array.transpose [|[|1..3|]|]
+        |> equal [|[|1|]; [|2|]; [|3|]|]
+        Array.transpose [|[|1|]; [|2|]|]
+        |> equal [|[|1..2|]|]
+        // string array
+        Array.transpose (seq [[|"a";"b";"c"|]; [|"d";"e";"f"|]])
+        |> equal [|[|"a";"d"|]; [|"b";"e"|]; [|"c";"f"|]|]
+        // empty array
+        Array.transpose [| |]
+        |> equal [| |]
+        // array of empty arrays - m x 0 array transposes to 0 x m (i.e. empty)
+        Array.transpose [| [||] |]
+        |> equal [| |]
+        Array.transpose [| [||]; [||] |]
+        |> equal [| |]
+        // jagged arrays
+        throwsAnyError (fun () -> Array.transpose [| [|1; 2|]; [|3|] |])
+        throwsAnyError (fun () -> Array.transpose [| [|1|]; [|2; 3|] |])
+
   ]

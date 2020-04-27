@@ -94,7 +94,7 @@ export abstract class NMemberInfo {
 
   public get_DeclaringType() { return this.DeclaringType; }
 
-  public GetCustomAttributes(a: (boolean|NTypeInfo), b?: boolean) {
+  public GetCustomAttributes(a: (boolean|NTypeInfo), _?: boolean) {
     if (typeof a === "boolean") {
       return this.attributes.map((att) => att.AttributeValue);
     } else if (a.fullname) {
@@ -355,7 +355,7 @@ export class NConstructorInfo extends NMethodBase {
 }
 
 export class NFieldInfo extends NMemberInfo {
-  public Type: NTypeInfo = null;
+  public Type: NTypeInfo;
   constructor(
     declaringType: NTypeInfo,
     name: string,
@@ -432,7 +432,7 @@ export class NFieldInfo extends NMemberInfo {
 }
 
 export class NPropertyInfo extends NMemberInfo {
-  public Type: NTypeInfo = null;
+  public Type: NTypeInfo;
   constructor(
     DeclaringType: NTypeInfo,
     Name: string,
@@ -542,7 +542,7 @@ export class NPropertyInfo extends NMemberInfo {
     } else {
       index = index || [];
       const s = this.get_SetMethod();
-      s.Invoke(target, [...index, value]);
+      s?.Invoke(target, [...index, value]);
     }
   }
 
@@ -586,7 +586,7 @@ export class NPropertyInfo extends NMemberInfo {
 }
 
 export class NUnionCaseInfo extends NMemberInfo {
-  public Fields: NPropertyInfo[] = null;
+  public Fields: NPropertyInfo[];
 
   public constructor(
     DeclaringType: NTypeInfo,
@@ -658,6 +658,8 @@ export class NUnionCaseInfo extends NMemberInfo {
 
 }
 
+export type NEnumCase = [string, number];
+
 export class NTypeInfo {
   public static getParameter(i: string) {
     if (NTypeInfo.parameterCache[i]) {
@@ -674,11 +676,11 @@ export class NTypeInfo {
   }
 
   private static parameterCache: {[i: string]: NTypeInfo} = {};
-  public generics: NTypeInfo[] = null;
-  public GenericDeclaration: NTypeInfo = null;
-  public DeclaringType: NTypeInfo = null;
-  public mems: NMemberInfo[] = null;
+  public generics: NTypeInfo[];
+  public GenericDeclaration: NTypeInfo | null;
+  public DeclaringType: NTypeInfo | null;
 
+  private cachedMembers: NMemberInfo[] | null = null;
   private instantiations: {[i: string]: NTypeInfo} = {};
   private genericMap: {[name: string]: number} = {};
 
@@ -688,10 +690,10 @@ export class NTypeInfo {
     public isGenericParameter: boolean,
     _generics: NTypeInfo[],
     public members: (self: NTypeInfo) => NMemberInfo[],
-    genericDeclaration: NTypeInfo,
-    declaringType: NTypeInfo) {
+    genericDeclaration: NTypeInfo | null,
+    declaringType: NTypeInfo | null,
+    public enumCases?: NEnumCase[]) {
       if (!fullname) { throw new Error("cannot declare type without name"); }
-      members = members || ((_s) => []);
       _generics = _generics || [];
       isGenericParameter = isGenericParameter || false;
       genericCount = genericCount || 0;
@@ -713,7 +715,7 @@ export class NTypeInfo {
       this.DeclaringType = declaringType;
     }
 
-    public get_DeclaringType(): NTypeInfo {
+    public get_DeclaringType(): NTypeInfo | null {
       return this.DeclaringType;
     }
 
@@ -780,7 +782,7 @@ export class NTypeInfo {
     return this.fullname.endsWith("[]");
   }
 
-  public GetElementType(): NTypeInfo {
+  public GetElementType(): NTypeInfo | null {
     return this.get_IsArray() ? this.generics[0] : null;
   }
 
@@ -817,14 +819,14 @@ export class NTypeInfo {
   }
 
   public GetAllMembers() {
-    if (!this.mems) {
+    if (!this.cachedMembers) {
       if (this.members) {
-        this.mems = this.members(this);
+        this.cachedMembers = this.members(this);
       } else {
-        this.mems = [];
+        this.cachedMembers = [];
       }
     }
-    return this.mems;
+    return this.cachedMembers;
   }
 
   public GetMembers() {
@@ -930,7 +932,7 @@ export interface CustomAttribute {
 const typeCache: { [fullname: string]: NTypeInfo } = {};
 
 export function declareNType(fullname: string, generics: number, members: (self: NTypeInfo, gen: NTypeInfo[]) => NMemberInfo[]): NTypeInfo {
-  let gen: NTypeInfo = null;
+  let gen: NTypeInfo;
   if (fullname in typeCache) {
     gen = typeCache[fullname];
   } else {
@@ -982,6 +984,7 @@ function typesEqual(l: NTypeInfo[], r: NTypeInfo[]) {
     return false;
   }
 }
+
 export function parameterEquals(l: NParameterInfo, r: NParameterInfo) {
   if (l === r) { return true; } else
   if (l == null && r != null) { return false; } else
@@ -1016,16 +1019,7 @@ export function propertyEquals(l: NPropertyInfo, r: NPropertyInfo) {
     return l.Name === r.Name && l.IsFSharp === r.IsFSharp && l.IsStatic === r.IsStatic && equals(l.DeclaringType, r.DeclaringType);
   }
 }
-function propertiesEqual(l: NPropertyInfo[], r: NPropertyInfo[]) {
-  if (l.length === r.length) {
-    for (let i = 0; i < l.length; i++) {
-      if (!propertyEquals(l[i], r[i])) { return false; }
-    }
-    return true;
-  } else {
-    return false;
-  }
-}
+
 export function constructorEquals(l: NConstructorInfo, r: NConstructorInfo) {
   if (l === r) { return true; } else
   if (l == null && r != null) { return false; } else
@@ -1088,7 +1082,7 @@ export function compare(t1: NTypeInfo, t2: NTypeInfo): number {
 }
 
 export function ntype(fullname: string, genericNames?: string[], generics?: NTypeInfo[], members?: (self: NTypeInfo, pars: NTypeInfo[]) => NMemberInfo[], declaringType?: NTypeInfo): NTypeInfo {
-  let gen: NTypeInfo = null;
+  let gen: NTypeInfo;
   generics = generics || [];
   const a = generics.findIndex((t) => !t);
   if (a >= 0) { throw new Error("bad hate occured"); }
@@ -1096,14 +1090,13 @@ export function ntype(fullname: string, genericNames?: string[], generics?: NTyp
   if (fullname in typeCache) {
     gen = typeCache[fullname];
   } else {
-    members = members || ((_s, _g) => []);
+    const _members = members || ((_s, _g) => []);
     genericNames = genericNames || [];
-    declaringType = declaringType || null;
     const b = genericNames.findIndex((t) => !t);
     if (b >= 0) { throw new Error("bad hate occured"); }
 
     const pars = genericNames.map((n) => getGenericParameter(n));
-    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => members(s, pars), null, declaringType);
+    gen = new NTypeInfo(fullname, pars.length, false, pars, (s) => _members(s, pars), null, declaringType || null);
     typeCache[fullname] = gen;
   }
 
@@ -1154,17 +1147,17 @@ export function lambda(argType: NTypeInfo, returnType: NTypeInfo): NTypeInfo {
   return gen.MakeGenericType([argType, returnType]);
 }
 
-export function option(generic?: NTypeInfo): NTypeInfo {
+export function option(generic: NTypeInfo): NTypeInfo {
   const name = "Microsoft.FSharp.Core.FSharpOption`1";
   const gen =
     declareNType(name, 1, (self, gen) => [
       new NUnionCaseInfo(self, 0, "None", [], [], ((_) => null)),
-      new NUnionCaseInfo(self, 1, "Some", [], [["Value", gen[0]]], ((args, ...rest) => args)),
+      new NUnionCaseInfo(self, 1, "Some", [], [["Value", gen[0]]], ((args, ..._rest) => args)),
     ]);
   return gen.MakeGenericType([generic]);
 }
 
-export function list(generic?: NTypeInfo): NTypeInfo {
+export function list(generic: NTypeInfo): NTypeInfo {
   const gen = declareNType("Microsoft.FSharp.Collections.FSharpList`1", 1, (self, gen) => [
     new NPropertyInfo(self, "Head", gen[0], false, false, []),
     new NMethodInfo(self, [], "get_Head", [], gen[0], false, ((l) => l[0]), []),
@@ -1173,14 +1166,18 @@ export function list(generic?: NTypeInfo): NTypeInfo {
   // return new NTypeInfo("Microsoft.FSharp.Collections.FSharpList`1", 1, false, [generic], (_s) => []);
 }
 
-export function array(generic?: NTypeInfo): NTypeInfo {
-  const gen = declareNType("_[]", 1, (self, gen) => [
+export function array(generic: NTypeInfo): NTypeInfo {
+  const gen = declareNType("_[]", 1, (self, _gen) => [
     new NPropertyInfo(self, "Length", int32, false, false, []),
     new NMethodInfo(self, [], "get_Length", [], int32, false, ((l) => l.length), []),
   ]);
   return gen.MakeGenericType([generic]);
   // generic = generic || getGenericParameter("a");
   // return new NTypeInfo(generic.fullname + "[]", 1, false, [generic], (_s) => []);
+}
+
+export function enumType(fullname: string, underlyingType: NTypeInfo, enumCases: NEnumCase[]): NTypeInfo {
+  return new NTypeInfo(fullname, 1, false, [underlyingType], (_) => [], null, null, enumCases);
 }
 
 export const obj: NTypeInfo = NTypeInfo.Simple("System.Object");
@@ -1227,6 +1224,85 @@ export function isFieldInfo(o: any) {
 export function isConstructorInfo(o: any) {
   return o != null && isMemberInfo(o) && o.getMemberKind() === NReflKind.Constructor;
 }
+
+export function isEnum(t: NTypeInfo) {
+  return t.enumCases != null && t.enumCases.length > 0;
+}
+
+export function getEnumUnderlyingType(t: NTypeInfo) {
+  return t.generics[0];
+}
+
+export function getEnumValues(t: NTypeInfo): number[] {
+  if (t.enumCases) {
+    return t.enumCases.map((kv) => kv[1]);
+  } else {
+    throw new Error(`${t.fullname} is not an enum type`);
+  }
+}
+
+export function getEnumNames(t: NTypeInfo): string[] {
+  if (t.enumCases) {
+    return t.enumCases.map((kv) => kv[0]);
+  } else {
+    throw new Error(`${t.fullname} is not an enum type`);
+  }
+}
+
+function getEnumCase(t: NTypeInfo, v: number | string): NEnumCase {
+  if (t.enumCases) {
+    if (typeof v === "string") {
+      for (const kv of t.enumCases) {
+        if (kv[0] === v) {
+          return kv;
+        }
+      }
+      throw new Error(`'${v}' was not found in ${t.fullname}`);
+    } else {
+      for (const kv of t.enumCases) {
+        if (kv[1] === v) {
+          return kv;
+        }
+      }
+      // .NET returns the number even if it doesn't match any of the cases
+      return ["", v];
+    }
+  } else {
+    throw new Error(`${t.fullname} is not an enum type`);
+  }
+}
+
+export function parseEnum(t: NTypeInfo, str: string): number {
+  // TODO: better int parsing here, parseInt ceils floats: "4.8" -> 4
+  const value = parseInt(str, 10);
+  return getEnumCase(t, isNaN(value) ? str : value)[1];
+}
+
+export function tryParseEnum(t: NTypeInfo, str: string): [boolean, number] {
+  try {
+    const v = parseEnum(t, str);
+    return [true, v];
+  } catch {
+    // supress error
+  }
+  return [false, NaN];
+}
+
+export function getEnumName(t: NTypeInfo, v: number): string {
+  return getEnumCase(t, v)[0];
+}
+
+export function isEnumDefined(t: NTypeInfo, v: string | number): boolean {
+  try {
+    const kv = getEnumCase(t, v);
+    return kv[0] != null && kv[0] !== "";
+  } catch {
+    // supress error
+  }
+  return false;
+}
+
+// FSharpType
 
 export function getUnionCases(t: NTypeInfo): NUnionCaseInfo[] {
   const cases = t.GetAllMembers().filter((m) => isUnionCaseInfo(m)) as NUnionCaseInfo[];
@@ -1346,11 +1422,13 @@ export function getTupleField(v: any, i: number): any {
 
 export function makeUnion(uci: NUnionCaseInfo, values: any[]): any {
   return uci.Invoke.apply(null, values);
-  // const expectedLength = (uci.fields || []).length;
-  // if (values.length !== expectedLength) {
-  //   throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
-  // }
-  // return new uci.declaringType.constructor(uci.tag, uci.name, ...values);
+//   const expectedLength = (uci.fields || []).length;
+//   if (values.length !== expectedLength) {
+//     throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
+//   }
+//   return uci.declaringType.constructor != null
+//     ? new uci.declaringType.constructor(uci.tag, uci.name, ...values)
+//     : {};
 }
 
 export function makeRecord(t: NTypeInfo, values: any[]): any {
@@ -1362,7 +1440,7 @@ export function makeRecord(t: NTypeInfo, values: any[]): any {
   return ctor.Invoke(values);
 }
 
-export function makeTuple(values: any[], t: NTypeInfo): any {
+export function makeTuple(values: any[], _: NTypeInfo): any {
   return values;
 }
 
@@ -1402,7 +1480,8 @@ export function createMethod(decl: NTypeInfo, name: string, mpars: string[], mar
   } else {
     const pp = mpars.map ((n) => getGenericParameter(n));
     const meth = new NMethodInfo(decl, pp, name, declaredArgs.map((a, i) => new NParameterInfo("arg" + i, a)), ret, isStatic, ((_target, _args) => { throw new Error("cannot invoke " + decl.fullname + "." + name); }), []);
-    decl.mems.push(meth);
+    // TODO: Is this necessary? I don't see `createMethod` in use anywhere
+    // decl.cachedMembers.push(meth);
     return meth.get_IsGenericMethod() ? meth.MakeGenericMethod(margs) : meth;
   }
 }

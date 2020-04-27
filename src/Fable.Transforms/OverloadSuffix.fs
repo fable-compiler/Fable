@@ -37,17 +37,52 @@ let private tryFindAttributeArgs fullName (atts: #seq<FSharpAttribute>) =
 
 // -------- End of helper functions
 
+let private hashToString (i: int) =
+    if i < 0
+    then "Z" + (abs i).ToString("X")
+    else i.ToString("X")
+
+// Not perfect but hopefully covers most of the cases
+// Using only common constrains from https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/generics/constraints
+let rec private getGenericParamConstrainsHash genParams (p: FSharpGenericParameter) =
+    let getConstrainHash (c: FSharpGenericParameterConstraint) =
+        if c.IsCoercesToConstraint then
+            ":>" + getTypeFastFullName genParams c.CoercesToTarget
+        elif c.IsSupportsNullConstraint then
+            "null"
+        elif c.IsMemberConstraint then
+            let d = c.MemberConstraintData // TODO: Full member signature hash?
+            (if d.MemberIsStatic then "static " else "") + "member " + d.MemberName
+        elif c.IsRequiresDefaultConstructorConstraint then
+            "new"
+        elif c.IsNonNullableValueTypeConstraint then
+            "struct"
+        elif c.IsReferenceTypeConstraint then
+            "not struct"
+        elif c.IsComparisonConstraint then
+            "comparison"
+        elif c.IsEqualityConstraint then
+            "equality"
+        elif c.IsUnmanagedConstraint then
+            "unmanaged"
+        else ""
+    p.Constraints |> Seq.map getConstrainHash |> String.concat ","
+
 // Attention: we need to keep this similar to FSharp2Fable.TypeHelpers.makeType
-let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
+and private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
     let t = nonAbbreviatedType t
     if t.IsGenericParameter then
         match genParams.TryGetValue(t.GenericParameter.Name) with
         | true, i -> i
-        | false, _ -> ""
+        | false, _ -> getGenericParamConstrainsHash genParams t.GenericParameter
     elif t.IsTupleType
     then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
     elif t.IsFunctionType
     then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " -> "
+    elif t.IsAnonRecordType then
+        Seq.zip t.AnonRecordTypeDetails.SortedFieldNames t.GenericArguments
+        |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)
+        |> String.concat "; "
     elif t.HasTypeDefinition
     then
         let tdef = t.TypeDefinition
@@ -80,11 +115,6 @@ let private stringHash (s: string) =
     for i = 0 to s.Length - 1 do
         h <- (h * 33) ^^^ (int s.[i])
     h
-
-let private hashToString (i: int) =
-    if i < 0
-    then "Z" + (abs i).ToString("X")
-    else i.ToString("X")
 
 let private getHashPrivate (m: FSharpMemberOrFunctionOrValue) (curriedParams: Params) genParams =
     match tryFindAttributeArgs Atts.overloadSuffix m.Attributes with

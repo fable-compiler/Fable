@@ -49,7 +49,10 @@ type IFableCompiler =
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
-        if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType
+        let isSameType (t1: FSharpType) (t2: FSharpType) =
+            t1.HasTypeDefinition && t2.HasTypeDefinition && (t1.TypeDefinition = t2.TypeDefinition)
+        if t.IsAbbreviation && not (isSameType t t.AbbreviatedType) then
+            nonAbbreviatedType t.AbbreviatedType
         elif t.HasTypeDefinition then
             let abbr = t.AbbreviatedType
             // .IsAbbreviation doesn't eval to true for generic numbers
@@ -161,6 +164,12 @@ module Helpers =
                 if fullName = fullName' then Some att else None
             | None -> None)
 
+    let hasAtt fullName (atts: #seq<FSharpAttribute>) =
+        atts |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some fullName' -> fullName = fullName'
+            | _ -> false)
+
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition then
@@ -197,8 +206,8 @@ module Helpers =
         else not memb.Accessibility.IsPrivate
 
     let makeRange (r: Range.range) =
-        { start = { line = r.StartLine; column = r.StartColumn+1 }
-          ``end``= { line = r.EndLine; column = r.EndColumn+1 }
+        { start = { line = r.StartLine; column = r.StartColumn }
+          ``end``= { line = r.EndLine; column = r.EndColumn }
           identifierName = None }
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
@@ -221,13 +230,10 @@ module Helpers =
         |> Option.map (fun att -> att.ConstructorArguments.[0] |> snd |> string)
 
     /// Apply case rules to case name if there's no explicit compiled name
-    let applyCaseRule (rule: CaseRules) (unionCase: FSharpUnionCase) =
+    let transformStringEnum (rule: CaseRules) (unionCase: FSharpUnionCase) =
         match unionCaseCompiledName unionCase with
         | Some name -> name
-        | None ->
-            match rule with
-            | CaseRules.LowerFirst -> Naming.lowerFirst unionCase.Name
-            | CaseRules.None | _ -> unionCase.Name
+        | None -> Naming.applyCaseRule rule unionCase.Name
         |> makeStrConst
 
     // let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
@@ -253,14 +259,17 @@ module Helpers =
             | None -> false
         | _ -> false
 
+    let rec getAllInterfaceMembers (ent: FSharpEntity) =
+        seq {
+            yield! ent.MembersFunctionsAndValues
+            for parent in ent.DeclaredInterfaces do
+                match tryDefinition parent with
+                | Some(e, _) -> yield! getAllInterfaceMembers e
+                | None -> ()
+        }
+
     let rec isInterfaceEmpty (ent: FSharpEntity) =
-        ent.MembersFunctionsAndValues.Count = 0
-            && (if ent.DeclaredInterfaces.Count > 0 then
-                    ent.DeclaredInterfaces |> Seq.forall (fun ifc ->
-                        match tryDefinition ifc with
-                        | Some(e, _) -> isInterfaceEmpty e
-                        | None -> true)
-                else true)
+        getAllInterfaceMembers ent |> Seq.isEmpty
 
     /// Test if the name corresponds to this interface or anyone in its hierarchy
     let rec testInterfaceHierarcy interfaceFullname interfaceType =
@@ -281,8 +290,8 @@ module Helpers =
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.bind (fun lastParam -> tryFindAtt Atts.paramList lastParam.Attributes)
-            |> Option.isSome
+            |> Option.map (fun lastParam -> hasAtt Atts.paramList lastParam.Attributes)
+            |> Option.defaultValue false
 
         hasParamArray memb || hasParamSeq memb
 
@@ -427,14 +436,23 @@ module Patterns =
 
     /// This matches the boilerplate generated to wrap .NET events from F#
     let (|CreateEvent|_|) = function
-        | Call(Some(Call(None, createEvent,_,_,
-                        [Lambda(_eventDelegate, Call(Some callee, addEvent,[],[],[Value _eventDelegate']));
-                         Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
-                         Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])),
-                memb, typArgs, methTypArgs, args)
-                when createEvent.FullName = Types.createEvent ->
+        | Call(None,createEvent,_,_,
+               [Lambda(_eventDelegate, Call(Some callee, addEvent,[],[],[Value _eventDelegate']));
+                Lambda(_eventDelegate2, Call(Some _callee2, _removeEvent,[],[],[Value _eventDelegate2']));
+                Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])
+          when createEvent.FullName = Types.createEvent ->
             let eventName = addEvent.CompiledName.Replace("add_","")
+            Some (callee, eventName)
+        | _ -> None
+
+    let (|CallCreateEvent|_|) = function
+        | Call(Some(CreateEvent(callee, eventName)), memb, typArgs, methTypArgs, args) ->
             Some (callee, eventName, memb, typArgs, methTypArgs, args)
+        | _ -> None
+
+    let (|BindCreateEvent|_|) = function
+        | Let((var, CreateEvent(value, eventName)), body) ->
+            Some (var, value, eventName, body)
         | _ -> None
 
     let (|ConstructorCall|_|) = function
@@ -522,9 +540,15 @@ module TypeHelpers =
     open Helpers
     open Patterns
 
+    // Sometimes the names of user-declared and compiler-generated clash, see #1900
+    let genParamName (genParam: FSharpGenericParameter) =
+        if genParam.IsCompilerGenerated then genParam.Name + "$"
+        else genParam.Name
+
     let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
-        match Map.tryFind genParam.Name ctxTypeArgs with
-        | None -> Fable.GenericParam genParam.Name
+        let name = genParamName genParam
+        match Map.tryFind name ctxTypeArgs with
+        | None -> Fable.GenericParam name
         | Some typ -> typ
 
     let rec makeGenArgs (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) =
@@ -545,35 +569,39 @@ module TypeHelpers =
                     |> Seq.find (fun f -> f.DisplayName = "Invoke")
                 invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
                 invokeMember.ReturnParameter.Type
-        let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map (fun x -> x.Name)) genArgs |> Map
+        let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map genParamName) genArgs |> Map
         let resolveType (t: FSharpType) =
-            if t.IsGenericParameter then Map.find t.GenericParameter.Name genArgs else t
+            if t.IsGenericParameter then Map.find (genParamName t.GenericParameter) genArgs else t
         let argTypes = argTypes |> Seq.map (resolveType >> makeType com ctxTypeArgs) |> Seq.toList
         let returnType = returnType |> resolveType |> makeType com ctxTypeArgs
         Fable.FunctionType(Fable.DelegateType argTypes, returnType)
 
     and makeTypeFromDef (com: ICompiler) ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
-        match getEntityFullName tdef, tdef with
-        | _ when tdef.IsArrayType -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
-        | _ when tdef.IsDelegate -> makeTypeFromDelegate com ctxTypeArgs genArgs tdef
-        | fullName, _ when tdef.IsEnum -> Fable.EnumType(Fable.NumberEnumType, fullName)
-        // Fable "primitives"
-        | Types.object, _ -> Fable.Any
-        | Types.unit, _ -> Fable.Unit
-        | Types.bool, _ -> Fable.Boolean
-        | Types.char, _ -> Fable.Char
-        | Types.string, _ -> Fable.String
-        | Types.regex, _ -> Fable.Regex
-        | Types.valueOption, _
-        | Types.option, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Option
-        | Types.resizeArray, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
-        | Types.list, _ -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.List
-        | NumberKind kind, _ -> Fable.Number kind
-        // Special attributes
-        | fullName, ContainsAtt Atts.stringEnum _ -> Fable.EnumType(Fable.StringEnumType, fullName)
-        | _, ContainsAtt Atts.erase _ -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
-        // Rest of declared types
-        | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
+        if tdef.IsArrayType then
+            makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
+        elif tdef.IsDelegate then
+            makeTypeFromDelegate com ctxTypeArgs genArgs tdef
+        elif tdef.IsEnum then
+            Fable.Enum tdef
+        else
+            match getEntityFullName tdef with
+            // Fable "primitives"
+            | Types.object -> Fable.Any
+            | Types.unit -> Fable.Unit
+            | Types.bool -> Fable.Boolean
+            | Types.char -> Fable.Char
+            | Types.string -> Fable.String
+            | Types.regex -> Fable.Regex
+            | Types.valueOption
+            | Types.option -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Option
+            | Types.resizeArray -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.Array
+            | Types.list -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.List
+            | NumberKind kind -> Fable.Number kind
+            // Special attributes
+            | _ when hasAtt Atts.stringEnum tdef.Attributes -> Fable.String
+            | _ when hasAtt Atts.erase tdef.Attributes -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
+            // Rest of declared types
+            | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
 
     and makeType (com: ICompiler) (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -630,7 +658,7 @@ module TypeHelpers =
         |> Seq.toList
 
     let isAbstract (ent: FSharpEntity) =
-       tryFindAtt Atts.abstractClass ent.Attributes |> Option.isSome
+       hasAtt Atts.abstractClass ent.Attributes
 
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0
@@ -777,7 +805,7 @@ module Util =
         Fable.TryCatch(body, catchClause, finalizer, r)
 
     let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
-        Seq.zip (genParams |> Seq.map (fun x -> x.Name)) genArgs
+        Seq.zip (genParams |> Seq.map genParamName) genArgs
 
     let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
         let genArgsLen = Seq.length genArgs
@@ -1082,10 +1110,11 @@ module Util =
             let inExpr = com.GetInlineExpr(memb)
             let ctx, bindings =
                 ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
-                    // Change type and mark ident as compiler-generated so it can be optimized
+                    // Change type and mark ident as compiler-generated so Fable also
+                    // tries to inline it in DEBUG mode (some patterns depend on this)
                     let ident = { makeIdentFrom com ctx argId with
                                     Type = arg.Type
-                                    Kind = Fable.InlinedArg }
+                                    Kind = Fable.CompilerGenerated }
                     let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map
@@ -1167,8 +1196,9 @@ module Util =
                 || memb.IsDispatchSlot ->
             callInstanceMember com r typ argInfo memb
         | _ ->
-            if isModuleValue
-            then memberRefTyped com ctx r typ memb
+            if isModuleValue then
+                let typ = makeType com ctx.GenericArgs memb.FullType
+                memberRefTyped com ctx r typ memb
             else
                 let argInfo =
                     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
@@ -1180,7 +1210,7 @@ module Util =
         let typ = makeType com ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit ->
-            if com.Options.verbose && not v.IsCompilerGenerated then // See #1516
+            if com.Options.verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
