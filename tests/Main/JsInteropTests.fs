@@ -9,6 +9,9 @@ open Fable.Core.JsInterop
 open Fable.Core.DynamicExtensions
 open Fable.Core.Experimental
 
+let inline getNameofLambda (f: 'T->'U) =
+    nameofLambda f
+
 [<Global>]
 module GlobalModule =
     [<Emit("var GlobalModule = { add(x, y) { return x + y }, foo: 'bar' }")>]
@@ -306,6 +309,9 @@ let tests =
     testCase "nameofLambda works" <| fun () ->
         nameofLambda(fun (x:Record) -> x.String) |> equal "String"
         nameofLambda(fun (x:Record) -> x.Int) |> equal "Int"
+
+    testCase "nameofLambda works in inlined functions" <| fun () ->
+        getNameofLambda (fun (x:Record) -> x.String) |> equal "String"
 
     testCase "StringEnum attribute works" <| fun () ->
         Vertical |> unbox |> equal "vertical"

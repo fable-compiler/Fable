@@ -45,15 +45,15 @@ let tests =
     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europte/Paris (GMT+2)
 
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
-        let date = DateTime(1, 1, 1)
+        let date = DateTime(1, 1, 2)
         date.Year |> equal 1
-        let date = DateTime(99, 1, 1)
+        let date = DateTime(99, 1, 2)
         date.Year |> equal 99
 
     testCase "DateTime UTC from Year 1 to 99 works" <| fun () ->
-        let date = DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        let date = DateTime(1, 1, 2, 0, 0, 0, DateTimeKind.Utc)
         date.Year |> equal 1
-        let date = DateTime(99, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+        let date = DateTime(99, 1, 2, 0, 0, 0, DateTimeKind.Utc)
         date.Year |> equal 99
 
     // TODO: These two tests give different values for .NET and JS because DateTime

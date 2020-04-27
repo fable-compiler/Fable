@@ -1067,9 +1067,19 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                makeStrConst Naming.unknown |> Some
     | _, "nameofLambda" ->
         match args with
-        | [Function(_, (Nameof com ctx name), _)] -> name
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r; Naming.unknown
+        | [Function(_, (Nameof com ctx name), _)] -> Some name
+        | [IdentExpr ident] ->
+            ctx.Scope |> List.tryPick (fun (_,ident2,expr) ->
+                if ident.Name = ident2.Name then
+                    match expr with
+                    | Some(Function(_, (Nameof com ctx name), _)) -> Some name
+                    | _ -> None
+                else None)
+        | _ -> None
+        |> Option.defaultWith (fun () ->
+            "Cannot infer name of expression"
+            |> addError com ctx.InlinePath r
+            Naming.unknown)
         |> makeStrConst |> Some
     | _, "Async.AwaitPromise.Static" -> Helper.CoreCall("Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.CoreCall("Async", "startAsPromise", t, args, ?loc=r) |> Some
