@@ -46,6 +46,7 @@ type IFableCompiler =
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract AddUsedVarName: string * ?isRoot: bool -> unit
     abstract IsUsedVarName: string -> bool
+    abstract AddInlineDependency: string -> unit
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
@@ -132,9 +133,17 @@ module Helpers =
                 else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
             | None -> memb.CompiledName, Naming.NoMemberPart
 
+    /// Returns the sanitized name for the member declaration and whether it has an overload suffix
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        getMemberMangledName com true memb
-        ||> Naming.sanitizeIdent (fun _ -> false)
+        let name, part = getMemberMangledName com true memb
+        let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name part
+        let hasOverloadSuffix =
+            match part with
+            | Naming.InstanceMemberPart(_, overloadSuffix)
+            | Naming.StaticMemberPart(_, overloadSuffix) ->
+                String.IsNullOrEmpty(overloadSuffix) |> not
+            | Naming.NoMemberPart -> false
+        sanitizedName, hasOverloadSuffix
 
     /// Used to identify members uniquely in the inline expressions dictionary
     let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
@@ -945,7 +954,7 @@ module Util =
 
     let memberRefTyped (com: IFableCompiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
-        let memberName = getMemberDeclarationName com memb
+        let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
             match memb.DeclaringEntity with
             | Some ent ->
@@ -958,6 +967,9 @@ module Util =
             { makeTypedIdentNonMangled typ memberName with Range = r }
             |> Fable.IdentExpr
         elif isPublicMember memb then
+            // If the overload suffix changes, we need to recompile the files that call this member
+            if hasOverloadSuffix then
+                com.AddInlineDependency(file)
             makeInternalImport com typ memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName

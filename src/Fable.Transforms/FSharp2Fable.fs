@@ -413,7 +413,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // Values
     | BasicPatterns.Const(value, typ) ->
-        let typ = nonAbbreviatedType typ
         let typ = makeType com ctx.GenericArgs typ
         return Replacements.makeTypeConst (makeRangeFrom fsExpr) typ value
 
@@ -847,7 +846,7 @@ let private transformImplicitConstructor com (ctx: Context)
             match baseCons with
             | Some(baseExpr, baseCons) -> Some baseExpr, Fable.Sequential [baseCons; body]
             | None -> None, body
-        let name = getMemberDeclarationName com memb
+        let name, _ = getMemberDeclarationName com memb
         let entityName = getEntityDeclarationName com ent
         com.AddUsedVarName(name)
         com.AddUsedVarName(entityName)
@@ -943,7 +942,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
-    let name = getMemberDeclarationName com memb
+    let name, _ = getMemberDeclarationName com memb
     com.AddUsedVarName(name)
     match memb.Attributes with
     | ImportAtt(selector, path) ->
@@ -1019,7 +1018,7 @@ let rec checkMemberNames (com: FableCompiler) decls =
             | sub -> checkMemberNames com sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
             if not(memb.IsOverrideOrExplicitInterfaceImplementation || isIgnoredNonAttachedMember memb) then
-                let memberName = getMemberDeclarationName com memb
+                let memberName, _ = getMemberDeclarationName com memb
                 com.AddUsedVarName(memberName, isRoot=true)
         | FSharpImplementationFileDeclaration.InitAction _ -> ()
 
@@ -1131,8 +1130,7 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
                     (getMemberLocation memb).FileName
                     |> Path.normalizePathAndEnsureFsExtension
                 if fileName <> com.CurrentFile then
-                    // TODO: Add literal values as InlineDependencies too?
-                    this.InlineDependencies.Add(fileName) |> ignore
+                    (this :> IFableCompiler).AddInlineDependency(fileName)
                 com.GetOrAddInlineExpr(membUniqueName, fun () ->
                     match tryGetMemberArgsAndBody com implFiles fileName entFullName membUniqueName with
                     | Some(args, body) ->
@@ -1144,6 +1142,8 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
             this.AddUsedVarName(varName, ?isRoot=isRoot)
         member this.IsUsedVarName(varName) =
             this.UsedVarNames.Contains(varName)
+        member this.AddInlineDependency(fileName) =
+            this.InlineDependencies.Add(fileName) |> ignore
     interface ICompiler with
         member __.Options = com.Options
         member __.LibraryDir = com.LibraryDir
