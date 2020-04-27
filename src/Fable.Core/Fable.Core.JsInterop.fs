@@ -82,7 +82,7 @@ let importSideEffects (path: string): unit = jsNative
 let importDynamic<'T> (path: string): JS.Promise<'T> = jsNative
 
 /// Imports a reference from an external file dynamically at runtime
-/// ATENTION: Needs fable-compiler 2.3, pass the reference directly in argument position (avoid pipes)
+/// ATTENTION: Needs fable-compiler 2.3, pass the reference directly in argument position (avoid pipes)
 let importValueDynamic (x: 'T): JS.Promise<'T> = jsNative
 
 /// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
