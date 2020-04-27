@@ -155,13 +155,13 @@ module Naming =
         // Digits are not allowed in first position, see #1397
         || (index > 0 && 48 <= code && code <= 57) // 0-9
 
-    let hasIdentForbiddenChars (ident: string) =
+    let hasIdentForbiddenChars isIdentChar (ident: string) =
         let mutable i = 0
         while i < ident.Length && (isIdentChar i ident.[i]) do i <- i + 1
         i < ident.Length
 
-    let sanitizeIdentForbiddenChars (ident: string) =
-        if hasIdentForbiddenChars ident then
+    let sanitizeIdentForbiddenCharsWith isIdentChar (ident: string) =
+        if hasIdentForbiddenChars isIdentChar ident then
             System.String.Concat(seq {
                 for i = 0 to (ident.Length - 1) do
                     let c = ident.[i]
@@ -170,6 +170,9 @@ module Naming =
                     else yield "$" + System.String.Format("{0:X}", int c).PadLeft(4, '0')
                 })
         else ident
+
+    let sanitizeIdentForbiddenChars (ident: string) =
+        sanitizeIdentForbiddenCharsWith isIdentChar ident
 
     /// Does not guarantee unique names, only used to clean function constructor names
     let unsafeReplaceIdentForbiddenChars (replacement: char) (ident: string): string =
@@ -278,12 +281,15 @@ module Naming =
         then name + "$"
         else name
 
-    let sanitizeIdent conflicts name part =
+    let sanitizeIdentWith isIdentChar conflicts name part =
         // Replace Forbidden Chars
-        buildName sanitizeIdentForbiddenChars name part
+        buildName (sanitizeIdentForbiddenCharsWith isIdentChar) name part
         |> checkJsKeywords
         // Check if it already exists
         |> preventConflicts conflicts
+
+    let sanitizeIdent conflicts name part =
+        sanitizeIdentWith isIdentChar conflicts name part
 
 module Path =
     open System
