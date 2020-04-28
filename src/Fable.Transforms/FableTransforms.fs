@@ -348,8 +348,8 @@ module private Transforms =
     // TODO: Do we need to do this recursively, and check options and delegates too?
     let checkSubArguments com expectedType (expr: Expr) =
         match expectedType, expr with
-        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_))
-                when List.sameLength expectedArgs actualArgs ->
+        | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_)) ->
+            let actualArgs = List.truncate expectedArgs.Length actualArgs
             let _, replacements =
                 ((0, Map.empty), expectedArgs, actualArgs)
                 |||> List.fold2 (fun (index, replacements) expected actual ->
