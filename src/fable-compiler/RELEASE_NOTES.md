@@ -1,3 +1,9 @@
+### 2.8.2
+
+* Prevent re-mangling of imported members with dollar sign
+* Add calls to members with overload suffix as inline dependencies
+* Make nameofLambda work in inlined functions
+
 ### 2.8.1
 
 * Fix #2030: Fix Array.map3 implementation (by @ncave)
