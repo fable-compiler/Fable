@@ -1,3 +1,7 @@
+### 2.8.3
+
+* Revert "Prevent re-mangling of imported members with dollar sign"
+
 ### 2.8.2
 
 * Prevent re-mangling of imported members with dollar sign
