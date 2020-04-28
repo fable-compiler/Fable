@@ -126,7 +126,8 @@ module Naming =
 
     /// This used to be "" for compatibility with Require.js
     /// Mainly used for fable-library imports
-    let targetFileExtension = ".js"
+    let javaScriptFileExtension = ".js"
+    let typeScriptFileExtension = ""
 
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"

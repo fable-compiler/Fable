@@ -2,7 +2,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import fableSplitter, { CompilationInfo } from "./index";
+import fableSplitter, { CompilationInfo, FableSplitterOptions } from "./index";
 import runScript from "./run";
 
 const chokidarLazy = requireLazy("chokidar");
@@ -173,7 +173,7 @@ function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish
 function run(entry, args) {
     const cfgFile = findArgValue(args, ["-c", "--config"]);
 
-    const opts = cfgFile
+    const opts : FableSplitterOptions = cfgFile
         ? readConfig(cfgFile, true)
         : (readConfig("fable-splitter.config.js") || readConfig("splitter.config.js") || {});
 
@@ -189,6 +189,12 @@ function run(entry, args) {
     if (findFlag(args, ["-d", "--debug"])) {
         const fableOpts = opts.fable || {};
         fableOpts.define = concatSafe(fableOpts.define, "DEBUG");
+        opts.fable = fableOpts;
+    }
+
+    if (findFlag(args, "--typescript")) {
+        const fableOpts = opts.fable || {};
+        fableOpts.typescript = true;
         opts.fable = fableOpts;
     }
 

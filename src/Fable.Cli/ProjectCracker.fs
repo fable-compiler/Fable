@@ -370,17 +370,22 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
         for newPath in Directory.GetFiles(source, "*.*", SearchOption.AllDirectories) do
             File.Copy(newPath, newPath.Replace(source, target), true)
 
-let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
+let copyFableLibraryAndPackageSources rootDir (isTypeScript : bool) (pkgs: FablePackage list) =
     let fableDir = createFableDir rootDir
-    let fableLibrarySource = GlobalParams.Singleton.FableLibraryPath
+    let fableLibrarySource = GlobalParams.Singleton.FableLibraryPath isTypeScript
+    let fableDirectoryName =
+        if isTypeScript then
+            "fable-library-ts"
+        else
+            "fable-library-js"
     let fableLibraryPath =
         if fableLibrarySource.StartsWith(Literals.FORCE)
         then fableLibrarySource.Replace(Literals.FORCE, "")
         else
             if isDirectoryEmpty fableLibrarySource then
-                failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
-            Log.verbose(lazy ("fable-library: " + fableLibrarySource))
-            let fableLibraryTarget = IO.Path.Combine(fableDir, "fable-library" + "." + Literals.VERSION)
+                failwithf "%s directory is empty, please build FableLibrary: %s" fableDirectoryName fableLibrarySource
+            Log.verbose(lazy (fableDirectoryName + ": " + fableLibrarySource))
+            let fableLibraryTarget = IO.Path.Combine(fableDir, fableDirectoryName + "." + Literals.VERSION)
             copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
             fableLibraryTarget
     let pkgRefs =
@@ -396,13 +401,13 @@ let removeFilesInObjFolder sourceFiles =
     let reg = System.Text.RegularExpressions.Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
-let getFullProjectOpts (define: string[]) (rootDir: string) (projFile: string) =
+let getFullProjectOpts (define: string[]) (rootDir: string) (isTypeScript : bool) (projFile: string) =
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
     let projRefs, mainProj = retryGetCrackedProjects define projFile
     let fableLibraryPath, pkgRefs =
-        copyFableLibraryAndPackageSources rootDir mainProj.PackageReferences
+        copyFableLibraryAndPackageSources rootDir isTypeScript mainProj.PackageReferences
     let projOpts =
         let sourceFiles =
             let pkgSources = pkgRefs |> List.collect getSourcesFromFsproj

@@ -16,7 +16,7 @@
     "@babel/plugin-transform-modules-commonjs": "^7.9.0",
     "@babel/preset-env": "^7.9.0",
     "@babel/register": "^7.9.0",
-    "@types/node": "^13.11.1",
+    "@types/node": "^13.13.2",
     "babel-loader": "^8.1.0",
     "concurrently": "^5.1.0",
     "download-cli": "^1.1.1",

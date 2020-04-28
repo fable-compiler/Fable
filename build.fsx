@@ -62,9 +62,24 @@ let buildWebpack projectDir =
     run ("npx webpack --config " + (projectDir </> "webpack.config.js"))
 
 let buildLibrary() =
-    cleanDirs ["build/fable-library"]
-    buildTypescript "src/fable-library"
-    buildSplitter "src/fable-library"
+    let jsOutput = "build/fable-library-js"
+    let tsOuput = "build/fable-library-ts"
+    let librarySource = "src/fable-library"
+    cleanDirs [ jsOutput; tsOuput]
+    // Build the JavaScript version of fable-library to fable-library-js
+    buildTypescript librarySource
+    buildSplitter librarySource
+    // Build the TypeScript version of fable-library to fable-library-ts
+    copyDirRecursiveWithPredicate
+        "src/fable-library"
+        tsOuput
+        (fun filename ->
+            not (filename.Contains("obj/"))
+                && not (filename.Contains("bin/"))
+                && filename.EndsWith(".ts")
+        )
+    let args = sprintf "--outDir %s --typescript" tsOuput
+    buildSplitterWithArgs librarySource args
 
 let quicktest additionalCommands =
     cleanDirs ["build/fable-library"]
@@ -78,7 +93,7 @@ let quicktest additionalCommands =
 
 let buildCompiler() =
     let projectDir = "src/fable-compiler"
-    let libraryDir = "build/fable-library"
+    let libraryDir = "build/fable-library-js"
     cleanDirs [projectDir </> "dist"; projectDir </> "bin"]
     buildTypescript projectDir
     updateVersionInCliUtil()

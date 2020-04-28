@@ -2014,7 +2014,13 @@ module Compiler =
                 let sanitizedPath =
                     match kind with
                     | Fable.CustomImport | Fable.Internal -> path
-                    | Fable.Library -> com.LibraryDir + "/" + path + Naming.targetFileExtension
+                    | Fable.Library ->
+                        let extension =
+                            if com.Options.typeDecls then
+                                Naming.typeScriptFileExtension
+                            else
+                                Naming.javaScriptFileExtension
+                        com.LibraryDir + "/" + path + extension
                 let cachedName = sanitizedPath + "::" + selector
                 match imports.TryGetValue(cachedName) with
                 | true, i ->

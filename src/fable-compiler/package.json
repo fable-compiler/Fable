@@ -19,6 +19,6 @@
   },
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "devDependencies": {
-    "@types/node": "^10.12.8"
+    "@types/node": "^13.13.2"
   }
 }

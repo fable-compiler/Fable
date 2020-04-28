@@ -15,7 +15,7 @@ const fableOptions = {
 
 const outDir = useCommonjs
   ? "../../build/fable-library-commonjs"
-  : "../../build/fable-library";
+  : "../../build/fable-library-js";
 
 module.exports = {
   cli: {

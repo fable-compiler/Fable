@@ -114,6 +114,12 @@ let setGlobalParams(args: string[]) =
         | Some _, _ -> Verbosity.Verbose
         | None, Some _ -> Verbosity.Silent
         | None, None -> Verbosity.Normal
+
+    let isTypeScript =
+        match tryFindArgValue "--typescript" args with
+        | Some _ -> true
+        | None -> false
+
     GlobalParams.Singleton.SetValues(
         verbosity = verbosity,
         forcePkgs = (tryFindArgValue "--force-pkgs" args |> Option.isSome),

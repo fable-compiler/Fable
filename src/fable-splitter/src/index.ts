@@ -19,6 +19,7 @@ function getTcpPort(opts: FableSplitterOptions) {
 const FSHARP_EXT = /\.(fs|fsx|fsproj)$/;
 const FSPROJ_EXT = /\.fsproj$/;
 const JAVASCRIPT_EXT = /\.js$/;
+const TYPESCRIPT_EXT = /\.ts$/;
 const MACRO = /^\${(\w+)}[\\/]?(.*?)([\\/]?)$/;
 
 const customPlugins: any[] = [
@@ -35,12 +36,17 @@ export type CompilationInfo = {
     logs: { [severity: string]: string[] },
 };
 
+export type FableOptionsExtra = {
+    [key: string]: any;
+}
+
 export type FableOptions = {
     define?: string[],
     plugins?: string[],
     typedArrays?: boolean,
     clampByteArrays?: boolean,
-    // extra?: any,
+    typescript?: boolean,
+    extra?: FableOptionsExtra
 };
 
 export type FableSplitterOptions = {
@@ -54,6 +60,7 @@ export type FableSplitterOptions = {
     allFiles?: boolean,
     externals?: any,
     postbuild?: () => void,
+    [key: string]: any;
 };
 
 function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
@@ -120,7 +127,7 @@ function getOutPath(path: string, info: CompilationInfo): string {
     let outPath = info.mapInOutPaths.get(path);
     if (!outPath) {
         // get file name without extensions
-        const fileName = Path.basename(path).replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "");
+        const fileName = Path.basename(path).replace(FSHARP_EXT, "").replace(JAVASCRIPT_EXT, "").replace(TYPESCRIPT_EXT, "");
         // flat folder structure (one level deep)
         const pathDir = Path.dirname(path);
         // If pathDir is same as entry dir don't create nested folder
@@ -140,12 +147,13 @@ function getOutPath(path: string, info: CompilationInfo): string {
     return outPath;
 }
 
-function getFullPath(relPath: string, isDir?: boolean) {
+function getFullPath(relPath: string, isDir?: boolean, isTypescriptImport?: boolean) {
     const fullPath = Path.resolve(relPath).replace(/\\/g, "/");
-    if (isDir || FSHARP_EXT.test(fullPath) || JAVASCRIPT_EXT.test(fullPath)) {
+    if (isDir || FSHARP_EXT.test(fullPath) || JAVASCRIPT_EXT.test(fullPath) || TYPESCRIPT_EXT.test(fullPath) ) {
         return fullPath;
     } else {
-        return fullPath + ".js";
+        const extension = isTypescriptImport ? ".ts" : ".js";
+        return fullPath + extension;
     }
 }
 
@@ -263,7 +271,12 @@ async function getBabelAst(path: string, options: FableSplitterOptions, info: Co
         ast = babelAst;
     } else {
         // return Babel AST from JS file
-        path = JAVASCRIPT_EXT.test(path) ? path : path + ".js";
+        // Perhaps we need to check for both .ts and .js file and using Typescript mode
+        if (options.fable?.typescript) {
+            path = TYPESCRIPT_EXT.test(path) ? path : path + ".ts";
+        } else {
+            path = JAVASCRIPT_EXT.test(path) ? path : path + ".js";
+        }
         if (fs.existsSync(path)) {
             ast = await getBabelAstFromJsFile(path, info);
         } else {
@@ -316,7 +329,8 @@ async function generateJsCode(fullPath: string, ast: Babel.types.Program,
                               options: FableSplitterOptions,
                               info: CompilationInfo) {
     // resolve output paths
-    const outPath = getOutPath(fullPath, info) + ".js";
+    const ext = options.fable?.typescript === undefined ? ".js" : ".ts";
+    const outPath = getOutPath(fullPath, info) + ext;
     const jsPath = join(options.outDir, outPath);
     const jsDir = Path.dirname(jsPath);
     ensureDirExists(jsDir);
@@ -347,8 +361,9 @@ async function generateJsCode(fullPath: string, ast: Babel.types.Program,
 }
 
 async function transformAsync(path: string, options: FableSplitterOptions,
-                              info: CompilationInfo, force?: boolean): Promise<void> {
-    const fullPath = getFullPath(path);
+                              info: CompilationInfo, force?: boolean, isTypeScriptImport? : boolean): Promise<void> {
+    console.log(isTypeScriptImport);
+    const fullPath = getFullPath(path, undefined, isTypeScriptImport);
     if (!info.compiledPaths.has(fullPath)) {
         info.compiledPaths.add(fullPath);
     } else if (!force) {
@@ -356,7 +371,6 @@ async function transformAsync(path: string, options: FableSplitterOptions,
     }
 
     const ast = await getBabelAst(fullPath, options, info);
-
     if (ast != null) {
         const importPaths: string[] = [];
         const fromDir = Path.dirname(fullPath);
@@ -364,6 +378,7 @@ async function transformAsync(path: string, options: FableSplitterOptions,
         // Fix import paths
         for (const decl of getRelativeOrAbsoluteImportDeclarations(ast)) {
             const importPath = decl.source.value;
+            console.log(importPath);
             importPaths.push(importPath);
             decl.source.value = fixImportPath(fromDir, importPath, info);
         }
@@ -381,7 +396,8 @@ async function transformAsync(path: string, options: FableSplitterOptions,
         const dir = Path.dirname(fullPath);
         for (const importPath of importPaths) {
             const relPath = join(dir, importPath);
-            await transformAsync(relPath, options, info);
+            const isTypeScript = options.fable?.typescript;
+            await transformAsync(relPath, options, info, undefined, isTypeScript);
         }
     }
 }

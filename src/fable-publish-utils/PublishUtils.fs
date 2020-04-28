@@ -125,23 +125,34 @@ let rec removeDirRecursive (p: string): unit =
 let mkDirRecursive (p: string): unit =
     fs?mkdirSync(p, %["recursive" ==> true])
 
-let rec copyDir (source: string) (target: string) (recursive: bool): unit =
-    if fs?existsSync(target) |> not then
-        mkDirRecursive target
+let rec copyDirWithPredicate (source: string) (target: string) (recursive: bool) (predicate : string -> bool): unit =
+    let targetDir = target
     for file in dirFiles source do
         let source = source </> file
         let target = target </> file
         if isDirectory source then
             if recursive then
-                copyDir source target recursive
+                copyDirWithPredicate source target recursive predicate
         else
-            fs?copyFileSync(source, target)
+            if fs?existsSync(targetDir) |> not then
+                mkDirRecursive targetDir
+            if predicate source then
+                fs?copyFileSync(source, target)
+
+let copyDir (source: string) (target: string) (recursive: bool) : unit =
+    copyDirWithPredicate source target recursive (fun _ -> true)
 
 let copyDirNonRecursive (source: string) (target: string): unit =
     copyDir source target false
 
 let copyDirRecursive (source: string) (target: string): unit =
     copyDir source target true
+
+let copyDirNonRecursiveWithPredicate (source: string) (target: string) (predicate : string -> bool): unit =
+    copyDirWithPredicate source target false predicate
+
+let copyDirRecursiveWithPredicate (source: string) (target: string) (predicate : string -> bool): unit =
+    copyDirWithPredicate source target true predicate
 
 let copyFile (source: string) (target: string): unit =
     if isDirectory source then

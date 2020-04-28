@@ -80,8 +80,8 @@ type GlobalParams private (verbosity, forcePkgs, fableLibraryPath, workingDir) =
               |> Path.GetDirectoryName
             let defaultFableLibraryPaths =
                 [ "../fable-library"                         // running from npm package
-                  "../../fable-library/"                     // running from nuget package
-                  "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp2.0
+                  "../../fable-library"                     // running from nuget package
+                  "../../../../../build/fable-library" ] // running from development release located at bin/Release/netcoreapp2.0
                 |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
             let fableLibraryPath =
                 defaultFableLibraryPaths
@@ -93,7 +93,18 @@ type GlobalParams private (verbosity, forcePkgs, fableLibraryPath, workingDir) =
 
     member __.Verbosity: Fable.Verbosity = _verbosity
     member __.ForcePkgs: bool = _forcePkgs
-    member __.FableLibraryPath: string = _fableLibraryPath
+    member __.FableLibraryPath (isTypeScript : bool) : string =
+        // Check if FableLibrary is at the root level
+        // This check is needed when fable-library itself, because the path to import it then is "/" or "${outDir}" when working with fable-splitter
+        // I don't think this check is needed for a normal project
+        let trimed = _fableLibraryPath.Replace('\\', '/').Trim('/')
+        if trimed = "force:${outDir}" || trimed = "${outDir}" || trimed = "" then
+            _fableLibraryPath
+        else
+            if isTypeScript then
+                _fableLibraryPath.TrimEnd('/') + "-ts"
+            else
+                _fableLibraryPath.TrimEnd('/') + "-js"
     member __.WorkingDir: string = _workingDir
     member __.ReplaceFiles = _replaceFiles
     member __.Experimental = _experimental
