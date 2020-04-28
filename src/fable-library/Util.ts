@@ -696,7 +696,7 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
   }
 }
 
-type CurriedArgMapping = [number, number] | 0;
+type CurriedArgMapping = [number, number] | 0; // expected arity, actual arity
 
 export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
   function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {

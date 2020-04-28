@@ -1108,6 +1108,14 @@ let tests7 = [
         let y = addOne (+) 2
         equal 3 x
         equal 3 y
+
+    testCase "fold produces incorrect output when state is a function with arity > 1" <| fun () -> // See #2035
+        let folder state value x y = value :: state x y
+        let state x y = [x; y]
+        let d = List.fold folder state [0..3]
+        d 42 42 |> equal [3; 2; 1; 0; 42; 42]
+        let s = Seq.fold folder state [0..3]
+        s 15 20 |> equal [3; 2; 1; 0; 15; 20]
 ]
 
 // Test ported directly from https://github.com/fable-compiler/Fable/pull/1336/files
