@@ -1069,12 +1069,17 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Function(_, (Nameof com ctx name), _)] -> Some name
         | [IdentExpr ident] ->
-            ctx.Scope |> List.tryPick (fun (_,ident2,expr) ->
-                if ident.Name = ident2.Name then
-                    match expr with
-                    | Some(Function(_, (Nameof com ctx name), _)) -> Some name
-                    | _ -> None
-                else None)
+            let rec findLambda scope identName =
+                match scope with
+                | [] -> None
+                | (_,ident2,expr)::prevScope ->
+                    if identName = ident2.Name then
+                        match expr with
+                        | Some(Function(_, (Nameof com ctx name), _)) -> Some name
+                        | Some(IdentExpr ident) -> findLambda prevScope ident.Name
+                        | _ -> None
+                    else findLambda prevScope identName
+            findLambda ctx.Scope ident.Name
         | _ -> None
         |> Option.defaultWith (fun () ->
             "Cannot infer name of expression"
