@@ -1,3 +1,8 @@
+### 2.8.4
+
+* Fix #2035: fold when state is func of arity > 1
+* Improve resolution of nameofLambda in inline functions
+
 ### 2.8.3
 
 * Revert "Prevent re-mangling of imported members with dollar sign"
