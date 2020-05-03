@@ -39,7 +39,7 @@ module JS =
 
     let fs: IFileSystem = importAll "fs"
     let os: IOperSystem = importAll "os"
-    let proc: IProcess = importAll "process"
+    let process: IProcess = importAll "process"
     let path: IPath = importAll "path"
     let util: IUtil = importAll "./util.js"
 
@@ -48,9 +48,9 @@ let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimSt
 let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.proc.hrtime()
+    let startTime = JS.process.hrtime()
     let res = f x
-    let elapsed = JS.proc.hrtime(startTime)
+    let elapsed = JS.process.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
 let getVersion = JS.util.getVersion
