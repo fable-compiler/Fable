@@ -137,7 +137,7 @@ export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, li
     // this solves a weird commonjs issue where some imports are not properly qualified
     babelAst = JSON.parse(serializeToJson(babelAst)); // somehow this helps with that
     const sourcePath = babelAst.fileName;
-    const jsPath = filePath.replace(FSHARP_EXT, ".js");
+    const jsPath = filePath.replace(FSHARP_EXT, options.typeDecls ? ".ts" : ".js");
     let outPath = Path.resolve(outDir, jsPath);
     outPath = ensureUniquePath(sourcePath, outPath);
     ensureDirExists(Path.dirname(outPath));

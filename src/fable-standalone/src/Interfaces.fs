@@ -47,6 +47,13 @@ type IBabelResult =
     abstract BabelAst: obj
     abstract FableErrors: Error[]
 
+type CompilerConfig =
+    { typedArrays: bool
+      clampByteArrays: bool
+      typeDecls: bool
+      precompiledLib: (string -> (string * string) option) option
+    }
+
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker
     abstract ClearParseCaches: checker: IChecker -> unit
@@ -57,5 +64,5 @@ type IFableManager =
     abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Range option>
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>
     abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Completion[]>
-    abstract CompileToBabelAst: fableLibrary: string * parseResults: IParseResults * fileName: string * ?precompiledLib: (string->(string*string) option) -> IBabelResult
+    abstract CompileToBabelAst: fableLibrary: string * parseResults: IParseResults * fileName: string * ?config: CompilerConfig -> IBabelResult
     abstract FSharpAstToString: parseResults: IParseResults * fileName: string -> string

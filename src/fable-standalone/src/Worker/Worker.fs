@@ -111,11 +111,19 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
 
     | Some fable, CompileCode(fsharpCode, otherFSharpOptions) ->
         try
+            // detect (and remove) a passed non-F# compiler option to avoid changing msg contract
+            let useTypeDeclarations = otherFSharpOptions |> Array.contains "--typescript"
+            let otherFSharpOptions = otherFSharpOptions |> Array.filter ((<>) "--typescript")
             // Check if we need to recreate the FableState because otherFSharpOptions have changed
             let! fable = makeFableState (Initialized fable) otherFSharpOptions
             let (parseResults, parsingTime) = measureTime (fun () -> fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             let (res, fableTransformTime) = measureTime (fun () ->
-                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, fun x -> resolveLibCall(fable.LibMap, x))) ()
+                let fableConfig =
+                    { typedArrays = true
+                      clampByteArrays = false
+                      typeDecls = useTypeDeclarations
+                      precompiledLib = Some (fun x -> resolveLibCall(fable.LibMap, x)) }
+                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, fableConfig)) ()
             let (jsCode, babelTime, babelErrors) =
                 try
                     let code, t = measureTime fable.BabelAstCompiler res.BabelAst

@@ -213,16 +213,22 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
         return [||]
 }
 
-let makeCompiler fableLibrary fileName (project: Project) precompiledLib (otherFSharpOptions: string[]) =
-    let options: Fable.CompilerOptions =
-        { typedArrays = true
-          clampByteArrays = false
-          debugMode = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
-          verbosity = Fable.Verbosity.Normal
-          outputPublicInlinedFunctions = false
-          precompiledLib = precompiledLib }
-    let com = Compiler(fileName, project, options, fableLibrary)
-    com
+let defaultCompilerConfig: CompilerConfig =
+    { typedArrays = true
+      clampByteArrays = false
+      typeDecls = false
+      precompiledLib = None }
+
+let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: string[]): Fable.CompilerOptions =
+    let config = defaultArg config defaultCompilerConfig
+    let isDebug = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
+    { typedArrays = config.typedArrays
+      clampByteArrays = config.clampByteArrays
+      typeDecls = config.typeDecls
+      debugMode = isDebug
+      verbosity = Fable.Verbosity.Normal
+      outputPublicInlinedFunctions = false
+      precompiledLib = config.precompiledLib }
 
 let compileAst (com: Compiler) (project: Project) =
     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
@@ -270,10 +276,11 @@ let init () =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string, ?precompiledLib) =
+        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string, ?config) =
             let res = parseResults :?> ParseResults
             let project = res.GetProject()
-            let com = makeCompiler fableLibrary fileName project precompiledLib parseResults.OtherFSharpOptions
+            let options = makeCompilerOptions config parseResults.OtherFSharpOptions
+            let com = Compiler(fileName, project, options, fableLibrary)
             let ast = compileAst com project
             let errors =
                 com.GetLogs()

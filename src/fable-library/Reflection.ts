@@ -63,11 +63,11 @@ export function compare(t1: TypeInfo, t2: TypeInfo): number {
   }
 }
 
-export function type(fullname: string, generics?: TypeInfo[]): TypeInfo {
+export function generic_type(fullname: string, generics?: TypeInfo[]): TypeInfo {
   return new TypeInfo(fullname, generics);
 }
 
-export function record(
+export function record_type(
   fullname: string,
   generics: TypeInfo[],
   constructor: Constructor,
@@ -75,13 +75,13 @@ export function record(
   return new TypeInfo(fullname, generics, constructor, fields);
 }
 
-export function anonRecord(...fields: FieldInfo[]): TypeInfo {
+export function anonRecord_type(...fields: FieldInfo[]): TypeInfo {
   return new TypeInfo("", undefined, undefined, () => fields);
 }
 
 export type CaseInfoInput = string | [string, FieldInfo[]];
 
-export function union(
+export function union_type(
   fullname: string,
   generics: TypeInfo[],
   constructor: Constructor,
@@ -93,48 +93,48 @@ export function union(
   return t;
 }
 
-export function tuple(...generics: TypeInfo[]): TypeInfo {
+export function tuple_type(...generics: TypeInfo[]): TypeInfo {
   return new TypeInfo("System.Tuple`" + generics.length, generics);
 }
 
-export function delegate(...generics: TypeInfo[]): TypeInfo {
+export function delegate_type(...generics: TypeInfo[]): TypeInfo {
   return new TypeInfo("System.Func`" + generics.length, generics);
 }
 
-export function lambda(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
+export function lambda_type(argType: TypeInfo, returnType: TypeInfo): TypeInfo {
   return new TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType]);
 }
 
-export function option(generic: TypeInfo): TypeInfo {
+export function option_type(generic: TypeInfo): TypeInfo {
   return new TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic]);
 }
 
-export function list(generic: TypeInfo): TypeInfo {
+export function list_type(generic: TypeInfo): TypeInfo {
   return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
 }
 
-export function array(generic: TypeInfo): TypeInfo {
+export function array_type(generic: TypeInfo): TypeInfo {
   return new TypeInfo(generic.fullname + "[]", [generic]);
 }
 
-export function enumType(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
+export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
   return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, enumCases);
 }
 
-export const obj: TypeInfo = new TypeInfo("System.Object");
-export const unit: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
-export const char: TypeInfo = new TypeInfo("System.Char");
-export const string: TypeInfo = new TypeInfo("System.String");
-export const bool: TypeInfo = new TypeInfo("System.Boolean");
-export const int8: TypeInfo = new TypeInfo("System.SByte");
-export const uint8: TypeInfo = new TypeInfo("System.Byte");
-export const int16: TypeInfo = new TypeInfo("System.Int16");
-export const uint16: TypeInfo = new TypeInfo("System.UInt16");
-export const int32: TypeInfo = new TypeInfo("System.Int32");
-export const uint32: TypeInfo = new TypeInfo("System.UInt32");
-export const float32: TypeInfo = new TypeInfo("System.Single");
-export const float64: TypeInfo = new TypeInfo("System.Double");
-export const decimal: TypeInfo = new TypeInfo("System.Decimal");
+export const obj_type: TypeInfo = new TypeInfo("System.Object");
+export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
+export const char_type: TypeInfo = new TypeInfo("System.Char");
+export const string_type: TypeInfo = new TypeInfo("System.String");
+export const bool_type: TypeInfo = new TypeInfo("System.Boolean");
+export const int8_type: TypeInfo = new TypeInfo("System.SByte");
+export const uint8_type: TypeInfo = new TypeInfo("System.Byte");
+export const int16_type: TypeInfo = new TypeInfo("System.Int16");
+export const uint16_type: TypeInfo = new TypeInfo("System.UInt16");
+export const int32_type: TypeInfo = new TypeInfo("System.Int32");
+export const uint32_type: TypeInfo = new TypeInfo("System.UInt32");
+export const float32_type: TypeInfo = new TypeInfo("System.Single");
+export const float64_type: TypeInfo = new TypeInfo("System.Double");
+export const decimal_type: TypeInfo = new TypeInfo("System.Decimal");
 
 export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
   if (Array.isArray(info)) {
@@ -182,7 +182,7 @@ export function isEnum(t: TypeInfo) {
  * but it should be enough for type comparison purposes
  */
 export function getGenericTypeDefinition(t: TypeInfo) {
-  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj));
+  return t.generics == null ? t : new TypeInfo(t.fullname, t.generics.map(() => obj_type));
 }
 
 export function getEnumUnderlyingType(t: TypeInfo) {
