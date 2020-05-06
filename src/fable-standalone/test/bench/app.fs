@@ -3,7 +3,7 @@ module Bench.App
 open Bench.Platform
 
 let references = Fable.Standalone.Metadata.references_core
-let metadataPath = Fable.Path.Combine(__SOURCE_DIRECTORY__, "../../../fable-metadata/lib/") // .NET BCL binaries
+let metadataPath = "../../../fable-metadata/lib/" // .NET BCL binaries
 
 // // Note: importing babel-core has 30% performance impact on the bench
 // #if DOTNET_FILE_SYSTEM
@@ -38,18 +38,18 @@ let main argv =
         let optimizeFlag = "--optimize" + (if optimize then "+" else "-")
         let otherOptions = [| optimizeFlag |]
         let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
-        let ms0, checker = measureTime createChecker ()
+        let checker, ms0 = measureTime createChecker ()
         printfn "InteractiveChecker created in %d ms" ms0
         // let parseFSharpScript () = fable.ParseFSharpScript(checker, fileName, source)
         let parseFSharpScript () = fable.ParseFSharpFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
         let fableLibraryDir = "fable-library"
         let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName)
         let bench i =
-            let ms1, parseRes = measureTime parseFSharpScript ()
+            let parseRes, ms1 = measureTime parseFSharpScript ()
             let errors = fable.GetParseErrors parseRes
             errors |> Array.iter (printfn "Error: %A")
             if errors.Length > 0 then failwith "Too many errors."
-            let ms2, babelAst = measureTime parseFable (parseRes, fileName)
+            let babelAst, ms2 = measureTime parseFable (parseRes, fileName)
             // if i = 1 then
             //     // let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
             //     // printfn "%s Typed AST: %s" fileName fsAstStr

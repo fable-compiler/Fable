@@ -12,35 +12,33 @@ let measureTime (f: 'a -> 'b) x =
     let sw = System.Diagnostics.Stopwatch.StartNew()
     let res = f x
     sw.Stop()
-    sw.ElapsedMilliseconds, res
-
-// not really serializing, just a stub
-// let toJson (value: obj) = sprintf "%A" value // Newtonsoft.Json.JsonConvert.SerializeObject(value)
+    res, sw.ElapsedMilliseconds
 
 #else
 
-type private IFileSystem =
-    abstract readFileSync: string -> byte[]
-    abstract readFileSync: string * string -> string
-    abstract writeFileSync: string * string -> unit
+open Fable.Core.JsInterop
 
-type private IProcess =
-    abstract hrtime: unit -> float []
-    abstract hrtime: float[] -> float[]
+module JS =
+    type IFileSystem =
+        abstract readFileSync: string -> byte[]
+        abstract readFileSync: string * string -> string
+        abstract writeFileSync: string * string -> unit
 
-let private FileSystem: IFileSystem = Fable.Core.JsInterop.importAll "fs"
-let private Process: IProcess = Fable.Core.JsInterop.importAll "process"
+    type IProcess =
+        abstract hrtime: unit -> float []
+        abstract hrtime: float[] -> float[]
 
-let readAllBytes (filePath: string) = FileSystem.readFileSync(filePath)
-let readAllText (filePath: string) = FileSystem.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
-let writeAllText (filePath: string) (text: string) = FileSystem.writeFileSync(filePath, text)
+    let fs: IFileSystem = importAll "fs"
+    let process: IProcess = importAll "process"
+
+let readAllBytes (filePath: string) = JS.fs.readFileSync(filePath)
+let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = Process.hrtime()
+    let startTime = JS.process.hrtime()
     let res = f x
-    let elapsed = Process.hrtime(startTime)
-    int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
-
-// let toJson (value: obj) = value |> Fable.Core.JsInterop.toJson
+    let elapsed = JS.process.hrtime(startTime)
+    res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
 #endif
