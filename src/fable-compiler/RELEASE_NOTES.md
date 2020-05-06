@@ -1,3 +1,7 @@
+### 2.9.0
+
+* Related to #2043: Better error logging when an invalid JSON output happen (by @forki)
+
 ### 2.8.4
 
 * Fix #2035: fold when state is func of arity > 1
