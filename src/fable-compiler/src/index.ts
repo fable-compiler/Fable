@@ -89,7 +89,17 @@ export default function start(cliArgs?: {}): ICompilerProxy {
             const resolve = pending.get(id);
             if (resolve != null) {
                 pending.delete(id);
-                resolve(JSON.parse(data.substr(pattern[0].length)));
+                const json = data.substr(pattern[0].length);
+                try
+                {
+                    const parsed = JSON.parse(json);
+                    resolve(parsed);
+                }
+                catch(error)
+                {
+                    log(cliArgs, "JSON parsing failed on " + json);
+                    throw(error);
+                }
             }
         } else { // LOG
             log(cliArgs, data);
