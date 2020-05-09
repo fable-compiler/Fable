@@ -377,7 +377,6 @@ type ObjectProperty(key, value, ?computed_, ?shorthand_, ?loc) =
     member __.Value: Expression = value
     member __.Computed: bool = computed
     member __.Shorthand: bool = shorthand
-    // member __.Decorators: Decorator array option = decorators
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
@@ -400,7 +399,6 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?async_, ?generator_
     member __.Generator: bool = generator
     member __.ReturnType: TypeAnnotation option = returnType
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    // member __.Decorators: Decorator array option = decorators
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -548,7 +546,6 @@ type AssignmentPattern(left, right, ?typeAnnotation, ?loc) =
     member __.Left: Pattern = left
     member __.Right: Expression = right
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
-    // member __.Decorators: Decorator array option = decorators
 
 type RestElement(argument, ?typeAnnotation, ?loc) =
     inherit PatternNode("RestElement", ?loc = loc)
@@ -576,7 +573,6 @@ type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstrac
     member __.Abstract: bool option = ``abstract``
     member __.ReturnType: TypeAnnotation option = returnType
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    // member __.Decorators: Decorator array option = decorators
     // This appears in astexplorer.net but it's not documented
     // member __.Expression: bool = false
 
@@ -585,35 +581,37 @@ type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstrac
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
 type ClassProperty(key, ?value, ?typeAnnotation, ?loc) =
     inherit Node("ClassProperty", ?loc = loc)
-    member __.Key: Identifier = key
+    member __.Key: U2<Identifier, StringLiteral> = key
     member __.Value: Expression option = value
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
+
+type ClassImplements(id, ?typeParameters, ?loc) =
+    inherit Expression("ClassImplements", ?loc = loc)
+    member __.Id: Identifier = id
+    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
 
 type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)
     member __.Body: U2<ClassMethod, ClassProperty> array = body
 
-type ClassDeclaration(body, ?id, ?superClass, ?typeParameters, ?loc) =
+type ClassDeclaration(body, ?id, ?superClass, ?implements, ?superTypeParameters, ?typeParameters, ?loc) =
     inherit Declaration("ClassDeclaration", ?loc = loc)
     member __.Body: ClassBody = body
     member __.Id: Identifier option = id
     member __.SuperClass: Expression option = superClass
+    member __.Implements: ClassImplements array option = implements
+    member __.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    // member __.Decorators: Decorator array option = decorators
 
 /// Anonymous class: e.g., var myClass = class { }
-type ClassExpression(body, ?id, ?superClass, ?typeParameters, ?loc) =
+type ClassExpression(body, ?id, ?superClass, ?implements, ?superTypeParameters, ?typeParameters, ?loc) =
     inherit Expression("ClassExpression", ?loc = loc)
     member __.Body: ClassBody = body
     member __.Id: Identifier option = id
     member __.SuperClass: Expression option = superClass
+    member __.Implements: ClassImplements array option = implements
+    member __.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    // member __.Decorators: Decorator array option = decorators
-
-type ClassImplements(id, ?typeParameters, ?loc) =
-    inherit Expression("ClassImplements", ?loc = loc)
-    member __.Id: Identifier option = id
-    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
 
 // type MetaProperty(meta, property, ?loc) =
 //     inherit Expression("MetaProperty", ?loc = loc)
