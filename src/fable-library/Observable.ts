@@ -44,7 +44,7 @@ export function add<T>(callback: (x: T) => void, source: IObservable<T>) {
 }
 
 export function choose<T, U>(chooser: (x: T) => U, source: IObservable<T>) {
-  return new Observable<U | null>((observer) =>
+  return new Observable<U>((observer) =>
     source.Subscribe(new Observer<T>((t) =>
       protect(
         () => chooser(t),
