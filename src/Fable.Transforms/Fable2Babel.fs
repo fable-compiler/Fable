@@ -452,12 +452,11 @@ module Util =
          upcast AnyTypeAnnotation() // TODO:
 
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
-        let typeAnnotation =
-            if com.Options.typeDecls then
-                typeAnnotation com ctx id.Type
-                |> TypeAnnotation |> Some
-            else None
-        Identifier(id.Name, ?typeAnnotation=typeAnnotation, ?loc=id.Range)
+        if com.Options.typeDecls then
+            let ta = typeAnnotation com ctx id.Type |> TypeAnnotation |> Some
+            Identifier(id.Name, ?typeAnnotation=ta, ?loc=id.Range)
+        else
+            Identifier(id.Name, ?loc=id.Range)
 
     let transformFunc (com: IBabelCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         if com.Options.typeDecls then
@@ -1731,7 +1730,8 @@ module Util =
                     makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
                     |> TypeAnnotation |> Some
                 else None
-            makeFunctionExpression None (Array.map (fun x -> U2.Case2(upcast x)) genArgs, U2.Case2 body, returnType, None)
+            let args = genArgs |> Array.map toPattern
+            makeFunctionExpression None (args, U2.Case2 body, returnType, None)
             |> declareModuleMember None isPublic (Naming.appendSuffix name Naming.reflectionSuffix) false
         if com.Options.typeDecls then
             let interfaceExpr = makeInterfaceExpression com ctx r ent name baseExpr
@@ -1872,18 +1872,18 @@ module Util =
             | args ->
                 args |> List.map typedPattern,
                 args |> List.map identAsExpr
+        let consArgs = List.toArray argIdents
+        let consBody =
+            BlockStatement [|
+                ReturnStatement(
+                    ConditionalExpression(
+                        // Don't do a null check here, some environments can assign a value to `this`, see #1757
+                        BinaryExpression(BinaryInstanceOf, ThisExpression(), consIdent),
+                        callFunctionWithThisContext None consIdent thisExpr argExprs,
+                        NewExpression(consIdent, List.toArray argExprs)))
+            |] |> U2.Case1
         let exposedCons =
-            let body =
-                BlockStatement [|
-                    ReturnStatement(
-                        ConditionalExpression(
-                            // Don't do a null check here, some environments can assign a value to `this`, see #1757
-                            BinaryExpression(BinaryInstanceOf, ThisExpression(), consIdent),
-                            callFunctionWithThisContext None consIdent thisExpr argExprs,
-                            NewExpression(consIdent, List.toArray argExprs))
-                    ) |]
-            let consArgs = List.toArray argIdents
-            makeFunctionExpression None (consArgs, U2.Case1 body, returnType, typeParamDecl)
+            makeFunctionExpression None (consArgs, consBody, returnType, typeParamDecl)
         let baseExpr =
             match info.Base with
             | Some(TransformExpr com ctx baseRef) -> Some baseRef
