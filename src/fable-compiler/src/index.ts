@@ -98,7 +98,7 @@ export default function start(cliArgs?: {}): ICompilerProxy {
                 catch(error)
                 {
                     log(cliArgs, "JSON parsing failed on " + json);
-                    throw(error);
+                    throw("JSON parsing failed on " + json +  " Error: " + error);
                 }
             }
         } else { // LOG
