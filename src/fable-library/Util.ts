@@ -1,5 +1,14 @@
 // tslint:disable:ban-types
 
+export function bindThis(this$: any, source: any) {
+  for (const key of Object.keys(source)) {
+    if (typeof source[key] === "function") {
+      source[key] = source[key].bind(this$);
+    }
+  }
+  return source;
+}
+
 // Object.assign flattens getters and setters
 // See https://stackoverflow.com/questions/37054596/js-es5-how-to-assign-objects-with-setters-and-getters
 export function extend(target: any, ...sources: any[]) {

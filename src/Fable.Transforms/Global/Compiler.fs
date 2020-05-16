@@ -9,6 +9,7 @@ type Verbosity =
 type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
+      classTypes: bool
       typeDecls: bool
       debugMode: bool
       verbosity: Verbosity

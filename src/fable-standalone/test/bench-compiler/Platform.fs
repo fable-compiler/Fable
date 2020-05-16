@@ -4,6 +4,7 @@ type CmdLineOptions = {
     commonjs: bool
     optimize: bool
     sourceMaps: bool
+    classTypes: bool
     typeDecls: bool
     watchMode: bool
 }

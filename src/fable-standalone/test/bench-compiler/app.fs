@@ -21,6 +21,7 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
 let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
     { typedArrays = not (options.typeDecls)
       clampByteArrays = false
+      classTypes = options.classTypes
       typeDecls = options.typeDecls
       precompiledLib = None }
 
@@ -99,6 +100,7 @@ let parseArguments (argv: string[]) =
             commonjs = opts |> Array.contains "--commonjs"
             optimize = opts |> Array.contains "--optimize-fcs"
             sourceMaps = opts |> Array.contains "--sourceMaps"
+            classTypes = opts |> Array.contains "--classTypes"
             typeDecls = opts |> Array.contains "--typescript"
             watchMode = opts |> Array.contains "--watch"
         }

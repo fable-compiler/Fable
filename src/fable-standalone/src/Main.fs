@@ -216,6 +216,7 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
 let defaultCompilerConfig: CompilerConfig =
     { typedArrays = true
       clampByteArrays = false
+      classTypes = false
       typeDecls = false
       precompiledLib = None }
 
@@ -224,6 +225,7 @@ let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: str
     let isDebug = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
     { typedArrays = config.typedArrays
       clampByteArrays = config.clampByteArrays
+      classTypes = config.classTypes
       typeDecls = config.typeDecls
       debugMode = isDebug
       verbosity = Fable.Verbosity.Normal

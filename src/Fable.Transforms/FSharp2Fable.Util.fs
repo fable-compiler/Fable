@@ -1200,10 +1200,10 @@ module Util =
                 let typ = makeType com ctx.GenericArgs memb.FullType
                 memberRefTyped com ctx r typ memb
             else
-                let argInfo =
-                    if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
-                    then { argInfo with IsBaseOrSelfConstructorCall = true }
-                    else argInfo
+                // let argInfo =
+                //     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
+                //     then { argInfo with IsBaseOrSelfConstructorCall = true }
+                //     else argInfo
                 memberRef com ctx r memb |> staticCall r typ argInfo
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
