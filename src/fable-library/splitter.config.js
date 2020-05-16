@@ -11,6 +11,7 @@ const fableOptions = {
   define: [
     "FX_NO_BIGINT"
   ],
+  // classTypes: true,
 };
 
 const outDir = useCommonjs

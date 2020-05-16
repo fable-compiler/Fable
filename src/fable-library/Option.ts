@@ -1,4 +1,4 @@
-import { declare, Union } from "./Types";
+import { Union } from "./Types";
 import { compare, equals, structuralHash } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
@@ -111,11 +111,12 @@ export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
 }
 
 // CHOICE
-export type Choice<T, U> = Union;
 
-export const Choice = declare(function Choice<T, U>(this: Choice<T, U>, tag: number, name: string, field: T | U) {
-  Union.call(this, tag, name, field);
-}, Union);
+export class Choice<T, U> extends Union {
+  constructor(tag: number, name: string, field: T | U) {
+    super(tag, name, field);
+  }
+}
 
 export function choice1<T, U>(x: T | U): Choice<T, U> {
   return new Choice(0, "Choice1Of2", x);
@@ -134,11 +135,12 @@ export function tryValueIfChoice2<T, U>(x: Choice<T, U>): Option<U> {
 }
 
 // RESULT
-export type Result<T, U> = Union;
 
-export const Result = declare(function Result<T, U>(this: Result<T, U>, tag: number, name: string, field: T | U) {
-  Union.call(this, tag, name, field);
-}, Union);
+export class Result<T, U> extends Union {
+  constructor(tag: number, name: string, field: T | U) {
+    super(tag, name, field);
+  }
+}
 
 export function ok<T, U>(x: T | U): Result<T, U> {
   return new Result(0, "Ok", x);

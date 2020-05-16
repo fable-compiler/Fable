@@ -836,7 +836,9 @@ let private transformImplicitConstructor com (ctx: Context)
               |> addError com ctx.InlinePath None; []
     | Some ent ->
         let bodyCtx, args = bindMemberArgs com ctx args
-        let boundThis = makeIdentUnique com "this"
+        let genArgs = ent.GenericParameters |> Seq.map (resolveGenParam ctx.GenericArgs) |> Seq.toList
+        let entType = Fable.DeclaredType(ent, genArgs)
+        let boundThis = makeTypedIdentUnique com entType "this"
         let mutable baseCons = None
         let captureBaseCall =
             ent.BaseType |> Option.bind (fun (NonAbbreviatedType baseType) ->

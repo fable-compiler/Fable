@@ -82,9 +82,10 @@ type TaggedTemplateExpression(tag, quasi, ?loc) =
 
 // Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
-type Identifier(name, ?typeAnnotation, ?loc) =
+type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
     inherit PatternExpression("Identifier", ?loc = loc)
     member __.Name: string = name
+    member __.Optional: bool option = optional
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
     override __.ToString() = __.Name
 
@@ -582,10 +583,12 @@ type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstrac
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassProperty(key, ?value, ?typeAnnotation, ?loc) =
+type ClassProperty(key, ?value, ?``static``, ?optional, ?typeAnnotation, ?loc) =
     inherit Node("ClassProperty", ?loc = loc)
     member __.Key: U2<Identifier, StringLiteral> = key
     member __.Value: Expression option = value
+    member __.Static: bool option = ``static``
+    member __.Optional: bool option = optional
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
 type ClassImplements(id, ?typeParameters, ?loc) =

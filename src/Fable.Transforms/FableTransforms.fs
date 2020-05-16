@@ -192,6 +192,16 @@ let replaceValues replacements expr =
             | None -> e
         | e -> e)
 
+let replaceNames replacements expr =
+    if Map.isEmpty replacements
+    then expr
+    else expr |> visitFromInsideOut (function
+        | IdentExpr id as e ->
+            match Map.tryFind id.Name replacements with
+            | Some name -> { id with Name=name } |> IdentExpr
+            | None -> e
+        | e -> e)
+
 let countReferences limit identName body =
     let mutable count = 0
     body |> deepExists (function
