@@ -202,12 +202,7 @@ let parseProjectFile projectFilePath =
         projectXml
         |> getXmlTagAttributes1 "Compile" "Include"
         |> Seq.map (makeFullPath projectDir)
-        |> Seq.collect (fun path ->
-            if (path.Contains("*") || path.Contains("?")) then
-                Glob.glob.sync(path)
-            else
-                [| path |]
-        )
+        |> Seq.collect getGlobFiles
         |> Seq.toArray
 
     let dllRefs = [||]
