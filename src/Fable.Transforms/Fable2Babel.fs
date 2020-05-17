@@ -454,7 +454,7 @@ module Util =
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
         if com.Options.typeDecls then
             let ta = typeAnnotation com ctx id.Type |> TypeAnnotation |> Some
-            let optional = match id.Type with | Fable.Option _ -> Some true | _ -> None
+            let optional = None // match id.Type with | Fable.Option _ -> Some true | _ -> None
             Identifier(id.Name, ?optional=optional, ?typeAnnotation=ta, ?loc=id.Range)
         else
             Identifier(id.Name, ?loc=id.Range)
@@ -1343,7 +1343,7 @@ module Util =
                     (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
         // Declare $target and bound idents
         let targetId = makeIdentUnique com "target"
-        let varDeclaration =
+        let multiVarDecl =
             let boundIdents = targets |> List.collect (fun (idents,_) ->
                 idents |> List.map (fun id -> typedIdent com ctx id, None))
             multiVarDeclaration Var ((typedIdent com ctx targetId, None)::boundIdents)
@@ -1360,10 +1360,10 @@ module Util =
             let cases = groupSwitchCases (Fable.Number Int32) cases
             let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-            [|varDeclaration; switch1; switch2|]
+            [|multiVarDecl; switch1; switch2|]
         | None ->
             let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-            [| yield varDeclaration; yield! decisionTree; yield switch2 |]
+            [| yield multiVarDecl; yield! decisionTree; yield switch2 |]
 
     let transformDecisionTreeAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement[] =
@@ -1705,6 +1705,12 @@ module Util =
             | _ -> None
         )
 
+    let getGenericTypeAnnotation com ctx name genParams =
+        let id = Identifier(name)
+        let typeParamInst = makeTypeParamInst genParams
+        GenericTypeAnnotation(id, ?typeParameters=typeParamInst) :> TypeAnnotationInfo
+        |> TypeAnnotation |> Some
+
     let getEntityFieldsAsProps com ctx (ent: FSharpEntity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
@@ -1755,8 +1761,17 @@ module Util =
             ent.TryGetFullDisplayName()
             |> Option.map (Naming.unsafeReplaceIdentForbiddenChars '_')
             |> Option.defaultValue name
-        let returnType = None
-        let typeParamDecl = makeEntityTypeParamDecl com ctx ent
+        let consArgs, returnType, typeParamDecl =
+            if com.Options.typeDecls then
+                let genParams = getEntityGenParams ent
+                let ta = getGenericTypeAnnotation com ctx name genParams
+                let thisArg = Identifier("this", ?typeAnnotation=ta) |> toPattern
+                let consArgs = Array.append [| thisArg |] consArgs
+                let returnType = None
+                let typeParamDecl = makeEntityTypeParamDecl com ctx ent
+                consArgs, returnType, typeParamDecl
+            else
+                consArgs, None, None
         let consFunction = makeFunctionExpression (Some displayName) (consArgs, U2.Case1 consBody, returnType, typeParamDecl)
         match baseExpr with
         | Some e -> [|consFunction; e|]
@@ -1895,7 +1910,7 @@ module Util =
             else
                 [| tagId; nameId; fieldsId |]
                 |> Array.map (fun id ->
-                    let left = get None (ThisExpression()) id.Name
+                    let left = get None thisExpr id.Name
                     let right =
                         match id.Type with
                         | Fable.Number _ ->
@@ -1911,7 +1926,7 @@ module Util =
         let body =
             info.Entity.FSharpFields
             |> Seq.mapi (fun i field ->
-                let left = get None (ThisExpression()) field.Name
+                let left = get None thisExpr field.Name
                 let right =
                     /// Shortcut instead of using wrapIntExpression
                     if FSharp2Fable.TypeHelpers.isSignedIntType field.FieldType
@@ -1936,12 +1951,8 @@ module Util =
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
             if com.Options.typeDecls then
-                let id = Identifier(info.EntityName)
                 let genParams = getEntityGenParams info.Entity
-                let typeParamInst = makeTypeParamInst genParams
-                let returnType =
-                    GenericTypeAnnotation(id, ?typeParameters=typeParamInst) :> TypeAnnotationInfo
-                    |> TypeAnnotation |> Some
+                let returnType = getGenericTypeAnnotation com ctx info.EntityName genParams
                 let typeParamDecl = makeTypeParamDecl genParams |> mergeTypeParamDecls typeParamDecl
                 returnType, typeParamDecl
             else
@@ -1958,7 +1969,13 @@ module Util =
             | args ->
                 args |> List.map typedPattern,
                 args |> List.map identAsExpr
-        let consArgs = List.toArray argIdents
+        let consArgs =
+            if com.Options.typeDecls && not (com.Options.classTypes) then
+                let ta = UnionTypeAnnotation [| returnType.Value.TypeAnnotation; VoidTypeAnnotation() |]
+                let thisArg = Identifier("this", ?typeAnnotation=(ta |> TypeAnnotation |> Some)) |> toPattern
+                List.toArray (thisArg :: argIdents)
+            else
+                List.toArray argIdents
         let consBody =
             BlockStatement [|
                 ReturnStatement(
@@ -1967,7 +1984,7 @@ module Util =
                     else
                     ConditionalExpression(
                         // Don't do a null check here, some environments can assign a value to `this`, see #1757
-                        BinaryExpression(BinaryInstanceOf, ThisExpression(), consIdent),
+                        BinaryExpression(BinaryInstanceOf, thisExpr, consIdent),
                         callFunctionWithThisContext None consIdent thisExpr argExprs,
                         NewExpression(consIdent, List.toArray argExprs)) :> Expression
                 )
