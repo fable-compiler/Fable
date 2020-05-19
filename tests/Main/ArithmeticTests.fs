@@ -405,6 +405,15 @@ let tests =
     testCase "tan works" <| fun () ->
         tan 0.25 |> checkTo3dp 255.
 
+    testCase "cosh works" <| fun () ->
+        cosh 0.25 |> checkTo3dp 1031.
+
+    testCase "sinh works" <| fun () ->
+        sinh 0.25 |> checkTo3dp 252.
+
+    testCase "tanh works" <| fun () ->
+        tanh 0.25 |> checkTo3dp 244.
+
     testCase "exp works" <| fun () ->
         exp 8.0 |> checkTo3dp 2980957.
 
@@ -609,9 +618,9 @@ let tests =
         sign -72L |> equal -1
         sign -1. |> equal -1
         sign -89. |> equal -1
-        
+
     testCase "Formatting of decimal works" <| fun () ->
-    
+
         let formatNumber (d:decimal) =
             (sprintf "%.2f" d).Replace(",","").Replace(".",",")
 
@@ -620,9 +629,9 @@ let tests =
         formatNumber 0.20M |> equal "0,20"
         formatNumber 2.0M |> equal "2,00"
 
-        
+
     testCase "Formatting of decimal works with inline" <| fun () ->
-    
+
         let inline formatNumber (d:decimal) =
             (sprintf "%.2f" d).Replace(",","").Replace(".",",")
 
@@ -632,7 +641,7 @@ let tests =
         formatNumber 2.0M |> equal "2,00"
 
     testCase "Formatting of € works with inline" <| fun () ->
-    
+
         let inline formatNumber (d:decimal) =
             (sprintf "%.2f" d).Replace(",","").Replace(".",",")
 
@@ -641,5 +650,5 @@ let tests =
         formatEuro 0.0M |> equal "0,00 €"
         formatEuro 0.020M |> equal "0,02 €"
         formatEuro 0.20M |> equal "0,20 €"
-        formatEuro 2.0M |> equal "2,00 €" 
+        formatEuro 2.0M |> equal "2,00 €"
 ]
