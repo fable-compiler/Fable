@@ -21,7 +21,7 @@ export class TypeInfo {
   constructor(
     public fullname: string,
     public generics?: TypeInfo[],
-    public constructor?: Constructor,
+    public construct?: Constructor,
     public fields?: () => FieldInfo[],
     public cases?: () => CaseInfo[],
     public enumCases?: EnumCase[]) {
@@ -70,9 +70,9 @@ export function generic_type(fullname: string, generics?: TypeInfo[]): TypeInfo 
 export function record_type(
   fullname: string,
   generics: TypeInfo[],
-  constructor: Constructor,
+  construct: Constructor,
   fields: () => FieldInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics, constructor, fields);
+  return new TypeInfo(fullname, generics, construct, fields);
 }
 
 export function anonRecord_type(...fields: FieldInfo[]): TypeInfo {
@@ -84,9 +84,9 @@ export type CaseInfoInput = string | [string, FieldInfo[]];
 export function union_type(
   fullname: string,
   generics: TypeInfo[],
-  constructor: Constructor,
+  construct: Constructor,
   cases: () => CaseInfoInput[]): TypeInfo {
-  const t: TypeInfo = new TypeInfo(fullname, generics, constructor, undefined, () => cases().map((x, i) =>
+  const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, () => cases().map((x, i) =>
     typeof x === "string"
         ? new CaseInfo(t, i, x)
         : new CaseInfo(t, i, x[0], x[1])));
@@ -346,8 +346,8 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
   if (values.length !== expectedLength) {
     throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
   }
-  return uci.declaringType.constructor != null
-    ? new uci.declaringType.constructor(uci.tag, uci.name, ...values)
+  return uci.declaringType.construct != null
+    ? new uci.declaringType.construct(uci.tag, uci.name, ...values)
     : {};
 }
 
@@ -356,8 +356,8 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
   if (fields.length !== values.length) {
     throw new Error(`Expected an array of length ${fields.length} but got ${values.length}`);
   }
-  return t.constructor != null
-    ? new t.constructor(...values)
+  return t.construct != null
+    ? new t.construct(...values)
     : makeAnonRecord(fields.reduce((obj, [key, _t], i) => {
       obj[key] = values[i];
       return obj;
