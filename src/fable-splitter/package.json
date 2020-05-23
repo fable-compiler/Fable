@@ -29,8 +29,8 @@
     "fable-compiler": "^2.5.1"
   },
   "dependencies": {
-    "@babel/core": "^7.9.0",
-    "@babel/plugin-transform-modules-commonjs": "^7.9.0",
+    "@babel/core": "^7.9.6",
+    "@babel/plugin-transform-modules-commonjs": "^7.9.6",
     "chalk": "^2.4.1",
     "chokidar": "^2.0.4",
     "fable-babel-plugins": "^2.3.0",
