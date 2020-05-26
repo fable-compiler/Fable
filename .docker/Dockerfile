@@ -1,14 +1,9 @@
 FROM gitpod/workspace-full:latest
 
-USER root
-
-# Add here the instruction who needs root user
-
-
 USER gitpod
 
-# Install dotnet core
-ENV PATH=$HOME/.dotnet:$PATH
-RUN wget https://dotnetwebsite.azurewebsites.net/download/dotnet-core/scripts/v1/dotnet-install.sh && \
-    bash dotnet-install.sh -v 3.1.201 && \
-    rm -rf dotnet-install.sh;
+# Install .NET Core 3.1 SDK binaries on Ubuntu 20.04
+# Source: https://dev.to/carlos487/installing-dotnet-core-in-ubuntu-20-04-6jh
+RUN mkdir -p /home/gitpod/dotnet && curl -fsSL https://download.visualstudio.microsoft.com/download/pr/0c795076-b679-457e-8267-f9dd20a8ca28/02446ea777b6f5a5478cd3244d8ed65b/dotnet-sdk-3.1.300-linux-x64.tar.gz | tar xz -C /home/gitpod/dotnet
+ENV DOTNET_ROOT=/home/gitpod/dotnet
+ENV PATH=$PATH:/home/gitpod/dotnet
