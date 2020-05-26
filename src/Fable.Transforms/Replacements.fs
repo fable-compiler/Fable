@@ -2577,10 +2577,8 @@ let monitor (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
 let activator (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // TODO!!! This probably won't work, add test
-    | "CreateInstance", None, typRef::args ->
-        let info = argInfo None args (Typed i.SignatureArgTypes.Tail)
-        constructorCall r t info typRef |> Some
+    | "CreateInstance", None, ([_type] | [_type; (ExprType (Array Any))]) ->
+        Helper.CoreCall("Reflection", "createInstance", t, args, ?loc=r) |> Some
     | _ -> None
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2756,7 +2754,7 @@ let controlExtensions (_: ICompiler) (ctx: Context) (_: SourceLocation option) t
             |> fun (args, argTypes) -> List.rev args, List.rev argTypes
         Helper.CoreCall("Observable", meth, t, args, argTypes))
 
-let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_args: Expr list) =
+let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let returnString r x = StringConstant x |> makeValue r |> Some
     let resolved =
         // Some optimizations when the type is known at compile time
@@ -2800,6 +2798,8 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "GetTypeInfo" -> Some thisArg
         | "get_GenericTypeArguments" | "GetGenericArguments" ->
             Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
+        | "MakeGenericType" ->
+            Helper.CoreCall("Reflection", "makeGenericType", t, thisArg::args, ?loc=r) |> Some
         | "get_FullName" | "get_Namespace"
         | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition"
