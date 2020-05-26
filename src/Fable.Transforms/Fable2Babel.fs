@@ -767,12 +767,16 @@ module Util =
             transformUnionReflectionInfo com ctx r ent generics
         else
             let fullname = defaultArg ent.TryFullName Naming.unknown
-            let fullnameExpr = StringLiteral fullname :> Expression
-            let generics =
-                if Array.isEmpty generics then Undefined() :> Expression
-                else ArrayExpression generics :> _
-            let args = [|fullnameExpr; generics; jsConstructor com ctx ent|]
-            coreReflectionCall com ctx None "class" args
+            [|
+                yield StringLiteral fullname :> Expression
+                match generics with
+                | [||] -> yield Undefined() :> Expression
+                | generics -> yield ArrayExpression generics :> _
+                match tryJsConstructor com ctx ent with
+                | Some cons -> yield cons
+                | None -> ()
+            |]
+            |> coreReflectionCall com ctx None "class"
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
         match value with
