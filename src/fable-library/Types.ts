@@ -253,9 +253,9 @@ export function anonRecord(o: any) {
 export class FSharpRef<T> extends Record {
   public contents: T;
 
-  constructor(contents: T) {
+  constructor(contents: T | null) {
     super();
-    this.contents = contents;
+    this.contents = contents as T;
   }
 }
 

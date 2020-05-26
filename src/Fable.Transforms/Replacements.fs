@@ -1207,7 +1207,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let getReference r t expr = get r t expr "contents"
 let setReference r expr value = Set(expr, makeStrConst "contents" |> ExprSet, value, r)
-let newReference r t value = Helper.ConstructorCall(makeCoreRef Any "FSharpRef" "Types", t, [value], ?loc=r)
+let newReference r t value = Helper.ConstructorCall(makeCoreRef t "FSharpRef" "Types", t, [value], ?loc=r)
 
 let references (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with

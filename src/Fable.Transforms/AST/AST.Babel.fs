@@ -431,11 +431,12 @@ type CallExpression(callee, arguments, ?loc) =
     // member __.Arguments: U2<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
 
-type NewExpression(callee, arguments, ?loc) =
+type NewExpression(callee, arguments, ?typeArguments, ?loc) =
     inherit Expression("NewExpression", ?loc = loc)
     member __.Callee: Expression = callee
     // member __.Arguments: U2<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
+    member __.TypeArguments: TypeParameterInstantiation option = typeArguments
 
 /// A comma-separated sequence of expressions.
 type SequenceExpression(expressions, ?loc) =
