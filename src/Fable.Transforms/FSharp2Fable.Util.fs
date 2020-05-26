@@ -345,11 +345,11 @@ module Patterns =
     /// Detects AST pattern of "raise MatchFailureException()"
     let (|RaisingMatchFailureExpr|_|) (expr: FSharpExpr) =
         match expr with
-        | BasicPatterns.Call(None, methodInfo, [ ], [_unitType], [value]) ->
+        | Call(None, methodInfo, [ ], [_unitType], [value]) ->
             match methodInfo.FullName with
             | "Microsoft.FSharp.Core.Operators.raise" ->
                 match value with
-                | BasicPatterns.NewRecord(recordType, [BasicPatterns.Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
+                | NewRecord(recordType, [Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
                     match recordType.TypeDefinition.FullName with
                     | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
                     | _ -> None
@@ -459,10 +459,10 @@ module Patterns =
         | _ -> None
 
     let (|CapturedBaseConsCall|_|) com (ctx: Context) transformBaseCall = function
-        | BasicPatterns.Sequential(ConstructorCall(call, genArgs, args) as expr1, expr2)
+        | Sequential(ConstructorCall(call, genArgs, args) as expr1, expr2)
         // This pattern occurs in constructors that define a this value: `type C() as this`
         // TODO: We're discarding the bound `this` value, check if it's actually used in the base constructor arguments?
-        | BasicPatterns.Sequential(BasicPatterns.Let(_, (ConstructorCall(call, genArgs, args) as expr1)), expr2) ->
+        | Sequential(Let(_, (ConstructorCall(call, genArgs, args) as expr1)), expr2) ->
             match call.DeclaringEntity, ctx.CaptureBaseConsCall with
             | Some baseEnt, Some(expectedBaseEnt, capture) when baseEnt = expectedBaseEnt ->
                 transformBaseCall com ctx (makeRangeFrom expr1) baseEnt call genArgs args |> capture
@@ -472,19 +472,19 @@ module Patterns =
 
     let (|OptimizedOperator|_|) = function
         // work-around for optimized string operator (Operators.string)
-        | BasicPatterns.Let((var, BasicPatterns.Call(None, memb, _, membArgTypes, membArgs)),
-                            BasicPatterns.DecisionTree(BasicPatterns.IfThenElse(_, _, BasicPatterns.IfThenElse
-                                                        (BasicPatterns.TypeTest(tt, BasicPatterns.Value vv), _, _)), _))
+        | Let((var, Call(None, memb, _, membArgTypes, membArgs)),
+                            DecisionTree(IfThenElse(_, _, IfThenElse
+                                                        (TypeTest(tt, Value vv), _, _)), _))
                 when var.FullName = "matchValue" && memb.FullName = "Microsoft.FSharp.Core.Operators.box"
                     && vv.FullName = "matchValue" && (getFsTypeFullName tt) = "System.IFormattable" ->
             Some(memb, None, "ToString", membArgTypes, membArgs)
         // work-around for optimized hash operator (Operators.hash)
-        | BasicPatterns.Call(Some expr, memb, _, [], [BasicPatterns.Call(None, comp, [], [], [])])
+        | Call(Some expr, memb, _, [], [Call(None, comp, [], [], [])])
                 when memb.FullName.EndsWith(".GetHashCode") &&
                      comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityERComparer" ->
             Some(memb, Some comp, "GenericHash", [expr.Type], [expr])
         // work-around for optimized equality operator (Operators.(=))
-        | BasicPatterns.Call(Some e1, memb, _, [], [BasicPatterns.Coerce (t2, e2); BasicPatterns.Call(None, comp, [], [], [])])
+        | Call(Some e1, memb, _, [], [Coerce (t2, e2); Call(None, comp, [], [], [])])
                 when memb.FullName.EndsWith(".Equals") && t2.HasTypeDefinition && t2.TypeDefinition.CompiledName = "obj" &&
                      comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityComparer" ->
             Some(memb, Some comp, "GenericEquality", [e1.Type; e2.Type], [e1; e2])

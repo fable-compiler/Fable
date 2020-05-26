@@ -399,7 +399,7 @@ module Util =
         | Replacements.FSharpSet key -> makeImportTypeAnnotation com ctx [key] "Set" "FSharpSet"
         | Replacements.FSharpMap (key, value) -> makeImportTypeAnnotation com ctx [key; value] "Map" "FSharpMap"
         | Replacements.FSharpResult (ok, err) -> makeImportTypeAnnotation com ctx [ok; err] "Option" "Result"
-        | Replacements.FSharpChoice genArgs -> makeUnionTypeAnnotation com ctx genArgs
+        | Replacements.FSharpChoice genArgs -> makeImportTypeAnnotation com ctx genArgs "Option" "Choice"
         | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
 
     and makeFunctionTypeAnnotation com ctx typ kind returnType =
@@ -782,7 +782,12 @@ module Util =
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
         match value with
         | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
-        | Fable.Null _ -> upcast NullLiteral(?loc=r)
+        | Fable.Null _t ->
+            // if com.Options.typeDecls
+            //     let ta = typeAnnotation com ctx t |> TypeAnnotation |> Some
+            //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
+            // else
+                upcast NullLiteral(?loc=r)
         | Fable.UnitConstant -> upcast UnaryExpression(UnaryVoid, NullLiteral(), ?loc=r)
         | Fable.BoolConstant x -> upcast BooleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> upcast StringLiteral(string x, ?loc=r)
@@ -812,18 +817,22 @@ module Util =
             | None -> upcast Undefined(?loc=r)
         | Fable.EnumConstant(x,_) ->
             com.TransformAsExpr(ctx, x)
-        | Fable.NewRecord(values, kind, _) ->
+        | Fable.NewRecord(values, kind, genArgs) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             match kind with
             | Fable.DeclaredRecord ent ->
                 let consRef = jsConstructor com ctx ent
-                upcast NewExpression(consRef, values, ?loc=r)
+                let typeParamInst =
+                    if com.Options.typeDecls && (com.Options.classTypes || ent.TryFullName = Some Types.reference)
+                    then makeGenTypeParamInst com ctx genArgs
+                    else None
+                upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
             | Fable.AnonymousRecord fieldNames ->
                 Array.zip fieldNames values
                 |> makeJsObject
                 |> Array.singleton
                 |> coreLibCall com ctx r "Types" "anonRecord"
-        | Fable.NewUnion(values, uci, ent, _) ->
+        | Fable.NewUnion(values, uci, ent, genArgs) ->
             // Union cases with EraseAttribute are used for `Custom`-like cases in unions meant for `keyValueList`
             if FSharp2Fable.Helpers.hasAtt Atts.erase uci.Attributes then
                 Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
@@ -832,7 +841,12 @@ module Util =
                 let consRef = jsConstructor com ctx ent
                 let tag = FSharp2Fable.Helpers.unionCaseTag ent uci
                 let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
-                upcast NewExpression(consRef, (ofInt tag)::(ofString name)::values |> List.toArray, ?loc=r)
+                let typeParamInst =
+                    if com.Options.typeDecls && com.Options.classTypes
+                    then makeGenTypeParamInst com ctx genArgs
+                    else None
+                let values = (ofInt tag)::(ofString name)::values |> List.toArray
+                upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
     let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: string) baseCall: Expression =
@@ -1084,7 +1098,9 @@ module Util =
                 | Fable.Delegate args -> args
             let name = Some var.Name
             transformFunc com ctx name args body
-            |> makeFunctionExpression name
+            |> (if com.Options.classTypes || com.Options.typeDecls
+                then makeArrowFunctionExpression name
+                else makeFunctionExpression name)
         | _ ->
             com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
 
@@ -1426,14 +1442,16 @@ module Util =
             transformTest com ctx range kind expr
 
         | Fable.Function(Fable.Lambda arg, body, name) ->
-            if com.Options.classTypes
-            then transformFunc com ctx name [arg] body |> makeArrowFunctionExpression name
-            else transformFunc com ctx name [arg] body |> makeFunctionExpression name
+            transformFunc com ctx name [arg] body
+            |> (if com.Options.classTypes || com.Options.typeDecls
+                then makeArrowFunctionExpression name
+                else makeFunctionExpression name)
 
         | Fable.Function(Fable.Delegate args, body, name) ->
-            if com.Options.classTypes
-            then transformFunc com ctx name args body |> makeArrowFunctionExpression name
-            else transformFunc com ctx name args body |> makeFunctionExpression name
+            transformFunc com ctx name args body
+            |> (if com.Options.classTypes || com.Options.typeDecls
+                then makeArrowFunctionExpression name
+                else makeFunctionExpression name)
 
         | Fable.ObjectExpr (members, _, baseCall) ->
            transformObjectExpr com ctx members "this" baseCall
@@ -1496,16 +1514,16 @@ module Util =
 
         | Fable.Function(Fable.Lambda arg, body, name) ->
             [|transformFunc com ctx name [arg] body
-                |> if com.Options.classTypes
-                   then makeArrowFunctionExpression name
-                   else makeFunctionExpression name
+                |> (if com.Options.classTypes || com.Options.typeDecls
+                    then makeArrowFunctionExpression name
+                    else makeFunctionExpression name)
                 |> resolveExpr expr.Type returnStrategy|]
 
         | Fable.Function(Fable.Delegate args, body, name) ->
             [|transformFunc com ctx name args body
-                |> if com.Options.classTypes
-                   then makeArrowFunctionExpression name
-                   else makeFunctionExpression name
+                |> (if com.Options.classTypes || com.Options.typeDecls
+                    then makeArrowFunctionExpression name
+                    else makeFunctionExpression name)
                 |> resolveExpr expr.Type returnStrategy|]
 
         | Fable.ObjectExpr (members, t, baseCall) ->
@@ -1782,7 +1800,10 @@ module Util =
     let declareClassType (com: IBabelCompiler) ctx r isPublic (ent: FSharpEntity) name (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) =
         let consId = Identifier "constructor"
         let typeParamDecl = makeEntityTypeParamDecl com ctx ent
-        let baseRef = defaultArg baseExpr (makeImportTypeId com ctx "Types" "SystemObject" :> Expression)
+        let baseRef =
+            match baseExpr with
+            | Some baseRef -> baseRef
+            | _ -> makeImportTypeId com ctx "Types" "SystemObject" :> Expression
         let consBody =
             if (Option.isNone baseExpr) || (not ent.IsFSharpUnion) && (ent.IsFSharpRecord || ent.IsValueType || ent.IsFSharpExceptionDeclaration)
             then
@@ -2118,10 +2139,11 @@ module Compiler =
 
         interface IBabelCompiler with
             member __.GetImportExpr(ctx, selector, path, kind) =
+                let ext = if com.Options.typeDecls then "" else Naming.targetFileExtension
                 let sanitizedPath =
                     match kind with
                     | Fable.CustomImport | Fable.Internal -> path
-                    | Fable.Library -> com.LibraryDir + "/" + path + Naming.targetFileExtension
+                    | Fable.Library -> com.LibraryDir + "/" + path + ext
                 let cachedName = sanitizedPath + "::" + selector
                 match imports.TryGetValue(cachedName) with
                 | true, i ->

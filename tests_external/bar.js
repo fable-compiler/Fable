@@ -1,1 +1,2 @@
-exports.bar = 5
+export const bar = 5;
+// exports.bar = bar;
