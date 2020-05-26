@@ -26,6 +26,7 @@ type FablePackage =
     { Id: string
       Version: string
       FsprojPath: string
+      DllPath: string
       Dependencies: Set<string> }
 
 type CrackedFsproj =
@@ -90,6 +91,7 @@ let tryGetFablePackage (dllPath: string) =
             { Id = metadata |> child "id"
               Version = metadata |> child "version"
               FsprojPath = fsprojPath
+              DllPath = dllPath
               Dependencies =
                 metadata.Elements()
                 |> firstWithName "dependencies" |> elements
@@ -369,6 +371,9 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
             Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
         for newPath in Directory.GetFiles(source, "*.*", SearchOption.AllDirectories) do
             File.Copy(newPath, newPath.Replace(source, target), true)
+        true
+    else
+        false
 
 let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
     let fableDir = createFableDir rootDir
@@ -381,13 +386,16 @@ let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
                 failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableDir, "fable-library" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget |> ignore
             fableLibraryTarget
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableDir, pkg.Id + "." + pkg.Version)
-            copyDirIfDoesNotExist sourceDir targetDir
+            if copyDirIfDoesNotExist sourceDir targetDir then
+                let binDir = IO.Path.Combine(targetDir, "bin")
+                Directory.CreateDirectory(binDir) |> ignore
+                File.Copy(pkg.DllPath, IO.Path.Combine(binDir, IO.Path.GetFileName(pkg.DllPath)), true)
             IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)))
     fableLibraryPath, pkgRefs
 

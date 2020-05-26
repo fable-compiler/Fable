@@ -29,6 +29,9 @@
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="4.7.1" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Fable.SimpleAst\Fable.SimpleAst.fsproj" />
+  </ItemGroup>
   <!-- <ItemGroup>
     <ProjectReference Include="../FCS/fcs-fable/fcs-fable.fsproj" />
   </ItemGroup> -->

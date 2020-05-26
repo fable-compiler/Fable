@@ -116,16 +116,23 @@ type Ident =
       Kind: IdentKind
       IsMutable: bool
       Range: SourceLocation option }
-      member x.IsCompilerGenerated =
+    member x.IsCompilerGenerated =
         match x.Kind with CompilerGenerated -> true | _ -> false
-      member x.IsBaseValue =
+    member x.IsBaseValue =
         match x.Kind with BaseValueIdent -> true | _ -> false
-      member x.IsThisArgDeclaration =
+    member x.IsThisArgDeclaration =
         match x.Kind with ThisArgIdentDeclaration -> true | _ -> false
-      member x.DisplayName =
-        x.Range
-        |> Option.bind (fun r -> r.identifierName)
-        |> Option.defaultValue x.Name
+    interface SimpleAst.Ident with
+        member this.Name = this.Name
+        member this.DisplayName =
+            this.Range
+            |> Option.bind (fun r -> r.identifierName)
+            |> Option.defaultValue this.Name
+
+    static member FromSimple(i: SimpleAst.Ident) =
+        match i with
+        | :? Ident as i -> i
+        | _ -> failwithf "Cannot convert simple ident %A" i
 
 type ImportKind =
     | Internal
@@ -299,6 +306,8 @@ type Expr =
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
+    interface SimpleAst.Expr
+
     member this.Type =
         match this with
         | Test _ -> Boolean
@@ -326,3 +335,18 @@ type Expr =
         | Value(_,r) | IfThenElse(_,_,_,r) | TryCatch(_,_,_,r)
         | Debugger r | Test(_,_,r) | Operation(_,_,r) | Get(_,_,_,r)
         | Throw(_,_,r) | Set(_,_,_,r) | Loop(_,r) -> r
+
+    static member FromSimple(e: SimpleAst.Expr) =
+        match e with
+        | :? SimpleAst.SimpleExpr as e ->
+            match e with
+            | SimpleAst.IdentExpr i -> Ident.FromSimple i |> IdentExpr
+            | SimpleAst.Import(selector, path) -> failwith "TODO"
+            | SimpleAst.Function(args, body) -> failwith "TODO"
+            | SimpleAst.ObjectExpr keysAndValues -> failwith "TODO"
+            | SimpleAst.Apply(e, args) -> failwith "TODO"
+            | SimpleAst.Let(var, value, body) -> failwith "TODO"
+            | SimpleAst.Get(e, key) -> failwith "TODO"
+            | SimpleAst.Set(e, value) -> failwith "TODO"
+        | :? Expr as e -> e
+        | _ -> failwithf "Cannot convert simple expr %A" e

@@ -9,6 +9,40 @@ open FSharp.Compiler.Ast
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.SourceCodeServices.BasicPatterns
 
+module Reflection =
+    open System
+    open System.Reflection
+
+    let loadAssembly path =
+        // The assembly is already loaded because it's being referenced
+        // by the parsed code, so use `LoadFrom` which takes the copy in memory
+        // Unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
+        Assembly.LoadFrom(path)
+
+    /// Prevent ReflectionTypeLoadException
+    /// From http://stackoverflow.com/a/7889272
+    let getTypes (asm: System.Reflection.Assembly) =
+        let mutable types: Option<Type[]> = None
+        try
+            types <- Some(asm.GetTypes())
+        with
+        | :? ReflectionTypeLoadException as e -> types <- Some e.Types
+        match types with
+        | Some types -> types |> Seq.filter ((<>) null)
+        | None -> Seq.empty
+
+    let activateType assemblyPath typeFullName =
+        loadAssembly assemblyPath
+        |> getTypes
+        |> Seq.tryFind (fun t -> t.FullName = typeFullName)
+        |> Option.map (fun t ->
+            let x = Activator.CreateInstance(t)
+            t, x)
+
+    let getPropValue (t: Type) (p: string) (x: obj) =
+        let p = t.GetProperty(p)
+        p.GetValue(x)
+
 let parse (checker: FSharpChecker) projFile =
     let projFile = Path.GetFullPath(projFile)
     let options =
@@ -54,16 +88,21 @@ let rec printDecls prefix decls =
             printfn "%s%i) ENTITY: %s" prefix i e.DisplayName
             printDecls (prefix + "\t") sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue (meth, args, body) ->
-            if meth.IsValue
-            then printfn "%s%i) VALUE: %s " prefix i meth.FullName
-            else printfn "%s%i) METHOD: %s" prefix i meth.FullName
-            // match body with
-            // | BasicPatterns.Call(_,call,_,_,_) ->
-            //     printfn "%s Call %s (IsDispatchSlot %b)" prefix call.FullName call.IsDispatchSlot
-            // | _ -> ()
-            if meth.IsCompilerGenerated
-            then printfn "%s(Compiler generated)" prefix
-            else printfn "%A" body
+            if not meth.IsCompilerGenerated then
+                meth.Attributes |> Seq.iter (fun att ->
+                    if att.AttributeType.DisplayName = "MyPreciousAttribute" then
+                        let t = att.ConstructorArguments.[0] |> snd :?> FSharpType
+                        t.TypeDefinition.Assembly.FileName |> printfn "Assembly: %A"
+                        let asmFile = t.TypeDefinition.Assembly.FileName.Value
+                        let t, x = Reflection.activateType asmFile t.TypeDefinition.FullName |> Option.get
+                        Reflection.getPropValue t "Farandula" x |> printfn "Farandula is %O"
+
+//                        let r = FSharp.Reflection.FSharpValue.MakeRecord(t, [|"bar"|])
+//                        let field = FSharp.Reflection.FSharpType.GetRecordFields(t).[0]
+//                        field.GetValue(r) |> printfn "Foo: %O"
+                    else
+                        printfn "Unexpected Attr %s" att.AttributeType.DisplayName
+                )
         | FSharpImplementationFileDeclaration.InitAction (expr) ->
             printfn "%s%i) ACTION" prefix i
             printfn "%A" expr

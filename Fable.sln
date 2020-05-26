@@ -1,6 +1,6 @@
 
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15 
+# Visual Studio 15
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Quicktest", "src\quicktest\QuickTest.fsproj", "{661A1972-0D06-46E8-958C-55325E5D520C}"
@@ -20,6 +20,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.External", "tests_external\Fable.Tests.External.fsproj", "{F5DEF871-BEEB-40A1-BBF1-7A19BD8B6185}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ASTViewer", "src\tools\ASTViewer\ASTViewer.fsproj", "{D8C8FBCB-54AF-49C3-93B1-5460668E32EC}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.SimpleAst", "src\Fable.SimpleAst\Fable.SimpleAst.fsproj", "{6D58D0EB-4701-4B29-9B8E-639F933375FA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -139,6 +141,18 @@ Global
 		{D8C8FBCB-54AF-49C3-93B1-5460668E32EC}.Release|x64.Build.0 = Release|Any CPU
 		{D8C8FBCB-54AF-49C3-93B1-5460668E32EC}.Release|x86.ActiveCfg = Release|Any CPU
 		{D8C8FBCB-54AF-49C3-93B1-5460668E32EC}.Release|x86.Build.0 = Release|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Debug|x64.Build.0 = Debug|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Debug|x86.Build.0 = Debug|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Release|x64.ActiveCfg = Release|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Release|x64.Build.0 = Release|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Release|x86.ActiveCfg = Release|Any CPU
+		{6D58D0EB-4701-4B29-9B8E-639F933375FA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
