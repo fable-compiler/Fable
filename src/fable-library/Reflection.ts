@@ -66,8 +66,8 @@ export function compare(t1: TypeInfo, t2: TypeInfo): number {
 export function class_type(
     fullname: string,
     generics?: TypeInfo[],
-    constructor?: Constructor): TypeInfo {
-  return new TypeInfo(fullname, generics, constructor);
+    construct?: Constructor): TypeInfo {
+  return new TypeInfo(fullname, generics, construct);
 }
 
 export function record_type(
@@ -375,16 +375,16 @@ export function makeGenericType(t: TypeInfo, generics: TypeInfo[]): TypeInfo {
     return new TypeInfo(
         t.fullname,
         generics,
-        t.constructor,
+        t.construct,
         t.fields,
         t.cases);
 }
 
 export function createInstance(t: TypeInfo, consArgs?: any[]): any {
-    // TODO: Check if consArgs length is same as t.constructor?
+    // TODO: Check if consArgs length is same as t.construct?
     // (Arg types can still be different)
-    if (typeof t.constructor === "function") {
-        return new t.constructor(...(consArgs ?? []));
+    if (typeof t.construct === "function") {
+        return new t.construct(...(consArgs ?? []));
     } else {
         throw new Error(`Cannot access constructor of ${t.fullname}`);
     }
