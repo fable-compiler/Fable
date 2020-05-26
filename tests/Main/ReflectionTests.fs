@@ -34,6 +34,17 @@ type MyEnum =
     | Bar = 5y
     | Baz = 8y
 
+type MyClass() =
+    class end
+
+type MyClass2() =
+    class end
+
+type MyClass<'T1, 'T2>(v1: 'T1, v2: 'T2) =
+    inherit MyClass()
+    member _.Value1 = v1
+    member _.Value2 = v2
+
 let genericTests = [
   testCase "typedefof works" <| fun () ->
     let tdef1 = typedefof<int list>
@@ -454,6 +465,16 @@ let reflectionTests = [
       t.IsEnum |> equal true
       t.GetEnumUnderlyingType() |> equal typeof<sbyte>
       System.Enum.GetUnderlyingType(t) |> equal typeof<sbyte>
+
+  testCase "Can create generic classes at runtime" <| fun () ->
+    let t = typedefof<MyClass<obj, obj>>
+    let t = t.MakeGenericType(typeof<int>, typeof<string>)
+    let x = System.Activator.CreateInstance(t, 123, "abc")
+    x :? MyClass |> equal true
+    x :? MyClass2 |> equal false
+    let x = x :?> MyClass<int, string>
+    x.Value1 |> equal 123
+    x.Value2 |> equal "abc"
 ]
 
 // TODO!!! Add reflection tests for interfaces, erased unions,

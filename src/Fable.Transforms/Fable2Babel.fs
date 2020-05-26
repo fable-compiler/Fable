@@ -655,7 +655,7 @@ module Util =
             |> primitiveTypeInfo
         let nonGenericTypeInfo fullname =
             [| StringLiteral fullname :> Expression |]
-            |> coreReflectionCall com ctx None "generic"
+            |> coreReflectionCall com ctx None "class"
         let resolveGenerics generics: Expression[] =
             generics |> Array.map (transformTypeInfo com ctx r genMap)
         let genericTypeInfo name genArgs =
@@ -665,7 +665,7 @@ module Util =
             let fullname = defaultArg ent.TryFullName Naming.unknown
             let fullnameExpr = StringLiteral fullname :> Expression
             let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
-            coreReflectionCall com ctx None "generic" args
+            coreReflectionCall com ctx None "class" args
         match t with
         | Fable.ErasedUnion _genArgs -> primitiveTypeInfo "obj" // TODO: Type info for ErasedUnion?
         | Fable.Any -> primitiveTypeInfo "obj"
@@ -768,8 +768,11 @@ module Util =
         else
             let fullname = defaultArg ent.TryFullName Naming.unknown
             let fullnameExpr = StringLiteral fullname :> Expression
-            let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
-            coreReflectionCall com ctx None "generic" args
+            let generics =
+                if Array.isEmpty generics then Undefined() :> Expression
+                else ArrayExpression generics :> _
+            let args = [|fullnameExpr; generics; jsConstructor com ctx ent|]
+            coreReflectionCall com ctx None "class" args
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
         match value with

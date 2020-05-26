@@ -63,8 +63,11 @@ export function compare(t1: TypeInfo, t2: TypeInfo): number {
   }
 }
 
-export function generic_type(fullname: string, generics?: TypeInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics);
+export function class_type(
+    fullname: string,
+    generics?: TypeInfo[],
+    constructor?: Constructor): TypeInfo {
+  return new TypeInfo(fullname, generics, constructor);
 }
 
 export function record_type(
@@ -366,6 +369,25 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
 
 export function makeTuple(values: any[], _t: TypeInfo): any {
   return values;
+}
+
+export function makeGenericType(t: TypeInfo, generics: TypeInfo[]): TypeInfo {
+    return new TypeInfo(
+        t.fullname,
+        generics,
+        t.constructor,
+        t.fields,
+        t.cases);
+}
+
+export function createInstance(t: TypeInfo, consArgs?: any[]): any {
+    // TODO: Check if consArgs length is same as t.constructor?
+    // (Arg types can still be different)
+    if (typeof t.constructor === "function") {
+        return new t.constructor(...(consArgs ?? []));
+    } else {
+        throw new Error(`Cannot access constructor of ${t.fullname}`);
+    }
 }
 
 export function getValue(propertyInfo : PropertyInfo, v : any) : any {
