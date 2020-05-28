@@ -31,8 +31,8 @@
     "build-lib-dotnet": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib --typescript && npm run build-lib-transform",
     "build-lib-transform": "node transform ../../../fable-library/Fable.Library.fsproj out-lib ../../../../build/fable-library --typescript",
     "postbuild-lib-transform": "rmdir /s /q out-lib\\fable-library && xcopy /s /y ..\\..\\..\\fable-library\\*.ts out-lib\\",
-    "tsc-lib-init": "npm run tsc -- --init --target es2020 --module es2020",
-    "tsc-lib": "npm run tsc -p out-lib --outDir out-lib-js",
+    "tsc-lib-init": "npm run tsc -- --init --target es2020 --module es2020 --allowJs",
+    "tsc-lib": "npm run tsc -- -p ./out-lib --outDir ./out-lib-js",
 
     "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --classTypes --typescript && npm run build-test-transform",
     "build-test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --classTypes --typescript && npm run build-test-transform",

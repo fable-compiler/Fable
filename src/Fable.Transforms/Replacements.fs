@@ -692,7 +692,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithJsComparison = function
-    | Builtin(BclInt64|BclUInt64|BclBigInt)
+    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt)
     | Array _ | List _ | Tuple _ | Option _ | MetaType -> false
     | Builtin(BclGuid|BclTimeSpan) -> true
     // TODO: Non-record/union declared types without custom equality
@@ -709,10 +709,10 @@ let isCompatibleWithJsComparison = function
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 let identityHash r (arg: Expr) =
     match arg.Type with
-    | Boolean | Char | String | Number _ | Enum _
-    | Builtin(BclInt64|BclUInt64|BclBigInt)
-    | Builtin(BclDateTime|BclDateTimeOffset)
-    | Builtin(BclGuid|BclTimeSpan) ->
+    | Boolean | Char | String | Number _ | Enum _ | Option | Tuple | List
+    | Builtin(BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
+    | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
+    | Builtin(FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
     | DeclaredType(ent,_) when ent.IsValueType ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
