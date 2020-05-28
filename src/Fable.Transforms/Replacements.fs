@@ -714,7 +714,7 @@ let identityHash r (arg: Expr) =
     | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
     | Builtin(FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
-    | DeclaredType(ent,_) when ent.IsValueType ->
+    | DeclaredType(ent,_) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
     | _ ->
         Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
