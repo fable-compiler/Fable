@@ -2898,9 +2898,9 @@ let private replacedModules =
     "System.Collections.Generic.List`1.Enumerator", enumerators
     Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
-    "System.Collections.Generic.ICollection`1", resizeArrays
     "System.Collections.IList", resizeArrays
-    "System.Collections.ICollection", resizeArrays
+    Types.icollectionGeneric, resizeArrays
+    Types.icollection, resizeArrays
     Types.hashset, hashSets
     Types.iset, hashSets
     Types.option, options

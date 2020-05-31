@@ -139,7 +139,7 @@ export function makeRangeStepFunction(step: Long, last: Long, unsigned: boolean)
       || (!stepGreaterThanZero && comparedWithLast >= 0)) {
       return [x, op_Addition(x, step)];
     } else {
-      return null;
+      return undefined;
     }
   };
 }

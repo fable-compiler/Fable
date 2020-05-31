@@ -561,7 +561,7 @@ type RestElement(argument, ?typeAnnotation, ?loc) =
 type ClassMethodKind =
     | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) =
+type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     let kind =
         match kind_ with
@@ -569,6 +569,7 @@ type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstrac
         | ClassGetter -> "get"
         | ClassSetter -> "set"
         | ClassFunction -> "method"
+    let computed = defaultArg computed_ false
     member __.Kind = kind
     member __.Key: Expression = key
     member __.Params: Pattern array = ``params``

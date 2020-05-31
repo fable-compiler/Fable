@@ -204,7 +204,7 @@ export function makeRangeStepFunction(step: Decimal, last: Decimal) {
       || (!stepGreaterThanZero && comparedWithLast >= 0)) {
       return [x, op_Addition(x, step)];
     } else {
-      return null;
+      return undefined;
     }
   };
 }

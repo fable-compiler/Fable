@@ -647,6 +647,15 @@ module TypeHelpers =
         | _ -> ()
     }
 
+    let isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+        memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
+
+    let isNotIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+        memb.IsOverrideOrExplicitInterfaceImplementation && not (isIgnoredAttachedMember memb)
+
+    let getOverrideOrExplicitInterfaceMembers (tdef: FSharpEntity) =
+        tdef.TryGetMembersFunctionsAndValues |> Seq.filter isNotIgnoredAttachedMember
+
     let getArgTypes com (memb: FSharpMemberOrFunctionOrValue) =
         // FSharpParameters don't contain the `this` arg
         Seq.concat memb.CurriedParameterGroups

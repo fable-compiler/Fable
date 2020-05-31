@@ -787,9 +787,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
   }
 
-let private isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
-    memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
-
 let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
     Option.isSome meth.LiteralValue
     || meth.Attributes |> Seq.exists (fun att ->
@@ -815,8 +812,7 @@ let private checkAttachedMemberConflicts com isRecordLike (ent: FSharpEntity) =
         else Map.empty
     (attachedMembers, ent.MembersFunctionsAndValues)
     ||> Seq.fold (fun attachedMembers memb ->
-        if memb.IsOverrideOrExplicitInterfaceImplementation
-            && not (isIgnoredAttachedMember memb)
+        if (isNotIgnoredAttachedMember memb)
             // memb.IsPropertySetterMethod is false for interfaces implemented in an abstract class
             && not (memb.IsProperty || memb.LogicalName.StartsWith("set_")) then
                 match Map.tryFind memb.DisplayName attachedMembers with
