@@ -1,5 +1,5 @@
 import { IObservable, IObserver, Observer, protect } from "./Observable";
-import { Choice, Option, some, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
+import { Choice, Option, some, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option";
 import { iterate as seqIterate } from "./Seq";
 import { IDisposable } from "./Util";
 
@@ -212,7 +212,7 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: 
 
 export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>): [IEvent<U1>, IEvent<U2>] {
   return [
-    choose((v) => tryValueIfChoice1(splitter(v)), sourceEvent),
-    choose((v) => tryValueIfChoice2(splitter(v)), sourceEvent),
+    choose((v) => tryValueIfChoice1Of2(splitter(v)), sourceEvent),
+    choose((v) => tryValueIfChoice2Of2(splitter(v)), sourceEvent),
   ];
 }

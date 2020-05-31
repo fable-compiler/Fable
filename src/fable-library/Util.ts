@@ -36,17 +36,8 @@ export interface IDateTimeOffset extends Date {
   offset?: number;
 }
 
-export interface IComparer<T> {
-  Compare(x: T, y: T): number;
-}
-
 export interface IComparable<T> {
   CompareTo(x: T): number;
-}
-
-export interface IEqualityComparer<T> {
-  Equals(x: T, y: T): boolean;
-  GetHashCode(x: T): number;
 }
 
 export interface IEquatable<T> {
@@ -59,6 +50,49 @@ export interface IHashable {
 
 export interface IDisposable {
   Dispose(): void;
+}
+
+export interface IComparer<T> {
+  Compare(x: T, y: T): number;
+}
+
+export interface IEqualityComparer<T> {
+  Equals(x: T, y: T): boolean;
+  GetHashCode(x: T): number;
+}
+
+export interface ICollection<T> {
+  readonly Count: number;
+  readonly IsReadOnly: boolean;
+  Add(item: T): void;
+  Clear(): void;
+  Contains(item: T): boolean;
+  CopyTo(array: T[], arrayIndex: number): void;
+  Remove(item: T): boolean;
+}
+
+export interface IMutableMap<K, V> {
+  readonly size: number;
+  clear(): void;
+  delete(key: K): boolean;
+  get(key: K): V | undefined;
+  has(key: K): boolean;
+  set(key: K, value: V): this;
+  keys(): Iterable<K>;
+  values(): Iterable<V>;
+  entries(): Iterable<[K, V]>;
+}
+
+export interface IMutableSet<T> {
+  readonly size: number;
+  add(value: T): this;
+  add_(value: T): boolean;
+  clear(): void;
+  delete(value: T): boolean;
+  has(value: T): boolean;
+  keys(): Iterable<T>;
+  values(): Iterable<T>;
+  entries(): Iterable<[T, T]>;
 }
 
 export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {

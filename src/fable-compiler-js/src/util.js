@@ -80,7 +80,7 @@ function getRelPath(absPath, outPath, projDir, outDir) {
   return relPath;
 }
 
-function getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, babelOptions, typeDecls) {
+function getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, babelOptions, options) {
   if (importPath.startsWith("fable-library/")) {
     importPath = Path.join(libDir, importPath.replace(/^fable-library\//, ""));
     projDir = Path.dirname(libDir);
@@ -91,9 +91,9 @@ function getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, b
   if (Path.isAbsolute(absPath)) {
     relPath = getRelPath(absPath, outPath, projDir, outDir);
     if (importPath.match(FSHARP_EXT)) {
-      relPath = relPath.replace(FSHARP_EXT, typeDecls ? "" : ".js");
+      relPath = relPath.replace(FSHARP_EXT, options.typescript ? "" : ".js");
     } else {
-      relPath = relPath.match(JAVASCRIPT_EXT) || typeDecls ? relPath : relPath + ".js";
+      relPath = relPath.match(JAVASCRIPT_EXT) || options.typescript ? relPath : relPath + ".js";
       absPath = absPath.match(JAVASCRIPT_EXT) ? absPath : absPath + ".js";
       outPath = Path.resolve(Path.dirname(outPath), relPath);
       // if not already done, transform and save javascript imports
@@ -101,7 +101,7 @@ function getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, b
         outPath = ensureUniquePath(absPath, outPath);
         ensureDirExists(Path.dirname(outPath));
         const resAst = Babel.transformFileSync(absPath, { ast: true, code: false });
-        fixImportPaths(resAst.ast.program, absPath, outPath, projDir, outDir, libDir, babelOptions, typeDecls);
+        fixImportPaths(resAst.ast.program, absPath, outPath, projDir, outDir, libDir, babelOptions, options);
         const resCode = Babel.transformFromAstSync(resAst.ast, null, babelOptions);
         fs.writeFileSync(outPath, resCode.code);
       }
@@ -110,12 +110,12 @@ function getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, b
   return relPath;
 }
 
-function fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions, typeDecls) {
+function fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions, options) {
   const decls = ensureArray(babelAst.body);
   for (const decl of decls) {
     if (decl.source != null && typeof decl.source.value === "string") {
       const importPath = decl.source.value;
-      decl.source.value = getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, babelOptions, typeDecls);
+      decl.source.value = getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, babelOptions, options);
     }
   }
 }
@@ -138,7 +138,7 @@ export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, li
     // this solves a weird commonjs issue where some imports are not properly qualified
     babelAst = JSON.parse(serializeToJson(babelAst)); // somehow this helps with that
     const sourcePath = babelAst.fileName;
-    const jsPath = filePath.replace(FSHARP_EXT, options.typeDecls ? ".ts" : ".js");
+    const jsPath = filePath.replace(FSHARP_EXT, options.typescript ? ".ts" : ".js");
     let outPath = Path.resolve(outDir, jsPath);
     outPath = ensureUniquePath(sourcePath, outPath);
     ensureDirExists(Path.dirname(outPath));
@@ -148,14 +148,16 @@ export function transformAndSaveBabelAst(babelAst, filePath, projDir, outDir, li
     if (options.sourceMaps) {
       babelOptions.sourceMaps = true;
     }
-    fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions, options.typeDecls);
+    fixImportPaths(babelAst, sourcePath, outPath, projDir, outDir, libDir, babelOptions, options);
     const babelOpts = Object.assign({}, babelOptions);
     if (babelOpts.sourceMaps) {
       const relPath = Path.relative(Path.dirname(outPath), sourcePath);
       babelOpts.sourceFileName = relPath.replace(/\\/g, "/");
     }
     const result = Babel.transformFromAstSync(babelAst, null, babelOpts);
-    fs.writeFileSync(outPath, result.code);
+    const source = options.typescript ?
+      result.code.replace(/\$INTERFACE_DECL_PREFIX\$_/g, "") : result.code;
+    fs.writeFileSync(outPath, source);
     if (result.map) {
       fs.appendFileSync(outPath, "\n//# sourceMappingURL=" + Path.basename(outPath) + ".map");
       fs.writeFileSync(outPath + ".map", JSON.stringify(result.map));

@@ -1,5 +1,5 @@
 // tslint:disable: space-before-function-paren
-import { combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
 
 function sameType(x: any, y: any) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
@@ -32,24 +32,7 @@ export function declare(cons: any, superClass?: any) {
   return cons;
 }
 
-export interface IEquatable {
-  Equals(other: any): boolean;
-}
-
-export interface IHashable {
-  GetHashCode(): number;
-}
-
-export interface IComparable {
-  CompareTo(other: any): number;
-}
-
-export interface IObject {
-  Equals(other: any): boolean;
-  GetHashCode(): number;
-}
-
-export class SystemObject implements IObject {
+export class SystemObject implements IEquatable<any> {
 
   public toString() {
     return "{" + Object.entries(this).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
@@ -82,7 +65,7 @@ function compareList<T>(self: List<T>, other: List<T>) {
   }
 }
 
-export class List<T> implements IObject, IComparable, Iterable<T> {
+export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
   public head: T;
   public tail?: List<T>;
 
@@ -125,7 +108,7 @@ export class List<T> implements IObject, IComparable, Iterable<T> {
   }
 }
 
-export class Union extends SystemObject implements IComparable {
+export class Union extends SystemObject implements IComparable<any> {
   public tag: number;
   public name: string;
   public fields: any[];
@@ -222,7 +205,7 @@ function recordCompare(self: any, other: any, getFieldNames?: (arg: any) => any)
   }
 }
 
-export class Record extends SystemObject implements IComparable {
+export class Record extends SystemObject implements IComparable<any> {
 
   public toString() {
     return "{" + Object.entries(this).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
@@ -290,7 +273,7 @@ function getFSharpExceptionFieldNames(self: any) {
   return Object.keys(self).filter((k) => k !== "message" && k !== "stack");
 }
 
-export class FSharpException extends Exception implements IComparable {
+export class FSharpException extends Exception implements IComparable<any> {
 
   public toString() {
     // const fieldNames = getFSharpExceptionFieldNames(this);

@@ -5,7 +5,7 @@ type CmdLineOptions = {
     optimize: bool
     sourceMaps: bool
     classTypes: bool
-    typeDecls: bool
+    typescript: bool
     watchMode: bool
 }
 

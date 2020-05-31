@@ -217,7 +217,7 @@ let defaultCompilerConfig: CompilerConfig =
     { typedArrays = true
       clampByteArrays = false
       classTypes = false
-      typeDecls = false
+      typescript = false
       precompiledLib = None }
 
 let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: string[]): Fable.CompilerOptions =
@@ -226,7 +226,7 @@ let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: str
     { typedArrays = config.typedArrays
       clampByteArrays = config.clampByteArrays
       classTypes = config.classTypes
-      typeDecls = config.typeDecls
+      typescript = config.typescript
       debugMode = isDebug
       verbosity = Fable.Verbosity.Normal
       outputPublicInlinedFunctions = false
