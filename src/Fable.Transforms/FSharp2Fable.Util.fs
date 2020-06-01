@@ -74,25 +74,11 @@ module Helpers =
         then [||] :> IList<_>
         else (nonAbbreviatedType t).GenericArguments
 
-    let inline getEntityLocation (ent: FSharpEntity) =
-        ent.DeclarationLocation
-        // As we're using a hash for the overload suffix, we shouldn't care
-        // whether the location belongs to the implementation or the signature
-        // match ent.ImplementationLocation with
-        // | Some loc -> loc
-        // | None -> ent.DeclarationLocation
-
-    let inline getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
-        memb.DeclarationLocation
-        // match memb.ImplementationLocation with
-        // | Some loc -> loc
-        // | None -> memb.DeclarationLocation
-
     let private getEntityMangledName (com: ICompiler) trimRootModule (ent: FSharpEntity) =
         match ent.TryFullName with
         | Some fullName when not trimRootModule -> fullName
         | Some fullName ->
-            let loc = getEntityLocation ent
+            let loc = FSharp.getEntityLocation ent
             let rootMod = com.GetRootModule(loc.FileName)
             if fullName.StartsWith(rootMod)
             then fullName.Substring(rootMod.Length).TrimStart('.')
@@ -850,25 +836,28 @@ module Util =
                 |> Path.getRelativePath com.CurrentFile
         else path
 
-    let (|ImportAtt|EmitDeclarationAtt|NoAtt|) (atts: #seq<FSharpAttribute>) =
+    let (|ImportAtt|EmitDeclarationAtt|TransformDeclarationAtt|NoAtt|) (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (function
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                Choice1Of3(selector.Trim(), path.Trim()) |> Some
+                ImportAtt(selector.Trim(), path.Trim()) |> Some
             | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
-                Choice1Of3("*", path.Trim()) |> Some
+                ImportAtt("*", path.Trim()) |> Some
             | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
-                Choice1Of3("default", path.Trim()) |> Some
+                ImportAtt("default", path.Trim()) |> Some
             | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
-                Choice1Of3(Naming.placeholder, path.Trim()) |> Some
+                ImportAtt(Naming.placeholder, path.Trim()) |> Some
             | AttFullName(Atts.emitDeclaration, AttArguments [(:? string as macro)]) ->
-                Choice2Of3(macro) |> Some
-            | _ -> None)
-        |> Option.defaultValue (Choice3Of3 ())
+                EmitDeclarationAtt(macro) |> Some
+            | att ->
+                Plugins.tryTransformDeclarationAtt att
+                |> Option.map (fun x -> TransformDeclarationAtt x)
+        )
+        |> Option.defaultValue NoAtt
 
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember com typ (memb: FSharpMemberOrFunctionOrValue) =
         let getImportPath path =
-            lazy getMemberLocation memb
+            lazy FSharp.getMemberLocation memb
             |> fixImportedRelativePath com path
         memb.Attributes |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
@@ -889,7 +878,7 @@ module Util =
 
     let tryGlobalOrImportedEntity (com: ICompiler) (ent: FSharpEntity) =
         let getImportPath path =
-            lazy getEntityLocation ent
+            lazy FSharp.getEntityLocation ent
             |> fixImportedRelativePath com path
         ent.Attributes |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
@@ -932,8 +921,7 @@ module Util =
         if ent.IsInterface then
             error "Cannot reference an interface"
         else
-            let entLoc = getEntityLocation ent
-            let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
+            let file = FSharp.getEntityFile ent
             let entityName = getEntityDeclarationName com ent
             let entityName = Naming.appendSuffix entityName suffix
             if file = com.CurrentFile then
@@ -958,7 +946,7 @@ module Util =
         let file =
             match memb.DeclaringEntity with
             | Some ent ->
-                let entLoc = getEntityLocation ent
+                let entLoc = FSharp.getEntityLocation ent
                 Path.normalizePathAndEnsureFsExtension entLoc.FileName
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file

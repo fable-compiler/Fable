@@ -4,23 +4,6 @@ open Fable
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 
-#if FABLE_COMPILER
-
-type Dictionary<'TKey, 'TValue> with
-    member x.GetOrAdd (key, valueFactory) =
-        match x.TryGetValue key with
-        | true, v -> v
-        | false, _ -> let v = valueFactory(key) in x.Add(key, v); v
-    member x.AddOrUpdate (key, valueFactory, updateFactory) =
-        if x.ContainsKey(key)
-        then let v = updateFactory key x.[key] in x.[key] <- v; v
-        else let v = valueFactory(key) in x.Add(key, v); v
-
-type ConcurrentDictionary<'TKey, 'TValue> = Dictionary<'TKey, 'TValue>
-#else
-open System.Collections.Concurrent
-#endif
-
 type Project(projectOptions: FSharpProjectOptions,
              implFiles: IDictionary<string, FSharpImplementationFileContents>,
              errors: FSharpErrorInfo array) =

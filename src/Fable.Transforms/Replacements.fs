@@ -80,10 +80,6 @@ module Helpers =
         let info = argInfo None args AutoUncurrying
         Operation(Emit(macro, Some info), t, r)
 
-    let objExpr t kvs =
-        let kvs = List.map (fun (k,v) -> ObjectMember(makeStrConst k, v, ObjectValue)) kvs
-        ObjectExpr(kvs, t, None)
-
     let add left right =
         Operation(BinaryOperation(BinaryPlus, left, right), left.Type, None)
 
@@ -1048,7 +1044,7 @@ let defaultof com ctx (t: Type) =
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
-    | _, ".ctor" -> objExpr t [] |> Some
+    | _, ".ctor" -> makeObjExpr t [] |> Some
     | _, "jsNative" ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
@@ -1197,7 +1193,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
-            objExpr t [] |> Some
+            makeObjExpr t [] |> Some
         // Deprecated methods
         | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
@@ -2298,7 +2294,7 @@ let exceptions (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ -> objExpr t [] |> Some
+    | ".ctor", _, _ -> makeObjExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
         identityHash r arg |> Some
     | "ToString", Some arg, _ ->
@@ -2317,7 +2313,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let valueTypes (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> objExpr t [] |> Some
+    | ".ctor", _ -> makeObjExpr t [] |> Some
     | "ToString", Some thisArg ->
         Helper.InstanceCall(thisArg, "toString", String, [], i.SignatureArgTypes, ?loc=r) |> Some
     | ("GetHashCode" | "Equals" | "CompareTo"), Some thisArg ->
@@ -2402,7 +2398,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "get_Out" -> objExpr t [] |> Some // empty object
+    | "get_Out" -> makeObjExpr t [] |> Some // empty object
     | "Write" ->
         addWarning com ctx.InlinePath r "Write will behave as WriteLine"
         log com r t i thisArg args |> Some

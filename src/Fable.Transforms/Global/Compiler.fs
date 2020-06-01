@@ -1,6 +1,6 @@
 namespace Fable
 
-[<RequireQualifiedAccessAttribute>]
+[<RequireQualifiedAccess>]
 type Verbosity =
     | Normal
     | Verbose

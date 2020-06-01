@@ -14,6 +14,7 @@
     <Compile Include="MonadicTrampoline.fs" />
     <Compile Include="Transforms.Util.fs" />
     <Compile Include="OverloadSuffix.fs" />
+    <Compile Include="Plugins.fs" />
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="ReplacementsInject.fs" />
     <Compile Include="Replacements.fs" />

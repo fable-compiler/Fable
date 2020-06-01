@@ -381,6 +381,10 @@ module AST =
         let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import(makeStrConst selector, makeStrConst path, Internal, t, None)
 
+    let makeObjExpr t kvs =
+        let kvs = List.map (fun (k,v) -> ObjectMember(makeStrConst k, v, ObjectValue)) kvs
+        ObjectExpr(kvs, t, None)
+
     let argInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
@@ -546,3 +550,24 @@ module AST =
             | None, None -> None
             | Some r1, Some r2 -> Some(r1 + r2)
         (None, locs) ||> Seq.fold addTwo
+
+module FSharp =
+    open FSharp.Compiler.SourceCodeServices
+
+    let inline getEntityLocation (ent: FSharpEntity) =
+        ent.DeclarationLocation
+        // As we're using a hash for the overload suffix, we shouldn't care
+        // whether the location belongs to the implementation or the signature
+        // match ent.ImplementationLocation with
+        // | Some loc -> loc
+        // | None -> ent.DeclarationLocation
+
+    let inline getMemberLocation (memb: FSharpMemberOrFunctionOrValue) =
+        memb.DeclarationLocation
+        // match memb.ImplementationLocation with
+        // | Some loc -> loc
+        // | None -> memb.DeclarationLocation
+
+    let getEntityFile (ent: FSharpEntity) =
+        let entLoc = getEntityLocation ent
+        Fable.Path.normalizePathAndEnsureFsExtension entLoc.FileName

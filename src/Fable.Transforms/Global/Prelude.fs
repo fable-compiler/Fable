@@ -12,6 +12,21 @@ type ResizeArrayDictionary<'K, 'V when 'K : equality>() =
         | true, xs -> Seq.toList xs
         | false, _ -> []
 
+#if FABLE_COMPILER
+type ConcurrentDictionary<'TKey, 'TValue when 'TKey : equality>() =
+    let dic = System.Collections.Generic.Dictionary<'TKey, 'TValue>()
+    member _.GetOrAdd (key, valueFactory) =
+        match dic.TryGetValue key with
+        | true, v -> v
+        | false, _ -> let v = valueFactory(key) in dic.Add(key, v); v
+    member _.AddOrUpdate (key, valueFactory, updateFactory) =
+        if dic.ContainsKey(key)
+        then let v = updateFactory key dic.[key] in dic.[key] <- v; v
+        else let v = valueFactory(key) in dic.Add(key, v); v
+#else
+type ConcurrentDictionary<'TKey, 'TValue> = System.Collections.Concurrent.ConcurrentDictionary<'TKey, 'TValue>
+#endif
+
 /// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
 type Position =
     { line: int; column: int; }
