@@ -130,6 +130,10 @@ type Ident =
     interface SimpleAst.Ident with
         member this.CompiledName = this.Name
         member this.DisplayName = this.DisplayName
+        member this.IsFunction =
+            match this.Type with
+            | FunctionType _ -> true
+            | _ -> false
 
 type ImportKind =
     | Internal

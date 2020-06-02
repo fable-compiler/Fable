@@ -70,15 +70,17 @@ let transformIdent (ident: Ident) =
     // TODO: Check if name is unique?
     | _ -> makeIdentNonMangled ident.CompiledName
 
-let rec transformApply withNew expr argExprs =
+let rec makeArgInfo argExprs: Fable.ArgInfo =
+    { ThisArg = None
+      Args = List.map transformExpr argExprs
+      SignatureArgTypes = Fable.NoUncurrying
+      Spread = Fable.NoSpread
+      IsBaseOrSelfConstructorCall = false }
+
+and transformApply withNew expr argExprs =
     let expr = transformExpr expr
     let callKind = if withNew then Fable.ConstructorCall expr else Fable.StaticCall expr
-    let argInfo: Fable.ArgInfo =
-        { ThisArg = None
-          Args = List.map transformExpr argExprs
-          SignatureArgTypes = Fable.NoUncurrying
-          Spread = Fable.NoSpread
-          IsBaseOrSelfConstructorCall = false }
+    let argInfo = makeArgInfo argExprs
     let opKind = Fable.Call(callKind, argInfo)
     Fable.Operation(opKind, Fable.Any, None)
 
@@ -86,19 +88,33 @@ and transformFunction name args body =
     let args = List.map transformIdent args
     Fable.Function(Fable.Delegate args, transformExpr body, name)
 
+and transformConst (c: SimpleConstant) =
+    match c with
+    | NullConst -> Fable.Value(Fable.Null Fable.Any, None)
+    | UndefinedConst -> Fable.Value(Fable.NewOption(None, Fable.Any), None)
+    | BooleanConst x -> makeBoolConst x
+    | NumberConst x -> makeFloatConst x
+    | StringConst x -> makeStrConst x
+    | ArrayConst xs ->
+        let xs = List.map transformExpr xs
+        Fable.Value(Fable.NewArray(Fable.ArrayValues xs, Fable.Any), None)
+    | RegexConst(source, flags) ->
+        let flags = flags |> List.map (function
+            | 'g' -> RegexGlobal
+            | 'i' -> RegexIgnoreCase
+            | 'm' -> RegexMultiline
+            | 'y' -> RegexSticky
+            | f -> failwithf "Unknown regex flag %O" f)
+        Fable.Value(Fable.RegexConstant(source, flags), None)
+
 and transformExpr (expr: Expr) =
     match expr with
     | :? Fable.Expr as e -> e
     | :? SimpleExpr as e ->
         match e with
-        | Constant c ->
-            match c with
-            | NullConst -> Fable.Value(Fable.Null Fable.Any, None)
-            | UndefinedConst -> Fable.Value(Fable.NewOption(None, Fable.Any), None)
-            | BooleanConst x -> makeBoolConst x
-            | NumberConst x -> makeFloatConst x
-            | StringConst x -> makeStrConst x
+        | Constant c -> transformConst c
         | IdentExpr i -> transformIdent i |> Fable.IdentExpr
+        // TODO: Check if path is "." (referencing self file)
         | Import(selector, path) -> makeCustomImport Fable.Any selector path
         | Function(args, body) -> transformFunction None args body
         | ObjectExpr(keyValueParis) ->
@@ -107,7 +123,7 @@ and transformExpr (expr: Expr) =
             |> makeObjExpr Fable.Any
         | Apply(expr, argExprs) -> transformApply false expr argExprs
         | ApplyNew(expr, argExprs) -> transformApply true expr argExprs
-        | Assign(var, value, body) ->
+        | Let(var, value, body) ->
             Fable.Let([transformIdent var, transformExpr value], transformExpr body)
         | GetField(expr, key) ->
             let kind = makeStrConst key |> Fable.ExprGet
@@ -117,11 +133,21 @@ and transformExpr (expr: Expr) =
             Fable.Get(transformExpr expr, kind, Fable.Any, None)
         | Set(expr, value) ->
             Fable.Set(transformExpr expr, Fable.VarSet, transformExpr value, None)
+        | Sequential exprs ->
+            Fable.Sequential(List.map transformExpr exprs)
+        | EmitJs(macro, argExprs) ->
+            Fable.Operation(Fable.Emit(macro, Some(makeArgInfo argExprs)), Fable.Any, None)
     | _ -> failwithf "Unexpected SimpleAst.Expr: %A" expr
 
 let transformDeclaration (plugin: TransformDeclaration) (com: ICompiler) (decl: Fable.Declaration): Fable.Declaration =
     match decl with
     | Fable.ValueDeclaration(expr, info) ->
+        let args, body =
+            match expr with
+            | Fable.Function(Fable.Delegate args, body, _) ->
+                Some(args |> List.map (fun x -> x :> Ident)), body
+            | _ -> None, expr
+
         let enclosingFullDisplayName =
             info.EnclosingEntity
             |> Option.bind (fun ent -> ent.TryGetFullDisplayName())
@@ -131,29 +157,30 @@ let transformDeclaration (plugin: TransformDeclaration) (com: ICompiler) (decl: 
             info.Range
             |> Option.bind (fun r -> r.identifierName)
 
-        let fullDisplayName =
-            match enclosingFullDisplayName, displayName with
-            | Some n1, Some n2 -> n1 + "_" + n2
-            | None, Some n2 -> n2
-            | _ -> info.Name
-
         let simpleDeclaration =
-            match expr with
-            | Fable.Function(Fable.Delegate args, body, _) ->
-                FunctionDeclaration(args |> List.map (fun x -> x :> _), body)
-            | _ -> ValueDeclaration expr
+            { new Declaration with
+                member _.Args = args
+                member _.Body = body :> _
+                member _.CompiledName = info.Name
+                member _.DisplayName = defaultArg displayName info.Name
+                member _.FullDisplayName =
+                    match enclosingFullDisplayName, displayName with
+                    | Some n1, Some n2 -> n1 + "_" + n2
+                    | None, Some n2 -> n2
+                    | _ -> info.Name }
 
-        let logger =
-            { new Logger with
+        let helper =
+            { new Helper with
+                member _.GetUniqueVar(name) = com.GetUniqueVar(name)
                 member _.LogError(msg) = addError com [] info.Range msg
                 member _.LogWarning(msg) = addWarning com [] info.Range msg }
 
+        let transformed = plugin.TransformDeclaration(helper, simpleDeclaration)
+
         let expr =
-            match plugin.TransformDeclaration(logger, fullDisplayName, simpleDeclaration) with
-            | ValueDeclaration(expr) ->
-                transformExpr expr
-            | FunctionDeclaration(args, body) ->
-                transformFunction (Some info.Name) args body
+            match transformed.Args with
+            | None -> transformExpr transformed.Body
+            | Some args -> transformFunction (Some transformed.CompiledName) args transformed.Body
 
         Fable.ValueDeclaration(expr, info)
 
