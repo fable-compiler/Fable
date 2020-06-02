@@ -27,8 +27,12 @@ Arguments:
   -d|--debug        [FLAG] Define DEBUG constant
   --allFiles        [FLAG] Compile all files in the F# project
   --commonjs        [FLAG] Compile to commonjs modules
+  --usePolling      [FLAG] Option for watch mode, may help capture file
+                    save events in certain editors (suboptimal)
   --run             [FLAG] Run script with node after compilation
                     Arguments after --run will be passed to the script
+  --runInspect      [FLAG] Like run, but passes --inspect option to node
+                    so a debugger can be attached
 
 Examples:
   fable-splitter src/App.fsproj -o dist/

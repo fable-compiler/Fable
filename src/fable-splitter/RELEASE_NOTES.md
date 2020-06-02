@@ -1,3 +1,7 @@
+### 2.1.14
+
+* Add --runInspect flag instead of checking debug mode
+
 ### 2.1.13
 
 * Update to fable-babel-plugins 2.3.0
