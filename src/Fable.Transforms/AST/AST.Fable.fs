@@ -128,7 +128,7 @@ type Ident =
         |> Option.bind (fun r -> r.identifierName)
         |> Option.defaultValue this.Name
     interface SimpleAst.Ident with
-        member this.Name = this.Name
+        member this.CompiledName = this.Name
         member this.DisplayName = this.DisplayName
 
 type ImportKind =

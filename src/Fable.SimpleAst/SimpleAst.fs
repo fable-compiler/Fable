@@ -2,7 +2,7 @@
 
 type Ident =
     /// Compiled name of identifier, guaranteed to be unique within the file when created by Fable
-    abstract Name: string
+    abstract CompiledName: string
     /// Original name of identifier as it appears in source code
     abstract DisplayName: string
 

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <!-- Fable.Transforms -->
+    <Compile Include="../../Fable.SimpleAst/SimpleAst.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />
@@ -22,6 +23,7 @@
     <Compile Include="../../Fable.Transforms/MonadicTrampoline.fs" />
     <Compile Include="../../Fable.Transforms/Transforms.Util.fs" />
     <Compile Include="../../Fable.Transforms/OverloadSuffix.fs" />
+    <Compile Include="../../Fable.Transforms/Plugins.fs" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.Util.fs" />
     <Compile Include="../../Fable.Transforms/ReplacementsInject.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.fs" />

@@ -67,8 +67,8 @@ let activateType (ent: FSharpEntity) (consArgs: obj seq): 'T option =
 let transformIdent (ident: Ident) =
     match ident with
     | :? Fable.Ident as i -> i
-    // TODO: Make name unique?
-    | _ -> makeIdentNonMangled ident.Name
+    // TODO: Check if name is unique?
+    | _ -> makeIdentNonMangled ident.CompiledName
 
 let rec transformApply withNew expr argExprs =
     let expr = transformExpr expr
@@ -167,6 +167,7 @@ type TransformDeclaration =
 
 let tryTransformDeclarationAtt (att: FSharpAttribute) =
     let implementsTransformDeclarationInterface =
+        // TODO: Check also parent interfaces?
         att.AttributeType.DeclaredInterfaces |> Seq.exists (fun ifc ->
             if ifc.HasTypeDefinition then
                 match ifc.TypeDefinition.TryFullName with
