@@ -606,7 +606,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some callee -> callee
             | None -> entityRef com calleeType.TypeDefinition
-        let kind = Fable.FieldGet(field.Name, field.IsMutable, makeType com Map.empty field.FieldType)
+        let kind = Fable.FieldGet(getFSharpFieldName field, field.IsMutable, makeType com Map.empty field.FieldType)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return Fable.Get(callee, kind, typ, makeRangeFrom fsExpr)
 
@@ -645,7 +645,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             match callee with
             | Some callee -> callee
             | None -> entityRef com calleeType.TypeDefinition
-        return Fable.Set(callee, Fable.FieldSet(field.Name, makeType com Map.empty field.FieldType), value, makeRangeFrom fsExpr)
+        return Fable.Set(callee, Fable.FieldSet(getFSharpFieldName field, makeType com Map.empty field.FieldType), value, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseTag(unionExpr, _unionType) ->
         let! unionExpr = transformExpr com ctx unionExpr

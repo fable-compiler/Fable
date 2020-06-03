@@ -639,6 +639,25 @@ module TypeHelpers =
             Some tdef
         | _ -> None
 
+    let getFSharpFieldName (fi: FSharpField) =
+        let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
+            match getBaseClass ent with
+            | None -> acc
+            | Some baseClass ->
+                let conflicts =
+                    baseClass.FSharpFields
+                    |> Seq.exists (fun fi -> fi.Name = name)
+                let acc = if conflicts then acc + 1 else acc
+                countConflictingCases acc baseClass name
+
+        let name = fi.Name
+        match fi.DeclaringEntity with
+        | None -> name
+        | Some ent ->
+            match countConflictingCases 0 ent name with
+            | 0 -> name
+            | n -> Naming.appendSuffix name (string n)
+
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
         yield! tdef.TryGetMembersFunctionsAndValues
         match tdef.BaseType with
