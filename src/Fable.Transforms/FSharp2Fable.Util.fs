@@ -1100,7 +1100,8 @@ module Util =
         | Some importExpr, None, _ ->
             Some importExpr
         | None, Some argInfo, Some e ->
-            match tryGlobalOrImportedEntity com e, argInfo.IsBaseOrSelfConstructorCall, argInfo.ThisArg with
+            let isBaseOrSelfConstructorCall = argInfo.IsBaseCall || argInfo.IsSelfConstructorCall
+            match tryGlobalOrImportedEntity com e, isBaseOrSelfConstructorCall, argInfo.ThisArg with
             | Some classExpr, true, _ ->
                 staticCall r typ argInfo classExpr |> Some
             | Some _, false, Some _thisArg ->
@@ -1207,7 +1208,8 @@ module Util =
             Args = args
             SignatureArgTypes = Fable.Typed argTypes
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
-            IsBaseOrSelfConstructorCall = isBaseCall
+            IsBaseCall = isBaseCall
+            IsSelfConstructorCall = false
           }
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
@@ -1228,10 +1230,10 @@ module Util =
                 let typ = makeType com ctx.GenericArgs memb.FullType
                 memberRefTyped com ctx r typ memb
             else
-                // let argInfo =
-                //     if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
-                //     then { argInfo with IsBaseOrSelfConstructorCall = true }
-                //     else argInfo
+                let argInfo =
+                    if not argInfo.IsSelfConstructorCall && isSelfConstructorCall ctx memb
+                    then { argInfo with IsSelfConstructorCall = true }
+                    else argInfo
                 memberRef com ctx r memb |> staticCall r typ argInfo
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =

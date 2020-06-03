@@ -102,6 +102,9 @@ type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
     member __.Value = x
 
+type SecondaryConsChild() =
+    inherit SecondaryCons()
+
 type MultipleCons(x: int, y: int) =
     new () = MultipleCons(2,3)
     new (x:int) = MultipleCons(x,4)
@@ -520,6 +523,10 @@ let tests =
         let s2 = SecondaryCons()
         equal 3 s1.Value
         equal 5 s2.Value
+
+    testCase "Inheriting from secondary constructors works" <| fun () ->
+        let s = SecondaryConsChild()
+        equal 5 s.Value
 
     testCase "Multiple constructors work" <| fun () ->
         let m1 = MultipleCons()

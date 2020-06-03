@@ -39,7 +39,8 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
             Args = args
             SignatureArgTypes = getArgTypes com baseCons |> Fable.Typed
             Spread = Fable.NoSpread
-            IsBaseOrSelfConstructorCall = true }
+            IsBaseCall = true
+            IsSelfConstructorCall = false }
         baseRef, staticCall r Fable.Unit argInfo baseRef
     | None ->
         if not(hasImplicitConstructor baseEnt) then
