@@ -244,6 +244,9 @@ module Util =
     let callSuperConstructor r _funcExpr _thisArg (args: Expression list) =
         CallExpression(Super(?loc=r), List.toArray args, ?loc=r) :> Expression
 
+    let callFunction r funcExpr (args: Expression list) =
+        CallExpression(funcExpr, List.toArray args, ?loc=r) :> Expression
+
     let callFunctionWithThisContext r funcExpr thisArg (args: Expression list) =
         CallExpression(get None funcExpr "call", List.toArray (thisArg::args), ?loc=r) :> Expression
 
@@ -767,7 +770,8 @@ module Util =
                     genericEntity ent generics
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
-                    CallExpression(com.TransformAsExpr(ctx, reflectionMethodExpr), generics) :> Expression
+                    let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
+                    CallExpression(callee, generics) :> Expression
 
     let transformReflectionInfo com ctx r (ent: FSharpEntity) generics =
         if ent.IsFSharpRecord then
@@ -956,20 +960,22 @@ module Util =
             | Fable.ConstructorCall(TransformExpr com ctx consExpr) ->
                 upcast NewExpression(consExpr, List.toArray args, ?loc=range)
             | Fable.StaticCall(TransformExpr com ctx funcExpr) ->
-                if argInfo.IsBaseOrSelfConstructorCall then
+                if argInfo.IsBaseCall || argInfo.IsSelfConstructorCall then
                     let thisArg =
                         match argInfo.ThisArg with
                         | Some(TransformExpr com ctx thisArg) -> thisArg
                         | None -> thisExpr
-                    if com.Options.classTypes
-                    then callSuperConstructor range funcExpr thisArg args
+                    if com.Options.classTypes then
+                        if argInfo.IsSelfConstructorCall
+                        then callFunction range funcExpr args
+                        else callSuperConstructor range funcExpr thisArg args
                     else callFunctionWithThisContext range funcExpr thisArg args
                 else
                     let args =
                         match argInfo.ThisArg with
                         | Some(TransformExpr com ctx thisArg) -> thisArg::args
                         | None -> args
-                    upcast CallExpression(funcExpr, List.toArray args, ?loc=range)
+                    callFunction range funcExpr args
             | Fable.InstanceCall membExpr ->
                 match argInfo.ThisArg, membExpr with
                 | None, _ -> addErrorAndReturnNull com range "InstanceCall with empty this argument"
@@ -983,17 +989,18 @@ module Util =
                         |> getExpr None (get None baseClassExpr "prototype")
                     callFunctionWithThisContext range baseProtoMember (ident thisIdent) args
                 | Some thisArg, None ->
-                    upcast CallExpression(com.TransformAsExpr(ctx, thisArg), List.toArray args, ?loc=range)
+                    let funcExpr = com.TransformAsExpr(ctx, thisArg)
+                    callFunction range funcExpr args
                 | Some thisArg, Some(TransformExpr com ctx m) ->
                     let thisArg = com.TransformAsExpr(ctx, thisArg)
-                    upcast CallExpression(getExpr None thisArg m, List.toArray args, ?loc=range)
+                    let funcExpr = getExpr None thisArg m
+                    callFunction range funcExpr args
         | Fable.CurriedApply(TransformExpr com ctx applied, args) ->
             match transformArgs com ctx args Fable.NoSpread with
-            | [] -> upcast CallExpression(applied, [||], ?loc=range)
+            | [] -> callFunction range applied []
             | head::rest ->
-                let baseExpr = CallExpression(applied, [|head|], ?loc=range) :> Expression
-                (baseExpr, rest) ||> List.fold (fun e arg ->
-                    CallExpression(e, [|arg|], ?loc=range) :> Expression)
+                let baseExpr = callFunction range applied [head]
+                (baseExpr, rest) ||> List.fold (fun e arg -> callFunction range e [arg])
 
     let transformOperationAsStatements com ctx range t returnStrategy opKind =
         let argsLen (i: Fable.ArgInfo) =
@@ -1001,7 +1008,7 @@ module Util =
         // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
         | Some(Return|ReturnUnit), Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
-                                when not argInfo.IsBaseOrSelfConstructorCall
+                                when not (argInfo.IsBaseCall || argInfo.IsSelfConstructorCall)
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
             let args =

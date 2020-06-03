@@ -41,7 +41,8 @@ type Helper =
               Args = args
               SignatureArgTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
               Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
-              IsBaseOrSelfConstructorCall = false }
+              IsBaseCall = false
+              IsSelfConstructorCall = false }
         let funcExpr = makeCoreRef Any coreMember coreModule
         match isConstructor with
         | Some true -> Operation(Call(ConstructorCall funcExpr, info), returnType, loc)

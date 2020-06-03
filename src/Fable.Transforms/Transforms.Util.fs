@@ -391,7 +391,8 @@ module AST =
           Args = args
           SignatureArgTypes = argTypes
           Spread = NoSpread
-          IsBaseOrSelfConstructorCall = false }
+          IsBaseCall = false
+          IsSelfConstructorCall = false }
 
     let staticCall r t argInfo functionExpr =
         Operation(Call(StaticCall functionExpr, argInfo), t, r)
