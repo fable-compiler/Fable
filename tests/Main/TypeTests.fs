@@ -102,6 +102,7 @@ type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
     member __.Value = x
 
+// TODO: This should be disabled when compiling with `classTypes` option
 type SecondaryConsChild() =
     inherit SecondaryCons()
 

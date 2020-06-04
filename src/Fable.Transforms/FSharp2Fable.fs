@@ -43,9 +43,15 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
             IsSelfConstructorCall = false }
         baseRef, staticCall r Fable.Unit argInfo baseRef
     | None ->
-        if not(hasImplicitConstructor baseEnt) then
-            "Classes without a primary constructor cannot be inherited: " + baseEnt.FullName
-            |> addError com ctx.InlinePath r
+        Option.iter (addError com ctx.InlinePath r) (
+            if com.Options.classTypes then
+                if not baseCons.IsImplicitConstructor then
+                    Some "Only inheriting from primary constructors is supported"
+                else None
+            elif not(hasImplicitConstructor baseEnt) then
+                "Classes without a primary constructor cannot be inherited: " + baseEnt.FullName |> Some
+            else None)
+
         let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCons
         entityRefMaybeGlobalOrImported com baseEnt, baseCons
 
