@@ -1,3 +1,8 @@
+### 2.10.1
+
+* Improve compiler switch `--classTypes` @ncave
+* Fix #2070: Private fields in derived classes overwrite fields from parent
+
 ### 2.10.0
 
 * Adds cosh, sinh, and tanh operator support @sasmithjr
