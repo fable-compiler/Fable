@@ -13,7 +13,6 @@
   <ItemGroup>
     <Compile Include="../../fable-standalone/src/Interfaces.fs" />
     <Compile Include="../../fable-standalone/src/Metadata.fs" />
-    <Compile Include="Glob.fs" />
     <Compile Include="Platform.fs" />
     <Compile Include="ProjectParser.fs" />
     <Compile Include="app.fs" />

@@ -44,8 +44,10 @@ type IFableCompiler =
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
+    abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
     abstract AddUsedVarName: string * ?isRoot: bool -> unit
     abstract IsUsedVarName: string -> bool
+    abstract AddInlineDependency: string -> unit
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
@@ -144,9 +146,17 @@ module Helpers =
                 else entName, Naming.StaticMemberPart(memb.CompiledName, overloadSuffix)
             | None -> memb.CompiledName, Naming.NoMemberPart
 
+    /// Returns the sanitized name for the member declaration and whether it has an overload suffix
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
-        getMemberMangledName com true memb
-        ||> Naming.sanitizeIdent (fun _ -> false)
+        let name, part = getMemberMangledName com true memb
+        let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name part
+        let hasOverloadSuffix =
+            match part with
+            | Naming.InstanceMemberPart(_, overloadSuffix)
+            | Naming.StaticMemberPart(_, overloadSuffix) ->
+                String.IsNullOrEmpty(overloadSuffix) |> not
+            | Naming.NoMemberPart -> false
+        sanitizedName, hasOverloadSuffix
 
     /// Used to identify members uniquely in the inline expressions dictionary
     let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
@@ -348,11 +358,11 @@ module Patterns =
     /// Detects AST pattern of "raise MatchFailureException()"
     let (|RaisingMatchFailureExpr|_|) (expr: FSharpExpr) =
         match expr with
-        | BasicPatterns.Call(None, methodInfo, [ ], [_unitType], [value]) ->
+        | Call(None, methodInfo, [ ], [_unitType], [value]) ->
             match methodInfo.FullName with
             | "Microsoft.FSharp.Core.Operators.raise" ->
                 match value with
-                | BasicPatterns.NewRecord(recordType, [BasicPatterns.Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
+                | NewRecord(recordType, [Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
                     match recordType.TypeDefinition.FullName with
                     | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
                     | _ -> None
@@ -462,10 +472,10 @@ module Patterns =
         | _ -> None
 
     let (|CapturedBaseConsCall|_|) com (ctx: Context) transformBaseCall = function
-        | BasicPatterns.Sequential(ConstructorCall(call, genArgs, args) as expr1, expr2)
+        | Sequential(ConstructorCall(call, genArgs, args) as expr1, expr2)
         // This pattern occurs in constructors that define a this value: `type C() as this`
         // TODO: We're discarding the bound `this` value, check if it's actually used in the base constructor arguments?
-        | BasicPatterns.Sequential(BasicPatterns.Let(_, (ConstructorCall(call, genArgs, args) as expr1)), expr2) ->
+        | Sequential(Let(_, (ConstructorCall(call, genArgs, args) as expr1)), expr2) ->
             match call.DeclaringEntity, ctx.CaptureBaseConsCall with
             | Some baseEnt, Some(expectedBaseEnt, capture) when baseEnt = expectedBaseEnt ->
                 transformBaseCall com ctx (makeRangeFrom expr1) baseEnt call genArgs args |> capture
@@ -475,19 +485,19 @@ module Patterns =
 
     let (|OptimizedOperator|_|) = function
         // work-around for optimized string operator (Operators.string)
-        | BasicPatterns.Let((var, BasicPatterns.Call(None, memb, _, membArgTypes, membArgs)),
-                            BasicPatterns.DecisionTree(BasicPatterns.IfThenElse(_, _, BasicPatterns.IfThenElse
-                                                        (BasicPatterns.TypeTest(tt, BasicPatterns.Value vv), _, _)), _))
+        | Let((var, Call(None, memb, _, membArgTypes, membArgs)),
+                            DecisionTree(IfThenElse(_, _, IfThenElse
+                                                        (TypeTest(tt, Value vv), _, _)), _))
                 when var.FullName = "matchValue" && memb.FullName = "Microsoft.FSharp.Core.Operators.box"
                     && vv.FullName = "matchValue" && (getFsTypeFullName tt) = "System.IFormattable" ->
             Some(memb, None, "ToString", membArgTypes, membArgs)
         // work-around for optimized hash operator (Operators.hash)
-        | BasicPatterns.Call(Some expr, memb, _, [], [BasicPatterns.Call(None, comp, [], [], [])])
+        | Call(Some expr, memb, _, [], [Call(None, comp, [], [], [])])
                 when memb.FullName.EndsWith(".GetHashCode") &&
                      comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityERComparer" ->
             Some(memb, Some comp, "GenericHash", [expr.Type], [expr])
         // work-around for optimized equality operator (Operators.(=))
-        | BasicPatterns.Call(Some e1, memb, _, [], [BasicPatterns.Coerce (t2, e2); BasicPatterns.Call(None, comp, [], [], [])])
+        | Call(Some e1, memb, _, [], [Coerce (t2, e2); Call(None, comp, [], [], [])])
                 when memb.FullName.EndsWith(".Equals") && t2.HasTypeDefinition && t2.TypeDefinition.CompiledName = "obj" &&
                      comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityComparer" ->
             Some(memb, Some comp, "GenericEquality", [e1.Type; e2.Type], [e1; e2])
@@ -642,6 +652,25 @@ module TypeHelpers =
             Some tdef
         | _ -> None
 
+    let getFSharpFieldName (fi: FSharpField) =
+        let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
+            match getBaseClass ent with
+            | None -> acc
+            | Some baseClass ->
+                let conflicts =
+                    baseClass.FSharpFields
+                    |> Seq.exists (fun fi -> fi.Name = name)
+                let acc = if conflicts then acc + 1 else acc
+                countConflictingCases acc baseClass name
+
+        let name = fi.Name
+        match fi.DeclaringEntity with
+        | None -> name
+        | Some ent ->
+            match countConflictingCases 0 ent name with
+            | 0 -> name
+            | n -> Naming.appendSuffix name (string n)
+
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
         yield! tdef.TryGetMembersFunctionsAndValues
         match tdef.BaseType with
@@ -649,6 +678,15 @@ module TypeHelpers =
             yield! getOwnAndInheritedFsharpMembers baseDef
         | _ -> ()
     }
+
+    let isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+        memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
+
+    let isNotIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+        memb.IsOverrideOrExplicitInterfaceImplementation && not (isIgnoredAttachedMember memb)
+
+    let getOverrideOrExplicitInterfaceMembers (tdef: FSharpEntity) =
+        tdef.TryGetMembersFunctionsAndValues |> Seq.filter isNotIgnoredAttachedMember
 
     let getArgTypes com (memb: FSharpMemberOrFunctionOrValue) =
         // FSharpParameters don't contain the `this` arg
@@ -957,7 +995,7 @@ module Util =
 
     let memberRefTyped (com: IFableCompiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
-        let memberName = getMemberDeclarationName com memb
+        let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
             match memb.DeclaringEntity with
             | Some ent ->
@@ -970,6 +1008,9 @@ module Util =
             { makeTypedIdentNonMangled typ memberName with Range = r }
             |> Fable.IdentExpr
         elif isPublicMember memb then
+            // If the overload suffix changes, we need to recompile the files that call this member
+            if hasOverloadSuffix then
+                com.AddInlineDependency(file)
             makeInternalImport com typ memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
@@ -1072,7 +1113,8 @@ module Util =
         | Some importExpr, None, _ ->
             Some importExpr
         | None, Some argInfo, Some e ->
-            match tryGlobalOrImportedEntity com e, argInfo.IsBaseOrSelfConstructorCall, argInfo.ThisArg with
+            let isBaseOrSelfConstructorCall = argInfo.IsBaseCall || argInfo.IsSelfConstructorCall
+            match tryGlobalOrImportedEntity com e, isBaseOrSelfConstructorCall, argInfo.ThisArg with
             | Some classExpr, true, _ ->
                 staticCall r typ argInfo classExpr |> Some
             | Some _, false, Some _thisArg ->
@@ -1169,6 +1211,31 @@ module Util =
             found <- found || m.IsImplicitConstructor
         found
 
+    let isImplicitConstructor (com: IFableCompiler) (ent: FSharpEntity) (cons: FSharpMemberOrFunctionOrValue) =
+        let rec tryGetImplicitConstructor (entityFullName: string) = function
+            | FSharpImplementationFileDeclaration.Entity (e, decls) ->
+                let entityFullName2 = getEntityFullName e
+                if entityFullName.StartsWith(entityFullName2) then
+                    decls |> List.tryPick (tryGetImplicitConstructor entityFullName)
+                else None
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(m,_,_) ->
+                match m.IsImplicitConstructor, m.DeclaringEntity with
+                | true, Some e when getEntityFullName e = entityFullName -> Some m
+                | _ -> None
+            | FSharpImplementationFileDeclaration.InitAction _ -> None
+
+        match ent.SignatureLocation with
+        // If the entity is in a signature file .IsImplicitConstructor won't work
+        | Some loc when loc.FileName.EndsWith(".fsi") ->
+            com.TryGetImplementationFile(loc.FileName)
+            |> Option.bind (fun file ->
+                let entityFullName = getEntityFullName ent
+                file.Declarations |> List.tryPick (tryGetImplicitConstructor entityFullName))
+            |> Option.map (fun cons2 -> cons2.IsEffectivelySameAs(cons))
+            |> Option.defaultValue false
+        | _ ->
+            cons.IsImplicitConstructor
+
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ isBaseCall (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
         let args = transformOptionalArguments com ctx r memb genArgs args
@@ -1179,7 +1246,8 @@ module Util =
             Args = args
             SignatureArgTypes = Fable.Typed argTypes
             Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
-            IsBaseOrSelfConstructorCall = isBaseCall
+            IsBaseCall = isBaseCall
+            IsSelfConstructorCall = false
           }
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some argInfo) emitted, _ -> emitted
@@ -1201,8 +1269,8 @@ module Util =
                 memberRefTyped com ctx r typ memb
             else
                 let argInfo =
-                    if not argInfo.IsBaseOrSelfConstructorCall && isSelfConstructorCall ctx memb
-                    then { argInfo with IsBaseOrSelfConstructorCall = true }
+                    if not argInfo.IsSelfConstructorCall && isSelfConstructorCall ctx memb
+                    then { argInfo with IsSelfConstructorCall = true }
                     else argInfo
                 memberRef com ctx r memb |> staticCall r typ argInfo
 

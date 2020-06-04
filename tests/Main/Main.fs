@@ -54,7 +54,7 @@ open Fable.Core.JsInterop
 
 // Import a polyfill for atob and btoa, used by fable-library
 // but not available in node.js runtime
-importSideEffects "./js/polyfill"
+importSideEffects "./js/polyfill.js"
 
 let [<Global>] describe (name: string) (f: unit->unit) : unit = jsNative
 let [<Global>] it (msg: string) (f: unit->unit) : unit = jsNative

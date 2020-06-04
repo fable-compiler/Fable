@@ -1,3 +1,29 @@
+### 2.10.0
+
+* Adds cosh, sinh, and tanh operator support @sasmithjr
+* Compile `Option.None` as undefined @ncave
+* Can compile types as classes with compiler switch `--classTypes` @ncave
+* Fix System.Activator.CreateInstance (only for primary constructor)
+
+### 2.9.0
+
+* Related to #2043: Better error logging when an invalid JSON output happen (by @forki)
+
+### 2.8.4
+
+* Fix #2035: fold when state is func of arity > 1
+* Improve resolution of nameofLambda in inline functions
+
+### 2.8.3
+
+* Revert "Prevent re-mangling of imported members with dollar sign"
+
+### 2.8.2
+
+* Prevent re-mangling of imported members with dollar sign
+* Add calls to members with overload suffix as inline dependencies
+* Make nameofLambda work in inlined functions
+
 ### 2.8.1
 
 * Fix #2030: Fix Array.map3 implementation (by @ncave)

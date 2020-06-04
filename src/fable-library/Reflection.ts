@@ -1422,13 +1422,6 @@ export function getTupleField(v: any, i: number): any {
 
 export function makeUnion(uci: NUnionCaseInfo, values: any[]): any {
   return uci.Invoke.apply(null, values);
-//   const expectedLength = (uci.fields || []).length;
-//   if (values.length !== expectedLength) {
-//     throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
-//   }
-//   return uci.declaringType.constructor != null
-//     ? new uci.declaringType.constructor(uci.tag, uci.name, ...values)
-//     : {};
 }
 
 export function makeRecord(t: NTypeInfo, values: any[]): any {

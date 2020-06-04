@@ -5,8 +5,10 @@ open Fable.Core.JsInterop
 type CmdLineOptions = {
     commonjs: bool
     optimize: bool
-    watchMode: bool
     sourceMaps: bool
+    classTypes: bool
+    typescript: bool
+    watchMode: bool
 }
 
 module JS =
@@ -29,6 +31,9 @@ module JS =
         abstract resolve: string -> string
         abstract relative: string * string -> string
 
+    type IGlob =
+        abstract sync: pattern: string * ?options: obj -> array<string>
+
     type IUtil =
         abstract getVersion: unit -> string
         abstract ensureDirExists: dir: string -> unit
@@ -39,8 +44,9 @@ module JS =
 
     let fs: IFileSystem = importAll "fs"
     let os: IOperSystem = importAll "os"
-    let proc: IProcess = importAll "process"
+    let process: IProcess = importAll "process"
     let path: IPath = importAll "path"
+    let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
 
 let readAllBytes (filePath: string) = JS.fs.readFileSync(filePath)
@@ -48,9 +54,9 @@ let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimSt
 let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.proc.hrtime()
+    let startTime = JS.process.hrtime()
     let res = f x
-    let elapsed = JS.proc.hrtime(startTime)
+    let elapsed = JS.process.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
 let getVersion = JS.util.getVersion
@@ -74,6 +80,10 @@ let getDirFiles (path: string) (extension: string) =
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
 
+let getGlobFiles (path: string) =
+    if path.Contains("*") || path.Contains("?")
+    then JS.glob.sync(path)
+    else [| path |]
 
 module Path =
 

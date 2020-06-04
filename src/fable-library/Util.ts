@@ -1,5 +1,14 @@
 // tslint:disable:ban-types
 
+export function bindThis(this$: any, source: any) {
+  for (const key of Object.keys(source)) {
+    if (typeof source[key] === "function") {
+      source[key] = source[key].bind(this$);
+    }
+  }
+  return source;
+}
+
 // Object.assign flattens getters and setters
 // See https://stackoverflow.com/questions/37054596/js-es5-how-to-assign-objects-with-setters-and-getters
 export function extend(target: any, ...sources: any[]) {
@@ -27,17 +36,8 @@ export interface IDateTimeOffset extends Date {
   offset?: number;
 }
 
-export interface IComparer<T> {
-  Compare(x: T, y: T): number;
-}
-
 export interface IComparable<T> {
   CompareTo(x: T): number;
-}
-
-export interface IEqualityComparer<T> {
-  Equals(x: T, y: T): boolean;
-  GetHashCode(x: T): number;
 }
 
 export interface IEquatable<T> {
@@ -50,6 +50,49 @@ export interface IHashable {
 
 export interface IDisposable {
   Dispose(): void;
+}
+
+export interface IComparer<T> {
+  Compare(x: T, y: T): number;
+}
+
+export interface IEqualityComparer<T> {
+  Equals(x: T, y: T): boolean;
+  GetHashCode(x: T): number;
+}
+
+export interface ICollection<T> {
+  readonly Count: number;
+  readonly IsReadOnly: boolean;
+  Add(item: T): void;
+  Clear(): void;
+  Contains(item: T): boolean;
+  CopyTo(array: T[], arrayIndex: number): void;
+  Remove(item: T): boolean;
+}
+
+export interface IMutableMap<K, V> {
+  readonly size: number;
+  clear(): void;
+  delete(key: K): boolean;
+  get(key: K): V | undefined;
+  has(key: K): boolean;
+  set(key: K, value: V): this;
+  keys(): Iterable<K>;
+  values(): Iterable<V>;
+  entries(): Iterable<[K, V]>;
+}
+
+export interface IMutableSet<T> {
+  readonly size: number;
+  add(value: T): this;
+  add_(value: T): boolean;
+  clear(): void;
+  delete(value: T): boolean;
+  has(value: T): boolean;
+  keys(): Iterable<T>;
+  values(): Iterable<T>;
+  entries(): Iterable<[T, T]>;
 }
 
 export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
@@ -587,7 +630,7 @@ const CURRIED_KEY = "__CURRIED__";
 
 export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
-  if (f == null) { return null; }
+  if (f == null) { return undefined; }
 
   // The function is already uncurried
   if (f.length > 1) {
@@ -658,7 +701,7 @@ export function curry(arity: number, f: Function): Function | undefined {
 
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
-    return null;
+    return undefined;
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
     for (let i = 0; i < args.length; i++) {
@@ -671,32 +714,32 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
         // Wrap arguments to make sure .concat doesn't destruct arrays. Example
         // [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
         // [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
-        return (a1: any) => f.apply(null, args.concat([a1]));
+        return (a1: any) => f.apply(undefined, args.concat([a1]));
       case 2:
-        return (a1: any) => (a2: any) => f.apply(null, args.concat([a1, a2]));
+        return (a1: any) => (a2: any) => f.apply(undefined, args.concat([a1, a2]));
       case 3:
-        return (a1: any) => (a2: any) => (a3: any) => f.apply(null, args.concat([a1, a2, a3]));
+        return (a1: any) => (a2: any) => (a3: any) => f.apply(undefined, args.concat([a1, a2, a3]));
       case 4:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(null, args.concat([a1, a2, a3, a4]));
+        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(undefined, args.concat([a1, a2, a3, a4]));
       case 5:
         return (a1: any) => (a2: any) => (a3: any) =>
-          (a4: any) => (a5: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5]));
+          (a4: any) => (a5: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5]));
       case 6:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
-          (a5: any) => (a6: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6]));
+          (a5: any) => (a6: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6]));
       case 7:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
-          (a6: any) => (a7: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6, a7]));
+          (a6: any) => (a7: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7]));
       case 8:
         return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
-          (a7: any) => (a8: any) => f.apply(null, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
+          (a7: any) => (a8: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
       default:
         throw new Error("Partially applying to more than 8-arity is not supported: " + arity);
     }
   }
 }
 
-type CurriedArgMapping = [number, number] | 0;
+type CurriedArgMapping = [number, number] | 0; // expected arity, actual arity
 
 export function mapCurriedArgs(fn: Function, mappings: CurriedArgMapping[]) {
   function mapArg(fn: Function, arg: any, mappings: CurriedArgMapping[], idx: number) {

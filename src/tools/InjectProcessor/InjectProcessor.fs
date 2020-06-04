@@ -3,8 +3,6 @@ module InjectProcessor
 open System
 open System.IO
 open System.Collections.Generic
-open FSharp.Compiler
-open FSharp.Compiler.Ast
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.SourceCodeServices.BasicPatterns
 open Fable
@@ -22,7 +20,7 @@ let parse (checker: FSharpChecker) projFile =
         match Path.GetExtension(projFile) with
         | ".fsx" ->
             let projCode = File.ReadAllText projFile
-            checker.GetProjectOptionsFromScript(projFile, projCode)
+            checker.GetProjectOptionsFromScript(projFile, projCode |> FSharp.Compiler.Text.SourceText.ofString)
             |> Async.RunSynchronously
             |> fst
         | ".fsproj" ->

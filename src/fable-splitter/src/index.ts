@@ -40,6 +40,8 @@ export type FableOptions = {
     plugins?: string[],
     typedArrays?: boolean,
     clampByteArrays?: boolean,
+    classTypes?: boolean,
+    typescript?: boolean,
     // extra?: any,
 };
 
@@ -337,7 +339,9 @@ async function generateJsCode(fullPath: string, ast: Babel.types.Program,
     // transform and save
     const result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
     if (result != null) {
-        await fs.writeFile(jsPath, result.code);
+        const source = options.fable?.typescript ?
+            result.code.replace(/\$INTERFACE_DECL_PREFIX\$_/g, "") : result.code;
+        await fs.writeFile(jsPath, source);
         if (result.map) {
             await fs.appendFile(jsPath, "\n//# sourceMappingURL=" + Path.basename(jsPath) + ".map");
             await fs.writeFile(jsPath + ".map", JSON.stringify(result.map));
@@ -437,7 +441,7 @@ export default function fableSplitter(options: FableSplitterOptions, previousInf
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
             if (options.allFiles) {
-                const promises: Array<Promise<void>> = [];
+                const promises: Promise<void>[] = [];
                 for (const file of ensureArray(info.projectFiles)) {
                     promises.push(transformAsync(file, options, info));
                 }

@@ -102,6 +102,10 @@ type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
     member __.Value = x
 
+// TODO: This should be disabled when compiling with `classTypes` option
+type SecondaryConsChild() =
+    inherit SecondaryCons()
+
 type MultipleCons(x: int, y: int) =
     new () = MultipleCons(2,3)
     new (x:int) = MultipleCons(x,4)
@@ -292,6 +296,27 @@ type Distinct1 =
     // Overloads only distinguished by generic constrain work, see #1908
     static member inline Distinct1 (x: ^``Collection<'T>``, _impl: Default1) = (^``Collection<'T>`` : (static member Distinct1 : _->_) x) : '``Collection<'T>``
     static member inline Distinct1 (_: ^t when ^t : null and ^t : struct, _mthd: Default1) = id //must
+
+type InfoA = {
+    Foo: string
+}
+
+type InfoB = {
+    InfoA: InfoA
+    Bar: string
+}
+
+[<AbstractClass>]
+type InfoAClass(info: InfoA) =
+    abstract WithInfo: InfoA -> InfoAClass
+    member _.Foo = info.Foo
+    member this.WithFoo foo =
+        this.WithInfo({ info with Foo = foo })
+
+type InfoBClass(info: InfoB) =
+    inherit InfoAClass(info.InfoA)
+    override this.WithInfo(infoA) =
+        InfoBClass({ info with InfoA = infoA }) :> InfoAClass
 
 let tests =
   testList "Types" [
@@ -500,6 +525,10 @@ let tests =
         equal 3 s1.Value
         equal 5 s2.Value
 
+    testCase "Inheriting from secondary constructors works" <| fun () ->
+        let s = SecondaryConsChild()
+        equal 5 s.Value
+
     testCase "Multiple constructors work" <| fun () ->
         let m1 = MultipleCons()
         let m2 = MultipleCons(5)
@@ -689,4 +718,9 @@ let tests =
         withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
         withDefaultValue.ObjValue |> equal null
 
+    testCase "Private fields don't conflict with parent classes" <| fun _ -> // See #2070
+        let a1 = InfoBClass({ InfoA = { Foo = "foo" }; Bar = "bar" }) :> InfoAClass
+        let a2 = a1.WithFoo("foo2")
+        a1.Foo |> equal "foo"
+        a2.Foo |> equal "foo2"
   ]

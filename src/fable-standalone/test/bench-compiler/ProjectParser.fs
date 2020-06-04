@@ -82,7 +82,7 @@ let resolvePackage (pkgName, pkgVersion) =
     else [||], [||]
 
 let parseCompilerOptions projectXml =
-    // get project settings, 
+    // get project settings,
     let target = projectXml |> getXmlTagContentsFirstOrDefault "OutputType" ""
     let langVersion = projectXml |> getXmlTagContentsFirstOrDefault "LangVersion" ""
     let warnLevel = projectXml |> getXmlTagContentsFirstOrDefault "WarningLevel" ""
@@ -200,6 +200,7 @@ let parseProjectFile projectFilePath =
         projectXml
         |> getXmlTagAttributes1 "Compile" "Include"
         |> Seq.map (makeFullPath projectDir)
+        |> Seq.collect getGlobFiles
         |> Seq.toArray
 
     let dllRefs = [||]

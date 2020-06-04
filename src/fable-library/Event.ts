@@ -1,5 +1,5 @@
 import { IObservable, IObserver, Observer, protect } from "./Observable";
-import { Choice, Option, some, tryValueIfChoice1, tryValueIfChoice2, value } from "./Option";
+import { Choice, Option, some, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option";
 import { iterate as seqIterate } from "./Seq";
 import { IDisposable } from "./Util";
 
@@ -17,7 +17,7 @@ export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
 }
 
 export default class Event<T> implements IEvent<T> {
-  public delegates: Array<Delegate<T>>;
+  public delegates: Delegate<T>[];
   private _subscriber?: (o: IObserver<T>) => IDisposable;
   private _dotnetDelegates?: Map<DotNetDelegate<T>, Delegate<T>>;
 
@@ -113,7 +113,7 @@ export function choose<T, U>(chooser: (x: T) => Option<U>, sourceEvent: IEvent<T
 }
 
 export function filter<T>(predicate: (x: T) => boolean, sourceEvent: IEvent<T>) {
-  return choose((x) => predicate(x) ? some(x) : null, sourceEvent);
+  return choose((x) => predicate(x) ? some(x) : undefined, sourceEvent);
 }
 
 export function map<T, U>(mapping: (x: T) => U, sourceEvent: IEvent<T>) {
@@ -210,9 +210,9 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: 
   }, source.delegates);
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>): [IEvent<T>, IEvent<T>] {
+export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>): [IEvent<U1>, IEvent<U2>] {
   return [
-    choose((v) => tryValueIfChoice1(splitter(v)), sourceEvent),
-    choose((v) => tryValueIfChoice2(splitter(v)), sourceEvent),
+    choose((v) => tryValueIfChoice1Of2(splitter(v)), sourceEvent),
+    choose((v) => tryValueIfChoice2Of2(splitter(v)), sourceEvent),
   ];
 }

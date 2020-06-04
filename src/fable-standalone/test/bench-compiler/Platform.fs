@@ -1,5 +1,14 @@
 module Fable.Compiler.Platform
 
+type CmdLineOptions = {
+    commonjs: bool
+    optimize: bool
+    sourceMaps: bool
+    classTypes: bool
+    typescript: bool
+    watchMode: bool
+}
+
 #if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
 
 open System.IO
@@ -71,6 +80,17 @@ let getDirFiles (path: string) (extension: string) =
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
 
+let getGlobFiles (path: string) =
+    if path.Contains("*") || path.Contains("?") then
+        let normPath = path.Replace('\\', '/')
+        let i = normPath.LastIndexOf('/')
+        let pattern = normPath.Substring(i + 1)
+        let dirPath = if i < 0 then "" else normPath.Substring(0, i)
+        Directory.GetFiles(dirPath, pattern, SearchOption.AllDirectories)
+        |> Array.map (fun x -> x.Replace('\\', '/'))
+        |> Array.sort
+    else [| path |]
+
 #else
 
 open Fable.Core.JsInterop
@@ -95,6 +115,9 @@ module JS =
         abstract resolve: string -> string
         abstract relative: string * string -> string
 
+    type IGlob =
+        abstract sync: pattern: string * ?options: obj -> array<string>
+
     type IUtil =
         abstract serializeToJson: data: obj -> string
         abstract ensureDirExists: dir: string -> unit
@@ -105,8 +128,9 @@ module JS =
 
     let fs: IFileSystem = importAll "fs"
     let os: IOperSystem = importAll "os"
-    let proc: IProcess = importAll "process"
+    let process: IProcess = importAll "process"
     let path: IPath = importAll "path"
+    // let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
     // let performance: IPerformance = importMember "perf_hooks"
 
@@ -121,9 +145,9 @@ let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePat
 //     res, int64 (t1 - t0)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.proc.hrtime()
+    let startTime = JS.process.hrtime()
     let res = f x
-    let elapsed = JS.proc.hrtime(startTime)
+    let elapsed = JS.process.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
 let serializeToJson = JS.util.serializeToJson
@@ -143,6 +167,17 @@ let getDirFiles (path: string) (extension: string) =
     |> Array.filter (fun x -> x.EndsWith(extension))
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
+
+let getGlobFiles (path: string) =
+    if path.Contains("*") || path.Contains("?") then
+        // JS.glob.sync(path) // commented to remove dependency
+        // replaced with fixed globbing pattern (*.fs)
+        let normPath = path.Replace('\\', '/')
+        let i = normPath.LastIndexOf('/')
+        // let pattern = normPath.Substring(i + 1) // ignored
+        let dirPath = if i < 0 then "" else normPath.Substring(0, i)
+        getDirFiles dirPath ".fs"
+    else [| path |]
 
 #endif
 

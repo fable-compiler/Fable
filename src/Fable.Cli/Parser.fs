@@ -11,6 +11,8 @@ type Message =
       define: string[]
       typedArrays: bool
       clampByteArrays: bool
+      classTypes: bool
+      typescript: bool
       extra: IDictionary<string,string> }
 
 let private parseStringArray (def: string[]) (key: string) (o: JObject)  =
@@ -53,6 +55,8 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
 let toCompilerOptions (msg: Message): CompilerOptions =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
+      classTypes = msg.classTypes
+      typescript = msg.typescript
       debugMode = Array.contains "DEBUG" msg.define
       verbosity = GlobalParams.Singleton.Verbosity
       outputPublicInlinedFunctions = Array.contains "FABLE_REPL_LIB" msg.define
@@ -74,4 +78,6 @@ let parse (msg: string) =
         |> Array.distinct
       typedArrays = parseBoolean true "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
+      classTypes = parseBoolean false "classTypes" json
+      typescript = parseBoolean false "typescript" json
       extra = parseDic "extra" json }

@@ -69,8 +69,13 @@ module Types =
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] ienumerableGeneric = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] ienumerable = "System.Collections.IEnumerable"
+    let [<Literal>] ienumeratorGeneric = "System.Collections.Generic.IEnumerator`1"
+    let [<Literal>] ienumerator = "System.Collections.IEnumerator"
+    let [<Literal>] icollectionGeneric = "System.Collections.Generic.ICollection`1"
+    let [<Literal>] icollection = "System.Collections.ICollection"
     let [<Literal>] iequatableGeneric = "System.IEquatable`1"
     let [<Literal>] iequatable = "System.IEquatable"
+    let [<Literal>] icomparableGeneric = "System.IComparable`1"
     let [<Literal>] icomparable = "System.IComparable"
     let [<Literal>] idisposable = "System.IDisposable"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
@@ -386,7 +391,8 @@ module AST =
           Args = args
           SignatureArgTypes = argTypes
           Spread = NoSpread
-          IsBaseOrSelfConstructorCall = false }
+          IsBaseCall = false
+          IsSelfConstructorCall = false }
 
     let staticCall r t argInfo functionExpr =
         Operation(Call(StaticCall functionExpr, argInfo), t, r)

@@ -51,10 +51,12 @@ Arguments:
   -d|--debug        [FLAG] Define DEBUG constant
   --allFiles        [FLAG] Compile all files in the F# project
   --commonjs        [FLAG] Compile to commonjs modules
-  --run             [FLAG] Run script with node after compilation
-                    Arguments after --run will be passed to the script
   --usePolling      [FLAG] Option for watch mode, may help capture file
                     save events in certain editors (suboptimal)
+  --run             [FLAG] Run script with node after compilation
+                    Arguments after --run will be passed to the script
+  --runInspect      [FLAG] Like run, but passes --inspect option to node
+                    so a debugger can be attached
 
 Examples:
   fable-splitter src/App.fsproj -o dist/
@@ -143,9 +145,24 @@ function fixEntryPath(entry: string|null) {
     return entry;
 }
 
-function mustRun(args: string[]): [boolean, string[]] {
-    const i = findFlagIndex(args, "--run");
-    return i >= 0 ? [true, args.slice(i + 1)] : [false, []];
+function mustRun(args: string[]) {
+    let i = findFlagIndex(args, "--run");
+    if (i >= 0) {
+        return {
+            inspect: false,
+            args: args.slice(i + 1)
+        };
+    } else {
+        i = findFlagIndex(args, "--runInspect");
+        if (i >= 0) {
+            return {
+                inspect: true,
+                args: args.slice(i + 1)
+            };
+        } else {
+            return null;
+        }
+    }
 }
 
 function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish = false) {
@@ -154,10 +171,9 @@ function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish
         if (typeof opts.onCompiled === "function") {
             opts.onCompiled();
         }
-        const [isRun, runArgs] = mustRun(args);
-        if (isRun) {
-            const isDebug = ((opts.fable || {}).define || []).indexOf("DEBUG") >= 0;
-            const job = runScript(getMainScriptPath(opts, info), runArgs, isDebug);
+        const runOpts = mustRun(args);
+        if (runOpts) {
+            const job = runScript(getMainScriptPath(opts, info), runOpts.args, runOpts.inspect);
             if (mustFinish) {
                 job.then((code) => { process.exit(code); });
                 return;

@@ -2,11 +2,11 @@ import { ChildProcess, spawn } from "child_process";
 
 let childCache: ChildProcess|null = null;
 
-export default function runScript(path: string, args: string[], debug = false): Promise<number> {
+export default function runScript(path: string, args: string[], inspect = false): Promise<number> {
     if (childCache != null) {
         childCache.kill();
     }
-    const defaultArgs = debug ? ['--inspect', path] : [path];
+    const defaultArgs = inspect ? ['--inspect', path] : [path];
     const child = spawn("node", defaultArgs.concat(args), {
         stdio: "inherit",
     });

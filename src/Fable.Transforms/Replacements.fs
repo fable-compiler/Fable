@@ -44,7 +44,8 @@ type Helper =
               Args = args
               SignatureArgTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
               Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
-              IsBaseOrSelfConstructorCall = false }
+              IsBaseCall = false
+              IsSelfConstructorCall = false }
         let funcExpr = makeCoreRef Any coreMember coreModule
         match isConstructor with
         | Some true -> Operation(Call(ConstructorCall funcExpr, info), returnType, loc)
@@ -710,7 +711,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithJsComparison = function
-    | Builtin(BclInt64|BclUInt64|BclBigInt)
+    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt)
     | Array _ | List _ | Tuple _ | Option _ | MetaType | Expr _ -> false
     | Builtin(BclGuid|BclTimeSpan) -> true
     // TODO: Non-record/union declared types without custom equality
@@ -727,12 +728,12 @@ let isCompatibleWithJsComparison = function
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 let identityHash r (arg: Expr) =
     match arg.Type with
-    | Boolean | Char | String | Number _ | Enum _
-    | Builtin(BclInt64|BclUInt64|BclBigInt)
-    | Builtin(BclDateTime|BclDateTimeOffset)
-    | Builtin(BclGuid|BclTimeSpan) ->
+    | Boolean | Char | String | Number _ | Enum _ | Option | Tuple | List
+    | Builtin(BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
+    | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
+    | Builtin(FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
-    | DeclaredType(ent,_) when ent.IsValueType ->
+    | DeclaredType(ent,_) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
     | _ ->
         Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
@@ -1107,9 +1108,24 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                makeStrConst Naming.unknown |> Some
     | _, "nameofLambda" ->
         match args with
-        | [Function(_, (Nameof com ctx name), _)] -> name
-        | _ -> "Cannot infer name of expression"
-               |> addError com ctx.InlinePath r; Naming.unknown
+        | [Function(_, (Nameof com ctx name), _)] -> Some name
+        | [IdentExpr ident] ->
+            let rec findLambda scope identName =
+                match scope with
+                | [] -> None
+                | (_,ident2,expr)::prevScope ->
+                    if identName = ident2.Name then
+                        match expr with
+                        | Some(Function(_, (Nameof com ctx name), _)) -> Some name
+                        | Some(IdentExpr ident) -> findLambda prevScope ident.Name
+                        | _ -> None
+                    else findLambda prevScope identName
+            findLambda ctx.Scope ident.Name
+        | _ -> None
+        |> Option.defaultWith (fun () ->
+            "Cannot infer name of expression"
+            |> addError com ctx.InlinePath r
+            Naming.unknown)
         |> makeStrConst |> Some
     | _, "Async.AwaitPromise.Static" -> Helper.CoreCall("Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.CoreCall("Async", "startAsPromise", t, args, ?loc=r) |> Some
@@ -1232,7 +1248,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let getReference r t expr = get r t expr "contents"
 let setReference r expr value = Set(expr, makeStrConst "contents" |> ExprSet, value, r)
-let newReference r t value = Helper.ConstructorCall(makeCoreRef Any "FSharpRef" "Types", t, [value], ?loc=r)
+let newReference r t value = Helper.ConstructorCall(makeCoreRef t "FSharpRef" "Types", t, [value], ?loc=r)
 
 let references (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1450,8 +1466,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.CoreCall(coreModFor bt, "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Acos", _ | "Asin", _ | "Atan", _ | "Atan2", _
-    | "Cos", _ | "Exp", _ | "Log", _ | "Log10", _
-    | "Sin", _ | "Sqrt", _ | "Tan", _ ->
+    | "Cos", _ | "Cosh", _ | "Exp", _ | "Log", _ | "Log10", _
+    | "Sin", _ | "Sinh", _ | "Sqrt", _ | "Tan", _ | "Tanh", _ ->
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Round", _ ->
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
@@ -2166,7 +2182,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        identityHash r arg |> Some
+        Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
     |  "GenericEqualityERComparer"
     |  "FastGenericComparer"
@@ -2611,10 +2627,8 @@ let monitor (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
 let activator (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    // TODO!!! This probably won't work, add test
-    | "CreateInstance", None, typRef::args ->
-        let info = argInfo None args (Typed i.SignatureArgTypes.Tail)
-        constructorCall r t info typRef |> Some
+    | "CreateInstance", None, ([_type] | [_type; (ExprType (Array Any))]) ->
+        Helper.CoreCall("Reflection", "createInstance", t, args, ?loc=r) |> Some
     | _ -> None
 
 let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2826,53 +2840,48 @@ let controlExtensions (_: ICompiler) (ctx: Context) (_: SourceLocation option) t
             |> fun (args, argTypes) -> List.rev args, List.rev argTypes
         Helper.CoreCall("Observable", meth, t, args, argTypes))
 
-let callTypeInfoMethod (this : Expr) (name : string) (typ : Type) (args : list<Expr>) =
-    // let self = com.TranslateExpr this
-    // let ex = Babel.MemberExpression(self, Identifier "NewInfo", computed, ?loc=r) :> Expression
-    //Helper.InstanceCall(Helper.InstanceField(this, "NewInfo", Type.Any), name, typ, args)
-    Helper.InstanceCall(this, name, typ, args)
-
 let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let returnString r x = StringConstant x |> makeValue r |> Some
 
     // TODO!!! Optimizations when the type is known at compile time (see commented code from master below)
     match thisArg, i.CompiledName with
-    | Some this, "get_IsGenericParameter"           -> callTypeInfoMethod this "get_IsGenericParameter" t [] |> Some
-    | Some this, "get_FullName"                     -> callTypeInfoMethod this "get_FullName" t [] |> Some
-    | Some this, "get_Namespace"                    -> callTypeInfoMethod this "get_Namespace" t [] |> Some
-    | Some this, "get_IsArray"                      -> callTypeInfoMethod this "get_IsArray" t [] |> Some
-    | Some this, "get_IsGenericType"                -> callTypeInfoMethod this "get_IsGenericType" t [] |> Some
-    | Some this, "get_IsGenericTypeDefinition"      -> callTypeInfoMethod this "get_IsGenericTypeDefinition" t [] |> Some
-    | Some this, "get_GenericTypeArguments"         -> callTypeInfoMethod this "get_GenericTypeArguments" t [] |> Some
-    | Some this, "get_DeclaringType"                -> callTypeInfoMethod this "get_DeclaringType" t [] |> Some
-    | Some this, "GetElementType"                   -> callTypeInfoMethod this "GetElementType" t [] |> Some
-    | Some this, "GetGenericArguments"              -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
-    | Some this, "GetGenericTypeDefinition"         -> callTypeInfoMethod this "GetGenericTypeDefinition" t [] |> Some
-    | Some this, "MakeArrayType"                    -> callTypeInfoMethod this "MakeArrayType" t [] |> Some
+    | Some this, "get_IsGenericParameter"           -> Helper.InstanceCall(this, "get_IsGenericParameter", t, []) |> Some
+    | Some this, "get_FullName"                     -> Helper.InstanceCall(this, "get_FullName", t, []) |> Some
+    | Some this, "get_Namespace"                    -> Helper.InstanceCall(this, "get_Namespace", t, []) |> Some
+    | Some this, "get_IsArray"                      -> Helper.InstanceCall(this, "get_IsArray", t, []) |> Some
+    | Some this, "get_IsGenericType"                -> Helper.InstanceCall(this, "get_IsGenericType", t, []) |> Some
+    | Some this, "get_IsGenericTypeDefinition"      -> Helper.InstanceCall(this, "get_IsGenericTypeDefinition", t, []) |> Some
+    | Some this, "get_GenericTypeArguments"         -> Helper.InstanceCall(this, "get_GenericTypeArguments", t, []) |> Some
+    | Some this, "get_DeclaringType"                -> Helper.InstanceCall(this, "get_DeclaringType", t, []) |> Some
+    | Some this, "GetElementType"                   -> Helper.InstanceCall(this, "GetElementType", t, []) |> Some
+    | Some this, "GetGenericArguments"              -> Helper.InstanceCall(this, "GetGenericArguments", t, []) |> Some
+    | Some this, "GetGenericTypeDefinition"         -> Helper.InstanceCall(this, "GetGenericTypeDefinition", t, []) |> Some
+    | Some this, "MakeArrayType"                    -> Helper.InstanceCall(this, "MakeArrayType", t, []) |> Some
     | Some this, "GetTypeInfo"                      -> Some this
 
-    | Some this, "GetProperties"                    -> callTypeInfoMethod this "GetProperties" t args |> Some
-    | Some this, "GetMethods"                       -> callTypeInfoMethod this "GetMethods" t [] |> Some
-    | Some this, "GetMembers"                       -> callTypeInfoMethod this "GetMembers" t args |> Some
-    | Some this, "GetFields"                        -> callTypeInfoMethod this "GetFields" t args |> Some
-    | Some this, "GetConstructors"                  -> callTypeInfoMethod this "GetConstructors" t args |> Some
+    | Some this, "GetProperties"                    -> Helper.InstanceCall(this, "GetProperties", t, args) |> Some
+    | Some this, "GetMethods"                       -> Helper.InstanceCall(this, "GetMethods", t, []) |> Some
+    | Some this, "GetMembers"                       -> Helper.InstanceCall(this, "GetMembers", t, args) |> Some
+    | Some this, "GetFields"                        -> Helper.InstanceCall(this, "GetFields", t, args) |> Some
+    | Some this, "GetConstructors"                  -> Helper.InstanceCall(this, "GetConstructors", t, args) |> Some
 
-    | Some this, "GetProperty"                      -> callTypeInfoMethod this "GetProperty" t [List.head args] |> Some
+    | Some this, "GetProperty"                      -> Helper.InstanceCall(this, "GetProperty", t, [List.head args]) |> Some
     | Some this, "GetMethod"                        ->
         match args with
-        | [a] when a.Type = Fable.String            -> callTypeInfoMethod this "GetMethod" t [a] |> Some
-        | [a;b] when a.Type = Fable.String          -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
-        | a::_::_::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)    -> callTypeInfoMethod this "GetMethod" t [a; b] |> Some
+        | [a] when a.Type = Fable.String            -> Helper.InstanceCall(this, "GetMethod", t, [a]) |> Some
+        | [a;b] when a.Type = Fable.String          -> Helper.InstanceCall(this, "GetMethod", t, [a; b]) |> Some
+        | a::_::_::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)
+                                                    -> Helper.InstanceCall(this, "GetMethod", t, [a; b]) |> Some
         | _ -> None
-    | Some this, "GetField"                         -> callTypeInfoMethod this "GetField" t [List.head args] |> Some
+    | Some this, "GetField"                         -> Helper.InstanceCall(this, "GetField", t, [List.head args]) |> Some
 
     | Some this, "GetConstructor"                   ->
         match args with
-        | [] -> callTypeInfoMethod this "GetConstructor" t [] |> Some
-        | [ts] -> callTypeInfoMethod this "GetConstructor" t [ts] |> Some
+        | [] -> Helper.InstanceCall(this, "GetConstructor", t, []) |> Some
+        | [ts] -> Helper.InstanceCall(this, "GetConstructor", t, [ts]) |> Some
         | _ -> None
 
-    | Some this, "MakeGenericType"                  -> callTypeInfoMethod this "MakeGenericType" t args |> Some
+    | Some this, "MakeGenericType"                  -> Helper.InstanceCall(this, "MakeGenericType", t, args) |> Some
 
     | Some this, "get_IsEnum"             -> Helper.CoreCall("Reflection", "isEnum", t, [this], ?loc=r) |> Some
     | Some this, "GetEnumUnderlyingType"  -> Helper.CoreCall("Reflection", "getEnumUnderlyingType", t, [this], ?loc=r) |> Some
@@ -2922,6 +2931,8 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     //     | "GetTypeInfo" -> Some thisArg
     //     | "get_GenericTypeArguments" | "GetGenericArguments" ->
     //         Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
+    //     | "MakeGenericType" ->
+    //         Helper.CoreCall("Reflection", "makeGenericType", t, thisArg::args, ?loc=r) |> Some
     //     | "get_FullName" | "get_Namespace"
     //     | "get_IsArray" | "GetElementType"
     //     | "get_IsGenericType" | "GetGenericTypeDefinition"
@@ -2936,7 +2947,7 @@ let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr l
     | "MakeFunctionType" ->
         Helper.CoreCall("Reflection", "lambda", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "MakeTupleType" ->
-        Helper.CoreCall("Reflection", "tuple", t, args, i.SignatureArgTypes, hasSpread=true, ?loc=r) |> Some
+        Helper.CoreCall("Reflection", "tuple_type", t, args, i.SignatureArgTypes, hasSpread=true, ?loc=r) |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
         Helper.CoreCall("Reflection", "getRecordElements", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -3027,9 +3038,9 @@ let private replacedModules =
     "System.Collections.Generic.List`1.Enumerator", enumerators
     Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
-    "System.Collections.Generic.ICollection`1", resizeArrays
     "System.Collections.IList", resizeArrays
-    "System.Collections.ICollection", resizeArrays
+    Types.icollectionGeneric, resizeArrays
+    Types.icollection, resizeArrays
     Types.hashset, hashSets
     Types.iset, hashSets
     Types.option, options
@@ -3140,11 +3151,11 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | "FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.MethodInfo" ->
         match thisArg, info.CompiledName with
-        | Some this, "GetGenericArguments"              -> callTypeInfoMethod this "GetGenericArguments" t [] |> Some
-        | Some this, "GetGenericMethodDefinition"       -> callTypeInfoMethod this "GetGenericMethodDefinition" t [] |> Some
-        | Some this, "get_IsGenericMethod"              -> callTypeInfoMethod this "get_IsGenericMethod" t [] |> Some
-        | Some this, "get_IsGenericMethodDefinition"    -> callTypeInfoMethod this "get_IsGenericMethodDefinition" t [] |> Some
-        | Some this, "MakeGenericMethod"                -> callTypeInfoMethod this "MakeGenericMethod" t args |> Some
+        | Some this, "GetGenericArguments"              -> Helper.InstanceCall(this, "GetGenericArguments", t, []) |> Some
+        | Some this, "GetGenericMethodDefinition"       -> Helper.InstanceCall(this, "GetGenericMethodDefinition", t, []) |> Some
+        | Some this, "get_IsGenericMethod"              -> Helper.InstanceCall(this, "get_IsGenericMethod", t, []) |> Some
+        | Some this, "get_IsGenericMethodDefinition"    -> Helper.InstanceCall(this, "get_IsGenericMethodDefinition", t, []) |> Some
+        | Some this, "MakeGenericMethod"                -> Helper.InstanceCall(this, "MakeGenericMethod", t, args) |> Some
         | Some c, "GetIndexParameters" -> Helper.InstanceCall(c, "GetIndexParameters", t, args) |> Some
         | Some c, "Invoke" -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
         | Some c, "get_Name" -> Helper.InstanceCall(c, "get_Name", t, []) |> Some
@@ -3161,9 +3172,9 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         | Some c, "get_ParameterType" -> Helper.InstanceCall(c, "get_ParameterType", t, []) |> Some
         | Some c, "get_GetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, []) |> Some
         | Some c, "get_SetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, []) |> Some
-        | Some c, "GetGetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, [])|> Some
-        | Some c, "GetSetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, [])|> Some
-        | Some c, "get_CanRead" -> Helper.InstanceCall(c, "get_CanRead", t, [])|> Some
+        | Some c, "GetGetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, []) |> Some
+        | Some c, "GetSetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, []) |> Some
+        | Some c, "get_CanRead" -> Helper.InstanceCall(c, "get_CanRead", t, []) |> Some
         | Some c, "get_CanWrite" -> Helper.InstanceCall(c, "get_CanWrite", t, [])|> Some
         | Some c, "SetValue" ->
             match args with

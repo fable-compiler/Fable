@@ -8,8 +8,7 @@
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceRoot}/src/dotnet/Fable.Compiler/bin/Debug/netcoreapp2.1/dotnet-fable.dll",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp2.1/Fable.Cli.dll",
             "args": ["fable-splitter", "--args", "-c tests/splitter.config.js"],
             "cwd": "${workspaceRoot}",
             "stopAtEntry": false,
@@ -51,7 +50,7 @@
             "name": "bench-compile (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--typescript"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
@@ -60,7 +59,7 @@
             "name": "bench-compile (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--commonjs", "--optimize-fcs"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--typescript"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {

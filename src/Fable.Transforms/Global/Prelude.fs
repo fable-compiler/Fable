@@ -140,7 +140,12 @@ module Naming =
     let ignoredAttachedMembers =
         set [ "System-Collections-IEnumerator-get_Current"
               "System-Collections-IEnumerable-GetEnumerator"
-              "System-IEquatable`1-Equals" ]
+              "System-IEquatable`1-Equals"
+              "System-IComparable`1-CompareTo"
+            //   "System-Collections-Generic-IComparer`1-Compare"
+            //   "System-Collections-Generic-IEqualityComparer`1-Equals"
+            //   "System-Collections-Generic-IEqualityComparer`1-GetHashCode"
+            ]
 
     let umdModules =
         set ["commonjs"; "amd"; "umd"]

@@ -21,10 +21,13 @@ module.exports = {
   cli: { path: resolve("../src/Fable.Cli") },
   entry: resolve("Main/Fable.Tests.fsproj"),
   outDir: resolve("../build/tests"),
-  fable: { define: defineConstants() },
+  fable: {
+    define: defineConstants(),
+    // classTypes: true,
+  },
   babel: {
     plugins: ["@babel/plugin-transform-modules-commonjs"],
-    sourceMaps: true,
+    // sourceMaps: true,
     // presets: [ ["@babel/preset-env", {"modules": false}] ]
   },
   // allFiles: true

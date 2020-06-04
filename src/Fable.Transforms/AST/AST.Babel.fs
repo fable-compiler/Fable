@@ -17,42 +17,43 @@ type Node(``type``, ?loc) =
     member __.Loc: SourceLocation option = loc
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
-[<AbstractClass>] type Expression(typ, ?loc) = inherit Node(typ, ?loc = loc)
+[<AbstractClass>] type Expression(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
 
-[<AbstractClass>] type PatternNode(typ, ?loc) = inherit Node(typ, ?loc = loc)
-[<AbstractClass>] type PatternExpression(typ, ?loc) = inherit Expression(typ, ?loc = loc)
+[<AbstractClass>] type PatternNode(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
+[<AbstractClass>] type PatternExpression(``type``, ?loc) = inherit Expression(``type``, ?loc = loc)
 
 type Pattern = U2<PatternNode, PatternExpression>
 
-[<AbstractClass>] type Literal(typ, ?loc) = inherit Expression(typ, ?loc = loc)
+[<AbstractClass>] type Literal(``type``, ?loc) = inherit Expression(``type``, ?loc = loc)
 
-[<AbstractClass>] type Statement(typ, ?loc) = inherit Node(typ, ?loc = loc)
+[<AbstractClass>] type Statement(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
 
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
-[<AbstractClass>] type Declaration(typ, ?loc) = inherit Statement(typ, ?loc = loc)
+[<AbstractClass>] type Declaration(``type``, ?loc) = inherit Statement(``type``, ?loc = loc)
 
 /// A module import or export declaration.
-[<AbstractClass>] type ModuleDeclaration(typ, ?loc) = inherit Node(typ, ?loc = loc)
+[<AbstractClass>] type ModuleDeclaration(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
 
 [<AbstractClass>]
 type TypeAnnotationInfo(``type``) =
     member __.Type: string = ``type``
 
 type TypeAnnotation(typeAnnotation) =
-    member __.Type = "TypeAnnotation"
+    inherit Node("TypeAnnotation")
     member __.TypeAnnotation: TypeAnnotationInfo = typeAnnotation
 
-// TODO: TypeParameter can also have `variance` and `bound` properties
-type TypeParameter(name) =
-    member __.Type = "TypeParameter"
+type TypeParameter(name, ?bound, ?``default``) =
+    inherit Node("TypeParameter")
     member __.Name: string = name
+    member __.Bound: TypeAnnotation option = bound
+    member __.Default: TypeAnnotationInfo option = ``default``
 
 type TypeParameterDeclaration(``params``) =
-    member __.Type = "TypeParameterDeclaration"
+    inherit Node("TypeParameterDeclaration")
     member __.Params: TypeParameter array = ``params``
 
 type TypeParameterInstantiation(``params``) =
-    member __.Type = "TypeParameterInstantiation"
+    inherit Node("TypeParameterInstantiation")
     member __.Params: TypeAnnotationInfo array = ``params``
 
 /// Not in Babel specs, disguised as StringLiteral
@@ -61,7 +62,7 @@ type MacroExpression(value, args, ?loc) =
     let macro = true
     member __.Value: string = value
     member __.Args: Expression array = args
-    member __.Macro = macro
+    member __.Macro: bool = macro
 
 // Template Literals
 type TemplateElement(value: string, tail, ?loc) =
@@ -81,9 +82,10 @@ type TaggedTemplateExpression(tag, quasi, ?loc) =
 
 // Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
-type Identifier(name, ?typeAnnotation, ?loc) =
+type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
     inherit PatternExpression("Identifier", ?loc = loc)
     member __.Name: string = name
+    member __.Optional: bool option = optional
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
     override __.ToString() = __.Name
 
@@ -97,7 +99,10 @@ type RegExpLiteral(pattern, flags_, ?loc) =
             | RegexMultiline -> "m"
             | RegexSticky -> "y") |> Seq.fold (+) ""
     member __.Pattern: string = pattern
-    member __.Flags = flags
+    member __.Flags: string = flags
+
+type Undefined(?loc) =
+    inherit Identifier("undefined", ?loc = loc)
 
 type NullLiteral(?loc) =
     inherit Literal("NullLiteral", ?loc = loc)
@@ -141,7 +146,7 @@ type Program(fileName, body, ?directives_, ?logs_, ?dependencies_, ?sourceFiles_
     let logs = defaultArg logs_ Map.empty
     let dependencies = defaultArg dependencies_ [||]
     let sourceFiles = defaultArg sourceFiles_ [||]
-    member __.SourceType = sourceType
+    member __.SourceType: string = sourceType
     member __.Body: U2<Statement, ModuleDeclaration> array = body
     member __.Directives: Directive array = directives
     // Properties below don't belong to babel specs
@@ -247,7 +252,7 @@ type VariableDeclaration(kind_, declarations, ?loc) =
     new (var, ?init, ?kind, ?loc) =
         VariableDeclaration(defaultArg kind Let, [|VariableDeclarator(var, ?init=init, ?loc=loc)|], ?loc=loc)
     member __.Declarations: VariableDeclarator array = declarations
-    member __.Kind = kind
+    member __.Kind: string = kind
 
 // Loops
 type WhileStatement(test, body, ?loc) =
@@ -284,15 +289,18 @@ type ForOfStatement(left, right, body, ?loc) =
     member __.Right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
-type FunctionDeclaration(id, ``params``, body, ?generator_, ?async_, ?loc) =
+type FunctionDeclaration(``params``, body, ?id, ?async_, ?generator_, ?declare, ?returnType, ?typeParameters, ?loc) =
     inherit Declaration("FunctionDeclaration", ?loc = loc)
-    let generator = defaultArg generator_ false
     let async = defaultArg async_ false
-    member __.Id: Identifier = id
+    let generator = defaultArg generator_ false
     member __.Params: Pattern array = ``params``
     member __.Body: BlockStatement = body
-    member __.Generator = generator
-    member __.Async = async
+    member __.Id: Identifier option = id
+    member __.Async: bool = async
+    member __.Generator: bool = generator
+    member __.Declare: bool option = declare
+    member __.ReturnType: TypeAnnotation option = returnType
+    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
 
 // Expressions
 
@@ -304,24 +312,30 @@ type ThisExpression(?loc) =
     inherit Expression("ThisExpression", ?loc = loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression(``params``, body, ?async_, ?loc) =
+type ArrowFunctionExpression(``params``, body, ?async_, ?generator_, ?returnType, ?typeParameters, ?loc) =
     inherit Expression("ArrowFunctionExpression", ?loc = loc)
     let async = defaultArg async_ false
-    let expression = match body with U2.Case1 _ -> false | U2.Case2 _ -> true
-    member __.Expression = expression
+    let generator = defaultArg generator_ false
+    let expression = Some (match body with U2.Case1 _ -> false | U2.Case2 _ -> true)
     member __.Params: Pattern array = ``params``
     member __.Body: U2<BlockStatement, Expression> = body
     member __.Async: bool = async
+    member __.Generator: bool = generator
+    member __.Expression: bool option = expression
+    member __.ReturnType: TypeAnnotation option = returnType
+    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
 
-type FunctionExpression(``params``, body, ?generator_, ?async_, ?id, ?loc) =
+type FunctionExpression(``params``, body, ?generator_, ?async_, ?id, ?returnType, ?typeParameters, ?loc) =
     inherit Expression("FunctionExpression", ?loc = loc)
-    let generator = defaultArg generator_ false
     let async = defaultArg async_ false
+    let generator = defaultArg generator_ false
     member __.Id: Identifier option = id
     member __.Params: Pattern array = ``params``
     member __.Body: BlockStatement = body
-    member __.Generator: bool = generator
     member __.Async: bool = async
+    member __.Generator: bool = generator
+    member __.ReturnType: TypeAnnotation option = returnType
+    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
 
 /// e.g., x = do { var t = f(); t * t + 1 };
 /// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
@@ -356,46 +370,46 @@ type SpreadElement(argument, ?loc) =
 
 type ArrayExpression(elements, ?loc) =
     inherit Expression("ArrayExpression", ?loc = loc)
-    // member __.elements: U2<Expression, SpreadElement> option array = elements
+    // member __.Elements: U2<Expression, SpreadElement> option array = elements
     member __.Elements: Expression array = elements
 
-[<AbstractClass>]
-type ObjectMember(typ, key, ?value, ?computed_, ?loc) =
-    inherit Node(typ, ?loc = loc)
+type ObjectProperty(key, value, ?computed_, ?shorthand_, ?loc) =
+    inherit Node("ObjectProperty", ?loc = loc)
     let computed = defaultArg computed_ false
-    member __.Key: Expression = key
-    member __.Value: Expression option = value
-    member __.Computed: bool = computed
-    // member __.decorators: Decorator array = defaultArg decorators []
-
-type ObjectProperty(key, value, ?shorthand_, ?computed_, ?loc) =
-    inherit ObjectMember("ObjectProperty", key, value, ?computed_=computed_, ?loc=loc)
     let shorthand = defaultArg shorthand_ false
+    member __.Key: Expression = key
+    member __.Value: Expression = value
+    member __.Computed: bool = computed
     member __.Shorthand: bool = shorthand
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?generator_, ?async_, ?loc) =
-    inherit ObjectMember("ObjectMethod", key, ?computed_=computed_, ?loc=loc)
-    let generator = defaultArg generator_ false
-    let async = defaultArg async_ false
+type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?async_, ?generator_, ?returnType, ?typeParameters, ?loc) =
+    inherit Node("ObjectMethod", ?loc = loc)
     let kind =
         match kind_ with
         | ObjectGetter -> "get"
         | ObjectSetter -> "set"
         | ObjectMeth -> "method"
-    member __.Kind = kind
+    let computed = defaultArg computed_ false
+    let async = defaultArg async_ false
+    let generator = defaultArg generator_ false
+    member __.Kind: string = kind
+    member __.Key: Expression = key
     member __.Params: Pattern array = ``params``
     member __.Body: BlockStatement = body
-    member __.Generator: bool = generator
+    member __.Computed: bool = computed
     member __.Async: bool = async
+    member __.Generator: bool = generator
+    member __.ReturnType: TypeAnnotation option = returnType
+    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
-type MemberExpression(``object``, property, ?computed_, ?loc) =
+type MemberExpression(object, property, ?computed_, ?loc) =
     inherit PatternExpression("MemberExpression", ?loc = loc)
     let computed = defaultArg computed_ false
-    member __.Object: Expression = ``object``
+    member __.Object: Expression = object
     member __.Property: Expression = property
     member __.Computed: bool = computed
 
@@ -417,11 +431,12 @@ type CallExpression(callee, arguments, ?loc) =
     // member __.Arguments: U2<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
 
-type NewExpression(callee, arguments, ?loc) =
+type NewExpression(callee, arguments, ?typeArguments, ?loc) =
     inherit Expression("NewExpression", ?loc = loc)
     member __.Callee: Expression = callee
     // member __.Arguments: U2<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
+    member __.TypeArguments: TypeParameterInstantiation option = typeArguments
 
 /// A comma-separated sequence of expressions.
 type SequenceExpression(expressions, ?loc) =
@@ -443,7 +458,7 @@ type UnaryExpression(operator_, argument, ?prefix_, ?loc) =
         | UnaryDelete -> "delete"
     member __.Prefix: bool = prefix
     member __.Argument: Expression = argument
-    member __.Operator = operator
+    member __.Operator: string = operator
 
 type UpdateExpression(operator_, prefix, argument, ?loc) =
     inherit Expression("UpdateExpression", ?loc = loc)
@@ -453,7 +468,7 @@ type UpdateExpression(operator_, prefix, argument, ?loc) =
         | UpdatePlus -> "++"
     member __.Prefix: bool = prefix
     member __.Argument: Expression = argument
-    member __.Operator = operator
+    member __.Operator: string = operator
 
 // Binary Operations
 type BinaryExpression(operator_, left, right, ?loc) =
@@ -484,7 +499,7 @@ type BinaryExpression(operator_, left, right, ?loc) =
         | BinaryInstanceOf -> "instanceof"
     member __.Left: Expression = left
     member __.Right: Expression = right
-    member __.Operator = operator
+    member __.Operator: string = operator
 
 type AssignmentExpression(operator_, left, right, ?loc) =
     inherit Expression("AssignmentExpression", ?loc = loc)
@@ -504,7 +519,7 @@ type AssignmentExpression(operator_, left, right, ?loc) =
         | AssignAndBitwise -> "&="
     member __.Left: Expression = left
     member __.Right: Expression = right
-    member __.Operator = operator
+    member __.Operator: string = operator
 
 type LogicalExpression(operator_, left, right, ?loc) =
     inherit Expression("LogicalExpression", ?loc = loc)
@@ -514,7 +529,7 @@ type LogicalExpression(operator_, left, right, ?loc) =
         | LogicalAnd-> "&&"
     member __.Left: Expression = left
     member __.Right: Expression = right
-    member __.Operator = operator
+    member __.Operator: string = operator
 
 // Patterns
 // type AssignmentProperty(key, value, ?loc) =
@@ -523,27 +538,30 @@ type LogicalExpression(operator_, left, right, ?loc) =
 
 // type ObjectPattern(properties, ?loc) =
 //     inherit Node("ObjectPattern", ?loc = loc)
-//     member __.properties: U2<AssignmentProperty, RestProperty> array = properties
+//     member __.Properties: U2<AssignmentProperty, RestProperty> array = properties
 //     interface Pattern
 
-type ArrayPattern(elements, ?loc) =
+type ArrayPattern(elements, ?typeAnnotation, ?loc) =
     inherit PatternNode("ArrayPattern", ?loc = loc)
     member __.Elements: Pattern option array = elements
+    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
-type AssignmentPattern(left, right, ?loc) =
+type AssignmentPattern(left, right, ?typeAnnotation, ?loc) =
     inherit PatternNode("AssignmentPattern", ?loc = loc)
     member __.Left: Pattern = left
     member __.Right: Expression = right
+    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
-type RestElement(argument, ?loc) =
+type RestElement(argument, ?typeAnnotation, ?loc) =
     inherit PatternNode("RestElement", ?loc = loc)
     member __.Argument: Pattern = argument
+    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
 // Classes
 type ClassMethodKind =
     | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind_, key, ``params``, body, computed, ``static``, ?loc) =
+type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     let kind =
         match kind_ with
@@ -551,56 +569,68 @@ type ClassMethod(kind_, key, ``params``, body, computed, ``static``, ?loc) =
         | ClassGetter -> "get"
         | ClassSetter -> "set"
         | ClassFunction -> "method"
+    let computed = defaultArg computed_ false
     member __.Kind = kind
     member __.Key: Expression = key
     member __.Params: Pattern array = ``params``
     member __.Body: BlockStatement = body
     member __.Computed: bool = computed
-    member __.Static: bool = ``static``
-    // member __.decorators: Decorator array = defaultArg decorators []
+    member __.Static: bool option = ``static``
+    member __.Abstract: bool option = ``abstract``
+    member __.ReturnType: TypeAnnotation option = returnType
+    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
     // This appears in astexplorer.net but it's not documented
-    // member __.expression: bool = false
+    // member __.Expression: bool = false
 
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassProperty(key, ?value, ?typeAnnotation, ?loc) =
+type ClassProperty(key, ?value, ?``static``, ?optional, ?typeAnnotation, ?loc) =
     inherit Node("ClassProperty", ?loc = loc)
-    member __.Key: Identifier = key
+    member __.Key: U2<Identifier, StringLiteral> = key
     member __.Value: Expression option = value
+    member __.Static: bool option = ``static``
+    member __.Optional: bool option = optional
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
+
+type ClassImplements(id, ?typeParameters, ?loc) =
+    inherit Expression("ClassImplements", ?loc = loc)
+    member __.Id: Identifier = id
+    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
 
 type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)
     member __.Body: U2<ClassMethod, ClassProperty> array = body
 
-type ClassDeclaration(body, id, ?superClass, ?typeParameters, ?loc) =
+type ClassDeclaration(body, ?id, ?superClass, ?implements, ?superTypeParameters, ?typeParameters, ?loc) =
     inherit Declaration("ClassDeclaration", ?loc = loc)
     member __.Body: ClassBody = body
-    member __.Id: Identifier = id
+    member __.Id: Identifier option = id
     member __.SuperClass: Expression option = superClass
+    member __.Implements: ClassImplements array option = implements
+    member __.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    // member __.decorators: Decorator array = defaultArg decorators []
 
 /// Anonymous class: e.g., var myClass = class { }
-type ClassExpression(body, ?id, ?superClass, ?typeParameters, ?loc) =
+type ClassExpression(body, ?id, ?superClass, ?implements, ?superTypeParameters, ?typeParameters, ?loc) =
     inherit Expression("ClassExpression", ?loc = loc)
     member __.Body: ClassBody = body
     member __.Id: Identifier option = id
     member __.SuperClass: Expression option = superClass
+    member __.Implements: ClassImplements array option = implements
+    member __.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    // member __.decorators: Decorator array = defaultArg decorators []
 
 // type MetaProperty(meta, property, ?loc) =
 //     inherit Expression("MetaProperty", ?loc = loc)
-//     member __.meta: Identifier = meta
+//     member __.Meta: Identifier = meta
 //     member __.Property: Expression = property
 
 // Modules
 /// A specifier in an import or export declaration.
 [<AbstractClass>]
-type ModuleSpecifier(typ, local, ?loc) =
-    inherit Node(typ, ?loc = loc)
+type ModuleSpecifier(``type``, local, ?loc) =
+    inherit Node(``type``, ?loc = loc)
     member __.Local: Identifier = local
 
 /// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
@@ -654,3 +684,108 @@ type ExportDefaultDeclaration(declaration, ?loc) =
 type ExportAllDeclaration(source, ?loc) =
     inherit ModuleDeclaration("ExportAllDeclaration", ?loc = loc)
     member __.Source: Literal = source
+
+// Type Annotations
+
+type StringTypeAnnotation() =
+    inherit TypeAnnotationInfo("StringTypeAnnotation")
+
+type NumberTypeAnnotation() =
+    inherit TypeAnnotationInfo("NumberTypeAnnotation")
+
+type BooleanTypeAnnotation() =
+    inherit TypeAnnotationInfo("BooleanTypeAnnotation")
+
+type AnyTypeAnnotation() =
+    inherit TypeAnnotationInfo("AnyTypeAnnotation")
+
+type VoidTypeAnnotation() =
+    inherit TypeAnnotationInfo("VoidTypeAnnotation")
+
+type TupleTypeAnnotation(types) =
+    inherit TypeAnnotationInfo("TupleTypeAnnotation")
+    member __.Types: TypeAnnotationInfo array = types
+
+type UnionTypeAnnotation(types) =
+    inherit TypeAnnotationInfo("UnionTypeAnnotation")
+    member __.Types: TypeAnnotationInfo array = types
+
+type FunctionTypeParam(name, typeInfo, ?optional) =
+    inherit Node("FunctionTypeParam")
+    member __.Name: Identifier = name
+    member __.TypeAnnotation: TypeAnnotationInfo = typeInfo
+    member __.Optional: bool option = optional
+
+type FunctionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest) =
+    inherit TypeAnnotationInfo("FunctionTypeAnnotation")
+    member __.Params: FunctionTypeParam array = ``params``
+    member __.ReturnType: TypeAnnotationInfo = returnType
+    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member __.Rest: FunctionTypeParam option = rest
+
+type NullableTypeAnnotation(``type``) =
+    inherit TypeAnnotationInfo("NullableTypeAnnotation")
+    member __.TypeAnnotation: TypeAnnotationInfo = ``type``
+
+type GenericTypeAnnotation(id, ?typeParameters) =
+    inherit TypeAnnotationInfo("GenericTypeAnnotation")
+    member __.Id: Identifier = id
+    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
+
+type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto) =
+    inherit Node("ObjectTypeProperty")
+    member __.Key: U2<Identifier, StringLiteral> = key
+    member __.Value: TypeAnnotationInfo = value
+    member __.Kind: string option = kind
+    member __.Static: bool option = ``static``
+    member __.Optional: bool option = optional
+    member __.Proto: bool option = proto
+
+type ObjectTypeIndexer(key, value, ?id, ?``static``) =
+    inherit Node("ObjectTypeIndexer")
+    member __.Id: Identifier option = id
+    member __.Key: Identifier = key
+    member __.Value: TypeAnnotationInfo = value
+    member __.Static: bool option = ``static``
+
+type ObjectTypeCallProperty(value, ?``static``) =
+    inherit Node("ObjectTypeCallProperty")
+    member __.Value: TypeAnnotationInfo = value
+    member __.Static: bool option = ``static``
+
+type ObjectTypeInternalSlot(id, value, optional, ``static``, method) =
+    inherit Node("ObjectTypeInternalSlot")
+    member __.Id: Identifier = id
+    member __.Value: TypeAnnotationInfo = value
+    member __.Optional: bool = optional
+    member __.Static: bool = ``static``
+    member __.Method: bool = method
+
+type ObjectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
+    inherit TypeAnnotationInfo("ObjectTypeAnnotation")
+    let exact = defaultArg exact_ false
+    let indexers = defaultArg indexers_ [||]
+    let callProperties = defaultArg callProperties_ [||]
+    let internalSlots = defaultArg internalSlots_ [||]
+    member __.Properties: ObjectTypeProperty array = properties
+    member __.Indexers: ObjectTypeIndexer array = indexers
+    member __.CallProperties: ObjectTypeCallProperty array = callProperties
+    member __.InternalSlots: ObjectTypeInternalSlot array = internalSlots
+    member __.Exact: bool = exact
+
+type InterfaceExtends(id, ?typeParameters) =
+    inherit Node("InterfaceExtends")
+    member __.Id: Identifier = id
+    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
+
+type InterfaceDeclaration(id, body, ?extends_, ?implements_, ?mixins_, ?typeParameters, ?loc) =
+    inherit Declaration("InterfaceDeclaration", ?loc = loc)
+    let extends = defaultArg extends_ [||]
+    let implements = defaultArg implements_ [||]
+    let mixins = defaultArg mixins_ [||]
+    member __.Id: Identifier = id
+    member __.Body: ObjectTypeAnnotation = body
+    member __.Extends: InterfaceExtends array = extends
+    member __.Implements: ClassImplements array = implements
+    member __.Mixins: InterfaceExtends array = mixins
+    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
