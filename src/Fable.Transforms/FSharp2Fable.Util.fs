@@ -44,6 +44,7 @@ type IFableCompiler =
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
+    abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
     abstract AddUsedVarName: string * ?isRoot: bool -> unit
     abstract IsUsedVarName: string -> bool
     abstract AddInlineDependency: string -> unit
@@ -1197,6 +1198,31 @@ module Util =
         for m in ent.MembersFunctionsAndValues do
             found <- found || m.IsImplicitConstructor
         found
+
+    let isImplicitConstructor (com: IFableCompiler) (ent: FSharpEntity) (cons: FSharpMemberOrFunctionOrValue) =
+        let rec tryGetImplicitConstructor (entityFullName: string) = function
+            | FSharpImplementationFileDeclaration.Entity (e, decls) ->
+                let entityFullName2 = getEntityFullName e
+                if entityFullName.StartsWith(entityFullName2) then
+                    decls |> List.tryPick (tryGetImplicitConstructor entityFullName)
+                else None
+            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(m,_,_) ->
+                match m.IsImplicitConstructor, m.DeclaringEntity with
+                | true, Some e when getEntityFullName e = entityFullName -> Some m
+                | _ -> None
+            | FSharpImplementationFileDeclaration.InitAction _ -> None
+
+        match ent.SignatureLocation with
+        // If the entity is in a signature file .IsImplicitConstructor won't work
+        | Some loc when loc.FileName.EndsWith(".fsi") ->
+            com.TryGetImplementationFile(loc.FileName)
+            |> Option.bind (fun file ->
+                let entityFullName = getEntityFullName ent
+                file.Declarations |> List.tryPick (tryGetImplicitConstructor entityFullName))
+            |> Option.map (fun cons2 -> cons2.IsEffectivelySameAs(cons))
+            |> Option.defaultValue false
+        | _ ->
+            cons.IsImplicitConstructor
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ isBaseCall (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
