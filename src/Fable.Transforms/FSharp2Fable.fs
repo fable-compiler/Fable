@@ -331,8 +331,8 @@ let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharp
                     | :? float as v -> Fable.Value(Fable.NumberConstant(v, NumberKind.Float64), None)
                     | _ -> Fable.Value(Fable.StringConstant (string v), None)
                 )
-            
-            
+
+
             let typ = makeTypeFromDef com ctx.GenericArgs (System.Collections.Generic.List() :> IList<_>) a.AttributeType
             try
                 let x = makeCallFrom com ctx None typ false [] None args ctor
@@ -340,10 +340,10 @@ let private transformAttribute (com: IFableCompiler) (ctx : Context) (a : FSharp
                 | AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None) ->
                     com.RemoveLastError()
                     None
-                | _ ->                
+                | _ ->
                     Some (fullname,x)
             with _ ->
-                None                   
+                None
         | _ ->
             None
     | _ ->
@@ -485,7 +485,8 @@ let private transformMemberInfo (com: IFableCompiler) ctx (m : FSharpMemberOrFun
                             Fable.Args = args
                             Fable.SignatureArgTypes = Fable.SignatureKind.NoUncurrying
                             Fable.Spread = Fable.SpreadKind.NoSpread
-                            Fable.IsBaseOrSelfConstructorCall = false
+                            Fable.IsBaseCall = false
+                            Fable.IsSelfConstructorCall = false
                         }
 
                     staticCall None decl info (makeValueFrom com ctx None m)
@@ -1613,7 +1614,7 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
         member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
-        member __.RemoveLastError() = 
+        member __.RemoveLastError() =
             com.RemoveLastError()
 
 let getRootModuleFullName (file: FSharpImplementationFileContents) =

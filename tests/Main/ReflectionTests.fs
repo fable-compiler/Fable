@@ -517,13 +517,13 @@ type MyRecord20 =
     { FieldA: int
       FieldB: string }
 
-type MyClass<'a>(value : 'a) =
+type MyClass3<'a>(value : 'a) =
   static member GetValue<'b>(a : 'a, b : 'b) = (a,b)
   member x.Value : 'a = value
 
 let fableTests = [
     testCase "Generic static method can be instantiated and invoked" <| fun () ->
-      let tm = typedefof<MyClass<_>>.MakeGenericType [| typeof<int> |]
+      let tm = typedefof<MyClass3<_>>.MakeGenericType [| typeof<int> |]
       let meth = tm.GetMethod("GetValue")
       let m = meth.MakeGenericMethod [| typeof<float> |]
       let pars = m.GetParameters() |> Array.map (fun p -> p.ParameterType, p.Name)
@@ -535,10 +535,10 @@ let fableTests = [
 
 
     testCase "Property can be read" <| fun () ->
-      let tm = typedefof<MyClass<_>>.MakeGenericType [| typeof<int> |]
+      let tm = typedefof<MyClass3<_>>.MakeGenericType [| typeof<int> |]
       let prop = tm.GetProperty("Value")
-      let v1 = prop.GetMethod.Invoke(MyClass(1), null) |> unbox<int>
-      let v2 = prop.GetValue(MyClass(1)) |> unbox<int>
+      let v1 = prop.GetMethod.Invoke(MyClass3(1), null) |> unbox<int>
+      let v2 = prop.GetValue(MyClass3(1)) |> unbox<int>
       v1 |> equal 1
       v2 |> equal 1
 

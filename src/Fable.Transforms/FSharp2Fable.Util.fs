@@ -105,16 +105,16 @@ module Helpers =
         ||> Naming.sanitizeIdent (fun _ -> false)
 
     let getModuleReflectionName (com: ICompiler) (ent : FSharpEntity) =
-        if ent.IsFSharpModule then 
-            let name = 
+        if ent.IsFSharpModule then
+            let name =
                 (getEntityMangledName com true ent, Naming.NoMemberPart)
                 ||> Naming.sanitizeIdent (fun _ -> false)
-            if name = "" then 
+            if name = "" then
                 Some ""
-            else            
+            else
                 Some name
         else
-            None        
+            None
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -156,6 +156,7 @@ module Helpers =
             | Naming.StaticMemberPart(_, overloadSuffix) ->
                 String.IsNullOrEmpty(overloadSuffix) |> not
             | Naming.NoMemberPart -> false
+            | Naming.ReflectionMemberPart -> false
         sanitizedName, hasOverloadSuffix
 
     /// Used to identify members uniquely in the inline expressions dictionary

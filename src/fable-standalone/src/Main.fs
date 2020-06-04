@@ -230,6 +230,7 @@ let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: str
       debugMode = isDebug
       verbosity = Fable.Verbosity.Normal
       outputPublicInlinedFunctions = false
+      quotations = false
       precompiledLib = config.precompiledLib }
 
 let compileAst (com: Compiler) (project: Project) =
