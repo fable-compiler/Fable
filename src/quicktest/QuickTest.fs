@@ -58,3 +58,12 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+type SecondaryConsChild() =
+    inherit Library.SecondaryCons()
+
+let test() =
+    let s = SecondaryConsChild()
+    printfn "%i" s.Value
+
+test()
