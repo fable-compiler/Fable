@@ -45,7 +45,7 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
     | None ->
         Option.iter (addError com ctx.InlinePath r) (
             if com.Options.classTypes then
-                if not baseCons.IsImplicitConstructor then
+                if not(isImplicitConstructor com baseEnt baseCons) then
                     Some "Only inheriting from primary constructors is supported"
                 else None
             elif not(hasImplicitConstructor baseEnt) then
@@ -1116,22 +1116,28 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
     member val UsedVarNames = HashSet<string>()
     member val InlineDependencies = HashSet<string>()
     member __.Options = com.Options
+
     member this.AddUsedVarName(varName, ?isRoot) =
         let isRoot = defaultArg isRoot false
         let success = this.UsedVarNames.Add(varName)
         if not success && isRoot then
             sprintf "Cannot have two module members with same name: %s" varName
             |> addError com [] None
+
     member __.AddInlineExpr(memb, inlineExpr: InlineExpr) =
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
+
     interface IFableCompiler with
         member this.Transform(ctx, fsExpr) =
             transformExpr this ctx fsExpr |> run
+
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
             Replacements.tryCall this ctx r t info thisArg args
+
         member this.InjectArgument(ctx, r, genArgs, parameter) =
             Inject.injectArg this ctx r genArgs parameter
+
         member this.GetInlineExpr(memb) =
             let membUniqueName = getMemberUniqueName com memb
             match memb.DeclaringEntity with
@@ -1152,12 +1158,22 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
                           Body = body
                           FileName = fileName }
                     | None -> failwith ("Cannot find inline member. Please report: " + membUniqueName))
+
+        member this.TryGetImplementationFile (fileName) =
+            let fileName = Path.normalizePathAndEnsureFsExtension fileName
+            match implFiles.TryGetValue(fileName) with
+            | true, f -> Some f
+            | false, _ -> None
+
         member this.AddUsedVarName(varName, ?isRoot) =
             this.AddUsedVarName(varName, ?isRoot=isRoot)
+
         member this.IsUsedVarName(varName) =
             this.UsedVarNames.Contains(varName)
+
         member this.AddInlineDependency(fileName) =
             this.InlineDependencies.Add(fileName) |> ignore
+
     interface ICompiler with
         member __.Options = com.Options
         member __.LibraryDir = com.LibraryDir
