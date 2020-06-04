@@ -66,6 +66,7 @@
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="UriTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
+    <Compile Include="ExprTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

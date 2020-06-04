@@ -505,6 +505,7 @@ module AST =
         | Boolean -> Types.bool
         | Char    -> Types.char
         | String  -> Types.string
+        | Expr _  -> "Expr"
         // TODO: Type info forErasedUnion?
         | ErasedUnion _ | Any -> Types.object
         | Number kind ->

@@ -60,6 +60,7 @@ let toCompilerOptions (msg: Message): CompilerOptions =
       debugMode = Array.contains "DEBUG" msg.define
       verbosity = GlobalParams.Singleton.Verbosity
       outputPublicInlinedFunctions = Array.contains "FABLE_REPL_LIB" msg.define
+      quotations = Array.contains "FABLE_QUOTATIONS" msg.define
       precompiledLib = None
     }
 

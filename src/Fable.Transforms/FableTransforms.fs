@@ -7,6 +7,7 @@ open FSharp.Compiler.SourceCodeServices
 // TODO: Use trampoline here?
 let visit f e =
     match e with
+    | Quote(b, e, r) -> Quote(b, { e with values = e.values |> Array.map (fun v -> { v with expr = f v.expr }) }, r)
     | IdentExpr _ | Debugger _ -> e
     | TypeCast(e, t) -> TypeCast(f e, t)
     | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r)
@@ -106,6 +107,7 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
         visit (visitFromOutsideIn f) e
 
 let getSubExpressions = function
+    | Quote(_, data, _) -> data.values |> Array.toList |> List.map (fun v -> v.expr)
     | IdentExpr _ | Debugger _ -> []
     | TypeCast(e,_) -> [e]
     | Import(e1,e2,_,_,_) -> [e1;e2]
@@ -356,7 +358,7 @@ module private Transforms =
 
     // For function arguments check if the arity of their own function arguments is expected or not
     // TODO: Do we need to do this recursively, and check options and delegates too?
-    let checkSubArguments com expectedType (expr: Expr) =
+    let checkSubArguments _com expectedType (expr: Expr) =
         match expectedType, expr with
         | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_)) ->
             let actualArgs = List.truncate expectedArgs.Length actualArgs
@@ -567,11 +569,13 @@ let optimizeExpr (com: ICompiler) e =
     List.fold (fun e f -> f com e) e optimizations
 
 let rec optimizeDeclaration (com: ICompiler) = function
+    | ModuleDeclaration(decl, name, ent, mems) ->
+        ModuleDeclaration(decl, name, ent, mems)
     | ActionDeclaration expr ->
         ActionDeclaration(optimizeExpr com expr)
     | ValueDeclaration(value, info) ->
         ValueDeclaration(optimizeExpr com value, info)
-    | ConstructorDeclaration(kind, r) ->
+    | ConstructorDeclaration(decl, kind, r) ->
         let kind =
             match kind with
             | ClassImplicitConstructor info ->
@@ -587,7 +591,7 @@ let rec optimizeDeclaration (com: ICompiler) = function
                             info.Arguments, info.Body
                 ClassImplicitConstructor { info with Arguments = args; Body = body }
             | kind -> kind
-        ConstructorDeclaration(kind, r)
+        ConstructorDeclaration(decl, kind, r)
     | AttachedMemberDeclaration(args, body, info) ->
         AttachedMemberDeclaration(args, optimizeExpr com body, info)
 

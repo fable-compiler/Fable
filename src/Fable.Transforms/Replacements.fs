@@ -25,6 +25,9 @@ type Helper =
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
         Operation(Call(kind, argInfo (Some callee) args argTypes), returnType, loc)
 
+    static member InstanceField(callee: Expr, memb: string, typ: Type, ?loc: SourceLocation) =
+        Get(callee, GetKind.FieldGet(memb, false, typ), typ, loc)
+
     static member Application(callee: Expr, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
@@ -229,6 +232,13 @@ let (|Nameof|_|) com ctx = function
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
     namesAndReplacements |> List.tryPick (fun (name2, replacement) ->
         if name2 = name then Some replacement else None)
+let (|DeclaredFullNameType|_|) = function
+    | DeclaredType(ent, targs) ->
+        match ent.TryFullName with
+        | Some name -> Some (ent, name, targs)
+        | _ -> None
+    | _ ->
+        None
 
 let inline (|ExprType|) (e: Expr) = e.Type
 
@@ -362,14 +372,22 @@ let makeTypeInfo r t =
 let makeTypeDefinitionInfo r t =
     let t =
         match t with
-        | Option _ -> Option Any
-        | Array _ -> Array Any
-        | List _ -> List Any
+        | Option _ -> Option (GenericParam "a0")
+        | Array _ -> Array (GenericParam "a0")
+        | List _ -> List (GenericParam "a0")
         | Tuple genArgs ->
-            genArgs |> List.map (fun _ -> Any) |> Tuple
+            genArgs |> List.mapi (fun i _ -> (GenericParam (sprintf "a%d" i))) |> Tuple
         | DeclaredType(ent, genArgs) ->
-            let genArgs = genArgs |> List.map (fun _ -> Any)
+            let names = ent.GenericParameters |> Seq.map (fun p -> p.Name) |> Seq.toList
+            let genArgs = names |> List.map GenericParam
             DeclaredType(ent, genArgs)
+        | FunctionType(kind,r) ->
+            let kind, ret =
+                match kind with
+                | LambdaType(a) -> LambdaType (GenericParam "a0"), "a1"
+                | DelegateType(a) -> DelegateType (a |> List.mapi (fun i _ -> GenericParam (sprintf "a%d" i))), sprintf "a%d" a.Length
+            FunctionType(kind, GenericParam ret)
+        | ErasedUnion a -> ErasedUnion a
         // TODO: Do something with FunctionType and ErasedUnion?
         | t -> t
     TypeInfo t |> makeValue r
@@ -694,7 +712,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
 
 let isCompatibleWithJsComparison = function
     | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt)
-    | Array _ | List _ | Tuple _ | Option _ | MetaType -> false
+    | Array _ | List _ | Tuple _ | Option _ | MetaType | Expr _ -> false
     | Builtin(BclGuid|BclTimeSpan) -> true
     // TODO: Non-record/union declared types without custom equality
     // should be compatible with JS comparison
@@ -752,6 +770,28 @@ let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         Helper.CoreCall("Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | MetaType ->
         Helper.CoreCall("Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, ("System.Reflection.MemberInfo" | "System.Reflection.MethodBase"), []) ->
+        Helper.CoreCall("Reflection", "memberEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.ParameterInfo", []) ->
+        Helper.CoreCall("Reflection", "parameterEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.FieldInfo", []) ->
+        Helper.CoreCall("Reflection", "fieldEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.PropertyInfo", []) ->
+        Helper.CoreCall("Reflection", "propertyEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.MethodInfo", []) ->
+        Helper.CoreCall("Reflection", "methodEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "System.Reflection.ConstructorInfo", []) ->
+        Helper.CoreCall("Reflection", "constructorEquals", Boolean, [left; right], ?loc=r) |> is equal
+
+    | DeclaredFullNameType(_ent, "Microsoft.FSharp.Reflection.UnionCaseInfo", []) ->
+        Helper.CoreCall("Reflection", "unionCaseEquals", Boolean, [left; right], ?loc=r) |> is equal
+
     | Tuple _ ->
         Helper.CoreCall("Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     // unsafe optimization, left can sometimes be null
@@ -1251,6 +1291,16 @@ let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr 
     else
         let argInfo = { argInfo thisArg args (Typed i.SignatureArgTypes) with Spread = i.Spread }
         makeCustomImport Any mangledName importPath |> staticCall r t argInfo
+
+let getPrecompiledLibReflectionName entityName =
+    let entityName = Naming.sanitizeIdentForbiddenChars entityName
+    Naming.buildNameWithoutSanitation entityName Naming.ReflectionMemberPart |> Naming.checkJsKeywords
+
+let precompiledLibReflection r (args: Expr list) (entityName, importPath) =
+    let mangledName = getPrecompiledLibReflectionName entityName
+    let argTypes = args |> List.map (fun _ -> MetaType)
+    let argInfo = { argInfo None args (Typed argTypes) with Spread = Fable.NoSpread }
+    makeCustomImport Any mangledName importPath |> staticCall r MetaType argInfo
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1895,7 +1945,6 @@ let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName i.OverloadSuffix.Value
         let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
         Helper.CoreCall("Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-
 let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     let meth = Naming.lowerFirst i.CompiledName
     let args = injectArg com ctx r "Map" meth i.GenericArgs args
@@ -2653,6 +2702,42 @@ let events (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, None -> Helper.CoreCall("Event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let exprs (name : string) (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    //| meth, Some x,_ -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Value", None, _ ->
+        let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
+        match args with
+        | [a] -> Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type], i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ValueWithName", None, _ ->
+        let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
+        match args with
+        | [a;n] -> Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type; n], i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "WithValue", None, _ ->
+        let _,name = getMangledNames { i with OverloadSuffix = lazy ("") } None
+        match args with
+        | [a;n] -> Helper.CoreCall("Quotations", name, t, [a; makeTypeInfo None a.Type; n], i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+
+    | meth, Some x,_ ->
+        let _,name = getMangledNames i (Some x)
+        Helper.CoreCall("Quotations", name, t, x :: args, i.SignatureArgTypes, ?loc=r) |> Some
+
+
+    | meth, None,_ ->
+        //match t with
+        // | Fable.Expr _ ->
+        //     let hash = match i.Original with | Some o -> lazy (OverloadSuffix.getExtensionHash o) | _ -> lazy ""
+        //     let _,name = getMangledNames { i with OverloadSuffix = hash } None
+        //     Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        // | _ ->
+        let _,name = getMangledNames i None
+        Helper.CoreCall("Quotations", name, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
+
 let observable (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     Helper.CoreCall("Observable", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
@@ -2757,61 +2842,110 @@ let controlExtensions (_: ICompiler) (ctx: Context) (_: SourceLocation option) t
 
 let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let returnString r x = StringConstant x |> makeValue r |> Some
-    let resolved =
-        // Some optimizations when the type is known at compile time
-        match thisArg with
-        | Some(Value(TypeInfo exprType, exprRange) as thisArg) ->
-            match exprType with
-            | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
-            | _ -> ()
-            match i.CompiledName with
-            | "get_FullName" -> getTypeFullName false exprType |> returnString r
-            | "get_Namespace" ->
-                let fullname = getTypeFullName false exprType
-                match fullname.LastIndexOf(".") with
-                | -1 -> "" |> returnString r
-                | i -> fullname.Substring(0, i) |> returnString r
-            | "get_IsArray" ->
-                match exprType with Array _ -> true | _ -> false
-                |> BoolConstant |> makeValue r |> Some
-            | "get_IsEnum" ->
-                match exprType with
-                | Enum t -> true | _ -> false
-                |> BoolConstant |> makeValue r |> Some
-            | "GetElementType" ->
-                match exprType with
-                | Array t -> TypeInfo t |> makeValue r |> Some
-                | _ -> Null t |> makeValue r |> Some
-            | "get_IsGenericType" ->
-                List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
-            | "get_GenericTypeArguments" | "GetGenericArguments" ->
-                let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
-                NewArray(arVals, Any) |> makeValue r |> Some
-            | "GetGenericTypeDefinition" ->
-                let newGen = exprType.Generics |> List.map (fun _ -> Any)
-                exprType.ReplaceGenerics(newGen) |> TypeInfo |> makeValue exprRange |> Some
-            | _ -> None
-        |  _ -> None
-    match resolved, thisArg with
-    | Some _, _ -> resolved
-    | None, Some thisArg ->
-        match i.CompiledName with
-        | "GetTypeInfo" -> Some thisArg
-        | "get_GenericTypeArguments" | "GetGenericArguments" ->
-            Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
-        | "MakeGenericType" ->
-            Helper.CoreCall("Reflection", "makeGenericType", t, thisArg::args, ?loc=r) |> Some
-        | "get_FullName" | "get_Namespace"
-        | "get_IsArray" | "GetElementType"
-        | "get_IsGenericType" | "GetGenericTypeDefinition"
-        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" ->
-            let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
-            Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
+
+    // TODO!!! Optimizations when the type is known at compile time (see commented code from master below)
+    match thisArg, i.CompiledName with
+    | Some this, "get_IsGenericParameter"           -> Helper.InstanceCall(this, "get_IsGenericParameter", t, []) |> Some
+    | Some this, "get_FullName"                     -> Helper.InstanceCall(this, "get_FullName", t, []) |> Some
+    | Some this, "get_Namespace"                    -> Helper.InstanceCall(this, "get_Namespace", t, []) |> Some
+    | Some this, "get_IsArray"                      -> Helper.InstanceCall(this, "get_IsArray", t, []) |> Some
+    | Some this, "get_IsGenericType"                -> Helper.InstanceCall(this, "get_IsGenericType", t, []) |> Some
+    | Some this, "get_IsGenericTypeDefinition"      -> Helper.InstanceCall(this, "get_IsGenericTypeDefinition", t, []) |> Some
+    | Some this, "get_GenericTypeArguments"         -> Helper.InstanceCall(this, "get_GenericTypeArguments", t, []) |> Some
+    | Some this, "get_DeclaringType"                -> Helper.InstanceCall(this, "get_DeclaringType", t, []) |> Some
+    | Some this, "GetElementType"                   -> Helper.InstanceCall(this, "GetElementType", t, []) |> Some
+    | Some this, "GetGenericArguments"              -> Helper.InstanceCall(this, "GetGenericArguments", t, []) |> Some
+    | Some this, "GetGenericTypeDefinition"         -> Helper.InstanceCall(this, "GetGenericTypeDefinition", t, []) |> Some
+    | Some this, "MakeArrayType"                    -> Helper.InstanceCall(this, "MakeArrayType", t, []) |> Some
+    | Some this, "GetTypeInfo"                      -> Some this
+
+    | Some this, "GetProperties"                    -> Helper.InstanceCall(this, "GetProperties", t, args) |> Some
+    | Some this, "GetMethods"                       -> Helper.InstanceCall(this, "GetMethods", t, []) |> Some
+    | Some this, "GetMembers"                       -> Helper.InstanceCall(this, "GetMembers", t, args) |> Some
+    | Some this, "GetFields"                        -> Helper.InstanceCall(this, "GetFields", t, args) |> Some
+    | Some this, "GetConstructors"                  -> Helper.InstanceCall(this, "GetConstructors", t, args) |> Some
+
+    | Some this, "GetProperty"                      -> Helper.InstanceCall(this, "GetProperty", t, [List.head args]) |> Some
+    | Some this, "GetMethod"                        ->
+        match args with
+        | [a] when a.Type = Fable.String            -> Helper.InstanceCall(this, "GetMethod", t, [a]) |> Some
+        | [a;b] when a.Type = Fable.String          -> Helper.InstanceCall(this, "GetMethod", t, [a; b]) |> Some
+        | a::_::_::b::_ when a.Type = Fable.String && b.Type = Fable.Array (Fable.MetaType)
+                                                    -> Helper.InstanceCall(this, "GetMethod", t, [a; b]) |> Some
         | _ -> None
-    | None, None -> None
+    | Some this, "GetField"                         -> Helper.InstanceCall(this, "GetField", t, [List.head args]) |> Some
+
+    | Some this, "GetConstructor"                   ->
+        match args with
+        | [] -> Helper.InstanceCall(this, "GetConstructor", t, []) |> Some
+        | [ts] -> Helper.InstanceCall(this, "GetConstructor", t, [ts]) |> Some
+        | _ -> None
+
+    | Some this, "MakeGenericType"                  -> Helper.InstanceCall(this, "MakeGenericType", t, args) |> Some
+
+    | Some this, "get_IsEnum"             -> Helper.CoreCall("Reflection", "isEnum", t, [this], ?loc=r) |> Some
+    | Some this, "GetEnumUnderlyingType"  -> Helper.CoreCall("Reflection", "getEnumUnderlyingType", t, [this], ?loc=r) |> Some
+    | Some this, "GetEnumValues"          -> Helper.CoreCall("Reflection", "getEnumValues", t, [this], ?loc=r) |> Some
+    | Some this, "GetEnumNames"           -> Helper.CoreCall("Reflection", "getEnumNames", t, [this], ?loc=r) |> Some
+
+    | _ -> None
+    // let resolved =
+    //     // Some optimizations when the type is known at compile time
+    //     match thisArg with
+    //     | Some(Value(TypeInfo exprType, exprRange) as thisArg) ->
+    //         match exprType with
+    //         | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
+    //         | _ -> ()
+    //         match i.CompiledName with
+    //         | "get_FullName" -> getTypeFullName false exprType |> returnString r
+    //         | "get_Namespace" ->
+    //             let fullname = getTypeFullName false exprType
+    //             match fullname.LastIndexOf(".") with
+    //             | -1 -> "" |> returnString r
+    //             | i -> fullname.Substring(0, i) |> returnString r
+    //         | "get_IsArray" ->
+    //             match exprType with Array _ -> true | _ -> false
+    //             |> BoolConstant |> makeValue r |> Some
+    //         | "get_IsEnum" ->
+    //             match exprType with
+    //             | Enum t -> true | _ -> false
+    //             |> BoolConstant |> makeValue r |> Some
+    //         | "GetElementType" ->
+    //             match exprType with
+    //             | Array t -> TypeInfo t |> makeValue r |> Some
+    //             | _ -> Null t |> makeValue r |> Some
+    //         | "get_IsGenericType" ->
+    //             List.isEmpty exprType.Generics |> not |> BoolConstant |> makeValue r |> Some
+    //         | "get_GenericTypeArguments" | "GetGenericArguments" ->
+    //             let arVals = exprType.Generics |> List.map (makeTypeInfo r) |> ArrayValues
+    //             NewArray(arVals, Any) |> makeValue r |> Some
+    //         | "GetGenericTypeDefinition" ->
+    //             let newGen = exprType.Generics |> List.map (fun _ -> Any)
+    //             exprType.ReplaceGenerics(newGen) |> TypeInfo |> makeValue exprRange |> Some
+    //         | _ -> None
+    //     |  _ -> None
+    // match resolved, thisArg with
+    // | Some _, _ -> resolved
+    // | None, Some thisArg ->
+    //     match i.CompiledName with
+    //     | "GetTypeInfo" -> Some thisArg
+    //     | "get_GenericTypeArguments" | "GetGenericArguments" ->
+    //         Helper.CoreCall("Reflection", "getGenerics", t, [thisArg], ?loc=r) |> Some
+    //     | "MakeGenericType" ->
+    //         Helper.CoreCall("Reflection", "makeGenericType", t, thisArg::args, ?loc=r) |> Some
+    //     | "get_FullName" | "get_Namespace"
+    //     | "get_IsArray" | "GetElementType"
+    //     | "get_IsGenericType" | "GetGenericTypeDefinition"
+    //     | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" ->
+    //         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+    //         Helper.CoreCall("Reflection", meth, t, [thisArg], ?loc=r) |> Some
+    //     | _ -> None
+    // | None, None -> None
 
 let fsharpType methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
+    | "MakeFunctionType" ->
+        Helper.CoreCall("Reflection", "lambda", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "MakeTupleType" ->
         Helper.CoreCall("Reflection", "tuple_type", t, args, i.SignatureArgTypes, hasSpread=true, ?loc=r) |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
@@ -2861,6 +2995,11 @@ let tryField returnTyp ownerTyp fieldName =
 
 let private replacedModules =
   dict [
+    "Microsoft.FSharp.Quotations.FSharpExpr", exprs "Expr"
+    "Microsoft.FSharp.Quotations.FSharpVar", exprs "Var"
+    "Microsoft.FSharp.Quotations.PatternsModule", exprs "Patterns"
+    "Microsoft.FSharp.Quotations.DerivedPatternsModule", exprs "DerivedPatterns"
+    "Microsoft.FSharp.Quotations.ExprShapeModule", exprs "ExprShape"
     "System.Math", operators
     "Microsoft.FSharp.Core.Operators", operators
     "Microsoft.FSharp.Core.Operators.Checked", operators
@@ -2973,6 +3112,12 @@ let private replacedModules =
     "System.Reflection.TypeInfo", types
 ]
 
+
+let reflectionMethods =
+    System.Collections.Generic.HashSet<string> [|
+        "asdads"
+    |]
+
 let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match info.DeclaringEntityFullName with
     | Patterns.DicContains replacedModules replacement -> replacement com ctx r t info thisArg args
@@ -2996,22 +3141,74 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         if isFSharpType
         then fsharpType methName r t info args
         else fsharpValue methName r t info args
-    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "System.Reflection.MemberInfo"
+    | "System.Reflection.MethodBase"
+    | "System.Reflection.ConstructorInfo"
     | "System.Reflection.PropertyInfo"
-    | "System.Reflection.MemberInfo" ->
+    | "System.Reflection.ParameterInfo"
+    | "System.Reflection.FieldInfo"
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "FSharp.Reflection.UnionCaseInfo"
+    | "System.Reflection.MethodInfo" ->
         match thisArg, info.CompiledName with
-        | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
-        | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
-        | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
-        | Some c, "GetValue" -> Helper.CoreCall("Reflection", "getValue", t, c::args, ?loc=r) |> Some
-        | Some c, "get_Name" ->
-            match c with
-            | Value(TypeInfo exprType, loc) ->
-                getTypeName com ctx loc exprType
-                |> StringConstant |> makeValue r |> Some
-            | c ->
-                Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
-        | _ -> None
+        | Some this, "GetGenericArguments"              -> Helper.InstanceCall(this, "GetGenericArguments", t, []) |> Some
+        | Some this, "GetGenericMethodDefinition"       -> Helper.InstanceCall(this, "GetGenericMethodDefinition", t, []) |> Some
+        | Some this, "get_IsGenericMethod"              -> Helper.InstanceCall(this, "get_IsGenericMethod", t, []) |> Some
+        | Some this, "get_IsGenericMethodDefinition"    -> Helper.InstanceCall(this, "get_IsGenericMethodDefinition", t, []) |> Some
+        | Some this, "MakeGenericMethod"                -> Helper.InstanceCall(this, "MakeGenericMethod", t, args) |> Some
+        | Some c, "GetIndexParameters" -> Helper.InstanceCall(c, "GetIndexParameters", t, args) |> Some
+        | Some c, "Invoke" -> Helper.InstanceCall(c, "Invoke", t, args) |> Some
+        | Some c, "get_Name" -> Helper.InstanceCall(c, "get_Name", t, []) |> Some
+        | Some c, "get_Tag" -> Helper.InstanceCall(c, "get_Tag", t, []) |> Some
+        | Some c, "get_DeclaringType" -> Helper.InstanceCall(c, "get_DeclaringType", t, []) |> Some
+        | Some c, "GetCustomAttributes" -> Helper.InstanceCall(c, "GetCustomAttributes", t, args) |> Some
+        | Some c, "GetParameters" -> Helper.InstanceCall(c, "GetParameters", t, []) |> Some
+        | Some c, "get_IsStatic" -> Helper.InstanceCall(c, "get_IsStatic", t, []) |> Some
+        | Some c, "get_ReturnType" -> Helper.InstanceCall(c, "get_ReturnType", t, []) |> Some
+        | Some c, "get_ReturnParameter" -> Helper.InstanceCall(c, "get_ReturnParameter", t, []) |> Some
+        | Some c, "GetFields" -> Helper.InstanceCall(c, "GetFields", t, []) |> Some
+        | Some c, "get_PropertyType" -> Helper.InstanceCall(c, "get_PropertyType", t, []) |> Some
+        | Some c, "get_FieldType" -> Helper.InstanceCall(c, "get_FieldType", t, []) |> Some
+        | Some c, "get_ParameterType" -> Helper.InstanceCall(c, "get_ParameterType", t, []) |> Some
+        | Some c, "get_GetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, []) |> Some
+        | Some c, "get_SetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, []) |> Some
+        | Some c, "GetGetMethod" -> Helper.InstanceCall(c, "get_GetMethod", t, []) |> Some
+        | Some c, "GetSetMethod" -> Helper.InstanceCall(c, "get_SetMethod", t, []) |> Some
+        | Some c, "get_CanRead" -> Helper.InstanceCall(c, "get_CanRead", t, []) |> Some
+        | Some c, "get_CanWrite" -> Helper.InstanceCall(c, "get_CanWrite", t, [])|> Some
+        | Some c, "SetValue" ->
+            match args with
+            | [a;v] -> Helper.InstanceCall(c, "SetValue", t, [a; v]) |> Some
+            | [a;v;i] -> Helper.InstanceCall(c, "SetValue", t, [a; v; i]) |> Some
+            | a::v::_::_::i::_ -> Helper.InstanceCall(c, "SetValue", t, [a; v; i]) |> Some
+            | _ -> None
+        | Some c, "GetValue" ->
+            match args with
+            | [a] -> Helper.InstanceCall(c, "GetValue", t, [a]) |> Some
+            | [a;i] -> Helper.InstanceCall(c, "GetValue", t, [a; i]) |> Some
+            | a::_::_::i::_ -> Helper.InstanceCall(c, "GetValue", t, [a; i]) |> Some
+            | _ -> None
+        | _ ->
+            let isStatic = Option.isNone thisArg
+            sprintf "UNKNOWN reflection member: { isStatic: %A; name: %A; args: %A }" isStatic info.CompiledName args |> addError com [] None
+            None
+
+    // | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
+    //     match thisArg, info.CompiledName with
+    //     | Some c, "GetCustomAttributes" -> Helper.CoreCall("Reflection", "customAttributes", t, [c], ?loc=r) |> Some
+    //     | Some c, "get_IsStatic" -> Helper.CoreCall("Reflection", "isStatic", t, [c], ?loc=r) |> Some
+    //     | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
+    //     | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
+    //     | Some c, "GetFields" -> Helper.CoreCall("Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
+    //     | Some c, "GetValue" -> Helper.CoreCall("Reflection", "getValue", t, c::args, ?loc=r) |> Some
+    //     | Some c, "get_Name" ->
+    //         match c with
+    //         | Value(TypeInfo exprType, loc) ->
+    //             getTypeName com ctx loc exprType
+    //             |> StringConstant |> makeValue r |> Some
+    //         | c ->
+    //             Helper.CoreCall("Reflection", "name", t, [c], ?loc=r) |> Some
+    //     | _ -> None
     | _ when not info.IsInterface ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)

@@ -79,7 +79,7 @@ module Util =
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
         | Fable.Value _ | Fable.Import _ | Fable.DelayedResolution _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
-        | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ -> false
+        | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ | Fable.Quote _ -> false
 
         | Fable.TryCatch _ | Fable.Debugger _
         | Fable.Sequential _ | Fable.Let _ | Fable.Set _
@@ -608,6 +608,36 @@ module Util =
         | Fable.AsPojo(expr, caseRule) -> com.TransformAsExpr(ctx, Replacements.makePojo com r caseRule expr)
         | Fable.Curry(expr, arity) -> com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime arity expr)
 
+<<<<<<< HEAD
+    let rec transformMemberReflectionInfosNew (com : IBabelCompiler) ctx r (self : Expression) (generics : Expression) (ent: FSharpEntity) (mems : Fable.MemberInfo[]) =
+        let genMap = ent.GenericParameters |> Seq.mapi (fun i x -> x.Name, i) |> Map.ofSeq
+
+        let genMap (name : string) : Option<Expression> =
+            match Map.tryFind name genMap with
+            | Some i ->
+                MemberExpression(generics, NumericLiteral(float i), true) :> Expression |> Some
+            | None ->
+                None
+
+        let newUnionCase (self : Expression) (tag : int) (name : string) (attributes : ArrayExpression) (fields : array<string * Fable.Type>) (invoke : ArrowFunctionExpression) =
+            let info = coreValue com ctx "Reflection" "NUnionCaseInfo"
+            let fields = fields |> Array.map (fun (n,t) -> ArrayExpression [| StringLiteral n; transformTypeInfo com ctx r [||] genMap t |] :> Expression)
+            NewExpression(info, [|self; NumericLiteral(float tag); StringLiteral(name); attributes; ArrayExpression fields; invoke|]) :> Expression
+
+        let newParameter (p : Fable.ParameterInfo) =
+            let par = coreValue com ctx "Reflection" "NParameterInfo"
+            NewExpression(par, [| StringLiteral p.Name; transformTypeInfo com ctx r [||] genMap p.Type |]) :> Expression
+
+        let newConstructor (self : Expression) (attributes : ArrayExpression) (parameters : array<Fable.ParameterInfo>) (invoke : Expression) =
+            let ctor = coreValue com ctx "Reflection" "NConstructorInfo"
+            let parameters = parameters |> Array.map newParameter
+            NewExpression(ctor, [|self; ArrayExpression parameters; invoke; attributes |]) :> Expression
+
+        let newMethod (self : Expression) (genericParameters : string[]) (isStatic : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) (parameters : array<Fable.ParameterInfo>) (invoke : Expression) =
+            let meth = coreValue com ctx "Reflection" "NMethodInfo"
+            let parameters = parameters |> Array.map newParameter
+            let ret = transformTypeInfo com ctx r [||] genMap ret
+=======
     let rec transformRecordReflectionInfo com ctx r (ent: FSharpEntity) generics =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
         let fullname = defaultArg ent.TryFullName Naming.unknown
@@ -625,10 +655,148 @@ module Util =
         let fields = ArrowFunctionExpression([||], ArrayExpression fields :> Expression |> U2.Case2) :> Expression
         [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; fields|]
         |> coreReflectionCall com ctx None "record"
+>>>>>>> master
 
-    and transformUnionReflectionInfo com ctx r (ent: FSharpEntity) generics =
+            let genPars = genericParameters |> Array.map (fun n -> coreLibCall com ctx None "Reflection" "getGenericParameter" [| StringLiteral n |]) |> ArrayExpression :> Expression
+
+            NewExpression(meth, [|self; genPars; StringLiteral name; ArrayExpression parameters; ret; BooleanLiteral isStatic; invoke; attributes |]) :> Expression
+
+        let newProperty (self : Expression) (isStatic : bool) (isFSharp : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) (get : Option<Expression>)  (set : Option<Expression>) =
+            let prop = coreValue com ctx "Reflection" "NPropertyInfo"
+            let ret = transformTypeInfo com ctx r [||] genMap ret
+
+            let args = [|self; StringLiteral name :> Expression; ret; BooleanLiteral isStatic :> Expression; BooleanLiteral isFSharp :> Expression; attributes :> Expression|]
+
+            let args =
+                match get, set with
+                | Some get, Some set -> Array.append args [| get; set |]
+                | Some get, None -> Array.append args [| get |]
+                | None, Some set -> Array.append args [| NullLiteral() :> Expression; set |]
+                | None, None -> args
+
+            NewExpression(prop, args) :> Expression
+
+        let newField (self : Expression) (isStatic : bool) (ret : Fable.Type) (name : string) (attributes : ArrayExpression) (get : Option<Expression>) =
+            let fld = coreValue com ctx "Reflection" "NFieldInfo"
+            let ret = transformTypeInfo com ctx r [||] genMap ret
+            match get with
+            | Some get ->
+                NewExpression(fld,  [|self; StringLiteral name; ret; BooleanLiteral isStatic; attributes; get|]) :> Expression
+            | None ->
+                NewExpression(fld,  [|self; StringLiteral name; ret; BooleanLiteral isStatic; attributes|]) :> Expression
+
+        mems |> Array.map (fun x ->
+            let attributes = ArrayExpression (x.Attributes |> Array.map (fun (fullname, e) ->
+                let value = com.TransformAsExpr(ctx, e)
+                let typ = StringLiteral(fullname) //com.TransformAsExpr(ctx, Fable.Value(Fable.TypeInfo e.Type, None))
+
+                ObjectExpression [|
+                    U3.Case1 (ObjectProperty(StringLiteral "AttributeType", typ))
+                    U3.Case1 (ObjectProperty(StringLiteral "AttributeValue", value))
+                |] :> Expression
+            ))
+
+            match x.Kind with
+            | Fable.MemberInfoKind.UnionCaseConstructor(tag, name, pars, mangledName, mangledTypeName) ->
+                let invoke =
+                    let args = pars |> Array.mapi (fun i _ -> Identifier(sprintf "a%d" i))
+                    let allArgs =
+                        Array.append
+                            [| NumericLiteral(float tag) :> Expression; StringLiteral(mangledName) :> Expression |]
+                            (Array.map (fun a -> a :> Expression) args)
+
+                    let body = NewExpression(Identifier(mangledTypeName), allArgs) :> Expression
+                    ArrowFunctionExpression(Array.map toPattern args, U2.Case2 body)
+                newUnionCase self tag name attributes pars invoke
+
+            | Fable.MemberInfoKind.Constructor(pars, invoke) ->
+                let invoke = com.TransformAsExpr(ctx, invoke)
+                newConstructor self attributes pars invoke
+
+            | Fable.MemberInfoKind.Method(genericParameters, name, pars, ret, isStatic, invoke) ->
+                let invoke =
+                    match invoke with
+                    | Some invoke -> com.TransformAsExpr(ctx, invoke)
+                    | _ ->
+                        ArrowFunctionExpression([||], U2.Case1 (BlockStatement [|
+                            ThrowStatement(NewExpression(Identifier "Error", [| StringLiteral "cannot invoke method" :> Expression |])) :> Statement
+                        |])) :> Expression
+
+                newMethod self genericParameters isStatic ret name attributes pars invoke
+
+            | Fable.MemberInfoKind.Property(name, typ, fsharp, isStatic, get, set) ->
+                let get = get |> Option.map (fun g -> com.TransformAsExpr(ctx, g))
+                let set = set |> Option.map (fun g -> com.TransformAsExpr(ctx, g))
+                newProperty self isStatic fsharp typ name attributes get set
+
+            | Fable.MemberInfoKind.Field(name, typ, isStatic, get) ->
+                let get = get |> Option.map (fun g -> com.TransformAsExpr(ctx, g))
+                newField self isStatic typ name attributes get
+        )
+
+    and transformRecordReflectionInfo (com : IBabelCompiler) ctx r (ent: FSharpEntity) declaringName (mems : Fable.MemberInfo[]) generics =
+        // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
         let fullname = defaultArg ent.TryFullName Naming.unknown
         let fullnameExpr = StringLiteral fullname :> Expression
+<<<<<<< HEAD
+        let genParamNames = ent.GenericParameters |> Seq.map (fun x -> StringLiteral x.Name :> Expression) |> Seq.toArray |> ArrayExpression :> Expression
+        //let genMap = Array.zip genParamNames generics |> Map
+
+        let self = Identifier "self"
+        let gen = Identifier "gen"
+        let nMembers = transformMemberReflectionInfosNew com ctx r self gen ent mems
+        let fields = FunctionExpression([|toPattern self; toPattern gen|], BlockStatement [| ReturnStatement(ArrayExpression nMembers) :> Statement |]) :> Expression
+        let decl =
+            match declaringName with
+            | Some decl ->
+                let reflName = decl + "$" + Naming.reflectionSuffix
+                CallExpression(Identifier reflName, [||]) :> Expression
+            | None ->
+                NullLiteral() :> Expression
+
+        [|fullnameExpr; genParamNames; upcast ArrayExpression generics; fields; decl|]
+        |> coreLibCall com ctx None "Reflection" "ntype"
+        // let members = transformMemberReflectionInfos com ctx r ent mems generics
+        // //let fields = ArrowFunctionExpression([||], ArrayExpression members :> Expression |> U2.Case2) :> Expression
+        // let fields = FunctionExpression([||], BlockStatement [| ReturnStatement(ArrayExpression members) :> Statement |]) :> Expression
+        // [|fullnameExpr; genParamNames; upcast ArrayExpression generics; fields|]
+        // |> coreLibCall com ctx None "Reflection" "type"
+
+    // and transformUnionReflectionInfo com ctx r (ent: FSharpEntity) (mems : Fable.MemberInfo[]) generics =
+    //     let fullname = defaultArg ent.TryFullName Naming.unknown
+    //     let fullnameExpr = StringLiteral fullname :> Expression
+    //     let genMap =
+    //         let genParamNames = ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toArray
+    //         Array.zip genParamNames generics |> Map
+    //     let cases =
+    //         ent.UnionCases |> Seq.map (fun uci ->
+    //             let fieldInfos =
+    //                 uci.UnionCaseFields
+    //                 |> Seq.map (fun fi ->
+    //                     let fieldType =
+    //                         FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType
+    //                         |> transformTypeInfo com ctx r genMap
+    //                     ArrayExpression [|
+    //                         fi.Name |> StringLiteral :> Expression
+    //                         fieldType
+    //                     |] :> Expression
+    //                 )
+    //                 |> Seq.toArray
+    //             let caseInfo =
+    //                 if fieldInfos.Length = 0 then
+    //                     getUnionCaseName uci |> StringLiteral :> Expression
+    //                 else
+    //                     ArrayExpression [|
+    //                         getUnionCaseName uci |> StringLiteral :> Expression
+    //                         ArrayExpression fieldInfos :> Expression
+    //                     |] :> Expression
+    //             caseInfo) |> Seq.toArray
+    //     let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
+    //     [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; cases|]
+    //     |> coreLibCall com ctx None "Reflection" "union"
+
+    and transformTypeInfo (com: IBabelCompiler) ctx r (mems : Fable.MemberInfo[]) (genMap: string -> Option<Expression>) t: Expression =
+=======
         let genMap =
             let genParamNames = ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Seq.toArray
             Array.zip genParamNames generics |> Map
@@ -660,6 +828,7 @@ module Util =
         |> coreReflectionCall com ctx None "union"
 
     and transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression>) t: Expression =
+>>>>>>> master
         let primitiveTypeInfo name =
            coreValue com ctx "Reflection" (name + "_type")
         let numberInfo kind =
@@ -667,10 +836,24 @@ module Util =
             |> primitiveTypeInfo
         let nonGenericTypeInfo fullname =
             [| StringLiteral fullname :> Expression |]
+<<<<<<< HEAD
+            |> coreLibCall com ctx None "Reflection" "ntype"
+=======
             |> coreReflectionCall com ctx None "class"
+>>>>>>> master
         let resolveGenerics generics: Expression[] =
-            generics |> Array.map (transformTypeInfo com ctx r genMap)
+            generics |> Array.map (transformTypeInfo com ctx r [||] genMap)
         let genericTypeInfo name genArgs =
+<<<<<<< HEAD
+            let gen = genArgs |> Array.map (function Fable.GenericParam n -> coreLibCall com ctx None "Reflection" "getGenericParameter" [|StringLiteral n|] | t -> transformTypeInfo com ctx r [||] genMap t)
+            coreLibCall com ctx None "Reflection" name gen
+        let genericEntity (ent: FSharpEntity) generics =
+            let fullname = defaultArg ent.TryFullName Naming.unknown
+            let fullnameExpr = StringLiteral fullname :> Expression
+            let genericNames = ent.GenericParameters |> Seq.map (fun p -> StringLiteral p.Name :> Expression) |> Seq.toArray |> ArrayExpression :> Expression
+            let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; genericNames; ArrayExpression generics :> Expression|]
+            coreLibCall com ctx None "Reflection" "ntype" args
+=======
             let resolved = resolveGenerics genArgs
             coreReflectionCall com ctx None name resolved
         let genericEntity (ent: FSharpEntity) generics =
@@ -678,15 +861,14 @@ module Util =
             let fullnameExpr = StringLiteral fullname :> Expression
             let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
             coreReflectionCall com ctx None "class" args
+>>>>>>> master
         match t with
         | Fable.ErasedUnion _genArgs -> primitiveTypeInfo "obj" // TODO: Type info for ErasedUnion?
         | Fable.Any -> primitiveTypeInfo "obj"
         | Fable.GenericParam name ->
-            match Map.tryFind name genMap with
+            match genMap name with
             | Some t -> t
-            | None ->
-                Replacements.genericTypeInfoError name |> addError com [] r
-                NullLiteral () :> Expression
+            | None -> coreLibCall com ctx None "Reflection" "getGenericParameter" [|StringLiteral name|]
         | Fable.Unit    -> primitiveTypeInfo "unit"
         | Fable.Boolean -> primitiveTypeInfo "bool"
         | Fable.Char    -> primitiveTypeInfo "char"
@@ -726,7 +908,13 @@ module Util =
             let genArgs = resolveGenerics (List.toArray genArgs)
             Array.zip fieldNames genArgs
             |> Array.map (fun (k, t) -> ArrayExpression [|StringLiteral k; t|] :> Expression)
+<<<<<<< HEAD
+            |> coreLibCall com ctx None "Reflection" "anonRecord"
+        | Fable.Expr None       -> nonGenericTypeInfo "Expr"
+        | Fable.Expr (Some gen) -> genericTypeInfo "Expr" [|gen|]
+=======
             |> coreReflectionCall com ctx None "anonRecord"
+>>>>>>> master
         | Fable.DeclaredType(ent, generics) ->
             match ent, generics with
             | Replacements.BuiltinEntity kind ->
@@ -742,37 +930,89 @@ module Util =
                 | Replacements.BclBigInt -> genericEntity ent [||]
                 | Replacements.BclHashSet gen
                 | Replacements.FSharpSet gen ->
-                    genericEntity ent [|transformTypeInfo com ctx r genMap gen|]
+                    genericEntity ent [|transformTypeInfo com ctx r [||] genMap gen|]
                 | Replacements.BclDictionary(key, value)
                 | Replacements.BclKeyValuePair(key, value)
                 | Replacements.FSharpMap(key, value) ->
                     genericEntity ent [|
-                        transformTypeInfo com ctx r genMap key
-                        transformTypeInfo com ctx r genMap value
+                        transformTypeInfo com ctx r [||] genMap key
+                        transformTypeInfo com ctx r [||] genMap value
                     |]
                 | Replacements.FSharpResult(ok, err) ->
-                    transformUnionReflectionInfo com ctx r ent [|
-                        transformTypeInfo com ctx r genMap ok
-                        transformTypeInfo com ctx r genMap err
+                    let resultCases =
+                        [|
+                            { Fable.Kind = Fable.MemberInfoKind.UnionCaseConstructor(0, "Ok", [|"value", ok|], "Ok", "_Option.Result"); Fable.Attributes = [||] }
+                            { Fable.Kind = Fable.MemberInfoKind.UnionCaseConstructor(1, "Error", [|"value", err|], "Error", "_Option.Result"); Fable.Attributes = [||] }
+                        |]
+                    transformRecordReflectionInfo com ctx r ent None resultCases [|
+                        transformTypeInfo com ctx r [||] genMap ok
+                        transformTypeInfo com ctx r [||] genMap err
                     |]
                 | Replacements.FSharpChoice gen ->
-                    let gen = List.map (transformTypeInfo com ctx r genMap) gen
-                    List.toArray gen |> transformUnionReflectionInfo com ctx r ent
+                    let garr = List.toArray gen
+                    let cases =
+                        garr |> Array.mapi (fun i t ->
+                            let name = sprintf "Choice%dOf%d" i garr.Length
+                            { Fable.Kind = Fable.MemberInfoKind.UnionCaseConstructor(i, name, [|"value", t|], name, "_Option.Choice"); Fable.Attributes = [||] }
+                        )
+
+                    let gen = List.map (transformTypeInfo com ctx r [||] genMap) gen
+                    List.toArray gen |> transformRecordReflectionInfo com ctx r ent None cases
                 | Replacements.FSharpReference gen ->
-                    transformRecordReflectionInfo com ctx r ent [|transformTypeInfo com ctx r genMap gen|]
+                    transformRecordReflectionInfo com ctx r ent None mems [|transformTypeInfo com ctx r [||] genMap gen|]
             | _ ->
-                let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
+                let generics = generics |> List.map (transformTypeInfo com ctx r [||] genMap) |> List.toArray
                 /// Check if the entity is actually declared in JS code
                 if ent.IsInterface
                     || FSharp2Fable.Util.isErasedEntity ent
-                    // TODO!!! Get reflection info from types in precompiled libs
                     || FSharp2Fable.Util.isReplacementCandidate ent then
-                    genericEntity ent generics
+
+                    match t with
+                    | Fable.DeclaredType(ent, args) ->
+                        match ent.TryFullName with
+                        | Some fullname ->
+                            let args = args |> List.map (fun a -> Fable.Value(Fable.TypeInfo(a), None))
+                            let call =
+                                com.Options.precompiledLib
+                                |> Option.bind (fun tryLib -> tryLib fullname)
+                                |> Option.map (Replacements.precompiledLibReflection r args)
+
+                            match call with
+                            | Some call -> com.TransformAsExpr(ctx, call)
+                            | None -> genericEntity ent generics
+                        | _ ->
+                            genericEntity ent generics
+                    | _ ->
+                        genericEntity ent generics
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
                     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
                     CallExpression(callee, generics) :> Expression
 
+<<<<<<< HEAD
+    let transformReflectionInfo com ctx r (ent: FSharpEntity) declaringName (mems : Fable.MemberInfo[]) generics =
+        transformRecordReflectionInfo com ctx r ent declaringName mems generics
+        // if ent.IsFSharpRecord then
+        //     transformRecordReflectionInfo com ctx r ent mems generics
+        // elif ent.IsFSharpUnion then
+        //     transformRecordReflectionInfo com ctx r ent mems generics
+        // else
+        //     let fullname = defaultArg ent.TryFullName Naming.unknown
+        //     let fullnameExpr = StringLiteral fullname :> Expression
+
+        //     let members = transformMemberReflectionInfos com ctx r ent mems generics
+        //     let refl = ArrowFunctionExpression([||], ArrayExpression members :> Expression |> U2.Case2) :> Expression
+
+        //     let args = if Array.isEmpty generics then [|fullnameExpr; NullLiteral() :> Expression; refl|] else [|fullnameExpr; ArrayExpression generics :> Expression; refl|]
+        //     coreLibCall com ctx None "Reflection" "type" args
+
+    let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
+        match value with
+        //| Fable.TypeDefInf
+        | Fable.TypeInfo t -> transformTypeInfo com ctx r [||] (fun _ -> None) t
+        | Fable.Null _ -> upcast NullLiteral(?loc=r)
+        | Fable.UnitConstant -> upcast NullLiteral(?loc=r) // TODO: Use `void 0`?
+=======
     let transformReflectionInfo com ctx r (ent: FSharpEntity) generics =
         if ent.IsFSharpRecord then
             transformRecordReflectionInfo com ctx r ent generics
@@ -801,6 +1041,7 @@ module Util =
             // else
                 upcast NullLiteral(?loc=r)
         | Fable.UnitConstant -> upcast UnaryExpression(UnaryVoid, NullLiteral(), ?loc=r)
+>>>>>>> master
         | Fable.BoolConstant x -> upcast BooleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> upcast StringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> upcast StringLiteral(x, ?loc=r)
@@ -1156,7 +1397,17 @@ module Util =
         | Fable.FunctionType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
             coreLibCall com ctx None "Util" "isArrayLike" [|com.TransformAsExpr(ctx, expr)|]
+<<<<<<< HEAD
+        | Fable.List _ ->
+            jsInstanceof (coreValue com ctx "Types" "List") expr
+
+        | Fable.Expr _ ->
+            jsInstanceof (coreValue com ctx "Quotations" "FSharpExpr") expr
+            //coreLibCall com ctx None "ExprUtils" "isExpr" [| com.TransformAsExpr(ctx, expr) |]
+
+=======
         | Fable.List _ -> jsInstanceof (coreValue com ctx "Types" "List") expr
+>>>>>>> master
         | Replacements.Builtin kind ->
             match kind with
             | Replacements.BclGuid -> jsTypeof "string" expr
@@ -1182,6 +1433,16 @@ module Util =
             upcast BooleanLiteral false
         | Fable.DeclaredType (ent, genArgs) ->
             match ent.TryFullName with
+            | Some "Microsoft.FSharp.Quotations.FSharpExpr"
+            | Some "Microsoft.FSharp.Quotations.FSharpExpr`1" -> jsInstanceof (coreValue com ctx "Quotations" "FSharpExpr") expr //coreLibCall com ctx None "ExprUtils" "isExpr" [| com.TransformAsExpr(ctx, expr) |]
+            | Some "System.Type" -> coreLibCall com ctx None "Reflection" "isType" [|com.TransformAsExpr(ctx, expr)|]
+            | Some "System.Reflection.MemberInfo" -> coreLibCall com ctx None "Reflection" "isMemberInfo" [|com.TransformAsExpr(ctx, expr)|]
+            | Some "System.Reflection.MethodBase" -> coreLibCall com ctx None "Reflection" "isMethodBase" [|com.TransformAsExpr(ctx, expr)|]
+            | Some "System.Reflection.MethodInfo" -> coreLibCall com ctx None "Reflection" "isMethodInfo" [|com.TransformAsExpr(ctx, expr)|]
+            | Some "System.Reflection.ConstructorInfo" -> coreLibCall com ctx None "Reflection" "isConstructorInfo" [|com.TransformAsExpr(ctx, expr)|]
+            | Some "System.Reflection.FieldInfo" -> coreLibCall com ctx None "Reflection" "isFieldInfo" [|com.TransformAsExpr(ctx, expr)|]
+            | Some "System.Reflection.PropertyInfo" -> coreLibCall com ctx None "Reflection" "isPropertyInfo" [|com.TransformAsExpr(ctx, expr)|]
+            | Some "Microsoft.FSharp.Reflection.UnionCaseInfo" -> coreLibCall com ctx None "Reflection" "isUnionCaseInfo" [|com.TransformAsExpr(ctx, expr)|]
             | Some Types.idisposable ->
                 match expr.Type with
                 // In F# AST this is coerced to obj, but the cast should have been removed
@@ -1506,9 +1767,68 @@ module Util =
         | Fable.Debugger _ | Fable.Throw _ | Fable.Loop _ | Fable.TryCatch _ ->
             iife com ctx expr :> Expression
 
+        | Fable.Quote(_,data, r) ->
+            let obj (values : list<string * Expression>) =
+                values |> List.toArray |> Array.map (fun (n,v) -> U3.Case1 (ObjectProperty(StringLiteral n, v))) |> ObjectExpression :> Expression
+            let values =
+                data.values |> Array.map (fun v ->
+                    obj [
+                        "name", StringLiteral v.name :> Expression
+                        "typ", transformAsExpr com ctx (Fable.Value(Fable.TypeInfo v.typ, None))
+                        "value", transformAsExpr com ctx v.expr
+                    ]
+                )
+
+            let vars = data.variables |> Array.map (fun (v : Fable.VarData) ->
+                obj [
+                    "name", StringLiteral v.name :> Expression
+                    "typ", transformAsExpr com ctx (Fable.Value(Fable.TypeInfo v.typ, None))
+                    "isMutable", BooleanLiteral v.isMutable :> Expression
+                ]
+            )
+
+            let types = data.types |> Array.map (fun t ->
+                transformAsExpr com ctx (Fable.Value(Fable.TypeInfo t, None))
+            )
+
+            let members = data.members |> Array.map (fun (ent, t, m, margs) ->
+                let self = transformAsExpr com ctx (Fable.Value(Fable.TypeInfo t, None))
+                let minst = margs |> Array.map (fun t -> transformAsExpr com ctx (Fable.Value(Fable.TypeInfo t, None)))
+
+                let arr = transformMemberReflectionInfosNew com ctx None self (ArrayExpression [||]) ent [|m|]
+                let meth = arr.[0]
+                if margs.Length > 0 then
+                    CallExpression(MemberExpression(meth, Identifier "MakeGenericMethod"), [| ArrayExpression minst |]) :> Expression
+                else
+                    meth
+
+            )
+
+            let literals =
+                data.literals |> Array.map (fun e ->
+                    obj [
+                        "value", transformAsExpr com ctx e
+                        "typ", transformAsExpr com ctx (Fable.Value(Fable.TypeInfo e.Type, None))
+                    ]
+                )
+
+            // let arrName = getTypedArrayName com NumberKind.UInt8
+            // let expr = NewExpression(Identifier arrName, [| data.data |> Array.map (fun v -> NumericLiteral (float v) :> Expression) |> ArrayExpression |])
+            coreLibCall com ctx r "ExprUtils" "deserialize" [|
+                ArrayExpression values
+                ArrayExpression vars
+                ArrayExpression types
+                ArrayExpression members
+                ArrayExpression literals
+                StringLiteral (System.Convert.ToBase64String data.data)
+            |]
+
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
+        | Fable.Quote _ ->
+            [| transformAsExpr com ctx expr |> resolveExpr expr.Type returnStrategy |]
+
         | Fable.TypeCast(e, t) ->
             [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
 
@@ -1754,6 +2074,9 @@ module Util =
             | _ -> None
         )
 
+<<<<<<< HEAD
+    let declareType com ctx r isPublic declaringName (mems : Fable.MemberInfo[]) (ent: FSharpEntity) name consArgs consBody baseExpr: U2<Statement, ModuleDeclaration> list =
+=======
     let getGenericTypeAnnotation com ctx name genParams =
         let id = Identifier(name)
         let typeParamInst = makeTypeParamInst genParams
@@ -1833,6 +2156,7 @@ module Util =
         InterfaceDeclaration(id, body, ?extends_=extends, ?typeParameters=typeParamDecl, ?loc=r)
 
     let declareObjectType (com: IBabelCompiler) ctx r isPublic (ent: FSharpEntity) name (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) =
+>>>>>>> master
         let displayName =
             ent.TryGetFullDisplayName()
             |> Option.map (Naming.unsafeReplaceIdentForbiddenChars '_')
@@ -1888,6 +2212,11 @@ module Util =
             then declareClassType com ctx r isPublic ent name consArgs consBody baseExpr
             else declareObjectType com ctx r isPublic ent name consArgs consBody baseExpr
         let reflectionDeclaration =
+<<<<<<< HEAD
+            let genArgs = Array.init ent.GenericParameters.Count (fun _ -> makeIdentUnique com "gen" |> ident)
+            let body = transformReflectionInfo com ctx r ent declaringName mems (Array.map (fun x -> x :> _) genArgs)
+            makeFunctionExpression None (Array.map (fun x -> U2.Case2(upcast x)) genArgs) (U2.Case2 body)
+=======
             let genArgs = Array.init ent.GenericParameters.Count (fun _ -> makeIdentUnique com "gen" |> typedIdent com ctx)
             let body = transformReflectionInfo com ctx r ent (Array.map (fun x -> x :> _) genArgs)
             let returnType =
@@ -1897,6 +2226,7 @@ module Util =
                 else None
             let args = genArgs |> Array.map toPattern
             makeFunctionExpression None (args, U2.Case2 body, returnType, None)
+>>>>>>> master
             |> declareModuleMember None isPublic (Naming.appendSuffix name Naming.reflectionSuffix) false
         if com.Options.typescript then // && not (com.Options.classTypes && (ent.IsFSharpUnion || ent.IsFSharpRecord)) then
             let interfaceDecl = makeInterfaceDecl com ctx r ent name baseExpr
@@ -1969,7 +2299,7 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let transformUnionConstructor (com: IBabelCompiler) ctx r (info: Fable.UnionConstructorInfo) =
+    let transformUnionConstructor (com: IBabelCompiler) ctx r (declaringName : Option<string>) (info: Fable.UnionConstructorInfo) =
         let baseRef = coreValue com ctx "Types" "Union"
         let argId: Fable.Ident = { Name = ""; Type = Fable.Any; Kind = Fable.UserDeclared; IsMutable = false; Range = None }
         let tagId = { argId with Name = "tag"; Type = Fable.Number Int32 }
@@ -1980,6 +2310,17 @@ module Util =
                typedIdent com ctx nameId |> toPattern
                typedIdent com ctx fieldsId |> restElement |]
         let body =
+<<<<<<< HEAD
+            [Identifier "tag" :> Expression; Identifier "name" :> _; SpreadElement(Identifier "fields") :> _]
+            |> callFunctionWithThisContext None baseRef thisExpr |> ExpressionStatement
+        declareType com ctx r info.IsPublic declaringName info.Members info.Entity info.EntityName args (BlockStatement [|body|]) (Some baseRef)
+
+    let transformCompilerGeneratedConstructor (com: IBabelCompiler) ctx r (declaringName : Option<string>) (info: Fable.CompilerGeneratedConstructorInfo) =
+        let args =
+            [| for i = 1 to info.Entity.FSharpFields.Count do
+                yield Identifier("arg" + string i) |]
+        let setters =
+=======
             if com.Options.classTypes then
                 [ (ident tagId) :> Expression
                   (ident nameId) :> Expression
@@ -2003,6 +2344,7 @@ module Util =
         let fieldIds = getEntityFieldsAsIdents com info.Entity
         let args = fieldIds |> Array.map ident
         let body =
+>>>>>>> master
             info.Entity.FSharpFields
             |> Seq.mapi (fun i field ->
                 let left = get None thisExpr field.Name
@@ -2019,11 +2361,16 @@ module Util =
             elif info.Entity.IsFSharpRecord || info.Entity.IsValueType
             then coreValue com ctx "Types" "Record" |> Some
             else None
+<<<<<<< HEAD
+        let args = [|for arg in args do yield arg |> toPattern|]
+        declareType com ctx r info.IsPublic declaringName info.Members info.Entity info.EntityName args (BlockStatement setters) baseExpr
+=======
         let typedPattern = typedIdent com ctx >> toPattern
         let args = fieldIds |> Array.map typedPattern
         declareType com ctx r info.IsPublic info.Entity info.EntityName args body baseExpr
+>>>>>>> master
 
-    let transformImplicitConstructor (com: IBabelCompiler) ctx r (info: Fable.ClassImplicitConstructorInfo) =
+    let transformImplicitConstructor (com: IBabelCompiler) ctx r (declaringName : Option<string>) (info: Fable.ClassImplicitConstructorInfo) =
         let boundThis = Some("this", info.BoundConstructorThis)
         let consIdent = Identifier(info.EntityName) :> Expression
         let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread info.Body
@@ -2077,7 +2424,7 @@ module Util =
             | None when info.Entity.IsValueType -> coreValue com ctx "Types" "Record" |> Some
             | None -> None
         [
-            yield! declareType com ctx r info.IsEntityPublic info.Entity info.EntityName args body baseExpr
+            yield! declareType com ctx r info.IsEntityPublic declaringName info.Members info.Entity info.EntityName args body baseExpr
             yield declareModuleMember r info.IsConstructorPublic info.Name false exposedCons
         ]
 
@@ -2106,15 +2453,15 @@ module Util =
                     [declareModuleMember info.Range info.IsPublic info.Name info.IsMutable value]
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
-            | Fable.ConstructorDeclaration(kind, r) ->
+            | Fable.ConstructorDeclaration(declaringName, kind, r) ->
                 let consDecls =
                     match kind with
                     | Fable.ClassImplicitConstructor info ->
-                        transformImplicitConstructor com ctx r info
+                        transformImplicitConstructor com ctx r declaringName info
                     | Fable.UnionConstructor info ->
-                        transformUnionConstructor com ctx r info
+                        transformUnionConstructor com ctx r declaringName info
                     | Fable.CompilerGeneratedConstructor info ->
-                        transformCompilerGeneratedConstructor com ctx r info
+                        transformCompilerGeneratedConstructor com ctx r declaringName info
                 consDecls
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
@@ -2136,6 +2483,15 @@ module Util =
                         transformOverrideProperty com ctx info getter setter, restDecls
                     | _ -> transformOverrideMethod com ctx info args body, restDecls
                 List.append transformed newDecls
+                |> transformDeclarations com ctx restDecls
+            | Fable.ModuleDeclaration(declaringName, name, ent, mems) ->
+                //sprintf "module %s" name |> addWarning com [] None
+                //transformed |> transformDeclarations com ctx restDecls
+                let reflectionDeclaration =
+                    let body = transformRecordReflectionInfo com ctx None ent declaringName mems  [||]
+                    makeFunctionExpression None [||] (U2.Case2 body)
+                    |> declareModuleMember None true (Naming.appendSuffix name Naming.reflectionSuffix) false
+                List.append transformed [reflectionDeclaration]
                 |> transformDeclarations com ctx restDecls
 
     let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
@@ -2238,6 +2594,8 @@ module Compiler =
             member __.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
             member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
+            member __.RemoveLastError() =
+                com.RemoveLastError()
 
     let makeCompiler com = BabelCompiler(com)
 

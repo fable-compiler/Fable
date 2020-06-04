@@ -23,6 +23,7 @@ type TestType =
 type TestType2 =
     | Union2 of string
 
+[<System.Runtime.CompilerServices.Extension>]
 type TestType3 = class end
 type TestType4 = class end
 type TestType5 = class end
@@ -516,7 +517,42 @@ type MyRecord20 =
     { FieldA: int
       FieldB: string }
 
+type MyClass<'a>(value : 'a) =
+  static member GetValue<'b>(a : 'a, b : 'b) = (a,b)
+  member x.Value : 'a = value
+
 let fableTests = [
+    testCase "Generic static method can be instantiated and invoked" <| fun () ->
+      let tm = typedefof<MyClass<_>>.MakeGenericType [| typeof<int> |]
+      let meth = tm.GetMethod("GetValue")
+      let m = meth.MakeGenericMethod [| typeof<float> |]
+      let pars = m.GetParameters() |> Array.map (fun p -> p.ParameterType, p.Name)
+      let res = m.Invoke(null, [| 1 :> obj; 2.0 :> obj |]) |> unbox<int * float>
+
+      res |> equal (1, 2.0)
+      m.ReturnType |> equal typeof<int * float>
+      pars |> equal [| (typeof<int>, "a"); (typeof<float>, "b") |]
+
+
+    testCase "Property can be read" <| fun () ->
+      let tm = typedefof<MyClass<_>>.MakeGenericType [| typeof<int> |]
+      let prop = tm.GetProperty("Value")
+      let v1 = prop.GetMethod.Invoke(MyClass(1), null) |> unbox<int>
+      let v2 = prop.GetValue(MyClass(1)) |> unbox<int>
+      v1 |> equal 1
+      v2 |> equal 1
+
+
+    testCase "Record Property can be read" <| fun () ->
+      let tm = typeof<MyRecord20>
+      let fa = tm.GetProperty("FieldA")
+      let fb = tm.GetProperty("FieldB")
+      let r = { FieldA = 10; FieldB = "asdasd"}
+      let va = fa.GetValue(r) |> unbox<int>
+      let vb = fb.GetValue(r) |> unbox<string>
+      va |> equal 10
+      vb |> equal "asdasd"
+
     testCase "ITypeResolver can be injected" <| fun () ->
         let x: R1 = Helper.Make [|box 5|]
         let y: R2 = Helper.Make [|box 10|]

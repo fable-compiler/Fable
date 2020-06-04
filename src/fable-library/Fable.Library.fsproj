@@ -1,20 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
     <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Global.fs" />
-    <!-- <Compile Include="BigInt/n.fsi" /> -->
     <Compile Include="BigInt/n.fs" />
-    <!-- <Compile Include="BigInt/z.fsi" /> -->
     <Compile Include="BigInt/z.fs" />
     <Compile Include="BigInt.fs" />
-    <!-- <Compile Include="BigInt/q.fsi"/>
-    <Compile Include="BigInt/q.fs"/> -->
     <Compile Include="System.Text.fs" />
     <Compile Include="System.Collections.Generic.fs" />
     <Compile Include="FSharp.Collections.fs" />
@@ -25,8 +19,9 @@
     <Compile Include="List.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
+    <Compile Include="Quotations.fs" />
+    <Compile Include="ExprUtils.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Fable.Core" Version="3.1.5" />
   </ItemGroup>

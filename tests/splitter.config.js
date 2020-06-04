@@ -12,6 +12,8 @@ function defineConstants() {
   if (process.argv.find(v => v === "-d:OPTIMIZE_FCS")) {
     ar.push("OPTIMIZE_FCS");
   }
+  ar.push("FABLE_QUOTATIONS");
+  
   return ar;
 }
 

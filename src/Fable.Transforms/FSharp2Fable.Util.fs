@@ -22,7 +22,7 @@ type Context =
       InlinePath: (string * (SourceLocation option)) list
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr * Fable.Expr -> unit)) option
     }
-    static member Create(enclosingEntity) =
+    static member Create(enclosingEntity:Option<FSharpEntity>) =
         { Scope = []
           ScopeInlineValues = []
           GenericArgs = Map.empty
@@ -103,6 +103,18 @@ module Helpers =
     let getEntityDeclarationName (com: ICompiler) (ent: FSharpEntity) =
         (getEntityMangledName com true ent, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent (fun _ -> false)
+
+    let getModuleReflectionName (com: ICompiler) (ent : FSharpEntity) =
+        if ent.IsFSharpModule then 
+            let name = 
+                (getEntityMangledName com true ent, Naming.NoMemberPart)
+                ||> Naming.sanitizeIdent (fun _ -> false)
+            if name = "" then 
+                Some ""
+            else            
+                Some name
+        else
+            None        
 
     let isUnit (typ: FSharpType) =
         let typ = nonAbbreviatedType typ

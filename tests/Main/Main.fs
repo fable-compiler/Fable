@@ -44,6 +44,7 @@ let allTests =
     TypeTests.tests
     UnionTypes.tests
     Uri.tests
+    Expr.tests
   |]
 
 #if FABLE_COMPILER

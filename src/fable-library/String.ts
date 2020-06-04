@@ -464,24 +464,83 @@ export function arrayToGuid(buf: ArrayLike<number>) {
   return guid;
 }
 
-function notSupported(name: string): never {
-  throw new Error("The environment doesn't support '" + name + "', please use a polyfill.");
+function valueToCharCode(c: number) {
+  if (c < 26) {
+    return 65 + c;
+  } else if (c < 52) {
+    return 97 + (c - 26);
+  } else if (c < 62) {
+    return 48 + (c - 52);
+  } else if (c === 62) {
+    return 43;
+  } else if (c === 63) {
+    return 47;
+  } else {
+    return 0;
+  }
+}
+function charCodeToValue(c: number) {
+  if (c >= 65 && c <= 90) {
+    return c - 65;
+  } else if (c >= 97 && c <= 122) {
+    return 26 + c - 97;
+  } else if (c >= 48 && c <= 57) {
+    return 52 + c - 48;
+  } else if (c === 43) {
+    return 62;
+  } else if (c === 47) {
+    return 63;
+  } else {
+    return 0;
+  }
 }
 
 export function toBase64String(inArray: number[]) {
-  let str = "";
-  for (let i = 0; i < inArray.length; i++) {
-    str += String.fromCharCode(inArray[i]);
+  let res = "";
+  let i = 0;
+  while (i < inArray.length - 3) {
+    const b0 = inArray[i++];
+    const b1 = inArray[i++];
+    const b2 = inArray[i++];
+    const c0 = valueToCharCode((b0 >> 2));
+    const c1 = valueToCharCode(((b0 & 0x3) << 4) | (b1 >> 4));
+    const c2 = valueToCharCode(((b1 & 0xF) << 2) | (b2 >> 6));
+    const c3 = valueToCharCode(b2 & 0x3F);
+    res += String.fromCharCode(c0, c1, c2, c3);
   }
-  return typeof btoa === "function" ? btoa(str) : notSupported("btoa");
+
+  const missing = inArray.length - i;
+  const b0 = inArray[i++];
+  const b1 = i < inArray.length ? inArray[i++] : 0;
+  const b2 = i < inArray.length ? inArray[i++] : 0;
+  const c0 = valueToCharCode((b0 >> 2));
+  const c1 = valueToCharCode(((b0 & 0x3) << 4) | (b1 >> 4));
+  const c2 = missing < 2 ? 61 : valueToCharCode(((b1 & 0xF) << 2) | (b2 >> 6));
+  const c3 = missing < 3 ? 61 : valueToCharCode(b2 & 0x3F);
+  res += String.fromCharCode(c0, c1, c2, c3);
+  return res;
 }
 
 export function fromBase64String(b64Encoded: string) {
-  const binary = typeof atob === "function" ? atob(b64Encoded) : notSupported("atob");
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
+  let pad = 0;
+  while (b64Encoded.charCodeAt(b64Encoded.length - 1 - pad) === 61) {
+    pad = pad + 1;
   }
+  const length = 3 * (0 | b64Encoded.length / 4) - pad;
+  const bytes = new Uint8Array(length);
+
+  let o = 0;
+  let i = 0;
+  while (i < bytes.length) {
+    const c0 = charCodeToValue(b64Encoded.charCodeAt(o++));
+    const c1 = charCodeToValue(b64Encoded.charCodeAt(o++));
+    const c2 = charCodeToValue(b64Encoded.charCodeAt(o++));
+    const c3 = charCodeToValue(b64Encoded.charCodeAt(o++));
+    bytes[i++] = ((c0 << 2) | (c1 >> 4)) & 0xFF;
+    if (i < bytes.length) { bytes[i++] = ((c1 << 4) | (c2 >> 2)) & 0xFF; }
+    if (i < bytes.length) { bytes[i++] = ((c2 << 6) | c3) & 0xFF; }
+  }
+
   return bytes;
 }
 

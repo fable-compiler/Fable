@@ -18,6 +18,7 @@
     <Compile Include="ReplacementsInject.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Inject.fs" />
+    <Compile Include="QuotationPickler.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
     <Compile Include="Fable2Babel.fs" />
@@ -29,7 +30,4 @@
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="4.7.2" />
   </ItemGroup>
-  <!-- <ItemGroup>
-    <ProjectReference Include="../FCS/fcs-fable/fcs-fable.fsproj" />
-  </ItemGroup> -->
 </Project>
