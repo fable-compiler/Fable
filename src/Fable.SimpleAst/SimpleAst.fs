@@ -7,6 +7,12 @@ type Ident =
     abstract DisplayName: string
     abstract IsFunction: bool
 
+type NonMangledIdent(name) =
+    interface Ident with
+        member _.CompiledName = name
+        member _.DisplayName = name
+        member _.IsFunction = false
+
 type Expr =
     interface end
 

@@ -17,9 +17,15 @@ let findType (ent: FSharpEntity) entFullName: Type option =
         let binDir = IO.Path.Combine(dir, "bin")
         if IO.Directory.Exists(binDir) then
             let dllFiles = IO.Directory.GetFiles(binDir, "*.dll")
-            if dllFiles.Length <> 1 then
-                failwithf "Expecting one .dll file in %s" binDir
-            dllFiles.[0]
+            match dllFiles.Length with
+            | 0 -> failwithf "Cannot find assembly %s for in %s" entFullName binDir
+            | 1 -> dllFiles.[0]
+            // Try to disambiguate
+            | _ ->
+                dllFiles |> Array.tryFind (fun dllFile ->
+                    entFullName.StartsWith(Path.GetFileNameWithoutExtension(dllFile)))
+                |> function Some x -> x
+                          | None -> failwithf "Cannot pick correct assembly for %s in %s" entFullName binDir
         else
             let parent = IO.Directory.GetParent(dir)
             if isNull parent then
@@ -64,31 +70,36 @@ let activateType (ent: FSharpEntity) (consArgs: obj seq): 'T option =
         typeCache.GetOrAdd(entFullName, fun _ -> findType ent entFullName)
         |> Option.map (fun t -> Activator.CreateInstance(t, Seq.toArray consArgs) :?> 'T)
 
+type TransformInfo = {
+    PluginSourcePath: string
+    Compiler: ICompiler
+}
+
 let transformIdent (ident: Ident) =
     match ident with
     | :? Fable.Ident as i -> i
     // TODO: Check if name is unique?
     | _ -> makeIdentNonMangled ident.CompiledName
 
-let rec makeArgInfo argExprs: Fable.ArgInfo =
+let rec makeArgInfo info argExprs: Fable.ArgInfo =
     { ThisArg = None
-      Args = List.map transformExpr argExprs
+      Args = List.map (transformExpr info) argExprs
       SignatureArgTypes = Fable.NoUncurrying
       Spread = Fable.NoSpread
       IsBaseOrSelfConstructorCall = false }
 
-and transformApply withNew expr argExprs =
-    let expr = transformExpr expr
+and transformApply info withNew expr argExprs =
+    let expr = transformExpr info expr
     let callKind = if withNew then Fable.ConstructorCall expr else Fable.StaticCall expr
-    let argInfo = makeArgInfo argExprs
+    let argInfo = makeArgInfo info argExprs
     let opKind = Fable.Call(callKind, argInfo)
     Fable.Operation(opKind, Fable.Any, None)
 
-and transformFunction name args body =
+and transformFunction info name args body =
     let args = List.map transformIdent args
-    Fable.Function(Fable.Delegate args, transformExpr body, name)
+    Fable.Function(Fable.Delegate args, transformExpr info body, name)
 
-and transformConst (c: SimpleConstant) =
+and transformConst info (c: SimpleConstant) =
     match c with
     | NullConst -> Fable.Value(Fable.Null Fable.Any, None)
     | UndefinedConst -> Fable.Value(Fable.NewOption(None, Fable.Any), None)
@@ -96,7 +107,7 @@ and transformConst (c: SimpleConstant) =
     | NumberConst x -> makeFloatConst x
     | StringConst x -> makeStrConst x
     | ArrayConst xs ->
-        let xs = List.map transformExpr xs
+        let xs = List.map (transformExpr info) xs
         Fable.Value(Fable.NewArray(Fable.ArrayValues xs, Fable.Any), None)
     | RegexConst(source, flags) ->
         let flags = flags |> List.map (function
@@ -107,39 +118,46 @@ and transformConst (c: SimpleConstant) =
             | f -> failwithf "Unknown regex flag %O" f)
         Fable.Value(Fable.RegexConstant(source, flags), None)
 
-and transformExpr (expr: Expr) =
+and transformExpr (info: TransformInfo) (expr: Expr) =
     match expr with
     | :? Fable.Expr as e -> e
     | :? SimpleExpr as e ->
         match e with
-        | Constant c -> transformConst c
+        | Constant c -> transformConst info c
         | IdentExpr i -> transformIdent i |> Fable.IdentExpr
-        // TODO: Check if path is "." (referencing self file)
-        | Import(selector, path) -> makeCustomImport Fable.Any selector path
-        | Function(args, body) -> transformFunction None args body
+        | Import(selector, path) ->
+            let path =
+                if path = "." then info.PluginSourcePath
+                else
+                    lazy info.PluginSourcePath
+                    |> fixImportedRelativePath info.Compiler path
+            makeCustomImport Fable.Any selector path
+        | Function(args, body) -> transformFunction info None args body
         | ObjectExpr(keyValueParis) ->
             keyValueParis
-            |> List.map (fun (k, v) -> k, transformExpr v)
+            |> List.map (fun (k, v) -> k, transformExpr info v)
             |> makeObjExpr Fable.Any
-        | Apply(expr, argExprs) -> transformApply false expr argExprs
-        | ApplyNew(expr, argExprs) -> transformApply true expr argExprs
+        | Apply(expr, argExprs) -> transformApply info false expr argExprs
+        | ApplyNew(expr, argExprs) -> transformApply info true expr argExprs
         | Let(var, value, body) ->
-            Fable.Let([transformIdent var, transformExpr value], transformExpr body)
+            Fable.Let([transformIdent var, transformExpr info value], transformExpr info body)
         | GetField(expr, key) ->
             let kind = makeStrConst key |> Fable.ExprGet
-            Fable.Get(transformExpr expr, kind, Fable.Any, None)
+            Fable.Get(transformExpr info expr, kind, Fable.Any, None)
         | GetIndex(expr, index) ->
             let kind = makeIntConst index |> Fable.ExprGet
-            Fable.Get(transformExpr expr, kind, Fable.Any, None)
+            Fable.Get(transformExpr info expr, kind, Fable.Any, None)
         | Set(expr, value) ->
-            Fable.Set(transformExpr expr, Fable.VarSet, transformExpr value, None)
+            Fable.Set(transformExpr info expr, Fable.VarSet, transformExpr info value, None)
         | Sequential exprs ->
-            Fable.Sequential(List.map transformExpr exprs)
+            Fable.Sequential(List.map (transformExpr info) exprs)
         | EmitJs(macro, argExprs) ->
-            Fable.Operation(Fable.Emit(macro, Some(makeArgInfo argExprs)), Fable.Any, None)
+            Fable.Operation(Fable.Emit(macro, Some(makeArgInfo info argExprs)), Fable.Any, None)
     | _ -> failwithf "Unexpected SimpleAst.Expr: %A" expr
 
-let transformDeclaration (plugin: TransformDeclaration) (com: ICompiler) (decl: Fable.Declaration): Fable.Declaration =
+let transformDeclaration (plugin: TransformDeclaration) (sourcePath: string)
+                         (com: ICompiler) (decl: Fable.Declaration)
+                         : Fable.Declaration =
     match decl with
     | Fable.ValueDeclaration(expr, info) ->
         let args, body =
@@ -178,9 +196,10 @@ let transformDeclaration (plugin: TransformDeclaration) (com: ICompiler) (decl: 
         let transformed = plugin.TransformDeclaration(helper, simpleDeclaration)
 
         let expr =
+            let info = { PluginSourcePath = sourcePath; Compiler = com }
             match transformed.Args with
-            | None -> transformExpr transformed.Body
-            | Some args -> transformFunction (Some transformed.CompiledName) args transformed.Body
+            | None -> transformExpr info transformed.Body
+            | Some args -> transformFunction info (Some transformed.CompiledName) args transformed.Body
 
         Fable.ValueDeclaration(expr, info)
 
@@ -205,7 +224,8 @@ let tryTransformDeclarationAtt (att: FSharpAttribute) =
         Seq.map snd att.ConstructorArguments
         |> activateType att.AttributeType
         |> Option.map (fun plugin ->
+            let sourcePath = FSharp.getEntityFile att.AttributeType
             { new TransformDeclaration with
                 member _.TransformDeclaration(com, decl) =
-                    transformDeclaration plugin com decl })
+                    transformDeclaration plugin sourcePath com decl })
     else None

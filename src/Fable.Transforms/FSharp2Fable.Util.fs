@@ -824,18 +824,6 @@ module Util =
                 | _ -> 1
             | args -> List.length args
 
-    // When importing a relative path from a different path where the member,
-    // entity... is declared, we need to resolve the path
-    let fixImportedRelativePath (com: ICompiler) (path: string) (loc: Lazy<Range.range>) =
-        if Path.isRelativePath path then
-            let file = Path.normalizePathAndEnsureFsExtension loc.Value.FileName
-            if file = com.CurrentFile
-            then path
-            else
-                Path.Combine(Path.GetDirectoryName(file), path)
-                |> Path.getRelativePath com.CurrentFile
-        else path
-
     let (|ImportAtt|EmitDeclarationAtt|TransformDeclarationAtt|NoAtt|) (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (function
             | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
@@ -857,7 +845,7 @@ module Util =
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember com typ (memb: FSharpMemberOrFunctionOrValue) =
         let getImportPath path =
-            lazy FSharp.getMemberLocation memb
+            lazy (FSharp.getMemberLocation memb).FileName
             |> fixImportedRelativePath com path
         memb.Attributes |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
@@ -878,7 +866,7 @@ module Util =
 
     let tryGlobalOrImportedEntity (com: ICompiler) (ent: FSharpEntity) =
         let getImportPath path =
-            lazy FSharp.getEntityLocation ent
+            lazy (FSharp.getEntityLocation ent).FileName
             |> fixImportedRelativePath com path
         ent.Attributes |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->

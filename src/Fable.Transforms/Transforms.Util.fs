@@ -551,6 +551,18 @@ module AST =
             | Some r1, Some r2 -> Some(r1 + r2)
         (None, locs) ||> Seq.fold addTwo
 
+    // When importing a relative path from a different path where the member,
+    // entity... is declared, we need to resolve the path
+    let fixImportedRelativePath (com: ICompiler) (path: string) (sourcePath: Lazy<string>) =
+        if Path.isRelativePath path then
+            let file = Path.normalizePathAndEnsureFsExtension sourcePath.Value
+            if file = com.CurrentFile
+            then path
+            else
+                Path.Combine(Path.GetDirectoryName(file), path)
+                |> Path.getRelativePath com.CurrentFile
+        else path
+
 module FSharp =
     open FSharp.Compiler.SourceCodeServices
 
