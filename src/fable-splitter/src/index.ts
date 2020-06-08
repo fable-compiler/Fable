@@ -45,6 +45,14 @@ export type FableOptions = {
     // extra?: any,
 };
 
+export type RunOptions = {
+    args: string[],
+    inspect?: boolean,
+    break?: boolean,
+    host?: string,
+    port?: number,
+};
+
 export type FableSplitterOptions = {
     entry: string,
     outDir: string,
@@ -52,10 +60,15 @@ export type FableSplitterOptions = {
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
     port?: number
-    cli?: {},
+    cli?: object,
     allFiles?: boolean,
     externals?: any,
-    postbuild?: () => void,
+    run?: boolean|RunOptions,
+    debug?: boolean,
+    commonjs?: boolean,
+    watch?: boolean,
+    usePolling?: boolean,
+    onCompiled?: () => void
 };
 
 function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
@@ -462,10 +475,6 @@ export default function fableSplitter(options: FableSplitterOptions, previousInf
             const duration = (elapsed[0] + elapsed[1] / 1e9).toFixed(3);
 
             console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${dateStr} (${duration} s)`);
-
-            if (!hasError && typeof options.postbuild === "function") {
-                options.postbuild();
-            }
             return info;
         })
         .catch((err) => {

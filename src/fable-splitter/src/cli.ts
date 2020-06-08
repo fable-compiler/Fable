@@ -2,31 +2,29 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import fableSplitter, { CompilationInfo } from "./index";
+import fableSplitter, { CompilationInfo, FableSplitterOptions, RunOptions } from "./index";
 import runScript from "./run";
 
-const chokidarLazy = requireLazy("chokidar");
-
-function requireLazy(module) {
+function requireLazy(module: string) {
     let cache = null;
     return () => cache == null ? cache = require(module) : cache;
 }
 
-function getMainScriptPath(options, info) {
+function getMainScriptPath(options: FableSplitterOptions, info: CompilationInfo) {
 
-    function getFromFsproj(projectInfo) {
+    function getFromFsproj(projectInfo: CompilationInfo) {
         const lastFile = projectInfo.projectFiles[projectInfo.projectFiles.length - 1];
         return projectInfo.mapInOutPaths.get(lastFile);
     }
 
-    function getFromScript(scriptInfo) {
+    function getFromScript(scriptInfo: CompilationInfo) {
         return scriptInfo.mapInOutPaths.get(scriptInfo.entry);
     }
 
     const mainScriptName =
         info.projectFiles.length > 0 ? getFromFsproj(info) : getFromScript(info);
 
-    const mainScript = path.join(options.outDir, mainScriptName);
+    const mainScript = path.join(options.outDir, mainScriptName || "");
     return mainScript.endsWith(".js") ? mainScript : mainScript + ".js";
 }
 
@@ -64,15 +62,14 @@ Examples:
 `;
 }
 
-function findFlag(arr: string[], arg): true|null {
-    return findFlagIndex(arr, arg) > -1 ? true : null;
+function findFlag(arr: string[], ...flags: string[]): true|undefined {
+    return findFlagIndex(arr, ...flags) > -1 ? true : undefined;
 }
 
 // TODO: Stop after --run?
-function findFlagIndex(arr: string[], arg): number {
-    const args = Array.isArray(arg) ? arg : [arg];
+function findFlagIndex(arr: string[], ...flags: string[]): number {
     for (let i = 0; i < arr.length; i++) {
-        if (args.indexOf(arr[i]) >= 0) {
+        if (flags.indexOf(arr[i]) >= 0) {
             return i;
         }
     }
@@ -80,33 +77,66 @@ function findFlagIndex(arr: string[], arg): number {
 }
 
 // TODO: Stop after --run?
-function findArgValue(arr: string[], arg, f?): string|null {
-    const args = Array.isArray(arg) ? arg : [arg];
+function findArgValue(arr: string[], ...args: string[]): string|undefined {
     for (let i = 0; i < arr.length; i++) {
         if (args.indexOf(arr[i]) >= 0) {
-            return typeof f === "function" ? f(arr[i + 1]) : arr[i + 1];
+            return arr[i + 1];
         }
     }
-    return null;
+    return undefined;
 }
 
-function tooClose(filename: string, prev: [string, Date]|null): boolean {
+function buildOptionsFromCliArgs(args: string[]): FableSplitterOptions {
+    let entry = "";
+    let firstArg = args[0];
+    if (firstArg && !firstArg.startsWith("-")) {
+        entry = path.resolve(firstArg);
+        args = args.slice(1);
+    }
+
+    let run: RunOptions|undefined = undefined;
+    let runIndex = findFlagIndex(args, "--run");
+    if (runIndex >= 0) {
+        run = { args: args.slice(runIndex + 1) };
+    } else {
+        runIndex = findFlagIndex(args, "--runInspect");
+        if (runIndex >= 0) {
+            run = {
+                inspect: true,
+                args: args.slice(runIndex + 1)
+            };
+        }
+    }
+
+    return {
+        entry,
+        outDir: findArgValue(args, "-o", "--outDir") || "",
+        allFiles: findFlag(args, "--allFiles"),
+        debug: findFlag(args, "-d", "--debug"),
+        run,
+        commonjs: findFlag(args, "--commonjs"),
+        watch: findFlag(args, "-w", "--watch"),
+        usePolling: findFlag(args, "--usePolling")
+    };
+}
+
+function tooClose(filename: string, prev?: [string, Date]): boolean {
     return prev != null &&
         filename === prev[0] &&
         new Date().getTime() - prev[1].getTime() < 2000;
 }
 
-/** Like Object.assign but checks first if properties in the source are null */
-function objectAssignNonNull(target, source) {
+/** Like Object.assign but checks first if properties in the source are null or empty strings */
+function assignNonNullOrEmptyString(target: object, source: object) {
     for (const k in source) {
-        if (source[k] != null) {
+        if (source[k] != null && source[k] !== "") {
             target[k] = source[k];
         }
     }
     return target;
 }
 
-function concatSafe(ar, item): any[] {
+function concatSafe<T>(ar: T[]|undefined, item: T): T[] {
     if (ar == null) {
         return [item];
     } else {
@@ -119,15 +149,23 @@ function concatSafe(ar, item): any[] {
     }
 }
 
-function readConfig(filePath: string, force?: boolean) {
-    filePath = path.resolve(filePath);
-    if (fs.existsSync(filePath)) {
-        return require(filePath);
-    } else if (force) {
-        throw new Error("Cannot read config file: " + filePath);
-    } else {
-        return null;
+/** Reads config from first match in filePaths argument */
+function tryReadConfig(...filePaths: string[]): FableSplitterOptions|undefined {
+    for (let filePath of filePaths) {
+        filePath = path.resolve(filePath);
+        if (fs.existsSync(filePath)) {
+            return require(filePath);
+        }
     }
+    return undefined;
+}
+
+function forceReadConfig(filePath: string): FableSplitterOptions {
+    const cfg = tryReadConfig(filePath);
+    if (cfg == null) {
+        throw new Error("Cannot read config file: " + filePath);
+    }
+    return cfg;
 }
 
 function fixEntryPath(entry: string|null) {
@@ -145,35 +183,15 @@ function fixEntryPath(entry: string|null) {
     return entry;
 }
 
-function mustRun(args: string[]) {
-    let i = findFlagIndex(args, "--run");
-    if (i >= 0) {
-        return {
-            inspect: false,
-            args: args.slice(i + 1)
-        };
-    } else {
-        i = findFlagIndex(args, "--runInspect");
-        if (i >= 0) {
-            return {
-                inspect: true,
-                args: args.slice(i + 1)
-            };
-        } else {
-            return null;
-        }
-    }
-}
-
-function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish = false) {
+function onCompiled(opts: FableSplitterOptions, info: CompilationInfo, mustFinish = false) {
     const hasError = Array.isArray(info.logs.error) && info.logs.error.length > 0;
     if (!hasError) {
         if (typeof opts.onCompiled === "function") {
             opts.onCompiled();
         }
-        const runOpts = mustRun(args);
-        if (runOpts) {
-            const job = runScript(getMainScriptPath(opts, info), runOpts.args, runOpts.inspect);
+        if (opts.run) {
+            const runOpts = typeof opts.run === "boolean" ? { args: [] } : opts.run;
+            const job = runScript(getMainScriptPath(opts, info), runOpts);
             if (mustFinish) {
                 job.then((code) => { process.exit(code); });
                 return;
@@ -186,56 +204,53 @@ function onCompiled(args: string[], opts: any, info: CompilationInfo, mustFinish
 
 }
 
-function run(entry, args) {
-    const cfgFile = findArgValue(args, ["-c", "--config"]);
+export default function run(entryOpts: FableSplitterOptions, cfgFile?: string) {
+    // Try read options from config file
+    const opts: FableSplitterOptions = cfgFile
+        ? forceReadConfig(cfgFile)
+        : (tryReadConfig("fable-splitter.config.js", "splitter.config.js") || {
+            entry: "",
+            outDir: ""
+        });
 
-    const opts = cfgFile
-        ? readConfig(cfgFile, true)
-        : (readConfig("fable-splitter.config.js") || readConfig("splitter.config.js") || {});
-
-    objectAssignNonNull(opts, {
-        entry,
-        outDir: findArgValue(args, ["-o", "--outDir"], path.resolve),
-        allFiles: findFlag(args, "--allFiles"),
-    });
-
+    // Merge options from config file with entry options and fix values
+    assignNonNullOrEmptyString(opts, entryOpts);
     opts.entry = fixEntryPath(opts.entry);
-    opts.outDir = opts.outDir || path.join(path.dirname(opts.entry), "bin");
-
-    if (findFlag(args, ["-d", "--debug"])) {
+    opts.outDir = opts.outDir ? path.resolve(opts.outDir) : path.join(path.dirname(opts.entry), "bin");
+    if (opts.debug) {
         const fableOpts = opts.fable || {};
         fableOpts.define = concatSafe(fableOpts.define, "DEBUG");
         opts.fable = fableOpts;
     }
-
     // If we're passing --run assume we're compiling for Node
     // TODO: In the future, we may want to use ES2015 modules and .mjs files
-    if (findFlag(args, ["--commonjs", "--run"])) {
+    if (opts.commonjs || opts.run) {
         const babelOpts = opts.babel || {};
         babelOpts.plugins = concatSafe(babelOpts.define, "@babel/plugin-transform-modules-commonjs");
         opts.babel = babelOpts;
     }
 
-    /// @ts-ignore
     console.log(`fable-splitter ${getVersion()}`);
+    const chokidarLazy = requireLazy("chokidar");
+
     fableSplitter(opts).then((info) => {
-        if (findFlag(args, ["-w", "--watch"])) {
-            onCompiled(args, opts, info);
+        if (opts.watch) {
+            onCompiled(opts, info);
             let cachedInfo = info;
             let ready = false;
-            let next: [string, Date]|null = null;
-            let prev: [string, Date]|null = null;
+            let next: [string, Date]|undefined = undefined;
+            let prev: [string, Date]|undefined = undefined;
             const watcher = chokidarLazy()
                 .watch(Array.from(info.compiledPaths), {
                     ignored: /node_modules/,
                     persistent: true,
-                    usePolling: findFlag(args, ["--usePolling"])
+                    usePolling: opts.usePolling
                 })
                 .on("ready", () => {
                     console.log("fable: Watching...");
                     ready = true;
                 })
-                .on("all", (ev, filePath) => {
+                .on("all", (ev: string, filePath: string) => {
                     if (ready && ev === "change") {
                         prev = next;
                         next = [filePath, new Date()];
@@ -251,35 +266,31 @@ function run(entry, args) {
                                     watcher.add(newFiles);
                                 }
                                 cachedInfo = info2;
-                                onCompiled(args, opts, info2);
+                                onCompiled(opts, info2);
                             });
                         }
                     }
                 });
         } else {
-            onCompiled(args, opts, info, true);
+            onCompiled(opts, info, true);
         }
     });
 }
 
-const processArgs = process.argv.slice(2);
-const processCmd = processArgs[0];
-
-switch (processCmd) {
-    case "-h":
-    case "--help":
-        console.log(getHelp());
-        break;
-    case "--version":
-        console.log(getVersion());
-        break;
-    default:
-        let entry: string|null = null;
-        let restArgs = processArgs;
-        if (processCmd && !processCmd.startsWith("-")) {
-            entry = path.resolve(processCmd);
-            restArgs = processArgs.slice(1);
+if (require.main === module) {
+    const processArgs = process.argv.slice(2);
+    switch (processArgs[0]) {
+        case "-h":
+        case "--help":
+            console.log(getHelp());
+            break;
+        case "--version":
+            console.log(getVersion());
+            break;
+        default:
+            const opts = buildOptionsFromCliArgs(processArgs);
+            const cfgFile = findArgValue(processArgs, "-c", "--config");
+            run(opts, cfgFile);
+            break;
         }
-        run(entry, restArgs);
-        break;
-    }
+}
