@@ -1,7 +1,7 @@
 import Event from "./Event";
 import { IDisposable } from "./Util";
 
-export default class Timer implements IDisposable {
+export class Timer implements IDisposable {
   public Interval: number;
   public AutoReset: boolean;
 
@@ -76,3 +76,5 @@ export default class Timer implements IDisposable {
     this.Enabled = false;
   }
 }
+
+export default Timer;

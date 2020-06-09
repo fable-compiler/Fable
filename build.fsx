@@ -66,6 +66,17 @@ let buildLibrary() =
     buildTypescript "src/fable-library"
     buildSplitter "src/fable-library"
 
+let buildLibraryTs() =
+    let projectDir = "src/fable-library"
+    let buildDirTs = "build/fable-library-ts"
+    let buildDirJs = "build/fable-library-js"
+    cleanDirs [buildDirTs; buildDirJs]
+    buildSplitterWithArgs projectDir ("--typescript --classTypes --outDir " + buildDirTs)
+    // TODO: cleanDirs [buildDirTs </> "fable-library"]
+    // TODO: copy *.ts/*.js from projectDir to buildDir
+    runInDir buildDirTs "npx tsc --init --target es2020 --module es2020 --allowJs"
+    runInDir buildDirTs ("npx tsc --outDir ../../" + buildDirJs)
+
 let quicktest additionalCommands =
     cleanDirs ["build/fable-library"]
     concurrently [|
@@ -303,6 +314,7 @@ match argsLower with
     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
     |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
+| ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
 | ("fable-splitter"|"splitter")::_ -> buildFableSplitter()

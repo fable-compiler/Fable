@@ -9,7 +9,7 @@ export interface IEnumerator<T> {
   Reset(): void;
 }
 
-export interface IEnumerable<T> {
+export interface IEnumerable<T> extends Iterable<T> {
   GetEnumerator(): IEnumerator<T>;
 }
 

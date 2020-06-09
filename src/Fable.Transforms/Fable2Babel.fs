@@ -1726,7 +1726,7 @@ module Util =
             | Fable.DeclaredType(ent, genArgs) ->
                 match ent.TryFullName with
                 | Some Types.ienumerableGeneric ->
-                    mkNative genArgs "Iterable"
+                    mkImport genArgs "Seq" "IEnumerable"
                 | Some Types.ienumeratorGeneric ->
                     mkImport genArgs "Seq" "IEnumerator"
                 | Some Types.iequatable ->
@@ -1737,8 +1737,9 @@ module Util =
                 //     mkImport genArgs "Util" "IEquatable"
                 // | Some Types.icomparableGeneric when not isIComparable ->
                 //     mkImport genArgs "Util" "IComparable"
-                // | Some Types.comparer ->
-                //     mkImport genArgs "Util" "IComparer"
+                | Some Types.comparer ->
+                    mkImport genArgs "Util" "IComparer"
+                // this is not needed, as it's already included in every object
                 // | Some Types.equalityComparer ->
                 //     mkImport genArgs "Util" "IEqualityComparer"
                 | Some Types.idisposable ->
@@ -1754,14 +1755,35 @@ module Util =
             | _ -> None
         )
 
-    let getGenericTypeAnnotation com ctx name genParams =
-        let id = Identifier(name)
-        let typeParamInst = makeTypeParamInst genParams
-        GenericTypeAnnotation(id, ?typeParameters=typeParamInst) :> TypeAnnotationInfo
-        |> TypeAnnotation |> Some
+    // must match the above list (with the exception of IEqualityComparer)
+    let alreadyDeclaredInterfaces =
+        set [
+            Types.ienumerableGeneric
+            Types.ienumeratorGeneric
+            Types.iequatable
+            Types.icomparable
+            // Types.iequatableGeneric
+            // Types.icomparableGeneric
+            Types.comparer
+            Types.equalityComparer
+            Types.idisposable
+            Types.icollectionGeneric
+            "Fable.Collections.IMutableSet`1"
+            "Fable.Collections.IMutableMap`2"
+            ]
 
-    let getEntityOverrideMembers com ctx (ent: FSharpEntity) =
-        FSharp2Fable.TypeHelpers.getOverrideOrExplicitInterfaceMembers ent
+    let isOtherInterfaceMember (memb: FSharpMemberOrFunctionOrValue) =
+        let isInterface, fullName = FSharp2Fable.Helpers.getMemberFullName memb
+        let lastDot = fullName.LastIndexOf(".")
+        let entName = if lastDot < 0 then fullName else fullName.Substring(0, lastDot)
+        isInterface
+            && FSharp2Fable.TypeHelpers.isNotIgnoredAttachedMember memb
+            && not (alreadyDeclaredInterfaces.Contains entName)
+
+    let getEntityExplicitInterfaceMembers com ctx (ent: FSharpEntity) =
+        let ctxTypeArgs = Map.empty
+        ent.TryGetMembersFunctionsAndValues
+        |> Seq.filter isOtherInterfaceMember
         |> Seq.map (fun memb ->
             let args =
                 Seq.concat memb.CurriedParameterGroups
@@ -1769,13 +1791,30 @@ module Util =
                     let name =
                         defaultArg p.Name ("arg" + (string i))
                         |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
-                    let typ = FSharp2Fable.TypeHelpers.makeType com Map.empty p.Type
-                    let ta = typeAnnotation com ctx typ |> TypeAnnotation |> Some
-                    Identifier(name, ?typeAnnotation=ta) |> toPattern)
-                |> Seq.toArray
-            let membId = Identifier(memb.DisplayName)
-            let body = BlockStatement [||]
-            ClassMethod(ClassFunction, membId, args, body, false, false)
+                    let typ = FSharp2Fable.TypeHelpers.makeType com ctxTypeArgs p.Type
+                    name, typ
+                )
+            let argTypes = args |> Seq.map snd |> Seq.toList
+            let retType =
+                memb.ReturnParameter.Type
+                |> FSharp2Fable.TypeHelpers.makeType com ctxTypeArgs
+            let genTypeParams = getGenericTypeParams (argTypes @ [retType])
+            let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+            let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
+            let funcArgs =
+                args
+                |> Seq.map (fun (name, typ) ->
+                    let typeInfo = typeAnnotation com ctx typ
+                    FunctionTypeParam(Identifier(name), typeInfo)
+                ) |> Seq.toArray
+            let returnType = retType |> typeAnnotation com ctx
+            let typeParamDecl = makeTypeParamDecl newTypeParams
+            let funcTypeInfo =
+                FunctionTypeAnnotation(funcArgs, returnType, ?typeParameters=typeParamDecl)
+                :> TypeAnnotationInfo
+            let name = FSharp2Fable.Helpers.getMemberDisplayName memb
+            let membId = Identifier(name) |> U2.Case1
+            ObjectTypeProperty(membId, funcTypeInfo)
         )
         |> Seq.toArray
 
@@ -1803,12 +1842,21 @@ module Util =
             id)
         |> Seq.toArray
 
+    let getGenericTypeAnnotation com ctx name genParams =
+        let id = Identifier(name)
+        let typeParamInst = makeTypeParamInst genParams
+        GenericTypeAnnotation(id, ?typeParameters=typeParamInst) :> TypeAnnotationInfo
+        |> TypeAnnotation |> Some
+
     let makeInterfaceDecl (com: IBabelCompiler) ctx r (ent: FSharpEntity) name (baseExpr: Expression option) =
-        let properties =
+        let genTypeParams = getEntityGenParams ent
+        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+        let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
+        let fields =
             if not (com.Options.classTypes)
             then getEntityFieldsAsProps com ctx ent
             else Array.empty
-        // let overrides = getEntityOverrideMembers com ctx ent |> Array.map U2.Case1 //TODO:
+        let attached = getEntityExplicitInterfaceMembers com ctx ent
         let baseExt =
             match baseExpr with
             | Some expr when not (com.Options.classTypes) ->
@@ -1828,8 +1876,8 @@ module Util =
         // so we're adding a prefix to the interface name, which will be removed after transpiling.
         let prefix = if com.Options.classTypes then "$INTERFACE_DECL_PREFIX$_" else ""
         let id = Identifier(prefix + name)
-        let body = ObjectTypeAnnotation(properties)
-        let typeParamDecl = getEntityGenParams ent |> makeTypeParamDecl
+        let body = ObjectTypeAnnotation([| yield! fields; yield! attached |])
+        let typeParamDecl = genTypeParams |> makeTypeParamDecl
         InterfaceDeclaration(id, body, ?extends_=extends, ?typeParameters=typeParamDecl, ?loc=r)
 
     let declareObjectType (com: IBabelCompiler) ctx r isPublic (ent: FSharpEntity) name (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) =

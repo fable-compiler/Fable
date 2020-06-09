@@ -732,7 +732,7 @@ type GenericTypeAnnotation(id, ?typeParameters) =
     member __.Id: Identifier = id
     member __.TypeParameters: TypeParameterInstantiation option = typeParameters
 
-type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto) =
+type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto, ?method) =
     inherit Node("ObjectTypeProperty")
     member __.Key: U2<Identifier, StringLiteral> = key
     member __.Value: TypeAnnotationInfo = value
@@ -740,6 +740,7 @@ type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto) =
     member __.Static: bool option = ``static``
     member __.Optional: bool option = optional
     member __.Proto: bool option = proto
+    member __.Method: bool option = method
 
 type ObjectTypeIndexer(key, value, ?id, ?``static``) =
     inherit Node("ObjectTypeIndexer")

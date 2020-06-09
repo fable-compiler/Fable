@@ -93,9 +93,10 @@ function getJsImport(sourcePath, importPath, outPath, projDir, outDir, libDir, b
     if (importPath.match(FSHARP_EXT)) {
       relPath = relPath.replace(FSHARP_EXT, options.typescript ? "" : ".js");
     } else {
-      relPath = relPath.match(JAVASCRIPT_EXT) || options.typescript ? relPath : relPath + ".js";
+      relPath = (relPath.match(JAVASCRIPT_EXT) || options.typescript) ? relPath : relPath + ".js";
       absPath = absPath.match(JAVASCRIPT_EXT) ? absPath : absPath + ".js";
       outPath = Path.resolve(Path.dirname(outPath), relPath);
+      outPath = outPath.match(JAVASCRIPT_EXT) ? outPath : outPath + ".js";
       // if not already done, transform and save javascript imports
       if (!uniquePaths.has(outPath) || uniquePaths.get(outPath) !== absPath) {
         outPath = ensureUniquePath(absPath, outPath);

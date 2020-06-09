@@ -47,7 +47,7 @@ export interface AsyncReplyChannel<Reply> {
   reply: (r: Reply) => void;
 }
 
-export default class MailboxProcessor<Msg> {
+export class MailboxProcessor<Msg> {
   public body: MailboxBody<Msg>;
   public cancellationToken: CancellationToken;
   public messages: MailboxQueue<Msg>;
@@ -121,3 +121,5 @@ export function start<Msg>(body: MailboxBody<Msg>, cancellationToken?: Cancellat
   startInstance(mbox);
   return mbox;
 }
+
+export default MailboxProcessor;

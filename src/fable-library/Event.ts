@@ -16,7 +16,7 @@ export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
   Trigger(x: T): void;
 }
 
-export default class Event<T> implements IEvent<T> {
+export class Event<T> implements IEvent<T> {
   public delegates: Delegate<T>[];
   private _subscriber?: (o: IObserver<T>) => IDisposable;
   private _dotnetDelegates?: Map<DotNetDelegate<T>, Delegate<T>>;
@@ -216,3 +216,5 @@ export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent
     choose((v) => tryValueIfChoice2Of2(splitter(v)), sourceEvent),
   ];
 }
+
+export default Event;
