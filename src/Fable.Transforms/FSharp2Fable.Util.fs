@@ -151,6 +151,13 @@ module Helpers =
         getMemberMangledName com false memb
         ||> Naming.buildNameWithoutSanitation
 
+    let getMemberFullName (memb: FSharpMemberOrFunctionOrValue) =
+        if memb.IsExplicitInterfaceImplementation
+        then true, memb.CompiledName.Replace("-",".")
+        else
+            let ent = memb.ApparentEnclosingEntity
+            ent.IsInterface, memb.FullName
+
     /// TODO: Latest FCS seems to add get_/set_ to DisplayName. Bug or feature?
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
         Naming.removeGetSetPrefix memb.DisplayName
@@ -667,14 +674,14 @@ module TypeHelpers =
         | _ -> ()
     }
 
+    let isAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
+        memb.IsOverrideOrExplicitInterfaceImplementation
+
     let isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
 
     let isNotIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
-        memb.IsOverrideOrExplicitInterfaceImplementation && not (isIgnoredAttachedMember memb)
-
-    let getOverrideOrExplicitInterfaceMembers (tdef: FSharpEntity) =
-        tdef.TryGetMembersFunctionsAndValues |> Seq.filter isNotIgnoredAttachedMember
+        isAttachedMember memb && not (isIgnoredAttachedMember memb)
 
     let getArgTypes com (memb: FSharpMemberOrFunctionOrValue) =
         // FSharpParameters don't contain the `this` arg

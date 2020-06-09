@@ -10,8 +10,7 @@ import { choice1Of2, choice2Of2 } from "./Option";
 import { map } from "./Seq";
 
 // Implemented just for type references
-export default class Async<_T> {
-}
+export class Async<_T> { }
 
 function emptyContinuation<T>(_x: T) {
   // NOP
@@ -147,3 +146,5 @@ export function startAsPromise<T>(computation: IAsync<T>, cancellationToken?: Ca
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
 }
+
+export default Async;

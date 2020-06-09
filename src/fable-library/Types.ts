@@ -38,12 +38,12 @@ export class SystemObject implements IEquatable<any> {
     return "{" + Object.entries(this).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
   }
 
-  public GetHashCode() {
-    return identityHash(this);
+  public GetHashCode(x?: any) {
+    return identityHash(x ?? this);
   }
 
-  public Equals(other: any) {
-    return this === other;
+  public Equals(x: any, y?: any) {
+    return x === (y ?? this);
   }
 }
 

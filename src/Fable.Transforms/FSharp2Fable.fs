@@ -1015,7 +1015,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         else []
     elif memb.IsImplicitConstructor
     then transformImplicitConstructor com ctx memb args body
-    elif memb.IsOverrideOrExplicitInterfaceImplementation then
+    elif isAttachedMember memb then
         if isIgnoredAttachedMember memb then []
         else transformAttachedMember com ctx memb args body
     else transformMemberFunctionOrValue com ctx memb args body
