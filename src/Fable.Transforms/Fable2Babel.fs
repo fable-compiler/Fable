@@ -1776,9 +1776,7 @@ module Util =
         let isInterface, fullName = FSharp2Fable.Helpers.getMemberFullName memb
         let lastDot = fullName.LastIndexOf(".")
         let entName = if lastDot < 0 then fullName else fullName.Substring(0, lastDot)
-        isInterface
-            && FSharp2Fable.TypeHelpers.isNotIgnoredAttachedMember memb
-            && not (alreadyDeclaredInterfaces.Contains entName)
+        isInterface && not (alreadyDeclaredInterfaces.Contains entName)
 
     let getEntityExplicitInterfaceMembers com ctx (ent: FSharpEntity) =
         let ctxTypeArgs = Map.empty
@@ -1812,6 +1810,7 @@ module Util =
             let funcTypeInfo =
                 FunctionTypeAnnotation(funcArgs, returnType, ?typeParameters=typeParamDecl)
                 :> TypeAnnotationInfo
+            // TODO!!! This should be the compiled name if the interface is not mangled
             let name = FSharp2Fable.Helpers.getMemberDisplayName memb
             let membId = Identifier(name) |> U2.Case1
             ObjectTypeProperty(membId, funcTypeInfo)
@@ -1983,7 +1982,7 @@ module Util =
         let funcCons = Identifier info.EntityName :> Expression
         jsObject "defineProperty" [|
             get None funcCons "prototype"
-            StringLiteral info.Name
+            StringLiteral info.CompiledName
             ObjectExpression [|
                 match getterFuncExpr with
                 | Some e -> yield ObjectProperty(StringLiteral "get", e) |> U3.Case1
@@ -2001,8 +2000,8 @@ module Util =
         let memberName, hasSpread, body =
             match info.Kind with
             | Fable.ObjectIterator -> "Symbol.iterator", false, Replacements.enumerator2iterator body
-            | Fable.ObjectMethod hasSpread -> info.Name, hasSpread, body
-            | _ -> info.Name, false, body
+            | Fable.ObjectMethod hasSpread -> info.CompiledName, hasSpread, body
+            | _ -> info.CompiledName, false, body
         let boundThis, args = prepareBoundThis "this" args
         let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args hasSpread body
         let funcExpr = makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
@@ -2173,7 +2172,7 @@ module Util =
                         let getter, setter, restDecls =
                             // Check if the next declaration is a getter/setter for same property
                             match restDecls with
-                            | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
+                            | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.CompiledName = info2.CompiledName ->
                                 match kind with
                                 | Fable.ObjectGetter -> Some(args, body), Some(args2, body2), restDecls
                                 | _ -> Some(args2, body2), Some(args, body), restDecls

@@ -88,7 +88,10 @@ type ConstructorKind =
     | CompilerGeneratedConstructor of CompilerGeneratedConstructorInfo
 
 type AttachedMemberDeclarationInfo =
-    { Name: string
+    // TODO!!! We should only use one name property that would be
+    // the Compiled or DisplayName depending on NoMangle attribute
+    { CompiledName: string
+      DisplayName: string
       Kind: ObjectMemberKind
       EntityName: string }
 

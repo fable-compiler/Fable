@@ -158,7 +158,7 @@ module Helpers =
             let ent = memb.ApparentEnclosingEntity
             ent.IsInterface, memb.FullName
 
-    /// TODO: Latest FCS seems to add get_/set_ to DisplayName. Bug or feature?
+    /// Latest FCS seems to add get_/set_ to DisplayName. Bug or feature?
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
         Naming.removeGetSetPrefix memb.DisplayName
 
@@ -677,12 +677,6 @@ module TypeHelpers =
     let isAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.IsOverrideOrExplicitInterfaceImplementation
 
-    let isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
-        memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
-
-    let isNotIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
-        isAttachedMember memb && not (isIgnoredAttachedMember memb)
-
     let getArgTypes com (memb: FSharpMemberOrFunctionOrValue) =
         // FSharpParameters don't contain the `this` arg
         Seq.concat memb.CurriedParameterGroups
@@ -1034,18 +1028,20 @@ module Util =
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
                 |> attachRange r |> failwith
-        let name = getMemberDisplayName memb
+        // TODO!!! Check if the interface/abstract class has NoMangle attribute
+        // let displayName = getMemberDisplayName memb
         match argInfo.Args with
-        | [arg] when memb.IsPropertySetterMethod ->
-            let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType com Map.empty
-            Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
-        | _ when memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 ->
-            let t = memb.ReturnParameter.Type |> makeType com Map.empty
-            let kind = Fable.FieldGet(name, true, t)
-            Fable.Get(callee, kind, typ, r)
+        // TODO!!! Only treat properties different if they are not mangled
+        // | [arg] when memb.IsPropertySetterMethod ->
+        //     let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType com Map.empty
+        //     Fable.Set(callee, Fable.FieldSet(displayName, t), arg, r)
+        // | _ when memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 ->
+        //     let t = memb.ReturnParameter.Type |> makeType com Map.empty
+        //     let kind = Fable.FieldGet(displayName, true, t)
+        //     Fable.Get(callee, kind, typ, r)
         | _ ->
             let argInfo = { argInfo with ThisArg = Some callee }
-            makeStrConst name |> Some |> instanceCall r typ argInfo
+            makeStrConst memb.CompiledName |> Some |> instanceCall r typ argInfo
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo) isModuleValue
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
