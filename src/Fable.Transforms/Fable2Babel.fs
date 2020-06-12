@@ -31,6 +31,8 @@ type Context =
     OptimizeTailCall: unit -> unit
     ScopedTypeParams: Set<string> }
 
+type AttachedMember = Fable.Ident list * Fable.Expr * Fable.AttachedMemberInfo
+
 type IBabelCompiler =
     inherit ICompiler
     abstract GetAllImports: unit -> seq<Import>
@@ -38,7 +40,7 @@ type IBabelCompiler =
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string * Fable.ImportKind -> Expression
-    abstract TransformObjectExpr: Context * Fable.ObjectMember list * boundThis: string * ?baseCall: Fable.Expr -> Expression
+    abstract TransformObjectExpr: Context * AttachedMember list * boundThis: string * ?baseCall: Fable.Expr -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern array) * U2<BlockStatement, Expression>
 
@@ -846,7 +848,7 @@ module Util =
                 |> coreLibCall com ctx r "Types" "anonRecord"
         | Fable.NewUnion(values, uci, ent, genArgs) ->
             // Union cases with EraseAttribute are used for `Custom`-like cases in unions meant for `keyValueList`
-            if FSharp2Fable.Helpers.hasAtt Atts.erase uci.Attributes then
+            if FSharp2Fable.Helpers.hasAttribute Atts.erase uci.Attributes then
                 Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
             else
                 let name = getUnionCaseName uci
@@ -861,7 +863,17 @@ module Util =
                 upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
-    let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: string) baseCall: Expression =
+    // TODO!!! Add more exceptions (like CompareTo, GetZero...)
+    // or fix them in Replacements/fable-library
+    let getAttachedMemberName = function
+        // System.Object overrides go unmangled for compatibility with fable-library
+        | "System-Object-Equals" -> "Equals"
+        | "System-Object-GetHashCode" -> "GetHashCode"
+        // ToString goes in lower case for compatibity with JS (and debugger tools)
+        | "System-Object-ToString" -> "toString"
+        | name -> name
+
+    let transformObjectExpr (com: IBabelCompiler) ctx (members: AttachedMember list) (boundThis: string) baseCall: Expression =
         let makeObjMethod kind prop computed hasSpread args body =
             let boundThis, args = prepareBoundThis boundThis args
             let args, body, returnType, typeParamDecl =
@@ -869,43 +881,23 @@ module Util =
             ObjectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2 |> Some
         let pojo =
-            members |> List.choose (fun (Fable.ObjectMember(key, expr, kind)) ->
-                match kind, expr with
-                | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body, _) ->
-                    // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
-                    let args, body', returnType, typeParamDecl = getMemberArgsAndBody com ctx None None args false body
-                    let prop, computed = memberFromExpr com ctx key
-                    ObjectMethod(ObjectMeth, prop, args, body', computed,
-                        ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2 |> Some
-                | Fable.ObjectValue, TransformExpr com ctx value ->
-                    let prop, computed = memberFromExpr com ctx key
-                    ObjectProperty(prop, value, computed_=computed) |> U3.Case1 |> Some
-                | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed =
-                        match key with
-                        // Compile ToString in lower case for compatibity with JS (and debugger tools)
-                        | Fable.Value(Fable.StringConstant "ToString", _) -> memberFromName "toString"
-                        | key -> memberFromExpr com ctx key
-                    makeObjMethod ObjectMeth prop computed hasSpread args body
-                | Fable.ObjectIterator, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop = get None (Identifier "Symbol") "iterator"
-                    Replacements.enumerator2iterator body
-                    |> makeObjMethod ObjectMeth prop true false args
-                | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed = memberFromExpr com ctx key
+            members |> List.choose (fun (args, body, info) ->
+                let name = getAttachedMemberName info.Name
+                let prop, computed = memberFromName name
+                if info.IsValue then
+                    ObjectProperty(prop, com.TransformAsExpr(ctx, body), computed_=computed) |> U3.Case1 |> Some
+                elif info.IsGetter then
                     makeObjMethod ObjectGetter prop computed false args body
-                | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed = memberFromExpr com ctx key
+                elif info.IsSetter then
                     makeObjMethod ObjectSetter prop computed false args body
-                | kind, _ ->
-                    sprintf "Object member has kind %A but value is not a function" kind
-                    |> addError com [] None; None
+                else
+                    makeObjMethod ObjectMeth prop computed info.HasSpread args body
             ) |> List.toArray |> ObjectExpression
         match baseCall with
         | Some(TransformExpr com ctx baseCall) ->
             coreUtil com ctx "extend" [|baseCall; pojo|]
         | None when com.Options.classTypes ->
-            let isThisUsed = members |> List.exists (fun (Fable.ObjectMember(_, expr, _)) ->
+            let isThisUsed = members |> List.exists (fun (_, expr, _) ->
                 (FableTransforms.countReferences 0 boundThis expr) > 0)
             if not isThisUsed
             then pojo :> Expression
@@ -1952,7 +1944,7 @@ module Util =
         else
             [typeDeclaration; reflectionDeclaration]
 
-    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
+    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ModuleMemberInfo) args body =
         let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx (Some info.Name) None args info.HasSpread body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
@@ -1972,7 +1964,7 @@ module Util =
               |> ExpressionStatement :> Statement |> U2.Case1 ]
         else Array.map U2.Case1 statements |> Array.toList
 
-    let transformOverrideProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberDeclarationInfo) getter setter =
+    let transformAttachedProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) getter setter =
         let funcExpr (args, body) =
             let boundThis, args = prepareBoundThis "this" args
             let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args false body
@@ -1982,7 +1974,7 @@ module Util =
         let funcCons = Identifier info.EntityName :> Expression
         jsObject "defineProperty" [|
             get None funcCons "prototype"
-            StringLiteral info.CompiledName
+            StringLiteral info.Name
             ObjectExpression [|
                 match getterFuncExpr with
                 | Some e -> yield ObjectProperty(StringLiteral "get", e) |> U3.Case1
@@ -1995,22 +1987,18 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let transformOverrideMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberDeclarationInfo) args body =
+    let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
         let funcCons = Identifier info.EntityName :> Expression
-        let memberName, hasSpread, body =
-            match info.Kind with
-            | Fable.ObjectIterator -> "Symbol.iterator", false, Replacements.enumerator2iterator body
-            | Fable.ObjectMethod hasSpread -> info.CompiledName, hasSpread, body
-            | _ -> info.CompiledName, false, body
         let boundThis, args = prepareBoundThis "this" args
-        let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args hasSpread body
+        let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args info.HasSpread body
         let funcExpr = makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
-        let protoMember =
-            match memberName with
-            | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
-            // Compile ToString in lower case for compatibity with JS (and debugger tools)
-            | "ToString" -> upcast StringLiteral "toString"
-            | name -> upcast StringLiteral name
+        let protoMember: Expression =
+            match info.EntityName, info.Name with
+            // TODO: Add Symbol.iterator if necessary
+            // | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
+            // Compile System.Object.ToString in lower case for compatibity with JS (and debugger tools)
+            | "System.Object", "ToString" -> upcast StringLiteral "toString"
+            | _, name -> upcast StringLiteral name
         let protoMember = getExpr None (get None funcCons "prototype") protoMember
         assign None protoMember funcExpr
         |> ExpressionStatement :> Statement
@@ -2137,20 +2125,17 @@ module Util =
                 transformAction com ctx e
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
-            | Fable.ValueDeclaration(value, info) ->
-                match value with
-                // Mutable public values must be compiled as functions (see #986)
-                // because values imported from ES2015 modules cannot be modified
-                | value when info.IsMutable && info.IsPublic ->
-                    Replacements.createAtom value
-                    |> transformAsExpr com ctx
-                    |> declareModuleMember info.Range true info.Name false
-                    |> List.singleton
-                | Fable.Function(Fable.Delegate args, body, _) ->
+            | Fable.ModuleMemberDeclaration(args, body, info) ->
+                if info.IsValue then
+                    let isPublic, isMutable, value =
+                        // Mutable public values must be compiled as functions (see #986)
+                        // because values imported from ES2015 modules cannot be modified
+                        match info.IsPublic, info.IsMutable with
+                        | true, true -> true, false, Replacements.createAtom body |> transformAsExpr com ctx
+                        | isPublic, isMutable -> isPublic, isMutable, transformAsExpr com ctx body
+                    [declareModuleMember info.Range isPublic info.Name isMutable value]
+                else
                     [transformModuleFunction com ctx info args body]
-                | _ ->
-                    let value = transformAsExpr com ctx value
-                    [declareModuleMember info.Range info.IsPublic info.Name info.IsMutable value]
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
             | Fable.ConstructorDeclaration(kind, r) ->
@@ -2167,21 +2152,19 @@ module Util =
                 |> transformDeclarations com ctx restDecls
             | Fable.AttachedMemberDeclaration(args, body, info) ->
                 let newDecls, restDecls =
-                    match info.Kind with
-                    | Fable.ObjectGetter | Fable.ObjectSetter as kind ->
+                    if info.IsGetter || info.IsSetter then
                         let getter, setter, restDecls =
                             // Check if the next declaration is a getter/setter for same property
                             match restDecls with
-                            | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.CompiledName = info2.CompiledName ->
-                                match kind with
-                                | Fable.ObjectGetter -> Some(args, body), Some(args2, body2), restDecls
-                                | _ -> Some(args2, body2), Some(args, body), restDecls
+                            | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
+                                if info.IsGetter then Some(args, body), Some(args2, body2), restDecls
+                                else Some(args2, body2), Some(args, body), restDecls
                             | _ ->
-                                match kind with
-                                | Fable.ObjectGetter -> Some(args, body), None, restDecls
-                                | _ -> None, Some(args, body), restDecls
-                        transformOverrideProperty com ctx info getter setter, restDecls
-                    | _ -> transformOverrideMethod com ctx info args body, restDecls
+                                if info.IsGetter then Some(args, body), None, restDecls
+                                else None, Some(args, body), restDecls
+                        transformAttachedProperty com ctx info getter setter, restDecls
+                    else
+                        transformAttachedMethod com ctx info args body, restDecls
                 List.append transformed newDecls
                 |> transformDeclarations com ctx restDecls
 

@@ -39,7 +39,7 @@ let visit f e =
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let baseCall = Option.map f baseCall
-        let members = members |> List.map (fun (ObjectMember(k,v,kind)) -> ObjectMember(f k, f v, kind))
+        let members = members |> List.map (fun (args, v, info) -> args, f v, info)
         ObjectExpr(members, t, baseCall)
     | Operation(kind, t, r) ->
         match kind with
@@ -133,7 +133,7 @@ let getSubExpressions = function
         | AsPojo(e1, e2) -> [e1; e2]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
-        let members = members |> List.collect (fun (ObjectMember(k,v,_)) -> [k;v])
+        let members = members |> List.collect (fun (_,v,_) -> [v])
         match baseCall with Some b -> b::members | None -> members
     | Operation(kind, _, _) ->
         match kind with
@@ -510,39 +510,6 @@ module private Transforms =
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None
 
-    // Unwrapping functions (e.g `(x, y) => f(x, y)` --> `f`) is important for readability
-    // and also in some situations, like passing fucntions as props to React components
-    // See https://blog.vbfox.net/2018/02/08/fable-react-2-optimizing-react.html
-    let unwrapFunctions (_: ICompiler) e =
-        let notReferencedInExpr (args: Ident list) (e: Expr) =
-            args |> List.exists (fun a ->
-                let identName = a.Name
-                e |> deepExists (function
-                    | IdentExpr id -> id.Name = identName
-                    | _ -> false)) |> not
-        let sameArgs args1 args2 =
-            List.sameLength args1 args2
-            && List.forall2 (fun (a1: Ident) -> function
-                | IdentExpr a2 -> a1.Name = a2.Name
-                | _ -> false) args1 args2
-        let unwrapFunctionsInner = function
-            // TODO: When Option.isSome info.ThisArg we could bind it (also for InstanceCall)
-            | LambdaOrDelegate(args, Operation(Call(StaticCall funcExpr, info), _, _), _)
-                when Option.isNone info.ThisArg
-                    // Make sure first argument is not `this`, because it wil be removed
-                    // from args in Fable2Babel.transformObjectExpr (see #1434).
-                    && List.tryHead args |> Option.map (fun x -> x.IsThisArgDeclaration) |> Option.defaultValue false |> not
-                    && sameArgs args info.Args
-                    // Check the args are not used in the expression. See #1484
-                    && notReferencedInExpr args funcExpr
-                -> funcExpr
-            | e -> e
-        match e with
-        // We cannot apply the unwrap optimization to the outmost function,
-        // as we would be losing the ValueDeclarationInfo
-        | Function(kind, body, name) -> Function(kind, visitFromInsideOut unwrapFunctionsInner body, name)
-        | e -> visitFromInsideOut unwrapFunctionsInner e
-
 open Transforms
 
 // ATTENTION: Order of transforms matters for optimizations
@@ -559,8 +526,6 @@ let optimizations =
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
-      // Don't traverse the expression for the unwrap function optimization
-      unwrapFunctions
     ]
 
 let optimizeExpr (com: ICompiler) e =
@@ -569,8 +534,8 @@ let optimizeExpr (com: ICompiler) e =
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->
         ActionDeclaration(optimizeExpr com expr)
-    | ValueDeclaration(value, info) ->
-        ValueDeclaration(optimizeExpr com value, info)
+    | ModuleMemberDeclaration(args, value, info) ->
+        ModuleMemberDeclaration(args, optimizeExpr com value, info)
     | ConstructorDeclaration(kind, r) ->
         let kind =
             match kind with

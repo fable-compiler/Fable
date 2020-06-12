@@ -172,7 +172,6 @@ module Naming =
 
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
-            printfn "Removing prefix from %s" s
             s.Substring(4)
         else s
 

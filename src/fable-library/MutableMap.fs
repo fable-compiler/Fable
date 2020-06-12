@@ -4,6 +4,7 @@ namespace Fable.Collections
 open System.Collections.Generic
 
 /// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+[<Fable.Core.JsInterface>]
 type IMutableMap<'Key, 'Value> =
     inherit IEnumerable<KeyValuePair<'Key, 'Value>>
     abstract size: int

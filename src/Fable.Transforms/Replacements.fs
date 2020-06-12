@@ -81,9 +81,20 @@ module Helpers =
         let info = argInfo None args AutoUncurrying
         Operation(Emit(macro, Some info), t, r)
 
-    let objExpr t kvs =
-        let kvs = List.map (fun (k,v) -> ObjectMember(makeStrConst k, v, ObjectValue)) kvs
-        ObjectExpr(kvs, t, None)
+    let objValue (k, v) =
+        [], v, { Name = k
+                 EntityName = ""
+                 IsValue = true
+                 IsGetter = false
+                 IsSetter = false
+                 HasSpread = false
+                 Range = None }
+
+    let typedObjExpr t kvs =
+        ObjectExpr(List.map objValue kvs, t, None)
+
+    let objExpr kvs =
+        typedObjExpr Fable.Any kvs
 
     let add left right =
         Operation(BinaryOperation(BinaryPlus, left, right), left.Type, None)
@@ -723,12 +734,6 @@ let identityHash r (arg: Expr) =
 let structuralHash r (arg: Expr) =
     Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
 
-let makeFunctionsObject (namesAndFunctions: (string * Expr) list) =
-    let members =
-        namesAndFunctions |> List.map (fun (name, fn) ->
-            Fable.ObjectMember(makeStrConst name, fn, Fable.ObjectValue))
-    ObjectExpr(members, Fable.Any, None)
-
 let rec equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let is equal expr =
         if equal
@@ -803,8 +808,7 @@ and makeComparerFunction (com: ICompiler) typArg =
     Function(Delegate [x; y], body, None)
 
 and makeComparer (com: ICompiler) typArg =
-    let fn = makeComparerFunction com typArg
-    makeFunctionsObject ["Compare", fn]
+    objExpr ["Compare", makeComparerFunction com typArg]
 
 let makeEqualityComparer (com: ICompiler) typArg =
     let x = makeTypedIdentUnique com typArg "x"
@@ -812,9 +816,8 @@ let makeEqualityComparer (com: ICompiler) typArg =
     let body = equals com None true (IdentExpr x) (IdentExpr y)
     let f = Function(Delegate [x; y], body, None)
     // TODO: Use proper IEqualityComparer<'T> type instead of Any
-    ObjectExpr
-        ([ObjectMember(makeStrConst "Equals", f, ObjectValue)
-          ObjectMember(makeStrConst "GetHashCode", makeCoreRef Any "structuralHash" "Util", ObjectValue)], Any, None)
+    objExpr ["Equals", f
+             "GetHashCode", makeCoreRef Any "structuralHash" "Util"]
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -887,7 +890,7 @@ let makeAddFunction (com: ICompiler) ctx t =
     Function(Delegate [x; y], body, None)
 
 let makeGenericAdder (com: ICompiler) ctx t =
-    makeFunctionsObject [
+    objExpr [
         "GetZero", getZero com ctx t |> makeDelegate []
         "Add", makeAddFunction com ctx t
     ]
@@ -898,7 +901,7 @@ let makeGenericAverager (com: ICompiler) ctx t =
         let i = makeTypedIdentUnique com (Number Int32) "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i] [t; Number Int32] []
         Function(Delegate [x; i], body, None)
-    makeFunctionsObject [
+    objExpr [
         "GetZero", getZero com ctx t |> makeDelegate []
         "Add", makeAddFunction com ctx t
         "DivideByInt", divideFn
@@ -914,9 +917,11 @@ let makePojoFromLambda arg =
         (flattenSequential lambdaBody, Some []) ||> List.foldBack (fun statement acc ->
             match acc, statement with
             | Some acc, Set(_, FieldSet(fiName, _), value, _) ->
-                ObjectMember(makeStrConst fiName, value, ObjectValue)::acc |> Some
-            | Some acc, Set(_, ExprSet prop, value, _) ->
-                ObjectMember(prop, value, ObjectValue)::acc |> Some
+                objValue (fiName, value)::acc |> Some
+            // TODO!!! We will just remove the makePojo optimization eventually
+            // as it doesn't seem to be working most of the time
+            // | Some acc, Set(_, ExprSet prop, value, _) ->
+            //     objValue (prop, value)::acc |> Some
             | _ -> None)
     | _ -> None
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
@@ -929,7 +934,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
             | [] -> makeBoolConst true
             | [value] -> value
             | values -> Value(NewArray(ArrayValues values, Any), None)
-        ObjectMember(Naming.applyCaseRule caseRule name |> makeStrConst, value, ObjectValue)
+        objValue (Naming.applyCaseRule caseRule name, value)
     match caseRule with
     | Value(NumberConstant(rule, _),_)
     | Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_) ->
@@ -941,7 +946,7 @@ let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
                 // Try to get the member key and value at compile time for unions and tuples
                 | Some acc, MaybeCasted(Value(NewUnion(values, uci, _, _),_)) ->
                     // Union cases with EraseAttribute are used for `Custom`-like cases
-                    if FSharp2Fable.Helpers.hasAtt Atts.erase uci.Attributes then
+                    if FSharp2Fable.Helpers.hasAttribute Atts.erase uci.Attributes then
                         match values with
                         | (Value(StringConstant name,_))::values ->
                             // Don't change the case for erased cases
@@ -1008,7 +1013,7 @@ let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
 
 let tryJsConstructor com ent =
     if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
-    else FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent |> Some
+    else FSharp2Fable.Util.entityRef com ent |> Some
 
 let jsConstructor com ent =
     match tryJsConstructor com ent with
@@ -1049,7 +1054,7 @@ let defaultof com ctx (t: Type) =
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
-    | _, ".ctor" -> objExpr t [] |> Some
+    | _, ".ctor" -> typedObjExpr t [] |> Some
     | _, "jsNative" ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
@@ -1198,7 +1203,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
-            objExpr t [] |> Some
+            typedObjExpr t [] |> Some
         // Deprecated methods
         | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
@@ -2303,7 +2308,7 @@ let exceptions (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | ".ctor", _, _ -> objExpr t [] |> Some
+    | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "GetHashCode", Some arg, _ ->
         identityHash r arg |> Some
     | "ToString", Some arg, _ ->
@@ -2322,7 +2327,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let valueTypes (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> objExpr t [] |> Some
+    | ".ctor", _ -> typedObjExpr t [] |> Some
     | "ToString", Some thisArg ->
         Helper.InstanceCall(thisArg, "toString", String, [], i.SignatureArgTypes, ?loc=r) |> Some
     | ("GetHashCode" | "Equals" | "CompareTo"), Some thisArg ->
@@ -2407,7 +2412,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "get_Out" -> objExpr t [] |> Some // empty object
+    | "get_Out" -> typedObjExpr t [] |> Some // empty object
     | "Write" ->
         addWarning com ctx.InlinePath r "Write will behave as WriteLine"
         log com r t i thisArg args |> Some

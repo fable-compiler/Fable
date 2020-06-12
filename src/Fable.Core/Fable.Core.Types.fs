@@ -13,7 +13,7 @@ type CaseRules =
     /// FooBar -> foo-bar
     | KebabCase = 4
 
-type JsInterfaceAttribute() =
+type NoMangleAttribute() =
     inherit Attribute()
 
 /// Used for erased union types and to ignore modules in JS compilation.
@@ -79,10 +79,11 @@ type StringEnumAttribute() =
     new (caseRules: CaseRules) = StringEnumAttribute()
 
 /// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
-/// Fable 1 only accepted lists, but Fable 2 accepts seq as well.
 [<AttributeUsage(AttributeTargets.Parameter)>]
-type ParamListAttribute() =
+type ParamSeqAttribute() =
     inherit Attribute()
+
+type ParamListAttribute = ParamSeqAttribute
 
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]

@@ -8,6 +8,7 @@ module Atts =
     let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
     let [<Literal>] entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
     let [<Literal>] sealed_ = "Microsoft.FSharp.Core.SealedAttribute" // typeof<Microsoft.FSharp.Core.SealedAttribute>.FullName
+    let [<Literal>] noMangle = "Fable.Core.JsInterfaceAttribute" // typeof<Fable.Core.NoMangleAttribute>.FullName
     let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
@@ -357,6 +358,9 @@ module AST =
 
     let makeEqOp range left right op =
         Operation(BinaryOperation(op, left, right), Boolean, range)
+
+    let makeNull () =
+        Value(Null Any, None)
 
     let makeValue r value =
         Value(value, r)
