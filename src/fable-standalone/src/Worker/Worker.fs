@@ -112,19 +112,26 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     | Some fable, CompileCode(fsharpCode, otherFSharpOptions) ->
         try
             // detect (and remove) the non-F# compiler options to avoid changing msg contract
-            let useClassTypes = otherFSharpOptions |> Array.contains "--classTypes"
-            let useTypeScript = otherFSharpOptions |> Array.contains "--typescript"
-            let otherFSharpOptions = otherFSharpOptions |> Array.filter ((<>) "--classTypes")
-            let otherFSharpOptions = otherFSharpOptions |> Array.filter ((<>) "--typescript")
+            let nonFSharpOptions = Map [
+                "--typedArrays", false
+                "--clampByteArrays", false
+                "--classTypes", false
+                "typescript", false
+            ]
+            let nonFSharpOptions, otherFSharpOptions =
+                ((nonFSharpOptions, []), otherFSharpOptions) ||> Array.fold (fun (nonFcsOpts, fcsOpts) opt ->
+                    if Map.containsKey opt nonFcsOpts then Map.add opt true nonFcsOpts, fcsOpts
+                    else nonFcsOpts, opt::fcsOpts)
+                |> fun (nonFcsOpts, fcsOpts) -> nonFcsOpts, List.rev fcsOpts |> List.toArray
             // Check if we need to recreate the FableState because otherFSharpOptions have changed
             let! fable = makeFableState (Initialized fable) otherFSharpOptions
             let (parseResults, parsingTime) = measureTime (fun () -> fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             let (res, fableTransformTime) = measureTime (fun () ->
                 let fableConfig =
-                    { typedArrays = true
-                      clampByteArrays = false
-                      classTypes = useClassTypes
-                      typescript = useTypeScript
+                    { typedArrays = Map.find "--typedArrays" nonFSharpOptions
+                      clampByteArrays = Map.find "--clampByteArrays" nonFSharpOptions
+                      classTypes = Map.find "--classTypes" nonFSharpOptions
+                      typescript = Map.find "--typescript" nonFSharpOptions
                       precompiledLib = Some (fun x -> resolveLibCall(fable.LibMap, x)) }
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, fableConfig)) ()
             let (jsCode, babelTime, babelErrors) =

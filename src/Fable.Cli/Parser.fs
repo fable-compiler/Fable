@@ -75,7 +75,7 @@ let parse (msg: string) =
         parseStringArray [||] "define" json
         |> Array.append [|Naming.fableCompilerConstant|]
         |> Array.distinct
-      typedArrays = parseBoolean true "typedArrays" json
+      typedArrays = parseBoolean false "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
       classTypes = parseBoolean false "classTypes" json
       typescript = parseBoolean false "typescript" json
