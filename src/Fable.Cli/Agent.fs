@@ -133,7 +133,7 @@ let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra opti
             else proj
     | None ->
         let projectOptions, fableLibraryDir =
-            getFullProjectOpts msg.define msg.rootDir projFile
+            getFullProjectOpts msg.define msg.noReferences msg.rootDir projFile
         Log.verbose(lazy
             let proj = getRelativePath projectOptions.ProjectFileName
             let opts = projectOptions.OtherOptions |> String.concat "\n   "

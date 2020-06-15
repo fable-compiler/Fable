@@ -12,6 +12,7 @@ const fableOptions = {
   define: [
     "FX_NO_BIGINT"
   ],
+  noReferences: true
   // classTypes: true,
 };
 
@@ -22,7 +23,8 @@ const outDir = useCommonjs
 module.exports = {
   cli: {
     path: resolve("../Fable.Cli"),
-    fableLibrary: "force:${outDir}"
+    fableLibrary: "force:${outDir}",
+    verbose: true
   },
   entry: resolve("Fable.Library.fsproj"),
   outDir: resolve(outDir),

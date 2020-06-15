@@ -64,6 +64,7 @@ let buildWebpack projectDir =
 let buildLibrary() =
     cleanDirs ["build/fable-library"]
     buildTypescript "src/fable-library"
+    run "dotnet build src/Fable.Core"
     buildSplitter "src/fable-library"
 
 let buildLibraryTs() =
