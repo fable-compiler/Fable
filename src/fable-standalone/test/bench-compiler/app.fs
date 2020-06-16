@@ -19,7 +19,7 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
         failwith "Too many errors."
 
 let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
-    { typedArrays = not (options.typescript)
+    { typedArrays = false
       clampByteArrays = false
       classTypes = options.classTypes
       typescript = options.typescript

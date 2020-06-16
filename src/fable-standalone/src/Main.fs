@@ -214,7 +214,7 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
 }
 
 let defaultCompilerConfig: CompilerConfig =
-    { typedArrays = true
+    { typedArrays = false
       clampByteArrays = false
       classTypes = false
       typescript = false
