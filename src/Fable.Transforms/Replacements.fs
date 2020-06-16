@@ -1767,7 +1767,6 @@ let nativeArrayFunctions =
             "Iterate", "forEach"
             "Reduce", "reduce"
             "ReduceBack", "reduceRight"
-            "SortInPlace", "sort"
             "SortInPlaceWith", "sort" |]
 
 let tuples (_: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1799,7 +1798,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Value(NewArray(ArrayAlloc size, t), None)
     let createArray size value =
         match t, value with
-        | Array(Number _ as t2), None -> newArray size t2
+        | Array(Number _ as t2), None when com.Options.typedArrays -> newArray size t2
         | Array t2, value ->
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
@@ -1826,6 +1825,11 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         toArray com t allPairs |> Some
     | "TryExactlyOne", args ->
         tryCoreOp r t "Array" "exactlyOne" args |> Some
+    | "SortInPlace", args ->
+        let _, thisArg = List.splitLast args
+        let argTypes = List.take (List.length args) i.SignatureArgTypes
+        let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com
+        Helper.InstanceCall(thisArg, "sort", t, [compareFn], argTypes, ?loc=r) |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
