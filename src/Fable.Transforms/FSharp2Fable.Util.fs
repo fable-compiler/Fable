@@ -179,9 +179,6 @@ module Helpers =
             found <- found || att.AttributeType.TryFullName = attFullName
         found
 
-    let hasNoMangleAttribute (ent: FSharpEntity) =
-        hasAttribute Atts.noMangle ent.Attributes
-
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
         if typ.HasTypeDefinition then
@@ -691,6 +688,9 @@ module TypeHelpers =
     let isAbstract (ent: FSharpEntity) =
        hasAttribute Atts.abstractClass ent.Attributes
 
+    let tryTypeDefinition (NonAbbreviatedType t) =
+        if t.HasTypeDefinition then Some t.TypeDefinition else None
+
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0
         then nonAbbreviatedType meth.ImplementedAbstractSignatures.[0].DeclaringType |> Some
@@ -924,8 +924,14 @@ module Util =
     let isErasedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Atts.erase | Atts.stringEnum | Atts.global_
-                    | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
+            | Some(Atts.erase | Atts.stringEnum
+                    | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
+            | _ -> false)
+
+    let isImportedOrGlobalEntity (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
             | _ -> false)
 
     /// Entities coming from assemblies (we don't have access to source code) are candidates for replacement
@@ -999,6 +1005,28 @@ module Util =
                     tryFindImplementingEntity t.TypeDefinition interfaceFullName
                 | _ -> None
 
+    let isMangledAbstractEntity (ent: FSharpEntity) =
+        match ent.TryFullName with
+        // By default mangle interfaces in System namespace as they are not meant to interact with JS
+        // except those that are used in fable-library Typescript files
+        | Some fullName when fullName.StartsWith("System.") ->
+            match fullName with
+            | Types.object
+            | Types.idisposable
+            | Types.icomparable
+            | "System.IObservable`1"
+            | "System.IObserver`1"
+            | Types.ienumerableGeneric
+            | Types.ienumeratorGeneric
+            // These are used for injections
+            | Types.comparer
+            | Types.equalityComparer -> false
+            | _ -> true
+        // Don't mangle interfaces by default (for better JS interop) unless they have Mangle attribute
+        | _ when ent.IsInterface -> hasAttribute Atts.mangle ent.Attributes
+        // Mangle members from abstract classes unless they are global/imported
+        | _ -> not(isImportedOrGlobalEntity ent)
+
     let callInstanceMember com r typ (argInfo: Fable.ArgInfo)
                     (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
@@ -1010,7 +1038,7 @@ module Util =
         let isGetter = memb.IsPropertyGetterMethod
         let isSetter = not isGetter && memb.IsPropertySetterMethod
         let name, isGetter, isSetter =
-            if hasNoMangleAttribute entity then
+            if isMangledAbstractEntity entity then
                 let name = getMemberDisplayName memb
                 name, isGetter, isSetter
             elif isGetter || isSetter then memb.CompiledName, false, false

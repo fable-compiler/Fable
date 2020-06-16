@@ -815,7 +815,6 @@ let makeEqualityComparer (com: ICompiler) typArg =
     let y = makeTypedIdentUnique com typArg "y"
     let body = equals com None true (IdentExpr x) (IdentExpr y)
     let f = Function(Delegate [x; y], body, None)
-    // TODO: Use proper IEqualityComparer<'T> type instead of Any
     objExpr ["Equals", f
              "GetHashCode", makeCoreRef Any "structuralHash" "Util"]
 

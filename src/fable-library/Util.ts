@@ -61,16 +61,6 @@ export interface IEqualityComparer<T> {
   GetHashCode(x: T): number;
 }
 
-export interface ICollection<T> {
-  readonly Count: number;
-  readonly IsReadOnly: boolean;
-  Add(item: T): void;
-  Clear(): void;
-  Contains(item: T): boolean;
-  CopyTo(array: T[], arrayIndex: number): void;
-  Remove(item: T): boolean;
-}
-
 export interface IMutableMap<K, V> {
   readonly size: number;
   clear(): void;

@@ -35,15 +35,19 @@ export function declare(cons: any, superClass?: any) {
 export class SystemObject implements IEquatable<any> {
 
   public toString() {
-    return "{" + Object.entries(this).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
+    return this.ToString();
   }
 
-  public GetHashCode(x?: any) {
-    return identityHash(x ?? this);
+  public ToString() {
+    return this.constructor.name;
   }
 
-  public Equals(x: any, y?: any) {
-    return x === (y ?? this);
+  public GetHashCode() {
+    return identityHash(this);
+  }
+
+  public Equals(x: any) {
+    return this === x;
   }
 }
 

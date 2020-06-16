@@ -863,16 +863,6 @@ module Util =
                 upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
-    // TODO!!! Add more exceptions (like CompareTo, GetZero...)
-    // or fix them in Replacements/fable-library
-    let getAttachedMemberName = function
-        // System.Object overrides go unmangled for compatibility with fable-library
-        | "System-Object-Equals" -> "Equals"
-        | "System-Object-GetHashCode" -> "GetHashCode"
-        // ToString goes in lower case for compatibity with JS (and debugger tools)
-        | "System-Object-ToString" -> "toString"
-        | name -> name
-
     let transformObjectExpr (com: IBabelCompiler) ctx (members: AttachedMember list) (boundThis: string) baseCall: Expression =
         let makeObjMethod kind prop computed hasSpread args body =
             let boundThis, args = prepareBoundThis boundThis args
@@ -882,8 +872,7 @@ module Util =
                 ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2 |> Some
         let pojo =
             members |> List.choose (fun (args, body, info) ->
-                let name = getAttachedMemberName info.Name
-                let prop, computed = memberFromName name
+                let prop, computed = memberFromName info.Name
                 if info.IsValue then
                     ObjectProperty(prop, com.TransformAsExpr(ctx, body), computed_=computed) |> U3.Case1 |> Some
                 elif info.IsGetter then
@@ -1992,13 +1981,8 @@ module Util =
         let boundThis, args = prepareBoundThis "this" args
         let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args info.HasSpread body
         let funcExpr = makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
-        let protoMember: Expression =
-            match info.EntityName, info.Name with
-            // TODO: Add Symbol.iterator if necessary
-            // | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
-            // Compile System.Object.ToString in lower case for compatibity with JS (and debugger tools)
-            | "System.Object", "ToString" -> upcast StringLiteral "toString"
-            | _, name -> upcast StringLiteral name
+        // TODO!!!: Add Symbol.iterator if info.Name is System-Collections-Generic-IEnumerable`1-GetIterator
+        let protoMember: Expression = upcast StringLiteral info.Name
         let protoMember = getExpr None (get None funcCons "prototype") protoMember
         assign None protoMember funcExpr
         |> ExpressionStatement :> Statement

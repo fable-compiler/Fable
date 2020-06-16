@@ -13,7 +13,7 @@ type CaseRules =
     /// FooBar -> foo-bar
     | KebabCase = 4
 
-type NoMangleAttribute() =
+type MangleAttribute() =
     inherit Attribute()
 
 /// Used for erased union types and to ignore modules in JS compilation.

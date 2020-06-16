@@ -8,7 +8,7 @@ module Atts =
     let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
     let [<Literal>] entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
     let [<Literal>] sealed_ = "Microsoft.FSharp.Core.SealedAttribute" // typeof<Microsoft.FSharp.Core.SealedAttribute>.FullName
-    let [<Literal>] noMangle = "Fable.Core.JsInterfaceAttribute" // typeof<Fable.Core.NoMangleAttribute>.FullName
+    let [<Literal>] mangle = "Fable.Core.MangleAttribute" // typeof<Fable.Core.MangleAttribute>.FullName
     let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
@@ -87,7 +87,7 @@ module Types =
     // Types compatible with Inject attribute
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
     let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
-    let [<Literal>] arrayCons = "Array.IArrayCons`1"
+    let [<Literal>] arrayCons = "Fable.Core.IArrayCons`1"
     let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
     let [<Literal>] adder = "Fable.Core.IGenericAdder`1"
     let [<Literal>] averager = "Fable.Core.IGenericAverager`1"

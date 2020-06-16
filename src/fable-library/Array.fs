@@ -8,12 +8,6 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
 
-type IArrayCons<'T> =
-    [<Emit("new $0($1)")>]
-    abstract Create: capacity: int -> 'T array
-    [<Emit("$0.from($1)")>]
-    abstract FromSequence: 'T seq -> 'T array
-
 let [<Emit("Array")>] DynamicArrayCons<'T> : IArrayCons<'T> = jsNative
 
 module Helpers =
@@ -122,8 +116,8 @@ module Helpers =
 
 open Helpers
 
-let private indexNotFoundMsg = "An index satisfying the predicate was not found in the collection."
-let inline indexNotFound() = failwith indexNotFoundMsg
+let private indexNotFound() =
+    failwith "An index satisfying the predicate was not found in the collection."
 
 // Pay attention when benchmarking to append and filter functions below
 // if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
