@@ -168,6 +168,39 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
 
+let private getAttachedMemberInfo r entityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
+    let isGetter = sign.Name.StartsWith("get_")
+    let isSetter = not isGetter && sign.Name.StartsWith("set_")
+    let name, isGetter, isSetter, hasSpread =
+        // Don't use the type from the arguments as the override may come
+        // from another type, like ToString()
+        if sign.DeclaringType.HasTypeDefinition then
+            let ent = sign.DeclaringType.TypeDefinition
+            let hasSpread =
+                if isGetter || isSetter then false
+                else
+                    // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
+                    // information about ParamArray, we need to check the source method.
+                    ent.TryGetMembersFunctionsAndValues
+                    |> Seq.tryFind (fun x -> x.CompiledName = sign.Name)
+                    |> function Some m -> hasSeqSpread m | None -> false
+            let name, isGetter, isSetter =
+                if isMangledAbstractEntity ent then
+                    let overloadHash = if isGetter || isSetter then "" else OverloadSuffix.getAbstractSignatureHash ent sign
+                    getMangledAbstractMemberName ent sign.Name overloadHash, false, false
+                else
+                    Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
+            name, isGetter, isSetter, hasSpread
+        else
+            Naming.removeGetSetPrefix sign.Name, isGetter, isSetter, false
+    { Name = name
+      EntityName = entityName
+      IsValue = false
+      IsGetter = isGetter
+      IsSetter = isSetter
+      HasSpread = hasSpread
+      Range = r }
+
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
                     baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
 
@@ -175,42 +208,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
       trampoline {
         let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
         let! body = transformExpr com ctx over.Body
-        let sign = over.Signature
-        let isGetter = sign.Name.StartsWith("get_")
-        let isSetter = not isGetter && sign.Name.StartsWith("set_")
-        let name, hasSpread =
-            // Don't use the type from the arguments as the override may come
-            // from another type, like ToString()
-            if sign.DeclaringType.HasTypeDefinition then
-                let ent = sign.DeclaringType.TypeDefinition
-                let entName = defaultArg ent.TryFullName ""
-                let name =
-                    if isMangledAbstractEntity ent then
-                        let name = entName + "-" + sign.Name
-                        if isGetter || isSetter then name
-                        else
-                            name + (OverloadSuffix.getAbstractSignatureHash ent sign)
-                    else
-                        Naming.removeGetSetPrefix sign.Name
-                let hasSpread =
-                    if isGetter || isSetter then false
-                    else
-                        // FSharpObjectExprOverride.CurriedParameterGroups doesn't offer
-                        // information about ParamArray, we need to check the source method.
-                        ent.TryGetMembersFunctionsAndValues
-                        |> Seq.tryFind (fun x -> x.CompiledName = sign.Name)
-                        |> function Some m -> hasSeqSpread m | None -> false
-                name, hasSpread
-            else
-                sign.Name, false
-        let info: Fable.AttachedMemberInfo =
-            { Name = name
-              EntityName = ""
-              IsValue = false
-              IsGetter = isGetter
-              IsSetter = isSetter
-              HasSpread = hasSpread
-              Range = None }
+        let info = getAttachedMemberInfo None "" over.Signature
         return args, body, info
       }
 
@@ -967,25 +965,13 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
         else transformMemberFunction com ctx isPublic name memb args body
 
 let private transformAttachedMember (com: FableCompiler) (ctx: Context)
-            (implementingEntity: FSharpEntity) (signatureEntity: FSharpEntity)
+            (implementingEntity: FSharpEntity) (signature: FSharpAbstractSignature)
             (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx body |> run
-    let isGetter = memb.IsPropertyGetterMethod
-    let isSetter = memb.IsPropertySetterMethod
-    let isNoMangle = isMangledAbstractEntity signatureEntity |> not
-    let name =
-        if isNoMangle then getMemberDisplayName memb
-        elif isGetter || isSetter then memb.CompiledName
-        else memb.CompiledName + (OverloadSuffix.getHash signatureEntity memb)
-    let info: Fable.AttachedMemberInfo =
-        { Name = name
-          EntityName = getEntityDeclarationName com implementingEntity
-          IsValue = false
-          IsGetter = isNoMangle && isGetter
-          IsSetter = isNoMangle && isSetter
-          HasSpread = not isGetter && not isSetter && hasSeqSpread memb
-          Range = makeRange memb.DeclarationLocation |> Some }
+    let entityName = getEntityDeclarationName com implementingEntity
+    let r = makeRange memb.DeclarationLocation |> Some
+    let info = getAttachedMemberInfo r entityName signature
     [Fable.AttachedMemberDeclaration(args, body, info)]
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
@@ -1014,9 +1000,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
             | Some implementingEntity when not(isErasedEntity implementingEntity) ->
                 // Not sure when it's possible that a member implements multiple abstract signatures
                 memb.ImplementedAbstractSignatures |> Seq.tryHead
-                |> Option.bind (fun s -> tryTypeDefinition s.DeclaringType)
-                |> Option.map (fun signatureEntity ->
-                    transformAttachedMember com ctx implementingEntity signatureEntity memb args body)
+                |> Option.map (fun s -> transformAttachedMember com ctx implementingEntity s memb args body)
                 |> Option.defaultValue []
             | _ -> []
     else transformMemberFunctionOrValue com ctx memb args body

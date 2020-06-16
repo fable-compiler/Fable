@@ -160,10 +160,9 @@ module Helpers =
             let ent = memb.ApparentEnclosingEntity
             ent.IsInterface, memb.FullName
 
-    /// TODO: Check if FCS adds get_/set_ to DisplayName.
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
-        memb.DisplayName
         // Naming.removeGetSetPrefix memb.DisplayName
+        memb.DisplayName
 
     let tryFindAtt fullName (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -1027,6 +1026,11 @@ module Util =
         // Mangle members from abstract classes unless they are global/imported
         | _ -> not(isImportedOrGlobalEntity ent)
 
+    let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
+        // TODO: Error if entity doesn't have fullname?
+        let entityName = defaultArg ent.TryFullName ""
+        entityName + "." + memberName + overloadHash
+
     let callInstanceMember com r typ (argInfo: Fable.ArgInfo)
                     (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
@@ -1039,10 +1043,10 @@ module Util =
         let isSetter = not isGetter && memb.IsPropertySetterMethod
         let name, isGetter, isSetter =
             if isMangledAbstractEntity entity then
-                let name = getMemberDisplayName memb
-                name, isGetter, isSetter
-            elif isGetter || isSetter then memb.CompiledName, false, false
-            else memb.CompiledName + (OverloadSuffix.getHash entity memb), false, false
+                let overloadHash = if isGetter || isSetter then "" else OverloadSuffix.getHash entity memb
+                getMangledAbstractMemberName entity memb.CompiledName overloadHash, false, false
+            else
+                getMemberDisplayName memb, isGetter, isSetter
         if isGetter then
             let t = memb.ReturnParameter.Type |> makeType com Map.empty
             let kind = Fable.FieldGet(name, true, t)
@@ -1053,7 +1057,7 @@ module Util =
             Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
         else
             let argInfo = { argInfo with ThisArg = Some callee }
-            makeStrConst memb.CompiledName |> Some |> instanceCall r typ argInfo
+            makeStrConst name |> Some |> instanceCall r typ argInfo
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo) isModuleValue
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
