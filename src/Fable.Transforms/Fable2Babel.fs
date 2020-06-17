@@ -40,7 +40,6 @@ type IBabelCompiler =
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string * Fable.ImportKind -> Expression
-    abstract TransformObjectExpr: Context * AttachedMember list * boundThis: string * ?baseCall: Fable.Expr -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern array) * U2<BlockStatement, Expression>
 
@@ -125,10 +124,13 @@ module Util =
     let ofString s =
         StringLiteral s :> Expression
 
-    let memberFromName memberName: Expression * bool =
-        if Naming.hasIdentForbiddenChars memberName
-        then upcast StringLiteral(memberName), true
-        else upcast Identifier(memberName), false
+    let memberFromName (memberName: string): Expression * bool =
+        if memberName.StartsWith("Symbol.") then
+            upcast MemberExpression(Identifier "Symbol", Identifier memberName.[7..], false), true
+        elif Naming.hasIdentForbiddenChars memberName then
+            upcast StringLiteral(memberName), true
+        else
+            upcast Identifier(memberName), false
 
     let memberFromExpr (com: IBabelCompiler) ctx memberExpr: Expression * bool =
         match memberExpr with
@@ -863,24 +865,35 @@ module Util =
                 upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
+    let enumerator2iterator com ctx =
+        let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
+        BlockStatement [|ReturnStatement(coreLibCall com ctx None "Seq" "toIterator" [|enumerator|])|]
+
     let transformObjectExpr (com: IBabelCompiler) ctx (members: AttachedMember list) (boundThis: string) baseCall: Expression =
         let makeObjMethod kind prop computed hasSpread args body =
             let boundThis, args = prepareBoundThis boundThis args
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx None boundThis args hasSpread body
             ObjectMethod(kind, prop, args, body, computed_=computed,
-                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2 |> Some
+                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2
         let pojo =
-            members |> List.choose (fun (args, body, info) ->
+            members |> List.collect (fun (args, body, info) ->
                 let prop, computed = memberFromName info.Name
                 if info.IsValue then
-                    ObjectProperty(prop, com.TransformAsExpr(ctx, body), computed_=computed) |> U3.Case1 |> Some
+                    [ObjectProperty(prop, com.TransformAsExpr(ctx, body), computed_=computed) |> U3.Case1]
                 elif info.IsGetter then
-                    makeObjMethod ObjectGetter prop computed false args body
+                    [makeObjMethod ObjectGetter prop computed false args body]
                 elif info.IsSetter then
-                    makeObjMethod ObjectSetter prop computed false args body
+                    [makeObjMethod ObjectSetter prop computed false args body]
+                elif info.IsEnumerator then
+                    let method = makeObjMethod ObjectMeth prop computed info.HasSpread args body
+                    let iterator =
+                        let prop, computed = memberFromName "Symbol.iterator"
+                        let body = enumerator2iterator com ctx
+                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> U3.Case2
+                    [method; iterator]
                 else
-                    makeObjMethod ObjectMeth prop computed info.HasSpread args body
+                    [makeObjMethod ObjectMeth prop computed info.HasSpread args body]
             ) |> List.toArray |> ObjectExpression
         match baseCall with
         | Some(TransformExpr com ctx baseCall) ->
@@ -1977,16 +1990,26 @@ module Util =
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
     let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
+        let attachToPrototype funcCons memberName expr =
+            let prototype = get None funcCons "prototype"
+            let protoMember = get None prototype memberName
+            assign None protoMember expr
+            |> ExpressionStatement :> Statement
+            |> U2<_,ModuleDeclaration>.Case1
+
         let funcCons = Identifier info.EntityName :> Expression
         let boundThis, args = prepareBoundThis "this" args
         let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args info.HasSpread body
-        let funcExpr = makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
-        // TODO!!!: Add Symbol.iterator if info.Name is System-Collections-Generic-IEnumerable`1-GetIterator
-        let protoMember: Expression = upcast StringLiteral info.Name
-        let protoMember = getExpr None (get None funcCons "prototype") protoMember
-        assign None protoMember funcExpr
-        |> ExpressionStatement :> Statement
-        |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
+        let method =
+            makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
+            |> attachToPrototype funcCons info.Name
+        if info.IsEnumerator then
+            let iterator =
+                FunctionExpression([||], enumerator2iterator com ctx) :> Expression
+                |> attachToPrototype funcCons "Symbol.iterator"
+            [method; iterator]
+        else
+            [method]
 
     let transformUnionConstructor (com: IBabelCompiler) ctx r (info: Fable.UnionConstructorInfo) =
         let baseRef = coreValue com ctx "Types" "Union"
@@ -2240,7 +2263,6 @@ module Compiler =
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
-            member bcom.TransformObjectExpr(ctx, members, boundThis, baseCall) = transformObjectExpr bcom ctx members boundThis baseCall
             member bcom.TransformImport(ctx, selector, path, kind) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path) kind
 
         interface ICompiler with

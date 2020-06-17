@@ -72,6 +72,7 @@ type AttachedMemberInfo =
       IsValue: bool
       IsGetter: bool
       IsSetter: bool
+      IsEnumerator: bool
       HasSpread: bool
       Range: SourceLocation option }
 

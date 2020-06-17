@@ -920,6 +920,26 @@ module Util =
                 getImportPath path |> makeCustomImport typ selector |> Some
             | _ -> None)
 
+    let tryGlobalOrImportedEntity (com: ICompiler) (ent: FSharpEntity) =
+        let getImportPath path =
+            lazy getEntityLocation ent
+            |> fixImportedRelativePath com path
+        ent.Attributes |> Seq.tryPick (function
+            | AttFullName(Atts.global_, att) ->
+                match att with
+                | AttArguments [:? string as customName] ->
+                    makeTypedIdentNonMangled Fable.Any customName |> Fable.IdentExpr |> Some
+                | _ -> ent.DisplayName |> makeTypedIdentNonMangled Fable.Any |> Fable.IdentExpr |> Some
+            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
+                getImportPath path |> makeCustomImport Fable.Any selector |> Some
+            | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport Fable.Any "*" |> Some
+            | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport Fable.Any "default" |> Some
+            | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
+                getImportPath path |> makeCustomImport Fable.Any ent.DisplayName |> Some
+            | _ -> None)
+
     let isErasedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
@@ -927,7 +947,7 @@ module Util =
                     | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
             | _ -> false)
 
-    let isImportedOrGlobalEntity (ent: FSharpEntity) =
+    let isGlobalOrImportedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
@@ -964,6 +984,12 @@ module Util =
 
     let entityRef (com: ICompiler) (ent: FSharpEntity) =
         entityRefWithSuffix com ent ""
+
+    /// First checks if the entity is global or imported
+    let entityRefMaybeGlobalOrImported (com: ICompiler) (ent: FSharpEntity) =
+        match tryGlobalOrImportedEntity com ent with
+        | Some importedEntity -> importedEntity
+        | None -> entityRef com ent
 
     let memberRefTyped (com: IFableCompiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
@@ -1024,7 +1050,7 @@ module Util =
         // Don't mangle interfaces by default (for better JS interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> hasAttribute Atts.mangle ent.Attributes
         // Mangle members from abstract classes unless they are global/imported
-        | _ -> not(isImportedOrGlobalEntity ent)
+        | _ -> not(isGlobalOrImportedEntity ent)
 
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
         // TODO: Error if entity doesn't have fullname?
@@ -1119,6 +1145,23 @@ module Util =
             else staticCall r typ argInfo importExpr |> Some
         | Some importExpr, None, _ ->
             Some importExpr
+        | None, Some argInfo, Some e ->
+            let isBaseOrSelfConstructorCall = argInfo.IsBaseCall || argInfo.IsSelfConstructorCall
+            match tryGlobalOrImportedEntity com e, isBaseOrSelfConstructorCall, argInfo.ThisArg with
+            | Some classExpr, true, _ ->
+                staticCall r typ argInfo classExpr |> Some
+            | Some _, false, Some _thisArg ->
+                callInstanceMember com r typ argInfo e memb |> Some
+            | Some classExpr, false, None ->
+                if memb.IsConstructor then
+                    Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r) |> Some
+                elif isModuleValue then
+                    let kind = Fable.FieldGet(getMemberDisplayName memb, true, Fable.Any)
+                    Fable.Get(classExpr, kind, typ, r) |> Some
+                else
+                    let argInfo = { argInfo with ThisArg = Some classExpr }
+                    callInstanceMember com r typ argInfo e memb |> Some
+            | None, _, _ -> None
         | _ -> None
 
     let inlineExpr (com: IFableCompiler) (ctx: Context) r (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =

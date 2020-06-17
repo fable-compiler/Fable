@@ -87,6 +87,7 @@ module Helpers =
                  IsValue = true
                  IsGetter = false
                  IsSetter = false
+                 IsEnumerator = false
                  HasSpread = false
                  Range = None }
 
@@ -617,9 +618,6 @@ let listToArray com r t (li: Expr) =
 let stringToCharArray t e =
     Helper.InstanceCall(e, "split", t, [makeStrConst ""])
 
-let enumerator2iterator (e: Expr) =
-    Helper.CoreCall("Seq", "toIterator", e.Type, [e])
-
 let toSeq t (e: Expr) =
     match e.Type with
     // Convert to array to get 16-bit code units, see #1279
@@ -995,7 +993,6 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | None -> args
         | Some injections -> args @ injections
 
-// TODO!!! How to add other entities?
 let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     match ent.TryFullName with
     | Some Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
@@ -1012,7 +1009,7 @@ let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
 
 let tryJsConstructor com ent =
     if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
-    else FSharp2Fable.Util.entityRef com ent |> Some
+    else FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent |> Some
 
 let jsConstructor com ent =
     match tryJsConstructor com ent with

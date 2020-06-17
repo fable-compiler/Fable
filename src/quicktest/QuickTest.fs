@@ -58,3 +58,81 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+type Foo =
+    abstract Foo: string with get, set
+    abstract DoSomething: float -> float
+    abstract Item: x: int -> char
+    abstract Sum: [<ParamArray>] items: string[] -> string
+
+[<Mangle>]
+type Bar =
+    abstract Bar: string with get, set
+    abstract DoSomething: float -> float
+    abstract Item: x: int -> char
+    abstract Item: x: char -> bool
+    abstract Sum: [<ParamArray>] items: string[] -> string
+
+[<AbstractClass>]
+type FooAbstractClass(x: float) =
+    member _.Value = x
+    member _.DoSomething(x, y) = x * y
+    abstract DoSomething: float -> float
+
+type FooClass(x) =
+    inherit FooAbstractClass(5.)
+    let mutable x = x
+    override this.DoSomething(x) =
+        this.DoSomething(x, this.Value)
+    interface Foo with
+        member _.Foo with get() = x and set(y) = x <- y
+        member this.DoSomething(x) = this.DoSomething(x + 2.)
+        member _.Item(i) = x.[i]
+        member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
+
+[<AbstractClass>]
+type BarAbstractClass(x: float) =
+    member _.Value = x
+    member _.DoSomething(x, y) = x ** y
+    abstract DoSomething: float -> float
+
+type BarClass(x) =
+    inherit BarAbstractClass(10.)
+    let mutable x = x
+    override this.DoSomething(x) =
+        this.DoSomething(x, this.Value)
+    interface Bar with
+        member _.Bar with get() = x and set(y) = x <- y
+        member this.DoSomething(x) = this.DoSomething(x + 3.)
+        member _.Item(i) = x.[i]
+        member _.Item(c) = x.ToCharArray() |> Array.exists ((=) c)
+        member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
+
+let test() =
+    let mutable foo = "Foo"
+    let mutable bar = "Bar"
+    let foo = { new Foo with member _.Foo with get() = foo and set x = foo <- x
+                             member _.DoSomething(x) = x + 1.
+                             member _.Item(i) = foo.[i]
+                             member _.Sum(items) = Array.reduce (+) items }
+    let bar = { new Bar with member _.Bar with get() = bar and set x = bar <- x
+                             member _.DoSomething(x) = x + 2.
+                             member _.Item(i) = bar.[i]
+                             member _.Item(c) = bar.ToCharArray() |> Array.exists ((=) c)
+                             member _.Sum(items) = Array.rev items |> Array.reduce (+)  }
+
+    foo.Foo <- foo.Foo + foo.DoSomething(3.).ToString() + foo.[2].ToString()
+    bar.Bar <- bar.Bar + bar.DoSomething(3.).ToString() + bar.[2].ToString() + (sprintf "%b%b" bar.['B'] bar.['x'])
+    foo.Foo <- foo.Foo + foo.Sum("a", "bc", "d")
+    bar.Bar <- bar.Bar + bar.Sum("a", "bc", "d")
+
+    let foo2 = FooClass("Foo") :> Foo
+    let bar2 = BarClass("Bar") :> Bar
+    foo2.Foo <- foo2.Foo + foo2.DoSomething(3.).ToString() + foo.[2].ToString()
+    bar2.Bar <- bar2.Bar + bar2.DoSomething(3.).ToString() + bar.[2].ToString() + (sprintf "%b%b" bar.['B'] bar.['x'])
+    foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
+    bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
+
+    foo.Foo + bar.Bar + foo2.Foo + bar2.Bar
+
+test() |> log

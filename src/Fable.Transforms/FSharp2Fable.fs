@@ -53,7 +53,7 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
             else None)
 
         let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCons
-        entityRef com baseEnt, baseCons
+        entityRefMaybeGlobalOrImported com baseEnt, baseCons
 
 let private transformNewUnion com ctx r fsType
                 (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
@@ -171,11 +171,14 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
 let private getAttachedMemberInfo r entityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
     let isGetter = sign.Name.StartsWith("get_")
     let isSetter = not isGetter && sign.Name.StartsWith("set_")
-    let name, isGetter, isSetter, hasSpread =
+    let name, isGetter, isSetter, isEnumerator, hasSpread =
         // Don't use the type from the arguments as the override may come
         // from another type, like ToString()
         if sign.DeclaringType.HasTypeDefinition then
             let ent = sign.DeclaringType.TypeDefinition
+            let isEnumerator =
+                sign.Name = "GetEnumerator"
+                && ent.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
             let hasSpread =
                 if isGetter || isSetter then false
                 else
@@ -190,14 +193,15 @@ let private getAttachedMemberInfo r entityName (sign: FSharpAbstractSignature): 
                     getMangledAbstractMemberName ent sign.Name overloadHash, false, false
                 else
                     Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
-            name, isGetter, isSetter, hasSpread
+            name, isGetter, isSetter, isEnumerator, hasSpread
         else
-            Naming.removeGetSetPrefix sign.Name, isGetter, isSetter, false
+            Naming.removeGetSetPrefix sign.Name, isGetter, isSetter, false, false
     { Name = name
       EntityName = entityName
       IsValue = false
       IsGetter = isGetter
       IsSetter = isSetter
+      IsEnumerator = isEnumerator
       HasSpread = hasSpread
       Range = r }
 
@@ -807,11 +811,11 @@ let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
     Option.isSome meth.LiteralValue
     || meth.Attributes |> Seq.exists (fun att ->
         match att.AttributeType.TryFullName with
-        | Some(Atts.erase | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
+        | Some(Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
                 | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
         | _ -> false)
     || (match meth.DeclaringEntity with
-        | Some ent -> isErasedEntity ent
+        | Some ent -> isGlobalOrImportedEntity ent
         | None -> false)
 
 let private isRecordLike (ent: FSharpEntity) =
