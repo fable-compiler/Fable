@@ -161,8 +161,7 @@ module Helpers =
             ent.IsInterface, memb.FullName
 
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
-        // Naming.removeGetSetPrefix memb.DisplayName
-        memb.DisplayName
+        Naming.removeGetSetPrefix memb.DisplayName
 
     let tryFindAtt fullName (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -1043,6 +1042,7 @@ module Util =
             | "System.IObserver`1"
             | Types.ienumerableGeneric
             | Types.ienumeratorGeneric
+            | Types.ienumerator
             // These are used for injections
             | Types.comparer
             | Types.equalityComparer -> false

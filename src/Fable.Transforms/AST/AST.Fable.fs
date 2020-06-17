@@ -75,6 +75,8 @@ type AttachedMemberInfo =
       IsEnumerator: bool
       HasSpread: bool
       Range: SourceLocation option }
+    member this.IsMethod =
+        not this.IsValue && not this.IsGetter && not this.IsSetter && not this.IsEnumerator
 
 type ClassImplicitConstructorInfo =
     { Name: string

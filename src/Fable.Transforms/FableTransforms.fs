@@ -454,6 +454,13 @@ module private Transforms =
             if arity > 1
             then DelayedResolution(Curry(e, arity), t, r)
             else e
+        | ObjectExpr(members, t, baseCall) ->
+            let members =
+                members |> List.map (fun (args, body, info) ->
+                    let body = if info.IsMethod then uncurryIdentsAndReplaceInBody args body
+                               else body
+                    args, body, info)
+            ObjectExpr(members, t, baseCall)
         | e -> e
 
     let uncurrySendingArgs (com: ICompiler) e =
@@ -510,6 +517,34 @@ module private Transforms =
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None
 
+    // Unwrapping functions (e.g `(x, y) => f(x, y)` --> `f`) is important for readability
+    // and also in some situations, like passing fucntions as props to React components
+    // See https://blog.vbfox.net/2018/02/08/fable-react-2-optimizing-react.html
+    let unwrapFunctions e =
+        let notReferencedInExpr (args: Ident list) (e: Expr) =
+            args |> List.exists (fun a ->
+                let identName = a.Name
+                e |> deepExists (function
+                    | IdentExpr id -> id.Name = identName
+                    | _ -> false)) |> not
+        let sameArgs args1 args2 =
+            List.sameLength args1 args2
+            && List.forall2 (fun (a1: Ident) -> function
+                | IdentExpr a2 -> a1.Name = a2.Name
+                | _ -> false) args1 args2
+        match e with
+        // TODO: When Option.isSome info.ThisArg we could bind it (also for InstanceCall)
+        | LambdaOrDelegate(args, Operation(Call(StaticCall funcExpr, info), _, _), _)
+            when Option.isNone info.ThisArg
+                // Make sure first argument is not `this`, because it wil be removed
+                // from args in Fable2Babel.transformObjectExpr (see #1434).
+                && List.tryHead args |> Option.map (fun x -> x.IsThisArgDeclaration) |> Option.defaultValue false |> not
+                && sameArgs args info.Args
+                // Check the args are not used in the expression. See #1484
+                && notReferencedInExpr args funcExpr
+            -> funcExpr
+        | e -> e
+
 open Transforms
 
 // ATTENTION: Order of transforms matters for optimizations
@@ -526,6 +561,7 @@ let optimizations =
       fun com e -> visitFromInsideOut (uncurrySendingArgs com) e
       // uncurryApplications must come after uncurrySendingArgs as it erases argument type info
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
+      fun _ e -> visitFromInsideOut unwrapFunctions e
     ]
 
 let optimizeExpr (com: ICompiler) e =
@@ -534,26 +570,25 @@ let optimizeExpr (com: ICompiler) e =
 let rec optimizeDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->
         ActionDeclaration(optimizeExpr com expr)
-    | ModuleMemberDeclaration(args, value, info) ->
-        ModuleMemberDeclaration(args, optimizeExpr com value, info)
+    | ModuleMemberDeclaration(args, body, info) ->
+        let body =
+            if info.IsValue then body
+            else uncurryIdentsAndReplaceInBody args body
+        ModuleMemberDeclaration(args, optimizeExpr com body, info)
     | ConstructorDeclaration(kind, r) ->
         let kind =
             match kind with
             | ClassImplicitConstructor info ->
-                let args, body =
-                    // Create a function so the arguments can be uncurried, see #1441
-                    Function(Delegate info.Arguments, info.Body, None)
+                let body =
+                    uncurryIdentsAndReplaceInBody info.Arguments info.Body
                     |> optimizeExpr com
-                    |> function
-                        | Function(Delegate args, body, _) -> args, body
-                        | _ ->
-                            "Unexpected result when optimizing ClassImplicitConstructor, please report"
-                            |> addWarning com [] None
-                            info.Arguments, info.Body
-                ClassImplicitConstructor { info with Arguments = args; Body = body }
+                ClassImplicitConstructor { info with Body = body }
             | kind -> kind
         ConstructorDeclaration(kind, r)
     | AttachedMemberDeclaration(args, body, info) ->
+        let body =
+            if info.IsMethod then uncurryIdentsAndReplaceInBody args body
+            else body
         AttachedMemberDeclaration(args, optimizeExpr com body, info)
 
 let optimizeFile (com: ICompiler) (file: File) =

@@ -79,7 +79,7 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 
   public toString() {
-    return "[" + Array.from(this).join("; ") + "]";
+    return this.ToString();
   }
 
   public toJSON() {
@@ -96,6 +96,10 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
         return { done, value };
       },
     };
+  }
+
+  public ToString() {
+    return "[" + Array.from(this).join("; ") + "]";
   }
 
   public GetHashCode() {
@@ -124,7 +128,7 @@ export class Union extends SystemObject implements IComparable<any> {
     this.fields = fields;
   }
 
-  public toString() {
+  public ToString() {
     const len = this.fields.length;
     if (len === 0) {
       return this.name;
@@ -211,7 +215,7 @@ function recordCompare(self: any, other: any, getFieldNames?: (arg: any) => any)
 
 export class Record extends SystemObject implements IComparable<any> {
 
-  public toString() {
+  public ToString() {
     return "{" + Object.entries(this).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
   }
 
@@ -280,6 +284,14 @@ function getFSharpExceptionFieldNames(self: any) {
 export class FSharpException extends Exception implements IComparable<any> {
 
   public toString() {
+    return this.ToString();
+  }
+
+  public toJSON() {
+    return recordToJson(this, getFSharpExceptionFieldNames);
+  }
+
+  public ToString() {
     // const fieldNames = getFSharpExceptionFieldNames(this);
     const fields = Object.entries(this).filter(([k, _]) => k !== "message" && k !== "stack");
     const len = fields.length;
@@ -290,10 +302,6 @@ export class FSharpException extends Exception implements IComparable<any> {
     } else {
       return this.message + " (" + fields.map(([_, v]) => String(v)).join(",") + ")";
     }
-  }
-
-  public toJSON() {
-    return recordToJson(this, getFSharpExceptionFieldNames);
   }
 
   public GetHashCode() {

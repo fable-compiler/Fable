@@ -168,17 +168,17 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
 
-let private getAttachedMemberInfo r entityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
+let private getAttachedMemberInfo r implementingEntityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
     let isGetter = sign.Name.StartsWith("get_")
     let isSetter = not isGetter && sign.Name.StartsWith("set_")
     let name, isGetter, isSetter, isEnumerator, hasSpread =
         // Don't use the type from the arguments as the override may come
         // from another type, like ToString()
-        if sign.DeclaringType.HasTypeDefinition then
-            let ent = sign.DeclaringType.TypeDefinition
+        match tryDefinition sign.DeclaringType with
+        | Some(ent, fullName) ->
             let isEnumerator =
                 sign.Name = "GetEnumerator"
-                && ent.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
+                && fullName = Some "System.Collections.Generic.IEnumerable`1"
             let hasSpread =
                 if isGetter || isSetter then false
                 else
@@ -194,10 +194,10 @@ let private getAttachedMemberInfo r entityName (sign: FSharpAbstractSignature): 
                 else
                     Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
             name, isGetter, isSetter, isEnumerator, hasSpread
-        else
+        | None ->
             Naming.removeGetSetPrefix sign.Name, isGetter, isSetter, false, false
     { Name = name
-      EntityName = entityName
+      EntityName = implementingEntityName
       IsValue = false
       IsGetter = isGetter
       IsSetter = isSetter
