@@ -171,6 +171,8 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
 let private getAttachedMemberInfo r implementingEntityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
     let isGetter = sign.Name.StartsWith("get_")
     let isSetter = not isGetter && sign.Name.StartsWith("set_")
+    let indexedProp = (isGetter && countNonCurriedParamsForSignature sign > 0)
+                        || (isSetter && countNonCurriedParamsForSignature sign > 1)
     let name, isGetter, isSetter, isEnumerator, hasSpread =
         // Don't use the type from the arguments as the override may come
         // from another type, like ToString()
@@ -189,10 +191,14 @@ let private getAttachedMemberInfo r implementingEntityName (sign: FSharpAbstract
                     |> function Some m -> hasSeqSpread m | None -> false
             let name, isGetter, isSetter =
                 if isMangledAbstractEntity ent then
-                    let overloadHash = if isGetter || isSetter then "" else OverloadSuffix.getAbstractSignatureHash ent sign
+                    let overloadHash =
+                        if (isGetter || isSetter) && not indexedProp then ""
+                        else OverloadSuffix.getAbstractSignatureHash ent sign
                     getMangledAbstractMemberName ent sign.Name overloadHash, false, false
                 else
-                    Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
+                    // For indexed properties, keep the get_/set_ prefix and compile as method
+                    if indexedProp then sign.Name, false, false
+                    else Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
             name, isGetter, isSetter, isEnumerator, hasSpread
         | None ->
             Naming.removeGetSetPrefix sign.Name, isGetter, isSetter, false, false

@@ -127,5 +127,5 @@ let main argv =
     try
         parseArguments argv
     with ex ->
-        printfn "Error: %A" ex.Message
+        printfn "Error: %s\n%s" ex.Message ex.StackTrace
     0

@@ -663,6 +663,7 @@ module TypeHelpers =
         let name = fi.Name
         match fi.DeclaringEntity with
         | None -> name
+        | Some ent when ent.IsFSharpRecord -> name
         | Some ent ->
             match countConflictingCases 0 ent name with
             | 0 -> name
@@ -855,20 +856,13 @@ module Util =
             if isUnit args.[0].[0].Type then 0 else 1
         else args.[0].Count
 
-    /// Same as `countNonCurriedParams` but applied to overrides
-    let countNonCurriedParamsForOverride (over: FSharpObjectExprOverride) =
-        let args = over.CurriedParameterGroups
-        match args with
-        | [] | [_] -> 0
-        // Unlike FSharpMemberOrFunctionOrValue.CurriedParameterGroups
-        // overrides DO include the name self instance as parameter
-        | _thisArg::firsGroup::_ ->
-            match firsGroup with
-            | [arg] ->
-                match arg.FullTypeSafe with
-                | Some t when isUnit t -> 0
-                | _ -> 1
-            | args -> List.length args
+    /// Same as `countNonCurriedParams` but applied to abstract signatures
+    let countNonCurriedParamsForSignature (sign: FSharpAbstractSignature) =
+        let args = sign.AbstractArguments
+        if args.Count = 0 then 0
+        elif args.[0].Count = 1 then
+            if isUnit args.[0].[0].Type then 0 else 1
+        else args.[0].Count
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
@@ -1067,12 +1061,17 @@ module Util =
                 |> attachRange r |> failwith
         let isGetter = memb.IsPropertyGetterMethod
         let isSetter = not isGetter && memb.IsPropertySetterMethod
+        let indexedProp = (isGetter && countNonCurriedParams memb > 0) || (isSetter && countNonCurriedParams memb > 1)
         let name, isGetter, isSetter =
             if isMangledAbstractEntity entity then
-                let overloadHash = if isGetter || isSetter then "" else OverloadSuffix.getHash entity memb
+                let overloadHash =
+                    if (isGetter || isSetter) && not indexedProp then ""
+                    else OverloadSuffix.getHash entity memb
                 getMangledAbstractMemberName entity memb.CompiledName overloadHash, false, false
             else
-                getMemberDisplayName memb, isGetter, isSetter
+                // Indexed properties keep the get_/set_ prefix and are compiled as methods
+                if indexedProp then memb.CompiledName, false, false
+                else getMemberDisplayName memb, isGetter, isSetter
         if isGetter then
             let t = memb.ReturnParameter.Type |> makeType com Map.empty
             let kind = Fable.FieldGet(name, true, t)

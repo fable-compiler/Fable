@@ -42,12 +42,12 @@ export class SystemObject implements IEquatable<any> {
     return this.constructor.name;
   }
 
-  public GetHashCode() {
-    return identityHash(this);
+  public GetHashCode(x?: any) {
+    return identityHash(x ?? this);
   }
 
-  public Equals(x: any) {
-    return this === x;
+  public Equals(x: any, y?: any) {
+    return x === (y ?? this);
   }
 }
 
