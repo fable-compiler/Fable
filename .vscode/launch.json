@@ -5,6 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "node",
+            "name": "fable-splitter",
+            "program": "${workspaceFolder}/src/fable-splitter/dist/cli.js",
+            "request": "launch",
+            "args": ["-c", "tests/splitter.config.js"],
+            "cwd": "${workspaceRoot}",
+            "stopOnEntry": true
+        },
+        {
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",

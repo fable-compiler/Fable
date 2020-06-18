@@ -318,6 +318,65 @@ type InfoBClass(info: InfoB) =
     override this.WithInfo(infoA) =
         InfoBClass({ info with InfoA = infoA }) :> InfoAClass
 
+type FooInterface =
+    abstract Foo: string with get, set
+    abstract DoSomething: f: (float -> float -> float) * v: float -> float
+    abstract Item: int -> char with get, set
+    abstract Sum: [<ParamArray>] items: string[] -> string
+
+[<Fable.Core.Mangle>]
+type BarInterface =
+    abstract Bar: string with get, set
+    abstract DoSomething: f: (float -> float -> float) * v: float -> float
+    abstract Item: int -> char with get, set
+    abstract Item: char -> bool with get
+    abstract Sum: [<ParamArray>] items: string[] -> string
+
+[<AbstractClass>]
+type FooAbstractClass(x: float) =
+    member _.Value = x
+    member _.DoSomething(x, y) = x * y
+    abstract DoSomething: float -> float
+
+type FooClass(x) =
+    inherit FooAbstractClass(5.)
+    let mutable x = x
+    override this.DoSomething(x) =
+        this.DoSomething(x, this.Value)
+    static member ChangeChar(s: string, i: int, c: char) =
+        s.ToCharArray() |> Array.mapi (fun i2 c2 -> if i = i2 then c else c2) |> String
+    interface FooInterface with
+        member _.Foo with get() = x and set(y) = x <- y
+        member this.DoSomething(f, x) =
+            let f = f x
+            let x = f 2.
+            let y = f 8.
+            this.DoSomething(x + y)
+        member _.Item with get(i) = x.[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
+        member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
+
+[<AbstractClass>]
+type BarAbstractClass(x: float) =
+    member _.Value = x
+    member _.DoSomething(x, y) = x ** y
+    abstract DoSomething: float -> float
+
+type BarClass(x) =
+    inherit BarAbstractClass(10.)
+    let mutable x = x
+    override this.DoSomething(x) =
+        this.DoSomething(x, this.Value)
+    interface BarInterface with
+        member _.Bar with get() = x and set(y) = x <- y
+        member this.DoSomething(f, x) =
+            let f = f x
+            let x = f 4.5
+            let y = f 7.
+            this.DoSomething(x - y)
+        member _.Item with get(i) = x.[i] and set i c = x <- FooClass.ChangeChar(x, i + 1, c)
+        member _.Item with get(c) = x.ToCharArray() |> Array.exists ((=) c)
+        member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
@@ -723,4 +782,62 @@ let tests =
         let a2 = a1.WithFoo("foo2")
         a1.Foo |> equal "foo"
         a2.Foo |> equal "foo2"
+
+
+    // See #2084
+    testCase "Non-mangled interfaces work with object expressions" <| fun _ ->
+        let mutable foo = "Foo"
+        let foo = { new FooInterface with
+                        member _.Foo with get() = foo and set x = foo <- x
+                        member _.DoSomething(f, x) = let f = f 1. in f x * f 0.2
+                        member _.Item with get(i) = foo.[i] and set i c = foo <- FooClass.ChangeChar(foo, i - 1, c)
+                        member _.Sum(items) = Array.reduce (+) items }
+
+        let addPlus2 x y = x + y + 2.
+        let multiplyTwice x y = x * y * y
+
+        foo.[3] <- 'W'
+        foo.Foo <- foo.Foo + foo.DoSomething(addPlus2, 3.).ToString("F2") + foo.[2].ToString()
+        foo.Foo <- foo.Foo + foo.Sum("a", "bc", "d")
+
+        foo.Foo |> equal "FoW19.20Wabcd"
+
+    // See #2084
+    testCase "Mangled interfaces work with object expressions" <| fun _ ->
+        let mutable bar = "Bar"
+        let bar = { new BarInterface with
+                        member _.Bar with get() = bar and set x = bar <- x
+                        member _.DoSomething(f, x) = let f = f 4.3 in f x + f x
+                        member _.Item with get(i) = bar.[i] and set _ c = bar <- FooClass.ChangeChar(bar, 0, c)
+                        member _.Item with get(c) = bar.ToCharArray() |> Array.exists ((=) c)
+                        member _.Sum(items) = Array.rev items |> Array.reduce (+)  }
+
+        let addPlus2 x y = x + y + 2.
+        let multiplyTwice x y = x * y * y
+
+        bar.[3] <- 'Z'
+        bar.Bar <- bar.Bar + bar.DoSomething(multiplyTwice, 3.).ToString("F2") + bar.[2].ToString() + (sprintf "%b%b" bar.['B'] bar.['x'])
+        bar.Bar <- bar.Bar + bar.Sum("a", "bc", "d")
+
+        bar.Bar |> equal "Zar77.40rfalsefalsedbca"
+
+    // See #2084
+    testCase "Non-mangled interfaces work with classes" <| fun _ ->
+        let addPlus2 x y = x + y + 2.
+        let multiplyTwice x y = x * y * y
+        let foo2 = FooClass("Foo") :> FooInterface
+        foo2.[0] <- 'W'
+        foo2.Foo <- foo2.Foo + foo2.DoSomething(multiplyTwice, 3.).ToString("F2") + foo2.[2].ToString()
+        foo2.Foo <- foo2.Foo + foo2.Sum("a", "bc", "d")
+        foo2.Foo |> equal "Woo1020.00oabcabcdabcabcd"
+
+    // See #2084
+    testCase "Mangled interfaces work with classes" <| fun _ ->
+        let addPlus2 x y = x + y + 2.
+        let multiplyTwice x y = x * y * y
+        let bar2 = BarClass("Bar") :> BarInterface
+        bar2.[0] <- 'Z'
+        bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
+        bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
+        bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
   ]

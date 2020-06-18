@@ -20,13 +20,17 @@ export class Some<T> {
     this.value = value;
   }
 
-  // Don't add "Some" for consistency with erased options
   public toString() {
-    return String(this.value);
+    return this.ToString();
   }
 
   public toJSON() {
     return this.value;
+  }
+
+  // Don't add "Some" for consistency with erased options
+  public ToString() {
+    return String(this.value);
   }
 
   public GetHashCode() {

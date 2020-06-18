@@ -9,6 +9,7 @@ type Message =
     { path: string
       rootDir: string
       define: string[]
+      noReferences: bool
       typedArrays: bool
       clampByteArrays: bool
       classTypes: bool
@@ -75,6 +76,7 @@ let parse (msg: string) =
         parseStringArray [||] "define" json
         |> Array.append [|Naming.fableCompilerConstant|]
         |> Array.distinct
+      noReferences = parseBoolean false "noReferences" json
       typedArrays = parseBoolean false "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
       classTypes = parseBoolean false "classTypes" json

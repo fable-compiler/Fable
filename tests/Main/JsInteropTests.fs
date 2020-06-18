@@ -49,12 +49,10 @@ type Props =
 
 let [<Emit("arguments.length")>] argCount: int = jsNative
 
-type IAdder =
-    [<Emit("$1 + $2")>]
-    abstract Add: int * int -> int
-
 [<Erase>]
-let adder: IAdder = jsNative
+type ErasedUnion =
+    | ErasedInt of int
+    | ErasedString of string
 
 type TextStyle =
     [<Emit("\"foo\"")>]
@@ -268,7 +266,11 @@ let tests =
         o?add(2,3) |> equal 10
 
     testCase "Erase attribute works" <| fun () ->
-        adder.Add(4, 5) |> equal 9
+        let convert = function
+            | ErasedInt i -> string(i * 2)
+            | ErasedString s -> "x" + s + "x"
+        ErasedInt 4 |> convert |> equal "8"
+        ErasedString "ab" |> convert |> equal "xabx"
 
     testCase "Emit attribute works" <| fun () ->
         let style = createEmpty<TextStyle>
@@ -341,7 +343,7 @@ let tests =
     testCase "TypedArray element can be set and get using index" <| fun () ->
         let arr = JS.Uint8Array.Create(5)
         arr.[0] <- 5uy
-        equal 5uy arr.[0] 
+        equal 5uy arr.[0]
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

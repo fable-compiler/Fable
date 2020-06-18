@@ -8,7 +8,7 @@ module.exports = {
         path: resolve('../../dist'),
     },
     node: {
-        // Mock Node.js modules that Babel require()s but that we don't care about.
+        // Mock Node.js modules that Babel requires but that we don't care about.
         fs: "empty",
         module: "empty",
         net: "empty",

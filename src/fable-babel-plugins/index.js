@@ -1,25 +1,5 @@
 module.exports = {
-    getRemoveUnneededNulls,
     getTransformMacroExpressions
-}
-
-/**
- * Removes unnecessary null statements (e.g. at the end of constructors)
- */
-function getRemoveUnneededNulls() {
-  return {
-    visitor: {
-        // Remove `null;` statements (e.g. at the end of constructors)
-        // and orphan empty object literals (on top of constructors with no base)
-        ExpressionStatement(path) {
-            const expr = path.node.expression;
-            if (expr.type === "NullLiteral"
-                || (expr.type === "ObjectExpression" && expr.properties.length === 0)) {
-                path.remove();
-            }
-        },
-    },
-  };
 }
 
 /**
@@ -66,7 +46,7 @@ function getTransformMacroExpressions(babelTemplate) {
                     for (let i = 0; i < argsLength; i++) {
                         buildArgs["$" + String(i)] =
                             args[i] == null
-                                ? { type: "NullLiteral" }
+                                ? { type: "Identifier", name: "undefined" }
                                 : args[i];
                     }
                 }

@@ -31,6 +31,8 @@ type Context =
     OptimizeTailCall: unit -> unit
     ScopedTypeParams: Set<string> }
 
+type AttachedMember = Fable.Ident list * Fable.Expr * Fable.AttachedMemberInfo
+
 type IBabelCompiler =
     inherit ICompiler
     abstract GetAllImports: unit -> seq<Import>
@@ -38,7 +40,6 @@ type IBabelCompiler =
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string * Fable.ImportKind -> Expression
-    abstract TransformObjectExpr: Context * Fable.ObjectMember list * boundThis: string * ?baseCall: Fable.Expr -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
         -> (Pattern array) * U2<BlockStatement, Expression>
 
@@ -123,10 +124,13 @@ module Util =
     let ofString s =
         StringLiteral s :> Expression
 
-    let memberFromName memberName: Expression * bool =
-        if Naming.hasIdentForbiddenChars memberName
-        then upcast StringLiteral(memberName), true
-        else upcast Identifier(memberName), false
+    let memberFromName (memberName: string): Expression * bool =
+        if memberName.StartsWith("Symbol.") then
+            upcast MemberExpression(Identifier "Symbol", Identifier memberName.[7..], false), true
+        elif Naming.hasIdentForbiddenChars memberName then
+            upcast StringLiteral(memberName), true
+        else
+            upcast Identifier(memberName), false
 
     let memberFromExpr (com: IBabelCompiler) ctx memberExpr: Expression * bool =
         match memberExpr with
@@ -846,7 +850,7 @@ module Util =
                 |> coreLibCall com ctx r "Types" "anonRecord"
         | Fable.NewUnion(values, uci, ent, genArgs) ->
             // Union cases with EraseAttribute are used for `Custom`-like cases in unions meant for `keyValueList`
-            if FSharp2Fable.Helpers.hasAtt Atts.erase uci.Attributes then
+            if FSharp2Fable.Helpers.hasAttribute Atts.erase uci.Attributes then
                 Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
             else
                 let name = getUnionCaseName uci
@@ -861,51 +865,41 @@ module Util =
                 upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
 
-    let transformObjectExpr (com: IBabelCompiler) ctx members (boundThis: string) baseCall: Expression =
+    let enumerator2iterator com ctx =
+        let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
+        BlockStatement [|ReturnStatement(coreLibCall com ctx None "Seq" "toIterator" [|enumerator|])|]
+
+    let transformObjectExpr (com: IBabelCompiler) ctx (members: AttachedMember list) (boundThis: string) baseCall: Expression =
         let makeObjMethod kind prop computed hasSpread args body =
             let boundThis, args = prepareBoundThis boundThis args
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx None boundThis args hasSpread body
             ObjectMethod(kind, prop, args, body, computed_=computed,
-                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2 |> Some
+                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2
         let pojo =
-            members |> List.choose (fun (Fable.ObjectMember(key, expr, kind)) ->
-                match kind, expr with
-                | Fable.ObjectValue, Fable.Function(Fable.Delegate args, body, _) ->
-                    // Don't call the `makeObjMethod` helper here because function as values don't bind `this` arg
-                    let args, body', returnType, typeParamDecl = getMemberArgsAndBody com ctx None None args false body
-                    let prop, computed = memberFromExpr com ctx key
-                    ObjectMethod(ObjectMeth, prop, args, body', computed,
-                        ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2 |> Some
-                | Fable.ObjectValue, TransformExpr com ctx value ->
-                    let prop, computed = memberFromExpr com ctx key
-                    ObjectProperty(prop, value, computed_=computed) |> U3.Case1 |> Some
-                | Fable.ObjectMethod hasSpread, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed =
-                        match key with
-                        // Compile ToString in lower case for compatibity with JS (and debugger tools)
-                        | Fable.Value(Fable.StringConstant "ToString", _) -> memberFromName "toString"
-                        | key -> memberFromExpr com ctx key
-                    makeObjMethod ObjectMeth prop computed hasSpread args body
-                | Fable.ObjectIterator, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop = get None (Identifier "Symbol") "iterator"
-                    Replacements.enumerator2iterator body
-                    |> makeObjMethod ObjectMeth prop true false args
-                | Fable.ObjectGetter, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed = memberFromExpr com ctx key
-                    makeObjMethod ObjectGetter prop computed false args body
-                | Fable.ObjectSetter, Fable.Function(Fable.Delegate args, body, _) ->
-                    let prop, computed = memberFromExpr com ctx key
-                    makeObjMethod ObjectSetter prop computed false args body
-                | kind, _ ->
-                    sprintf "Object member has kind %A but value is not a function" kind
-                    |> addError com [] None; None
+            members |> List.collect (fun (args, body, info) ->
+                let prop, computed = memberFromName info.Name
+                if info.IsValue then
+                    [ObjectProperty(prop, com.TransformAsExpr(ctx, body), computed_=computed) |> U3.Case1]
+                elif info.IsGetter then
+                    [makeObjMethod ObjectGetter prop computed false args body]
+                elif info.IsSetter then
+                    [makeObjMethod ObjectSetter prop computed false args body]
+                elif info.IsEnumerator then
+                    let method = makeObjMethod ObjectMeth prop computed info.HasSpread args body
+                    let iterator =
+                        let prop, computed = memberFromName "Symbol.iterator"
+                        let body = enumerator2iterator com ctx
+                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> U3.Case2
+                    [method; iterator]
+                else
+                    [makeObjMethod ObjectMeth prop computed info.HasSpread args body]
             ) |> List.toArray |> ObjectExpression
         match baseCall with
         | Some(TransformExpr com ctx baseCall) ->
             coreUtil com ctx "extend" [|baseCall; pojo|]
         | None when com.Options.classTypes ->
-            let isThisUsed = members |> List.exists (fun (Fable.ObjectMember(_, expr, _)) ->
+            let isThisUsed = members |> List.exists (fun (_, expr, _) ->
                 (FableTransforms.countReferences 0 boundThis expr) > 0)
             if not isThisUsed
             then pojo :> Expression
@@ -1776,9 +1770,7 @@ module Util =
         let isInterface, fullName = FSharp2Fable.Helpers.getMemberFullName memb
         let lastDot = fullName.LastIndexOf(".")
         let entName = if lastDot < 0 then fullName else fullName.Substring(0, lastDot)
-        isInterface
-            && FSharp2Fable.TypeHelpers.isNotIgnoredAttachedMember memb
-            && not (alreadyDeclaredInterfaces.Contains entName)
+        isInterface && not (alreadyDeclaredInterfaces.Contains entName)
 
     let getEntityExplicitInterfaceMembers com ctx (ent: FSharpEntity) =
         let ctxTypeArgs = Map.empty
@@ -1812,6 +1804,7 @@ module Util =
             let funcTypeInfo =
                 FunctionTypeAnnotation(funcArgs, returnType, ?typeParameters=typeParamDecl)
                 :> TypeAnnotationInfo
+            // TODO!!! This should be the compiled name if the interface is not mangled
             let name = FSharp2Fable.Helpers.getMemberDisplayName memb
             let membId = Identifier(name) |> U2.Case1
             ObjectTypeProperty(membId, funcTypeInfo)
@@ -1953,7 +1946,7 @@ module Util =
         else
             [typeDeclaration; reflectionDeclaration]
 
-    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ValueDeclarationInfo) args body =
+    let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ModuleMemberInfo) args body =
         let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx (Some info.Name) None args info.HasSpread body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
@@ -1973,7 +1966,7 @@ module Util =
               |> ExpressionStatement :> Statement |> U2.Case1 ]
         else Array.map U2.Case1 statements |> Array.toList
 
-    let transformOverrideProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberDeclarationInfo) getter setter =
+    let transformAttachedProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) getter setter =
         let funcExpr (args, body) =
             let boundThis, args = prepareBoundThis "this" args
             let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args false body
@@ -1996,26 +1989,27 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let transformOverrideMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberDeclarationInfo) args body =
+    let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
+        let attachToPrototype funcCons memberName expr =
+            let prototype = get None funcCons "prototype"
+            let protoMember = get None prototype memberName
+            assign None protoMember expr
+            |> ExpressionStatement :> Statement
+            |> U2<_,ModuleDeclaration>.Case1
+
         let funcCons = Identifier info.EntityName :> Expression
-        let memberName, hasSpread, body =
-            match info.Kind with
-            | Fable.ObjectIterator -> "Symbol.iterator", false, Replacements.enumerator2iterator body
-            | Fable.ObjectMethod hasSpread -> info.Name, hasSpread, body
-            | _ -> info.Name, false, body
         let boundThis, args = prepareBoundThis "this" args
-        let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args hasSpread body
-        let funcExpr = makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
-        let protoMember =
-            match memberName with
-            | Naming.StartsWith "Symbol." symbolName -> get None (Identifier "Symbol") symbolName
-            // Compile ToString in lower case for compatibity with JS (and debugger tools)
-            | "ToString" -> upcast StringLiteral "toString"
-            | name -> upcast StringLiteral name
-        let protoMember = getExpr None (get None funcCons "prototype") protoMember
-        assign None protoMember funcExpr
-        |> ExpressionStatement :> Statement
-        |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
+        let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args info.HasSpread body
+        let method =
+            makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
+            |> attachToPrototype funcCons info.Name
+        if info.IsEnumerator then
+            let iterator =
+                FunctionExpression([||], enumerator2iterator com ctx) :> Expression
+                |> attachToPrototype funcCons "Symbol.iterator"
+            [method; iterator]
+        else
+            [method]
 
     let transformUnionConstructor (com: IBabelCompiler) ctx r (info: Fable.UnionConstructorInfo) =
         let baseRef = coreValue com ctx "Types" "Union"
@@ -2138,20 +2132,17 @@ module Util =
                 transformAction com ctx e
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
-            | Fable.ValueDeclaration(value, info) ->
-                match value with
-                // Mutable public values must be compiled as functions (see #986)
-                // because values imported from ES2015 modules cannot be modified
-                | value when info.IsMutable && info.IsPublic ->
-                    Replacements.createAtom value
-                    |> transformAsExpr com ctx
-                    |> declareModuleMember info.Range true info.Name false
-                    |> List.singleton
-                | Fable.Function(Fable.Delegate args, body, _) ->
+            | Fable.ModuleMemberDeclaration(args, body, info) ->
+                if info.IsValue then
+                    let isPublic, isMutable, value =
+                        // Mutable public values must be compiled as functions (see #986)
+                        // because values imported from ES2015 modules cannot be modified
+                        match info.IsPublic, info.IsMutable with
+                        | true, true -> true, false, Replacements.createAtom body |> transformAsExpr com ctx
+                        | isPublic, isMutable -> isPublic, isMutable, transformAsExpr com ctx body
+                    [declareModuleMember info.Range isPublic info.Name isMutable value]
+                else
                     [transformModuleFunction com ctx info args body]
-                | _ ->
-                    let value = transformAsExpr com ctx value
-                    [declareModuleMember info.Range info.IsPublic info.Name info.IsMutable value]
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
             | Fable.ConstructorDeclaration(kind, r) ->
@@ -2168,21 +2159,19 @@ module Util =
                 |> transformDeclarations com ctx restDecls
             | Fable.AttachedMemberDeclaration(args, body, info) ->
                 let newDecls, restDecls =
-                    match info.Kind with
-                    | Fable.ObjectGetter | Fable.ObjectSetter as kind ->
+                    if info.IsGetter || info.IsSetter then
                         let getter, setter, restDecls =
                             // Check if the next declaration is a getter/setter for same property
                             match restDecls with
                             | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
-                                match kind with
-                                | Fable.ObjectGetter -> Some(args, body), Some(args2, body2), restDecls
-                                | _ -> Some(args2, body2), Some(args, body), restDecls
+                                if info.IsGetter then Some(args, body), Some(args2, body2), restDecls
+                                else Some(args2, body2), Some(args, body), restDecls
                             | _ ->
-                                match kind with
-                                | Fable.ObjectGetter -> Some(args, body), None, restDecls
-                                | _ -> None, Some(args, body), restDecls
-                        transformOverrideProperty com ctx info getter setter, restDecls
-                    | _ -> transformOverrideMethod com ctx info args body, restDecls
+                                if info.IsGetter then Some(args, body), None, restDecls
+                                else None, Some(args, body), restDecls
+                        transformAttachedProperty com ctx info getter setter, restDecls
+                    else
+                        transformAttachedMethod com ctx info args body, restDecls
                 List.append transformed newDecls
                 |> transformDeclarations com ctx restDecls
 
@@ -2274,7 +2263,6 @@ module Compiler =
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
-            member bcom.TransformObjectExpr(ctx, members, boundThis, baseCall) = transformObjectExpr bcom ctx members boundThis baseCall
             member bcom.TransformImport(ctx, selector, path, kind) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path) kind
 
         interface ICompiler with

@@ -27,6 +27,9 @@ export class TypeInfo {
     public enumCases?: EnumCase[]) {
   }
   public toString() {
+    return this.ToString();
+  }
+  public ToString() {
     return fullName(this);
   }
   public Equals(other: TypeInfo) {

@@ -234,7 +234,7 @@ let private isUsefulOption (opt : string) =
 /// and get F# compiler args from an .fsproj file. As we'll merge this
 /// later with other projects we'll only take the sources and the references,
 /// checking if some .dlls correspond to Fable libraries
-let fullCrack (projFile: string): CrackedFsproj =
+let fullCrack noReferences (projFile: string): CrackedFsproj =
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
@@ -265,13 +265,15 @@ let fullCrack (projFile: string): CrackedFsproj =
             else
                 (Path.normalizeFullPath line)::src, otherOpts)
     let projRefs =
-        projRefs |> List.choose (fun projRef ->
-            // Remove dllRefs corresponding to project references
-            let projName = Path.GetFileNameWithoutExtension(projRef)
-            let removed = dllRefs.Remove(projName)
-            if not removed then
-                Log.always("Couldn't remove project reference " + projName + " from dll references")
-            Path.normalizeFullPath projRef |> Some)
+        if noReferences then []
+        else
+            projRefs |> List.choose (fun projRef ->
+                // Remove dllRefs corresponding to project references
+                let projName = Path.GetFileNameWithoutExtension(projRef)
+                let removed = dllRefs.Remove(projName)
+                if not removed then
+                    Log.always("Couldn't remove project reference " + projName + " from dll references")
+                Path.normalizeFullPath projRef |> Some)
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
         dllRefs' |> Seq.choose (fun (dllName, dllPath) ->
@@ -305,7 +307,7 @@ let easyCrack (projFile: string): CrackedFsproj =
       PackageReferences = []
       OtherCompilerOptions = [] }
 
-let getCrackedProjectsFromMainFsproj (projFile: string) =
+let getCrackedProjectsFromMainFsproj noReferences (projFile: string) =
     let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
         let crackedFsproj =
             match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
@@ -314,29 +316,29 @@ let getCrackedProjectsFromMainFsproj (projFile: string) =
         // Add always a reference to the front to preserve compilation order
         // Duplicated items will be removed later
         List.fold crackProjects (crackedFsproj::acc) crackedFsproj.ProjectReferences
-    let mainProj = fullCrack projFile
+    let mainProj = fullCrack noReferences projFile
     let refProjs =
         List.fold crackProjects [] mainProj.ProjectReferences
         |> List.distinctBy (fun x -> x.ProjectFile)
     refProjs, mainProj
 
-let getCrackedProjects define (projFile: string) =
+let getCrackedProjects define noReferences (projFile: string) =
     match (Path.GetExtension projFile).ToLower() with
     | ".fsx" ->
         getProjectOptionsFromScript define projFile
     | ".fsproj" ->
-        getCrackedProjectsFromMainFsproj projFile
+        getCrackedProjectsFromMainFsproj noReferences projFile
     | s -> failwithf "Unsupported project type: %s" s
 
 // It is common for editors with rich editing or 'intellisense' to also be watching the project
 // file for changes. In some cases that editor will lock the file which can cause fable to
 // get a read error. If that happens the lock is usually brief so we can reasonably wait
 // for it to be released.
-let retryGetCrackedProjects define (projFile: string) =
+let retryGetCrackedProjects define noReferences (projFile: string) =
     let retryUntil = (DateTime.Now + TimeSpan.FromSeconds 2.)
     let rec retry () =
         try
-            getCrackedProjects define projFile
+            getCrackedProjects define noReferences projFile
         with
         | :? IOException as ioex ->
             if retryUntil > DateTime.Now then
@@ -396,11 +398,11 @@ let removeFilesInObjFolder sourceFiles =
     let reg = System.Text.RegularExpressions.Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
-let getFullProjectOpts (define: string[]) (rootDir: string) (projFile: string) =
+let getFullProjectOpts (define: string[]) (noReferences: bool) (rootDir: string) (projFile: string) =
     let projFile = Path.GetFullPath(projFile)
     if not(File.Exists(projFile)) then
         failwith ("File does not exist: " + projFile)
-    let projRefs, mainProj = retryGetCrackedProjects define projFile
+    let projRefs, mainProj = retryGetCrackedProjects define noReferences projFile
     let fableLibraryPath, pkgRefs =
         copyFableLibraryAndPackageSources rootDir mainProj.PackageReferences
     let projOpts =

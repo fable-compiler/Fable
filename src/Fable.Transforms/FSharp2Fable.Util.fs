@@ -55,6 +55,8 @@ module Helpers =
             t1.HasTypeDefinition && t2.HasTypeDefinition && (t1.TypeDefinition = t2.TypeDefinition)
         if t.IsAbbreviation && not (isSameType t t.AbbreviatedType) then
             nonAbbreviatedType t.AbbreviatedType
+        // TODO!!! Do we still need to make a special check for units of measure
+        // or can we just hardcode the names? We may need to do it anyway to fix #1962
         elif t.HasTypeDefinition then
             let abbr = t.AbbreviatedType
             // .IsAbbreviation doesn't eval to true for generic numbers
@@ -158,7 +160,6 @@ module Helpers =
             let ent = memb.ApparentEnclosingEntity
             ent.IsInterface, memb.FullName
 
-    /// TODO: Latest FCS seems to add get_/set_ to DisplayName. Bug or feature?
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
         Naming.removeGetSetPrefix memb.DisplayName
 
@@ -169,11 +170,12 @@ module Helpers =
                 if fullName = fullName' then Some att else None
             | None -> None)
 
-    let hasAtt fullName (atts: #seq<FSharpAttribute>) =
-        atts |> Seq.exists (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some fullName' -> fullName = fullName'
-            | _ -> false)
+    let hasAttribute attFullName (attributes: #seq<FSharpAttribute>) =
+        let mutable found = false
+        let attFullName = Some attFullName
+        for att in attributes do
+            found <- found || att.AttributeType.TryFullName = attFullName
+        found
 
     let tryDefinition (typ: FSharpType) =
         let typ = nonAbbreviatedType typ
@@ -295,7 +297,7 @@ module Helpers =
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.map (fun lastParam -> hasAtt Atts.paramList lastParam.Attributes)
+            |> Option.map (fun lastParam -> hasAttribute Atts.paramList lastParam.Attributes)
             |> Option.defaultValue false
 
         hasParamArray memb || hasParamSeq memb
@@ -603,8 +605,8 @@ module TypeHelpers =
             | Types.list -> makeGenArgs com ctxTypeArgs genArgs |> List.head |> Fable.List
             | NumberKind kind -> Fable.Number kind
             // Special attributes
-            | _ when hasAtt Atts.stringEnum tdef.Attributes -> Fable.String
-            | _ when hasAtt Atts.erase tdef.Attributes -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
+            | _ when hasAttribute Atts.stringEnum tdef.Attributes -> Fable.String
+            | _ when hasAttribute Atts.erase tdef.Attributes -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
             // Rest of declared types
             | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
 
@@ -661,6 +663,7 @@ module TypeHelpers =
         let name = fi.Name
         match fi.DeclaringEntity with
         | None -> name
+        | Some ent when ent.IsFSharpRecord -> name
         | Some ent ->
             match countConflictingCases 0 ent name with
             | 0 -> name
@@ -674,15 +677,6 @@ module TypeHelpers =
         | _ -> ()
     }
 
-    let isAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
-        memb.IsOverrideOrExplicitInterfaceImplementation
-
-    let isIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
-        memb.IsCompilerGenerated || Naming.ignoredAttachedMembers.Contains memb.CompiledName
-
-    let isNotIgnoredAttachedMember (memb: FSharpMemberOrFunctionOrValue) =
-        isAttachedMember memb && not (isIgnoredAttachedMember memb)
-
     let getArgTypes com (memb: FSharpMemberOrFunctionOrValue) =
         // FSharpParameters don't contain the `this` arg
         Seq.concat memb.CurriedParameterGroups
@@ -691,7 +685,10 @@ module TypeHelpers =
         |> Seq.toList
 
     let isAbstract (ent: FSharpEntity) =
-       hasAtt Atts.abstractClass ent.Attributes
+       hasAttribute Atts.abstractClass ent.Attributes
+
+    let tryTypeDefinition (NonAbbreviatedType t) =
+        if t.HasTypeDefinition then Some t.TypeDefinition else None
 
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0
@@ -859,20 +856,13 @@ module Util =
             if isUnit args.[0].[0].Type then 0 else 1
         else args.[0].Count
 
-    /// Same as `countNonCurriedParams` but applied to overrides
-    let countNonCurriedParamsForOverride (over: FSharpObjectExprOverride) =
-        let args = over.CurriedParameterGroups
-        match args with
-        | [] | [_] -> 0
-        // Unlike FSharpMemberOrFunctionOrValue.CurriedParameterGroups
-        // overrides DO include the name self instance as parameter
-        | _thisArg::firsGroup::_ ->
-            match firsGroup with
-            | [arg] ->
-                match arg.FullTypeSafe with
-                | Some t when isUnit t -> 0
-                | _ -> 1
-            | args -> List.length args
+    /// Same as `countNonCurriedParams` but applied to abstract signatures
+    let countNonCurriedParamsForSignature (sign: FSharpAbstractSignature) =
+        let args = sign.AbstractArguments
+        if args.Count = 0 then 0
+        elif args.[0].Count = 1 then
+            if isUnit args.[0].[0].Type then 0 else 1
+        else args.[0].Count
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
@@ -946,8 +936,14 @@ module Util =
     let isErasedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Atts.erase | Atts.stringEnum | Atts.global_
-                    | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
+            | Some(Atts.erase | Atts.stringEnum
+                    | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
+            | _ -> false)
+
+    let isGlobalOrImportedEntity (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
             | _ -> false)
 
     /// Entities coming from assemblies (we don't have access to source code) are candidates for replacement
@@ -1027,23 +1023,64 @@ module Util =
                     tryFindImplementingEntity t.TypeDefinition interfaceFullName
                 | _ -> None
 
-    let callInstanceMember com r typ (argInfo: Fable.ArgInfo) (memb: FSharpMemberOrFunctionOrValue) =
+    let isMangledAbstractEntity (ent: FSharpEntity) =
+        match ent.TryFullName with
+        // By default mangle interfaces in System namespace as they are not meant to interact with JS
+        // except those that are used in fable-library Typescript files
+        | Some fullName when fullName.StartsWith("System.") ->
+            match fullName with
+            | Types.object
+            | Types.idisposable
+            | Types.icomparable
+            | "System.IObservable`1"
+            | "System.IObserver`1"
+            | Types.ienumerableGeneric
+            | Types.ienumeratorGeneric
+            | Types.ienumerator
+            // These are used for injections
+            | Types.comparer
+            | Types.equalityComparer -> false
+            | _ -> true
+        // Don't mangle interfaces by default (for better JS interop) unless they have Mangle attribute
+        | _ when ent.IsInterface -> hasAttribute Atts.mangle ent.Attributes
+        // Mangle members from abstract classes unless they are global/imported
+        | _ -> not(isGlobalOrImportedEntity ent)
+
+    let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
+        // TODO: Error if entity doesn't have fullname?
+        let entityName = defaultArg ent.TryFullName ""
+        entityName + "." + memberName + overloadHash
+
+    let callInstanceMember com r typ (argInfo: Fable.ArgInfo)
+                    (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callee =
             match argInfo.ThisArg with
             | Some callee -> callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
                 |> attachRange r |> failwith
-        let name = getMemberDisplayName memb
-        match argInfo.Args with
-        | [arg] when memb.IsPropertySetterMethod ->
-            let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType com Map.empty
-            Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
-        | _ when memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 ->
+        let isGetter = memb.IsPropertyGetterMethod
+        let isSetter = not isGetter && memb.IsPropertySetterMethod
+        let indexedProp = (isGetter && countNonCurriedParams memb > 0) || (isSetter && countNonCurriedParams memb > 1)
+        let name, isGetter, isSetter =
+            if isMangledAbstractEntity entity then
+                let overloadHash =
+                    if (isGetter || isSetter) && not indexedProp then ""
+                    else OverloadSuffix.getHash entity memb
+                getMangledAbstractMemberName entity memb.CompiledName overloadHash, false, false
+            else
+                // Indexed properties keep the get_/set_ prefix and are compiled as methods
+                if indexedProp then memb.CompiledName, false, false
+                else getMemberDisplayName memb, isGetter, isSetter
+        if isGetter then
             let t = memb.ReturnParameter.Type |> makeType com Map.empty
             let kind = Fable.FieldGet(name, true, t)
             Fable.Get(callee, kind, typ, r)
-        | _ ->
+        elif isSetter then
+            let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType com Map.empty
+            let arg = argInfo.Args |> List.tryHead |> Option.defaultWith makeNull
+            Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
+        else
             let argInfo = { argInfo with ThisArg = Some callee }
             makeStrConst name |> Some |> instanceCall r typ argInfo
 
@@ -1066,7 +1103,7 @@ module Util =
             match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
             | Some e -> Some e
             | None when info.IsInterface ->
-                callInstanceMember com r typ argInfo memb |> Some
+                callInstanceMember com r typ argInfo ent memb |> Some
             | None ->
                 sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
@@ -1113,7 +1150,7 @@ module Util =
             | Some classExpr, true, _ ->
                 staticCall r typ argInfo classExpr |> Some
             | Some _, false, Some _thisArg ->
-                callInstanceMember com r typ argInfo memb |> Some
+                callInstanceMember com r typ argInfo e memb |> Some
             | Some classExpr, false, None ->
                 if memb.IsConstructor then
                     Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r) |> Some
@@ -1122,7 +1159,7 @@ module Util =
                     Fable.Get(classExpr, kind, typ, r) |> Some
                 else
                     let argInfo = { argInfo with ThisArg = Some classExpr }
-                    callInstanceMember com r typ argInfo memb |> Some
+                    callInstanceMember com r typ argInfo e memb |> Some
             | None, _, _ -> None
         | _ -> None
 
@@ -1185,13 +1222,6 @@ module Util =
                     | _ -> "inject", arg::acc // Keep checking for injects
                 | _ -> "none", arg::acc)
             |> snd
-
-    let hasAttribute attFullName (attributes: IList<FSharpAttribute>) =
-        let mutable found = false
-        let attFullName = Some attFullName
-        for att in attributes do
-            found <- found || att.AttributeType.TryFullName = attFullName
-        found
 
     let hasInterface interfaceFullname (ent: FSharpEntity) =
         let mutable found = false
@@ -1257,7 +1287,7 @@ module Util =
         | _, Some entity when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
-            callInstanceMember com r typ argInfo memb
+            callInstanceMember com r typ argInfo entity memb
         | _ ->
             if isModuleValue then
                 let typ = makeType com ctx.GenericArgs memb.FullType

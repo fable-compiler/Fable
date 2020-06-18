@@ -22,7 +22,6 @@ const JAVASCRIPT_EXT = /\.js$/;
 const MACRO = /^\${(\w+)}[\\/]?(.*?)([\\/]?)$/;
 
 const customPlugins: any[] = [
-    babelPlugins.getRemoveUnneededNulls(),
     babelPlugins.getTransformMacroExpressions(Babel.template),
 ];
 
@@ -313,12 +312,13 @@ function getBabelAstFromJsFile(path: string, info: CompilationInfo) {
     });
 }
 
-function generateJsCodeFromBabelAst(ast: Babel.types.Program, code?: string,
+function generateJsCodeFromBabelAst(ast: Babel.types.Program, fullPath: string, code?: string,
                                     options?: Babel.TransformOptions) {
     return new Promise<Babel.BabelFileResult | null>((resolve) => {
         Babel.transformFromAst(ast, code, options, (error, res) => {
             if (error != null) {
-                console.error("fable: Error transforming Babel AST", error);
+                const relPath = Path.relative(process.cwd(), fullPath);
+                console.error("fable: Error transforming Babel AST in " + relPath, error);
                 resolve(null);
             } else {
                 resolve(res);
@@ -350,7 +350,7 @@ async function generateJsCode(fullPath: string, ast: Babel.types.Program,
         .concat(getResolvePathPlugin(jsDir, options));
 
     // transform and save
-    const result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
+    const result = await generateJsCodeFromBabelAst(ast, fullPath, code, babelOptions);
     if (result != null) {
         const source = options.fable?.typescript ?
             result.code.replace(/\$INTERFACE_DECL_PREFIX\$_/g, "") : result.code;

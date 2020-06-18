@@ -1,10 +1,11 @@
 [<RequireQualifiedAccess>]
 module Fable.Transforms.OverloadSuffix
 
+open Fable
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 
-type Params = IList<IList<FSharpParameter>>
+type ParamTypes = FSharpType list
 
 [<RequireQualifiedAccess>]
 module private Atts =
@@ -116,42 +117,60 @@ let private stringHash (s: string) =
         h <- (h * 33) ^^^ (int s.[i])
     h
 
-let private getHashPrivate (m: FSharpMemberOrFunctionOrValue) (curriedParams: Params) genParams =
-    match tryFindAttributeArgs Atts.overloadSuffix m.Attributes with
+let private getHashPrivate (atts: IList<FSharpAttribute>) (paramTypes: ParamTypes) genParams =
+    match tryFindAttributeArgs Atts.overloadSuffix atts with
     | Some [:? string as overloadSuffix] -> overloadSuffix
     | _ ->
-        curriedParams.[0]
-        |> Seq.map (fun p -> getTypeFastFullName genParams p.Type |> stringHash)
+        paramTypes
+        |> List.map (getTypeFastFullName genParams >> stringHash)
         |> combineHashCodes
         |> hashToString
 
-let hasEmptyOverloadSuffix (m: FSharpMemberOrFunctionOrValue) (curriedParams: Params) =
-    // Overrides and interface implementations don't have override suffix in Fable
-    m.IsOverrideOrExplicitInterfaceImplementation
-    // Members with curried params cannot be overloaded in F#
-    || curriedParams.Count <> 1
+let hasEmptyOverloadSuffix (curriedParamTypes: ParamTypes) =
     // Don't use overload suffix for members without arguments
-    || curriedParams.[0].Count = 0
-    || (curriedParams.[0].Count = 1 && isUnit curriedParams.[0].[0].Type)
+    match curriedParamTypes with
+    | [] -> true
+    | [argType] when isUnit argType -> true
+    | _ -> false
 
 let getHash (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
-    let curriedParams = m.CurriedParameterGroups
-    if hasEmptyOverloadSuffix m curriedParams
-    then ""
+    // Members with curried params cannot be overloaded in F#
+    if m.CurriedParameterGroups.Count <> 1 then ""
     else
-        // Generics can have different names in signature
-        // and implementation files, use the position instead
-        let genParams =
-            entity.GenericParameters
-            |> Seq.mapi (fun i p -> p.Name, string i)
-            |> dict
-        getHashPrivate m curriedParams genParams
+        let paramTypes = m.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type) |> Seq.toList
+        if hasEmptyOverloadSuffix paramTypes then ""
+        else
+            // Generics can have different names in signature
+            // and implementation files, use the position instead
+            let genParams =
+                entity.GenericParameters
+                |> Seq.mapi (fun i p -> p.Name, string i)
+                |> dict
+            getHashPrivate m.Attributes paramTypes genParams
+
+let getAbstractSignatureHash (entity: FSharpEntity) (m: FSharpAbstractSignature) =
+    // Members with curried params cannot be overloaded in F#
+    if m.AbstractArguments.Count <> 1 then ""
+    else
+        let paramTypes = m.AbstractArguments.[0] |> Seq.map (fun p -> p.Type) |> Seq.toList
+        if hasEmptyOverloadSuffix paramTypes then ""
+        else
+            // Generics can have different names in signature
+            // and implementation, use the position instead
+            let genParams =
+                entity.GenericParameters
+                |> Seq.mapi (fun i p -> p.Name, string i)
+                |> dict
+            getHashPrivate [||] paramTypes genParams
 
 /// Used for extension members
 let getExtensionHash (m: FSharpMemberOrFunctionOrValue) =
-    let curriedParams = m.CurriedParameterGroups
-    if hasEmptyOverloadSuffix m curriedParams
-    then ""
-    // Type resolution in extension member seems to be different
-    // and doesn't take generics into account
-    else dict [] |> getHashPrivate m curriedParams
+    // Members with curried params cannot be overloaded in F#
+    if m.CurriedParameterGroups.Count <> 1 then ""
+    else
+        let paramTypes = m.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type) |> Seq.toList
+        if hasEmptyOverloadSuffix paramTypes then ""
+        else
+            // Type resolution in extension member seems to be different
+            // and doesn't take generics into account
+            dict [] |> getHashPrivate m.Attributes paramTypes

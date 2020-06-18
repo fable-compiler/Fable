@@ -4,7 +4,6 @@ import Babel from "@babel/core";
 import BabelPlugins from "fable-babel-plugins";
 
 const customPlugins = [
-  BabelPlugins.getRemoveUnneededNulls(),
   BabelPlugins.getTransformMacroExpressions(Babel.template),
   // "babel-plugin-closure-elimination"
 ];

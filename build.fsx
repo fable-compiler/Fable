@@ -52,8 +52,16 @@ let buildTypescript projectDir =
     // run ("npx tslint --project " + projectDir)
     run ("npx tsc --project " + projectDir)
 
+// TODO: Run fable-splitter tests
+let buildFableSplitter() =
+    buildTypescript "src/fable-splitter"
+
 let buildSplitterWithArgs projectDir args =
-    run ("npx fable-splitter -c " + (projectDir </> "splitter.config.js") + " " + args)
+    if pathExists "src/fable-splitter/dist" |> not then
+        buildFableSplitter()
+        runInDir "src/fable-splitter" "npm install"
+
+    run ("node src/fable-splitter/dist/cli -c " + (projectDir </> "splitter.config.js") + " " + args)
 
 let buildSplitter projectDir =
     buildSplitterWithArgs projectDir ""
@@ -64,6 +72,7 @@ let buildWebpack projectDir =
 let buildLibrary() =
     cleanDirs ["build/fable-library"]
     buildTypescript "src/fable-library"
+    run "dotnet build src/Fable.Core"
     buildSplitter "src/fable-library"
 
 let buildLibraryTs() =
@@ -220,10 +229,6 @@ let downloadStandalone() =
     let targetDir = "src/fable-standalone/dist"
     cleanDirs [targetDir]
     downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
-
-// TODO: Run fable-splitter tests
-let buildFableSplitter() =
-    buildTypescript "src/fable-splitter"
 
 let githubRelease() =
     match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with

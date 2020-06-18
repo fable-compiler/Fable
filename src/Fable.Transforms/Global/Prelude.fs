@@ -137,13 +137,6 @@ module Naming =
     let isInFableHiddenDir (file: string) =
         file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableHiddenDir)
 
-    let ignoredAttachedMembers =
-        set [ "System-Collections-IEnumerator-get_Current"
-              "System-Collections-IEnumerable-GetEnumerator"
-              "System-IEquatable`1-Equals"
-              "System-IComparable`1-CompareTo"
-            ]
-
     let umdModules =
         set ["commonjs"; "amd"; "umd"]
 
