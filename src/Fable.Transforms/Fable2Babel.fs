@@ -67,9 +67,9 @@ module Util =
             member __.IsRecursiveRef(e) =
                 match e with Fable.IdentExpr id -> name = id.Name | _ -> false
 
-    let prepareBoundThis (boundThis: string) (args: Fable.Ident list) =
+    let splitThisArg (args: Fable.Ident list) =
         match args with
-        | thisArg::args -> Some(boundThis, thisArg), args
+        | thisArg::args -> Some(thisArg), args
         | _ -> failwith "Expecting thisArg to be first element of argument list"
 
     let getDecisionTarget (ctx: Context) targetIndex =
@@ -481,13 +481,13 @@ module Util =
             let args', body' = com.TransformFunction(ctx, name, args, body)
             args', body', None, None
 
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx name boundThis args hasSpread (body: Fable.Expr) =
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx name thisArg args hasSpread (body: Fable.Expr) =
         let args, body, genTypeParams =
-            match boundThis with
-            | Some(boundThis, thisArg: Fable.Ident) ->
+            match thisArg with
+            | Some(thisArg: Fable.Ident) ->
                 let genTypeParams = Set.difference (getGenericTypeParams [thisArg.Type]) ctx.ScopedTypeParams
                 if com.Options.classTypes then
-                    let body = FableTransforms.replaceNames (Map [thisArg.Name, boundThis]) body
+                    let body = FableTransforms.replaceNames (Map [thisArg.Name, "this"]) body
                     args, body, genTypeParams
                 else
                 let isThisUsed =
@@ -497,13 +497,9 @@ module Util =
                 if not isThisUsed
                 then args, body, genTypeParams
                 else
-                    // If the boundThis is the actual JS `this` keyword bind it at the beginning
-                    // to prevent problems in closures. If not, replace thisArg in body with boundThis.
-                    let boundThisExpr = { thisArg with Name = boundThis } |> Fable.IdentExpr
-                    let body =
-                        if boundThis = "this"
-                        then Fable.Let([thisArg, boundThisExpr], body)
-                        else FableTransforms.replaceValues (Map [thisArg.Name, boundThisExpr]) body
+                    // Bind `this` keyword to prevent problems with closures.
+                    let boundThisExpr = { thisArg with Name = "this" } |> Fable.IdentExpr
+                    let body = Fable.Let([thisArg, boundThisExpr], body)
                     args, body, genTypeParams
             | None -> args, body, Set.empty
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
@@ -869,11 +865,11 @@ module Util =
         let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
         BlockStatement [|ReturnStatement(coreLibCall com ctx None "Seq" "toIterator" [|enumerator|])|]
 
-    let transformObjectExpr (com: IBabelCompiler) ctx (members: AttachedMember list) (boundThis: string) baseCall: Expression =
+    let transformObjectExpr (com: IBabelCompiler) ctx (members: AttachedMember list) baseCall: Expression =
         let makeObjMethod kind prop computed hasSpread args body =
-            let boundThis, args = prepareBoundThis boundThis args
+            let thisArg, args = splitThisArg args
             let args, body, returnType, typeParamDecl =
-                getMemberArgsAndBody com ctx None boundThis args hasSpread body
+                getMemberArgsAndBody com ctx None thisArg args hasSpread body
             ObjectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2
         let pojo =
@@ -900,7 +896,7 @@ module Util =
             coreUtil com ctx "extend" [|baseCall; pojo|]
         | None when com.Options.classTypes ->
             let isThisUsed = members |> List.exists (fun (_, expr, _) ->
-                (FableTransforms.countReferences 0 boundThis expr) > 0)
+                (FableTransforms.countReferences 0 "this" expr) > 0)
             if not isThisUsed
             then pojo :> Expression
             else coreUtil com ctx "bindThis" [|thisExpr; pojo|]
@@ -1463,7 +1459,7 @@ module Util =
                 else makeFunctionExpression name)
 
         | Fable.ObjectExpr (members, _, baseCall) ->
-           transformObjectExpr com ctx members "this" baseCall
+           transformObjectExpr com ctx members baseCall
 
         | Fable.Operation(opKind, _, range) ->
             transformOperation com ctx range opKind
@@ -1536,7 +1532,7 @@ module Util =
                 |> resolveExpr expr.Type returnStrategy|]
 
         | Fable.ObjectExpr (members, t, baseCall) ->
-            [|transformObjectExpr com ctx members "this" baseCall |> resolveExpr t returnStrategy|]
+            [|transformObjectExpr com ctx members baseCall |> resolveExpr t returnStrategy|]
 
         | Fable.Operation(callKind, t, range) ->
             transformOperationAsStatements com ctx range t returnStrategy callKind
@@ -1968,8 +1964,9 @@ module Util =
 
     let transformAttachedProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) getter setter =
         let funcExpr (args, body) =
-            let boundThis, args = prepareBoundThis "this" args
-            let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args false body
+            let thisArg, args = splitThisArg args
+            let args, body, returnType, typeParamDecl =
+                getMemberArgsAndBody com ctx None thisArg args false body
             makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
         let getterFuncExpr = Option.map funcExpr getter
         let setterFuncExpr = Option.map funcExpr setter
@@ -1998,8 +1995,9 @@ module Util =
             |> U2<_,ModuleDeclaration>.Case1
 
         let funcCons = Identifier info.EntityName :> Expression
-        let boundThis, args = prepareBoundThis "this" args
-        let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis args info.HasSpread body
+        let thisArg, args = splitThisArg args
+        let args, body, returnType, typeParamDecl =
+            getMemberArgsAndBody com ctx None thisArg args info.HasSpread body
         let method =
             makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
             |> attachToPrototype funcCons info.Name
@@ -2066,9 +2064,10 @@ module Util =
         declareType com ctx r info.IsPublic info.Entity info.EntityName args body baseExpr
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx r (info: Fable.ClassImplicitConstructorInfo) =
-        let boundThis = Some("this", info.BoundConstructorThis)
+        let thisArg = Some info.BoundConstructorThis
         let consIdent = Identifier(info.EntityName) :> Expression
-        let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx None boundThis info.Arguments info.HasSpread info.Body
+        let args, body, returnType, typeParamDecl =
+            getMemberArgsAndBody com ctx None thisArg info.Arguments info.HasSpread info.Body
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
             if com.Options.typescript then
