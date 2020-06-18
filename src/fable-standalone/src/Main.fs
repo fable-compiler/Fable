@@ -234,7 +234,7 @@ let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: str
 
 let compileAst (com: Compiler) (project: Project) =
     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
-    |> FableTransforms.optimizeFile com
+    |> FableTransforms.transformFile com
     |> Fable2Babel.Compiler.transformFile com
 
 let init () =

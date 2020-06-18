@@ -1,17 +1,5 @@
 namespace Fable
 
-type ResizeArrayDictionary<'K, 'V when 'K : equality>() =
-    let dic = System.Collections.Generic.Dictionary<'K, ResizeArray<'V>>()
-    member __.Count = dic.Count
-    member __.Add(k: 'K, v: 'V) =
-        match dic.TryGetValue(k) with
-        | true, xs -> xs.Add(v)
-        | false, _ -> dic.Add(k, ResizeArray [|v|])
-    member __.Get(k: 'K) =
-        match dic.TryGetValue(k) with
-        | true, xs -> Seq.toList xs
-        | false, _ -> []
-
 /// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
 type Position =
     { line: int; column: int; }

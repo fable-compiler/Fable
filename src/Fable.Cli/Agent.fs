@@ -260,7 +260,7 @@ let startCompilation (respond: obj->unit) (com: Compiler) (project: ProjectExtra
             else
                 let babel =
                     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
-                    |> FableTransforms.optimizeFile com
+                    |> FableTransforms.transformFile com
                     |> Fable2Babel.Compiler.transformFile com
                 Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
                 |> respond

@@ -1,5 +1,6 @@
 module Fable.Transforms.FableTransforms
 
+open System.Collections.Generic
 open Fable
 open Fable.AST.Fable
 open FSharp.Compiler.SourceCodeServices
@@ -547,7 +548,7 @@ module private Transforms =
 
 open Transforms
 
-// ATTENTION: Order of transforms matters for optimizations
+// ATTENTION: Order of transforms matters
 // TODO: Optimize binary operations with numerical or string literals
 let optimizations =
     [ // First apply beta reduction
@@ -564,24 +565,24 @@ let optimizations =
       fun _ e -> visitFromInsideOut unwrapFunctions e
     ]
 
-let optimizeExpr (com: ICompiler) e =
+let transformExpr (com: ICompiler) e =
     List.fold (fun e f -> f com e) e optimizations
 
-let rec optimizeDeclaration (com: ICompiler) = function
+let rec transformDeclaration (com: ICompiler) = function
     | ActionDeclaration expr ->
-        ActionDeclaration(optimizeExpr com expr)
+        ActionDeclaration(transformExpr com expr)
     | ModuleMemberDeclaration(args, body, info) ->
         let body =
             if info.IsValue then body
             else uncurryIdentsAndReplaceInBody args body
-        ModuleMemberDeclaration(args, optimizeExpr com body, info)
+        ModuleMemberDeclaration(args, transformExpr com body, info)
     | ConstructorDeclaration(kind, r) ->
         let kind =
             match kind with
             | ClassImplicitConstructor info ->
                 let body =
                     uncurryIdentsAndReplaceInBody info.Arguments info.Body
-                    |> optimizeExpr com
+                    |> transformExpr com
                 ClassImplicitConstructor { info with Body = body }
             | kind -> kind
         ConstructorDeclaration(kind, r)
@@ -589,8 +590,8 @@ let rec optimizeDeclaration (com: ICompiler) = function
         let body =
             if info.IsMethod then uncurryIdentsAndReplaceInBody args body
             else body
-        AttachedMemberDeclaration(args, optimizeExpr com body, info)
+        AttachedMemberDeclaration(args, transformExpr com body, info)
 
-let optimizeFile (com: ICompiler) (file: File) =
-    let newDecls = List.map (optimizeDeclaration com) file.Declarations
+let transformFile (com: ICompiler) (file: File) =
+    let newDecls = List.map (transformDeclaration com) file.Declarations
     File(file.SourcePath, newDecls, usedVarNames=file.UsedVarNames, inlineDependencies=file.InlineDependencies)
