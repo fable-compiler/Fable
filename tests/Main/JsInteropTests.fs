@@ -111,6 +111,10 @@ let validatePassword = function
     | NewPassword -> "np"
     | ConfirmPassword -> "cp"
 
+type JsOptions =
+    abstract foo: string with get, set
+    abstract bar: int with get, set
+
 let tests =
   testList "JsInterop" [
 #if FABLE_COMPILER
@@ -356,6 +360,13 @@ let tests =
         let arr = JS.Uint8Array.Create(5)
         arr.[0] <- 5uy
         equal 5uy arr.[0]
+
+    testCase "jsOptions works" <| fun _ ->
+        let opts = jsOptions<JsOptions>(fun o ->
+            o.foo <- "bar"
+            o.bar <- 5)
+        opts.foo |> equal "bar"
+        opts.bar |> equal 5
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->

@@ -915,55 +915,15 @@ let makePojoFromLambda arg =
             match acc, statement with
             | Some acc, Set(_, FieldSet(fiName, _), value, _) ->
                 objValue (fiName, value)::acc |> Some
-            // TODO!!! We will just remove the makePojo optimization eventually
-            // as it doesn't seem to be working most of the time
-            // | Some acc, Set(_, ExprSet prop, value, _) ->
-            //     objValue (prop, value)::acc |> Some
             | _ -> None)
     | _ -> None
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
     |> Option.defaultWith (fun () -> Helper.CoreCall("Util", "jsOptions", Any, [arg]))
 
 let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
-    let makeObjMember caseRule name values =
-        let value =
-            match values with
-            | [] -> makeBoolConst true
-            | [value] -> value
-            | values -> Value(NewArray(ArrayValues values, Any), None)
-        objValue (Naming.applyCaseRule caseRule name, value)
-    match caseRule with
-    | Value(NumberConstant(rule, _),_)
-    | Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_) ->
-        let caseRule = enum(int rule)
-        match keyValueList with
-        | MaybeCasted(ArrayOrListLiteral(ms,_)) ->
-            (ms, Some []) ||> List.foldBack (fun m acc ->
-                match acc, m with
-                // Try to get the member key and value at compile time for unions and tuples
-                | Some acc, MaybeCasted(Value(NewUnion(values, uci, _, _),_)) ->
-                    // Union cases with EraseAttribute are used for `Custom`-like cases
-                    if FSharp2Fable.Helpers.hasAttribute Atts.erase uci.Attributes then
-                        match values with
-                        | (Value(StringConstant name,_))::values ->
-                            // Don't change the case for erased cases
-                            makeObjMember CaseRules.None name values::acc |> Some
-                        | _ -> None
-                    else
-                        let name = defaultArg (FSharp2Fable.Helpers.unionCaseCompiledName uci) uci.Name
-                        makeObjMember caseRule name values::acc |> Some
-                | Some acc, Value(NewTuple((Value(StringConstant name,_))::values),_) ->
-                    // Don't change the case for tuples in disguise
-                    makeObjMember CaseRules.None name values::acc |> Some
-                | _ ->
-                    None)
-        | _ -> None
-        |> Option.map (fun members -> ObjectExpr(members, Any, None))
-        // With key & value for all members, build the POJO at compile time. If not, build it at runtime
-        |> Option.defaultWith (fun () ->
-            Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule |> int |> makeIntConst]))
-    | _ ->
-        Helper.CoreCall("Util", "createObj", Any, [keyValueList; caseRule])
+    let args = [keyValueList; caseRule]
+    let args = if com.Options.debugMode then args @ [makeBoolConst true] else args
+    Helper.CoreCall("Util", "createObj", Any, args)
 
 let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =
@@ -1183,9 +1143,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
         | "createObj", [kvs] ->
-            DelayedResolution(AsPojo(kvs, (CaseRules.None |> int |> makeIntConst)), t, r) |> Some
+            let caseRule = CaseRules.None |> int |> makeIntConst
+            makePojo com r caseRule kvs |> Some
          | "keyValueList", [caseRule; keyValueList] ->
-                DelayedResolution(AsPojo(keyValueList, caseRule), t, r) |> Some
+            makePojo com r caseRule keyValueList |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some

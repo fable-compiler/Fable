@@ -79,7 +79,7 @@ module Util =
 
     let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
-        | Fable.Value _ | Fable.Import _ | Fable.DelayedResolution _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
+        | Fable.Value _ | Fable.Import _ | Fable.Curry _ | Fable.Test _ | Fable.IdentExpr _ | Fable.Function _
         | Fable.ObjectExpr _ | Fable.Operation _ | Fable.Get _ | Fable.TypeCast _ -> false
 
         | Fable.TryCatch _ | Fable.Debugger _
@@ -603,10 +603,8 @@ module Util =
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
-    let transformDelayedResolution (com: IBabelCompiler) (ctx: Context) r kind: Expression =
-        match kind with
-        | Fable.AsPojo(expr, caseRule) -> com.TransformAsExpr(ctx, Replacements.makePojo com r caseRule expr)
-        | Fable.Curry(expr, arity) -> com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime arity expr)
+    let transformCurry (com: IBabelCompiler) (ctx: Context) r expr arity: Expression =
+        com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime arity expr)
 
     let rec transformRecordReflectionInfo com ctx r (ent: FSharpEntity) generics =
         // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
@@ -1424,7 +1422,7 @@ module Util =
         match expr with
         | Fable.TypeCast(e,t) -> transformCast com ctx t e
 
-        | Fable.DelayedResolution(kind, _, r) -> transformDelayedResolution com ctx r kind
+        | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
@@ -1492,8 +1490,8 @@ module Util =
         | Fable.TypeCast(e, t) ->
             [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
 
-        | Fable.DelayedResolution(kind, t, r) ->
-            [|transformDelayedResolution com ctx r kind |> resolveExpr t returnStrategy|]
+        | Fable.Curry(e, arity, t, r) ->
+            [|transformCurry com ctx r e arity |> resolveExpr t returnStrategy|]
 
         | Fable.Value(kind, r) ->
             [|transformValue com ctx r kind |> resolveExpr kind.Type returnStrategy|]

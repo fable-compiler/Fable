@@ -32,10 +32,7 @@ let visit f e =
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
     | Test(e, kind, r) -> Test(f e, kind, r)
-    | DelayedResolution(kind, t, r) ->
-        match kind with
-        | AsPojo(e1, e2) -> DelayedResolution(AsPojo(f e1, f e2), t, r)
-        | Curry(e, arity) -> DelayedResolution(Curry(f e, arity), t, r)
+    | Curry(e, arity, t, r) -> Curry(f e, arity, t, r)
     | Function(kind, body, name) -> Function(kind, f body, name)
     | ObjectExpr(members, t, baseCall) ->
         let baseCall = Option.map f baseCall
@@ -127,10 +124,7 @@ let getSubExpressions = function
         | NewErasedUnion(exprs, _) -> exprs
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
-    | DelayedResolution(kind, _, _) ->
-        match kind with
-        | Curry(e,_) -> [e]
-        | AsPojo(e1, e2) -> [e1; e2]
+    | Curry(e, _, _, _) -> [e]
     | Function(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
         let members = members |> List.collect (fun (_,v,_) -> [v])
@@ -319,7 +313,7 @@ module private Transforms =
         visitFromInsideOut (function
             | IdentExpr id as e ->
                 match Map.tryFind id.Name replacements with
-                | Some arity -> DelayedResolution(Curry(e, arity), id.Type, id.Range)
+                | Some arity -> Curry(e, arity, id.Type, id.Range)
                 | None -> e
             | e -> e) body
 
@@ -343,11 +337,11 @@ module private Transforms =
             | None -> true
         match expr, expr with
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
-        | _, DelayedResolution(Curry(innerExpr, arity2),_,_)
+        | _, Curry(innerExpr, arity2,_,_)
             when matches arity arity2 -> innerExpr
-        | _, Get(DelayedResolution(Curry(innerExpr, arity2),_,_), OptionValue, t, r)
+        | _, Get(Curry(innerExpr, arity2,_,_), OptionValue, t, r)
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity2),_,_)),r1),r2)
+        | _, Value(NewOption(Some(Curry(innerExpr, arity2,_,_)),r1),r2)
             when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
         | _ ->
             match arity with
@@ -428,11 +422,11 @@ module private Transforms =
             let identsAndValues, replacements =
                 (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
                     match value with
-                    | DelayedResolution(Curry(innerExpr, arity),_,_) ->
+                    | Curry(innerExpr, arity,_,_) ->
                         (id, innerExpr)::identsAndValues, Map.add id.Name arity replacements
-                    | Get(DelayedResolution(Curry(innerExpr, arity),_,_), OptionValue, t, r) ->
+                    | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
                         (id, Get(innerExpr, OptionValue, t, r))::identsAndValues, Map.add id.Name arity replacements
-                    | Value(NewOption(Some(DelayedResolution(Curry(innerExpr, arity),_,_)),r1),r2) ->
+                    | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
                         (id, Value(NewOption(Some(innerExpr),r1),r2))::identsAndValues, Map.add id.Name arity replacements
                     | _ -> (id, value)::identsAndValues, replacements)
             if Map.isEmpty replacements
@@ -452,7 +446,7 @@ module private Transforms =
         | Get(_, (FieldGet(_,_,fieldType) | UnionField(_,_,fieldType)), t, r) ->
             let arity = getLambdaTypeArity fieldType
             if arity > 1
-            then DelayedResolution(Curry(e, arity), t, r)
+            then Curry(e, arity, t, r)
             else e
         | ObjectExpr(members, t, baseCall) ->
             let members =
@@ -510,9 +504,9 @@ module private Transforms =
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
             match applied with
-            | DelayedResolution(Curry(applied, uncurriedArity),_,_) ->
+            | Curry(applied, uncurriedArity,_,_) ->
                 uncurryApply r t applied args uncurriedArity
-            | Get(DelayedResolution(Curry(applied, uncurriedArity),_,_), OptionValue, t2, r2) ->
+            | Get(Curry(applied, uncurriedArity,_,_), OptionValue, t2, r2) ->
                 uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> Operation(CurriedApply(applied, args), t, r) |> Some
         | _ -> None

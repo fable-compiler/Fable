@@ -285,16 +285,11 @@ type TestKind =
     | ListTest of isCons: bool
     | UnionCaseTest of FSharpUnionCase * FSharpEntity
 
-type DelayedResolutionKind =
-    | AsPojo of Expr * caseRules: Expr
-    | Curry of Expr * arity: int
-
 type Expr =
     | Value of ValueKind * SourceLocation option
     | IdentExpr of Ident
     | TypeCast of Expr * Type
-    /// Some expressions must be resolved in the last pass for better optimization
-    | DelayedResolution of DelayedResolutionKind * Type * SourceLocation option
+    | Curry of Expr * arity: int * Type * SourceLocation option
     | Import of selector: Expr * path: Expr * ImportKind * Type * SourceLocation option
 
     | Function of FunctionKind * body: Expr * name: string option
@@ -325,7 +320,7 @@ type Expr =
         | IdentExpr id -> id.Type
         | TypeCast (_, t)
         | Import (_, _, _, t, _)
-        | DelayedResolution (_, t, _)
+        | Curry (_, _, t, _)
         | ObjectExpr (_, t, _)
         | Operation (_, t, _)
         | Get (_, _, t, _)
@@ -346,8 +341,6 @@ type Expr =
 
     member this.Range: SourceLocation option =
         match this with
-        | Import _
-        | DelayedResolution _
         | ObjectExpr _
         | Sequential _
         | Let _
@@ -358,6 +351,8 @@ type Expr =
         | TypeCast (e, _) -> e.Range
         | IdentExpr id -> id.Range
 
+        | Import(_,_,_,_,r)
+        | Curry(_,_,_,r)
         | Value (_, r)
         | IfThenElse (_, _, _, r)
         | TryCatch (_, _, _, r)
