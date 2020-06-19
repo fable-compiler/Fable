@@ -634,27 +634,15 @@ module Util =
             Array.zip genParamNames generics |> Map
         let cases =
             ent.UnionCases |> Seq.map (fun uci ->
-                let fieldInfos =
-                    uci.UnionCaseFields
-                    |> Seq.map (fun fi ->
-                        let fieldType =
-                            FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType
-                            |> transformTypeInfo com ctx r genMap
-                        ArrayExpression [|
-                            fi.Name |> StringLiteral :> Expression
-                            fieldType
-                        |] :> Expression
-                    )
-                    |> Seq.toArray
-                let caseInfo =
-                    if fieldInfos.Length = 0 then
-                        getUnionCaseName uci |> StringLiteral :> Expression
-                    else
-                        ArrayExpression [|
-                            getUnionCaseName uci |> StringLiteral :> Expression
-                            ArrayExpression fieldInfos :> Expression
-                        |] :> Expression
-                caseInfo) |> Seq.toArray
+                uci.UnionCaseFields |> Seq.map (fun fi ->
+                    ArrayExpression [|
+                        fi.Name |> StringLiteral :> Expression
+                        FSharp2Fable.TypeHelpers.makeType com Map.empty fi.FieldType
+                        |> transformTypeInfo com ctx r genMap
+                    |] :> Expression)
+                |> Seq.toArray
+                |> ArrayExpression :> Expression
+            ) |> Seq.toArray
         let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
         [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; cases|]
         |> coreReflectionCall com ctx None "union"
@@ -849,7 +837,6 @@ module Util =
             if FSharp2Fable.Helpers.hasAttribute Atts.erase uci.Attributes then
                 makeArray com ctx values
             else
-                let name = getUnionCaseName uci
                 let consRef = jsConstructor com ctx ent
                 let tag = FSharp2Fable.Helpers.unionCaseTag ent uci
                 let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
@@ -857,7 +844,7 @@ module Util =
                     if com.Options.typescript && com.Options.classTypes
                     then makeGenTypeParamInst com ctx genArgs
                     else None
-                let values = (ofInt tag)::(ofString name)::values |> List.toArray
+                let values = (ofInt tag)::values |> List.toArray
                 upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewErasedUnion(exprs,_) ->
             match exprs with
@@ -1989,14 +1976,14 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
-        let attachToPrototype funcCons memberName expr =
-            let prototype = get None funcCons "prototype"
-            let protoMember = get None prototype memberName
-            assign None protoMember expr
-            |> ExpressionStatement :> Statement
-            |> U2<_,ModuleDeclaration>.Case1
+    let attachToPrototype funcCons memberName expr =
+        let prototype = get None funcCons "prototype"
+        let protoMember = get None prototype memberName
+        assign None protoMember expr
+        |> ExpressionStatement :> Statement
+        |> U2<_,ModuleDeclaration>.Case1
 
+    let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
         let funcCons = Identifier info.EntityName :> Expression
         let thisArg, args = splitThisArg args
         let args, body, returnType, typeParamDecl =
@@ -2016,21 +2003,18 @@ module Util =
         let baseRef = coreValue com ctx "Types" "Union"
         let argId: Fable.Ident = { Name = ""; Type = Fable.Any; Kind = Fable.UserDeclared; IsMutable = false; Range = None }
         let tagId = { argId with Name = "tag"; Type = Fable.Number Int32 }
-        let nameId = { argId with Name = "name"; Type = Fable.String }
         let fieldsId = { argId with Name = "fields"; Type = Fable.Array Fable.Any }
         let args =
             [| typedIdent com ctx tagId |> toPattern
-               typedIdent com ctx nameId |> toPattern
                typedIdent com ctx fieldsId |> restElement |]
         let body =
             if com.Options.classTypes then
                 [ (ident tagId) :> Expression
-                  (ident nameId) :> Expression
                   SpreadElement(ident fieldsId) :> Expression ]
                 |> callSuperConstructor None baseRef thisExpr
                 |> ExpressionStatement :> Statement |> Array.singleton |> BlockStatement
             else
-                [| tagId; nameId; fieldsId |]
+                [| tagId; fieldsId |]
                 |> Array.map (fun id ->
                     let left = get None thisExpr id.Name
                     let right =
@@ -2040,7 +2024,16 @@ module Util =
                         | _ -> ident id :> Expression
                     assign None left right |> ExpressionStatement :> Statement)
                 |> BlockStatement
-        declareType com ctx r info.IsPublic info.Entity info.EntityName args body (Some baseRef)
+        [
+            yield! declareType com ctx r info.IsPublic info.Entity info.EntityName args body (Some baseRef)
+            yield
+                info.Entity.UnionCases
+                |> Seq.map (getUnionCaseName >> makeStrConst)
+                |> Seq.toList
+                |> makeArray com ctx
+                |> fun cases -> makeFunctionExpression None ([||], U2.Case2 cases, None, None)
+                |> attachToPrototype (Identifier info.EntityName) "cases"
+        ]
 
     let transformCompilerGeneratedConstructor (com: IBabelCompiler) ctx r (info: Fable.CompilerGeneratedConstructorInfo) =
         let fieldIds = getEntityFieldsAsIdents com info.Entity

@@ -85,17 +85,15 @@ export function anonRecord_type(...fields: FieldInfo[]): TypeInfo {
   return new TypeInfo("", undefined, undefined, () => fields);
 }
 
-export type CaseInfoInput = string | [string, FieldInfo[]];
-
 export function union_type(
   fullname: string,
   generics: TypeInfo[],
   construct: Constructor,
-  cases: () => CaseInfoInput[]): TypeInfo {
-  const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, () => cases().map((x, i) =>
-    typeof x === "string"
-        ? new CaseInfo(t, i, x)
-        : new CaseInfo(t, i, x[0], x[1])));
+  cases: () => FieldInfo[][]): TypeInfo {
+  const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, () => {
+    const caseNames = construct.prototype.cases() as string[];
+    return cases().map((fields, i) => new CaseInfo(t, i, caseNames[i], fields))
+  });
   return t;
 }
 
@@ -353,7 +351,7 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
     throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
   }
   return uci.declaringType.construct != null
-    ? new uci.declaringType.construct(uci.tag, uci.name, ...values)
+    ? new uci.declaringType.construct(uci.tag, ...values)
     : {};
 }
 

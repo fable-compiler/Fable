@@ -116,19 +116,31 @@ export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
 
 // CHOICE
 
-export class Choice<_T1, _T2> extends Union { }
-export class Choice3<_T1, _T2, _T3> extends Union { }
-export class Choice4<_T1, _T2, _T3, _T4> extends Union { }
-export class Choice5<_T1, _T2, _T3, _T4, _T5> extends Union { }
-export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> extends Union { }
-export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> extends Union { }
+export class Choice<_T1, _T2> extends Union {
+    public cases() { return ["Choice1Of2", "Choice2Of2"]; }
+}
+export class Choice3<_T1, _T2, _T3> extends Union {
+    public cases() { return ["Choice1Of3", "Choice2Of3", "Choice3Of3"]; }
+}
+export class Choice4<_T1, _T2, _T3, _T4> extends Union {
+    public cases() { return ["Choice1Of4", "Choice2Of4", "Choice3Of4", "Choice4Of4"]; }
+}
+export class Choice5<_T1, _T2, _T3, _T4, _T5> extends Union {
+    public cases() { return ["Choice1Of5", "Choice2Of5", "Choice3Of5", "Choice4Of5", "Choice5Of5"]; }
+}
+export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> extends Union {
+    public cases() { return ["Choice1Of6", "Choice2Of6", "Choice3Of6", "Choice4Of6", "Choice5Of6", "Choice6Of6"]; }
+}
+export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> extends Union {
+    public cases() { return ["Choice1Of7", "Choice2Of7", "Choice3Of7", "Choice4Of7", "Choice5Of7", "Choice6Of7", "Choice7Of7"]; }
+}
 
 export function choice1Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
-  return new Choice(0, "Choice1Of2", x);
+  return new Choice(0, x);
 }
 
 export function choice2Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
-  return new Choice(1, "Choice2Of2", x);
+  return new Choice(1, x);
 }
 
 export function tryValueIfChoice1Of2<T1, T2>(x: Choice<T1, T2>): Option<T1> {
@@ -141,14 +153,16 @@ export function tryValueIfChoice2Of2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
 
 // RESULT
 
-export class Result<_T, _U> extends Union { }
+export class Result<_T, _U> extends Union {
+    public cases() { return ["Ok", "Error"]; }
+}
 
 export function ok<T, U>(x: T | U): Result<T, U> {
-  return new Result(0, "Ok", x);
+  return new Result(0, x);
 }
 
 export function error<T, U>(x: T | U): Result<T, U> {
-  return new Result(1, "Error", x);
+  return new Result(1, x);
 }
 
 export function mapOk<T, U>(f: (arg: T) => T, result: Result<T, U>) {
