@@ -750,7 +750,7 @@ module Util =
                 let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                 /// Check if the entity is actually declared in JS code
                 if ent.IsInterface
-                    || FSharp2Fable.Util.isErasedEntity ent
+                    || FSharp2Fable.Util.isErasedOrStringEnumOrGlobalOrImportedEntity ent
                     // TODO!!! Get reflection info from types in precompiled libs
                     || FSharp2Fable.Util.isReplacementCandidate ent then
                     genericEntity ent generics

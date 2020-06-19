@@ -53,6 +53,10 @@ let [<Emit("arguments.length")>] argCount: int = jsNative
 type ErasedUnion =
     | ErasedInt of int
     | ErasedString of string
+    member this.SayHi() =
+        match this with
+        | ErasedInt i -> sprintf "Hi %i time(s)!" i
+        | ErasedString s -> sprintf "Hi %s!" s
 
 [<Erase>]
 type ErasedUnionWithMultipleFields =
@@ -101,6 +105,12 @@ type MyCssOptions =
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
+    with member this.Kind =
+            match this with
+            | OldPassword -> "Old"
+            | NewPassword -> "New"
+            | ConfirmPassword -> "Confirm"
+         static member Default = NewPassword
 
 type MyInterface =
     abstract foo: int
@@ -280,6 +290,10 @@ let tests =
         ErasedInt 4 |> convert |> equal "8"
         ErasedString "ab" |> convert |> equal "xabx"
 
+    testCase "Erased types can have members" <| fun () ->
+        let x = ErasedString "Patrick"
+        x.SayHi() |> equal "Hi Patrick!"
+
     testCase "Erased unions with multiple fields work" <| fun _ ->
         let gimme (ErasedUnionWithMultipleFields(s, i)) =
             sprintf "Gimme %i %ss" i s
@@ -372,4 +386,12 @@ let tests =
     testCase "Pattern matching with StringEnum works" <| fun () ->
         validatePassword NewPassword
         |> equal "np"
+
+    testCase "StringEnums can have members" <| fun () ->
+        let x = ConfirmPassword
+        x.Kind |> equal "Confirm"
+
+    testCase "StringEnums can have static members" <| fun () ->
+        let x = Field.Default
+        validatePassword x |> equal "np"
   ]

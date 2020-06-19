@@ -933,7 +933,13 @@ module Util =
                 getImportPath path |> makeCustomImport Fable.Any ent.DisplayName |> Some
             | _ -> None)
 
-    let isErasedEntity (ent: FSharpEntity) =
+    let isErasedOrStringEnumEntity (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Atts.erase | Atts.stringEnum) -> true
+            | _ -> false)
+
+    let isErasedOrStringEnumOrGlobalOrImportedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Atts.erase | Atts.stringEnum

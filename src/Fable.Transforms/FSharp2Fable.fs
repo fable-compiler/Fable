@@ -1020,12 +1020,19 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         if memb.IsCompilerGenerated then []
         else
             match memb.DeclaringEntity with
-            | Some implementingEntity when not(isErasedEntity implementingEntity) ->
-                // Not sure when it's possible that a member implements multiple abstract signatures
-                memb.ImplementedAbstractSignatures |> Seq.tryHead
-                |> Option.map (fun s -> transformAttachedMember com ctx implementingEntity s memb args body)
-                |> Option.defaultValue []
-            | _ -> []
+            | Some implementingEntity ->
+                if isGlobalOrImportedEntity implementingEntity then []
+                elif isErasedOrStringEnumEntity implementingEntity then
+                    let r = makeRange memb.DeclarationLocation |> Some
+                    "Erased types cannot implement abstract members"
+                    |> addError com ctx.InlinePath r
+                    []
+                else
+                    // Not sure when it's possible that a member implements multiple abstract signatures
+                    memb.ImplementedAbstractSignatures |> Seq.tryHead
+                    |> Option.map (fun s -> transformAttachedMember com ctx implementingEntity s memb args body)
+                    |> Option.defaultValue []
+            | None -> []
     else transformMemberFunctionOrValue com ctx memb args body
 
 // In case this is a recursive module, do a first pass to add
@@ -1058,7 +1065,7 @@ let private transformDeclarations (com: FableCompiler) ctx rootDecls =
                     com.AddUsedVarName(name)
                     (makeStrConst selector, makeStrConst path)
                     ||> transformImport com None Fable.Any false (not ent.Accessibility.IsPrivate) name
-                | _ when isErasedEntity ent ->
+                | _ when isErasedOrStringEnumOrGlobalOrImportedEntity ent ->
                     []
                 | _ when ent.IsFSharpUnion ->
                     let entityName = getEntityDeclarationName com ent
