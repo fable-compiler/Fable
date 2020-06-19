@@ -54,6 +54,10 @@ type ErasedUnion =
     | ErasedInt of int
     | ErasedString of string
 
+[<Erase>]
+type ErasedUnionWithMultipleFields =
+    | ErasedUnionWithMultipleFields of string * int
+
 type TextStyle =
     [<Emit("\"foo\"")>]
     abstract Bar : string
@@ -271,6 +275,14 @@ let tests =
             | ErasedString s -> "x" + s + "x"
         ErasedInt 4 |> convert |> equal "8"
         ErasedString "ab" |> convert |> equal "xabx"
+
+    testCase "Erased unions with multiple fields work" <| fun _ ->
+        let gimme (ErasedUnionWithMultipleFields(s, i)) =
+            sprintf "Gimme %i %ss" i s
+        ("apple", 5)
+        |> ErasedUnionWithMultipleFields
+        |> gimme
+        |> equal "Gimme 5 apples"
 
     testCase "Emit attribute works" <| fun () ->
         let style = createEmpty<TextStyle>

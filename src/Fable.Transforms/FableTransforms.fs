@@ -28,8 +28,8 @@ let visit f e =
             NewList(ht, t) |> makeValue r
         | NewRecord(exprs, ent, genArgs) ->
             NewRecord(List.map f exprs, ent, genArgs) |> makeValue r
-        | NewErasedUnion(e, genArgs) ->
-            NewErasedUnion(f e, genArgs) |> makeValue r
+        | NewErasedUnion(exprs, genArgs) ->
+            NewErasedUnion(List.map f exprs, genArgs) |> makeValue r
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
     | Test(e, kind, r) -> Test(f e, kind, r)
@@ -125,7 +125,7 @@ let getSubExpressions = function
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
         | NewRecord(exprs, _, _) -> exprs
-        | NewErasedUnion(e, _) -> [e]
+        | NewErasedUnion(exprs, _) -> exprs
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
     | DelayedResolution(kind, _, _) ->

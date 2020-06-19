@@ -179,7 +179,7 @@ type ValueKind =
     | NewTuple of Expr list
     | NewRecord of Expr list * NewRecordKind * genArgs: Type list
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
-    | NewErasedUnion of Expr * genericArgs: Type list
+    | NewErasedUnion of Expr list * genericArgs: Type list
     member this.Type =
         match this with
         | TypeInfo _ -> MetaType

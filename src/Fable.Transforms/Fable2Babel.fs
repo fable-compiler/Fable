@@ -811,7 +811,7 @@ module Util =
             else upcast NumericLiteral(x, ?loc=r)
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (arrayKind, typ) -> makeTypedArray com ctx typ arrayKind
-        | Fable.NewTuple vals -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
+        | Fable.NewTuple vals -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Replacements.ListLiteral(exprs, t) ->
             match exprs with
@@ -847,7 +847,7 @@ module Util =
         | Fable.NewUnion(values, uci, ent, genArgs) ->
             // Union cases with EraseAttribute are used for `Custom`-like cases in unions meant for `keyValueList`
             if FSharp2Fable.Helpers.hasAttribute Atts.erase uci.Attributes then
-                Fable.ArrayValues values |> makeTypedArray com ctx Fable.Any
+                makeArray com ctx values
             else
                 let name = getUnionCaseName uci
                 let consRef = jsConstructor com ctx ent
@@ -859,7 +859,10 @@ module Util =
                     else None
                 let values = (ofInt tag)::(ofString name)::values |> List.toArray
                 upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
-        | Fable.NewErasedUnion(e,_) -> com.TransformAsExpr(ctx, e)
+        | Fable.NewErasedUnion(exprs,_) ->
+            match exprs with
+            | [e] -> com.TransformAsExpr(ctx, e)
+            | exprs -> makeArray com ctx exprs
 
     let enumerator2iterator com ctx =
         let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
