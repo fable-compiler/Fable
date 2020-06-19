@@ -1,6 +1,5 @@
 module Fable.Transforms.FableTransforms
 
-open System.Collections.Generic
 open Fable
 open Fable.AST.Fable
 open FSharp.Compiler.SourceCodeServices

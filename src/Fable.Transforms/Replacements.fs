@@ -2898,6 +2898,7 @@ let private replacedModules =
     Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
     "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
+    Types.ienumeratorGeneric, enumerators
     "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
     "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators

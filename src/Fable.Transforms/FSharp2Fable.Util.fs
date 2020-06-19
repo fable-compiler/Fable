@@ -1035,7 +1035,6 @@ module Util =
             | "System.IObservable`1"
             | "System.IObserver`1"
             | Types.ienumerableGeneric
-            | Types.ienumeratorGeneric
             | Types.ienumerator
             // These are used for injections
             | Types.comparer

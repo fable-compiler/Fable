@@ -167,7 +167,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
 
-let private getAttachedMemberInfo r implementingEntityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
+let private getAttachedMemberInfo com ctx r nonMangledNameConflicts implementingEntityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
     let isGetter = sign.Name.StartsWith("get_")
     let isSetter = not isGetter && sign.Name.StartsWith("set_")
     let indexedProp = (isGetter && countNonCurriedParamsForSignature sign > 0)
@@ -195,9 +195,15 @@ let private getAttachedMemberInfo r implementingEntityName (sign: FSharpAbstract
                         else OverloadSuffix.getAbstractSignatureHash ent sign
                     getMangledAbstractMemberName ent sign.Name overloadHash, false, false
                 else
-                    // For indexed properties, keep the get_/set_ prefix and compile as method
-                    if indexedProp then sign.Name, false, false
-                    else Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
+                    let name, isGetter, isSetter =
+                        // For indexed properties, keep the get_/set_ prefix and compile as method
+                        if indexedProp then sign.Name, false, false
+                        else Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
+                    // Setters can have same name as getters, assume there will always be a getter
+                    if not isSetter && nonMangledNameConflicts implementingEntityName name then
+                        sprintf "Member %s is duplicated, use Mangle attribute to prevent conflicts with interfaces" name
+                        |> addError com ctx.InlinePath r
+                    name, isGetter, isSetter
             name, isGetter, isSetter, isEnumerator, hasSpread
         | None ->
             Naming.removeGetSetPrefix sign.Name, isGetter, isSetter, false, false
@@ -213,11 +219,15 @@ let private getAttachedMemberInfo r implementingEntityName (sign: FSharpAbstract
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
                     baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
 
+    let nonMangledMemberNames = HashSet()
+    let nonMangledNameConflicts _ name =
+        nonMangledMemberNames.Add(name) |> not
+
     let mapOverride (over: FSharpObjectExprOverride) =
       trampoline {
         let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
         let! body = transformExpr com ctx over.Body
-        let info = getAttachedMemberInfo None "" over.Signature
+        let info = getAttachedMemberInfo com ctx body.Range nonMangledNameConflicts "" over.Signature
         return args, body, info
       }
 
@@ -984,7 +994,7 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
     let body = transformExpr com bodyCtx body |> run
     let entityName = getEntityDeclarationName com implementingEntity
     let r = makeRange memb.DeclarationLocation |> Some
-    let info = getAttachedMemberInfo r entityName signature
+    let info = getAttachedMemberInfo com ctx r com.NonMangledAttachedMemberConflicts entityName signature
     [Fable.AttachedMemberDeclaration(args, body, info)]
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
@@ -1111,6 +1121,7 @@ let private tryGetMemberArgsAndBody com (implFiles: IDictionary<string, FSharpIm
 type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplementationFileContents>) =
     member val UsedVarNames = HashSet<string>()
     member val InlineDependencies = HashSet<string>()
+    member val NonMangledAttachedMemberNames = Dictionary<string, HashSet<string>>()
     member __.Options = com.Options
 
     member this.AddUsedVarName(varName, ?isRoot) =
@@ -1123,6 +1134,11 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
     member __.AddInlineExpr(memb, inlineExpr: InlineExpr) =
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
+
+    member this.NonMangledAttachedMemberConflicts implementingEntityName memberName =
+        match this.NonMangledAttachedMemberNames.TryGetValue(implementingEntityName) with
+        | true, memberNames -> memberNames.Add(memberName) |> not
+        | false, _ -> this.NonMangledAttachedMemberNames.Add(implementingEntityName, HashSet [|memberName|]); false
 
     interface IFableCompiler with
         member this.Transform(ctx, fsExpr) =
