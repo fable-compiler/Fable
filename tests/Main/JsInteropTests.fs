@@ -53,6 +53,14 @@ let [<Emit("arguments.length")>] argCount: int = jsNative
 type ErasedUnion =
     | ErasedInt of int
     | ErasedString of string
+    member this.SayHi() =
+        match this with
+        | ErasedInt i -> sprintf "Hi %i time(s)!" i
+        | ErasedString s -> sprintf "Hi %s!" s
+
+[<Erase>]
+type ErasedUnionWithMultipleFields =
+    | ErasedUnionWithMultipleFields of string * int
 
 type TextStyle =
     [<Emit("\"foo\"")>]
@@ -97,6 +105,12 @@ type MyCssOptions =
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
+    with member this.Kind =
+            match this with
+            | OldPassword -> "Old"
+            | NewPassword -> "New"
+            | ConfirmPassword -> "Confirm"
+         static member Default = NewPassword
 
 type MyInterface =
     abstract foo: int
@@ -106,6 +120,10 @@ let validatePassword = function
     | OldPassword -> "op"
     | NewPassword -> "np"
     | ConfirmPassword -> "cp"
+
+type JsOptions =
+    abstract foo: string with get, set
+    abstract bar: int with get, set
 
 let tests =
   testList "JsInterop" [
@@ -272,6 +290,18 @@ let tests =
         ErasedInt 4 |> convert |> equal "8"
         ErasedString "ab" |> convert |> equal "xabx"
 
+    testCase "Erased types can have members" <| fun () ->
+        let x = ErasedString "Patrick"
+        x.SayHi() |> equal "Hi Patrick!"
+
+    testCase "Erased unions with multiple fields work" <| fun _ ->
+        let gimme (ErasedUnionWithMultipleFields(s, i)) =
+            sprintf "Gimme %i %ss" i s
+        ("apple", 5)
+        |> ErasedUnionWithMultipleFields
+        |> gimme
+        |> equal "Gimme 5 apples"
+
     testCase "Emit attribute works" <| fun () ->
         let style = createEmpty<TextStyle>
         style.Bar |> equal "foo"
@@ -344,9 +374,24 @@ let tests =
         let arr = JS.Uint8Array.Create(5)
         arr.[0] <- 5uy
         equal 5uy arr.[0]
+
+    testCase "jsOptions works" <| fun _ ->
+        let opts = jsOptions<JsOptions>(fun o ->
+            o.foo <- "bar"
+            o.bar <- 5)
+        opts.foo |> equal "bar"
+        opts.bar |> equal 5
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
         validatePassword NewPassword
         |> equal "np"
+
+    testCase "StringEnums can have members" <| fun () ->
+        let x = ConfirmPassword
+        x.Kind |> equal "Confirm"
+
+    testCase "StringEnums can have static members" <| fun () ->
+        let x = Field.Default
+        validatePassword x |> equal "np"
   ]
