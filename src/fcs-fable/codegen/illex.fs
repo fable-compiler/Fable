@@ -1,18 +1,18 @@
-﻿//# 3 "../src/absil/illex.fsl"
+﻿//# 3 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+ 
 
-
-module internal FSharp.Compiler.AbstractIL.Internal.AsciiLexer
+module internal FSharp.Compiler.AbstractIL.Internal.AsciiLexer 
 
 open Internal.Utilities
 open Internal.Utilities.Collections
 open Internal.Utilities.Text
 open Internal.Utilities.Text.Lexing
-open FSharp.Compiler.AbstractIL
-open FSharp.Compiler.AbstractIL.Internal
+open FSharp.Compiler.AbstractIL 
+open FSharp.Compiler.AbstractIL.Internal 
 open FSharp.Compiler.AbstractIL.Internal.Library
 
-open FSharp.Compiler.AbstractIL.Internal.AsciiParser
-open FSharp.Compiler.AbstractIL.Internal.AsciiConstants
+open FSharp.Compiler.AbstractIL.Internal.AsciiParser 
+open FSharp.Compiler.AbstractIL.Internal.AsciiConstants 
 
 
 let lexeme (lexbuf : LexBuffer<_>) = LexBuffer<_>.LexemeString (lexbuf)
@@ -20,12 +20,12 @@ let lexeme (lexbuf : LexBuffer<_>) = LexBuffer<_>.LexemeString (lexbuf)
 let unexpectedChar _lexbuf =
   raise Parsing.RecoverableParseError ;;
 
-// --------------------------------------------------------------------
+// -------------------------------------------------------------------- 
 // Keywords
-// --------------------------------------------------------------------
+// -------------------------------------------------------------------- 
 
-let keywords =
-    lazy [ "void",VOID;
+let keywords = 
+    lazy [ "void",VOID; 
            "bool",BOOL;
            "bytearray",BYTEARRAY;
            "char",CHAR;
@@ -53,14 +53,14 @@ let keywords =
            "unsigned",UNSIGNED;
            "value",VALUE;
            "valuetype",VALUETYPE;
-           "vararg",VARARG ]
+           "vararg",VARARG ] 
 
-// --------------------------------------------------------------------
+// -------------------------------------------------------------------- 
 // Instructions
-// --------------------------------------------------------------------
+// -------------------------------------------------------------------- 
 
-let kwdInstrTable =
-  lazy
+let kwdInstrTable = 
+  lazy 
    (let t = HashMultiMap(1000, HashIdentity.Structural)
     List.iter t.Add (Lazy.force keywords);
     let addTable f l = List.iter (fun (x,i) -> t.Add (String.concat "." x,f i)) (Lazy.force l)
@@ -78,19 +78,19 @@ let kwdInstrTable =
 
 let kwdOrInstr s = (Lazy.force kwdInstrTable).[s] (* words *)
 
-let eval = function
-  | '0' -> 0  | '1' -> 1 | '2' -> 2  | '3' -> 3  | '4' -> 4  | '5' -> 5
-  | '6' -> 6  | '7' -> 7  | '8' -> 8  | '9' -> 9
+let eval = function 
+  | '0' -> 0  | '1' -> 1 | '2' -> 2  | '3' -> 3  | '4' -> 4  | '5' -> 5 
+  | '6' -> 6  | '7' -> 7  | '8' -> 8  | '9' -> 9 
   | 'A' -> 10 | 'B' -> 11 | 'C' -> 12 | 'D' -> 13 | 'E' -> 14 | 'F' -> 15
   | 'a' -> 10 | 'b' -> 11 | 'c' -> 12 | 'd' -> 13 | 'e' -> 14 | 'f' -> 15
-  | _ -> failwith "bad hexbyte"
+  | _ -> failwith "bad hexbyte"  
 
 let kwdOrInstrOrId s = match (Lazy.force kwdInstrTable).TryFind s with Some v -> v | _ -> VAL_ID s
-
+        
 
 //# 91 "illex.fs"
-let trans : uint16[] array =
-    [|
+let trans : uint16[] array = 
+    [| 
     (* State 0 *)
      [| 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 32us; 32us; 33us; 33us; 32us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 32us; 4us; 33us; 33us; 31us; 33us; 5us; 33us; 6us; 7us; 3us; 14us; 1us; 23us; 2us; 10us; 15us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 13us; 33us; 11us; 33us; 12us; 31us; 31us; 17us; 17us; 17us; 17us; 17us; 18us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 31us; 8us; 33us; 9us; 33us; 31us; 31us; 19us; 20us; 21us; 22us; 17us; 17us; 31us; 31us; 30us; 31us; 31us; 27us; 26us; 28us; 31us; 31us; 31us; 25us; 24us; 31us; 29us; 31us; 31us; 31us; 31us; 31us; 33us; 33us; 33us; 33us; 33us; 128us; 31us; 129us; 31us; 130us; 31us; 131us; 31us; 132us; 31us; 133us; 31us; 134us; 31us; 135us; 31us; 136us; 31us; 137us; 31us; 138us; 31us; 139us; 31us; 140us; 31us; 141us; 31us; 142us; 31us; 143us; 31us; 144us; 31us; 145us; 31us; 146us; 31us; 147us; 31us; 148us; 31us; 149us; 31us; 150us; 31us; 151us; 31us; 152us; 31us; 153us; 31us; 154us; 31us; 155us; 31us; 156us; 31us; 157us; 31us; 158us; 31us; 159us; 31us; 160us; 31us; 161us; 31us; 162us; 31us; 163us; 31us; 164us; 31us; 165us; 31us; 166us; 31us; 167us; 31us; 168us; 31us; 169us; 31us; 170us; 31us; 171us; 31us; 172us; 31us; 173us; 31us; 174us; 31us; 175us; 31us; 176us; 31us; 177us; 31us; 178us; 31us; 179us; 31us; 180us; 31us; 181us; 31us; 182us; 31us; 183us; 31us; 184us; 31us; 185us; 31us; 186us; 31us; 187us; 31us; 188us; 31us; 189us; 31us; 190us; 31us; 191us; 31us; 192us; 31us; 193us; 31us; 194us; 31us; 195us; 31us; 196us; 31us; 197us; 31us; 198us; 31us; 199us; 31us; 200us; 31us; 201us; 31us; 202us; 31us; 203us; 31us; 204us; 31us; 205us; 31us; 206us; 31us; 207us; 31us; 208us; 31us; 209us; 31us; 210us; 31us; 211us; 31us; 212us; 31us; 213us; 31us; 214us; 31us; 215us; 31us; 216us; 31us; 217us; 31us; 218us; 31us; 219us; 31us; 220us; 31us; 221us; 31us; 222us; 31us; 223us; 31us; 224us; 31us; 225us; 31us; 226us; 31us; 227us; 31us; 228us; 31us; 229us; 31us; 230us; 31us; 231us; 31us; 232us; 31us; 233us; 31us; 234us; 31us; 235us; 31us; 236us; 31us; 237us; 31us; 238us; 31us; 239us; 31us; 240us; 31us; 241us; 31us; 242us; 31us; 243us; 31us; 244us; 31us; 245us; 31us; 246us; 31us; 247us; 31us; 248us; 31us; 249us; 31us; 250us; 31us; 251us; 31us; 252us; 31us; 253us; 31us; 254us; 31us; 255us; 31us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 33us; 34us; |];
     (* State 1 *)
@@ -365,160 +365,160 @@ let trans : uint16[] array =
      [| 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 136us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 128us; 65535us; 129us; 65535us; 130us; 65535us; 131us; 65535us; 132us; 65535us; 133us; 65535us; 134us; 65535us; 135us; 65535us; 136us; 65535us; 137us; 65535us; 138us; 65535us; 139us; 65535us; 140us; 65535us; 141us; 65535us; 142us; 65535us; 143us; 65535us; 144us; 65535us; 145us; 65535us; 146us; 65535us; 147us; 65535us; 148us; 65535us; 149us; 65535us; 150us; 65535us; 151us; 65535us; 152us; 65535us; 153us; 65535us; 154us; 65535us; 155us; 65535us; 156us; 65535us; 157us; 65535us; 158us; 65535us; 159us; 65535us; 160us; 65535us; 161us; 65535us; 162us; 65535us; 163us; 65535us; 164us; 65535us; 165us; 65535us; 166us; 65535us; 167us; 65535us; 168us; 65535us; 169us; 65535us; 170us; 65535us; 171us; 65535us; 172us; 65535us; 173us; 65535us; 174us; 65535us; 175us; 65535us; 176us; 65535us; 177us; 65535us; 178us; 65535us; 179us; 65535us; 180us; 65535us; 181us; 65535us; 182us; 65535us; 183us; 65535us; 184us; 65535us; 185us; 65535us; 186us; 65535us; 187us; 65535us; 188us; 65535us; 189us; 65535us; 190us; 65535us; 191us; 65535us; 192us; 65535us; 193us; 65535us; 194us; 65535us; 195us; 65535us; 196us; 65535us; 197us; 65535us; 198us; 65535us; 199us; 65535us; 200us; 65535us; 201us; 65535us; 202us; 65535us; 203us; 65535us; 204us; 65535us; 205us; 65535us; 206us; 65535us; 207us; 65535us; 208us; 65535us; 209us; 65535us; 210us; 65535us; 211us; 65535us; 212us; 65535us; 213us; 65535us; 214us; 65535us; 215us; 65535us; 216us; 65535us; 217us; 65535us; 218us; 65535us; 219us; 65535us; 220us; 65535us; 221us; 65535us; 222us; 65535us; 223us; 65535us; 224us; 65535us; 225us; 65535us; 226us; 65535us; 227us; 65535us; 228us; 65535us; 229us; 65535us; 230us; 65535us; 231us; 65535us; 232us; 65535us; 233us; 65535us; 234us; 65535us; 235us; 65535us; 236us; 65535us; 237us; 65535us; 238us; 65535us; 239us; 65535us; 240us; 65535us; 241us; 65535us; 242us; 65535us; 243us; 65535us; 244us; 65535us; 245us; 65535us; 246us; 65535us; 247us; 65535us; 248us; 65535us; 249us; 65535us; 250us; 65535us; 251us; 65535us; 252us; 65535us; 253us; 65535us; 254us; 65535us; 255us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; |];
     (* State 136 *)
      [| 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 128us; 65535us; 129us; 65535us; 130us; 65535us; 131us; 65535us; 132us; 65535us; 133us; 65535us; 134us; 65535us; 135us; 65535us; 136us; 65535us; 137us; 65535us; 138us; 65535us; 139us; 65535us; 140us; 65535us; 141us; 65535us; 142us; 65535us; 143us; 65535us; 144us; 65535us; 145us; 65535us; 146us; 65535us; 147us; 65535us; 148us; 65535us; 149us; 65535us; 150us; 65535us; 151us; 65535us; 152us; 65535us; 153us; 65535us; 154us; 65535us; 155us; 65535us; 156us; 65535us; 157us; 65535us; 158us; 65535us; 159us; 65535us; 160us; 65535us; 161us; 65535us; 162us; 65535us; 163us; 65535us; 164us; 65535us; 165us; 65535us; 166us; 65535us; 167us; 65535us; 168us; 65535us; 169us; 65535us; 170us; 65535us; 171us; 65535us; 172us; 65535us; 173us; 65535us; 174us; 65535us; 175us; 65535us; 176us; 65535us; 177us; 65535us; 178us; 65535us; 179us; 65535us; 180us; 65535us; 181us; 65535us; 182us; 65535us; 183us; 65535us; 184us; 65535us; 185us; 65535us; 186us; 65535us; 187us; 65535us; 188us; 65535us; 189us; 65535us; 190us; 65535us; 191us; 65535us; 192us; 65535us; 193us; 65535us; 194us; 65535us; 195us; 65535us; 196us; 65535us; 197us; 65535us; 198us; 65535us; 199us; 65535us; 200us; 65535us; 201us; 65535us; 202us; 65535us; 203us; 65535us; 204us; 65535us; 205us; 65535us; 206us; 65535us; 207us; 65535us; 208us; 65535us; 209us; 65535us; 210us; 65535us; 211us; 65535us; 212us; 65535us; 213us; 65535us; 214us; 65535us; 215us; 65535us; 216us; 65535us; 217us; 65535us; 218us; 65535us; 219us; 65535us; 220us; 65535us; 221us; 65535us; 222us; 65535us; 223us; 65535us; 224us; 65535us; 225us; 65535us; 226us; 65535us; 227us; 65535us; 228us; 65535us; 229us; 65535us; 230us; 65535us; 231us; 65535us; 232us; 65535us; 233us; 65535us; 234us; 65535us; 235us; 65535us; 236us; 65535us; 237us; 65535us; 238us; 65535us; 239us; 65535us; 240us; 65535us; 241us; 65535us; 242us; 65535us; 243us; 65535us; 244us; 65535us; 245us; 65535us; 246us; 65535us; 247us; 65535us; 248us; 65535us; 249us; 65535us; 250us; 65535us; 251us; 65535us; 252us; 65535us; 253us; 65535us; 254us; 65535us; 255us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; |];
-    |]
+    |] 
 let actions : uint16[] = [|65535us; 0us; 1us; 2us; 3us; 4us; 5us; 6us; 7us; 8us; 9us; 10us; 11us; 26us; 14us; 15us; 15us; 23us; 23us; 23us; 23us; 23us; 23us; 26us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 25us; 26us; 27us; 23us; 23us; 65535us; 65535us; 24us; 65535us; 24us; 65535us; 24us; 24us; 23us; 23us; 23us; 23us; 23us; 23us; 65535us; 22us; 22us; 22us; 22us; 22us; 22us; 22us; 22us; 22us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 23us; 20us; 20us; 65535us; 21us; 21us; 21us; 65535us; 21us; 17us; 23us; 17us; 23us; 23us; 23us; 23us; 23us; 17us; 23us; 23us; 17us; 17us; 23us; 23us; 23us; 23us; 23us; 19us; 17us; 21us; 17us; 17us; 65535us; 16us; 15us; 15us; 65535us; 18us; 18us; 21us; 21us; 13us; 65535us; 12us; |]
 let _fslex_tables = Internal.Utilities.Text.Lexing.UnicodeTables.Create(trans,actions)
-let rec _fslex_dummy () = _fslex_dummy()
+let rec _fslex_dummy () = _fslex_dummy() 
 // Rule token
 and token  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
-  | 0 -> (
-//# 97 "../src/absil/illex.fsl"
-                         COMMA
+  | 0 -> ( 
+//# 97 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         COMMA 
 //# 378 "illex.fs"
           )
-  | 1 -> (
-//# 98 "../src/absil/illex.fsl"
-                         DOT
+  | 1 -> ( 
+//# 98 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         DOT 
 //# 383 "illex.fs"
           )
-  | 2 -> (
-//# 99 "../src/absil/illex.fsl"
-                         STAR
+  | 2 -> ( 
+//# 99 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         STAR 
 //# 388 "illex.fs"
           )
-  | 3 -> (
-//# 100 "../src/absil/illex.fsl"
-                         BANG
+  | 3 -> ( 
+//# 100 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         BANG 
 //# 393 "illex.fs"
           )
-  | 4 -> (
-//# 101 "../src/absil/illex.fsl"
-                         AMP
+  | 4 -> ( 
+//# 101 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         AMP 
 //# 398 "illex.fs"
           )
-  | 5 -> (
-//# 102 "../src/absil/illex.fsl"
-                         LPAREN
+  | 5 -> ( 
+//# 102 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         LPAREN 
 //# 403 "illex.fs"
           )
-  | 6 -> (
-//# 103 "../src/absil/illex.fsl"
-                         RPAREN
+  | 6 -> ( 
+//# 103 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         RPAREN 
 //# 408 "illex.fs"
           )
-  | 7 -> (
-//# 104 "../src/absil/illex.fsl"
-                         LBRACK
+  | 7 -> ( 
+//# 104 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         LBRACK 
 //# 413 "illex.fs"
           )
-  | 8 -> (
-//# 105 "../src/absil/illex.fsl"
-                         RBRACK
+  | 8 -> ( 
+//# 105 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         RBRACK 
 //# 418 "illex.fs"
           )
-  | 9 -> (
-//# 106 "../src/absil/illex.fsl"
-                         SLASH
+  | 9 -> ( 
+//# 106 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         SLASH 
 //# 423 "illex.fs"
           )
-  | 10 -> (
-//# 107 "../src/absil/illex.fsl"
-                         LESS
+  | 10 -> ( 
+//# 107 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         LESS 
 //# 428 "illex.fs"
           )
-  | 11 -> (
-//# 108 "../src/absil/illex.fsl"
-                         GREATER
+  | 11 -> ( 
+//# 108 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         GREATER 
 //# 433 "illex.fs"
           )
-  | 12 -> (
-//# 109 "../src/absil/illex.fsl"
-                           ELIPSES
+  | 12 -> ( 
+//# 109 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                           ELIPSES 
 //# 438 "illex.fs"
           )
-  | 13 -> (
-//# 110 "../src/absil/illex.fsl"
-                          DCOLON
+  | 13 -> ( 
+//# 110 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                          DCOLON 
 //# 443 "illex.fs"
           )
-  | 14 -> (
-//# 111 "../src/absil/illex.fsl"
-                         PLUS
+  | 14 -> ( 
+//# 111 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                         PLUS 
 //# 448 "illex.fs"
           )
-  | 15 -> (
-//# 113 "../src/absil/illex.fsl"
-                        VAL_INT64(int64(lexeme lexbuf))
+  | 15 -> ( 
+//# 113 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                        VAL_INT64(int64(lexeme lexbuf)) 
 //# 453 "illex.fs"
           )
-  | 16 -> (
-//# 122 "../src/absil/illex.fsl"
-                        let b = lexeme lexbuf in
-                        VAL_INT32_ELIPSES(int32(String.sub b  0 (String.length b - 3)))
+  | 16 -> ( 
+//# 122 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                        let b = lexeme lexbuf in 
+                        VAL_INT32_ELIPSES(int32(String.sub b  0 (String.length b - 3))) 
 //# 459 "illex.fs"
           )
-  | 17 -> (
-//# 125 "../src/absil/illex.fsl"
-                       let c1 = String.get (lexeme lexbuf) 0 in
-                       let c2 = String.get (lexeme lexbuf) 1 in
-                       if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then
+  | 17 -> ( 
+//# 125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       let c1 = String.get (lexeme lexbuf) 0 in 
+                       let c2 = String.get (lexeme lexbuf) 1 in 
+                       if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
                          VAL_INT64(int64 (10*eval c1 + eval c2) )
-                       else VAL_ID(lexeme lexbuf)
+                       else VAL_ID(lexeme lexbuf) 
 //# 468 "illex.fs"
           )
-  | 18 -> (
-//# 131 "../src/absil/illex.fsl"
-                       VAL_INT64(int64(lexeme lexbuf))
+  | 18 -> ( 
+//# 131 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       VAL_INT64(int64(lexeme lexbuf)) 
 //# 473 "illex.fs"
           )
-  | 19 -> (
-//# 133 "../src/absil/illex.fsl"
-                       let c1 = (lexeme lexbuf).[6] in
-                       let c2 = (lexeme lexbuf).[7] in
-                       if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then
-                         VAL_INT64(int64 (10*eval c1 + eval c2))
-                       else VAL_ID(lexeme lexbuf)
+  | 19 -> ( 
+//# 133 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       let c1 = (lexeme lexbuf).[6] in 
+                       let c2 = (lexeme lexbuf).[7] in 
+                       if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
+                         VAL_INT64(int64 (10*eval c1 + eval c2)) 
+                       else VAL_ID(lexeme lexbuf) 
 //# 482 "illex.fs"
           )
-  | 20 -> (
-//# 140 "../src/absil/illex.fsl"
-                       VAL_INT64(int64(lexeme lexbuf))
+  | 20 -> ( 
+//# 140 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       VAL_INT64(int64(lexeme lexbuf)) 
 //# 487 "illex.fs"
           )
-  | 21 -> (
-//# 142 "../src/absil/illex.fsl"
-                       VAL_FLOAT64( (float (lexeme lexbuf)) )
+  | 21 -> ( 
+//# 142 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       VAL_FLOAT64( (float (lexeme lexbuf)) ) 
 //# 492 "illex.fs"
           )
-  | 22 -> (
-//# 145 "../src/absil/illex.fsl"
-                       let s = (lexeme lexbuf) in kwdOrInstr s
+  | 22 -> ( 
+//# 145 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       let s = (lexeme lexbuf) in kwdOrInstr s 
 //# 497 "illex.fs"
           )
-  | 23 -> (
-//# 147 "../src/absil/illex.fsl"
-                       kwdOrInstrOrId (lexeme lexbuf)
+  | 23 -> ( 
+//# 147 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       kwdOrInstrOrId (lexeme lexbuf) 
 //# 502 "illex.fs"
           )
-  | 24 -> (
-//# 150 "../src/absil/illex.fsl"
-                       VAL_DOTTEDNAME(lexeme lexbuf)
+  | 24 -> ( 
+//# 150 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       VAL_DOTTEDNAME(lexeme lexbuf) 
 //# 507 "illex.fs"
           )
-  | 25 -> (
-//# 153 "../src/absil/illex.fsl"
-                       token lexbuf
+  | 25 -> ( 
+//# 153 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       token lexbuf 
 //# 512 "illex.fs"
           )
-  | 26 -> (
-//# 155 "../src/absil/illex.fsl"
-                       unexpectedChar lexbuf
+  | 26 -> ( 
+//# 155 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       unexpectedChar lexbuf 
 //# 517 "illex.fs"
           )
-  | 27 -> (
-//# 157 "../src/absil/illex.fsl"
-                       EOF
+  | 27 -> ( 
+//# 157 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/illex.fsl"
+                       EOF 
 //# 522 "illex.fs"
           )
   | _ -> failwith "token"

@@ -4,7 +4,7 @@ module internal FSharp.Compiler.AbstractIL.Internal.AsciiParser
 open FSharp.Compiler.AbstractIL
 open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Text.Parsing.ParseHelpers
-//# 3 "../src/absil/ilpars.fsy"
+//# 3 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
 
 
 #nowarn "1182"  // the generated code often has unused variable "parseState"
@@ -12,45 +12,34 @@ open Internal.Utilities.Text.Parsing.ParseHelpers
 open Internal.Utilities
 open Internal.Utilities.Text
 
-open FSharp.Compiler.AbstractIL
-open FSharp.Compiler.AbstractIL.Internal
-open FSharp.Compiler.AbstractIL.Internal.AsciiConstants
-open FSharp.Compiler.AbstractIL.Diagnostics
-open FSharp.Compiler.AbstractIL.Extensions.ILX.Types
-open FSharp.Compiler.AbstractIL.IL
-open FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.AbstractIL 
+open FSharp.Compiler.AbstractIL.Internal 
+open FSharp.Compiler.AbstractIL.Internal.AsciiConstants 
+open FSharp.Compiler.AbstractIL.Diagnostics 
+open FSharp.Compiler.AbstractIL.Extensions.ILX.Types 
+open FSharp.Compiler.AbstractIL.IL 
+open FSharp.Compiler.AbstractIL.Internal.Library 
 
+  
+let pfailwith s = 
+    stderr.WriteLine ("*** error: "+s); 
+    raise Parsing.RecoverableParseError 
 
-let pfailwith s =
-    stderr.WriteLine ("*** error: "+s);
-    raise Parsing.RecoverableParseError
-
-type ResolvedAtMethodSpecScope<'T> =
+type ResolvedAtMethodSpecScope<'T> = 
     ResolvedAtMethodSpecScope of (ILGenericParameterDefs -> 'T)
 
 let noMethodSpecScope x = ResolvedAtMethodSpecScope (fun _cgparams -> x)
 let resolveMethodSpecScope (ResolvedAtMethodSpecScope f) x = f x
-let resolveMethodSpecScopeThen (ResolvedAtMethodSpecScope f) g =
+let resolveMethodSpecScopeThen (ResolvedAtMethodSpecScope f) g = 
   ResolvedAtMethodSpecScope (fun x -> resolveMethodSpecScope (g(f x)) x)
 
-let resolveCurrentMethodSpecScope obj =
+let resolveCurrentMethodSpecScope obj = 
     resolveMethodSpecScope obj mkILEmptyGenericParams
 
 
-let findSystemRuntimeAssemblyRef() =
-  match parseILGlobals.primaryAssemblyScopeRef with
-  | ILScopeRef.Assembly aref -> aref
-  | _ -> pfailwith "systemRuntimeScopeRef not set to valid assembly reference in parseILGlobals"
-
-let findAssemblyRef nm =
-  if nm = "mscorlib" then findSystemRuntimeAssemblyRef()
-  else
-  pfailwith ("Undefined assembly ref '" + nm + "'")
-
-
-//# 51 "ilpars.fs"
+//# 40 "ilpars.fs"
 // This type is the type of tokens accepted by the parser
-type token =
+type token = 
   | VOID
   | VARARG
   | VALUETYPE
@@ -116,7 +105,7 @@ type token =
   | VAL_INT32_ELIPSES of (int32)
   | VAL_INT64 of (int64)
 // This type is used to give symbolic names to token indexes, useful for error messages
-type tokenId =
+type tokenId = 
     | TOKEN_VOID
     | TOKEN_VARARG
     | TOKEN_VALUETYPE
@@ -184,7 +173,7 @@ type tokenId =
     | TOKEN_end_of_input
     | TOKEN_error
 // This type is used to give symbolic names to token indexes, useful for error messages
-type nonTerminalId =
+type nonTerminalId = 
     | NONTERM__startilInstrs
     | NONTERM__startilType
     | NONTERM_ilType
@@ -213,373 +202,373 @@ type nonTerminalId =
     | NONTERM_actualTypSpecs
 
 // This function maps tokens to integer indexes
-let tagOfToken (t:token) =
+let tagOfToken (t:token) = 
   match t with
-  | VOID  -> 0
-  | VARARG  -> 1
-  | VALUETYPE  -> 2
-  | VALUE  -> 3
-  | UNSIGNED  -> 4
-  | UNMANAGED  -> 5
-  | UINT8  -> 6
-  | UINT64  -> 7
-  | UINT32  -> 8
-  | UINT16  -> 9
-  | UINT  -> 10
-  | STRING  -> 11
-  | STAR  -> 12
-  | SLASH  -> 13
-  | RPAREN  -> 14
-  | RBRACK  -> 15
-  | PLUS  -> 16
-  | OBJECT  -> 17
-  | NATIVE  -> 18
-  | METHOD  -> 19
-  | LPAREN  -> 20
-  | LESS  -> 21
-  | LBRACK  -> 22
-  | INT8  -> 23
-  | INT64  -> 24
-  | INT32  -> 25
-  | INT16  -> 26
-  | INT  -> 27
-  | INSTANCE  -> 28
-  | GREATER  -> 29
-  | FLOAT64  -> 30
-  | FLOAT32  -> 31
-  | FIELD  -> 32
-  | EXPLICIT  -> 33
-  | EOF  -> 34
-  | ELIPSES  -> 35
-  | DOT  -> 36
-  | DEFAULT  -> 37
-  | DCOLON  -> 38
-  | COMMA  -> 39
-  | CLASS  -> 40
-  | CHAR  -> 41
-  | BYTEARRAY  -> 42
-  | BOOL  -> 43
-  | BANG  -> 44
-  | AMP  -> 45
-  | VAL_SQSTRING _ -> 46
-  | VAL_QSTRING _ -> 47
-  | VAL_DOTTEDNAME _ -> 48
-  | VAL_ID _ -> 49
-  | VAL_HEXBYTE _ -> 50
-  | INSTR_VALUETYPE _ -> 51
-  | INSTR_INT_TYPE _ -> 52
-  | INSTR_TYPE _ -> 53
-  | INSTR_TOK _ -> 54
-  | INSTR_STRING _ -> 55
-  | INSTR_NONE _ -> 56
-  | INSTR_R _ -> 57
-  | INSTR_I8 _ -> 58
-  | INSTR_I32_I32 _ -> 59
-  | INSTR_I _ -> 60
-  | VAL_FLOAT64 _ -> 61
-  | VAL_INT32_ELIPSES _ -> 62
-  | VAL_INT64 _ -> 63
+  | VOID  -> 0 
+  | VARARG  -> 1 
+  | VALUETYPE  -> 2 
+  | VALUE  -> 3 
+  | UNSIGNED  -> 4 
+  | UNMANAGED  -> 5 
+  | UINT8  -> 6 
+  | UINT64  -> 7 
+  | UINT32  -> 8 
+  | UINT16  -> 9 
+  | UINT  -> 10 
+  | STRING  -> 11 
+  | STAR  -> 12 
+  | SLASH  -> 13 
+  | RPAREN  -> 14 
+  | RBRACK  -> 15 
+  | PLUS  -> 16 
+  | OBJECT  -> 17 
+  | NATIVE  -> 18 
+  | METHOD  -> 19 
+  | LPAREN  -> 20 
+  | LESS  -> 21 
+  | LBRACK  -> 22 
+  | INT8  -> 23 
+  | INT64  -> 24 
+  | INT32  -> 25 
+  | INT16  -> 26 
+  | INT  -> 27 
+  | INSTANCE  -> 28 
+  | GREATER  -> 29 
+  | FLOAT64  -> 30 
+  | FLOAT32  -> 31 
+  | FIELD  -> 32 
+  | EXPLICIT  -> 33 
+  | EOF  -> 34 
+  | ELIPSES  -> 35 
+  | DOT  -> 36 
+  | DEFAULT  -> 37 
+  | DCOLON  -> 38 
+  | COMMA  -> 39 
+  | CLASS  -> 40 
+  | CHAR  -> 41 
+  | BYTEARRAY  -> 42 
+  | BOOL  -> 43 
+  | BANG  -> 44 
+  | AMP  -> 45 
+  | VAL_SQSTRING _ -> 46 
+  | VAL_QSTRING _ -> 47 
+  | VAL_DOTTEDNAME _ -> 48 
+  | VAL_ID _ -> 49 
+  | VAL_HEXBYTE _ -> 50 
+  | INSTR_VALUETYPE _ -> 51 
+  | INSTR_INT_TYPE _ -> 52 
+  | INSTR_TYPE _ -> 53 
+  | INSTR_TOK _ -> 54 
+  | INSTR_STRING _ -> 55 
+  | INSTR_NONE _ -> 56 
+  | INSTR_R _ -> 57 
+  | INSTR_I8 _ -> 58 
+  | INSTR_I32_I32 _ -> 59 
+  | INSTR_I _ -> 60 
+  | VAL_FLOAT64 _ -> 61 
+  | VAL_INT32_ELIPSES _ -> 62 
+  | VAL_INT64 _ -> 63 
 
 // This function maps integer indexes to symbolic token ids
-let tokenTagToTokenId (tokenIdx:int) =
+let tokenTagToTokenId (tokenIdx:int) = 
   match tokenIdx with
-  | 0 -> TOKEN_VOID
-  | 1 -> TOKEN_VARARG
-  | 2 -> TOKEN_VALUETYPE
-  | 3 -> TOKEN_VALUE
-  | 4 -> TOKEN_UNSIGNED
-  | 5 -> TOKEN_UNMANAGED
-  | 6 -> TOKEN_UINT8
-  | 7 -> TOKEN_UINT64
-  | 8 -> TOKEN_UINT32
-  | 9 -> TOKEN_UINT16
-  | 10 -> TOKEN_UINT
-  | 11 -> TOKEN_STRING
-  | 12 -> TOKEN_STAR
-  | 13 -> TOKEN_SLASH
-  | 14 -> TOKEN_RPAREN
-  | 15 -> TOKEN_RBRACK
-  | 16 -> TOKEN_PLUS
-  | 17 -> TOKEN_OBJECT
-  | 18 -> TOKEN_NATIVE
-  | 19 -> TOKEN_METHOD
-  | 20 -> TOKEN_LPAREN
-  | 21 -> TOKEN_LESS
-  | 22 -> TOKEN_LBRACK
-  | 23 -> TOKEN_INT8
-  | 24 -> TOKEN_INT64
-  | 25 -> TOKEN_INT32
-  | 26 -> TOKEN_INT16
-  | 27 -> TOKEN_INT
-  | 28 -> TOKEN_INSTANCE
-  | 29 -> TOKEN_GREATER
-  | 30 -> TOKEN_FLOAT64
-  | 31 -> TOKEN_FLOAT32
-  | 32 -> TOKEN_FIELD
-  | 33 -> TOKEN_EXPLICIT
-  | 34 -> TOKEN_EOF
-  | 35 -> TOKEN_ELIPSES
-  | 36 -> TOKEN_DOT
-  | 37 -> TOKEN_DEFAULT
-  | 38 -> TOKEN_DCOLON
-  | 39 -> TOKEN_COMMA
-  | 40 -> TOKEN_CLASS
-  | 41 -> TOKEN_CHAR
-  | 42 -> TOKEN_BYTEARRAY
-  | 43 -> TOKEN_BOOL
-  | 44 -> TOKEN_BANG
-  | 45 -> TOKEN_AMP
-  | 46 -> TOKEN_VAL_SQSTRING
-  | 47 -> TOKEN_VAL_QSTRING
-  | 48 -> TOKEN_VAL_DOTTEDNAME
-  | 49 -> TOKEN_VAL_ID
-  | 50 -> TOKEN_VAL_HEXBYTE
-  | 51 -> TOKEN_INSTR_VALUETYPE
-  | 52 -> TOKEN_INSTR_INT_TYPE
-  | 53 -> TOKEN_INSTR_TYPE
-  | 54 -> TOKEN_INSTR_TOK
-  | 55 -> TOKEN_INSTR_STRING
-  | 56 -> TOKEN_INSTR_NONE
-  | 57 -> TOKEN_INSTR_R
-  | 58 -> TOKEN_INSTR_I8
-  | 59 -> TOKEN_INSTR_I32_I32
-  | 60 -> TOKEN_INSTR_I
-  | 61 -> TOKEN_VAL_FLOAT64
-  | 62 -> TOKEN_VAL_INT32_ELIPSES
-  | 63 -> TOKEN_VAL_INT64
+  | 0 -> TOKEN_VOID 
+  | 1 -> TOKEN_VARARG 
+  | 2 -> TOKEN_VALUETYPE 
+  | 3 -> TOKEN_VALUE 
+  | 4 -> TOKEN_UNSIGNED 
+  | 5 -> TOKEN_UNMANAGED 
+  | 6 -> TOKEN_UINT8 
+  | 7 -> TOKEN_UINT64 
+  | 8 -> TOKEN_UINT32 
+  | 9 -> TOKEN_UINT16 
+  | 10 -> TOKEN_UINT 
+  | 11 -> TOKEN_STRING 
+  | 12 -> TOKEN_STAR 
+  | 13 -> TOKEN_SLASH 
+  | 14 -> TOKEN_RPAREN 
+  | 15 -> TOKEN_RBRACK 
+  | 16 -> TOKEN_PLUS 
+  | 17 -> TOKEN_OBJECT 
+  | 18 -> TOKEN_NATIVE 
+  | 19 -> TOKEN_METHOD 
+  | 20 -> TOKEN_LPAREN 
+  | 21 -> TOKEN_LESS 
+  | 22 -> TOKEN_LBRACK 
+  | 23 -> TOKEN_INT8 
+  | 24 -> TOKEN_INT64 
+  | 25 -> TOKEN_INT32 
+  | 26 -> TOKEN_INT16 
+  | 27 -> TOKEN_INT 
+  | 28 -> TOKEN_INSTANCE 
+  | 29 -> TOKEN_GREATER 
+  | 30 -> TOKEN_FLOAT64 
+  | 31 -> TOKEN_FLOAT32 
+  | 32 -> TOKEN_FIELD 
+  | 33 -> TOKEN_EXPLICIT 
+  | 34 -> TOKEN_EOF 
+  | 35 -> TOKEN_ELIPSES 
+  | 36 -> TOKEN_DOT 
+  | 37 -> TOKEN_DEFAULT 
+  | 38 -> TOKEN_DCOLON 
+  | 39 -> TOKEN_COMMA 
+  | 40 -> TOKEN_CLASS 
+  | 41 -> TOKEN_CHAR 
+  | 42 -> TOKEN_BYTEARRAY 
+  | 43 -> TOKEN_BOOL 
+  | 44 -> TOKEN_BANG 
+  | 45 -> TOKEN_AMP 
+  | 46 -> TOKEN_VAL_SQSTRING 
+  | 47 -> TOKEN_VAL_QSTRING 
+  | 48 -> TOKEN_VAL_DOTTEDNAME 
+  | 49 -> TOKEN_VAL_ID 
+  | 50 -> TOKEN_VAL_HEXBYTE 
+  | 51 -> TOKEN_INSTR_VALUETYPE 
+  | 52 -> TOKEN_INSTR_INT_TYPE 
+  | 53 -> TOKEN_INSTR_TYPE 
+  | 54 -> TOKEN_INSTR_TOK 
+  | 55 -> TOKEN_INSTR_STRING 
+  | 56 -> TOKEN_INSTR_NONE 
+  | 57 -> TOKEN_INSTR_R 
+  | 58 -> TOKEN_INSTR_I8 
+  | 59 -> TOKEN_INSTR_I32_I32 
+  | 60 -> TOKEN_INSTR_I 
+  | 61 -> TOKEN_VAL_FLOAT64 
+  | 62 -> TOKEN_VAL_INT32_ELIPSES 
+  | 63 -> TOKEN_VAL_INT64 
   | 66 -> TOKEN_end_of_input
   | 64 -> TOKEN_error
   | _ -> failwith "tokenTagToTokenId: bad token"
 
 /// This function maps production indexes returned in syntax errors to strings representing the non terminal that would be produced by that production
-let prodIdxToNonTerminal (prodIdx:int) =
+let prodIdxToNonTerminal (prodIdx:int) = 
   match prodIdx with
-    | 0 -> NONTERM__startilInstrs
-    | 1 -> NONTERM__startilType
-    | 2 -> NONTERM_ilType
-    | 3 -> NONTERM_ilInstrs
-    | 4 -> NONTERM_compQstring
-    | 5 -> NONTERM_compQstring
-    | 6 -> NONTERM_methodName
-    | 7 -> NONTERM_instrs2
-    | 8 -> NONTERM_instrs2
-    | 9 -> NONTERM_instr
-    | 10 -> NONTERM_instr
-    | 11 -> NONTERM_instr
-    | 12 -> NONTERM_instr
-    | 13 -> NONTERM_instr
-    | 14 -> NONTERM_instr
-    | 15 -> NONTERM_instr
-    | 16 -> NONTERM_instr
-    | 17 -> NONTERM_instr
-    | 18 -> NONTERM_instr
-    | 19 -> NONTERM_name1
-    | 20 -> NONTERM_name1
-    | 21 -> NONTERM_name1
-    | 22 -> NONTERM_className
-    | 23 -> NONTERM_className
-    | 24 -> NONTERM_slashedName
-    | 25 -> NONTERM_slashedName
-    | 26 -> NONTERM_typeNameInst
-    | 27 -> NONTERM_typeName
-    | 28 -> NONTERM_typSpec
-    | 29 -> NONTERM_typSpec
-    | 30 -> NONTERM_typSpec
-    | 31 -> NONTERM_callConv
-    | 32 -> NONTERM_callConv
-    | 33 -> NONTERM_callConv
-    | 34 -> NONTERM_callKind
-    | 35 -> NONTERM_callKind
-    | 36 -> NONTERM_callKind
-    | 37 -> NONTERM_typ
-    | 38 -> NONTERM_typ
-    | 39 -> NONTERM_typ
-    | 40 -> NONTERM_typ
-    | 41 -> NONTERM_typ
-    | 42 -> NONTERM_typ
-    | 43 -> NONTERM_typ
-    | 44 -> NONTERM_typ
-    | 45 -> NONTERM_typ
-    | 46 -> NONTERM_typ
-    | 47 -> NONTERM_typ
-    | 48 -> NONTERM_typ
-    | 49 -> NONTERM_typ
-    | 50 -> NONTERM_typ
-    | 51 -> NONTERM_typ
-    | 52 -> NONTERM_typ
-    | 53 -> NONTERM_typ
-    | 54 -> NONTERM_typ
-    | 55 -> NONTERM_typ
-    | 56 -> NONTERM_typ
-    | 57 -> NONTERM_typ
-    | 58 -> NONTERM_typ
-    | 59 -> NONTERM_typ
-    | 60 -> NONTERM_typ
-    | 61 -> NONTERM_typ
-    | 62 -> NONTERM_typ
-    | 63 -> NONTERM_typ
-    | 64 -> NONTERM_typ
-    | 65 -> NONTERM_typ
-    | 66 -> NONTERM_typ
-    | 67 -> NONTERM_bounds1
-    | 68 -> NONTERM_bounds1
-    | 69 -> NONTERM_bound
-    | 70 -> NONTERM_bound
-    | 71 -> NONTERM_bound
-    | 72 -> NONTERM_bound
-    | 73 -> NONTERM_bound
-    | 74 -> NONTERM_bound
-    | 75 -> NONTERM_id
-    | 76 -> NONTERM_id
-    | 77 -> NONTERM_int32
-    | 78 -> NONTERM_int64
-    | 79 -> NONTERM_float64
-    | 80 -> NONTERM_float64
-    | 81 -> NONTERM_opt_actual_tyargs
-    | 82 -> NONTERM_opt_actual_tyargs
-    | 83 -> NONTERM_actual_tyargs
-    | 84 -> NONTERM_actualTypSpecs
-    | 85 -> NONTERM_actualTypSpecs
+    | 0 -> NONTERM__startilInstrs 
+    | 1 -> NONTERM__startilType 
+    | 2 -> NONTERM_ilType 
+    | 3 -> NONTERM_ilInstrs 
+    | 4 -> NONTERM_compQstring 
+    | 5 -> NONTERM_compQstring 
+    | 6 -> NONTERM_methodName 
+    | 7 -> NONTERM_instrs2 
+    | 8 -> NONTERM_instrs2 
+    | 9 -> NONTERM_instr 
+    | 10 -> NONTERM_instr 
+    | 11 -> NONTERM_instr 
+    | 12 -> NONTERM_instr 
+    | 13 -> NONTERM_instr 
+    | 14 -> NONTERM_instr 
+    | 15 -> NONTERM_instr 
+    | 16 -> NONTERM_instr 
+    | 17 -> NONTERM_instr 
+    | 18 -> NONTERM_instr 
+    | 19 -> NONTERM_name1 
+    | 20 -> NONTERM_name1 
+    | 21 -> NONTERM_name1 
+    | 22 -> NONTERM_className 
+    | 23 -> NONTERM_className 
+    | 24 -> NONTERM_slashedName 
+    | 25 -> NONTERM_slashedName 
+    | 26 -> NONTERM_typeNameInst 
+    | 27 -> NONTERM_typeName 
+    | 28 -> NONTERM_typSpec 
+    | 29 -> NONTERM_typSpec 
+    | 30 -> NONTERM_typSpec 
+    | 31 -> NONTERM_callConv 
+    | 32 -> NONTERM_callConv 
+    | 33 -> NONTERM_callConv 
+    | 34 -> NONTERM_callKind 
+    | 35 -> NONTERM_callKind 
+    | 36 -> NONTERM_callKind 
+    | 37 -> NONTERM_typ 
+    | 38 -> NONTERM_typ 
+    | 39 -> NONTERM_typ 
+    | 40 -> NONTERM_typ 
+    | 41 -> NONTERM_typ 
+    | 42 -> NONTERM_typ 
+    | 43 -> NONTERM_typ 
+    | 44 -> NONTERM_typ 
+    | 45 -> NONTERM_typ 
+    | 46 -> NONTERM_typ 
+    | 47 -> NONTERM_typ 
+    | 48 -> NONTERM_typ 
+    | 49 -> NONTERM_typ 
+    | 50 -> NONTERM_typ 
+    | 51 -> NONTERM_typ 
+    | 52 -> NONTERM_typ 
+    | 53 -> NONTERM_typ 
+    | 54 -> NONTERM_typ 
+    | 55 -> NONTERM_typ 
+    | 56 -> NONTERM_typ 
+    | 57 -> NONTERM_typ 
+    | 58 -> NONTERM_typ 
+    | 59 -> NONTERM_typ 
+    | 60 -> NONTERM_typ 
+    | 61 -> NONTERM_typ 
+    | 62 -> NONTERM_typ 
+    | 63 -> NONTERM_typ 
+    | 64 -> NONTERM_typ 
+    | 65 -> NONTERM_typ 
+    | 66 -> NONTERM_typ 
+    | 67 -> NONTERM_bounds1 
+    | 68 -> NONTERM_bounds1 
+    | 69 -> NONTERM_bound 
+    | 70 -> NONTERM_bound 
+    | 71 -> NONTERM_bound 
+    | 72 -> NONTERM_bound 
+    | 73 -> NONTERM_bound 
+    | 74 -> NONTERM_bound 
+    | 75 -> NONTERM_id 
+    | 76 -> NONTERM_id 
+    | 77 -> NONTERM_int32 
+    | 78 -> NONTERM_int64 
+    | 79 -> NONTERM_float64 
+    | 80 -> NONTERM_float64 
+    | 81 -> NONTERM_opt_actual_tyargs 
+    | 82 -> NONTERM_opt_actual_tyargs 
+    | 83 -> NONTERM_actual_tyargs 
+    | 84 -> NONTERM_actualTypSpecs 
+    | 85 -> NONTERM_actualTypSpecs 
     | _ -> failwith "prodIdxToNonTerminal: bad production index"
 
-let _fsyacc_endOfInputTag = 66
+let _fsyacc_endOfInputTag = 66 
 let _fsyacc_tagOfErrorTerminal = 64
 
 // This function gets the name of a token as a string
-let token_to_string (t:token) =
-  match t with
-  | VOID  -> "VOID"
-  | VARARG  -> "VARARG"
-  | VALUETYPE  -> "VALUETYPE"
-  | VALUE  -> "VALUE"
-  | UNSIGNED  -> "UNSIGNED"
-  | UNMANAGED  -> "UNMANAGED"
-  | UINT8  -> "UINT8"
-  | UINT64  -> "UINT64"
-  | UINT32  -> "UINT32"
-  | UINT16  -> "UINT16"
-  | UINT  -> "UINT"
-  | STRING  -> "STRING"
-  | STAR  -> "STAR"
-  | SLASH  -> "SLASH"
-  | RPAREN  -> "RPAREN"
-  | RBRACK  -> "RBRACK"
-  | PLUS  -> "PLUS"
-  | OBJECT  -> "OBJECT"
-  | NATIVE  -> "NATIVE"
-  | METHOD  -> "METHOD"
-  | LPAREN  -> "LPAREN"
-  | LESS  -> "LESS"
-  | LBRACK  -> "LBRACK"
-  | INT8  -> "INT8"
-  | INT64  -> "INT64"
-  | INT32  -> "INT32"
-  | INT16  -> "INT16"
-  | INT  -> "INT"
-  | INSTANCE  -> "INSTANCE"
-  | GREATER  -> "GREATER"
-  | FLOAT64  -> "FLOAT64"
-  | FLOAT32  -> "FLOAT32"
-  | FIELD  -> "FIELD"
-  | EXPLICIT  -> "EXPLICIT"
-  | EOF  -> "EOF"
-  | ELIPSES  -> "ELIPSES"
-  | DOT  -> "DOT"
-  | DEFAULT  -> "DEFAULT"
-  | DCOLON  -> "DCOLON"
-  | COMMA  -> "COMMA"
-  | CLASS  -> "CLASS"
-  | CHAR  -> "CHAR"
-  | BYTEARRAY  -> "BYTEARRAY"
-  | BOOL  -> "BOOL"
-  | BANG  -> "BANG"
-  | AMP  -> "AMP"
-  | VAL_SQSTRING _ -> "VAL_SQSTRING"
-  | VAL_QSTRING _ -> "VAL_QSTRING"
-  | VAL_DOTTEDNAME _ -> "VAL_DOTTEDNAME"
-  | VAL_ID _ -> "VAL_ID"
-  | VAL_HEXBYTE _ -> "VAL_HEXBYTE"
-  | INSTR_VALUETYPE _ -> "INSTR_VALUETYPE"
-  | INSTR_INT_TYPE _ -> "INSTR_INT_TYPE"
-  | INSTR_TYPE _ -> "INSTR_TYPE"
-  | INSTR_TOK _ -> "INSTR_TOK"
-  | INSTR_STRING _ -> "INSTR_STRING"
-  | INSTR_NONE _ -> "INSTR_NONE"
-  | INSTR_R _ -> "INSTR_R"
-  | INSTR_I8 _ -> "INSTR_I8"
-  | INSTR_I32_I32 _ -> "INSTR_I32_I32"
-  | INSTR_I _ -> "INSTR_I"
-  | VAL_FLOAT64 _ -> "VAL_FLOAT64"
-  | VAL_INT32_ELIPSES _ -> "VAL_INT32_ELIPSES"
-  | VAL_INT64 _ -> "VAL_INT64"
+let token_to_string (t:token) = 
+  match t with 
+  | VOID  -> "VOID" 
+  | VARARG  -> "VARARG" 
+  | VALUETYPE  -> "VALUETYPE" 
+  | VALUE  -> "VALUE" 
+  | UNSIGNED  -> "UNSIGNED" 
+  | UNMANAGED  -> "UNMANAGED" 
+  | UINT8  -> "UINT8" 
+  | UINT64  -> "UINT64" 
+  | UINT32  -> "UINT32" 
+  | UINT16  -> "UINT16" 
+  | UINT  -> "UINT" 
+  | STRING  -> "STRING" 
+  | STAR  -> "STAR" 
+  | SLASH  -> "SLASH" 
+  | RPAREN  -> "RPAREN" 
+  | RBRACK  -> "RBRACK" 
+  | PLUS  -> "PLUS" 
+  | OBJECT  -> "OBJECT" 
+  | NATIVE  -> "NATIVE" 
+  | METHOD  -> "METHOD" 
+  | LPAREN  -> "LPAREN" 
+  | LESS  -> "LESS" 
+  | LBRACK  -> "LBRACK" 
+  | INT8  -> "INT8" 
+  | INT64  -> "INT64" 
+  | INT32  -> "INT32" 
+  | INT16  -> "INT16" 
+  | INT  -> "INT" 
+  | INSTANCE  -> "INSTANCE" 
+  | GREATER  -> "GREATER" 
+  | FLOAT64  -> "FLOAT64" 
+  | FLOAT32  -> "FLOAT32" 
+  | FIELD  -> "FIELD" 
+  | EXPLICIT  -> "EXPLICIT" 
+  | EOF  -> "EOF" 
+  | ELIPSES  -> "ELIPSES" 
+  | DOT  -> "DOT" 
+  | DEFAULT  -> "DEFAULT" 
+  | DCOLON  -> "DCOLON" 
+  | COMMA  -> "COMMA" 
+  | CLASS  -> "CLASS" 
+  | CHAR  -> "CHAR" 
+  | BYTEARRAY  -> "BYTEARRAY" 
+  | BOOL  -> "BOOL" 
+  | BANG  -> "BANG" 
+  | AMP  -> "AMP" 
+  | VAL_SQSTRING _ -> "VAL_SQSTRING" 
+  | VAL_QSTRING _ -> "VAL_QSTRING" 
+  | VAL_DOTTEDNAME _ -> "VAL_DOTTEDNAME" 
+  | VAL_ID _ -> "VAL_ID" 
+  | VAL_HEXBYTE _ -> "VAL_HEXBYTE" 
+  | INSTR_VALUETYPE _ -> "INSTR_VALUETYPE" 
+  | INSTR_INT_TYPE _ -> "INSTR_INT_TYPE" 
+  | INSTR_TYPE _ -> "INSTR_TYPE" 
+  | INSTR_TOK _ -> "INSTR_TOK" 
+  | INSTR_STRING _ -> "INSTR_STRING" 
+  | INSTR_NONE _ -> "INSTR_NONE" 
+  | INSTR_R _ -> "INSTR_R" 
+  | INSTR_I8 _ -> "INSTR_I8" 
+  | INSTR_I32_I32 _ -> "INSTR_I32_I32" 
+  | INSTR_I _ -> "INSTR_I" 
+  | VAL_FLOAT64 _ -> "VAL_FLOAT64" 
+  | VAL_INT32_ELIPSES _ -> "VAL_INT32_ELIPSES" 
+  | VAL_INT64 _ -> "VAL_INT64" 
 
 // This function gets the data carried by a token as an object
-let _fsyacc_dataOfToken (t:token) =
-  match t with
-  | VOID  -> (null : System.Object)
-  | VARARG  -> (null : System.Object)
-  | VALUETYPE  -> (null : System.Object)
-  | VALUE  -> (null : System.Object)
-  | UNSIGNED  -> (null : System.Object)
-  | UNMANAGED  -> (null : System.Object)
-  | UINT8  -> (null : System.Object)
-  | UINT64  -> (null : System.Object)
-  | UINT32  -> (null : System.Object)
-  | UINT16  -> (null : System.Object)
-  | UINT  -> (null : System.Object)
-  | STRING  -> (null : System.Object)
-  | STAR  -> (null : System.Object)
-  | SLASH  -> (null : System.Object)
-  | RPAREN  -> (null : System.Object)
-  | RBRACK  -> (null : System.Object)
-  | PLUS  -> (null : System.Object)
-  | OBJECT  -> (null : System.Object)
-  | NATIVE  -> (null : System.Object)
-  | METHOD  -> (null : System.Object)
-  | LPAREN  -> (null : System.Object)
-  | LESS  -> (null : System.Object)
-  | LBRACK  -> (null : System.Object)
-  | INT8  -> (null : System.Object)
-  | INT64  -> (null : System.Object)
-  | INT32  -> (null : System.Object)
-  | INT16  -> (null : System.Object)
-  | INT  -> (null : System.Object)
-  | INSTANCE  -> (null : System.Object)
-  | GREATER  -> (null : System.Object)
-  | FLOAT64  -> (null : System.Object)
-  | FLOAT32  -> (null : System.Object)
-  | FIELD  -> (null : System.Object)
-  | EXPLICIT  -> (null : System.Object)
-  | EOF  -> (null : System.Object)
-  | ELIPSES  -> (null : System.Object)
-  | DOT  -> (null : System.Object)
-  | DEFAULT  -> (null : System.Object)
-  | DCOLON  -> (null : System.Object)
-  | COMMA  -> (null : System.Object)
-  | CLASS  -> (null : System.Object)
-  | CHAR  -> (null : System.Object)
-  | BYTEARRAY  -> (null : System.Object)
-  | BOOL  -> (null : System.Object)
-  | BANG  -> (null : System.Object)
-  | AMP  -> (null : System.Object)
-  | VAL_SQSTRING _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | VAL_QSTRING _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | VAL_DOTTEDNAME _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | VAL_ID _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | VAL_HEXBYTE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_VALUETYPE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_INT_TYPE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_TYPE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_TOK _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_STRING _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_NONE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_R _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_I8 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_I32_I32 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | INSTR_I _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | VAL_FLOAT64 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | VAL_INT32_ELIPSES _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
-  | VAL_INT64 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x
+let _fsyacc_dataOfToken (t:token) = 
+  match t with 
+  | VOID  -> (null : System.Object) 
+  | VARARG  -> (null : System.Object) 
+  | VALUETYPE  -> (null : System.Object) 
+  | VALUE  -> (null : System.Object) 
+  | UNSIGNED  -> (null : System.Object) 
+  | UNMANAGED  -> (null : System.Object) 
+  | UINT8  -> (null : System.Object) 
+  | UINT64  -> (null : System.Object) 
+  | UINT32  -> (null : System.Object) 
+  | UINT16  -> (null : System.Object) 
+  | UINT  -> (null : System.Object) 
+  | STRING  -> (null : System.Object) 
+  | STAR  -> (null : System.Object) 
+  | SLASH  -> (null : System.Object) 
+  | RPAREN  -> (null : System.Object) 
+  | RBRACK  -> (null : System.Object) 
+  | PLUS  -> (null : System.Object) 
+  | OBJECT  -> (null : System.Object) 
+  | NATIVE  -> (null : System.Object) 
+  | METHOD  -> (null : System.Object) 
+  | LPAREN  -> (null : System.Object) 
+  | LESS  -> (null : System.Object) 
+  | LBRACK  -> (null : System.Object) 
+  | INT8  -> (null : System.Object) 
+  | INT64  -> (null : System.Object) 
+  | INT32  -> (null : System.Object) 
+  | INT16  -> (null : System.Object) 
+  | INT  -> (null : System.Object) 
+  | INSTANCE  -> (null : System.Object) 
+  | GREATER  -> (null : System.Object) 
+  | FLOAT64  -> (null : System.Object) 
+  | FLOAT32  -> (null : System.Object) 
+  | FIELD  -> (null : System.Object) 
+  | EXPLICIT  -> (null : System.Object) 
+  | EOF  -> (null : System.Object) 
+  | ELIPSES  -> (null : System.Object) 
+  | DOT  -> (null : System.Object) 
+  | DEFAULT  -> (null : System.Object) 
+  | DCOLON  -> (null : System.Object) 
+  | COMMA  -> (null : System.Object) 
+  | CLASS  -> (null : System.Object) 
+  | CHAR  -> (null : System.Object) 
+  | BYTEARRAY  -> (null : System.Object) 
+  | BOOL  -> (null : System.Object) 
+  | BANG  -> (null : System.Object) 
+  | AMP  -> (null : System.Object) 
+  | VAL_SQSTRING _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_QSTRING _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_DOTTEDNAME _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_ID _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_HEXBYTE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_VALUETYPE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_INT_TYPE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_TYPE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_TOK _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_STRING _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_NONE _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_R _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_I8 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_I32_I32 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | INSTR_I _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_FLOAT64 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_INT32_ELIPSES _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
+  | VAL_INT64 _fsyacc_x -> Microsoft.FSharp.Core.Operators.box _fsyacc_x 
 let _fsyacc_gotos = [| 0us; 65535us; 0us; 65535us; 1us; 65535us; 2us; 3us; 1us; 65535us; 0us; 1us; 0us; 65535us; 0us; 65535us; 2us; 65535us; 0us; 6us; 8us; 9us; 2us; 65535us; 0us; 8us; 8us; 8us; 12us; 65535us; 21us; 33us; 24us; 33us; 26us; 33us; 28us; 33us; 36us; 32us; 37us; 33us; 40us; 33us; 52us; 33us; 55us; 33us; 57us; 33us; 108us; 33us; 112us; 33us; 9us; 65535us; 21us; 44us; 24us; 44us; 26us; 44us; 28us; 44us; 52us; 42us; 55us; 42us; 57us; 42us; 108us; 44us; 112us; 44us; 11us; 65535us; 21us; 39us; 24us; 39us; 26us; 39us; 28us; 39us; 37us; 38us; 40us; 41us; 52us; 39us; 55us; 39us; 57us; 39us; 108us; 39us; 112us; 39us; 3us; 65535us; 52us; 53us; 55us; 56us; 57us; 58us; 6us; 65535us; 21us; 45us; 24us; 45us; 26us; 45us; 28us; 45us; 108us; 45us; 112us; 45us; 6us; 65535us; 21us; 22us; 24us; 25us; 26us; 27us; 28us; 29us; 108us; 111us; 112us; 113us; 0us; 65535us; 0us; 65535us; 8us; 65535us; 2us; 4us; 21us; 46us; 24us; 46us; 26us; 46us; 28us; 46us; 47us; 48us; 108us; 46us; 112us; 46us; 1us; 65535us; 59us; 61us; 2us; 65535us; 59us; 90us; 91us; 92us; 13us; 65535us; 21us; 30us; 24us; 30us; 26us; 30us; 28us; 30us; 34us; 35us; 36us; 30us; 37us; 30us; 40us; 30us; 52us; 30us; 55us; 30us; 57us; 30us; 108us; 30us; 112us; 30us; 9us; 65535us; 11us; 12us; 13us; 14us; 14us; 15us; 23us; 24us; 59us; 93us; 88us; 89us; 91us; 93us; 94us; 95us; 96us; 97us; 3us; 65535us; 16us; 17us; 18us; 20us; 104us; 105us; 1us; 65535us; 18us; 19us; 1us; 65535us; 42us; 43us; 1us; 65535us; 42us; 107us; 1us; 65535us; 108us; 109us; |]
 let _fsyacc_sparseGotoTableRowOffsets = [|0us; 1us; 2us; 4us; 6us; 7us; 8us; 11us; 14us; 27us; 37us; 49us; 53us; 60us; 67us; 68us; 69us; 78us; 80us; 83us; 97us; 107us; 111us; 113us; 115us; 117us; |]
 let _fsyacc_stateToProdIdxsTableElements = [| 1us; 0us; 1us; 0us; 1us; 1us; 1us; 1us; 5us; 2us; 42us; 43us; 44us; 45us; 1us; 2us; 1us; 3us; 1us; 3us; 1us; 7us; 1us; 7us; 1us; 9us; 1us; 10us; 1us; 10us; 1us; 11us; 1us; 11us; 1us; 11us; 1us; 12us; 1us; 12us; 2us; 13us; 14us; 1us; 13us; 1us; 14us; 1us; 15us; 1us; 15us; 1us; 16us; 1us; 16us; 1us; 16us; 1us; 17us; 1us; 17us; 1us; 18us; 1us; 18us; 1us; 19us; 1us; 20us; 2us; 21us; 22us; 3us; 21us; 24us; 25us; 1us; 21us; 1us; 21us; 1us; 22us; 1us; 22us; 1us; 22us; 1us; 23us; 1us; 25us; 1us; 25us; 1us; 26us; 1us; 26us; 1us; 27us; 1us; 28us; 5us; 29us; 42us; 43us; 44us; 45us; 1us; 30us; 5us; 30us; 42us; 43us; 44us; 45us; 1us; 30us; 1us; 37us; 1us; 38us; 1us; 39us; 1us; 39us; 1us; 40us; 1us; 40us; 1us; 40us; 1us; 41us; 1us; 41us; 2us; 42us; 43us; 1us; 42us; 2us; 43us; 68us; 1us; 43us; 1us; 44us; 1us; 45us; 1us; 46us; 1us; 47us; 1us; 48us; 1us; 49us; 1us; 50us; 1us; 51us; 1us; 52us; 1us; 53us; 1us; 54us; 4us; 55us; 56us; 57us; 58us; 1us; 55us; 1us; 56us; 1us; 57us; 1us; 58us; 1us; 59us; 1us; 60us; 1us; 61us; 1us; 62us; 3us; 63us; 64us; 65us; 1us; 63us; 1us; 64us; 1us; 64us; 1us; 65us; 1us; 66us; 1us; 66us; 1us; 67us; 1us; 68us; 1us; 68us; 3us; 70us; 71us; 72us; 2us; 71us; 72us; 1us; 71us; 2us; 73us; 74us; 1us; 73us; 1us; 75us; 1us; 76us; 1us; 77us; 1us; 78us; 1us; 79us; 1us; 80us; 1us; 80us; 1us; 80us; 1us; 80us; 1us; 82us; 1us; 83us; 2us; 83us; 85us; 1us; 83us; 1us; 84us; 1us; 85us; 1us; 85us; |]
@@ -590,8 +579,8 @@ let _fsyacc_actionTableRowOffsets = [|0us; 10us; 11us; 33us; 34us; 39us; 40us; 4
 let _fsyacc_reductionSymbolCounts = [|1us; 1us; 2us; 2us; 1us; 3us; 1us; 2us; 0us; 1us; 2us; 3us; 2us; 2us; 2us; 2us; 3us; 2us; 2us; 1us; 1us; 3us; 4us; 1us; 1us; 3us; 2us; 1us; 1us; 1us; 3us; 2us; 2us; 1us; 0us; 1us; 1us; 1us; 1us; 2us; 3us; 2us; 3us; 4us; 2us; 2us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 2us; 2us; 2us; 2us; 1us; 1us; 1us; 1us; 2us; 3us; 2us; 2us; 1us; 3us; 0us; 1us; 3us; 2us; 2us; 1us; 1us; 1us; 1us; 1us; 1us; 4us; 0us; 1us; 3us; 1us; 3us; |]
 let _fsyacc_productionToNonTerminalTable = [|0us; 1us; 2us; 3us; 4us; 4us; 5us; 6us; 6us; 7us; 7us; 7us; 7us; 7us; 7us; 7us; 7us; 7us; 7us; 8us; 8us; 8us; 9us; 9us; 10us; 10us; 11us; 12us; 13us; 13us; 13us; 14us; 14us; 14us; 15us; 15us; 15us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 16us; 17us; 17us; 18us; 18us; 18us; 18us; 18us; 18us; 19us; 19us; 20us; 21us; 22us; 22us; 23us; 23us; 24us; 25us; 25us; |]
 let _fsyacc_immediateActions = [|65535us; 49152us; 65535us; 49152us; 65535us; 16386us; 65535us; 16387us; 65535us; 16391us; 16393us; 65535us; 16394us; 65535us; 65535us; 16395us; 65535us; 16396us; 65535us; 16397us; 16398us; 65535us; 16399us; 65535us; 65535us; 16400us; 65535us; 16401us; 65535us; 16402us; 16403us; 16404us; 65535us; 65535us; 65535us; 16405us; 65535us; 65535us; 16406us; 16407us; 65535us; 16409us; 65535us; 16410us; 16411us; 16412us; 65535us; 65535us; 65535us; 16414us; 16421us; 16422us; 65535us; 16423us; 65535us; 65535us; 16424us; 65535us; 16425us; 65535us; 16426us; 65535us; 16427us; 16428us; 16429us; 16430us; 16431us; 16432us; 16433us; 16434us; 16435us; 16436us; 16437us; 16438us; 65535us; 16439us; 16440us; 16441us; 16442us; 16443us; 16444us; 16445us; 16446us; 65535us; 16447us; 65535us; 16448us; 16449us; 65535us; 16450us; 16451us; 65535us; 16452us; 65535us; 65535us; 16455us; 65535us; 16457us; 16459us; 16460us; 16461us; 16462us; 16463us; 65535us; 65535us; 65535us; 16464us; 16466us; 65535us; 65535us; 16467us; 16468us; 65535us; 16469us; |]
-let _fsyacc_reductions ()  =    [|
-//# 594 "ilpars.fs"
+let _fsyacc_reductions ()  =    [| 
+//# 583 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILInstr array)) in
             Microsoft.FSharp.Core.Operators.box
@@ -600,7 +589,7 @@ let _fsyacc_reductions ()  =    [|
                       raise (Internal.Utilities.Text.Parsing.Accept(Microsoft.FSharp.Core.Operators.box _1))
                    )
                  : '_startilInstrs));
-//# 603 "ilpars.fs"
+//# 592 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILType)) in
             Microsoft.FSharp.Core.Operators.box
@@ -609,108 +598,108 @@ let _fsyacc_reductions ()  =    [|
                       raise (Internal.Utilities.Text.Parsing.Accept(Microsoft.FSharp.Core.Operators.box _1))
                    )
                  : '_startilType));
-//# 612 "ilpars.fs"
+//# 601 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILType ResolvedAtMethodSpecScope)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 127 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScope _1 []
+//# 116 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScope _1 [] 
                    )
-//# 127 "../src/absil/ilpars.fsy"
+//# 116 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType));
-//# 623 "ilpars.fs"
+//# 612 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'instrs2)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 131 "../src/absil/ilpars.fsy"
-                              Array.ofList _1
+//# 120 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              Array.ofList _1 
                    )
-//# 131 "../src/absil/ilpars.fsy"
+//# 120 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILInstr array));
-//# 634 "ilpars.fs"
+//# 623 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 135 "../src/absil/ilpars.fsy"
-                                        _1
+//# 124 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                        _1 
                    )
-//# 135 "../src/absil/ilpars.fsy"
+//# 124 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'compQstring));
-//# 645 "ilpars.fs"
+//# 634 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'compQstring)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 136 "../src/absil/ilpars.fsy"
-                                                         _1 + _3
+//# 125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                                         _1 + _3 
                    )
-//# 136 "../src/absil/ilpars.fsy"
+//# 125 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'compQstring));
-//# 657 "ilpars.fs"
+//# 646 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 138 "../src/absil/ilpars.fsy"
-                                          _1
+//# 127 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                          _1 
                    )
-//# 138 "../src/absil/ilpars.fsy"
+//# 127 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'methodName));
-//# 668 "ilpars.fs"
+//# 657 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'instr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'instrs2)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 142 "../src/absil/ilpars.fsy"
-                               _1 :: _2
+//# 131 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 :: _2  
                    )
-//# 142 "../src/absil/ilpars.fsy"
+//# 131 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instrs2));
-//# 680 "ilpars.fs"
+//# 669 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 143 "../src/absil/ilpars.fsy"
-                            []
+//# 132 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                            [] 
                    )
-//# 143 "../src/absil/ilpars.fsy"
+//# 132 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instrs2));
-//# 690 "ilpars.fs"
+//# 679 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : NoArgInstr)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 147 "../src/absil/ilpars.fsy"
-                                (_1 ())
+//# 136 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                (_1 ()) 
                    )
-//# 147 "../src/absil/ilpars.fsy"
+//# 136 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 701 "ilpars.fs"
+//# 690 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Int32Instr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 149 "../src/absil/ilpars.fsy"
-                                (_1 _2)
+//# 138 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                (_1 _2) 
                    )
-//# 149 "../src/absil/ilpars.fsy"
+//# 138 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 713 "ilpars.fs"
+//# 702 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Int32Int32Instr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
@@ -718,60 +707,60 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 151 "../src/absil/ilpars.fsy"
-                                (_1 (_2,_3))
+//# 140 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                (_1 (_2,_3)) 
                    )
-//# 151 "../src/absil/ilpars.fsy"
+//# 140 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 726 "ilpars.fs"
+//# 715 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : Int64Instr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'int64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 153 "../src/absil/ilpars.fsy"
-                                (_1 _2)
+//# 142 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                (_1 _2) 
                    )
-//# 153 "../src/absil/ilpars.fsy"
+//# 142 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 738 "ilpars.fs"
+//# 727 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : DoubleInstr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'float64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 155 "../src/absil/ilpars.fsy"
-                                (_1 (ILConst.R8 _2))
+//# 144 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                (_1 (ILConst.R8 _2)) 
                    )
-//# 155 "../src/absil/ilpars.fsy"
+//# 144 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 750 "ilpars.fs"
+//# 739 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : DoubleInstr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'int64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 157 "../src/absil/ilpars.fsy"
-                                (_1 (ILConst.R8 (float _2)))
+//# 146 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                (_1 (ILConst.R8 (float _2))) 
                    )
-//# 157 "../src/absil/ilpars.fsy"
+//# 146 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 762 "ilpars.fs"
+//# 751 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : TypeInstr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 159 "../src/absil/ilpars.fsy"
-                               _1 (resolveCurrentMethodSpecScope _2)
+//# 148 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 159 "../src/absil/ilpars.fsy"
+//# 148 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 774 "ilpars.fs"
+//# 763 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : IntTypeInstr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
@@ -779,774 +768,773 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 161 "../src/absil/ilpars.fsy"
-                               _1 ( _2,resolveCurrentMethodSpecScope _3)
+//# 150 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 ( _2,resolveCurrentMethodSpecScope _3) 
                    )
-//# 161 "../src/absil/ilpars.fsy"
+//# 150 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 787 "ilpars.fs"
+//# 776 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ValueTypeInstr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 163 "../src/absil/ilpars.fsy"
-                               _1 (resolveCurrentMethodSpecScope _2)
+//# 152 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 163 "../src/absil/ilpars.fsy"
+//# 152 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 799 "ilpars.fs"
+//# 788 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : TokenInstr)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 165 "../src/absil/ilpars.fsy"
-                                (_1 (ILToken.ILType (resolveCurrentMethodSpecScope _2)))
+//# 154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                                (_1 (ILToken.ILType (resolveCurrentMethodSpecScope _2)))  
                    )
-//# 165 "../src/absil/ilpars.fsy"
+//# 154 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'instr));
-//# 811 "ilpars.fs"
+//# 800 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'id)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 172 "../src/absil/ilpars.fsy"
-                               _1
+//# 161 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 
                    )
-//# 172 "../src/absil/ilpars.fsy"
+//# 161 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : string));
-//# 822 "ilpars.fs"
+//# 811 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 174 "../src/absil/ilpars.fsy"
-                               _1
+//# 163 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 
                    )
-//# 174 "../src/absil/ilpars.fsy"
+//# 163 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : string));
-//# 833 "ilpars.fs"
+//# 822 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'id)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 176 "../src/absil/ilpars.fsy"
-                               _1 + "." + _3
+//# 165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 + "." + _3 
                    )
-//# 176 "../src/absil/ilpars.fsy"
+//# 165 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : string));
-//# 845 "ilpars.fs"
+//# 834 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _4 = (let data = parseState.GetInput(4) in (Microsoft.FSharp.Core.Operators.unbox data : 'slashedName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 180 "../src/absil/ilpars.fsy"
-                               let (enc,nm) = _4
-                               let aref = findAssemblyRef _2
-                               ILScopeRef.Assembly aref, enc, nm
+//# 169 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               let (enc,nm) = _4 
+                               ILScopeRef.PrimaryAssembly, enc, nm 
                    )
-//# 180 "../src/absil/ilpars.fsy"
+//# 169 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'className));
-//# 859 "ilpars.fs"
+//# 847 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'slashedName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 184 "../src/absil/ilpars.fsy"
-                               let enc, nm = _1 in (ILScopeRef.Local, enc, nm)
+//# 172 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               let enc, nm = _1 in (ILScopeRef.Local, enc, nm) 
                    )
-//# 184 "../src/absil/ilpars.fsy"
+//# 172 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'className));
-//# 870 "ilpars.fs"
+//# 858 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 188 "../src/absil/ilpars.fsy"
-                               ([],_1)
+//# 176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               ([],_1) 
                    )
-//# 188 "../src/absil/ilpars.fsy"
+//# 176 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'slashedName));
-//# 881 "ilpars.fs"
+//# 869 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'slashedName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 190 "../src/absil/ilpars.fsy"
-                               let (enc,nm) = _3 in (_1 :: enc, nm)
+//# 178 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               let (enc,nm) = _3 in (_1 :: enc, nm)  
                    )
-//# 190 "../src/absil/ilpars.fsy"
+//# 178 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'slashedName));
-//# 893 "ilpars.fs"
+//# 881 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'className)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'opt_actual_tyargs)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 194 "../src/absil/ilpars.fsy"
-                               let (a,b,c) = _1
-                               resolveMethodSpecScopeThen _2 (fun inst ->
-                               noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), inst))))
+//# 182 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               let (a,b,c) = _1 
+                               resolveMethodSpecScopeThen _2 (fun inst -> 
+                               noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), inst)))) 
                    )
-//# 194 "../src/absil/ilpars.fsy"
+//# 182 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typeNameInst));
-//# 907 "ilpars.fs"
+//# 895 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'className)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 201 "../src/absil/ilpars.fsy"
-                               let (a,b,c) = _1
-                               noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), [])))
+//# 189 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               let (a,b,c) = _1 
+                               noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), []))) 
                    )
-//# 201 "../src/absil/ilpars.fsy"
+//# 189 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typeName));
-//# 919 "ilpars.fs"
+//# 907 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeName)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 207 "../src/absil/ilpars.fsy"
-                               resolveMethodSpecScopeThen _1 (fun tref ->
-                               noMethodSpecScope (mkILBoxedType tref))
+//# 195 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               resolveMethodSpecScopeThen _1 (fun tref -> 
+                               noMethodSpecScope (mkILBoxedType tref))  
                    )
-//# 207 "../src/absil/ilpars.fsy"
+//# 195 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typSpec));
-//# 931 "ilpars.fs"
+//# 919 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILType ResolvedAtMethodSpecScope)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 210 "../src/absil/ilpars.fsy"
-                               _1
+//# 198 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _1 
                    )
-//# 210 "../src/absil/ilpars.fsy"
+//# 198 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typSpec));
-//# 942 "ilpars.fs"
+//# 930 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : ILType ResolvedAtMethodSpecScope)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 212 "../src/absil/ilpars.fsy"
-                               _2
+//# 200 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _2 
                    )
-//# 212 "../src/absil/ilpars.fsy"
+//# 200 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'typSpec));
-//# 953 "ilpars.fs"
+//# 941 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'callKind)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 217 "../src/absil/ilpars.fsy"
-                               Callconv (ILThisConvention.Instance,_2)
+//# 205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               Callconv (ILThisConvention.Instance,_2) 
                    )
-//# 217 "../src/absil/ilpars.fsy"
+//# 205 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callConv));
-//# 964 "ilpars.fs"
+//# 952 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'callKind)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 219 "../src/absil/ilpars.fsy"
-                               Callconv (ILThisConvention.InstanceExplicit,_2)
+//# 207 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               Callconv (ILThisConvention.InstanceExplicit,_2) 
                    )
-//# 219 "../src/absil/ilpars.fsy"
+//# 207 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callConv));
-//# 975 "ilpars.fs"
+//# 963 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'callKind)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 221 "../src/absil/ilpars.fsy"
-                               Callconv (ILThisConvention.Static,_1)
+//# 209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               Callconv (ILThisConvention.Static,_1) 
                    )
-//# 221 "../src/absil/ilpars.fsy"
+//# 209 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callConv));
-//# 986 "ilpars.fs"
+//# 974 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 225 "../src/absil/ilpars.fsy"
-                             ILArgConvention.Default
+//# 213 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                             ILArgConvention.Default 
                    )
-//# 225 "../src/absil/ilpars.fsy"
+//# 213 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callKind));
-//# 996 "ilpars.fs"
+//# 984 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 227 "../src/absil/ilpars.fsy"
-                             ILArgConvention.Default
+//# 215 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                             ILArgConvention.Default 
                    )
-//# 227 "../src/absil/ilpars.fsy"
+//# 215 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callKind));
-//# 1006 "ilpars.fs"
+//# 994 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 229 "../src/absil/ilpars.fsy"
-                             ILArgConvention.VarArg
+//# 217 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                             ILArgConvention.VarArg 
                    )
-//# 229 "../src/absil/ilpars.fsy"
+//# 217 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'callKind));
-//# 1016 "ilpars.fs"
+//# 1004 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 238 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_String
+//# 226 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_String 
                    )
-//# 238 "../src/absil/ilpars.fsy"
+//# 226 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1026 "ilpars.fs"
+//# 1014 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 240 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Object
+//# 228 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Object 
                    )
-//# 240 "../src/absil/ilpars.fsy"
+//# 228 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1036 "ilpars.fs"
+//# 1024 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeNameInst)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 242 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScopeThen _2 (fun tspec ->
-                               noMethodSpecScope (mkILBoxedType tspec))
+//# 230 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScopeThen _2 (fun tspec -> 
+                               noMethodSpecScope (mkILBoxedType tspec)) 
                    )
-//# 242 "../src/absil/ilpars.fsy"
+//# 230 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1048 "ilpars.fs"
+//# 1036 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeNameInst)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 245 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScopeThen _3 (fun tspec ->
-                              noMethodSpecScope (ILType.Value tspec))
+//# 233 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScopeThen _3 (fun tspec -> 
+                              noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 245 "../src/absil/ilpars.fsy"
+//# 233 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1060 "ilpars.fs"
+//# 1048 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'typeNameInst)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 248 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScopeThen _2 (fun tspec ->
-                              noMethodSpecScope (ILType.Value tspec))
+//# 236 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScopeThen _2 (fun tspec -> 
+                              noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 248 "../src/absil/ilpars.fsy"
+//# 236 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1072 "ilpars.fs"
+//# 1060 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILType ResolvedAtMethodSpecScope)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 251 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArr1DTy ty))
+//# 239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArr1DTy ty)) 
                    )
-//# 251 "../src/absil/ilpars.fsy"
+//# 239 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1083 "ilpars.fs"
+//# 1071 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILType ResolvedAtMethodSpecScope)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'bounds1)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 253 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArrTy (ty,ILArrayShape _3)))
+//# 241 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArrTy (ty,ILArrayShape _3))) 
                    )
-//# 253 "../src/absil/ilpars.fsy"
+//# 241 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1095 "ilpars.fs"
+//# 1083 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILType ResolvedAtMethodSpecScope)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 255 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Byref ty))
+//# 243 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Byref ty)) 
                    )
-//# 255 "../src/absil/ilpars.fsy"
+//# 243 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1106 "ilpars.fs"
+//# 1094 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : ILType ResolvedAtMethodSpecScope)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 257 "../src/absil/ilpars.fsy"
-                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Ptr ty))
+//# 245 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Ptr ty)) 
                    )
-//# 257 "../src/absil/ilpars.fsy"
+//# 245 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1117 "ilpars.fs"
+//# 1105 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 259 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Char
+//# 247 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Char 
                    )
-//# 259 "../src/absil/ilpars.fsy"
+//# 247 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1127 "ilpars.fs"
+//# 1115 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 261 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope ILType.Void
+//# 249 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope ILType.Void 
                    )
-//# 261 "../src/absil/ilpars.fsy"
+//# 249 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1137 "ilpars.fs"
+//# 1125 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 263 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Bool
+//# 251 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Bool 
                    )
-//# 263 "../src/absil/ilpars.fsy"
+//# 251 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1147 "ilpars.fs"
+//# 1135 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 265 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_SByte
+//# 253 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_SByte 
                    )
-//# 265 "../src/absil/ilpars.fsy"
+//# 253 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1157 "ilpars.fs"
+//# 1145 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 267 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Int16
+//# 255 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int16 
                    )
-//# 267 "../src/absil/ilpars.fsy"
+//# 255 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1167 "ilpars.fs"
+//# 1155 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 269 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Int32
+//# 257 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int32 
                    )
-//# 269 "../src/absil/ilpars.fsy"
+//# 257 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1177 "ilpars.fs"
+//# 1165 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 271 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Int64
+//# 259 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int64 
                    )
-//# 271 "../src/absil/ilpars.fsy"
+//# 259 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1187 "ilpars.fs"
+//# 1175 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 273 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Single
+//# 261 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Single 
                    )
-//# 273 "../src/absil/ilpars.fsy"
+//# 261 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1197 "ilpars.fs"
+//# 1185 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 275 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Double
+//# 263 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Double 
                    )
-//# 275 "../src/absil/ilpars.fsy"
+//# 263 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1207 "ilpars.fs"
+//# 1195 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 277 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Byte
+//# 265 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte 
                    )
-//# 277 "../src/absil/ilpars.fsy"
+//# 265 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1217 "ilpars.fs"
+//# 1205 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 279 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UInt16
+//# 267 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 
                    )
-//# 279 "../src/absil/ilpars.fsy"
+//# 267 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1227 "ilpars.fs"
+//# 1215 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 281 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UInt32
+//# 269 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 
                    )
-//# 281 "../src/absil/ilpars.fsy"
+//# 269 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1237 "ilpars.fs"
+//# 1225 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 283 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UInt64
+//# 271 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 
                    )
-//# 283 "../src/absil/ilpars.fsy"
+//# 271 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1247 "ilpars.fs"
+//# 1235 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 285 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_Byte
+//# 273 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte 
                    )
-//# 285 "../src/absil/ilpars.fsy"
+//# 273 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1257 "ilpars.fs"
+//# 1245 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 287 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UInt16
+//# 275 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 
                    )
-//# 287 "../src/absil/ilpars.fsy"
+//# 275 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1267 "ilpars.fs"
+//# 1255 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 289 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UInt32
+//# 277 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 
                    )
-//# 289 "../src/absil/ilpars.fsy"
+//# 277 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1277 "ilpars.fs"
+//# 1265 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 291 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UInt64
+//# 279 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 
                    )
-//# 291 "../src/absil/ilpars.fsy"
+//# 279 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1287 "ilpars.fs"
+//# 1275 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 293 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_IntPtr
+//# 281 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_IntPtr 
                    )
-//# 293 "../src/absil/ilpars.fsy"
+//# 281 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1297 "ilpars.fs"
+//# 1285 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 295 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UIntPtr
+//# 283 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr 
                    )
-//# 295 "../src/absil/ilpars.fsy"
+//# 283 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1307 "ilpars.fs"
+//# 1295 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 297 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope parseILGlobals.typ_UIntPtr
+//# 285 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr 
                    )
-//# 297 "../src/absil/ilpars.fsy"
+//# 285 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1317 "ilpars.fs"
+//# 1305 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 300 "../src/absil/ilpars.fsy"
-                              noMethodSpecScope (ILType.TypeVar (uint16 ( _2)))
+//# 288 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              noMethodSpecScope (ILType.TypeVar (uint16 ( _2)))  
                    )
-//# 300 "../src/absil/ilpars.fsy"
+//# 288 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
-//# 1328 "ilpars.fs"
+//# 1316 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'bound)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 305 "../src/absil/ilpars.fsy"
-                              [_1]
+//# 293 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              [_1] 
                    )
-//# 305 "../src/absil/ilpars.fsy"
+//# 293 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bounds1));
-//# 1339 "ilpars.fs"
+//# 1327 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'bounds1)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'bound)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 307 "../src/absil/ilpars.fsy"
-                              _1 @ [_3]
+//# 295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              _1 @ [_3] 
                    )
-//# 307 "../src/absil/ilpars.fsy"
+//# 295 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bounds1));
-//# 1351 "ilpars.fs"
+//# 1339 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 311 "../src/absil/ilpars.fsy"
-                              (None, None)
+//# 299 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              (None, None) 
                    )
-//# 311 "../src/absil/ilpars.fsy"
+//# 299 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
-//# 1361 "ilpars.fs"
+//# 1349 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 313 "../src/absil/ilpars.fsy"
-                              (None, Some _1)
+//# 301 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              (None, Some _1) 
                    )
-//# 313 "../src/absil/ilpars.fsy"
+//# 301 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
-//# 1372 "ilpars.fs"
+//# 1360 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 315 "../src/absil/ilpars.fsy"
-                              (Some _1, Some (_3 - _1 + 1))
+//# 303 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              (Some _1, Some (_3 - _1 + 1)) 
                    )
-//# 315 "../src/absil/ilpars.fsy"
+//# 303 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
-//# 1384 "ilpars.fs"
+//# 1372 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 317 "../src/absil/ilpars.fsy"
-                              (Some _1, None)
+//# 305 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              (Some _1, None) 
                    )
-//# 317 "../src/absil/ilpars.fsy"
+//# 305 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
-//# 1395 "ilpars.fs"
+//# 1383 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int32)) in
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'int32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 324 "../src/absil/ilpars.fsy"
-                              (Some _1, Some (_2 - _1 + 1))
+//# 312 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              (Some _1, Some (_2 - _1 + 1)) 
                    )
-//# 324 "../src/absil/ilpars.fsy"
+//# 312 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
-//# 1407 "ilpars.fs"
+//# 1395 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int32)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 326 "../src/absil/ilpars.fsy"
-                              (Some _1, None)
+//# 314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              (Some _1, None) 
                    )
-//# 326 "../src/absil/ilpars.fsy"
+//# 314 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'bound));
-//# 1418 "ilpars.fs"
+//# 1406 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 330 "../src/absil/ilpars.fsy"
-                              _1
+//# 318 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              _1 
                    )
-//# 330 "../src/absil/ilpars.fsy"
+//# 318 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'id));
-//# 1429 "ilpars.fs"
+//# 1417 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : string)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 332 "../src/absil/ilpars.fsy"
-                              _1
+//# 320 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              _1 
                    )
-//# 332 "../src/absil/ilpars.fsy"
+//# 320 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'id));
-//# 1440 "ilpars.fs"
+//# 1428 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 336 "../src/absil/ilpars.fsy"
-                              int32 _1
+//# 324 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              int32 _1 
                    )
-//# 336 "../src/absil/ilpars.fsy"
+//# 324 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'int32));
-//# 1451 "ilpars.fs"
+//# 1439 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : int64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 340 "../src/absil/ilpars.fsy"
-                              _1
+//# 328 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              _1 
                    )
-//# 340 "../src/absil/ilpars.fsy"
+//# 328 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'int64));
-//# 1462 "ilpars.fs"
+//# 1450 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : double)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 344 "../src/absil/ilpars.fsy"
-                              _1
+//# 332 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              _1 
                    )
-//# 344 "../src/absil/ilpars.fsy"
+//# 332 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'float64));
-//# 1473 "ilpars.fs"
+//# 1461 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'int64)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 346 "../src/absil/ilpars.fsy"
-                              System.BitConverter.Int64BitsToDouble _3
+//# 334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                              System.BitConverter.Int64BitsToDouble _3 
                    )
-//# 346 "../src/absil/ilpars.fsy"
+//# 334 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'float64));
-//# 1484 "ilpars.fs"
+//# 1472 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 350 "../src/absil/ilpars.fsy"
-                               noMethodSpecScope []
+//# 338 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               noMethodSpecScope [] 
                    )
-//# 350 "../src/absil/ilpars.fsy"
+//# 338 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'opt_actual_tyargs));
-//# 1494 "ilpars.fs"
+//# 1482 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'actual_tyargs)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 352 "../src/absil/ilpars.fsy"
-                               resolveMethodSpecScopeThen _1 (fun res ->
-                               noMethodSpecScope  res)
+//# 340 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               resolveMethodSpecScopeThen _1 (fun res -> 
+                               noMethodSpecScope  res) 
                    )
-//# 352 "../src/absil/ilpars.fsy"
+//# 340 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'opt_actual_tyargs));
-//# 1506 "ilpars.fs"
+//# 1494 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _2 = (let data = parseState.GetInput(2) in (Microsoft.FSharp.Core.Operators.unbox data : 'actualTypSpecs)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 357 "../src/absil/ilpars.fsy"
-                               _2
+//# 345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               _2 
                    )
-//# 357 "../src/absil/ilpars.fsy"
+//# 345 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'actual_tyargs));
-//# 1517 "ilpars.fs"
+//# 1505 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'typSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 361 "../src/absil/ilpars.fsy"
-                               resolveMethodSpecScopeThen _1 (fun res ->
-                               noMethodSpecScope [ res])
+//# 349 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               resolveMethodSpecScopeThen _1 (fun res -> 
+                               noMethodSpecScope [ res]) 
                    )
-//# 361 "../src/absil/ilpars.fsy"
+//# 349 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'actualTypSpecs));
-//# 1529 "ilpars.fs"
+//# 1517 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             let _1 = (let data = parseState.GetInput(1) in (Microsoft.FSharp.Core.Operators.unbox data : 'actualTypSpecs)) in
             let _3 = (let data = parseState.GetInput(3) in (Microsoft.FSharp.Core.Operators.unbox data : 'typSpec)) in
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 364 "../src/absil/ilpars.fsy"
-                               resolveMethodSpecScopeThen _1 (fun x ->
-                               resolveMethodSpecScopeThen _3 (fun y ->
-                               noMethodSpecScope (x @ [ y])))
+//# 352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
+                               resolveMethodSpecScopeThen _1 (fun x -> 
+                               resolveMethodSpecScopeThen _3 (fun y -> 
+                               noMethodSpecScope (x @ [ y]))) 
                    )
-//# 364 "../src/absil/ilpars.fsy"
+//# 352 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/absil/ilpars.fsy"
                  : 'actualTypSpecs));
 |]
-//# 1544 "ilpars.fs"
-let tables () : Internal.Utilities.Text.Parsing.Tables<_> =
+//# 1532 "ilpars.fs"
+let tables () : Internal.Utilities.Text.Parsing.Tables<_> = 
   { reductions= _fsyacc_reductions ();
     endOfInputTag = _fsyacc_endOfInputTag;
     tagOfToken = tagOfToken;
-    dataOfToken = _fsyacc_dataOfToken;
+    dataOfToken = _fsyacc_dataOfToken; 
     actionTableElements = _fsyacc_actionTableElements;
     actionTableRowOffsets = _fsyacc_actionTableRowOffsets;
     stateToProdIdxsTableElements = _fsyacc_stateToProdIdxsTableElements;
@@ -1556,8 +1544,8 @@ let tables () : Internal.Utilities.Text.Parsing.Tables<_> =
     gotos = _fsyacc_gotos;
     sparseGotoTableRowOffsets = _fsyacc_sparseGotoTableRowOffsets;
     tagOfErrorTerminal = _fsyacc_tagOfErrorTerminal;
-    parseError = (fun (ctxt:Internal.Utilities.Text.Parsing.ParseErrorContext<_>) ->
-                              match parse_error_rich with
+    parseError = (fun (ctxt:Internal.Utilities.Text.Parsing.ParseErrorContext<_>) -> 
+                              match parse_error_rich with 
                               | Some f -> f ctxt
                               | None -> parse_error ctxt.Message);
     numTerminals = 67;

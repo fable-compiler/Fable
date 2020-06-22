@@ -1,5 +1,5 @@
-﻿//# 3 "../src/fsharp/pplex.fsl"
-
+﻿//# 3 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+ 
 
 module internal FSharp.Compiler.PPLexer
 
@@ -20,8 +20,8 @@ let fail (args : lexargs) (lexbuf:UnicodeLexing.Lexbuf) e =
      PPParser.EOF
 
 //# 22 "pplex.fs"
-let trans : uint16[] array =
-    [|
+let trans : uint16[] array = 
+    [| 
     (* State 0 *)
      [| 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 1us; 2us; |];
     (* State 1 *)
@@ -78,94 +78,94 @@ let trans : uint16[] array =
      [| 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; |];
     (* State 27 *)
      [| 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; 65535us; |];
-    |]
+    |] 
 let actions : uint16[] = [|65535us; 0us; 1us; 65535us; 11us; 2us; 3us; 11us; 11us; 6us; 7us; 8us; 11us; 11us; 12us; 9us; 9us; 10us; 10us; 5us; 4us; 2us; 65535us; 65535us; 65535us; 65535us; 1us; 0us; |]
 let _fslex_tables = Internal.Utilities.Text.Lexing.UnicodeTables.Create(trans,actions)
-let rec _fslex_dummy () = _fslex_dummy()
+let rec _fslex_dummy () = _fslex_dummy() 
 // Rule tokenstream
 and tokenstream args lexbuf =
   match _fslex_tables.Interpret(3,lexbuf) with
-  | 0 -> (
-//# 48 "../src/fsharp/pplex.fsl"
-                                 PPParser.PRELUDE
+  | 0 -> ( 
+//# 48 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.PRELUDE                                              
 //# 91 "pplex.fs"
           )
-  | 1 -> (
-//# 49 "../src/fsharp/pplex.fsl"
-                                 PPParser.PRELUDE
+  | 1 -> ( 
+//# 49 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.PRELUDE                                              
 //# 96 "pplex.fs"
           )
-  | 2 -> (
-//# 50 "../src/fsharp/pplex.fsl"
-                                 PPParser.ID(lexeme lexbuf)
+  | 2 -> ( 
+//# 50 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.ID(lexeme lexbuf)                                    
 //# 101 "pplex.fs"
           )
-  | 3 -> (
-//# 52 "../src/fsharp/pplex.fsl"
-                                 PPParser.OP_NOT
+  | 3 -> ( 
+//# 52 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.OP_NOT                                               
 //# 106 "pplex.fs"
           )
-  | 4 -> (
-//# 53 "../src/fsharp/pplex.fsl"
-                                 PPParser.OP_AND
+  | 4 -> ( 
+//# 53 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.OP_AND                                               
 //# 111 "pplex.fs"
           )
-  | 5 -> (
-//# 54 "../src/fsharp/pplex.fsl"
-                                 PPParser.OP_OR
+  | 5 -> ( 
+//# 54 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.OP_OR                                                
 //# 116 "pplex.fs"
           )
-  | 6 -> (
-//# 55 "../src/fsharp/pplex.fsl"
-                                 PPParser.LPAREN
+  | 6 -> ( 
+//# 55 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.LPAREN                                               
 //# 121 "pplex.fs"
           )
-  | 7 -> (
-//# 56 "../src/fsharp/pplex.fsl"
-                                 PPParser.RPAREN
+  | 7 -> ( 
+//# 56 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.RPAREN                                               
 //# 126 "pplex.fs"
           )
-  | 8 -> (
-//# 58 "../src/fsharp/pplex.fsl"
-                                 tokenstream args lexbuf
+  | 8 -> ( 
+//# 58 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 tokenstream args lexbuf                                       
 //# 131 "pplex.fs"
           )
-  | 9 -> (
-//# 60 "../src/fsharp/pplex.fsl"
-                                 PPParser.EOF
+  | 9 -> ( 
+//# 60 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.EOF                                                  
 //# 136 "pplex.fs"
           )
-  | 10 -> (
-//# 61 "../src/fsharp/pplex.fsl"
-                                 fail args lexbuf (FSComp.SR.pplexExpectedSingleLineComment())
+  | 10 -> ( 
+//# 61 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 fail args lexbuf (FSComp.SR.pplexExpectedSingleLineComment()) 
 //# 141 "pplex.fs"
           )
-  | 11 -> (
-//# 62 "../src/fsharp/pplex.fsl"
-
+  | 11 -> ( 
+//# 62 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                
                                    let lex = lexeme lexbuf
                                    let _   = rest lexbuf
                                    fail args lexbuf (FSComp.SR.pplexUnexpectedChar(lex))
-
+                               
 //# 150 "pplex.fs"
           )
-  | 12 -> (
-//# 67 "../src/fsharp/pplex.fsl"
-                                 PPParser.EOF
+  | 12 -> ( 
+//# 67 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 PPParser.EOF                                                  
 //# 155 "pplex.fs"
           )
   | _ -> failwith "tokenstream"
 // Rule rest
 and rest  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
-  | 0 -> (
-//# 70 "../src/fsharp/pplex.fsl"
-                                 rest lexbuf
+  | 0 -> ( 
+//# 70 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 rest lexbuf   
 //# 164 "pplex.fs"
           )
-  | 1 -> (
-//# 71 "../src/fsharp/pplex.fsl"
-                                 ()
+  | 1 -> ( 
+//# 71 "/Users/alfonsogarciacaronunez/dev/fsharp_fable/fcs/fcs-fable/codegen/../../../src/fsharp/pplex.fsl"
+                                 ()            
 //# 169 "pplex.fs"
           )
   | _ -> failwith "rest"

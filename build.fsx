@@ -246,30 +246,20 @@ let githubRelease() =
     | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
 let syncFcsRepo() =
-    // FAKE is giving lots of problems with the dotnet SDK version, ignore it
-    let cheatWithDotnetSdkVersion dir f =
-        let path = dir </> "build.fsx"
-        let script = readFile path
-        Regex.Replace(script, @"let dotnetExePath =[\s\S]*DotNetCli\.InstallDotNetSDK", "let dotnetExePath = \"dotnet\" //DotNetCli.InstallDotNetSDK") |> writeFile path
-        f ()
-        runInDir dir "git reset --hard"
-
     printfn "Expecting %s repo to be cloned at %s" FCS_REPO FCS_REPO_LOCAL
 
     // TODO: Prompt to reset --hard changes
     // service_slim
     runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_SERVICE_SLIM_BRANCH)
     runInDir FCS_REPO_LOCAL "git pull"
-    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
-        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
+    runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" ""
     copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
     copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
 
     // fcs-fable
     runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_FABLE_BRANCH)
     runInDir FCS_REPO_LOCAL "git pull"
-    cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
-        runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable")
+    runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "CodeGen.Fable"
     copyDirRecursive (FCS_REPO_LOCAL </> "fcs/fcs-fable") "src/fcs-fable"
     copyDirNonRecursive (FCS_REPO_LOCAL </> "src/absil") "src/fcs-fable/src/absil"
     copyDirNonRecursive (FCS_REPO_LOCAL </> "src/fsharp") "src/fcs-fable/src/fsharp"

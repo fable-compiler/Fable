@@ -698,6 +698,7 @@ type nonTerminalId =
     | NONTERM_identOrOp
     | NONTERM_pathOp
     | NONTERM_nameop
+    | NONTERM_identExpr
     | NONTERM_topSeparator
     | NONTERM_topSeparators
     | NONTERM_opt_topSeparators

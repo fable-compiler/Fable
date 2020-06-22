@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-namespace FSharp.Compiler.SourceCodeServices
+namespace rec FSharp.Compiler.SourceCodeServices
 
 open System.Collections.Generic
 
@@ -56,6 +56,8 @@ type FSharpAccessibility(a:Accessibility, ?isProtected) =
 
 type SymbolEnv(g: TcGlobals, thisCcu: CcuThunk, thisCcuTy: ModuleOrNamespaceType option, tcImports: TcImports, amapV: Import.ImportMap, infoReaderV: InfoReader) = 
 
+    let tcVal = TypeChecker.LightweightTcValForUsingInBuildMethodCall g
+
     new(g: TcGlobals, thisCcu: CcuThunk, thisCcuTy: ModuleOrNamespaceType option, tcImports: TcImports) =
         let amap = tcImports.GetImportMap()
         let infoReader = InfoReader(g, amap)
@@ -67,6 +69,7 @@ type SymbolEnv(g: TcGlobals, thisCcu: CcuThunk, thisCcuTy: ModuleOrNamespaceType
     member __.thisCcuTy = thisCcuTy
     member __.infoReader = infoReaderV
     member __.tcImports = tcImports
+    member __.tcValF = tcVal
 
 [<AutoOpen>]
 module Impl = 
@@ -332,7 +335,7 @@ type FSharpSymbol(cenv: SymbolEnv, item: (unit -> Item), access: (FSharpSymbol -
         | :? FSharpMemberFunctionOrValue as x -> Some x.Accessibility
         | _ -> None
         
-and FSharpEntity(cenv: SymbolEnv, entity:EntityRef) = 
+type FSharpEntity(cenv: SymbolEnv, entity:EntityRef) = 
     inherit FSharpSymbol(cenv, 
                          (fun () -> 
                               checkEntityIsResolved entity
@@ -764,7 +767,7 @@ and FSharpEntity(cenv: SymbolEnv, entity:EntityRef) =
 
     override x.ToString() = x.CompiledName
 
-and FSharpUnionCase(cenv, v: UnionCaseRef) =
+type FSharpUnionCase(cenv, v: UnionCaseRef) =
     inherit FSharpSymbol (cenv,  
                           (fun () -> 
                                checkEntityIsResolved v.TyconRef
@@ -840,7 +843,7 @@ and FSharpUnionCase(cenv, v: UnionCaseRef) =
 
     override x.ToString() = x.CompiledName
 
-and FSharpFieldData = 
+type FSharpFieldData = 
     | AnonField of AnonRecdTypeInfo * TTypes * int * range
     | ILField of ILFieldInfo
     | RecdOrClass of RecdFieldRef
@@ -859,7 +862,7 @@ and FSharpFieldData =
         | ILField f -> Some f.DeclaringTyconRef
         | _ -> None
 
-and FSharpAnonRecordTypeDetails(cenv: SymbolEnv, anonInfo: AnonRecdTypeInfo)  =
+type FSharpAnonRecordTypeDetails(cenv: SymbolEnv, anonInfo: AnonRecdTypeInfo)  =
     member __.Assembly = FSharpAssembly (cenv, anonInfo.Assembly)
 
     /// Names of any enclosing types of the compiled form of the anonymous type (if the anonymous type was defined as a nested type)
@@ -871,7 +874,7 @@ and FSharpAnonRecordTypeDetails(cenv: SymbolEnv, anonInfo: AnonRecdTypeInfo)  =
     /// The sorted labels of the anonymous type
     member __.SortedFieldNames = anonInfo.SortedNames
 
-and FSharpField(cenv: SymbolEnv, d: FSharpFieldData)  =
+type FSharpField(cenv: SymbolEnv, d: FSharpFieldData)  =
     inherit FSharpSymbol (cenv, 
                           (fun () -> 
                                 match d with 
@@ -1092,14 +1095,14 @@ and FSharpField(cenv: SymbolEnv, d: FSharpFieldData)  =
 
     override x.ToString() = "field " + x.Name
 
-and [<System.Obsolete("Renamed to FSharpField")>] FSharpRecordField = FSharpField
+type [<System.Obsolete("Renamed to FSharpField")>] FSharpRecordField = FSharpField
 
-and [<Class>] FSharpAccessibilityRights(thisCcu: CcuThunk, ad:AccessorDomain) =
+type [<Class>] FSharpAccessibilityRights(thisCcu: CcuThunk, ad:AccessorDomain) =
     member internal __.ThisCcu = thisCcu
 
     member internal __.Contents = ad
 
-and FSharpActivePatternCase(cenv, apinfo: PrettyNaming.ActivePatternInfo, ty, n, valOpt: ValRef option, item2) = 
+type FSharpActivePatternCase(cenv, apinfo: PrettyNaming.ActivePatternInfo, ty, n, valOpt: ValRef option, item2) = 
 
     inherit FSharpSymbol (cenv, 
                           (fun () -> item2), 
@@ -1126,7 +1129,7 @@ and FSharpActivePatternCase(cenv, apinfo: PrettyNaming.ActivePatternInfo, ty, n,
         | Some (_, docsig) -> docsig
         | _ -> ""
 
-and FSharpActivePatternGroup(cenv, apinfo:PrettyNaming.ActivePatternInfo, ty, valOpt) =
+type FSharpActivePatternGroup(cenv, apinfo:PrettyNaming.ActivePatternInfo, ty, valOpt) =
 
     member __.Name = valOpt |> Option.map (fun vref -> vref.LogicalName)
 
@@ -1143,7 +1146,7 @@ and FSharpActivePatternGroup(cenv, apinfo:PrettyNaming.ActivePatternInfo, ty, va
             | ParentNone -> None
             | Parent p -> Some (FSharpEntity(cenv, p)))
 
-and FSharpGenericParameter(cenv, v:Typar) = 
+type FSharpGenericParameter(cenv, v:Typar) = 
 
     inherit FSharpSymbol (cenv, 
                           (fun () -> Item.TypeVar(v.Name, v)), 
@@ -1179,7 +1182,7 @@ and FSharpGenericParameter(cenv, v:Typar) =
 
     override x.ToString() = "generic parameter " + x.Name
 
-and FSharpDelegateSignature(cenv, info: SlotSig) = 
+type FSharpDelegateSignature(cenv, info: SlotSig) = 
 
     member __.DelegateArguments = 
         info.FormalParams.Head
@@ -1192,7 +1195,7 @@ and FSharpDelegateSignature(cenv, info: SlotSig) =
         | Some ty -> FSharpType(cenv, ty)
     override x.ToString() = "<delegate signature>"
 
-and FSharpAbstractParameter(cenv, info: SlotParam) =
+type FSharpAbstractParameter(cenv, info: SlotParam) =
 
     member __.Name =    
         let (TSlotParam(name, _, _, _, _, _)) = info
@@ -1217,7 +1220,7 @@ and FSharpAbstractParameter(cenv, info: SlotParam) =
         attribs |> List.map (fun a -> FSharpAttribute(cenv, AttribInfo.FSAttribInfo(cenv.g, a)))
         |> makeReadOnlyCollection
 
-and FSharpAbstractSignature(cenv, info: SlotSig) =
+type FSharpAbstractSignature(cenv, info: SlotSig) =
 
     member __.AbstractArguments = 
         info.FormalParams
@@ -1243,7 +1246,7 @@ and FSharpAbstractSignature(cenv, info: SlotSig) =
     
     member __.DeclaringType = FSharpType(cenv, info.ImplementedType)
 
-and FSharpGenericParameterMemberConstraint(cenv, info: TraitConstraintInfo) = 
+type FSharpGenericParameterMemberConstraint(cenv, info: TraitConstraintInfo) = 
     let (TTrait(tys, nm, flags, atys, rty, _)) = info 
     member __.MemberSources = 
         tys   |> List.map (fun ty -> FSharpType(cenv, ty)) |> makeReadOnlyCollection
@@ -1261,17 +1264,17 @@ and FSharpGenericParameterMemberConstraint(cenv, info: TraitConstraintInfo) =
     override x.ToString() = "<member constraint info>"
 
 
-and FSharpGenericParameterDelegateConstraint(cenv, tupledArgTy: TType, rty: TType) = 
+type FSharpGenericParameterDelegateConstraint(cenv, tupledArgTy: TType, rty: TType) = 
     member __.DelegateTupledArgumentType = FSharpType(cenv, tupledArgTy)
     member __.DelegateReturnType =  FSharpType(cenv, rty)
     override x.ToString() = "<delegate constraint info>"
 
-and FSharpGenericParameterDefaultsToConstraint(cenv, pri:int, ty:TType) = 
+type FSharpGenericParameterDefaultsToConstraint(cenv, pri:int, ty:TType) = 
     member __.DefaultsToPriority = pri 
     member __.DefaultsToTarget = FSharpType(cenv, ty) 
     override x.ToString() = "<defaults-to constraint info>"
 
-and FSharpGenericParameterConstraint(cenv, cx: TyparConstraint) = 
+type FSharpGenericParameterConstraint(cenv, cx: TyparConstraint) = 
 
     member __.IsCoercesToConstraint = 
         match cx with 
@@ -1368,25 +1371,25 @@ and FSharpGenericParameterConstraint(cenv, cx: TyparConstraint) =
 
     override x.ToString() = "<type constraint>"
 
-and FSharpInlineAnnotation = 
+type FSharpInlineAnnotation = 
    | PseudoValue
    | AlwaysInline 
    | OptionalInline 
    | NeverInline 
    | AggressiveInline 
 
-and FSharpMemberOrValData = 
+type FSharpMemberOrValData = 
     | E of EventInfo
     | P of PropInfo
     | M of MethInfo
     | C of MethInfo
     | V of ValRef
 
-and FSharpMemberOrVal = FSharpMemberOrFunctionOrValue
+type FSharpMemberOrVal = FSharpMemberOrFunctionOrValue
 
-and FSharpMemberFunctionOrValue =  FSharpMemberOrFunctionOrValue
+type FSharpMemberFunctionOrValue =  FSharpMemberOrFunctionOrValue
 
-and FSharpMemberOrFunctionOrValue(cenv, d:FSharpMemberOrValData, item2) = 
+type FSharpMemberOrFunctionOrValue(cenv, d:FSharpMemberOrValData, item2) = 
 
     inherit FSharpSymbol(cenv, 
                          (fun () -> item2), 
@@ -2068,8 +2071,29 @@ and FSharpMemberOrFunctionOrValue(cenv, d:FSharpMemberOrValData, item2) =
                 | V v -> v.TauType
             NicePrint.prettyLayoutOfTypeNoCx (denv.Contents cenv.g) ty
 
+    member x.GetWitnessPassingInfo() = 
+        let witnessInfos = 
+            match d with 
+            | M (FSMeth(_, _, vref, _))  -> 
+                let _tps, witnessInfos, _curriedArgInfos, _retTy, _ = GetTypeOfMemberInMemberForm cenv.g vref
+                witnessInfos
+            | V vref  ->
+                let arities = arityOfVal vref.Deref
+                let numEnclosingTypars = CountEnclosingTyparsOfActualParentOfVal vref.Deref
+                let _tps, witnessInfos, _curriedArgInfos, _retTy, _ = GetTopValTypeInCompiledForm cenv.g arities numEnclosingTypars vref.Type vref.DefinitionRange
+                witnessInfos
+            | E _ | P _ | M _ | C _ -> []
+        match witnessInfos with 
+        | [] -> None
+        | _ when not (cenv.g.langVersion.SupportsFeature(Features.LanguageFeature.WitnessPassing)) -> None
+        | _ ->
+        let g = cenv.g
+        let witnessTys = GenWitnessTys g witnessInfos
+        let tys = witnessTys |> List.map (fun ty -> FSharpType(cenv, ty)) |> makeReadOnlyCollection
+        let witnessMethName = PrettyNaming.ExtraWitnessMethodName x.CompiledName
+        Some (witnessMethName, tys)
 
-and FSharpType(cenv, ty:TType) =
+type FSharpType(cenv, ty:TType) =
 
     let isUnresolved() = 
        ErrorLogger.protectAssemblyExploration true <| fun () -> 
@@ -2284,7 +2308,7 @@ and FSharpType(cenv, ty:TType) =
         let ps = (xs, prettyTys) ||> List.map2 (List.map2 (fun p pty -> p.AdjustType pty)) |> List.map makeReadOnlyCollection |> makeReadOnlyCollection
         ps, returnParameter.AdjustType prettyRetTy
 
-and FSharpAttribute(cenv: SymbolEnv, attrib: AttribInfo) = 
+type FSharpAttribute(cenv: SymbolEnv, attrib: AttribInfo) = 
 
     let rec resolveArgObj (arg: obj) =
         match arg with
@@ -2319,7 +2343,7 @@ and FSharpAttribute(cenv: SymbolEnv, attrib: AttribInfo) =
     override __.ToString() = 
         if entityIsUnresolved attrib.TyconRef then "attribute ???" else "attribute " + attrib.TyconRef.CompiledName + "(...)" 
 #if !NO_EXTENSIONTYPING    
-and FSharpStaticParameter(cenv, sp: Tainted< ExtensionTyping.ProvidedParameterInfo >, m) = 
+type FSharpStaticParameter(cenv, sp: Tainted< ExtensionTyping.ProvidedParameterInfo >, m) = 
     inherit FSharpSymbol(cenv, 
                          (fun () -> 
                               protect <| fun () -> 
@@ -2359,7 +2383,7 @@ and FSharpStaticParameter(cenv, sp: Tainted< ExtensionTyping.ProvidedParameterIn
         "static parameter " + x.Name 
 #endif
 
-and FSharpParameter(cenv, paramTy: TType, topArgInfo: ArgReprInfo, ownerOpt, ownerRangeOpt, isParamArrayArg, isInArg, isOutArg, isOptionalArg) = 
+type FSharpParameter(cenv, paramTy: TType, topArgInfo: ArgReprInfo, ownerOpt, ownerRangeOpt, isParamArrayArg, isInArg, isOutArg, isOptionalArg) = 
     inherit FSharpSymbol(cenv, 
                          (fun () -> 
                             let m = defaultArg ownerRangeOpt range0
@@ -2422,7 +2446,7 @@ and FSharpParameter(cenv, paramTy: TType, topArgInfo: ArgReprInfo, ownerOpt, own
     override x.ToString() = 
         "parameter " + (match x.Name with None -> "<unnamed" | Some s -> s)
 
-and FSharpAssemblySignature (cenv, topAttribs: TypeChecker.TopAttribs option, optViewedCcu: CcuThunk option, mtyp: ModuleOrNamespaceType) = 
+type FSharpAssemblySignature (cenv, topAttribs: TypeChecker.TopAttribs option, optViewedCcu: CcuThunk option, mtyp: ModuleOrNamespaceType) = 
 
     // Assembly signature for a referenced/linked assembly
     new (cenv: SymbolEnv, ccu: CcuThunk) = 
@@ -2481,7 +2505,7 @@ and FSharpAssemblySignature (cenv, topAttribs: TypeChecker.TopAttribs option, op
 
     override x.ToString() = "<assembly signature>"
 
-and FSharpAssembly internal (cenv, ccu: CcuThunk) = 
+type FSharpAssembly internal (cenv, ccu: CcuThunk) = 
 
     new (g, tcImports, ccu: CcuThunk) = 
         FSharpAssembly(SymbolEnv(g, ccu, None, tcImports), ccu)
