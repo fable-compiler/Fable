@@ -15,14 +15,13 @@ const customPlugins: babel.PluginItem[] = [
 ];
 
 interface Options {
-    cli?: any;
-    extra?: any;
-    babel?: babel.TransformOptions;
     define?: string[]|string;
-    typedArrays?: boolean;
-    clampByteArrays?: boolean;
+    extra?: any;
+    cli?: any;
+    babel?: babel.TransformOptions;
     compiler?: string,
     port?: number,
+    verbose?: boolean,
     silent?: boolean,
     cache?: boolean,
     watch?: boolean,
@@ -32,14 +31,10 @@ interface Compiler {
     compile(req: CompilationRequest): Promise<CompilationResult>,
 }
 
-interface CompilationRequest {
-    path: string,
-    rootDir: string,
-    define: string[],
-    typedArrays: boolean,
-    clampByteArrays: boolean,
-    extra: any
-}
+type CompilationRequest = Options & {
+    path: string;
+    rootDir: string;
+};
 
 interface CompilationResult {
     fileName: string,
@@ -175,14 +170,11 @@ async function compile(filePath: string, opts: Options, webpack: WebpackHelper) 
         return { code: cachedFile }
     }
 
-    const req: CompilationRequest = {
-        path: filePath,
-        rootDir: process.cwd(),
-        define: ensureArray(opts.define),
-        typedArrays: opts.typedArrays ?? false,
-        clampByteArrays: opts.clampByteArrays ?? false,
-        extra: opts.extra ?? {}
-    };
+    const req = Object.assign({},
+        opts,
+        { path: filePath, rootDir: process.cwd() },
+        { cli: undefined, babel: undefined } // Remove some unneeded options
+    );
     const compiler = getCompiler(opts, webpack);
     const data = await compiler.compile(req);
     if (data.error) {
@@ -233,10 +225,10 @@ function Loader(buffer: Buffer) {
 
     const opts: Options = this.loaders[0].options ?? {};
     opts.cli = opts.cli ?? {};
-    opts.cli.silent = opts.silent;
+    opts.cli.verbose = opts.cli.verbose ?? opts.verbose;
+    opts.cli.silent = opts.cli.silent ?? opts.silent;
     opts.babel = opts.babel ?? {};
     opts.babel.plugins = customPlugins.concat(opts.babel.plugins ?? []);
-    opts.extra = opts.extra ?? {}
     opts.watch = webpackCompiler.watchMode;
     opts.define = ensureArray(opts.define);
     if (webpackCompiler?.options?.mode === "development" && opts.define.indexOf("DEBUG") === -1) {

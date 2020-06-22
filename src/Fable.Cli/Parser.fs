@@ -10,6 +10,7 @@ type Message =
       rootDir: string
       define: string[]
       noReferences: bool
+      noRestore: bool
       typedArrays: bool
       clampByteArrays: bool
       classTypes: bool
@@ -77,6 +78,7 @@ let parse (msg: string) =
         |> Array.append [|Naming.fableCompilerConstant|]
         |> Array.distinct
       noReferences = parseBoolean false "noReferences" json
+      noRestore = parseBoolean false "noRestore" json
       typedArrays = parseBoolean false "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
       classTypes = parseBoolean false "classTypes" json

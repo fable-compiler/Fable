@@ -133,7 +133,13 @@ let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra opti
             else proj
     | None ->
         let projectOptions, fableLibraryDir =
-            getFullProjectOpts msg.define msg.noReferences msg.rootDir projFile
+            getFullProjectOpts {
+                define = msg.define
+                noReferences = msg.noReferences
+                noRestore = msg.noRestore
+                rootDir = msg.rootDir
+                projFile = projFile
+            }
         Log.verbose(lazy
             let proj = getRelativePath projectOptions.ProjectFileName
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
@@ -283,7 +289,9 @@ let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
             Respond(res, msgHandler) |> agent.Post
         try
             let msg = Parser.parse msgHandler.Message
-            // lazy sprintf "Received message %A" msg |> Log.logVerbose
+            Log.verbose(lazy
+                if msg.path.EndsWith(".fsproj") then sprintf "Received %A" msg
+                else "")
             let newState, activeProject = updateState state msg
             let libDir = Path.getRelativePath msg.path activeProject.LibraryDir
             let com = Compiler(msg.path, activeProject.Project, Parser.toCompilerOptions msg, libDir)
