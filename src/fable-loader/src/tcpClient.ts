@@ -1,9 +1,10 @@
-var net = require('net');
+import * as net from 'net';
 
-exports.send = function(host, port, msg) {
+export default function send(host: string, port: number, msg: any): Promise<string> {
   return new Promise((resolve, reject) => {
-    var buffer = "";
-    var client = new net.Socket(), resolved = false;
+    let buffer = "";
+    let resolved = false;
+    const client = new net.Socket();
 
     client.connect(port, host, function() {
       client.write(msg);

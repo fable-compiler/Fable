@@ -357,7 +357,7 @@ let createFableDir rootDir =
     let fableDir = IO.Path.Combine(rootDir, Naming.fableHiddenDir)
     if isDirectoryEmpty fableDir then
         Directory.CreateDirectory(fableDir) |> ignore
-        File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "*.*")
+        File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")
     fableDir
 
 let copyDirIfDoesNotExist (source: string) (target: string) =

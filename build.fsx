@@ -56,6 +56,9 @@ let buildTypescript projectDir =
 let buildFableSplitter() =
     buildTypescript "src/fable-splitter"
 
+let buildFableLoader() =
+    buildTypescript "src/fable-loader"
+
 let buildSplitterWithArgs projectDir args =
     if pathExists "src/fable-splitter/dist" |> not then
         buildFableSplitter()
@@ -290,7 +293,7 @@ let packages =
      "fable-babel-plugins", doNothing
      "fable-compiler", buildCompiler
      "fable-compiler-js", buildCompilerJs
-     "fable-loader", doNothing
+     "fable-loader", buildFableLoader
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
      "fable-splitter", buildFableSplitter
@@ -323,6 +326,7 @@ match argsLower with
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
 | ("fable-splitter"|"splitter")::_ -> buildFableSplitter()
+| ("fable-loader"|"loader")::_ -> buildFableLoader()
 | ("fable-standalone"|"standalone")::_ -> buildStandalone()
 | "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
