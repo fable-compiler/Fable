@@ -410,9 +410,8 @@ let removeFilesInObjFolder sourceFiles =
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
 let getFullProjectOpts (opts: Options) =
-    let projFile = Path.GetFullPath(opts.projFile)
-    if not(File.Exists(projFile)) then
-        failwith ("File does not exist: " + projFile)
+    if not(File.Exists(opts.projFile)) then
+        failwith ("File does not exist: " + opts.projFile)
     let projRefs, mainProj = retryGetCrackedProjects opts
     let fableLibraryPath, pkgRefs =
         copyFableLibraryAndPackageSources opts.rootDir mainProj.PackageReferences
@@ -448,5 +447,5 @@ let getFullProjectOpts (opts: Options) =
               otherOpts
               dllRefs ]
             |> Array.concat
-        makeProjectOptions projFile sourceFiles otherOptions
+        makeProjectOptions opts.projFile sourceFiles otherOptions
     projOpts, fableLibraryPath

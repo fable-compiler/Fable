@@ -55,6 +55,9 @@ type IMessageHandler =
     abstract Respond: write: (TextWriter->unit) -> unit
 
 type AgentMsg =
+    | Parsed of projectFile: string
+                * Fable.Transforms.State.Project
+                * FSharp.Compiler.SourceCodeServices.InteractiveChecker
     | Received of handler: IMessageHandler
     | Respond of response: obj * handler: IMessageHandler
 

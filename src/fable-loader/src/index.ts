@@ -166,7 +166,9 @@ async function compile(filePath: string, opts: Options, webpack: WebpackHelper) 
     const fileCache = await getFileCache(opts);
     const cachedFile = await fileCache.getFile(filePath);
     if (cachedFile != null) {
-        log(opts, "fable: Cached " + path.relative(process.cwd(), filePath));
+        if (opts.verbose) {
+            log(opts, "fable: Cached " + path.relative(process.cwd(), filePath));
+        }
         return { code: cachedFile }
     }
 
