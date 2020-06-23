@@ -84,7 +84,15 @@ const getCompiler = (function() {
                     },
                 }
             } else {
-                const fableCompiler = require(opts.compiler ?? DEFAULT_COMPILER).default(opts.cli);
+                // We need to discard undefined/null values
+                // because of a bug in fable-compiler
+                const cliOptions = {};
+                Object.keys(opts.cli).forEach(k => {
+                    if (opts.cli[k] != null) {
+                        cliOptions[k] = opts.cli[k];
+                    }
+                });
+                const fableCompiler = require(opts.compiler ?? DEFAULT_COMPILER).default(cliOptions);
                 webpack.onCompiled(function() {
                     firstCompilationFinished = true;
                     if (!opts.watch) {
@@ -166,18 +174,16 @@ async function compile(filePath: string, opts: Options, webpack: WebpackHelper) 
     const fileCache = await getFileCache(opts);
     const cachedFile = await fileCache.getFile(filePath);
     if (cachedFile != null) {
-        if (opts.verbose) {
-            log(opts, "fable: Cached " + path.relative(process.cwd(), filePath));
-        }
+        log(opts, "fable: Cached " + path.relative(process.cwd(), filePath));
         return { code: cachedFile }
     }
 
+    const compiler = getCompiler(opts, webpack);
     const req = Object.assign({},
         opts,
         { path: filePath, rootDir: process.cwd() },
         { cli: undefined, babel: undefined } // Remove some unneeded options
     );
-    const compiler = getCompiler(opts, webpack);
     const data = await compiler.compile(req);
     if (data.error) {
         throw new Error(data.error);
