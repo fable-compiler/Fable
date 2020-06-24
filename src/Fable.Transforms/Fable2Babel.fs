@@ -938,7 +938,7 @@ module Util =
             | Fable.ConstructorCall(TransformExpr com ctx consExpr) ->
                 upcast NewExpression(consExpr, List.toArray args, ?loc=range)
             | Fable.StaticCall(TransformExpr com ctx funcExpr) ->
-                if argInfo.IsBaseCall || argInfo.IsSelfConstructorCall then
+                if argInfo.IsBaseConstructorCall || argInfo.IsSelfConstructorCall then
                     let thisArg =
                         match argInfo.ThisArg with
                         | Some(TransformExpr com ctx thisArg) -> thisArg
@@ -986,7 +986,7 @@ module Util =
         // TODO: Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity, opKind with
         | Some(Return|ReturnUnit), Some tc, Fable.Call(Fable.StaticCall funcExpr, argInfo)
-                                when not (argInfo.IsBaseCall || argInfo.IsSelfConstructorCall)
+                                when not (argInfo.IsBaseConstructorCall || argInfo.IsSelfConstructorCall)
                                 && tc.IsRecursiveRef(funcExpr)
                                 && argsLen argInfo = List.length tc.Args ->
             let args =

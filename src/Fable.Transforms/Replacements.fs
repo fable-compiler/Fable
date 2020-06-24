@@ -17,18 +17,18 @@ type Helper =
     static member ConstructorCall(consExpr: Expr, returnType: Type, args: Expr list,
                                   ?argTypes: Type list, ?loc: SourceLocation) =
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
-        Operation(Call(ConstructorCall consExpr, argInfo None args argTypes), returnType, loc)
+        Operation(Call(ConstructorCall consExpr, makeSimpleArgInfo None args argTypes), returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
         let kind = makeStrConst memb |> Some |> InstanceCall
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
-        Operation(Call(kind, argInfo (Some callee) args argTypes), returnType, loc)
+        Operation(Call(kind, makeSimpleArgInfo (Some callee) args argTypes), returnType, loc)
 
     static member Application(callee: Expr, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
-        Operation(Call(InstanceCall None, argInfo (Some callee) args argTypes), returnType, loc)
+        Operation(Call(InstanceCall None, makeSimpleArgInfo (Some callee) args argTypes), returnType, loc)
 
     static member CoreValue(coreModule: string, coreMember: string, returnType: Type) =
         makeCoreRef returnType coreMember coreModule
@@ -41,7 +41,8 @@ type Helper =
               Args = args
               SignatureArgTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
               Spread = match hasSpread with Some true -> SeqSpread | _ -> NoSpread
-              IsBaseCall = false
+              IsConstructorCall = false
+              IsBaseConstructorCall = false
               IsSelfConstructorCall = false }
         let funcExpr = makeCoreRef Any coreMember coreModule
         match isConstructor with
@@ -59,7 +60,7 @@ type Helper =
             | Some true -> ConstructorCall funcExpr
             | _ -> StaticCall funcExpr
         let argTypes = match argTypes with Some xs -> Typed xs | None -> NoUncurrying
-        let info = argInfo None args argTypes
+        let info = makeSimpleArgInfo None args argTypes
         Operation(Call(op, info), returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
@@ -78,7 +79,7 @@ module Helpers =
             | t -> t)
 
     let emitJs r t args macro =
-        let info = argInfo None args AutoUncurrying
+        let info = makeSimpleArgInfo None args AutoUncurrying
         Operation(Emit(macro, Some info), t, r)
 
     let objValue (k, v) =
@@ -698,7 +699,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         nativeOp opName argTypes args
     | CustomOp com ctx opName argTypes m ->
         let genArgs = genArgs |> Seq.map snd
-        FSharp2Fable.Util.makeCallFrom com ctx r t false genArgs None args m
+        FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithJsComparison = function
@@ -868,7 +869,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | Builtin (BclKeyValuePair(k,v)) ->
         Value(NewTuple[getZero com ctx k; getZero com ctx v], None)
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
-        FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
+        FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ -> Value(Null Any, None) // null
 
 let getOne (com: ICompiler) ctx (t: Type) =
@@ -877,7 +878,7 @@ let getOne (com: ICompiler) ctx (t: Type) =
     | Builtin BclBigInt as t -> Helper.CoreCall("BigInt", "fromInt32", t, [makeIntConst 1])
     | Builtin BclDecimal as t -> makeIntConst 1 |> makeDecimalFromExpr None t
     | ListSingleton(CustomOp com ctx "get_One" [] m) ->
-        FSharp2Fable.Util.makeCallFrom com ctx None t false [] None [] m
+        FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
@@ -1136,7 +1137,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
             Set(callee, ExprSet prop, value, r) |> Some
         | ("op_Dollar"|"createNew" as m), callee::args ->
-            let argInfo = { argInfo None args AutoUncurrying with Spread = TupleSpread }
+            let argInfo = { makeSimpleArgInfo None args AutoUncurrying with Spread = TupleSpread }
             if m = "createNew"
             then constructorCall r t argInfo callee |> Some
             else staticCall r t argInfo callee |> Some
@@ -1211,7 +1212,7 @@ let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr 
     if i.IsModuleValue
     then makeCustomImport t mangledName importPath
     else
-        let argInfo = { argInfo thisArg args (Typed i.SignatureArgTypes) with Spread = i.Spread }
+        let argInfo = { makeSimpleArgInfo thisArg args (Typed i.SignatureArgTypes) with Spread = i.Spread }
         makeCustomImport Any mangledName importPath |> staticCall r t argInfo
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1436,7 +1437,7 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
     let icall r t args argTypes memb  =
         match args, argTypes with
         | thisArg::args, _::argTypes ->
-            let info = argInfo (Some thisArg) args (Typed argTypes)
+            let info = makeSimpleArgInfo (Some thisArg) args (Typed argTypes)
             instanceCall r t info (makeStrConst memb |> Some) |> Some
         | _ -> None
     match i.CompiledName with
@@ -1598,7 +1599,7 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
             let identExpr ident =
                 match projection with
                 | Some projection ->
-                    let info = argInfo None [IdentExpr ident] NoUncurrying
+                    let info = makeSimpleArgInfo None [IdentExpr ident] NoUncurrying
                     Operation(Call(StaticCall projection, info), genArg, None)
                 | None -> IdentExpr ident
             let x = makeTypedIdentUnique com genArg "x"

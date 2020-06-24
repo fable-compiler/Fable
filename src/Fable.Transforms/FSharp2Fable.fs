@@ -33,13 +33,13 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
     let genArgs = genArgs |> Seq.map (makeType com ctx.GenericArgs)
     match Replacements.tryBaseConstructor com baseEnt baseCons genArgs baseArgs with
     | Some(baseRef, args) ->
-        // TODO: Should Replacements.tryBaseConstructor return the argInfo?
         let argInfo: Fable.ArgInfo =
           { ThisArg = thisArg
             Args = args
             SignatureArgTypes = getArgTypes com baseCons |> Fable.Typed
             Spread = Fable.NoSpread
-            IsBaseCall = true
+            IsConstructorCall = true
+            IsBaseConstructorCall = true
             IsSelfConstructorCall = false }
         baseRef, staticCall r Fable.Unit argInfo baseRef
     | None ->
@@ -52,7 +52,7 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
                 "Classes without a primary constructor cannot be inherited: " + baseEnt.FullName |> Some
             else None)
 
-        let baseCons = makeCallFrom com ctx r Fable.Unit true genArgs thisArg baseArgs baseCons
+        let baseCons = makeBaseConstructorCallFrom com ctx r genArgs thisArg baseArgs baseCons
         entityRefMaybeGlobalOrImported com baseEnt, baseCons
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
@@ -111,7 +111,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
     let resolveMemberCall (entity: FSharpEntity) genArgs membCompiledName isInstance argTypes thisArg args =
         let genArgs = matchGenericParams genArgs entity.GenericParameters
         tryFindMember com entity (Map genArgs) membCompiledName isInstance argTypes
-        |> Option.map (fun memb -> makeCallFrom com ctx r typ false [] thisArg args memb)
+        |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
 
     let isInstance = flags.IsInstance
     let argTypes = List.map (makeType com ctx.GenericArgs) argTypes
@@ -243,7 +243,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                     let typ = makeType com ctx.GenericArgs baseCallExpr.Type
                     let! baseArgs = transformExprList com ctx baseArgs
                     let genArgs = genArgs1 @ genArgs2 |> Seq.map (makeType com ctx.GenericArgs)
-                    return makeCallFrom com ctx None typ false genArgs None baseArgs baseCall |> Some
+                    return makeCallFrom com ctx None typ genArgs None baseArgs baseCall |> Some
                 | _ -> return None
             | _ -> return None
         }
@@ -330,7 +330,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             | None -> memb.DeclaringEntity.Value
         let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
         return (match membOpt with
-                | Some memb -> makeCallFrom com ctx r typ false argTypes None args memb
+                | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
                 | None -> failwithf "Cannot find member %A.%A" (entity.FullName) opName)
 
     | BasicPatterns.Coerce(targetType, inpExpr) ->
@@ -355,7 +355,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! args = transformExprList com ctx membArgs
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
+        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
 
     | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr) ->
         let ctx, ident = putArgInScope com ctx outArg
@@ -366,7 +366,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
         let tupleIdent = makeIdentUnique com "tuple"
         let tupleIdentExpr = Fable.IdentExpr tupleIdent
-        let tupleExpr = makeCallFrom com ctx None tupleType false genArgs callee args memb
+        let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleGet 1, tupleType, None)
         let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleGet 0, tupleType, None)
         let! thenExpr = transformExpr com ctx thenExpr
@@ -382,7 +382,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let byrefType = makeType com ctx.GenericArgs (List.last membArgs).Type
         let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
         let tupleIdentExpr = Fable.IdentExpr ident
-        let tupleExpr = makeCallFrom com ctx None tupleType false genArgs callee args memb
+        let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleGet 0, tupleType, None)
         let! thenExpr = transformExpr com ctx thenExpr
         let! elseExpr = transformExpr com ctx elseExpr
@@ -400,7 +400,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
         let tupleIdent = makeIdentUnique com "tuple"
         let tupleIdentExpr = Fable.IdentExpr tupleIdent
-        let tupleExpr = makeCallFrom com ctx None tupleType false genArgs callee args memb
+        let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         let id1Expr = Fable.Get(tupleIdentExpr, Fable.TupleGet 0, tupleType, None)
         let id2Expr = Fable.Get(tupleIdentExpr, Fable.TupleGet 1, tupleType, None)
         let! restExpr = transformExpr com ctx restExpr
@@ -413,7 +413,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callee = get None Fable.Any callee eventName
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs (Some callee) args memb
+        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs (Some callee) args memb
 
     | BindCreateEvent (var, value, eventName, body) ->
         let! value = transformExpr com ctx value
@@ -540,7 +540,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // TODO: Check answer to #868 in FSC repo
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb
+        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
 
     | BasicPatterns.Application(applied, _genArgs, []) ->
         // TODO: Ask why application without arguments happen. So far I've seen it
@@ -573,7 +573,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! e2 = transformExpr com ctx e2
         let! args = transformExprList com ctx args
         let argInfo: Fable.ArgInfo =
-            { argInfo (Some e1) args Fable.AutoUncurrying with Spread = Fable.TupleSpread }
+            { makeSimpleArgInfo (Some e1) args Fable.AutoUncurrying with Spread = Fable.TupleSpread }
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return Fable.Operation(Fable.Call(Fable.InstanceCall(Some e2), argInfo), typ, makeRangeFrom fsExpr)
 
@@ -723,7 +723,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! args = transformExprList com ctx args
         let genArgs = Seq.map (makeType com ctx.GenericArgs) genArgs
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs None args memb
+        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs None args memb
 
     // work-around for optimized "for x in list" (erases this sequential)
     | BasicPatterns.Sequential (BasicPatterns.ValueSet (current, BasicPatterns.Value next1),
@@ -961,7 +961,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         // If this is a static constructor, call it immediately
         if memb.CompiledName = ".cctor" then
             let fn = Fable.Function(Fable.Delegate args, body, Some name)
-            let apply = staticCall None Fable.Unit (argInfo None [] Fable.NoUncurrying) fn
+            let apply = staticCall None Fable.Unit (makeSimpleArgInfo None [] Fable.NoUncurrying) fn
             [Fable.ActionDeclaration apply]
         else
             let info = functionDeclarationInfo name isPublic memb

@@ -412,7 +412,7 @@ module private Transforms =
         | Operation(CurriedApply((NestedLambdaWithSameArity(args, fnBody, Some name)), argExprs), t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
             let fnBody = curryIdentInBody name args fnBody
-            let info = argInfo None argExprs (args |> List.map (fun a -> a.Type) |> Typed)
+            let info = makeSimpleArgInfo None argExprs (args |> List.map (fun a -> a.Type) |> Typed)
             Function(Delegate args, fnBody, Some name)
             |> staticCall r t info
         | e -> e
@@ -495,7 +495,7 @@ module private Transforms =
         let uncurryApply r t applied args uncurriedArity =
             let argsLen = List.length args
             if uncurriedArity = argsLen then
-                let info = argInfo None args AutoUncurrying
+                let info = makeSimpleArgInfo None args AutoUncurrying
                 staticCall r t info applied |> Some
             else
                 Replacements.partialApplyAtRuntime t (uncurriedArity - argsLen) applied args |> Some

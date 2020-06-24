@@ -390,12 +390,13 @@ module AST =
         let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import(makeStrConst selector, makeStrConst path, Internal, t, None)
 
-    let argInfo thisArg args argTypes =
+    let makeSimpleArgInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
           SignatureArgTypes = argTypes
           Spread = NoSpread
-          IsBaseCall = false
+          IsConstructorCall = false
+          IsBaseConstructorCall = false
           IsSelfConstructorCall = false }
 
     let staticCall r t argInfo functionExpr =

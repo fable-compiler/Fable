@@ -241,7 +241,8 @@ type ArgInfo =
       /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
       SignatureArgTypes: SignatureKind
       Spread: SpreadKind
-      IsBaseCall: bool
+      IsConstructorCall: bool
+      IsBaseConstructorCall: bool
       IsSelfConstructorCall: bool }
 
 type ReplaceCallInfo =
