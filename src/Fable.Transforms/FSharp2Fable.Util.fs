@@ -19,7 +19,7 @@ type Context =
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
-      InlinePath: (string * (SourceLocation option)) list
+      InlinePath: Log.InlinePath list
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
     }
     static member Create(enclosingEntity) =
@@ -1175,6 +1175,7 @@ module Util =
                 let t = makeType com ctx.GenericArgs argIdent.FullType
                 foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t), None))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
+
         // Log error if the inline function is called recursively
         match ctx.InlinedFunction with
         | Some memb2 when memb.Equals(memb2) ->
@@ -1185,7 +1186,9 @@ module Util =
                 match callee with
                 | Some c -> c::args
                 | None -> args
+
             let inExpr = com.GetInlineExpr(memb)
+
             let ctx, bindings =
                 ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
                     // Change type and mark ident as compiler-generated so Fable also
@@ -1195,9 +1198,19 @@ module Util =
                                     Kind = Fable.CompilerGenerated }
                     let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
+
+            let fromFile, fromRange =
+                match ctx.InlinePath with
+                | { ToFile = file; ToRange = r }::_ -> file, r
+                | [] -> com.CurrentFile, r
+
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map
                                  InlinedFunction = Some memb
-                                 InlinePath = (inExpr.FileName, r)::ctx.InlinePath }
+                                 InlinePath = { ToFile = inExpr.FileName
+                                                ToRange = makeRangeFrom inExpr.Body
+                                                FromFile = fromFile
+                                                FromRange = fromRange }::ctx.InlinePath }
+
             (com.Transform(ctx, inExpr.Body), bindings)
             ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
