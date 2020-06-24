@@ -89,7 +89,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         let genArgs = makeGenArgs com ctx.GenericArgs genArgs
         Fable.NewUnion(argExprs, unionCase, tdef, genArgs) |> makeValue r
 
-let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
+let private resolveTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
     let makeCallInfo traitName entityFullName argTypes genArgs: Fable.ReplaceCallInfo =
         { SignatureArgTypes = argTypes
           DeclaringEntityFullName = entityFullName
@@ -528,16 +528,42 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | CapturedBaseConsCall com ctx transformBaseConsCall nextExpr ->
         return! transformExpr com ctx nextExpr
 
-    // TODO: `argTypes2` is always empty, asked about its purpose
+    // `argTypes2` is always empty, not sure what it is for
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
+        let r = makeRangeFrom fsExpr
         let typ = makeType com ctx.GenericArgs fsExpr.Type
-        return transformTraitCall com ctx (makeRangeFrom fsExpr) typ sourceTypes traitName flags argTypes argExprs
+        match ctx.Witnesses with
+        | [] ->
+            return resolveTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
+        | [witness] ->
+            sprintf "Replaced with witness %A" witness |> addWarning com ctx.InlinePath (makeRangeFrom fsExpr)
+            let! args = transformExprList com ctx argExprs
+            let! callee = transformExpr com ctx witness
+            return Fable.Operation(Fable.CurriedApply(callee, args), typ, r)
+        | _ ->
+            sprintf "Multiple witnesses found %A" ctx.Witnesses
+            |> addWarning com ctx.InlinePath r
+            return resolveTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
 
-    | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
+    | BasicPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
+        let ctx =
+            match witnesses with
+            | [] -> ctx
+            | witnesses ->
+                witnesses |> List.choose (function
+                    | BasicPatterns.WitnessArg i ->
+                        // TODO: The index doesn't seem to be reliable, it's -1 all the time
+                        let i = if i < 0 then 0 else i
+                        match List.tryItem i ctx.Witnesses with
+                        | Some e -> Some e
+                        | None ->
+                            None
+                    | e -> Some e)
+                |> fun ws -> { ctx with Witnesses = ws }
+
         checkArgumentsPassedByRef com ctx args
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx args
-        // TODO: Check answer to #868 in FSC repo
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let typ = makeType com ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ false genArgs callee args memb

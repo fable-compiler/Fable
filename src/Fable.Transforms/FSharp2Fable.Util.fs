@@ -21,6 +21,7 @@ type Context =
       BoundMemberThis: Fable.Ident option
       InlinePath: Log.InlinePath list
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr * Fable.Expr -> unit)) option
+      Witnesses: FSharpExpr list
     }
     static member Create(enclosingEntity) =
         { Scope = []
@@ -34,6 +35,7 @@ type Context =
           BoundMemberThis = None
           InlinePath = []
           CaptureBaseConsCall = None
+          Witnesses = []
         }
 
 type IFableCompiler =

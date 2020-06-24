@@ -13,6 +13,11 @@ type TrampolineBuilder() =
     member __.Delay f = DelayValue f
     member __.Return a = ReturnValue a
     member __.ReturnFrom (a: Thunk<'T>) = a
+    member __.TryWith (a: Thunk<'T>, onError: exn -> Thunk<'T>) =
+        match a with
+        | DelayValue f -> DelayValue(fun () ->
+            try f() with e -> onError e)
+        | ReturnValue x -> ReturnValue x
 
 let trampoline = TrampolineBuilder()
 

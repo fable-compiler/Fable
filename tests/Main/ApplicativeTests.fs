@@ -115,23 +115,17 @@ let tests1 = [
     testCase "Infix applicative can be generated" <| fun () ->
         let r = Ok 1
         let a = Ok string
-        match a <*> r with
-        | Ok x -> equal "1" x
-        | _ -> failwith "expected Ok('1')"
+        a <*> r |> equal (Ok "1")
 
     testCase "Infix applicative with inline functions can be generated" <| fun () ->
         let r = Ok 1
         let a = Ok string
-        match applyInline a r with
-        | Ok x -> equal "1" x
-        | _ -> failwith "expected Ok('1')"
+        applyInline a r |> equal (Ok "1")
 
     testCase "Infix applicative with inline composed functions can be generated" <| fun () ->
         let r = Ok 1
         let a = Ok (string >> int)
-        match applyInline a r with
-        | Ok x -> equal 1 x
-        | _ -> failwith "expected Ok(1)"
+        applyInline a r |> equal (Ok 1)
 
     testCase "Infix applicative with even more inline functions can be generated" <| fun () ->
         let r = Ok (fun x -> x + 1)
