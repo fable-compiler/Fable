@@ -423,17 +423,15 @@ type TypeForTesting = BasicTypeForTesting | FunctionConstructor | [TypeForTestin
 type GenericArgsMap = Map<FunctionConstructor, TypeForTesting[]>;
 
 export function withGenerics<T>(x: T, ...gen: TypeForTesting[]): T {
-    function addGenerics(cons: FunctionConstructor,
-                         gen: TypeForTesting[],
-                         genMap: GenericArgsMap): GenericArgsMap {
+    function addGenerics(proto: any, gen: TypeForTesting[], genMap: GenericArgsMap): GenericArgsMap {
+        const cons = proto.constructor;
         genMap.set(cons, gen);
         const $genBase = (cons as any).$genBase;
         return typeof $genBase === "function"
-            ? addGenerics(Object.getPrototypeOf(cons), $genBase(gen), genMap)
+            ? addGenerics(Object.getPrototypeOf(proto), $genBase(gen), genMap)
             : genMap;
     }
     const genMap: GenericArgsMap = new Map();
-    const cons: FunctionConstructor = Object.getPrototypeOf(x).constructor;
-    (x as any).$gen = addGenerics(cons, gen, genMap);
+    (x as any).$gen = addGenerics(Object.getPrototypeOf(x), gen, genMap);
     return x;
 }
