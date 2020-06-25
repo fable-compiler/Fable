@@ -186,6 +186,9 @@ module Util =
         | Some(TransformExpr com ctx head, TransformExpr com ctx tail) -> [|head; tail|]
         |> coreLibConstructorCall com ctx "Types" "List"
 
+    let arrayExpr babelExprs =
+        ArrayExpression(List.toArray babelExprs) :> Expression
+
     // TODO: range
     let makeArray (com: IBabelCompiler) ctx exprs =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
@@ -916,7 +919,42 @@ module Util =
         | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
         | Some(Target left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
 
-    let transformOperation com ctx range opKind: Expression =
+    let rec toGenArgForTypeTesting com ctx = function
+        | Fable.MetaType -> ofString "type"
+        | Fable.Any -> ofString "any"
+        | Fable.Unit -> ofString "undefined"
+        | Fable.Boolean -> ofString "boolean"
+        | Fable.Char
+        | Fable.String -> ofString "string"
+        | Fable.Regex -> ofString "regexp"
+        | Fable.Number _ -> ofString "number"
+        | Fable.Enum _ -> ofString "number" // TODO
+        | Fable.Option _ -> ofString "option" // TODO: add generics
+        | Fable.Tuple _ -> ofString "tuple"  // TODO: add generics
+        | Fable.Array _ -> ofString "array" // TODO: add generics
+        | Fable.List _ -> ofString "list" // TODO: add generics
+        | Fable.FunctionType _ -> ofString "function" // TODO: Probably we cannot use it for type testing
+        | Fable.GenericParam _ -> ofString "gen" // TODO: resolution
+        | Fable.ErasedUnion _ -> ofString "any"
+        | Fable.DeclaredType(ent, genArgs) ->
+            match tryJsConstructor com ctx ent with
+            | Some cons ->
+                if List.isEmpty genArgs then cons
+                else
+                    let genArgs = List.map (toGenArgForTypeTesting com ctx) genArgs
+                    arrayExpr [cons; arrayExpr genArgs]
+            | None -> ofString "any" // TODO: Compiler warning?
+        | Fable.AnonymousRecordType _ -> ofString "any" // TODO: Recognize shape? (it's possible in F#)
+
+    let withGenArgsForTypeTesting com ctx t consCall =
+        match t with
+        | Fable.DeclaredType(_, genArgs) when not(List.isEmpty genArgs) ->
+            List.mapToArray (toGenArgForTypeTesting com ctx) genArgs
+            |> Array.append [|consCall|]
+            |> coreLibCall com ctx None "Reflection" "withGenerics"
+        | _ -> consCall
+
+    let transformOperation com ctx range t opKind: Expression =
         match opKind with
         | Fable.UnaryOperation(op, TransformExpr com ctx expr) ->
             upcast UnaryExpression (op, expr, ?loc=range)
@@ -953,7 +991,10 @@ module Util =
                         match argInfo.ThisArg with
                         | Some(TransformExpr com ctx thisArg) -> thisArg::args
                         | None -> args
-                    callFunction range funcExpr args
+                    let call = callFunction range funcExpr args
+                    if argInfo.IsConstructorCall then
+                        withGenArgsForTypeTesting com ctx t call
+                    else call
             | Fable.InstanceCall membExpr ->
                 match argInfo.ThisArg, membExpr with
                 | None, _ -> addErrorAndReturnNull com range "InstanceCall with empty this argument"
@@ -999,7 +1040,7 @@ module Util =
                                 && List.sameLength args tc.Args ->
             optimizeTailCall com ctx range tc args
         | _ ->
-            [|transformOperation com ctx range opKind |> resolveExpr t returnStrategy|]
+            [|transformOperation com ctx range t opKind |> resolveExpr t returnStrategy|]
 
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
@@ -1449,8 +1490,8 @@ module Util =
         | Fable.ObjectExpr (members, _, baseCall) ->
            transformObjectExpr com ctx members baseCall
 
-        | Fable.Operation(opKind, _, range) ->
-            transformOperation com ctx range opKind
+        | Fable.Operation(opKind, typ, range) ->
+            transformOperation com ctx range typ opKind
 
         | Fable.Get(expr, getKind, typ, range) ->
             transformGet com ctx range typ expr getKind

@@ -1149,7 +1149,7 @@ module Util =
             | Some _, false, Some _thisArg ->
                 callInstanceMember com r typ argInfo e memb |> Some
             | Some classExpr, false, None ->
-                if memb.IsConstructor then
+                if argInfo.IsConstructorCall then
                     Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r) |> Some
                 elif isModuleValue then
                     let kind = Fable.FieldGet(getMemberDisplayName memb, true, Fable.Any)

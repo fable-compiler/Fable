@@ -241,6 +241,7 @@ type ArgInfo =
       /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
       SignatureArgTypes: SignatureKind
       Spread: SpreadKind
+      /// This refers to F# constructor calls, not constructors with `new` keyword in JS
       IsConstructorCall: bool
       IsBaseConstructorCall: bool
       IsSelfConstructorCall: bool }

@@ -417,3 +417,23 @@ export function getCaseFields(x: any): any[] {
   assertUnion(x);
   return x.fields;
 }
+
+type BasicTypeForTesting = "boolean" | "number" | "string";
+type TypeForTesting = BasicTypeForTesting | FunctionConstructor | [TypeForTesting, TypeForTesting[]];
+type GenericArgsMap = Map<FunctionConstructor, TypeForTesting[]>;
+
+export function withGenerics<T>(x: T, ...gen: TypeForTesting[]): T {
+    function addGenerics(cons: FunctionConstructor,
+                         gen: TypeForTesting[],
+                         genMap: GenericArgsMap): GenericArgsMap {
+        genMap.set(cons, gen);
+        const parent = Object.getPrototypeOf(cons);
+        return typeof parent.$genBase === "function"
+                            ? addGenerics(parent, parent.$genBase(gen), genMap)
+                            : genMap;
+    }
+    const genMap: GenericArgsMap = new Map();
+    const cons: FunctionConstructor = Object.getPrototypeOf(x).constructor;
+    (x as any).$gen = addGenerics(cons, gen, genMap);
+    return x;
+}
