@@ -427,10 +427,10 @@ export function withGenerics<T>(x: T, ...gen: TypeForTesting[]): T {
                          gen: TypeForTesting[],
                          genMap: GenericArgsMap): GenericArgsMap {
         genMap.set(cons, gen);
-        const parent = Object.getPrototypeOf(cons);
-        return typeof parent.$genBase === "function"
-                            ? addGenerics(parent, parent.$genBase(gen), genMap)
-                            : genMap;
+        const $genBase = (cons as any).$genBase;
+        return typeof $genBase === "function"
+            ? addGenerics(Object.getPrototypeOf(cons), $genBase(gen), genMap)
+            : genMap;
     }
     const genMap: GenericArgsMap = new Map();
     const cons: FunctionConstructor = Object.getPrototypeOf(x).constructor;

@@ -10,7 +10,7 @@ open FSharp.Compiler.SourceCodeServices
 type ReturnStrategy =
     | Return
     | ReturnUnit
-    | Assign of Expression // TODO: Add SourceLocation?
+    | Assign of Expression
     | Target of Identifier
 
 type Import =
@@ -90,8 +90,8 @@ module Util =
             getDecisionTarget ctx targetIndex
             |> snd |> isJsStatement ctx preferStatement
 
-        // TODO: Make it also statement if we have more than, say, 3 targets?
-        // This will increase the chances to convert it into a switch
+        // Make it also statement if we have more than, say, 3 targets?
+        // That would increase the chances to convert it into a switch
         | Fable.DecisionTree(_,targets) ->
             preferStatement
             || List.exists (snd >> (isJsStatement ctx false)) targets
@@ -189,7 +189,6 @@ module Util =
     let arrayExpr babelExprs =
         ArrayExpression(List.toArray babelExprs) :> Expression
 
-    // TODO: range
     let makeArray (com: IBabelCompiler) ctx exprs =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
         |> ArrayExpression :> Expression
@@ -754,7 +753,7 @@ module Util =
                 /// Check if the entity is actually declared in JS code
                 if ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumOrGlobalOrImportedEntity ent
-                    // TODO!!! Get reflection info from types in precompiled libs
+                    // TODO: Get reflection info from types in precompiled libs
                     || FSharp2Fable.Util.isReplacementCandidate ent then
                     genericEntity ent generics
                 else
@@ -919,7 +918,7 @@ module Util =
         | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
         | Some(Target left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
 
-    let rec toGenArgForTypeTesting com ctx = function
+    let rec toGenArgForTypeTesting com ctx resolveGenParam = function
         | Fable.MetaType -> ofString "type"
         | Fable.Any -> ofString "any"
         | Fable.Unit -> ofString "undefined"
@@ -928,28 +927,30 @@ module Util =
         | Fable.String -> ofString "string"
         | Fable.Regex -> ofString "regexp"
         | Fable.Number _ -> ofString "number"
-        | Fable.Enum _ -> ofString "number" // TODO
+        | Fable.Enum _ -> ofString "number"
         | Fable.Option _ -> ofString "option" // TODO: add generics
         | Fable.Tuple _ -> ofString "tuple"  // TODO: add generics
         | Fable.Array _ -> ofString "array" // TODO: add generics
         | Fable.List _ -> ofString "list" // TODO: add generics
-        | Fable.FunctionType _ -> ofString "function" // TODO: Probably we cannot use it for type testing
-        | Fable.GenericParam _ -> ofString "gen" // TODO: resolution
+        | Fable.FunctionType _ -> ofString "function" // Probably we cannot use it for type testing
+        | Fable.GenericParam name -> resolveGenParam name
         | Fable.ErasedUnion _ -> ofString "any"
         | Fable.DeclaredType(ent, genArgs) ->
             match tryJsConstructor com ctx ent with
             | Some cons ->
                 if List.isEmpty genArgs then cons
                 else
-                    let genArgs = List.map (toGenArgForTypeTesting com ctx) genArgs
+                    let genArgs = List.map (toGenArgForTypeTesting com ctx resolveGenParam) genArgs
                     arrayExpr [cons; arrayExpr genArgs]
-            | None -> ofString "any" // TODO: Compiler warning?
-        | Fable.AnonymousRecordType _ -> ofString "any" // TODO: Recognize shape? (it's possible in F#)
+            | None -> ofString "any" // Compiler warning?
+        | Fable.AnonymousRecordType _ -> ofString "any" // Recognize shape? (it's possible in F#)
 
-    let withGenArgsForTypeTesting com ctx t consCall =
+    let withGenArgsForTypeTesting com ctx range t consCall =
         match t with
         | Fable.DeclaredType(_, genArgs) when not(List.isEmpty genArgs) ->
-            List.mapToArray (toGenArgForTypeTesting com ctx) genArgs
+            // Try to get generic param from context or raise warning?
+            let resolveGenParam _name = ofString "any"
+            List.mapToArray (toGenArgForTypeTesting com ctx resolveGenParam) genArgs
             |> Array.append [|consCall|]
             |> coreLibCall com ctx None "Reflection" "withGenerics"
         | _ -> consCall
@@ -993,7 +994,7 @@ module Util =
                         | None -> args
                     let call = callFunction range funcExpr args
                     if argInfo.IsConstructorCall then
-                        withGenArgsForTypeTesting com ctx t call
+                        withGenArgsForTypeTesting com ctx range t call
                     else call
             | Fable.InstanceCall membExpr ->
                 match argInfo.ThisArg, membExpr with
@@ -1882,7 +1883,7 @@ module Util =
                 | :? Identifier as id ->
                     let typeParamInst =
                         FSharp2Fable.Helpers.tryEntityBase ent
-                        |> Option.bind (getEntityGenParams >> makeTypeParamInst)
+                        |> Option.bind (fst >> getEntityGenParams >> makeTypeParamInst)
                     InterfaceExtends(id, ?typeParameters=typeParamInst) |> Seq.singleton
                 | _ -> Seq.empty
             | _ -> Seq.empty
@@ -2015,12 +2016,15 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let attachToPrototype funcCons memberName expr =
-        let prototype = get None funcCons "prototype"
-        let protoMember = get None prototype memberName
-        assign None protoMember expr
+    let attachTo object memberName expr =
+        let memb = get None object memberName
+        assign None memb expr
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1
+
+    let attachToPrototype funcCons memberName expr =
+        let prototype = get None funcCons "prototype"
+        attachTo prototype memberName expr
 
     let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
         let funcCons = Identifier info.EntityName :> Expression
@@ -2098,6 +2102,18 @@ module Util =
         let args = fieldIds |> Array.map typedPattern
         declareType com ctx r info.IsPublic info.Entity info.EntityName args body baseExpr
 
+    let getBaseGenericArgs com ctx (e: FSharpEntity) baseGenArgs =
+        let arg = Identifier "g"
+        let resolveGenParam name =
+            e.GenericParameters
+            |> Seq.tryFindIndex (fun p -> p.Name = name)
+            |> Option.map (fun index -> getExpr None arg (ofInt index))
+            // Compiler warning?
+            |> Option.defaultValue (ofString "any")
+        let baseGenArgs = baseGenArgs |> List.map (toGenArgForTypeTesting com ctx resolveGenParam)
+        let body = arrayExpr baseGenArgs
+        makeFunctionExpression None ([|toPattern arg|], U2.Case2 body, None, None)
+
     let transformImplicitConstructor (com: IBabelCompiler) ctx r (info: Fable.ClassImplicitConstructorInfo) =
         let thisArg = Some info.BoundConstructorThis
         let consIdent = Identifier(info.EntityName) :> Expression
@@ -2155,6 +2171,12 @@ module Util =
         [
             yield! declareType com ctx r info.IsEntityPublic info.Entity info.EntityName args body baseExpr
             yield declareModuleMember r info.IsConstructorPublic info.Name false exposedCons
+            match FSharp2Fable.Helpers.tryEntityBase info.Entity with
+            | None -> ()
+            | Some(_, baseGenArgs) ->
+                let baseGenArgs = baseGenArgs |> Seq.map (FSharp2Fable.TypeHelpers.makeType com Map.empty) |> Seq.toList
+                yield getBaseGenericArgs com ctx info.Entity baseGenArgs
+                |> attachTo consIdent "$genBase"
         ]
 
     let rec transformDeclarations (com: IBabelCompiler) ctx decls transformed =

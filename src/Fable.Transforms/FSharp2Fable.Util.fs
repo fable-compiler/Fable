@@ -190,10 +190,13 @@ module Helpers =
         | _ -> Naming.unknown
 
     let tryEntityBase (ent: FSharpEntity) =
-        ent.BaseType
-        |> Option.bind tryDefinition
-        |> Option.bind (fun (baseEntity, fullName) ->
-            if fullName = Some Types.object then None else Some baseEntity)
+        match ent.BaseType with
+        | Some baseType ->
+            match tryDefinition baseType with
+            | Some(baseEntity, fullName) when fullName <> Some Types.object ->
+                Some(baseEntity, baseType.GenericArguments)
+            | _ -> None
+        | None -> None
 
     let isInline (memb: FSharpMemberOrFunctionOrValue) =
         match memb.InlineAnnotation with
