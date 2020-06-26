@@ -2016,15 +2016,15 @@ module Util =
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1 |> List.singleton
 
-    let attachTo object memberName expr =
-        let memb = get None object memberName
+    let attachTo object memberExpr expr =
+        let memb = getExpr None object memberExpr
         assign None memb expr
         |> ExpressionStatement :> Statement
         |> U2<_,ModuleDeclaration>.Case1
 
     let attachToPrototype funcCons memberName expr =
         let prototype = get None funcCons "prototype"
-        attachTo prototype memberName expr
+        attachTo prototype (StringLiteral memberName) expr
 
     let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
         let funcCons = Identifier info.EntityName :> Expression
@@ -2176,7 +2176,7 @@ module Util =
             | Some(_, baseGenArgs) ->
                 let baseGenArgs = baseGenArgs |> Seq.map (FSharp2Fable.TypeHelpers.makeType com Map.empty) |> Seq.toList
                 yield getBaseGenericArgs com ctx info.Entity baseGenArgs
-                |> attachTo consIdent "$genBase"
+                      |> attachTo consIdent (coreValue com ctx "Symbol" "baseGenerics")
         ]
 
     let rec transformDeclarations (com: IBabelCompiler) ctx decls transformed =

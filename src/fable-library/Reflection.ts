@@ -1,3 +1,4 @@
+import { generics as genericsSymbol, baseGenerics as baseGenericsSymbol } from "./Symbol";
 import { anonRecord as makeAnonRecord, Record, Union } from "./Types";
 import { compareArraysWith, equalArraysWith } from "./Util";
 
@@ -426,12 +427,12 @@ export function withGenerics<T>(x: T, ...gen: TypeForTesting[]): T {
     function addGenerics(proto: any, gen: TypeForTesting[], genMap: GenericArgsMap): GenericArgsMap {
         const cons = proto.constructor;
         genMap.set(cons, gen);
-        const $genBase = (cons as any).$genBase;
-        return typeof $genBase === "function"
-            ? addGenerics(Object.getPrototypeOf(proto), $genBase(gen), genMap)
+        const baseGen = (cons as any)[baseGenericsSymbol];
+        return typeof baseGen === "function"
+            ? addGenerics(Object.getPrototypeOf(proto), baseGen(gen), genMap)
             : genMap;
     }
     const genMap: GenericArgsMap = new Map();
-    (x as any).$gen = addGenerics(Object.getPrototypeOf(x), gen, genMap);
+    (x as any)[genericsSymbol] = addGenerics(Object.getPrototypeOf(x), gen, genMap);
     return x;
 }
