@@ -918,39 +918,48 @@ module Util =
         | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
         | Some(Target left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
 
-    let rec toGenArgForTypeTesting com ctx resolveGenParam = function
-        | Fable.MetaType -> ofString "type"
+    let rec toTypeForTesting com ctx resolveGenParam = function
+        | Fable.Regex -> Identifier "RegExp" :> Expression
+        | Fable.MetaType -> ofString "type" // TODO
+        | Fable.FunctionType _ -> ofString "function" // Probably we cannot use it for type testing
+        | Fable.AnonymousRecordType _ -> ofString "unknown" // Recognize shape? (it's possible in F#)
         | Fable.Any -> ofString "any"
         | Fable.Unit -> ofString "undefined"
         | Fable.Boolean -> ofString "boolean"
         | Fable.Char
         | Fable.String -> ofString "string"
-        | Fable.Regex -> ofString "regexp"
         | Fable.Number _ -> ofString "number"
         | Fable.Enum _ -> ofString "number"
-        | Fable.Option _ -> ofString "option" // TODO: add generics
-        | Fable.Tuple _ -> ofString "tuple"  // TODO: add generics
-        | Fable.Array _ -> ofString "array" // TODO: add generics
-        | Fable.List _ -> ofString "list" // TODO: add generics
-        | Fable.FunctionType _ -> ofString "function" // Probably we cannot use it for type testing
+        | Fable.Option t -> arrayExpr [ofString "option"; arrayExpr [toTypeForTesting com ctx resolveGenParam t]]
+        | Fable.Array t -> arrayExpr [ofString "array"; arrayExpr [toTypeForTesting com ctx resolveGenParam t]]
+        | Fable.List t -> arrayExpr [ofString "list"; arrayExpr [toTypeForTesting com ctx resolveGenParam t]]
+        | Fable.Tuple genArgs ->
+            let genArgs = List.map (toTypeForTesting com ctx resolveGenParam) genArgs
+            arrayExpr [ofString "tuple"; arrayExpr genArgs]
         | Fable.GenericParam name -> resolveGenParam name
         | Fable.ErasedUnion _ -> ofString "any"
         | Fable.DeclaredType(ent, genArgs) ->
-            match tryJsConstructor com ctx ent with
-            | Some cons ->
-                if List.isEmpty genArgs then cons
-                else
-                    let genArgs = List.map (toGenArgForTypeTesting com ctx resolveGenParam) genArgs
-                    arrayExpr [cons; arrayExpr genArgs]
-            | None -> ofString "any" // Compiler warning?
-        | Fable.AnonymousRecordType _ -> ofString "any" // Recognize shape? (it's possible in F#)
+            match ent.TryFullName with
+            | Some Types.idisposable -> ofString "disposable"
+            | Some Types.ienumerable -> ofString "seq"
+            | Some Types.exception_ -> ofString "exn"
+            | _ ->
+                match tryJsConstructor com ctx ent with
+                | Some cons ->
+                    if List.isEmpty genArgs then cons
+                    else
+                        let genArgs = List.map (toTypeForTesting com ctx resolveGenParam) genArgs
+                        arrayExpr [cons; arrayExpr genArgs]
+                | None -> ofString "unknown" // Compiler warning?
 
-    let withGenArgsForTypeTesting com ctx range t consCall =
+    // TODO: Try to get generic param from context
+    let resolveGenParamForTypeTesting _name =
+        ofString "any"
+
+    let addGenArgsToConstructor com ctx range t consCall =
         match t with
         | Fable.DeclaredType(_, genArgs) when not(List.isEmpty genArgs) ->
-            // Try to get generic param from context or raise warning?
-            let resolveGenParam _name = ofString "any"
-            List.mapToArray (toGenArgForTypeTesting com ctx resolveGenParam) genArgs
+            List.mapToArray (toTypeForTesting com ctx resolveGenParamForTypeTesting) genArgs
             |> Array.append [|consCall|]
             |> coreLibCall com ctx None "Reflection" "withGenerics"
         | _ -> consCall
@@ -994,7 +1003,7 @@ module Util =
                         | None -> args
                     let call = callFunction range funcExpr args
                     if argInfo.IsConstructorCall then
-                        withGenArgsForTypeTesting com ctx range t call
+                        addGenArgsToConstructor com ctx range t call
                     else call
             | Fable.InstanceCall membExpr ->
                 match argInfo.ThisArg, membExpr with
@@ -1153,80 +1162,32 @@ module Util =
             let value = transformBindingExprBody com ctx var value
             [|varDeclaration (typedIdent com ctx var) var.IsMutable value :> Statement|]
 
-    let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
-        let fail msg =
-            "Cannot type test: " + msg |> addErrorAndReturnNull com range
-        let warnAndEvalToFalse msg =
-            "Cannot type test (evals to false): " + msg
-            |> addWarning com [] range
-            BooleanLiteral false :> Expression
-        let jsTypeof (primitiveType: string) (TransformExpr com ctx expr): Expression =
-            let typof = UnaryExpression(UnaryTypeof, expr)
-            upcast BinaryExpression(BinaryEqualStrict, typof, StringLiteral primitiveType, ?loc=range)
-        let jsInstanceof consExpr (TransformExpr com ctx expr): Expression =
-            upcast BinaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
+    let transformTypeTest (com: IBabelCompiler) ctx range (expr: Fable.Expr) (typ: Fable.Type): Expression =
         match typ with
-        | Fable.Any -> upcast BooleanLiteral true
-        | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
-        | Fable.Boolean -> jsTypeof "boolean" expr
-        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
-        | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
-        | Fable.Regex -> jsInstanceof (Identifier "RegExp") expr
-        // TODO: Fail for functions, arrays, tuples and list because we cannot check generics?
-        | Fable.FunctionType _ -> jsTypeof "function" expr
-        | Fable.Array _ | Fable.Tuple _ ->
-            coreLibCall com ctx None "Util" "isArrayLike" [|com.TransformAsExpr(ctx, expr)|]
-        | Fable.List _ -> jsInstanceof (coreValue com ctx "Types" "List") expr
-        | Replacements.Builtin kind ->
-            match kind with
-            | Replacements.BclGuid -> jsTypeof "string" expr
-            | Replacements.BclTimeSpan -> jsTypeof "number" expr
-            | Replacements.BclDateTime -> jsInstanceof (Identifier "Date") expr
-            | Replacements.BclDateTimeOffset -> jsInstanceof (Identifier "Date") expr
-            | Replacements.BclTimer -> jsInstanceof (coreValue com ctx "Timer" "default") expr
-            | Replacements.BclInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
-            | Replacements.BclUInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
-            | Replacements.BclDecimal -> jsInstanceof (coreValue com ctx "Decimal" "default") expr
-            | Replacements.BclBigInt -> coreLibCall com ctx None "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
-            | Replacements.BclHashSet _ -> fail "MutableSet" // TODO:
-            | Replacements.BclDictionary _ -> fail "MutableMap" // TODO:
-            | Replacements.BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
-            | Replacements.FSharpSet _ -> fail "Set" // TODO:
-            | Replacements.FSharpMap _ -> fail "Map" // TODO:
-            | Replacements.FSharpResult _ -> fail "Result" // TODO:
-            | Replacements.FSharpChoice _ -> fail "Choice" // TODO:
-            | Replacements.FSharpReference _ -> fail "FSharpRef" // TODO:
-        | Fable.AnonymousRecordType _ ->
-            "Type testing is not yet supported for anonymous records" // TODO:
-            |> addWarning com [] range
-            upcast BooleanLiteral false
-        | Fable.DeclaredType (ent, genArgs) ->
-            match ent.TryFullName with
-            | Some Types.idisposable ->
-                match expr.Type with
-                // In F# AST this is coerced to obj, but the cast should have been removed
-                | Fable.DeclaredType (ent2, _) when FSharp2Fable.Util.hasInterface Types.idisposable ent2 ->
-                    upcast BooleanLiteral true
-                | _ -> coreLibCall com ctx None "Util" "isDisposable" [|com.TransformAsExpr(ctx, expr)|]
-            | Some Types.ienumerable ->
-                [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx None "Util" "isIterable"
-            | Some Types.array ->
-                [|com.TransformAsExpr(ctx, expr)|] |> coreLibCall com ctx None "Util" "isArrayLike"
-            | _ when ent.IsInterface ->
-                fail (sprintf "interface %A" ent.FullName)
-            | _ when FSharp2Fable.Util.isReplacementCandidate ent ->
-                match ent.TryFullName with
-                | Some Types.exception_ ->
-                    coreLibCall com ctx None "Types" "isException" [|com.TransformAsExpr(ctx, expr)|]
-                | fullName -> warnAndEvalToFalse (defaultArg fullName Naming.unknown)
-            | _ ->
-                if not(List.isEmpty genArgs) then
-                    "Cannot type test generic arguments"
-                    |> addWarning com [] range
-                let entRef = jsConstructor com ctx ent
-                jsInstanceof entRef expr
-        | Fable.MetaType | Fable.Option _ | Fable.GenericParam _ | Fable.ErasedUnion _ ->
-            fail "options, generic parameters or erased unions"
+        // TODO: Deal with these special cases in toTypeForTesting
+        // | Replacements.Builtin kind ->
+        //     match kind with
+        //     | Replacements.BclGuid -> jsTypeof "string" expr
+        //     | Replacements.BclTimeSpan -> jsTypeof "number" expr
+        //     | Replacements.BclDateTime -> jsInstanceof (Identifier "Date") expr
+        //     | Replacements.BclDateTimeOffset -> jsInstanceof (Identifier "Date") expr
+        //     | Replacements.BclTimer -> jsInstanceof (coreValue com ctx "Timer" "default") expr
+        //     | Replacements.BclInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
+        //     | Replacements.BclUInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
+        //     | Replacements.BclDecimal -> jsInstanceof (coreValue com ctx "Decimal" "default") expr
+        //     | Replacements.BclBigInt -> coreLibCall com ctx None "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
+        //     | Replacements.BclHashSet _ -> fail "MutableSet" // TODO:
+        //     | Replacements.BclDictionary _ -> fail "MutableMap" // TODO:
+        //     | Replacements.BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
+        //     | Replacements.FSharpSet _ -> fail "Set" // TODO:
+        //     | Replacements.FSharpMap _ -> fail "Map" // TODO:
+        //     | Replacements.FSharpResult _ -> fail "Result" // TODO:
+        //     | Replacements.FSharpChoice _ -> fail "Choice" // TODO:
+        //     | Replacements.FSharpReference _ -> fail "FSharpRef" // TODO:
+        | _ ->
+            let expr = com.TransformAsExpr(ctx, expr)
+            let typ = toTypeForTesting com ctx resolveGenParamForTypeTesting typ
+            coreLibCall com ctx range "Reflection" "typeTest" [|expr; typ|]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with
@@ -2110,7 +2071,7 @@ module Util =
             |> Option.map (fun index -> getExpr None arg (ofInt index))
             // Compiler warning?
             |> Option.defaultValue (ofString "any")
-        let baseGenArgs = baseGenArgs |> List.map (toGenArgForTypeTesting com ctx resolveGenParam)
+        let baseGenArgs = baseGenArgs |> List.map (toTypeForTesting com ctx resolveGenParam)
         let body = arrayExpr baseGenArgs
         makeFunctionExpression None ([|toPattern arg|], U2.Case2 body, None, None)
 
