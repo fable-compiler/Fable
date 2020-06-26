@@ -501,6 +501,8 @@ module Util =
             match kind with
             | NonInstanceNonAttached funcName ->
                 ctx, Some funcName, None, args
+            // Don't add DeclaringEntityThis to context because
+            // generic information is not available yet in constructors
             | Constructor thisArg ->
                 ctx, None, Some thisArg, args
             | InstanceNonAttached(funcName, e) ->
@@ -959,7 +961,7 @@ module Util =
         | Fable.Tuple genArgs ->
             let genArgs = List.map (toTypeForTesting com ctx resolveGenParam) genArgs
             arrayExpr [ofString "tuple"; arrayExpr genArgs]
-        | Fable.GenericParam name -> resolveGenParam name
+        | Fable.GenericParam name -> resolveGenParam com ctx name
         | Fable.ErasedUnion _ -> ofString "any"
         | Fable.DeclaredType(ent, genArgs) ->
             match ent.TryFullName with
@@ -976,9 +978,18 @@ module Util =
                         arrayExpr [cons; arrayExpr genArgs]
                 | None -> ofString "unknown" // Compiler warning?
 
-    // TODO: Try to get generic param from context
-    let resolveGenParamForTypeTesting _name =
-        ofString "any"
+    let resolveGenParamForTypeTesting com (ctx: Context) name =
+        match ctx.DeclaringEntityThis with
+        | Some(thisValue, e) ->
+            e.GenericParameters
+            |> Seq.tryFindIndex (fun p -> p.Name = name)
+            |> Option.map (fun i ->
+                let thisValue = identAsExpr thisValue
+                let genSymbol = coreValue com ctx "Symbol" "generics"
+                getExpr None (getExpr None thisValue genSymbol) (ofInt i))
+        | None -> None
+        // This may not work in some situations but hopefully is good enough
+        |> Option.defaultWith (fun () -> ofString "any")
 
     let addGenArgsToConstructor com ctx range t consCall =
         match t with
@@ -2072,7 +2083,7 @@ module Util =
 
     let getBaseGenericArgs com ctx (e: FSharpEntity) baseGenArgs =
         let arg = Identifier "g"
-        let resolveGenParam name =
+        let resolveGenParam _com _ctx name =
             e.GenericParameters
             |> Seq.tryFindIndex (fun p -> p.Name = name)
             |> Option.map (fun index -> getExpr None arg (ofInt index))

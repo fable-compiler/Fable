@@ -442,12 +442,12 @@ export function withGenerics<T>(x: T, ...gen: TypeForTestingWithGenArgs[]): T {
 }
 
 function typeForTestingEquals(x: TypeForTestingWithGenArgs, y: TypeForTestingWithGenArgs): boolean {
-    return !Array.isArray(x)
+    return y === "any" || (!Array.isArray(x)
         ? x === y
         : Array.isArray(y)
             && x[0] === y[0]
             && x[1].length === y[1].length
-            && x[1].every((x, i) => typeForTestingEquals(x, y[1][i]));
+            && x[1].every((x, i) => typeForTestingEquals(x, y[1][i])));
 }
 
 export function typeTest(x: any, typeWithGenArgs: TypeForTestingWithGenArgs): boolean {
