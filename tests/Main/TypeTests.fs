@@ -428,19 +428,20 @@ let tests =
             | :? string -> "string"
             | :? float -> "number"
             | :? bool -> "boolean"
-            | :? unit -> "null/undefined"
-            | :? (unit->unit) -> "function"
+            | :? unit -> "unit"
             | :? System.Text.RegularExpressions.Regex -> "RegExp"
-            | :? (int[]) | :? (string[]) -> "Array"
+            | :? (int[]) -> "int array"
+            | :? (string[]) -> "string array"
             | _ -> "unknown"
         "A" :> obj |> test |> equal "string"
         3. :> obj |> test |> equal "number"
         false :> obj |> test |> equal "boolean"
-        () :> obj |> test |> equal "null/undefined"
-        (fun()->()) :> obj |> test |> equal "function"
+        () :> obj |> test |> equal "unit"
+        // Workaround to make sure Fable is passing the argument
+        let a = () :> obj in test a |> equal "unit"
         System.Text.RegularExpressions.Regex(".") :> obj |> test |> equal "RegExp"
-        [|"A"|] :> obj |> test |> equal "Array"
-        [|1;2|] :> obj |> test |> equal "Array"
+        [|"A"|] :> obj |> test |> equal "string array"
+        [|1;2|] :> obj |> test |> equal "int array"
 
     testCase "Type test with Date" <| fun () ->
         let isDate (x: obj) =

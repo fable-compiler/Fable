@@ -152,29 +152,43 @@ type BuiltinType =
     | FSharpResult of Type * Type
     | FSharpReference of Type
 
-let (|BuiltinEntity|_|) (ent: FSharpEntity, genArgs) =
-    // TODO: Convert this to dictionary
-    match ent.TryFullName, genArgs with
-    | Some Types.guid, _ -> Some BclGuid
-    | Some Types.timespan, _ -> Some BclTimeSpan
-    | Some Types.datetime, _ -> Some BclDateTime
-    | Some Types.datetimeOffset, _ -> Some BclDateTimeOffset
-    | Some "System.Timers.Timer", _ -> Some BclTimer
-    | Some Types.int64, _ -> Some BclInt64
-    | Some Types.uint64, _ -> Some BclUInt64
-    | Some "Microsoft.FSharp.Core.int64`1", _ -> Some BclInt64
-    | Some Types.decimal, _
-    | Some "Microsoft.FSharp.Core.decimal`1", _ -> Some BclDecimal
-    | Some Types.bigint, _ -> Some BclBigInt
-    | Some Types.fsharpSet, [t] -> Some(FSharpSet(t))
-    | Some Types.fsharpMap, [k;v] -> Some(FSharpMap(k,v))
-    | Some Types.hashset, [t] -> Some(BclHashSet(t))
-    | Some Types.dictionary, [k;v] -> Some(BclDictionary(k,v))
-    | Some Types.keyValuePair, [k;v] -> Some(BclKeyValuePair(k,v))
-    | Some Types.result, [k;v] -> Some(FSharpResult(k,v))
-    | Some Types.reference, [v] -> Some(FSharpReference(v))
-    | Some (Naming.StartsWith Types.choiceNonGeneric _), gen -> Some(FSharpChoice gen)
+let (|BuiltinDefinition|_|) = function
+    | Types.guid -> Some BclGuid
+    | Types.timespan -> Some BclTimeSpan
+    | Types.datetime -> Some BclDateTime
+    | Types.datetimeOffset -> Some BclDateTimeOffset
+    | "System.Timers.Timer" -> Some BclTimer
+    | Types.int64 -> Some BclInt64
+    | Types.uint64 -> Some BclUInt64
+    | "Microsoft.FSharp.Core.int64`1" -> Some BclInt64
+    | Types.decimal
+    | "Microsoft.FSharp.Core.decimal`1" -> Some BclDecimal
+    | Types.bigint -> Some BclBigInt
+    | Types.fsharpSet -> Some(FSharpSet(Any))
+    | Types.fsharpMap -> Some(FSharpMap(Any,Any))
+    | Types.hashset -> Some(BclHashSet(Any))
+    | Types.dictionary -> Some(BclDictionary(Any,Any))
+    | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
+    | Types.result -> Some(FSharpResult(Any,Any))
+    | Types.reference -> Some(FSharpReference(Any))
+    | (Naming.StartsWith Types.choiceNonGeneric _) -> Some(FSharpChoice [])
     | _ -> None
+
+let (|BuiltinEntity|_|) (ent: FSharpEntity, genArgs) =
+    match ent.TryFullName with
+    | Some entityFullName ->
+        match entityFullName, genArgs with
+        | BuiltinDefinition(FSharpSet _), [t] -> Some(FSharpSet(t))
+        | BuiltinDefinition(FSharpMap _), [k;v] -> Some(FSharpMap(k,v))
+        | BuiltinDefinition(BclHashSet _), [t] -> Some(BclHashSet(t))
+        | BuiltinDefinition(BclDictionary _), [k;v] -> Some(BclDictionary(k,v))
+        | BuiltinDefinition(BclKeyValuePair _), [k;v] -> Some(BclKeyValuePair(k,v))
+        | BuiltinDefinition(FSharpResult _), [k;v] -> Some(FSharpResult(k,v))
+        | BuiltinDefinition(FSharpReference _), [v] -> Some(FSharpReference(v))
+        | BuiltinDefinition(FSharpChoice _), genArgs -> Some(FSharpChoice genArgs)
+        | BuiltinDefinition t, _ -> Some t
+        | _ -> None
+    | None -> None
 
 let (|Builtin|_|) = function
     | DeclaredType(ent, genArgs) ->
@@ -956,10 +970,24 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
 
 let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     match ent.TryFullName with
-    | Some Types.reference -> makeCoreRef Any "FSharpRef" "Types" |> Some
+    | Some(BuiltinDefinition BclDateTime)
+    | Some(BuiltinDefinition BclDateTimeOffset) -> makeIdentExprNonMangled "Date" |> Some
+    | Some(BuiltinDefinition BclTimer) -> makeCoreRef Any "default" "Timer" |> Some
+    | Some(BuiltinDefinition BclInt64)
+    | Some(BuiltinDefinition BclUInt64) -> makeCoreRef Any "default" "Long" |> Some
+    | Some(BuiltinDefinition BclDecimal) -> makeCoreRef Any "default" "Decimal" |> Some
+    | Some(BuiltinDefinition BclBigInt) -> makeCoreRef Any "BigInteger" "BigInt/z" |> Some
+    | Some(BuiltinDefinition(FSharpReference _)) -> makeCoreRef Any "FSharpRef" "Types" |> Some
+    | Some(BuiltinDefinition(FSharpResult _)) -> makeCoreRef Any "Result" "Option" |> Some
+    | Some(BuiltinDefinition(FSharpChoice _)) -> makeCoreRef Any "Choice" "Option" |> Some
+    // | Some(BuiltinDefinition BclGuid) -> jsTypeof "string" expr
+    // | Some(BuiltinDefinition BclTimeSpan) -> jsTypeof "number" expr
+    // | Some(BuiltinDefinition BclHashSet _) -> fail "MutableSet" // TODO:
+    // | Some(BuiltinDefinition BclDictionary _) -> fail "MutableMap" // TODO:
+    // | Some(BuiltinDefinition BclKeyValuePair _) -> fail "KeyValuePair" // TODO:
+    // | Some(BuiltinDefinition FSharpSet _) -> fail "Set" // TODO:
+    // | Some(BuiltinDefinition FSharpMap _) -> fail "Map" // TODO:
     | Some Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
-    | Some Types.result -> makeCoreRef Any "Result" "Option" |> Some
-    | Some (Naming.StartsWith Types.choiceNonGeneric _) -> makeCoreRef Any "Choice" "Option" |> Some
     | Some entFullName ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib entFullName)

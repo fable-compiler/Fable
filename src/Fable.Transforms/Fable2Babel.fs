@@ -924,7 +924,7 @@ module Util =
         | Fable.FunctionType _ -> ofString "function" // Probably we cannot use it for type testing
         | Fable.AnonymousRecordType _ -> ofString "unknown" // Recognize shape? (it's possible in F#)
         | Fable.Any -> ofString "any"
-        | Fable.Unit -> ofString "undefined"
+        | Fable.Unit -> ofString "unit"
         | Fable.Boolean -> ofString "boolean"
         | Fable.Char
         | Fable.String -> ofString "string"
@@ -943,6 +943,7 @@ module Util =
             | Some Types.idisposable -> ofString "disposable"
             | Some Types.ienumerable -> ofString "seq"
             | Some Types.exception_ -> ofString "exn"
+            | Some Types.array -> ofString "array" // Non-generic array
             | _ ->
                 match tryJsConstructor com ctx ent with
                 | Some cons ->
@@ -1163,31 +1164,9 @@ module Util =
             [|varDeclaration (typedIdent com ctx var) var.IsMutable value :> Statement|]
 
     let transformTypeTest (com: IBabelCompiler) ctx range (expr: Fable.Expr) (typ: Fable.Type): Expression =
-        match typ with
-        // TODO: Deal with these special cases in toTypeForTesting
-        // | Replacements.Builtin kind ->
-        //     match kind with
-        //     | Replacements.BclGuid -> jsTypeof "string" expr
-        //     | Replacements.BclTimeSpan -> jsTypeof "number" expr
-        //     | Replacements.BclDateTime -> jsInstanceof (Identifier "Date") expr
-        //     | Replacements.BclDateTimeOffset -> jsInstanceof (Identifier "Date") expr
-        //     | Replacements.BclTimer -> jsInstanceof (coreValue com ctx "Timer" "default") expr
-        //     | Replacements.BclInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
-        //     | Replacements.BclUInt64 -> jsInstanceof (coreValue com ctx "Long" "default") expr
-        //     | Replacements.BclDecimal -> jsInstanceof (coreValue com ctx "Decimal" "default") expr
-        //     | Replacements.BclBigInt -> coreLibCall com ctx None "BigInt" "isBigInt" [|com.TransformAsExpr(ctx, expr)|]
-        //     | Replacements.BclHashSet _ -> fail "MutableSet" // TODO:
-        //     | Replacements.BclDictionary _ -> fail "MutableMap" // TODO:
-        //     | Replacements.BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
-        //     | Replacements.FSharpSet _ -> fail "Set" // TODO:
-        //     | Replacements.FSharpMap _ -> fail "Map" // TODO:
-        //     | Replacements.FSharpResult _ -> fail "Result" // TODO:
-        //     | Replacements.FSharpChoice _ -> fail "Choice" // TODO:
-        //     | Replacements.FSharpReference _ -> fail "FSharpRef" // TODO:
-        | _ ->
-            let expr = com.TransformAsExpr(ctx, expr)
-            let typ = toTypeForTesting com ctx resolveGenParamForTypeTesting typ
-            coreLibCall com ctx range "Reflection" "typeTest" [|expr; typ|]
+        let expr = com.TransformAsExpr(ctx, expr)
+        let typ = toTypeForTesting com ctx resolveGenParamForTypeTesting typ
+        coreLibCall com ctx range "Reflection" "typeTest" [|expr; typ|]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with

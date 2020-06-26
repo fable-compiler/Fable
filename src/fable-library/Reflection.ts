@@ -474,7 +474,9 @@ export function typeTest(x: any, typeWithGenArgs: TypeForTestingWithGenArgs): bo
                     && x.every((x, i) => typeTest(x, expectedGenArgs[i]));
             case "array":
                 return isArrayLike(x)
-                    && (x.length === 0 || typeTest(x[0], expectedGenArgs[0]));
+                    && (x.length === 0
+                        || expectedGenArgs.length === 0
+                        || typeTest(x[0], expectedGenArgs[0]));
             case "list":
                 return x instanceof List
                     && (x.tail == null || typeTest(x.head, expectedGenArgs[0]));
