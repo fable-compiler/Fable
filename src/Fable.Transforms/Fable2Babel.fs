@@ -13,6 +13,12 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
+type MemberKind =
+    | NonInstanceNonAttached of functionName: string
+    | InstanceNonAttached of functionName: string * FSharpEntity option
+    | Attached of FSharpEntity option
+    | Constructor of thisArg: Fable.Ident
+
 type Import =
   { Selector: string
     LocalIdent: string option
@@ -29,7 +35,8 @@ type Context =
     HoistVars: Fable.Ident list -> bool
     TailCallOpportunity: ITailCallOpportunity option
     OptimizeTailCall: unit -> unit
-    ScopedTypeParams: Set<string> }
+    ScopedTypeParams: Set<string>
+    DeclaringEntityThis: (Fable.Ident * FSharpEntity) option }
 
 type AttachedMember = Fable.Ident list * Fable.Expr * Fable.AttachedMemberInfo
 
@@ -483,7 +490,26 @@ module Util =
             let args', body' = com.TransformFunction(ctx, name, args, body)
             args', body', None, None
 
-    let getMemberArgsAndBody (com: IBabelCompiler) ctx name thisArg args hasSpread (body: Fable.Expr) =
+    let getMemberArgsAndBody (com: IBabelCompiler) ctx hasSpread args (body: Fable.Expr) kind =
+        let addDeclaringEntityThisToCtx ctx thisArg e =
+            match thisArg, e with
+            | Some thisArg, Some e ->
+                { ctx with DeclaringEntityThis = Some(thisArg, e) }
+            | _ -> ctx
+
+        let ctx, funcName, thisArg, args =
+            match kind with
+            | NonInstanceNonAttached funcName ->
+                ctx, Some funcName, None, args
+            | Constructor thisArg ->
+                ctx, None, Some thisArg, args
+            | InstanceNonAttached(funcName, e) ->
+                let thisArg, _ = splitThisArg args
+                addDeclaringEntityThisToCtx ctx thisArg e, Some funcName, None, args
+            | Attached e ->
+                let thisArg, args = splitThisArg args
+                addDeclaringEntityThisToCtx ctx thisArg e, None, thisArg, args
+
         let args, body, genTypeParams =
             match thisArg with
             | Some(thisArg: Fable.Ident) ->
@@ -492,24 +518,20 @@ module Util =
                     let body = FableTransforms.replaceNames (Map [thisArg.Name, "this"]) body
                     args, body, genTypeParams
                 else
-                let isThisUsed =
-                    body |> FableTransforms.deepExists (function
-                        | Fable.IdentExpr id when id.Name = thisArg.Name -> true
-                        | _ -> false)
-                if not isThisUsed
-                then args, body, genTypeParams
-                else
                     // Bind `this` keyword to prevent problems with closures.
                     let boundThisExpr = { thisArg with Name = "this" } |> Fable.IdentExpr
                     let body = Fable.Let([thisArg, boundThisExpr], body)
                     args, body, genTypeParams
             | None -> args, body, Set.empty
+
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
-        let args, body, returnType, typeParamDecl = transformFunc com ctx name args body
+        let args, body, returnType, typeParamDecl = transformFunc com ctx funcName args body
+
         let typeParamDecl =
             if com.Options.typescript then
                 makeTypeParamDecl genTypeParams |> mergeTypeParamDecls typeParamDecl
             else typeParamDecl
+
         let args =
             if not hasSpread
             then args
@@ -517,10 +539,12 @@ module Util =
                 let args = Array.rev args
                 let restEl = RestElement(Array.head args) :> PatternNode |> U2.Case1
                 Array.append [|restEl|] (Array.tail args) |> Array.rev
+
         let body =
             match body with
             | U2.Case1 e -> e
             | U2.Case2 e -> BlockStatement [|ReturnStatement(e, ?loc=e.Loc)|]
+
         args, body, returnType, typeParamDecl
 
     let getUnionCaseName uci =
@@ -857,9 +881,8 @@ module Util =
 
     let transformObjectExpr (com: IBabelCompiler) ctx (members: AttachedMember list) baseCall: Expression =
         let makeObjMethod kind prop computed hasSpread args body =
-            let thisArg, args = splitThisArg args
             let args, body, returnType, typeParamDecl =
-                getMemberArgsAndBody com ctx None thisArg args hasSpread body
+                Attached None |> getMemberArgsAndBody com ctx hasSpread args body
             ObjectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2
         let pojo =
@@ -1913,7 +1936,10 @@ module Util =
             [typeDeclaration; reflectionDeclaration]
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.ModuleMemberInfo) args body =
-        let args, body, returnType, typeParamDecl = getMemberArgsAndBody com ctx (Some info.Name) None args info.HasSpread body
+        let args, body, returnType, typeParamDecl =
+            if info.IsInstance then InstanceNonAttached(info.Name, info.DeclaringEntity)
+            else NonInstanceNonAttached info.Name
+            |> getMemberArgsAndBody com ctx info.HasSpread args body
         // Don't lexically bind `this` (with arrow function) or it will fail with extension members
         let expr: Expression = upcast FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
         if info.IsEntryPoint then
@@ -1932,15 +1958,16 @@ module Util =
               |> ExpressionStatement :> Statement |> U2.Case1 ]
         else Array.map U2.Case1 statements |> Array.toList
 
-    let transformAttachedProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) getter setter =
+    let transformAttachedProperty (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) entity getter setter =
         let funcExpr (args, body) =
-            let thisArg, args = splitThisArg args
             let args, body, returnType, typeParamDecl =
-                getMemberArgsAndBody com ctx None thisArg args false body
+                Attached(Some entity) |> getMemberArgsAndBody com ctx false args body
             makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
         let getterFuncExpr = Option.map funcExpr getter
         let setterFuncExpr = Option.map funcExpr setter
-        let funcCons = Identifier info.EntityName :> Expression
+        let funcCons =
+            FSharp2Fable.Util.entityRef com entity
+            |> transformAsExpr com ctx
         jsObject "defineProperty" [|
             get None funcCons "prototype"
             StringLiteral info.Name
@@ -1966,11 +1993,12 @@ module Util =
         let prototype = get None funcCons "prototype"
         attachTo prototype (StringLiteral memberName) expr
 
-    let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) args body =
-        let funcCons = Identifier info.EntityName :> Expression
-        let thisArg, args = splitThisArg args
+    let transformAttachedMethod (com: IBabelCompiler) ctx (info: Fable.AttachedMemberInfo) entity args body =
+        let funcCons =
+            FSharp2Fable.Util.entityRef com entity
+            |> transformAsExpr com ctx
         let args, body, returnType, typeParamDecl =
-            getMemberArgsAndBody com ctx None thisArg args info.HasSpread body
+            Attached(Some entity) |> getMemberArgsAndBody com ctx info.HasSpread args body
         let method =
             makeFunctionExpression None (args, U2.Case1 body, returnType, typeParamDecl)
             |> attachToPrototype funcCons info.Name
@@ -2055,10 +2083,10 @@ module Util =
         makeFunctionExpression None ([|toPattern arg|], U2.Case2 body, None, None)
 
     let transformImplicitConstructor (com: IBabelCompiler) ctx r (info: Fable.ClassImplicitConstructorInfo) =
-        let thisArg = Some info.BoundConstructorThis
         let consIdent = Identifier(info.EntityName) :> Expression
         let args, body, returnType, typeParamDecl =
-            getMemberArgsAndBody com ctx None thisArg info.Arguments info.HasSpread info.Body
+            Constructor info.BoundConstructorThis
+            |> getMemberArgsAndBody com ctx info.HasSpread info.Arguments info.Body
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
             if com.Options.typescript then
@@ -2154,22 +2182,28 @@ module Util =
                 |> List.append transformed
                 |> transformDeclarations com ctx restDecls
             | Fable.AttachedMemberDeclaration(args, body, info) ->
-                let newDecls, restDecls =
-                    if info.IsGetter || info.IsSetter then
-                        let getter, setter, restDecls =
-                            // Check if the next declaration is a getter/setter for same property
-                            match restDecls with
-                            | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
-                                if info.IsGetter then Some(args, body), Some(args2, body2), restDecls
-                                else Some(args2, body2), Some(args, body), restDecls
-                            | _ ->
-                                if info.IsGetter then Some(args, body), None, restDecls
-                                else None, Some(args, body), restDecls
-                        transformAttachedProperty com ctx info getter setter, restDecls
-                    else
-                        transformAttachedMethod com ctx info args body, restDecls
-                List.append transformed newDecls
-                |> transformDeclarations com ctx restDecls
+                match info.DeclaringEntity with
+                | None ->
+                    "Please report: unexpected attached member without declaring entity: " + info.Name
+                    |> addError com [] info.Range
+                    transformDeclarations com ctx restDecls transformed
+                | Some e ->
+                    let newDecls, restDecls =
+                        if info.IsGetter || info.IsSetter then
+                            let getter, setter, restDecls =
+                                // Check if the next declaration is a getter/setter for same property
+                                match restDecls with
+                                | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
+                                    if info.IsGetter then Some(args, body), Some(args2, body2), restDecls
+                                    else Some(args2, body2), Some(args, body), restDecls
+                                | _ ->
+                                    if info.IsGetter then Some(args, body), None, restDecls
+                                    else None, Some(args, body), restDecls
+                            transformAttachedProperty com ctx info e getter setter, restDecls
+                        else
+                            transformAttachedMethod com ctx info e args body, restDecls
+                    List.append transformed newDecls
+                    |> transformDeclarations com ctx restDecls
 
     let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
         imports |> Seq.map (fun import ->
@@ -2293,7 +2327,8 @@ module Compiler =
                 HoistVars = fun _ -> false
                 TailCallOpportunity = None
                 OptimizeTailCall = fun () -> ()
-                ScopedTypeParams = Set.empty }
+                ScopedTypeParams = Set.empty
+                DeclaringEntityThis = None }
             let rootDecls = transformDeclarations com ctx file.Declarations []
             let importDecls = com.GetAllImports() |> transformImports
             let body = importDecls @ rootDecls |> List.toArray

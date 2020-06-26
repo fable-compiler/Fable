@@ -60,20 +60,22 @@ type Type =
 type ModuleMemberInfo =
     { Name: string
       IsValue: bool
+      IsInstance: bool
       IsPublic: bool
       IsMutable: bool
       IsEntryPoint: bool
       HasSpread: bool
+      DeclaringEntity: FSharpEntity option
       Range: SourceLocation option }
 
 type AttachedMemberInfo =
     { Name: string
-      EntityName: string
       IsValue: bool
       IsGetter: bool
       IsSetter: bool
       IsEnumerator: bool
       HasSpread: bool
+      DeclaringEntity: FSharpEntity option
       Range: SourceLocation option }
     member this.IsMethod =
         not this.IsValue && not this.IsGetter && not this.IsSetter && not this.IsEnumerator

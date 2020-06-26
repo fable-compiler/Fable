@@ -84,12 +84,12 @@ module Helpers =
 
     let objValue (k, v) =
         [], v, { Name = k
-                 EntityName = ""
                  IsValue = true
                  IsGetter = false
                  IsSetter = false
                  IsEnumerator = false
                  HasSpread = false
+                 DeclaringEntity = None
                  Range = None }
 
     let typedObjExpr t kvs =

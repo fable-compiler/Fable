@@ -167,7 +167,12 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
 
-let private getAttachedMemberInfo com ctx r nonMangledNameConflicts implementingEntityName (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
+let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
+                (declaringEntity: FSharpEntity option) (sign: FSharpAbstractSignature): Fable.AttachedMemberInfo =
+    let entityName =
+        match declaringEntity with
+        | Some e -> getEntityDeclarationName com e
+        | None -> ""
     let isGetter = sign.Name.StartsWith("get_")
     let isSetter = not isGetter && sign.Name.StartsWith("set_")
     let indexedProp = (isGetter && countNonCurriedParamsForSignature sign > 0)
@@ -200,7 +205,7 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts implementing
                         if indexedProp then sign.Name, false, false
                         else Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
                     // Setters can have same name as getters, assume there will always be a getter
-                    if not isSetter && nonMangledNameConflicts implementingEntityName name then
+                    if not isSetter && nonMangledNameConflicts entityName name then
                         sprintf "Member %s is duplicated, use Mangle attribute to prevent conflicts with interfaces" name
                         |> addError com ctx.InlinePath r
                     name, isGetter, isSetter
@@ -208,11 +213,11 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts implementing
         | None ->
             Naming.removeGetSetPrefix sign.Name, isGetter, isSetter, false, false
     { Name = name
-      EntityName = implementingEntityName
       IsValue = false
       IsGetter = isGetter
       IsSetter = isSetter
       IsEnumerator = isEnumerator
+      DeclaringEntity = declaringEntity
       HasSpread = hasSpread
       Range = r }
 
@@ -227,7 +232,7 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
       trampoline {
         let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
         let! body = transformExpr com ctx over.Body
-        let info = getAttachedMemberInfo com ctx body.Range nonMangledNameConflicts "" over.Signature
+        let info = getAttachedMemberInfo com ctx body.Range nonMangledNameConflicts None over.Signature
         return args, body, info
       }
 
@@ -905,10 +910,12 @@ let private transformImport com r typ isMutable isPublic name selector path =
     let info: Fable.ModuleMemberInfo =
         { Name = name
           IsValue = true
+          IsInstance = false
           IsPublic = isPublic
           IsMutable = isMutable
           IsEntryPoint = false
           HasSpread = false
+          DeclaringEntity = None
           Range = None}
     let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ, r)
     [Fable.ModuleMemberDeclaration([], fableValue, info)]
@@ -931,20 +938,24 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
         let info: Fable.ModuleMemberInfo =
             { Name = name
               IsValue = true
+              IsInstance = false
               IsPublic = isPublic
               IsMutable = memb.IsMutable
               IsEntryPoint = false
               HasSpread = false
+              DeclaringEntity = memb.DeclaringEntity
               Range = makeRange memb.DeclarationLocation |> Some }
         [Fable.ModuleMemberDeclaration([], fableValue, info)]
 
 let private functionDeclarationInfo name isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.ModuleMemberInfo =
     { Name = name
       IsValue = false
+      IsInstance = memb.IsInstanceMember
       IsPublic = isPublic
       IsMutable = memb.IsMutable
       IsEntryPoint = memb.Attributes |> hasAttribute Atts.entryPoint
       HasSpread = hasSeqSpread memb
+      DeclaringEntity = memb.DeclaringEntity
       Range = makeRange memb.DeclarationLocation |> Some }
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -988,13 +999,12 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
         else transformMemberFunction com ctx isPublic name memb args body
 
 let private transformAttachedMember (com: FableCompiler) (ctx: Context)
-            (implementingEntity: FSharpEntity) (signature: FSharpAbstractSignature)
+            (declaringEntity: FSharpEntity) (signature: FSharpAbstractSignature)
             (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx body |> run
-    let entityName = getEntityDeclarationName com implementingEntity
     let r = makeRange memb.DeclarationLocation |> Some
-    let info = getAttachedMemberInfo com ctx r com.NonMangledAttachedMemberConflicts entityName signature
+    let info = getAttachedMemberInfo com ctx r com.NonMangledAttachedMemberConflicts (Some declaringEntity) signature
     [Fable.AttachedMemberDeclaration(args, body, info)]
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
@@ -1020,9 +1030,9 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         if memb.IsCompilerGenerated then []
         else
             match memb.DeclaringEntity with
-            | Some implementingEntity ->
-                if isGlobalOrImportedEntity implementingEntity then []
-                elif isErasedOrStringEnumEntity implementingEntity then
+            | Some declaringEntity ->
+                if isGlobalOrImportedEntity declaringEntity then []
+                elif isErasedOrStringEnumEntity declaringEntity then
                     let r = makeRange memb.DeclarationLocation |> Some
                     "Erased types cannot implement abstract members"
                     |> addError com ctx.InlinePath r
@@ -1030,7 +1040,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
                 else
                     // Not sure when it's possible that a member implements multiple abstract signatures
                     memb.ImplementedAbstractSignatures |> Seq.tryHead
-                    |> Option.map (fun s -> transformAttachedMember com ctx implementingEntity s memb args body)
+                    |> Option.map (fun s -> transformAttachedMember com ctx declaringEntity s memb args body)
                     |> Option.defaultValue []
             | None -> []
     else transformMemberFunctionOrValue com ctx memb args body
@@ -1142,10 +1152,10 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
         let fullName = getMemberUniqueName com memb
         com.GetOrAddInlineExpr(fullName, fun () -> inlineExpr) |> ignore
 
-    member this.NonMangledAttachedMemberConflicts implementingEntityName memberName =
-        match this.NonMangledAttachedMemberNames.TryGetValue(implementingEntityName) with
+    member this.NonMangledAttachedMemberConflicts declaringEntityName memberName =
+        match this.NonMangledAttachedMemberNames.TryGetValue(declaringEntityName) with
         | true, memberNames -> memberNames.Add(memberName) |> not
-        | false, _ -> this.NonMangledAttachedMemberNames.Add(implementingEntityName, HashSet [|memberName|]); false
+        | false, _ -> this.NonMangledAttachedMemberNames.Add(declaringEntityName, HashSet [|memberName|]); false
 
     interface IFableCompiler with
         member this.Transform(ctx, fsExpr) =
