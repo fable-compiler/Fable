@@ -571,10 +571,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callInfo = { makeSimpleCallInfo None args [] with AutoUncurrying = true }
         return Fable.Operation(Fable.Call(e, callInfo), typ, makeRangeFrom fsExpr)
 
-    // TODO: Ask: for some reason the F# compiler translates `x.IsSome` as `Application(Call(x, get_IsSome),[unit])`
-    | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as optionProp, _genArgs, [BasicPatterns.Const(null, _)])
-        when memb.FullName = "Microsoft.FSharp.Core.IsSome" || memb.FullName = "Microsoft.FSharp.Core.IsNone" ->
-        return! transformExpr com ctx optionProp
+    // Some instance members such as Option.get_IsSome are compiled as static members, and the F# compiler
+    // wraps calls with an application. But in Fable they will be replaced so the application is not needed
+    | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as call, _genArgs, [BasicPatterns.Const(null, _)])
+         when memb.IsInstanceMember && not memb.IsInstanceMemberInCompiledCode ->
+         return! transformExpr com ctx call
 
     | BasicPatterns.Application(applied, _genArgs, args) ->
         let! applied = transformExpr com ctx applied
