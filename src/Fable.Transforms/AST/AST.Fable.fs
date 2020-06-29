@@ -57,62 +57,74 @@ type Type =
         | DeclaredType (ent, _) -> DeclaredType(ent, newGen)
         | t -> t
 
-type ModuleMemberInfo =
-    { Name: string
-      IsValue: bool
-      IsInstance: bool
-      IsPublic: bool
-      IsMutable: bool
-      IsEntryPoint: bool
-      HasSpread: bool
-      DeclaringEntity: FSharpEntity option
-      Range: SourceLocation option }
+type MemberInfo(name, ?declaringEntity, ?hasSpread, ?isValue, ?range) =
+    member _.Name: string = name
+    member _.IsValue = defaultArg isValue false
+    member _.HasSpread = defaultArg hasSpread false
+    member _.DeclaringEntity: FSharpEntity option = declaringEntity
+    member _.Range: SourceLocation option = range
 
-type AttachedMemberInfo =
-    { Name: string
-      IsValue: bool
-      IsGetter: bool
-      IsSetter: bool
-      IsEnumerator: bool
-      HasSpread: bool
-      DeclaringEntity: FSharpEntity option
-      Range: SourceLocation option }
+type ModuleMemberInfo(name, ?declaringEntity, ?hasSpread, ?isValue,
+                      ?isPublic, ?isInstance, ?isMutable, ?isEntryPoint, ?range) =
+    inherit MemberInfo(name, ?declaringEntity=declaringEntity, ?hasSpread=hasSpread, ?isValue=isValue, ?range=range)
+
+    member _.IsPublic = defaultArg isPublic false
+    member _.IsInstance = defaultArg isInstance false
+    member _.IsMutable = defaultArg isMutable false
+    member _.IsEntryPoint = defaultArg isEntryPoint false
+
+type AttachedMemberInfo(name, declaringEntity, ?hasSpread, ?isValue,
+                        ?isGetter, ?isSetter, ?isEnumerator, ?range) =
+    inherit MemberInfo(name, ?declaringEntity=declaringEntity, ?hasSpread=hasSpread, ?isValue=isValue, ?range=range)
+
+    member _.IsGetter = defaultArg isGetter false
+    member _.IsSetter = defaultArg isSetter false
+    member _.IsEnumerator = defaultArg isEnumerator false
+
     member this.IsMethod =
         not this.IsValue && not this.IsGetter && not this.IsSetter && not this.IsEnumerator
 
-type ClassImplicitConstructorInfo =
-    { Name: string
-      Entity: FSharpEntity
-      EntityName: string
-      IsEntityPublic: bool
-      IsConstructorPublic: bool
-      HasSpread: bool
-      Base: Expr option
-      Arguments: Ident list
-      BoundConstructorThis: Ident
-      Body: Expr }
+type ConstructorInfo(entity, entityName, ?isEntityPublic, ?isUnion, ?range) =
+    member _.Entity: FSharpEntity = entity
+    member _.EntityName: string = entityName
+    member _.IsEntityPublic = defaultArg isEntityPublic false
+    member _.IsUnion = defaultArg isUnion false
+    member _.Range: SourceLocation option = range
 
-type UnionConstructorInfo =
-    { Entity: FSharpEntity
-      EntityName: string
-      IsPublic: bool }
+type ClassImplicitConstructorInfo(entity, constructorName, entityName,
+                                  arguments, boundThis, body, baseExpr,
+                                  ?hasSpread, ?isConstructorPublic,
+                                  ?isEntityPublic, ?range) =
+    inherit ConstructorInfo(entity, entityName, ?isEntityPublic=isEntityPublic, ?range=range)
 
-type CompilerGeneratedConstructorInfo =
-    { Entity: FSharpEntity
-      EntityName: string
-      IsPublic: bool }
+    member _.ConstructorName: string = constructorName
+    member _.Arguments: Ident list = arguments
+    member _.BoundThis: Ident = boundThis
+    member _.Body: Expr = body
+    member _.Base: Expr option = baseExpr
+    member _.IsConstructorPublic = defaultArg isConstructorPublic false
+    member _.HasSpread = defaultArg hasSpread false
+
+    member _.WithBody(body) =
+        ClassImplicitConstructorInfo(entity, constructorName, entityName, arguments, boundThis,
+            body, baseExpr, ?hasSpread=hasSpread, ?isConstructorPublic=isConstructorPublic,
+            ?isEntityPublic=isEntityPublic, ?range=range)
 
 type ConstructorKind =
     | ClassImplicitConstructor of ClassImplicitConstructorInfo
-    | UnionConstructor of UnionConstructorInfo
-    | CompilerGeneratedConstructor of CompilerGeneratedConstructorInfo
+    | UnionConstructor of ConstructorInfo
+    /// For records and structs
+    | CompilerGeneratedConstructor of ConstructorInfo
 
 type Declaration =
     | ActionDeclaration of Expr
     /// Note: Non-attached type members become module members
     | ModuleMemberDeclaration of args: Ident list * body: Expr * ModuleMemberInfo
+    /// Interface and abstract class implementations
     | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberInfo
-    | ConstructorDeclaration of ConstructorKind * SourceLocation option
+    /// For unions, records and structs
+    | CompilerGeneratedConstructorDeclaration of ConstructorInfo
+    | ClassImplicitConstructorDeclaration of ClassImplicitConstructorInfo
 
 type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
     member __.SourcePath: string = sourcePath

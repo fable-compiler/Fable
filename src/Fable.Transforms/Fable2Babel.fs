@@ -2021,7 +2021,7 @@ module Util =
         else
             [method]
 
-    let transformUnionConstructor (com: IBabelCompiler) ctx r (info: Fable.UnionConstructorInfo) =
+    let transformUnionConstructor (com: IBabelCompiler) ctx (info: Fable.ConstructorInfo) =
         let baseRef = coreValue com ctx "Types" "Union"
         let argId: Fable.Ident = { Name = ""; Type = Fable.Any; Kind = Fable.UserDeclared; IsMutable = false; Range = None }
         let tagId = { argId with Name = "tag"; Type = Fable.Number Int32 }
@@ -2047,7 +2047,7 @@ module Util =
                     assign None left right |> ExpressionStatement :> Statement)
                 |> BlockStatement
         [
-            yield! declareType com ctx r info.IsPublic info.Entity info.EntityName args body (Some baseRef)
+            yield! declareType com ctx info.Range info.IsEntityPublic info.Entity info.EntityName args body (Some baseRef)
             yield
                 info.Entity.UnionCases
                 |> Seq.map (getUnionCaseName >> makeStrConst)
@@ -2057,7 +2057,7 @@ module Util =
                 |> attachToPrototype (Identifier info.EntityName) "cases"
         ]
 
-    let transformCompilerGeneratedConstructor (com: IBabelCompiler) ctx r (info: Fable.CompilerGeneratedConstructorInfo) =
+    let transformCompilerGeneratedConstructor (com: IBabelCompiler) ctx (info: Fable.ConstructorInfo) =
         let fieldIds = getEntityFieldsAsIdents com info.Entity
         let args = fieldIds |> Array.map ident
         let body =
@@ -2079,7 +2079,7 @@ module Util =
             else None
         let typedPattern = typedIdent com ctx >> toPattern
         let args = fieldIds |> Array.map typedPattern
-        declareType com ctx r info.IsPublic info.Entity info.EntityName args body baseExpr
+        declareType com ctx info.Range info.IsEntityPublic info.Entity info.EntityName args body baseExpr
 
     let getBaseGenericArgs com ctx (e: FSharpEntity) baseGenArgs =
         let arg = Identifier "g"
@@ -2093,10 +2093,10 @@ module Util =
         let body = arrayExpr baseGenArgs
         makeFunctionExpression None ([|toPattern arg|], U2.Case2 body, None, None)
 
-    let transformImplicitConstructor (com: IBabelCompiler) ctx r (info: Fable.ClassImplicitConstructorInfo) =
+    let transformImplicitConstructor (com: IBabelCompiler) ctx (info: Fable.ClassImplicitConstructorInfo) =
         let consIdent = Identifier(info.EntityName) :> Expression
         let args, body, returnType, typeParamDecl =
-            Constructor info.BoundConstructorThis
+            Constructor info.BoundThis
             |> getMemberArgsAndBody com ctx info.HasSpread info.Arguments info.Body
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
@@ -2148,8 +2148,8 @@ module Util =
             | None when info.Entity.IsValueType -> coreValue com ctx "Types" "Record" |> Some
             | None -> None
         [
-            yield! declareType com ctx r info.IsEntityPublic info.Entity info.EntityName args body baseExpr
-            yield declareModuleMember r info.IsConstructorPublic info.Name false exposedCons
+            yield! declareType com ctx info.Range info.IsEntityPublic info.Entity info.EntityName args body baseExpr
+            yield declareModuleMember info.Range info.IsConstructorPublic info.ConstructorName false exposedCons
             match FSharp2Fable.Helpers.tryEntityBase info.Entity with
             | None -> ()
             | Some(_, baseGenArgs) ->
@@ -2164,9 +2164,8 @@ module Util =
         | decl::restDecls ->
             match decl with
             | Fable.ActionDeclaration e ->
-                transformAction com ctx e
-                |> List.append transformed
-                |> transformDeclarations com ctx restDecls
+                transformAction com ctx e, restDecls
+
             | Fable.ModuleMemberDeclaration(args, body, info) ->
                 if info.IsValue then
                     let isPublic, isMutable, value =
@@ -2175,46 +2174,40 @@ module Util =
                         match info.IsPublic, info.IsMutable with
                         | true, true -> true, false, Replacements.createAtom body |> transformAsExpr com ctx
                         | isPublic, isMutable -> isPublic, isMutable, transformAsExpr com ctx body
-                    [declareModuleMember info.Range isPublic info.Name isMutable value]
+                    [declareModuleMember info.Range isPublic info.Name isMutable value], restDecls
                 else
-                    [transformModuleFunction com ctx info args body]
-                |> List.append transformed
-                |> transformDeclarations com ctx restDecls
-            | Fable.ConstructorDeclaration(kind, r) ->
-                let consDecls =
-                    match kind with
-                    | Fable.ClassImplicitConstructor info ->
-                        transformImplicitConstructor com ctx r info
-                    | Fable.UnionConstructor info ->
-                        transformUnionConstructor com ctx r info
-                    | Fable.CompilerGeneratedConstructor info ->
-                        transformCompilerGeneratedConstructor com ctx r info
-                consDecls
-                |> List.append transformed
-                |> transformDeclarations com ctx restDecls
+                    [transformModuleFunction com ctx info args body], restDecls
+
+            | Fable.ClassImplicitConstructorDeclaration info ->
+                transformImplicitConstructor com ctx info, restDecls
+
+            | Fable.CompilerGeneratedConstructorDeclaration info ->
+                if info.IsUnion then transformUnionConstructor com ctx info, restDecls
+                else transformCompilerGeneratedConstructor com ctx info, restDecls
+
             | Fable.AttachedMemberDeclaration(args, body, info) ->
                 match info.DeclaringEntity with
                 | None ->
                     "Please report: unexpected attached member without declaring entity: " + info.Name
-                    |> addError com [] info.Range
-                    transformDeclarations com ctx restDecls transformed
+                    |> addError com [] info.Range; [], restDecls
                 | Some e ->
-                    let newDecls, restDecls =
-                        if info.IsGetter || info.IsSetter then
-                            let getter, setter, restDecls =
-                                // Check if the next declaration is a getter/setter for same property
-                                match restDecls with
-                                | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
-                                    if info.IsGetter then Some(args, body), Some(args2, body2), restDecls
-                                    else Some(args2, body2), Some(args, body), restDecls
-                                | _ ->
-                                    if info.IsGetter then Some(args, body), None, restDecls
-                                    else None, Some(args, body), restDecls
-                            transformAttachedProperty com ctx info e getter setter, restDecls
-                        else
-                            transformAttachedMethod com ctx info e args body, restDecls
-                    List.append transformed newDecls
-                    |> transformDeclarations com ctx restDecls
+                    if info.IsGetter || info.IsSetter then
+                        let getter, setter, restDecls =
+                            // Check if the next declaration is a getter/setter for same property
+                            match restDecls with
+                            | Fable.AttachedMemberDeclaration(args2, body2, info2)::restDecls when info.Name = info2.Name ->
+                                if info.IsGetter then Some(args, body), Some(args2, body2), restDecls
+                                else Some(args2, body2), Some(args, body), restDecls
+                            | _ ->
+                                if info.IsGetter then Some(args, body), None, restDecls
+                                else None, Some(args, body), restDecls
+                        transformAttachedProperty com ctx info e getter setter, restDecls
+                    else
+                        transformAttachedMethod com ctx info e args body, restDecls
+
+            |> fun (newDecls, restDecls) ->
+                List.append transformed newDecls
+                |> transformDeclarations com ctx restDecls
 
     let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
         imports |> Seq.map (fun import ->

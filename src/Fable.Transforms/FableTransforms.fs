@@ -569,21 +569,17 @@ let rec transformDeclaration (com: ICompiler) = function
             if info.IsValue then body
             else uncurryIdentsAndReplaceInBody args body
         ModuleMemberDeclaration(args, transformExpr com body, info)
-    | ConstructorDeclaration(kind, r) ->
-        let kind =
-            match kind with
-            | ClassImplicitConstructor info ->
-                let body =
-                    uncurryIdentsAndReplaceInBody info.Arguments info.Body
-                    |> transformExpr com
-                ClassImplicitConstructor { info with Body = body }
-            | kind -> kind
-        ConstructorDeclaration(kind, r)
     | AttachedMemberDeclaration(args, body, info) ->
         let body =
             if info.IsMethod then uncurryIdentsAndReplaceInBody args body
             else body
         AttachedMemberDeclaration(args, transformExpr com body, info)
+    | ClassImplicitConstructorDeclaration info ->
+        uncurryIdentsAndReplaceInBody info.Arguments info.Body
+        |> transformExpr com
+        |> info.WithBody
+        |> ClassImplicitConstructorDeclaration
+    | CompilerGeneratedConstructorDeclaration _ as d -> d
 
 let transformFile (com: ICompiler) (file: File) =
     let newDecls = List.map (transformDeclaration com) file.Declarations

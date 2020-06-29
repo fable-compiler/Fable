@@ -83,14 +83,7 @@ module Helpers =
         Operation(Emit(macro, Some info), t, r)
 
     let objValue (k, v) =
-        [], v, { Name = k
-                 IsValue = true
-                 IsGetter = false
-                 IsSetter = false
-                 IsEnumerator = false
-                 HasSpread = false
-                 DeclaringEntity = None
-                 Range = None }
+        [], v, Fable.AttachedMemberInfo(k, None, isValue=true)
 
     let typedObjExpr t kvs =
         ObjectExpr(List.map objValue kvs, t, None)
