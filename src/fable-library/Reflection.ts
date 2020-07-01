@@ -421,7 +421,9 @@ export function getCaseFields(x: any): any[] {
 
 type TypeTester =
     | "any"
-    | "unit"
+    | "unknown"
+    | "undefined"
+    | "function"
     | "boolean"
     | "number"
     | "string"
@@ -433,21 +435,12 @@ type TypeTester =
 
 export function typeTest(x: any, typeTester: TypeTester): boolean {
     if (typeof typeTester === "string") {
-        switch (typeTester) {
-            case "any":
-                return true;
-            case "unit":
-                return x === undefined;
-            case "boolean":
-                return typeof x === "boolean";
-            case "number":
-                return typeof x === "number";
-            case "string":
-                return typeof x === "string";
-            // case "disposable": return isDisposable(x);
-            // case "seq": return isIterable(x);
-            default:
-                return false;
+        if (typeTester === "any") {
+          return true;
+        } else if (typeTester === "unknown") {
+          return false;
+        } else {
+          return typeof x === typeTester;
         }
     } else if (Array.isArray(typeTester)) {
         switch (typeTester[0]) {

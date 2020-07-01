@@ -921,41 +921,6 @@ module Util =
         | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
         | Some(Target left) -> upcast ExpressionStatement(assign None left babelExpr, ?loc=babelExpr.Loc)
 
-    let rec toTypeTester com ctx r = function
-        | Fable.Regex -> Identifier "RegExp" :> Expression
-        | Fable.MetaType -> ofString "type" // TODO
-        | Fable.FunctionType _ -> ofString "function" // Probably we cannot use it for type testing
-        | Fable.AnonymousRecordType _ -> ofString "unknown" // Recognize shape? (it's possible in F#)
-        | Fable.Any -> ofString "any"
-        | Fable.Unit -> ofString "unit"
-        | Fable.Boolean -> ofString "boolean"
-        | Fable.Char
-        | Fable.String -> ofString "string"
-        | Fable.Number _ -> ofString "number"
-        | Fable.Enum _ -> ofString "number"
-        | Fable.Option t -> arrayExpr [ofString "option"; toTypeTester com ctx r t]
-        | Fable.Array t -> arrayExpr [ofString "array"; toTypeTester com ctx r t]
-        | Fable.List t -> arrayExpr [ofString "list"; toTypeTester com ctx r t]
-        | Fable.Tuple genArgs ->
-            let genArgs = List.map (toTypeTester com ctx r) genArgs
-            arrayExpr [ofString "tuple"; arrayExpr genArgs]
-        | Fable.GenericParam name ->
-            sprintf "Cannot resolve generic param %s for type testing, evals to true" name |> addWarning com [] r
-            ofString "any"
-        | Fable.ErasedUnion _ -> ofString "any"
-        | Fable.DeclaredType(ent, _) when ent.IsInterface ->
-            "Cannot type test interfaces, evals to false" |> addWarning com [] r
-            ofString "unknown"
-        | Fable.DeclaredType(ent, genArgs) ->
-            match tryJsConstructor com ctx ent with
-            | Some cons ->
-                if not(List.isEmpty genArgs) then
-                    "Generic args are ignored in type testing" |> addWarning com [] r
-                cons
-            | None ->
-                sprintf "Cannot type test %s, evals to false" ent.DisplayName |> addWarning com [] r
-                ofString "unknown"
-
     let transformOperation com ctx range t opKind: Expression =
         match opKind with
         | Fable.UnaryOperation(op, TransformExpr com ctx expr) ->
@@ -1129,6 +1094,42 @@ module Util =
         else
             let value = transformBindingExprBody com ctx var value
             [|varDeclaration (typedIdent com ctx var) var.IsMutable value :> Statement|]
+
+    // Maybe we should create a type here that emulates Reflection.ts/TypeTester
+    let rec toTypeTester com ctx r = function
+        | Fable.Regex -> Identifier "RegExp" :> Expression
+        | Fable.MetaType -> coreValue com ctx "Reflection" "TypeInfo"
+        | Fable.FunctionType _ -> ofString "function"
+        | Fable.AnonymousRecordType _ -> ofString "unknown" // Recognize shape? (it's possible in F#)
+        | Fable.Any -> ofString "any"
+        | Fable.Unit -> ofString "undefined"
+        | Fable.Boolean -> ofString "boolean"
+        | Fable.Char
+        | Fable.String -> ofString "string"
+        | Fable.Number _ -> ofString "number"
+        | Fable.Enum _ -> ofString "number"
+        | Fable.Option t -> arrayExpr [ofString "option"; toTypeTester com ctx r t]
+        | Fable.Array t -> arrayExpr [ofString "array"; toTypeTester com ctx r t]
+        | Fable.List t -> arrayExpr [ofString "list"; toTypeTester com ctx r t]
+        | Fable.Tuple genArgs ->
+            let genArgs = List.map (toTypeTester com ctx r) genArgs
+            arrayExpr [ofString "tuple"; arrayExpr genArgs]
+        | Fable.GenericParam name ->
+            sprintf "Cannot resolve generic param %s for type testing, evals to true" name |> addWarning com [] r
+            ofString "any"
+        | Fable.ErasedUnion _ -> ofString "any"
+        | Fable.DeclaredType(ent, _) when ent.IsInterface ->
+            "Cannot type test interfaces, evals to false" |> addWarning com [] r
+            ofString "unknown"
+        | Fable.DeclaredType(ent, genArgs) ->
+            match tryJsConstructor com ctx ent with
+            | Some cons ->
+                if not(List.isEmpty genArgs) then
+                    "Generic args are ignored in type testing" |> addWarning com [] r
+                cons
+            | None ->
+                sprintf "Cannot type test %s, evals to false" ent.DisplayName |> addWarning com [] r
+                ofString "unknown"
 
     let transformTypeTest (com: IBabelCompiler) ctx range (expr': Fable.Expr) (typ: Fable.Type): Expression =
         let expr = com.TransformAsExpr(ctx, expr')
