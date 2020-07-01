@@ -24,9 +24,6 @@ module Helpers =
     // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
     //     !!target?set(source, offset)
 
-    let inline appendImpl (array1: 'T[]) (array2: 'T[]): 'T[] =
-        !!array1?concat(array2)
-
     [<Emit("$0.concat(...$1)")>]
     let inline concatImpl (array1: 'T[]) (arrays: 'T[] seq): 'T[] =
         jsNative
@@ -45,18 +42,6 @@ module Helpers =
 
     let inline foldBackIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T[]): 'State =
         !!array?reduceRight(System.Func<'State, 'T, int, 'State>(folder), state)
-
-    let inline iterImpl (action: 'T -> unit) (array: 'T[]): unit =
-        !!array?forEach(action)
-
-    let inline iterIndexedImpl (action: 'T -> int -> unit) (array: 'T[]): unit =
-        !!array?forEach(System.Action<'T, int>(action))
-
-    let inline mapImpl (mapping: 'T -> 'U) (array: 'T[]): 'U[] =
-        !!array?map(mapping)
-
-    let inline mapIndexedImpl (mapping: 'T -> int -> 'U) (array: 'T[]): 'U[] =
-        !!array?map(System.Func<'T, int, 'U>(mapping))
 
     // Typed arrays not supported, only dynamic ones do
     let inline pushImpl (array: 'T[]) (item: 'T): int =
@@ -124,17 +109,14 @@ let private indexNotFound() =
 
 // Don't use native JS Array.prototype.concat as it doesn't work with typed arrays
 let append (array1: 'T[]) (array2: 'T[]) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
-    if isTypedArrayImpl array1 then
-        let len1 = array1.Length
-        let len2 = array2.Length
-        let newArray = cons.Create(len1 + len2)
-        for i = 0 to len1 - 1 do
-            newArray.[i] <- array1.[i]
-        for i = 0 to len2 - 1 do
-            newArray.[i + len1] <- array2.[i]
-        newArray
-    else
-        appendImpl array1 array2
+    let len1 = array1.Length
+    let len2 = array2.Length
+    let newArray = cons.Create(len1 + len2)
+    for i = 0 to len1 - 1 do
+        newArray.[i] <- array1.[i]
+    for i = 0 to len2 - 1 do
+        newArray.[i + len1] <- array2.[i]
+    newArray
 
 let filter (predicate: 'T -> bool) (array: 'T[]) =
     filterImpl predicate array
@@ -156,24 +138,18 @@ let tryLast (array: 'T[]) =
     else Some array.[array.Length-1]
 
 let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
-    if isTypedArrayImpl source then
-        let len = source.Length
-        let target = cons.Create(len)
-        for i = 0 to (len - 1) do
-            target.[i] <- f i source.[i]
-        target
-    else
-        mapIndexedImpl (fun x i -> f i x) source
+    let len = source.Length
+    let target = cons.Create(len)
+    for i = 0 to (len - 1) do
+        target.[i] <- f i source.[i]
+    target
 
 let map (f: 'T -> 'U) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
-    if isTypedArrayImpl source then
-        let len = source.Length
-        let target = cons.Create(len)
-        for i = 0 to (len - 1) do
-            target.[i] <- f source.[i]
-        target
-    else
-        mapImpl (fun x -> f x) source
+    let len = source.Length
+    let target = cons.Create(len)
+    for i = 0 to (len - 1) do
+        target.[i] <- f source.[i]
+    target
 
 let mapIndexed2 (f: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
     if source1.Length <> source2.Length then failwith "Arrays had different lengths"
@@ -246,19 +222,16 @@ let concat (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
     | 0 -> cons.Create 0
     | 1 -> arrays.[0]
     | _ ->
-        if isTypedArrayImpl arrays.[0] then
-            let mutable totalIdx = 0
-            let mutable totalLength = 0
-            for arr in arrays do
-                totalLength <- totalLength + arr.Length
-            let result = cons.Create totalLength
-            for arr in arrays do
-                for j = 0 to (arr.Length - 1) do
-                    result.[totalIdx] <- arr.[j]
-                    totalIdx <- totalIdx + 1
-            result
-        else
-            concatImpl arrays.[0] (skipImpl arrays 1)
+        let mutable totalIdx = 0
+        let mutable totalLength = 0
+        for arr in arrays do
+            totalLength <- totalLength + arr.Length
+        let result = cons.Create totalLength
+        for arr in arrays do
+            for j = 0 to (arr.Length - 1) do
+                result.[totalIdx] <- arr.[j]
+                totalIdx <- totalIdx + 1
+        result
 
 let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
     let mapped = map mapping array DynamicArrayCons

@@ -19,8 +19,8 @@ type Context =
       CaughtException: Fable.Ident option
       BoundConstructorThis: Fable.Ident option
       BoundMemberThis: Fable.Ident option
-      InlinePath: (string * (SourceLocation option)) list
-      CaptureBaseConsCall: (FSharpEntity * (Fable.Expr * Fable.Expr -> unit)) option
+      InlinePath: Log.InlinePath list
+      CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
     }
     static member Create(enclosingEntity) =
         { Scope = []
@@ -190,10 +190,13 @@ module Helpers =
         | _ -> Naming.unknown
 
     let tryEntityBase (ent: FSharpEntity) =
-        ent.BaseType
-        |> Option.bind tryDefinition
-        |> Option.bind (fun (baseEntity, fullName) ->
-            if fullName = Some Types.object then None else Some baseEntity)
+        match ent.BaseType with
+        | Some baseType ->
+            match tryDefinition baseType with
+            | Some(baseEntity, fullName) when fullName <> Some Types.object ->
+                Some(baseEntity, baseType.GenericArguments)
+            | _ -> None
+        | None -> None
 
     let isInline (memb: FSharpMemberOrFunctionOrValue) =
         match memb.InlineAnnotation with
@@ -253,18 +256,11 @@ module Helpers =
     let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
         memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
 
-    let isModuleValueForCalls (memb: FSharpMemberOrFunctionOrValue) =
-        isModuleValueForDeclarations memb
+    let isModuleValueForCalls (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
+        declaringEntity.IsFSharpModule
+        && isModuleValueForDeclarations memb
         // Mutable public values must be called as functions (see #986)
         && (not memb.IsMutable || not (isPublicMember memb))
-
-    let isSelfConstructorCall (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) =
-        match memb.IsConstructor, memb.DeclaringEntity, ctx.EnclosingMember with
-        | true, Some ent, Some enclosingMember when enclosingMember.IsConstructor ->
-            match enclosingMember.DeclaringEntity with
-            | Some enclosingEntity -> ent = enclosingEntity
-            | None -> false
-        | _ -> false
 
     let rec getAllInterfaceMembers (ent: FSharpEntity) =
         seq {
@@ -471,7 +467,7 @@ module Patterns =
     let (|CapturedBaseConsCall|_|) com (ctx: Context) transformBaseCall = function
         | Sequential(ConstructorCall(call, genArgs, args) as expr1, expr2)
         // This pattern occurs in constructors that define a this value: `type C() as this`
-        // TODO: We're discarding the bound `this` value, check if it's actually used in the base constructor arguments?
+        // We're discarding the bound `this` value, it "shouldn't" be used in the base constructor arguments
         | Sequential(Let(_, (ConstructorCall(call, genArgs, args) as expr1)), expr2) ->
             match call.DeclaringEntity, ctx.CaptureBaseConsCall with
             | Some baseEnt, Some(expectedBaseEnt, capture) when baseEnt = expectedBaseEnt ->
@@ -1056,11 +1052,11 @@ module Util =
         let entityName = defaultArg ent.TryFullName ""
         entityName + "." + memberName + overloadHash
 
-    let callInstanceMember com r typ (argInfo: Fable.ArgInfo)
+    let callInstanceMember com r typ (callInfo: Fable.CallInfo)
                     (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
-        let callee =
-            match argInfo.ThisArg with
-            | Some callee -> callee
+        let callInfo, callee =
+            match callInfo.ThisArg with
+            | Some callee -> { callInfo with ThisArg = None }, callee
             | None ->
                 sprintf "Unexpected static interface/override call: %s" memb.FullName
                 |> attachRange r |> failwith
@@ -1083,47 +1079,43 @@ module Util =
             Fable.Get(callee, kind, typ, r)
         elif isSetter then
             let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType com Map.empty
-            let arg = argInfo.Args |> List.tryHead |> Option.defaultWith makeNull
+            let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
         else
-            let argInfo = { argInfo with ThisArg = Some callee }
-            makeStrConst name |> Some |> instanceCall r typ argInfo
+            getSimple callee name |> makeCall r typ callInfo
 
-    let (|Replaced|_|) (com: IFableCompiler) ctx r typ argTypes (genArgs: Lazy<_>) (argInfo: Fable.ArgInfo) isModuleValue
+    let (|Replaced|_|) (com: IFableCompiler) ctx r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
         | Some ent when isReplacementCandidate ent ->
             let info: Fable.ReplaceCallInfo =
-              { SignatureArgTypes = argTypes
+              { SignatureArgTypes = callInfo.SignatureArgTypes
                 DeclaringEntityFullName = ent.FullName
-                Spread = argInfo.Spread
-                IsModuleValue = isModuleValue
-                // TODO: We should also check for
-                // memb.IsOverrideOrExplicitInterfaceImplementation
-                // memb.IsDispatchSlot
+                HasSpread = callInfo.HasSpread
+                IsModuleValue = isModuleValueForCalls ent memb
                 IsInterface = ent.IsInterface
                 CompiledName = memb.CompiledName
                 OverloadSuffix = lazy if ent.IsFSharpModule then "" else OverloadSuffix.getHash ent memb
                 GenericArgs = genArgs.Value }
-            match com.TryReplace(ctx, r, typ, info, argInfo.ThisArg, argInfo.Args) with
+            match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
             | Some e -> Some e
             | None when info.IsInterface ->
-                callInstanceMember com r typ argInfo ent memb |> Some
+                callInstanceMember com r typ callInfo ent memb |> Some
             | None ->
                 sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
-    let (|Emitted|_|) com r typ argInfo (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|) com r typ callInfo (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Naming.StartsWith "Fable.Core.Emit" _ as attFullName) ->
-                let argInfo =
+                let callInfo =
                     // Allow combination of Import and Emit attributes
-                    match argInfo, tryGlobalOrImportedMember com Fable.Any memb with
-                    | Some argInfo, Some importExpr ->
-                        Some { argInfo with Fable.ThisArg = Some importExpr }
-                    | _ -> argInfo
+                    match callInfo, tryGlobalOrImportedMember com Fable.Any memb with
+                    | Some callInfo, Some importExpr ->
+                        Some { callInfo with Fable.ThisArg = Some importExpr }
+                    | _ -> callInfo
                 let macro =
                     match Seq.tryHead att.ConstructorArguments with
                     | Some(_, (:? string as macro)) -> macro
@@ -1135,37 +1127,44 @@ module Util =
                 | Atts.emitIndexer -> "$0[$1]{{=$2}}" |> Some
                 | Atts.emitProperty -> "$0." + macro + "{{=$1}}" |> Some
                 | _ -> None
-                |> Option.map (fun macro -> Fable.Operation(Fable.Emit(macro, argInfo), typ, r))
+                |> Option.map (fun macro -> Fable.Operation(Fable.Emit(macro, callInfo), typ, r))
             | _ -> None
         )
 
-    let (|Imported|_|) com r typ argInfo isModuleValue (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
-        let importValueType = if Option.isSome argInfo then Fable.Any else typ
-        match tryGlobalOrImportedMember com importValueType memb, argInfo, entity with
-        | Some importExpr, Some argInfo, Some e ->
-            if (e.IsFSharpModule && isModuleValueForCalls memb)
+    let (|Imported|_|) com r typ callInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
+        let importValueType = if Option.isSome callInfo then Fable.Any else typ
+        match tryGlobalOrImportedMember com importValueType memb, callInfo, entity with
+        // Import called as function
+        | Some importExpr, Some callInfo, Some e ->
+            let isValueOrGetter =
+                isModuleValueForCalls e memb
                 || (memb.IsPropertyGetterMethod && (countNonCurriedParams memb) = 0)
-            then Some importExpr
-            else staticCall r typ argInfo importExpr |> Some
-        | Some importExpr, None, _ ->
-            Some importExpr
-        | None, Some argInfo, Some e ->
-            let isBaseOrSelfConstructorCall = argInfo.IsBaseCall || argInfo.IsSelfConstructorCall
-            match tryGlobalOrImportedEntity com e, isBaseOrSelfConstructorCall, argInfo.ThisArg with
-            | Some classExpr, true, _ ->
-                staticCall r typ argInfo classExpr |> Some
-            | Some _, false, Some _thisArg ->
-                callInstanceMember com r typ argInfo e memb |> Some
-            | Some classExpr, false, None ->
-                if memb.IsConstructor then
-                    Fable.Operation(Fable.Call(Fable.ConstructorCall classExpr, argInfo), typ, r) |> Some
-                elif isModuleValue then
-                    let kind = Fable.FieldGet(getMemberDisplayName memb, true, Fable.Any)
-                    Fable.Get(classExpr, kind, typ, r) |> Some
+
+            if isValueOrGetter then Some importExpr
+            else makeCall r typ callInfo importExpr |> Some
+
+        // Import called as value
+        | Some importExpr, None, _ -> Some importExpr
+
+        // The value/method is not imported, check if the declaring entity is
+        | None, Some callInfo, Some e ->
+            match tryGlobalOrImportedEntity com e, callInfo.ThisArg with
+            | Some _, Some _thisArg ->
+                callInstanceMember com r typ callInfo e memb |> Some
+
+            | Some classExpr, None when memb.IsConstructor ->
+                Fable.Operation(Fable.Call(classExpr, { callInfo with IsJsConstructor = true }), typ, r) |> Some
+
+            | Some moduleOrClassExpr, None ->
+                // Set the field as mutable just in case, so it's not displaced by beta reduction
+                let fieldGet = Fable.FieldGet(getMemberDisplayName memb, true, Fable.Any)
+                if isModuleValueForCalls e memb then
+                    Fable.Get(moduleOrClassExpr, fieldGet, typ, r) |> Some
                 else
-                    let argInfo = { argInfo with ThisArg = Some classExpr }
-                    callInstanceMember com r typ argInfo e memb |> Some
-            | None, _, _ -> None
+                    Fable.Get(moduleOrClassExpr, fieldGet, Fable.Any, None)
+                    |> makeCall r typ callInfo |> Some
+
+            | None, _ -> None
         | _ -> None
 
     let inlineExpr (com: IFableCompiler) (ctx: Context) r (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =
@@ -1176,6 +1175,7 @@ module Util =
                 let t = makeType com ctx.GenericArgs argIdent.FullType
                 foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t), None))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
+
         // Log error if the inline function is called recursively
         match ctx.InlinedFunction with
         | Some memb2 when memb.Equals(memb2) ->
@@ -1186,7 +1186,9 @@ module Util =
                 match callee with
                 | Some c -> c::args
                 | None -> args
+
             let inExpr = com.GetInlineExpr(memb)
+
             let ctx, bindings =
                 ((ctx, []), foldArgs [] (inExpr.Args, args)) ||> List.fold (fun (ctx, bindings) (argId, arg) ->
                     // Change type and mark ident as compiler-generated so Fable also
@@ -1196,9 +1198,19 @@ module Util =
                                     Kind = Fable.CompilerGenerated }
                     let ctx = putIdentInScope ctx argId ident (Some arg)
                     ctx, (ident, arg)::bindings)
+
+            let fromFile, fromRange =
+                match ctx.InlinePath with
+                | { ToFile = file; ToRange = r }::_ -> file, r
+                | [] -> com.CurrentFile, r
+
             let ctx = { ctx with GenericArgs = genArgs.Value |> Map
                                  InlinedFunction = Some memb
-                                 InlinePath = (inExpr.FileName, r)::ctx.InlinePath }
+                                 InlinePath = { ToFile = inExpr.FileName
+                                                ToRange = makeRangeFrom inExpr.Body
+                                                FromFile = fromFile
+                                                FromRange = fromRange }::ctx.InlinePath }
+
             (com.Transform(ctx, inExpr.Body), bindings)
             ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
@@ -1266,43 +1278,44 @@ module Util =
         | _ ->
             cons.IsImplicitConstructor
 
-    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ isBaseCall (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
-        let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
-        let args = transformOptionalArguments com ctx r memb genArgs args
-        let argTypes = getArgTypes com memb
-        let isModuleValue = isModuleValueForCalls memb
-        let argInfo: Fable.ArgInfo =
-          { ThisArg = callee
-            Args = args
-            SignatureArgTypes = Fable.Typed argTypes
-            Spread = if hasSeqSpread memb then Fable.SeqSpread else Fable.NoSpread
-            IsBaseCall = isBaseCall
-            IsSelfConstructorCall = false
-          }
+    let makeCallWithArgInfo com ctx r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) callInfo =
         match memb, memb.DeclaringEntity with
-        | Emitted com r typ (Some argInfo) emitted, _ -> emitted
-        | Imported com r typ (Some argInfo) isModuleValue imported -> imported
-        | Replaced com ctx r typ argTypes genArgs argInfo isModuleValue replaced -> replaced
-        | Inlined com ctx r genArgs callee args expr, _ -> expr
-        | Try (tryGetIdentFromScope ctx r) funcExpr, _ ->
-            if isModuleValue
-            then funcExpr
-            else staticCall r typ argInfo funcExpr
+        | Emitted com r typ (Some callInfo) emitted, _ -> emitted
+        | Imported com r typ (Some callInfo) imported -> imported
+        | Replaced com ctx r typ genArgs callInfo replaced -> replaced
+        | Inlined com ctx r genArgs callee callInfo.Args expr, _ -> expr
+
+        | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
+            if isModuleValueForCalls entity memb then funcExpr
+            else makeCall r typ callInfo funcExpr
+
         // Check if this is an interface or abstract/overriden method
         | _, Some entity when entity.IsInterface
                 || memb.IsOverrideOrExplicitInterfaceImplementation
                 || memb.IsDispatchSlot ->
-            callInstanceMember com r typ argInfo entity memb
+            callInstanceMember com r typ callInfo entity memb
+
+        | _, Some entity when isModuleValueForCalls entity memb ->
+            let typ = makeType com ctx.GenericArgs memb.FullType
+            memberRefTyped com ctx r typ memb
+
         | _ ->
-            if isModuleValue then
-                let typ = makeType com ctx.GenericArgs memb.FullType
-                memberRefTyped com ctx r typ memb
-            else
-                let argInfo =
-                    if not argInfo.IsSelfConstructorCall && isSelfConstructorCall ctx memb
-                    then { argInfo with IsSelfConstructorCall = true }
-                    else argInfo
-                memberRef com ctx r memb |> staticCall r typ argInfo
+            memberRef com ctx r memb |> makeCall r typ callInfo
+
+    let makeCallInfoFrom (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
+        {
+            ThisArg = callee
+            Args = transformOptionalArguments com ctx r memb genArgs args
+            SignatureArgTypes = getArgTypes com memb
+            HasSpread = hasSeqSpread memb
+            AutoUncurrying = false
+            IsJsConstructor = false
+        }
+
+    let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
+        let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
+        makeCallInfoFrom com ctx r genArgs callee args memb
+        |> makeCallWithArgInfo com ctx r typ genArgs callee memb
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =
         let typ = makeType com ctx.GenericArgs v.FullType
@@ -1313,7 +1326,6 @@ module Util =
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
         | Emitted com r typ None emitted, _ -> emitted
-        | Imported com r typ None true imported -> imported
-        // TODO: Replaced? Check if there're failing tests
+        | Imported com r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
         | _ -> memberRefTyped com ctx r typ v

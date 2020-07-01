@@ -165,24 +165,28 @@ module Extensions =
 module Log =
     open Fable
 
-    let private addLog (com: ICompiler) inlinePath range msg severity =
-        let printInlineSource refPath path r =
-            let path = Path.getRelativeFileOrDirPath false refPath false path
-            match r with
+    type InlinePath = {
+        ToFile: string
+        ToRange: SourceLocation option
+        FromFile: string
+        FromRange: SourceLocation option
+    }
+
+    let private addLog (com: ICompiler) (inlinePath: InlinePath list) range msg severity =
+        let printInlineSource fromPath (p: InlinePath) =
+            let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
+            match p.FromRange with
             | Some r -> sprintf "%s(%i,%i)" path r.start.line r.start.column
             | None -> path
-        let rec buildInlinePath acc refPath r = function
-            | [] ->
-                (printInlineSource refPath com.CurrentFile r)::acc
-                |> List.rev |> String.concat " < "
-                |> (+) " - Inline call from "
-            | (file,r2)::rest ->
-                let acc = (printInlineSource refPath file r)::acc
-                buildInlinePath acc refPath r2 rest
         let actualFile, msg =
             match inlinePath with
             | [] -> com.CurrentFile, msg
-            | (file,r)::inlinePath -> file, msg + (buildInlinePath [] file r inlinePath)
+            | { ToFile = file }::_ ->
+                let inlinePath =
+                    inlinePath
+                    |> List.map (printInlineSource file)
+                    |> String.concat " < "
+                file, msg + " - Inline call from " + inlinePath
         com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
     let addWarning (com: ICompiler) inlinePath range warning =
@@ -390,28 +394,29 @@ module AST =
         let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import(makeStrConst selector, makeStrConst path, Internal, t, None)
 
-    let argInfo thisArg args argTypes =
+    let makeSimpleCallInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
           SignatureArgTypes = argTypes
-          Spread = NoSpread
-          IsBaseCall = false
-          IsSelfConstructorCall = false }
+          HasSpread = false
+          AutoUncurrying = false
+          IsJsConstructor = false }
 
-    let staticCall r t argInfo functionExpr =
-        Operation(Call(StaticCall functionExpr, argInfo), t, r)
+    let destructureTupleArgs = function
+        | [MaybeCasted(Value(NewTuple(args),_))] -> args
+        | args -> args
 
-    let constructorCall r t argInfo consExpr =
-        Operation(Call(ConstructorCall consExpr, argInfo), t, r)
-
-    let instanceCall r t argInfo memb =
-        Operation(Call(InstanceCall memb, argInfo), t, r)
+    let makeCall r t argInfo calleeExpr =
+        Operation(Call(calleeExpr, argInfo), t, r)
 
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
+
+    let getSimple (left: Expr) membName =
+        makeStrConst membName |> getExpr left.Range Any left
 
     let getNumberKindName kind =
         match kind with

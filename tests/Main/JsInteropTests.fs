@@ -371,7 +371,7 @@ let tests =
         3 |> add 2 |> equal 5
 
     testCase "TypedArray element can be set and get using index" <| fun () ->
-        let arr = JS.Uint8Array.Create(5)
+        let arr = JS.Constructors.Uint8Array.Create(5)
         arr.[0] <- 5uy
         equal 5uy arr.[0]
 
