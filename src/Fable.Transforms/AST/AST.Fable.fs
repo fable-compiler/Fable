@@ -64,8 +64,8 @@ type MemberInfo(name, ?declaringEntity, ?hasSpread, ?isValue, ?range) =
     member _.DeclaringEntity: FSharpEntity option = declaringEntity
     member _.Range: SourceLocation option = range
 
-type ModuleMemberInfo(name, ?declaringEntity, ?hasSpread, ?isValue,
-                      ?isPublic, ?isInstance, ?isMutable, ?isEntryPoint, ?range) =
+type ModuleMemberInfo(name, ?declaringEntity, ?hasSpread, ?isValue, ?isPublic,
+                      ?isInstance, ?isMutable, ?isEntryPoint, ?range) =
     inherit MemberInfo(name, ?declaringEntity=declaringEntity, ?hasSpread=hasSpread, ?isValue=isValue, ?range=range)
 
     member _.IsPublic = defaultArg isPublic false
@@ -92,7 +92,7 @@ type ConstructorInfo(entity, entityName, ?isEntityPublic, ?isUnion, ?range) =
     member _.Range: SourceLocation option = range
 
 type ClassImplicitConstructorInfo(entity, constructorName, entityName,
-                                  arguments, boundThis, body, baseExpr,
+                                  arguments, boundThis, body, baseCall,
                                   ?hasSpread, ?isConstructorPublic,
                                   ?isEntityPublic, ?range) =
     inherit ConstructorInfo(entity, entityName, ?isEntityPublic=isEntityPublic, ?range=range)
@@ -101,27 +101,21 @@ type ClassImplicitConstructorInfo(entity, constructorName, entityName,
     member _.Arguments: Ident list = arguments
     member _.BoundThis: Ident = boundThis
     member _.Body: Expr = body
-    member _.Base: Expr option = baseExpr
+    member _.BaseCall: Expr option = baseCall
     member _.IsConstructorPublic = defaultArg isConstructorPublic false
     member _.HasSpread = defaultArg hasSpread false
 
-    member _.WithBody(body) =
+    member _.WithBodyAndBaseCall(body, baseCall) =
         ClassImplicitConstructorInfo(entity, constructorName, entityName, arguments, boundThis,
-            body, baseExpr, ?hasSpread=hasSpread, ?isConstructorPublic=isConstructorPublic,
+            body, baseCall, ?hasSpread=hasSpread, ?isConstructorPublic=isConstructorPublic,
             ?isEntityPublic=isEntityPublic, ?range=range)
-
-type ConstructorKind =
-    | ClassImplicitConstructor of ClassImplicitConstructorInfo
-    | UnionConstructor of ConstructorInfo
-    /// For records and structs
-    | CompilerGeneratedConstructor of ConstructorInfo
 
 type Declaration =
     | ActionDeclaration of Expr
     /// Note: Non-attached type members become module members
     | ModuleMemberDeclaration of args: Ident list * body: Expr * ModuleMemberInfo
     /// Interface and abstract class implementations
-    | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberInfo
+    | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberInfo * declaringEntity: FSharpEntity
     /// For unions, records and structs
     | CompilerGeneratedConstructorDeclaration of ConstructorInfo
     | ClassImplicitConstructorDeclaration of ClassImplicitConstructorInfo
@@ -224,57 +218,32 @@ type FunctionKind =
     | Lambda of arg: Ident
     | Delegate of args: Ident list
 
-type SpreadKind =
-    | NoSpread
-    /// The ... spread operator will be applied to last argument
-    | SeqSpread
-    /// If the argument is a tuple apply its members as separate arguments
-    /// (Used for dynamic calls like `foo?bar(4, 5, 6)`)
-    | TupleSpread
-
-type CallKind =
-    /// Constructor calls will add the `new` keyword in JS
-    | ConstructorCall of Expr
-    /// Static calls contain a direct reference to the function and will pass `ThisArg` as first argument
-    | StaticCall of Expr
-    /// Instance calls will be applied to `ThisArg` (optionally through member access)
-    | InstanceCall of memb: Expr option
-
-type SignatureKind =
-    /// Argument expected types will be checked for the uncurrying optimization
-    | Typed of Type list
-    /// Nested function arguments will be automatically uncurried
-    | AutoUncurrying
-    /// Arguments won't be uncurried
-    | NoUncurrying
-
-type ArgInfo =
+type CallInfo =
     { ThisArg: Expr option
       Args: Expr list
       /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
       /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
-      SignatureArgTypes: SignatureKind
-      Spread: SpreadKind
-      /// This refers to F# constructor calls, not constructors with `new` keyword in JS
-      IsConstructorCall: bool
-      IsBaseConstructorCall: bool
-      IsSelfConstructorCall: bool }
+      SignatureArgTypes: Type list
+      HasSpread: bool
+      AutoUncurrying: bool
+      /// Must apply `new` keyword when converted to JS
+      IsJsConstructor: bool }
 
 type ReplaceCallInfo =
     { CompiledName: string
       OverloadSuffix: Lazy<string>
       /// See ArgIngo.SignatureArgTypes
       SignatureArgTypes: Type list
-      Spread: SpreadKind
+      HasSpread: bool
       IsModuleValue: bool
       IsInterface: bool
       DeclaringEntityFullName: string
       GenericArgs: (string * Type) list }
 
 type OperationKind =
-    | Call of kind: CallKind * info: ArgInfo
+    | Call of callee: Expr * info: CallInfo
     | CurriedApply of applied: Expr * args: Expr list
-    | Emit of macro: string * args: ArgInfo option
+    | Emit of macro: string * args: CallInfo option
     | UnaryOperation of UnaryOperator * Expr
     | BinaryOperation of BinaryOperator * left: Expr * right: Expr
     | LogicalOperation of LogicalOperator * left: Expr * right: Expr

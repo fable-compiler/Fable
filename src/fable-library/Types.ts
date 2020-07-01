@@ -39,7 +39,7 @@ export class SystemObject implements IEquatable<any> {
   }
 
   public ToString() {
-    return this.constructor.name;
+    return Object.getPrototypeOf(this).constructor.name;
   }
 
   public GetHashCode(x?: any) {
@@ -258,14 +258,28 @@ export class FSharpRef<T> extends Record {
 
 // EXCEPTIONS
 
-// export class Exception extends SystemObject {
-//   public stack?: string;
-//   public message?: string;
-
+// export class Exception extends Error {
 //   constructor(message?: string) {
-//     super();
-//     this.stack = Error().stack;
-//     this.message = message;
+//     super(message)
+//     if (Error.captureStackTrace) {
+//         Error.captureStackTrace(this, Exception)
+//     }
+//   }
+
+//   public toString() {
+//     return this.ToString();
+//   }
+
+//   public ToString() {
+//     return Object.getPrototypeOf(this).constructor.name;
+//   }
+
+//   public GetHashCode(x?: any) {
+//     return identityHash(x ?? this);
+//   }
+
+//   public Equals(x: any, y?: any) {
+//     return x === (y ?? this);
 //   }
 // }
 
@@ -274,6 +288,8 @@ export interface Exception extends SystemObject {
   message?: string;
 }
 
+// TODO: When moving to classTypes we can change this to a class extending error
+// See above and https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error (Custom Error Types)
 export const Exception = declare(function Exception(this: Exception, message?: string) {
   this.stack = Error().stack;
   this.message = message;
@@ -288,11 +304,6 @@ function getFSharpExceptionFieldNames(self: any) {
 }
 
 export class FSharpException extends Exception implements IComparable<any> {
-
-  public toString() {
-    return this.ToString();
-  }
-
   public toJSON() {
     return recordToJson(this, getFSharpExceptionFieldNames);
   }

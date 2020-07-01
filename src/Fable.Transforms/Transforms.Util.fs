@@ -390,29 +390,29 @@ module AST =
         let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import(makeStrConst selector, makeStrConst path, Internal, t, None)
 
-    let makeSimpleArgInfo thisArg args argTypes =
+    let makeSimpleCallInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
           SignatureArgTypes = argTypes
-          Spread = NoSpread
-          IsConstructorCall = false
-          IsBaseConstructorCall = false
-          IsSelfConstructorCall = false }
+          HasSpread = false
+          AutoUncurrying = false
+          IsJsConstructor = false }
 
-    let staticCall r t argInfo functionExpr =
-        Operation(Call(StaticCall functionExpr, argInfo), t, r)
+    let destructureTupleArgs = function
+        | [MaybeCasted(Value(NewTuple(args),_))] -> args
+        | args -> args
 
-    let constructorCall r t argInfo consExpr =
-        Operation(Call(ConstructorCall consExpr, argInfo), t, r)
-
-    let instanceCall r t argInfo memb =
-        Operation(Call(InstanceCall memb, argInfo), t, r)
+    let makeCall r t argInfo calleeExpr =
+        Operation(Call(calleeExpr, argInfo), t, r)
 
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
+
+    let getSimple (left: Expr) membName =
+        makeStrConst membName |> getExpr left.Range Any left
 
     let getNumberKindName kind =
         match kind with

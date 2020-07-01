@@ -1,7 +1,6 @@
 import { value as getOptionValue } from "./Option";
-import { generics as genericsSymbol, baseGenerics as baseGenericsSymbol } from "./Symbol";
-import { anonRecord as makeAnonRecord, Record, Union, List, isException } from "./Types";
-import { compareArraysWith, equalArraysWith, isArrayLike, isDisposable, isIterable } from "./Util";
+import { anonRecord as makeAnonRecord, Record, Union, List } from "./Types";
+import { compareArraysWith, equalArraysWith, isArrayLike } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -420,44 +419,21 @@ export function getCaseFields(x: any): any[] {
   return x.fields;
 }
 
-type BasicTypeForTesting =
-    | "any" | "unit" | "boolean" | "number" | "string" | "tuple"
-    | "array" | "list" | "option" | "disposable" | "seq" | "exn";
-type TypeForTesting = BasicTypeForTesting | FunctionConstructor;
-type TypeForTestingWithGenArgs = TypeForTesting | [TypeForTesting, TypeForTestingWithGenArgs[]];
-type GenericArgsMap = Map<FunctionConstructor, TypeForTestingWithGenArgs[]>;
+type TypeTester =
+    | "any"
+    | "unit"
+    | "boolean"
+    | "number"
+    | "string"
+    | ["tuple", TypeTester[]]
+    | ["array", TypeTester|undefined]
+    | ["list", TypeTester]
+    | ["option", TypeTester]
+    | FunctionConstructor
 
-export function withGenerics<T>(x: T, ...gen: TypeForTestingWithGenArgs[]): T {
-    function addGenerics(proto: any, gen: TypeForTestingWithGenArgs[], genMap: GenericArgsMap): GenericArgsMap {
-        const cons = proto.constructor;
-        genMap.set(cons, gen);
-        const baseGen = (cons as any)[baseGenericsSymbol];
-        return typeof baseGen === "function"
-            ? addGenerics(Object.getPrototypeOf(proto), baseGen(gen), genMap)
-            : genMap;
-    }
-    const genMap: GenericArgsMap = new Map();
-    (x as any)[genericsSymbol] = addGenerics(Object.getPrototypeOf(x), gen, genMap);
-    return x;
-}
-
-function typeForTestingEquals(x: TypeForTestingWithGenArgs, y: TypeForTestingWithGenArgs): boolean {
-    return y === "any" || (!Array.isArray(x)
-        ? x === y
-        : Array.isArray(y)
-            && x[0] === y[0]
-            && x[1].length === y[1].length
-            && x[1].every((x, i) => typeForTestingEquals(x, y[1][i])));
-}
-
-export function typeTest(x: any, typeWithGenArgs: TypeForTestingWithGenArgs): boolean {
-    let expectedGenArgs: TypeForTestingWithGenArgs[] = [];
-    const expectedType = Array.isArray(typeWithGenArgs)
-        ? (expectedGenArgs = typeWithGenArgs[1], typeWithGenArgs[0])
-        : typeWithGenArgs;
-
-    if (typeof expectedType === "string") {
-        switch (expectedType) {
+export function typeTest(x: any, typeTester: TypeTester): boolean {
+    if (typeof typeTester === "string") {
+        switch (typeTester) {
             case "any":
                 return true;
             case "unit":
@@ -468,42 +444,31 @@ export function typeTest(x: any, typeWithGenArgs: TypeForTestingWithGenArgs): bo
                 return typeof x === "number";
             case "string":
                 return typeof x === "string";
-            case "tuple":
-                return Array.isArray(x)
-                    && x.length === expectedGenArgs.length
-                    && x.every((x, i) => typeTest(x, expectedGenArgs[i]));
-            case "array":
-                return isArrayLike(x)
-                    && (x.length === 0
-                        || expectedGenArgs.length === 0
-                        || typeTest(x[0], expectedGenArgs[0]));
-            case "list":
-                return x instanceof List
-                    && (x.tail == null || typeTest(x.head, expectedGenArgs[0]));
-            case "option":
-                return x == null || typeTest(getOptionValue(x), expectedGenArgs[0]);
-            case "disposable":
-                return isDisposable(x);
-            case "exn":
-                return isException(x);
-            // TODO: If we have an expectedGenArg try to check for the interface
-            // or whether we can get a value (e.g. if x is an array)
-            case "seq":
-                return isIterable(x);
+            // case "disposable": return isDisposable(x);
+            // case "seq": return isIterable(x);
             default:
                 return false;
         }
-    } else if (!(x instanceof expectedType)) {
-        return false;
-    } else if (expectedGenArgs.length === 0) {
-        return true;
-    } else {
-        let actualGenArgs = x[genericsSymbol] as TypeForTestingWithGenArgs[];
-        if (actualGenArgs == null) {
-            return false;
-        } else if (actualGenArgs instanceof Map) {
-            actualGenArgs = actualGenArgs.get(expectedType);
+    } else if (Array.isArray(typeTester)) {
+        switch (typeTester[0]) {
+            case "tuple":
+                return Array.isArray(x)
+                    && x.length === typeTester[1].length
+                    && x.every((x, i) => typeTest(x, typeTester[1][i]));
+            case "array":
+                return isArrayLike(x)
+                    && (x.length === 0
+                        || typeTester[1] == null
+                        || typeTest(x[0], typeTester[1]));
+            case "list":
+                return x instanceof List
+                    && (x.tail == null || typeTest(x.head, typeTester[1]));
+            case "option":
+                return x == null || typeTest(getOptionValue(x), typeTester[1]);
+            default:
+                return false
         }
-        return actualGenArgs.every((x, i) => typeForTestingEquals(x, expectedGenArgs[i]));
+    } else {
+        return x instanceof typeTester;
     }
 }
