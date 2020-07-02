@@ -1919,12 +1919,13 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t) |> makeValue r |> Some
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
-    | ("OfObj" | "OfNullable"), [c] -> TypeCast(c, t) |> Some
-    | ("ToObj" | "ToNullable" | "Flatten"), [c] ->
-        Helper.CoreCall("Option", "tryValue", t, args, ?loc=r) |> Some
+    | ("OfObj" | "OfNullable"), _ ->
+        Helper.CoreCall("Option", "ofNullable", t, args, ?loc=r) |> Some
+    | ("ToObj" | "ToNullable"), _ ->
+        Helper.CoreCall("Option", "toNullable", t, args, ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+    | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
         Helper.CoreCall("Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", [arg] ->
         toArray r t arg |> Some
