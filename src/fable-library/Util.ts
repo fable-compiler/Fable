@@ -27,17 +27,8 @@ export interface IDateTimeOffset extends Date {
   offset?: number;
 }
 
-export interface IComparer<T> {
-  Compare(x: T, y: T): number;
-}
-
 export interface IComparable<T> {
   CompareTo(x: T): number;
-}
-
-export interface IEqualityComparer<T> {
-  Equals(x: T, y: T): boolean;
-  GetHashCode(x: T): number;
 }
 
 export interface IEquatable<T> {
@@ -50,6 +41,49 @@ export interface IHashable {
 
 export interface IDisposable {
   Dispose(): void;
+}
+
+export interface IComparer<T> {
+  Compare(x: T, y: T): number;
+}
+
+export interface IEqualityComparer<T> {
+  Equals(x: T, y: T): boolean;
+  GetHashCode(x: T): number;
+}
+
+export interface ICollection<T> {
+  readonly Count: number;
+  readonly IsReadOnly: boolean;
+  Add(item: T): void;
+  Clear(): void;
+  Contains(item: T): boolean;
+  CopyTo(array: T[], arrayIndex: number): void;
+  Remove(item: T): boolean;
+}
+
+export interface IMutableMap<K, V> {
+  readonly size: number;
+  clear(): void;
+  delete(key: K): boolean;
+  get(key: K): V | undefined;
+  has(key: K): boolean;
+  set(key: K, value: V): this;
+  keys(): Iterable<K>;
+  values(): Iterable<V>;
+  entries(): Iterable<[K, V]>;
+}
+
+export interface IMutableSet<T> {
+  readonly size: number;
+  add(value: T): this;
+  add_(value: T): boolean;
+  clear(): void;
+  delete(value: T): boolean;
+  has(value: T): boolean;
+  keys(): Iterable<T>;
+  values(): Iterable<T>;
+  entries(): Iterable<[T, T]>;
 }
 
 export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
@@ -468,12 +502,40 @@ function changeCase(str: string, caseRule: number) {
   }
 }
 
-export function createObj(fields: Iterable<any>, caseRule = CaseRules.None) {
+export function createObj(fields: Iterable<[string, any]>) {
+  const obj: any = {};
+  for (let kv of fields) {
+    obj[kv[0]] = kv[1];
+  }
+  return obj;
+}
+
+export function createObjDebug(fields: Iterable<[string, any]>) {
+  const obj: any = {};
+  for (let kv of fields) {
+    if (kv[0] in obj) {
+      console.error(new Error(`Property ${kv[0]} is duplicated`));
+    }
+    obj[kv[0]] = kv[1];
+  }
+  return obj;
+}
+
+export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None, isDebug = false) {
+  const obj: { [k: string]: any } = {};
+  const definedCaseRule = caseRule;
+
   function fail(kvPair: any) {
     throw new Error("Cannot infer key and value of " + String(kvPair));
   }
-  const o: { [k: string]: any } = {};
-  const definedCaseRule = caseRule;
+  function assign(key: string, caseRule: number, value: any) {
+      key = changeCase(key, caseRule);
+      if (isDebug && key in obj) {
+        console.warn(`Key ${key} is overwritten when creating JS object`);
+      }
+      obj[key] = value;
+  }
+
   for (let kvPair of fields) {
     let caseRule = CaseRules.None;
     if (kvPair == null) {
@@ -490,22 +552,22 @@ export function createObj(fields: Iterable<any>, caseRule = CaseRules.None) {
           fail(kvPair);
           break;
         case 1:
-          o[changeCase(kvPair[0], caseRule)] = true;
+          assign(kvPair[0], caseRule, true);
           break;
         case 2:
           const value = kvPair[1];
-          o[changeCase(kvPair[0], caseRule)] = value;
+          assign(kvPair[0], caseRule, value);
           break;
         default:
-          o[changeCase(kvPair[0], caseRule)] = kvPair.slice(1);
+          assign(kvPair[0], caseRule, kvPair.slice(1));
       }
     } else if (typeof kvPair === "string") {
-      o[changeCase(kvPair, caseRule)] = true;
+      assign(kvPair, caseRule, true);
     } else {
       fail(kvPair);
     }
   }
-  return o;
+  return obj;
 }
 
 export function jsOptions(mutator: (x: object) => void): object {

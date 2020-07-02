@@ -52,8 +52,16 @@ let buildTypescript projectDir =
     // run ("npx tslint --project " + projectDir)
     run ("npx tsc --project " + projectDir)
 
+// TODO: Run fable-splitter tests
+let buildFableSplitter() =
+    buildTypescript "src/fable-splitter"
+
 let buildSplitterWithArgs projectDir args =
-    run ("npx fable-splitter -c " + (projectDir </> "splitter.config.js") + " " + args)
+    if pathExists "src/fable-splitter/dist" |> not then
+        buildFableSplitter()
+        runInDir "src/fable-splitter" "npm install"
+
+    run ("node src/fable-splitter/dist/cli -c " + (projectDir </> "splitter.config.js") + " " + args)
 
 let buildSplitter projectDir =
     buildSplitterWithArgs projectDir ""
@@ -64,7 +72,19 @@ let buildWebpack projectDir =
 let buildLibrary() =
     cleanDirs ["build/fable-library"]
     buildTypescript "src/fable-library"
+    run "dotnet build src/Fable.Core"
     buildSplitter "src/fable-library"
+
+let buildLibraryTs() =
+    let projectDir = "src/fable-library"
+    let buildDirTs = "build/fable-library-ts"
+    let buildDirJs = "build/fable-library-js"
+    cleanDirs [buildDirTs; buildDirJs]
+    buildSplitterWithArgs projectDir ("--typescript --classTypes --outDir " + buildDirTs)
+    // TODO: cleanDirs [buildDirTs </> "fable-library"]
+    // TODO: copy *.ts/*.js from projectDir to buildDir
+    runInDir buildDirTs "npx tsc --init --target es2020 --module es2020 --allowJs"
+    runInDir buildDirTs ("npx tsc --outDir ../../" + buildDirJs)
 
 let quicktest additionalCommands =
     cleanDirs ["build/fable-library"]
@@ -210,10 +230,6 @@ let downloadStandalone() =
     cleanDirs [targetDir]
     downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
 
-// TODO: Run fable-splitter tests
-let buildFableSplitter() =
-    buildTypescript "src/fable-splitter"
-
 let githubRelease() =
     match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with
     | Some user, Some token ->
@@ -303,6 +319,7 @@ match argsLower with
     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
     |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
+| ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-compiler"|"compiler")::_ -> buildCompiler()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
 | ("fable-splitter"|"splitter")::_ -> buildFableSplitter()

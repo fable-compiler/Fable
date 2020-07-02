@@ -636,7 +636,7 @@ let ofArray (arr: 'T array) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
 
 let toList (s: Set<'T>) = SetTree.toList s.Tree
 
-let toArray (s: Set<'T>) ([<Inject>] cons: Array.IArrayCons<'T>) =
+let toArray (s: Set<'T>) ([<Inject>] cons: IArrayCons<'T>) =
     let n = (count s)
     let res = cons.Create n
     SetTree.copyToArray s.Tree res 0
@@ -681,38 +681,38 @@ let maxElement (s: Set<'T>) = s.MaximumElement
 //     abstract values: unit -> 'T seq
 //     abstract entries: unit -> ('T * 'T) seq
 
-let private createMutablePrivate (comparer: IComparer<'T>) tree' =
-    let mutable tree = tree'
-    { new IMutableSet<'T> with
-        member __.size = SetTree.count tree
-        member this.add x =
-            tree <- SetTree.add comparer x tree
-            this
-        member __.add_ x =
-            if SetTree.mem comparer x tree
-            then false
-            else tree <- SetTree.add comparer x tree; true
-        member __.clear () =
-            tree <- SetEmpty
-        member __.delete x =
-            if SetTree.mem comparer x tree
-            then tree <- SetTree.remove comparer x tree; true
-            else false
-        member __.has x =
-            SetTree.mem comparer x tree
-        member __.keys () =
-            SetTree.toSeq tree
-        member __.values () =
-            SetTree.toSeq tree
-        member __.entries () =
-            SetTree.toSeq tree |> Seq.map (fun v -> (v, v))
-    interface IEnumerable<_> with
-        member __.GetEnumerator() =
-            SetTree.mkIEnumerator tree
-    interface IEnumerable with
-        member __.GetEnumerator() =
-            upcast SetTree.mkIEnumerator tree
-    }
+// let private createMutablePrivate (comparer: IComparer<'T>) tree' =
+//     let mutable tree = tree'
+//     { new IMutableSet<'T> with
+//         member __.size = SetTree.count tree
+//         member this.add x =
+//             tree <- SetTree.add comparer x tree
+//             this
+//         member __.add_ x =
+//             if SetTree.mem comparer x tree
+//             then false
+//             else tree <- SetTree.add comparer x tree; true
+//         member __.clear () =
+//             tree <- SetEmpty
+//         member __.delete x =
+//             if SetTree.mem comparer x tree
+//             then tree <- SetTree.remove comparer x tree; true
+//             else false
+//         member __.has x =
+//             SetTree.mem comparer x tree
+//         member __.keys () =
+//             SetTree.toSeq tree
+//         member __.values () =
+//             SetTree.toSeq tree
+//         member __.entries () =
+//             SetTree.toSeq tree |> Seq.map (fun v -> (v, v))
+//     interface IEnumerable<_> with
+//         member __.GetEnumerator() =
+//             SetTree.mkIEnumerator tree
+//     interface IEnumerable with
+//         member __.GetEnumerator() =
+//             upcast SetTree.mkIEnumerator tree
+//     }
 
 /// Emulate JS Set with custom comparer for non-primitive values
 

@@ -136,7 +136,7 @@ and transformExpr (info: TransformInfo) (expr: Expr) =
         | ObjectExpr(keyValueParis) ->
             keyValueParis
             |> List.map (fun (k, v) -> k, transformExpr info v)
-            |> makeObjExpr Fable.Any
+            |> objExpr Fable.Any
         | Apply(expr, argExprs) -> transformApply info false expr argExprs
         | ApplyNew(expr, argExprs) -> transformApply info true expr argExprs
         | Let(var, value, body) ->

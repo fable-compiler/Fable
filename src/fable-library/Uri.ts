@@ -4,7 +4,7 @@ export const enum UriKind {
   Relative = 2,
 }
 
-export default class Uri {
+export class Uri {
   private url?: string | URL;
   private kind?: UriKind;
 
@@ -112,3 +112,5 @@ export default class Uri {
     return this.parseUrl().hash;
   }
 }
+
+export default Uri;

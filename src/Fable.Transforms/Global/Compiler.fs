@@ -9,7 +9,8 @@ type Verbosity =
 type CompilerOptions =
     { typedArrays: bool
       clampByteArrays: bool
-      typeDecls: bool
+      classTypes: bool
+      typescript: bool
       debugMode: bool
       verbosity: Verbosity
       /// Meant for precompiled libraries (like the Repl Lib)

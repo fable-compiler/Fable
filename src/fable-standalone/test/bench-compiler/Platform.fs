@@ -4,7 +4,8 @@ type CmdLineOptions = {
     commonjs: bool
     optimize: bool
     sourceMaps: bool
-    typeDecls: bool
+    classTypes: bool
+    typescript: bool
     watchMode: bool
 }
 
@@ -79,6 +80,17 @@ let getDirFiles (path: string) (extension: string) =
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
 
+let getGlobFiles (path: string) =
+    if path.Contains("*") || path.Contains("?") then
+        let normPath = path.Replace('\\', '/')
+        let i = normPath.LastIndexOf('/')
+        let pattern = normPath.Substring(i + 1)
+        let dirPath = if i < 0 then "" else normPath.Substring(0, i)
+        Directory.GetFiles(dirPath, pattern, SearchOption.AllDirectories)
+        |> Array.map (fun x -> x.Replace('\\', '/'))
+        |> Array.sort
+    else [| path |]
+
 #else
 
 open Fable.Core.JsInterop
@@ -103,6 +115,9 @@ module JS =
         abstract resolve: string -> string
         abstract relative: string * string -> string
 
+    type IGlob =
+        abstract sync: pattern: string * ?options: obj -> array<string>
+
     type IUtil =
         abstract serializeToJson: data: obj -> string
         abstract ensureDirExists: dir: string -> unit
@@ -115,6 +130,7 @@ module JS =
     let os: IOperSystem = importAll "os"
     let process: IProcess = importAll "process"
     let path: IPath = importAll "path"
+    // let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
     // let performance: IPerformance = importMember "perf_hooks"
 
@@ -151,6 +167,17 @@ let getDirFiles (path: string) (extension: string) =
     |> Array.filter (fun x -> x.EndsWith(extension))
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
+
+let getGlobFiles (path: string) =
+    if path.Contains("*") || path.Contains("?") then
+        // JS.glob.sync(path) // commented to remove dependency
+        // replaced with fixed globbing pattern (*.fs)
+        let normPath = path.Replace('\\', '/')
+        let i = normPath.LastIndexOf('/')
+        // let pattern = normPath.Substring(i + 1) // ignored
+        let dirPath = if i < 0 then "" else normPath.Substring(0, i)
+        getDirFiles dirPath ".fs"
+    else [| path |]
 
 #endif
 

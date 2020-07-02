@@ -1,4 +1,4 @@
-import { declare, Union } from "./Types";
+import { Union } from "./Types";
 import { compare, equals, structuralHash } from "./Util";
 
 // Options are erased in runtime by Fable, but we have
@@ -7,8 +7,11 @@ import { compare, equals, structuralHash } from "./Util";
 
 // 1- `None` is always `undefined` in runtime, a non-strict null check
 //    (`x == null`) is enough to check the case of an option.
-// 2- To get the value of an option the `getValue` helper
+// 2- To get the value of an option the `value` helper
 //    below must **always** be used.
+
+// Note: We use non-strict null check for backwards compatibility with
+// code that use F# options to represent values that could be null in JS
 
 export type Option<T> = T | Some<T> | undefined;
 
@@ -20,13 +23,17 @@ export class Some<T> {
     this.value = value;
   }
 
-  // Don't add "Some" for consistency with erased options
   public toString() {
-    return String(this.value);
+    return this.ToString();
   }
 
   public toJSON() {
     return this.value;
+  }
+
+  // Don't add "Some" for consistency with erased options
+  public ToString() {
+    return String(this.value);
   }
 
   public GetHashCode() {
@@ -62,8 +69,19 @@ export function value<T>(x: Option<T>) {
   }
 }
 
-export function tryValue<T>(x: Option<T>) {
-  return x instanceof Some ? x.value : x;
+export function ofNullable<T>(x: T|null): Option<T> {
+  // This will fail with unit probably, an alternative would be:
+  // return x === null ? undefined : (x === undefined ? new Some(x) : x);
+  return x == null ? undefined : x;
+}
+
+export function toNullable<T>(x: Option<T>): T|null {
+  return x == null ? null : value(x);
+}
+
+
+export function flatten<T>(x: Option<Option<T>>) {
+  return x == null ? undefined : value(x);
 }
 
 export function toArray<T>(opt: Option<T>): T[] {
@@ -111,41 +129,54 @@ export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
 }
 
 // CHOICE
-export type Choice<T, U> = Union;
 
-export const Choice = declare(function Choice<T, U>(this: Choice<T, U>, tag: number, name: string, field: T | U) {
-  Union.call(this, tag, name, field);
-}, Union);
-
-export function choice1<T, U>(x: T | U): Choice<T, U> {
-  return new Choice(0, "Choice1Of2", x);
+export class Choice<_T1, _T2> extends Union {
+    public cases() { return ["Choice1Of2", "Choice2Of2"]; }
+}
+export class Choice3<_T1, _T2, _T3> extends Union {
+    public cases() { return ["Choice1Of3", "Choice2Of3", "Choice3Of3"]; }
+}
+export class Choice4<_T1, _T2, _T3, _T4> extends Union {
+    public cases() { return ["Choice1Of4", "Choice2Of4", "Choice3Of4", "Choice4Of4"]; }
+}
+export class Choice5<_T1, _T2, _T3, _T4, _T5> extends Union {
+    public cases() { return ["Choice1Of5", "Choice2Of5", "Choice3Of5", "Choice4Of5", "Choice5Of5"]; }
+}
+export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> extends Union {
+    public cases() { return ["Choice1Of6", "Choice2Of6", "Choice3Of6", "Choice4Of6", "Choice5Of6", "Choice6Of6"]; }
+}
+export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> extends Union {
+    public cases() { return ["Choice1Of7", "Choice2Of7", "Choice3Of7", "Choice4Of7", "Choice5Of7", "Choice6Of7", "Choice7Of7"]; }
 }
 
-export function choice2<T, U>(x: T | U): Choice<T, U> {
-  return new Choice(1, "Choice2Of2", x);
+export function choice1Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
+  return new Choice(0, x);
 }
 
-export function tryValueIfChoice1<T, U>(x: Choice<T, U>): Option<T> {
+export function choice2Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
+  return new Choice(1, x);
+}
+
+export function tryValueIfChoice1Of2<T1, T2>(x: Choice<T1, T2>): Option<T1> {
   return x.tag === 0 ? some(x.fields[0]) : undefined;
 }
 
-export function tryValueIfChoice2<T, U>(x: Choice<T, U>): Option<U> {
+export function tryValueIfChoice2Of2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
   return x.tag === 1 ? some(x.fields[0]) : undefined;
 }
 
 // RESULT
-export type Result<T, U> = Union;
 
-export const Result = declare(function Result<T, U>(this: Result<T, U>, tag: number, name: string, field: T | U) {
-  Union.call(this, tag, name, field);
-}, Union);
+export class Result<_T, _U> extends Union {
+    public cases() { return ["Ok", "Error"]; }
+}
 
 export function ok<T, U>(x: T | U): Result<T, U> {
-  return new Result(0, "Ok", x);
+  return new Result(0, x);
 }
 
 export function error<T, U>(x: T | U): Result<T, U> {
-  return new Result(1, "Error", x);
+  return new Result(1, x);
 }
 
 export function mapOk<T, U>(f: (arg: T) => T, result: Result<T, U>) {

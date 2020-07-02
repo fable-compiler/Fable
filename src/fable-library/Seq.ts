@@ -6,11 +6,10 @@ import { compare, equals, IComparer, IDisposable } from "./Util";
 export interface IEnumerator<T> {
   Current: T | undefined;
   MoveNext(): boolean;
-  // Dispose(): void;
-  // Reset(): void;
+  Reset(): void;
 }
 
-export interface IEnumerable<T> {
+export interface IEnumerable<T> extends Iterable<T> {
   GetEnumerator(): IEnumerator<T>;
 }
 
@@ -25,7 +24,7 @@ interface IGenericAverager<T> {
   DivideByInt(x: T, i: number): T;
 }
 
-export class Enumerator<T> implements IEnumerator<T> {
+export class Enumerator<T> implements IEnumerator<T>, IDisposable {
   private current?: T;
   constructor(private iter: Iterator<T>) { }
   public MoveNext() {
@@ -44,18 +43,18 @@ export class Enumerator<T> implements IEnumerator<T> {
   }
 }
 
-export function getEnumerator<T>(o: any): IEnumerator<T> {
+export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
   return new Enumerator(o[Symbol.iterator]());
 }
 
-export function toIterator<T>(en: IEnumerator<T>) {
+export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   return {
     next() {
       return en.MoveNext()
         ? { done: false, value: en.Current }
         : { done: true, value: undefined };
     },
-  };
+  } as Iterator<T>;
 }
 
 // export function toIterable<T>(en: IEnumerable<T>): Iterable<T> {
@@ -147,7 +146,7 @@ export function averageBy<T, T2>(f: (a: T) => T2, xs: Iterable<T>, averager: IGe
 export function concat<T>(xs: Iterable<Iterable<T>>): Iterable<T> {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
-    let output: any = { value: undefined };
+    let output: T;
     return unfold((innerIter) => {
       let hasFinished = false;
       while (!hasFinished) {
@@ -161,14 +160,14 @@ export function concat<T>(xs: Iterable<Iterable<T>>): Iterable<T> {
         } else {
           const cur = innerIter.next();
           if (!cur.done) {
-            output = { value: cur.value };
+            output = cur.value;
             hasFinished = true;
           } else {
             innerIter = undefined;
           }
         }
       }
-      return innerIter != null && output != null ? [output.value, innerIter] : undefined;
+      return innerIter != null ? [output, innerIter] : undefined;
     }, undefined as Iterator<T> | undefined);
   });
 }
@@ -201,7 +200,11 @@ export function delay<T>(f: () => Iterable<T>): Iterable<T> {
 }
 
 export function empty<T>(): Iterable<T> {
-  return unfold(() => undefined, undefined);
+  return [];
+}
+
+export function singleton<T>(y: T): Iterable<T> {
+  return [y];
 }
 
 export function enumerateFromFunctions<T, Enumerator>(
@@ -221,9 +224,11 @@ export function enumerateThenFinally<T>(xs: Iterable<T>, finalFn: () => void) {
     try {
       iter = xs[Symbol.iterator]();
     } catch (err) {
-      return empty<T>();
-    } finally {
-      finalFn();
+      try {
+        return empty<T>();
+      } finally {
+        finalFn();
+      }
     }
     return unfold((it) => {
       try {
@@ -583,13 +588,13 @@ export function rangeChar(first: string, last: string) {
 }
 
 export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean): Iterable<Long> {
-  const stepFn = makeLongRangeStepFunction(step, last, unsigned);
-  return delay(() => unfold(stepFn as any, first));
+  const stepFn = makeLongRangeStepFunction(step, last, unsigned) as (arg: Long) => Option<[Long, Long]>;
+  return delay(() => unfold(stepFn, first));
 }
 
 export function rangeDecimal(first: Decimal, step: Decimal, last: Decimal): Iterable<Decimal> {
-  const stepFn = makeDecimalRangeStepFunction(step, last);
-  return delay(() => unfold(stepFn as any, first));
+  const stepFn = makeDecimalRangeStepFunction(step, last) as (arg: Decimal) => Option<[Decimal, Decimal]>;
+  return delay(() => unfold(stepFn, first));
 }
 
 export function rangeNumber(first: number, step: number, last: number) {
@@ -665,10 +670,6 @@ export function scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: 
   return reverse(scan((acc, x) => f(x, acc), seed, reverse(xs)));
 }
 
-export function singleton<T>(y: T): Iterable<T> {
-  return [y];
-}
-
 export function skip<T>(n: number, xs: Iterable<T>): Iterable<T> {
   return makeSeq(() => {
     const iter = xs[Symbol.iterator]();
@@ -701,7 +702,7 @@ export function sumBy<T, T2>(f: (x: T) => T2, xs: Iterable<T>, adder: IGenericAd
   return fold((acc, x) => adder.Add(acc, f(x)), adder.GetZero(), xs);
 }
 
-export function tail<T>(xs: Iterable<T>): Iterable<T> {
+export function tail<T>(xs: Iterable<T>) {
   return skip(1, xs);
 }
 
@@ -821,7 +822,7 @@ export function unfold<T, ST>(f: (st: ST) => Option<[T, ST]>, fst: ST): Iterable
     // so the sequence is restarted every time, see #1230
     let acc = fst;
     const iter: Iterator<T> = {
-      next: () => {
+      next(): IteratorResult<T> {
         const res = f(acc);
         if (res != null) {
           const v = value(res);
@@ -853,7 +854,7 @@ export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T
     let window: T[] = [];
     const iter = source[Symbol.iterator]();
     const iter2: Iterator<T[]> = {
-      next: () => {
+      next(): IteratorResult<T[]> {
         let cur: IteratorResult<T>;
         while (window.length < windowSize) {
           if ((cur = iter.next()).done) {
@@ -874,7 +875,7 @@ export function transpose<T>(source: Iterable<Iterable<T>>): Iterable<Iterable<T
   return makeSeq(() => {
     const iters = Array.from(source, (x) => x[Symbol.iterator]());
     const iter: Iterator<Iterable<T>> = {
-      next: () => {
+      next(): IteratorResult<Iterable<T>> {
         if (iters.length === 0) {
           return { done: true, value: undefined }; // empty sequence
         }

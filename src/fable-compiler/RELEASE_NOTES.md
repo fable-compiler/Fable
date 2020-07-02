@@ -1,3 +1,15 @@
+### 2.10.1
+
+* Improve compiler switch `--classTypes` @ncave
+* Fix #2070: Private fields in derived classes overwrite fields from parent
+
+### 2.10.0
+
+* Adds cosh, sinh, and tanh operator support @sasmithjr
+* Compile `Option.None` as undefined @ncave
+* Can compile types as classes with compiler switch `--classTypes` @ncave
+* Fix System.Activator.CreateInstance (only for primary constructor)
+
 ### 2.9.0
 
 * Related to #2043: Better error logging when an invalid JSON output happen (by @forki)

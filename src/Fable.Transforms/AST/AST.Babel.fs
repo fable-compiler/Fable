@@ -82,9 +82,10 @@ type TaggedTemplateExpression(tag, quasi, ?loc) =
 
 // Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
-type Identifier(name, ?typeAnnotation, ?loc) =
+type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
     inherit PatternExpression("Identifier", ?loc = loc)
     member __.Name: string = name
+    member __.Optional: bool option = optional
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
     override __.ToString() = __.Name
 
@@ -430,11 +431,12 @@ type CallExpression(callee, arguments, ?loc) =
     // member __.Arguments: U2<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
 
-type NewExpression(callee, arguments, ?loc) =
+type NewExpression(callee, arguments, ?typeArguments, ?loc) =
     inherit Expression("NewExpression", ?loc = loc)
     member __.Callee: Expression = callee
     // member __.Arguments: U2<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
+    member __.TypeArguments: TypeParameterInstantiation option = typeArguments
 
 /// A comma-separated sequence of expressions.
 type SequenceExpression(expressions, ?loc) =
@@ -559,7 +561,7 @@ type RestElement(argument, ?typeAnnotation, ?loc) =
 type ClassMethodKind =
     | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
 
-type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) =
+type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) =
     inherit Node("ClassMethod", ?loc = loc)
     let kind =
         match kind_ with
@@ -567,6 +569,7 @@ type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstrac
         | ClassGetter -> "get"
         | ClassSetter -> "set"
         | ClassFunction -> "method"
+    let computed = defaultArg computed_ false
     member __.Kind = kind
     member __.Key: Expression = key
     member __.Params: Pattern array = ``params``
@@ -582,10 +585,12 @@ type ClassMethod(kind_, key, ``params``, body, computed, ?``static``, ?``abstrac
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassProperty(key, ?value, ?typeAnnotation, ?loc) =
+type ClassProperty(key, ?value, ?``static``, ?optional, ?typeAnnotation, ?loc) =
     inherit Node("ClassProperty", ?loc = loc)
     member __.Key: U2<Identifier, StringLiteral> = key
     member __.Value: Expression option = value
+    member __.Static: bool option = ``static``
+    member __.Optional: bool option = optional
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
 type ClassImplements(id, ?typeParameters, ?loc) =
@@ -727,7 +732,7 @@ type GenericTypeAnnotation(id, ?typeParameters) =
     member __.Id: Identifier = id
     member __.TypeParameters: TypeParameterInstantiation option = typeParameters
 
-type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto) =
+type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto, ?method) =
     inherit Node("ObjectTypeProperty")
     member __.Key: U2<Identifier, StringLiteral> = key
     member __.Value: TypeAnnotationInfo = value
@@ -735,6 +740,7 @@ type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto) =
     member __.Static: bool option = ``static``
     member __.Optional: bool option = optional
     member __.Proto: bool option = proto
+    member __.Method: bool option = method
 
 type ObjectTypeIndexer(key, value, ?id, ?``static``) =
     inherit Node("ObjectTypeIndexer")

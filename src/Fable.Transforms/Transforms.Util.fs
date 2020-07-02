@@ -8,6 +8,7 @@ module Atts =
     let [<Literal>] compiledName = "Microsoft.FSharp.Core.CompiledNameAttribute" // typeof<CompiledNameAttribute>.FullName
     let [<Literal>] entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
     let [<Literal>] sealed_ = "Microsoft.FSharp.Core.SealedAttribute" // typeof<Microsoft.FSharp.Core.SealedAttribute>.FullName
+    let [<Literal>] mangle = "Fable.Core.MangleAttribute" // typeof<Fable.Core.MangleAttribute>.FullName
     let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
@@ -69,8 +70,13 @@ module Types =
     let [<Literal>] fsharpSet = "Microsoft.FSharp.Collections.FSharpSet`1"
     let [<Literal>] ienumerableGeneric = "System.Collections.Generic.IEnumerable`1"
     let [<Literal>] ienumerable = "System.Collections.IEnumerable"
+    let [<Literal>] ienumeratorGeneric = "System.Collections.Generic.IEnumerator`1"
+    let [<Literal>] ienumerator = "System.Collections.IEnumerator"
+    let [<Literal>] icollectionGeneric = "System.Collections.Generic.ICollection`1"
+    let [<Literal>] icollection = "System.Collections.ICollection"
     let [<Literal>] iequatableGeneric = "System.IEquatable`1"
     let [<Literal>] iequatable = "System.IEquatable"
+    let [<Literal>] icomparableGeneric = "System.IComparable`1"
     let [<Literal>] icomparable = "System.IComparable"
     let [<Literal>] idisposable = "System.IDisposable"
     let [<Literal>] reference = "Microsoft.FSharp.Core.FSharpRef`1"
@@ -81,7 +87,7 @@ module Types =
     // Types compatible with Inject attribute
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
     let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
-    let [<Literal>] arrayCons = "Array.IArrayCons`1"
+    let [<Literal>] arrayCons = "Fable.Core.IArrayCons`1"
     let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
     let [<Literal>] adder = "Fable.Core.IGenericAdder`1"
     let [<Literal>] averager = "Fable.Core.IGenericAverager`1"
@@ -159,24 +165,28 @@ module Extensions =
 module Log =
     open Fable
 
-    let private addLog (com: ICompiler) inlinePath range msg severity =
-        let printInlineSource refPath path r =
-            let path = Path.getRelativeFileOrDirPath false refPath false path
-            match r with
+    type InlinePath = {
+        ToFile: string
+        ToRange: SourceLocation option
+        FromFile: string
+        FromRange: SourceLocation option
+    }
+
+    let private addLog (com: ICompiler) (inlinePath: InlinePath list) range msg severity =
+        let printInlineSource fromPath (p: InlinePath) =
+            let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
+            match p.FromRange with
             | Some r -> sprintf "%s(%i,%i)" path r.start.line r.start.column
             | None -> path
-        let rec buildInlinePath acc refPath r = function
-            | [] ->
-                (printInlineSource refPath com.CurrentFile r)::acc
-                |> List.rev |> String.concat " < "
-                |> (+) " - Inline call from "
-            | (file,r2)::rest ->
-                let acc = (printInlineSource refPath file r)::acc
-                buildInlinePath acc refPath r2 rest
         let actualFile, msg =
             match inlinePath with
             | [] -> com.CurrentFile, msg
-            | (file,r)::inlinePath -> file, msg + (buildInlinePath [] file r inlinePath)
+            | { ToFile = file }::_ ->
+                let inlinePath =
+                    inlinePath
+                    |> List.map (printInlineSource file)
+                    |> String.concat " < "
+                file, msg + " - Inline call from " + inlinePath
         com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
     let addWarning (com: ICompiler) inlinePath range warning =
@@ -353,6 +363,9 @@ module AST =
     let makeEqOp range left right op =
         Operation(BinaryOperation(op, left, right), Boolean, range)
 
+    let makeNull () =
+        Value(Null Any, None)
+
     let makeValue r value =
         Value(value, r)
 
@@ -381,31 +394,39 @@ module AST =
         let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import(makeStrConst selector, makeStrConst path, Internal, t, None)
 
-    let makeObjExpr t kvs =
-        let kvs = List.map (fun (k,v) -> ObjectMember(makeStrConst k, v, ObjectValue)) kvs
-        ObjectExpr(kvs, t, None)
+    let objValue (k, v) =
+        [], v, Fable.AttachedMemberInfo(k, None, isValue=true)
 
-    let argInfo thisArg args argTypes =
+    let typedObjExpr t kvs =
+        ObjectExpr(List.map objValue kvs, t, None)
+
+    let objExpr kvs =
+        typedObjExpr Fable.Any kvs
+
+    let makeSimpleCallInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
           SignatureArgTypes = argTypes
-          Spread = NoSpread
-          IsBaseOrSelfConstructorCall = false }
+          HasSpread = false
+          AutoUncurrying = false
+          IsJsConstructor = false }
 
-    let staticCall r t argInfo functionExpr =
-        Operation(Call(StaticCall functionExpr, argInfo), t, r)
+    let destructureTupleArgs = function
+        | [MaybeCasted(Value(UnitConstant,_))] -> []
+        | [MaybeCasted(Value(NewTuple(args),_))] -> args
+        | args -> args
 
-    let constructorCall r t argInfo consExpr =
-        Operation(Call(ConstructorCall consExpr, argInfo), t, r)
-
-    let instanceCall r t argInfo memb =
-        Operation(Call(InstanceCall memb, argInfo), t, r)
+    let makeCall r t argInfo calleeExpr =
+        Operation(Call(calleeExpr, argInfo), t, r)
 
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
+
+    let getSimple (left: Expr) membName =
+        makeStrConst membName |> getExpr left.Range Any left
 
     let getNumberKindName kind =
         match kind with
@@ -464,7 +485,6 @@ module AST =
         | Option t1, Option t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
-        | ErasedUnion ts1, ErasedUnion ts2
         | Tuple ts1, Tuple ts2 -> listEquals (typeEquals strict) ts1 ts2
         | FunctionType(LambdaType a1, t1), FunctionType(LambdaType a2, t2) ->
             typeEquals strict a1 a2 && typeEquals strict t1 t2
@@ -503,8 +523,7 @@ module AST =
         | Boolean -> Types.bool
         | Char    -> Types.char
         | String  -> Types.string
-        // TODO: Type info forErasedUnion?
-        | ErasedUnion _ | Any -> Types.object
+        | Any -> Types.object
         | Number kind ->
             match kind with
             | Int8    -> Types.int8

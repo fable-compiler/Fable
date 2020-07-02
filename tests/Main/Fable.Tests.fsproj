@@ -9,7 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
-    <PackageReference Include="FSharp.Core" Version="4.7.1" />
+    <PackageReference Include="FSharp.Core" Version="4.7.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />

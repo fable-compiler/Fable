@@ -71,7 +71,8 @@ module internal BigNatModule =
         //  let p,k,m,g,w =  469762049L, 26,  7, 1226571, 288772249     // p is 29 bit 
         
 
-        let p,k,m,g,w = 2013265921L, 27, 15,      31, 440564289     // p is 31 bit 
+        let p = 2013265921L // p is 31 bit
+        let k,m,g,w = 27, 15, 31, 440564289
         let primeP = p  
 
         let maxBitsInsideFp = 30    
@@ -1094,8 +1095,8 @@ module internal BigNatModule =
       // Continue until z = 0, which happens since z decreases towards 0.
       // Done.
       //
-      let invariant (_,_,_) = ()     
-    #if CHECKED
+      // let invariant (_,_,_) = ()     
+#if CHECKED
       let x_initial = copyN x
       let x_result  = sub x_initial (shiftUp n (scale f a))
       let invariant (z,j,n) =
@@ -1109,7 +1110,7 @@ module internal BigNatModule =
         check P1 "P1";
         check P2 "P2"
      
-    #endif
+#endif
       let xres = x
       let x,xd = x.digits,degree x
       let a,ad = a.digits,degree a
@@ -1118,7 +1119,9 @@ module internal BigNatModule =
       let mutable z = f * int64 a.[0]
       while( z > 0L || j < ad ) do
         if j > xd then failwith "scaleSubInPlace: pre-condition did not apply, result would be -ve";
+#if CHECKED
         invariant(z,j,n); // P1,P2 hold 
+#endif
         let mutable zLo = mod64base z |> int32
         let mutable zHi = div64base z
         if zLo <= x.[j+n] then
@@ -1199,7 +1202,7 @@ module internal BigNatModule =
       // Continue until z = 0, which happens since z decreases towards 0.
       // Done.
       //
-      let invariant (_,_,_) = ()     
+      // let invariant (_,_,_) = ()     
 #if CHECKED
       let x_initial = copyN x
       let x_result  = add x_initial (shiftUp n (scale f a))
@@ -1223,7 +1226,9 @@ module internal BigNatModule =
       let mutable z = f * int64 a.[0]
       while( z > 0L || j < ad ) do
         if j > xd then failwith "scaleSubInPlace: pre-condition did not apply, result would be -ve";
+#if CHECKED
         invariant(z,j,n); // P1,P2 hold 
+#endif
         let mutable zLo = mod64base z |> int32
         let mutable zHi = div64base z
         if zLo < baseN - x.[j+n] then

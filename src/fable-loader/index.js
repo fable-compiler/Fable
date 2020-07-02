@@ -16,7 +16,6 @@ function ensureArray(obj) {
 }
 
 var customPlugins = [
-    babelPlugins.getRemoveUnneededNulls(),
     babelPlugins.getTransformMacroExpressions(babel.template)
 ];
 

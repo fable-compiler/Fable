@@ -5,6 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Fable TCP server",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/netcoreapp2.1/Fable.Cli.dll",
+            "args": ["start", "--port", "61225"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+
+        {
+            "type": "node",
+            "name": "fable-splitter",
+            "program": "${workspaceFolder}/src/fable-splitter/dist/cli.js",
+            "request": "launch",
+            "args": ["-c", "tests/splitter.config.js"],
+            "cwd": "${workspaceRoot}",
+            "stopOnEntry": true
+        },
+        {
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
@@ -33,6 +53,7 @@
             "program": "${workspaceRoot}/src/quicktest/bin/QuickTest.js",
             "args": ["--help"],
             "cwd": "${workspaceRoot}/src/quicktest",
+            "sourceMaps": false,
             "stopOnEntry": true
         },
         {

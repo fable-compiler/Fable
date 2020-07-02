@@ -49,12 +49,31 @@ type Props =
 
 let [<Emit("arguments.length")>] argCount: int = jsNative
 
-type IAdder =
-    [<Emit("$1 + $2")>]
-    abstract Add: int * int -> int
+[<Erase>]
+type ErasedUnion =
+    | ErasedInt of int
+    | ErasedString of string
+    member this.SayHi() =
+        match this with
+        | ErasedInt i -> sprintf "Hi %i time(s)!" i
+        | ErasedString s -> sprintf "Hi %s!" s
 
 [<Erase>]
-let adder: IAdder = jsNative
+type ErasedUnionWithMultipleFields =
+    | ErasedUnionWithMultipleFields of string * int
+
+[<Erase; RequireQualifiedAccess>]
+type MyErasedUnion2 =
+    | Foo
+    | Ohmy
+    | Bar of float
+    | Baz of int[]
+
+[<Erase(CaseRules.KebabCase); RequireQualifiedAccess>]
+type MyErasedUnion3 =
+    | FooBar
+    | OhMyDear
+    | AnotherNumber of int
 
 type TextStyle =
     [<Emit("\"foo\"")>]
@@ -99,6 +118,12 @@ type MyCssOptions =
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
+    with member this.Kind =
+            match this with
+            | OldPassword -> "Old"
+            | NewPassword -> "New"
+            | ConfirmPassword -> "Confirm"
+         static member Default = NewPassword
 
 type MyInterface =
     abstract foo: int
@@ -108,6 +133,10 @@ let validatePassword = function
     | OldPassword -> "op"
     | NewPassword -> "np"
     | ConfirmPassword -> "cp"
+
+type JsOptions =
+    abstract foo: string with get, set
+    abstract bar: int with get, set
 
 let tests =
   testList "JsInterop" [
@@ -268,12 +297,62 @@ let tests =
         o?add(2,3) |> equal 10
 
     testCase "Erase attribute works" <| fun () ->
-        adder.Add(4, 5) |> equal 9
+        let convert = function
+            | ErasedInt i -> string(i * 2)
+            | ErasedString s -> "x" + s + "x"
+        ErasedInt 4 |> convert |> equal "8"
+        ErasedString "ab" |> convert |> equal "xabx"
+
+    testCase "Erased types can have members" <| fun () ->
+        let x = ErasedString "Patrick"
+        x.SayHi() |> equal "Hi Patrick!"
+
+    testCase "Erased unions with multiple fields work" <| fun _ ->
+        let gimme (ErasedUnionWithMultipleFields(s, i)) =
+            sprintf "Gimme %i %ss" i s
+        ("apple", 5)
+        |> ErasedUnionWithMultipleFields
+        |> gimme
+        |> equal "Gimme 5 apples"
+
+    testCase "Erased unions can have cases representing literal strings" <| fun _ ->
+        let getValue = function
+            | MyErasedUnion2.Foo -> 5
+            | MyErasedUnion2.Ohmy -> 0
+            | MyErasedUnion2.Bar f -> int f
+            | MyErasedUnion2.Baz xs -> Array.sum xs
+
+        MyErasedUnion2.Bar 4.4 |> getValue |> equal 4
+        MyErasedUnion2.Ohmy |> getValue |> equal 0
+        MyErasedUnion2.Baz [|1;2;3|] |> getValue |> equal 6
+        MyErasedUnion2.Foo |> getValue |> equal 5
+        box MyErasedUnion2.Foo |> equal (box "foo")
+        box MyErasedUnion2.Ohmy |> equal (box "ohmy")
+
+    testCase "Erased unions can have case rules" <| fun _ ->
+        let getValue = function
+            | MyErasedUnion3.FooBar -> 5
+            | MyErasedUnion3.OhMyDear -> 0
+            | MyErasedUnion3.AnotherNumber i -> i
+
+        MyErasedUnion3.AnotherNumber 3 |> getValue |> equal 3
+        MyErasedUnion3.OhMyDear |> getValue |> equal 0
+        MyErasedUnion3.FooBar |> getValue |> equal 5
+        box MyErasedUnion3.OhMyDear |> equal (box "oh-my-dear")
+        box MyErasedUnion3.FooBar |> equal (box "foo-bar")
 
     testCase "Emit attribute works" <| fun () ->
         let style = createEmpty<TextStyle>
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
+
+    testCase "emitJs works" <| fun () ->
+        let x = 4
+        let y = 8
+        let z1: int = emitJs "$0 * Math.pow(2, $1)" (x, y)
+        let z2: int = emitJs "$0 << $1" (x, y)
+        equal z1 z2
+        equal 1024 z1
 
     testCase "Assigning null with emit works" <| fun () ->
         let x = createEmpty<obj>
@@ -339,12 +418,27 @@ let tests =
         3 |> add 2 |> equal 5
 
     testCase "TypedArray element can be set and get using index" <| fun () ->
-        let arr = JS.Uint8Array.Create(5)
+        let arr = JS.Constructors.Uint8Array.Create(5)
         arr.[0] <- 5uy
-        equal 5uy arr.[0] 
+        equal 5uy arr.[0]
+
+    testCase "jsOptions works" <| fun _ ->
+        let opts = jsOptions<JsOptions>(fun o ->
+            o.foo <- "bar"
+            o.bar <- 5)
+        opts.foo |> equal "bar"
+        opts.bar |> equal 5
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
         validatePassword NewPassword
         |> equal "np"
+
+    testCase "StringEnums can have members" <| fun () ->
+        let x = ConfirmPassword
+        x.Kind |> equal "Confirm"
+
+    testCase "StringEnums can have static members" <| fun () ->
+        let x = Field.Default
+        validatePassword x |> equal "np"
   ]

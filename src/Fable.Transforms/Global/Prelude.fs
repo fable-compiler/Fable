@@ -1,17 +1,5 @@
 namespace Fable
 
-type ResizeArrayDictionary<'K, 'V when 'K : equality>() =
-    let dic = System.Collections.Generic.Dictionary<'K, ResizeArray<'V>>()
-    member __.Count = dic.Count
-    member __.Add(k: 'K, v: 'V) =
-        match dic.TryGetValue(k) with
-        | true, xs -> xs.Add(v)
-        | false, _ -> dic.Add(k, ResizeArray [|v|])
-    member __.Get(k: 'K) =
-        match dic.TryGetValue(k) with
-        | true, xs -> Seq.toList xs
-        | false, _ -> []
-
 #if FABLE_COMPILER
 type ConcurrentDictionary<'TKey, 'TValue when 'TKey : equality>() =
     let dic = System.Collections.Generic.Dictionary<'TKey, 'TValue>()
@@ -151,11 +139,6 @@ module Naming =
 
     let isInFableHiddenDir (file: string) =
         file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableHiddenDir)
-
-    let ignoredAttachedMembers =
-        set [ "System-Collections-IEnumerator-get_Current"
-              "System-Collections-IEnumerable-GetEnumerator"
-              "System-IEquatable`1-Equals" ]
 
     let umdModules =
         set ["commonjs"; "amd"; "umd"]

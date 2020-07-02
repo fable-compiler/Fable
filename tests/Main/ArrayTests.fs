@@ -63,6 +63,7 @@ let tests =
         add [|5;-7|] |> equal -2
 
 #if FABLE_COMPILER
+#if FABLE_TYPED_ARRAYS
     testCase "Typed Arrays work" <| fun () ->
         let xs = [| 1; 2; 3; |]
         let ys = [| 1.; 2.; 3.; |]
@@ -78,6 +79,12 @@ let tests =
         let ys = [| 1; 2; 3; |] |> Array.map float
         ys |> jsConstructorIs "Float64Array" |> equal true
         ys |> Array.sum |> equal 6.0
+
+    testCase "Byte arrays are not clamped by default" <| fun () ->
+        let ar = Util2.Helper2.CreateArray()
+        ar.[0] <- ar.[0] + 255uy
+        equal 4uy ar.[0]
+#endif
 
     testCase "Mapping from Typed to Dynamic Arrays works" <| fun () ->
         let xs = [| 1; 2; 3; |] |> Array.map string
@@ -111,11 +118,6 @@ let tests =
         (box xs.[0]) :? string |> equal true
         let xs2 = Array.map string [|1;2|]
         (box xs2.[1]) :? string |> equal true
-
-    testCase "Byte arrays are not clamped by default" <| fun () ->
-        let ar = Util2.Helper2.CreateArray()
-        ar.[0] <- ar.[0] + 255uy
-        equal 4uy ar.[0]
 
     // TODO: How to test at the same time that both clamped and non-clamped arrays work?
 // #if FABLE_COMPILER

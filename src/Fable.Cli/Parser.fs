@@ -9,8 +9,11 @@ type Message =
     { path: string
       rootDir: string
       define: string[]
+      noReferences: bool
       typedArrays: bool
       clampByteArrays: bool
+      classTypes: bool
+      typescript: bool
       extra: IDictionary<string,string> }
 
 let private parseStringArray (def: string[]) (key: string) (o: JObject)  =
@@ -53,7 +56,8 @@ let private parseDic (key: string) (o: JObject): IDictionary<string,string> =
 let toCompilerOptions (msg: Message): CompilerOptions =
     { typedArrays = msg.typedArrays
       clampByteArrays = msg.clampByteArrays
-      typeDecls = msg.extra.ContainsKey("typescript")
+      classTypes = msg.classTypes
+      typescript = msg.typescript
       debugMode = Array.contains "DEBUG" msg.define
       verbosity = GlobalParams.Singleton.Verbosity
       outputPublicInlinedFunctions = Array.contains "FABLE_REPL_LIB" msg.define
@@ -72,6 +76,9 @@ let parse (msg: string) =
         parseStringArray [||] "define" json
         |> Array.append [|Naming.fableCompilerConstant|]
         |> Array.distinct
-      typedArrays = parseBoolean true "typedArrays" json
+      noReferences = parseBoolean false "noReferences" json
+      typedArrays = parseBoolean false "typedArrays" json
       clampByteArrays = parseBoolean false "clampByteArrays" json
+      classTypes = parseBoolean false "classTypes" json
+      typescript = parseBoolean false "typescript" json
       extra = parseDic "extra" json }

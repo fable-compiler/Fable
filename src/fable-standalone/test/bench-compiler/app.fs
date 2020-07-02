@@ -19,9 +19,10 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
         failwith "Too many errors."
 
 let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
-    { typedArrays = not (options.typeDecls)
+    { typedArrays = false
       clampByteArrays = false
-      typeDecls = options.typeDecls
+      classTypes = options.classTypes
+      typescript = options.typescript
       precompiledLib = None }
 
 let parseFiles projectFileName outDir options =
@@ -99,7 +100,8 @@ let parseArguments (argv: string[]) =
             commonjs = opts |> Array.contains "--commonjs"
             optimize = opts |> Array.contains "--optimize-fcs"
             sourceMaps = opts |> Array.contains "--sourceMaps"
-            typeDecls = opts |> Array.contains "--typescript"
+            classTypes = opts |> Array.contains "--classTypes"
+            typescript = opts |> Array.contains "--typescript"
             watchMode = opts |> Array.contains "--watch"
         }
         parseFiles projectFileName outDir options

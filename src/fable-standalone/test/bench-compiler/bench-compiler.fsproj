@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <RollForward>Major</RollForward>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <!-- CoreRT optimization settings (https://aka.ms/OptimizeCoreRT) -->
-  <PropertyGroup>
+  <!-- <PropertyGroup>
     <IlcDisableReflection>false</IlcDisableReflection>
     <RootAllApplicationAssemblies>false</RootAllApplicationAssemblies>
     <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
@@ -18,16 +18,16 @@
     <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
     <IlcInvariantGlobalization>true</IlcInvariantGlobalization>
     <IlcOptimizationPreference>Size</IlcOptimizationPreference>
-  </PropertyGroup>
+  </PropertyGroup> -->
 
   <ItemGroup>
     <RdXmlFile Include="rd.xml" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.7.1" />
+    <PackageReference Include="FSharp.Core" Version="4.7.2" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="1.0.0-alpha-*" />
+    <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="1.0.0-alpha-*" /> -->
   </ItemGroup>
 
   <ItemGroup>

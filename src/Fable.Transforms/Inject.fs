@@ -30,7 +30,7 @@ let (|GeneratedInterface|_|) com ctx r t =
         match typDef.TryFullName with
         | Some Types.typeResolver ->
             let fn = Fable.Value(Fable.TypeInfo t, r) |> makeDelegate []
-            Replacements.makeFunctionsObject ["ResolveType", fn] |> Some
+            Replacements.Helpers.objExpr ["ResolveType", fn] |> Some
         | Some Types.comparer ->
             Replacements.makeComparer com t |> Some
         | Some Types.equalityComparer ->

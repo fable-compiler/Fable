@@ -8,6 +8,7 @@ const babelOptions = useCommonjs
   : {};
 
 const fableOptions = {
+  typedArrays: true,
   define: [
     "FX_NO_CORHOST_SIGNER",
     "FX_NO_LINKEDRESOURCES",

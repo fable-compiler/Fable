@@ -6,12 +6,11 @@ import { IAsyncContext } from "./AsyncBuilder";
 import { protectedCont } from "./AsyncBuilder";
 import { protectedBind } from "./AsyncBuilder";
 import { protectedReturn } from "./AsyncBuilder";
-import { choice1, choice2 } from "./Option";
+import { choice1Of2, choice2Of2 } from "./Option";
 import { map } from "./Seq";
 
 // Implemented just for type references
-export default class Async<_T> {
-}
+export class Async<_T> { }
 
 function emptyContinuation<T>(_x: T) {
   // NOP
@@ -78,8 +77,8 @@ export const defaultCancellationToken = new CancellationToken();
 export function catchAsync<T>(work: IAsync<T>) {
   return protectedCont((ctx: IAsyncContext<any>) => { // ctx: IAsyncContext<Choice<T, Error>>
     work({
-      onSuccess: (x) => ctx.onSuccess(choice1(x)),
-      onError: (ex) => ctx.onSuccess(choice2(ex)),
+      onSuccess: (x) => ctx.onSuccess(choice1Of2(x)),
+      onError: (ex) => ctx.onSuccess(choice2Of2(ex)),
       onCancel: ctx.onCancel,
       cancelToken: ctx.cancelToken,
       trampoline: ctx.trampoline,
@@ -147,3 +146,5 @@ export function startAsPromise<T>(computation: IAsync<T>, cancellationToken?: Ca
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
 }
+
+export default Async;

@@ -1,5 +1,5 @@
 // tslint:disable: space-before-function-paren
-import { combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
 
 function sameType(x: any, y: any) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
@@ -7,63 +7,49 @@ function sameType(x: any, y: any) {
 
 // Taken from Babel helpers
 function inherits(subClass: any, superClass: any) {
-  // if (typeof superClass !== "function" && superClass !== null) {
-  //   throw new TypeError(
-  //     "Super expression must either be null or a function, not " +
-  //       typeof superClass
-  //   );
-  // }
-  subClass.prototype = Object.create(superClass && superClass.prototype, {
-    constructor: {
-      value: subClass,
-      enumerable: false,
-      writable: true,
-      configurable: true,
-    },
-  });
-  // if (superClass)
-  //   Object.setPrototypeOf
-  //     ? Object.setPrototypeOf(subClass, superClass)
-  //     : (subClass.__proto__ = superClass);
+    // if (typeof superClass !== "function" && superClass !== null) {
+    //   throw new TypeError(
+    //     "Super expression must either be null or a function, not " +
+    //       typeof superClass
+    //   );
+    // }
+    subClass.prototype = Object.create(superClass && superClass.prototype, {
+      constructor: {
+        value: subClass,
+        enumerable: false,
+        writable: true,
+        configurable: true,
+      },
+    });
+    // if (superClass)
+    //   Object.setPrototypeOf
+    //     ? Object.setPrototypeOf(subClass, superClass)
+    //     : (subClass.__proto__ = superClass);
+  }
+
+  export function declare(cons: any, superClass?: any) {
+    inherits(cons, superClass || SystemObject);
+    return cons;
 }
 
-export function declare(cons: any, superClass?: any) {
-  inherits(cons, superClass || SystemObject);
-  return cons;
+export class SystemObject implements IEquatable<any> {
+
+  public toString() {
+    return this.ToString();
+  }
+
+  public ToString() {
+    return Object.getPrototypeOf(this).constructor.name;
+  }
+
+  public GetHashCode(x?: any) {
+    return identityHash(x ?? this);
+  }
+
+  public Equals(x: any, y?: any) {
+    return x === (y ?? this);
+  }
 }
-
-export interface IEquatable {
-  Equals(other: any): boolean;
-}
-
-export interface IHashable {
-  GetHashCode(): number;
-}
-
-export interface IComparable {
-  CompareTo(other: any): number;
-}
-
-export interface SystemObject {
-  Equals(other: any): boolean;
-  GetHashCode(): number;
-}
-
-export function SystemObject() {
-  return;
-}
-
-SystemObject.prototype.toString = function () {
-  return "{" + Object.keys(this).map((k) => k + " = " + String(this[k])).join(";\n ") + "}";
-};
-
-SystemObject.prototype.GetHashCode = function () {
-  return identityHash(this);
-};
-
-SystemObject.prototype.Equals = function (other: any) {
-  return this === other;
-};
 
 function compareList<T>(self: List<T>, other: List<T>) {
   if (self === other) {
@@ -83,7 +69,7 @@ function compareList<T>(self: List<T>, other: List<T>) {
   }
 }
 
-export class List<T> implements SystemObject, IComparable, Iterable<T> {
+export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
   public head: T;
   public tail?: List<T>;
 
@@ -93,7 +79,7 @@ export class List<T> implements SystemObject, IComparable, Iterable<T> {
   }
 
   public toString() {
-    return "[" + Array.from(this).join("; ") + "]";
+    return this.ToString();
   }
 
   public toJSON() {
@@ -112,6 +98,10 @@ export class List<T> implements SystemObject, IComparable, Iterable<T> {
     };
   }
 
+  public ToString() {
+    return "[" + Array.from(this).join("; ") + "]";
+  }
+
   public GetHashCode() {
     const hashes = Array.from(this).map(structuralHash);
     return combineHashCodes(hashes);
@@ -126,59 +116,66 @@ export class List<T> implements SystemObject, IComparable, Iterable<T> {
   }
 }
 
-export interface Union extends SystemObject, IComparable {
-  tag: number;
-  name: string;
-  fields: any[];
-}
+export class Union extends SystemObject implements IComparable<any> {
+  public tag: number;
+  public fields: any[];
 
-export function Union(this: Union, tag: number, name: string, ...fields: any[]) {
-  this.tag = tag | 0;
-  this.name = name;
-  this.fields = fields;
-}
-
-Union.prototype.toString = function () {
-  const len = this.fields.length;
-  if (len === 0) {
-    return this.name;
-  } else if (len === 1) {
-    return this.name + " " + String(this.fields[0]);
-  } else {
-    return this.name + " (" + this.fields.map((x: any) => String(x)).join(",") + ")";
+  public cases(): string[] {
+      return [];
   }
-};
 
-Union.prototype.toJSON = function () {
-  return this.fields.length === 0
-    ? this.name
-    : [this.name].concat(this.fields);
-};
-
-Union.prototype.GetHashCode = function () {
-  const hashes = this.fields.map((x: any) => structuralHash(x));
-  hashes.splice(0, 0, numberHash(this.tag));
-  return combineHashCodes(hashes);
-};
-
-Union.prototype.Equals = function (other: any) {
-  return this === other
-    || (sameType(this, other)
-      && this.tag === other.tag
-      && equalArrays(this.fields, other.fields));
-};
-
-Union.prototype.CompareTo = function (other: any) {
-  if (this === other) {
-    return 0;
-  } else if (!sameType(this, other)) {
-    return -1;
-  } else if (this.tag === other.tag) {
-    return compareArrays(this.fields, other.fields);
-  } else {
-    return this.tag < other.tag ? -1 : 1;
+  public get name(): string {
+      return this.cases()[this.tag];
   }
-};
+
+  constructor(tag: number, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.fields = fields;
+  }
+
+  public ToString() {
+    const len = this.fields.length;
+    if (len === 0) {
+      return this.name;
+    } else if (len === 1) {
+      return this.name + " " + String(this.fields[0]);
+    } else {
+      return this.name + " (" + this.fields.map((x: any) => String(x)).join(",") + ")";
+    }
+  }
+
+  public toJSON() {
+    return this.fields.length === 0
+      ? this.name
+      : [this.name].concat(this.fields);
+  }
+
+  public GetHashCode() {
+    const hashes = this.fields.map((x: any) => structuralHash(x));
+    hashes.splice(0, 0, numberHash(this.tag));
+    return combineHashCodes(hashes);
+  }
+
+  public Equals(other: any) {
+    return this === other
+      || (sameType(this, other)
+        && this.tag === other.tag
+        && equalArrays(this.fields, other.fields));
+  }
+
+  public CompareTo(other: any) {
+    if (this === other) {
+      return 0;
+    } else if (!sameType(this, other)) {
+      return -1;
+    } else if (this.tag === other.tag) {
+      return compareArrays(this.fields, other.fields);
+    } else {
+      return this.tag < other.tag ? -1 : 1;
+    }
+  }
+}
 
 function recordToJson(record: any, getFieldNames?: (arg: any) => any) {
   const o: any = {};
@@ -222,53 +219,77 @@ function recordCompare(self: any, other: any, getFieldNames?: (arg: any) => any)
   }
 }
 
-export interface Record extends SystemObject, IComparable {
+export class Record extends SystemObject implements IComparable<any> {
+
+  public ToString() {
+    return "{" + Object.entries(this).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
+  }
+
+  public toJSON() {
+    return recordToJson(this);
+  }
+
+  public GetHashCode() {
+    const hashes = Object.values(this).map((v) => structuralHash(v));
+    return combineHashCodes(hashes);
+  }
+
+  public Equals(other: any) {
+    return recordEquals(this, other);
+  }
+
+  public CompareTo(other: any) {
+    return recordCompare(this, other);
+  }
 }
-
-export function Record() {
-  return;
-}
-
-Record.prototype.toString = function () {
-  return "{" + Object.keys(this).map((k) => k + " = " + String(this[k])).join(";\n ") + "}";
-};
-
-Record.prototype.toJSON = function () {
-  return recordToJson(this);
-};
-
-Record.prototype.GetHashCode = function () {
-  const hashes = Object.keys(this).map((k) => structuralHash(this[k]));
-  return combineHashCodes(hashes);
-};
-
-Record.prototype.Equals = function (other: any) {
-  return recordEquals(this, other);
-};
-
-Record.prototype.CompareTo = function (other: any) {
-  return recordCompare(this, other);
-};
 
 export function anonRecord(o: any) {
   return Object.assign(Object.create(Record.prototype), o);
 }
 
-export interface FSharpRef<T> extends Record {
-  contents: T;
+export class FSharpRef<T> extends Record {
+  public contents: T;
+
+  constructor(contents: T | null) {
+    super();
+    this.contents = contents as T;
+  }
 }
 
-export const FSharpRef = declare(function FSharpRef<T>(this: FSharpRef<T>, contents: T) {
-  this.contents = contents;
-}, Record);
-
 // EXCEPTIONS
+
+// export class Exception extends Error {
+//   constructor(message?: string) {
+//     super(message)
+//     if (Error.captureStackTrace) {
+//         Error.captureStackTrace(this, Exception)
+//     }
+//   }
+
+//   public toString() {
+//     return this.ToString();
+//   }
+
+//   public ToString() {
+//     return Object.getPrototypeOf(this).constructor.name;
+//   }
+
+//   public GetHashCode(x?: any) {
+//     return identityHash(x ?? this);
+//   }
+
+//   public Equals(x: any, y?: any) {
+//     return x === (y ?? this);
+//   }
+// }
 
 export interface Exception extends SystemObject {
   stack?: string;
   message?: string;
 }
 
+// TODO: When moving to classTypes we can change this to a class extending error
+// See above and https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error (Custom Error Types)
 export const Exception = declare(function Exception(this: Exception, message?: string) {
   this.stack = Error().stack;
   this.message = message;
@@ -282,54 +303,51 @@ function getFSharpExceptionFieldNames(self: any) {
   return Object.keys(self).filter((k) => k !== "message" && k !== "stack");
 }
 
-export interface FSharpException extends Exception, IComparable {
-}
-
-export const FSharpException = declare(function FSharpException(this: FSharpException) {
-  Exception.call(this);
-}, Exception);
-
-FSharpException.prototype.toString = function () {
-  const fieldNames = getFSharpExceptionFieldNames(this);
-  const len = fieldNames.length;
-  if (len === 0) {
-    return this.message;
-  } else if (len === 1) {
-    return this.message + " " + String(this[fieldNames[0]]);
-  } else {
-    return this.message + " (" + fieldNames.map((k) => String(this[k])).join(",") + ")";
+export class FSharpException extends Exception implements IComparable<any> {
+  public toJSON() {
+    return recordToJson(this, getFSharpExceptionFieldNames);
   }
-};
 
-FSharpException.prototype.toJSON = function () {
-  return recordToJson(this, getFSharpExceptionFieldNames);
-};
+  public ToString() {
+    // const fieldNames = getFSharpExceptionFieldNames(this);
+    const fields = Object.entries(this).filter(([k, _]) => k !== "message" && k !== "stack");
+    const len = fields.length;
+    if (len === 0) {
+      return this.message ?? "";
+    } else if (len === 1) {
+      return this.message + " " + String(fields[1]);
+    } else {
+      return this.message + " (" + fields.map(([_, v]) => String(v)).join(",") + ")";
+    }
+  }
 
-FSharpException.prototype.GetHashCode = function () {
-  const hashes = getFSharpExceptionFieldNames(this).map((k) => structuralHash(this[k]));
-  return combineHashCodes(hashes);
-};
+  public GetHashCode() {
+    const fields = Object.entries(this).filter(([k, _]) => k !== "message" && k !== "stack");
+    const hashes = fields.map(([_, v]) => structuralHash(v));
+    return combineHashCodes(hashes);
+  }
 
-FSharpException.prototype.Equals = function (other: any) {
-  return recordEquals(this, other, getFSharpExceptionFieldNames);
-};
+  public Equals(other: any) {
+    return recordEquals(this, other, getFSharpExceptionFieldNames);
+  }
 
-FSharpException.prototype.CompareTo = function (other: any) {
-  return recordCompare(this, other, getFSharpExceptionFieldNames);
-};
-
-export interface MatchFailureException extends FSharpException {
-  arg1: string;
-  arg2: number;
-  arg3: number;
+  public CompareTo(other: any) {
+    return recordCompare(this, other, getFSharpExceptionFieldNames);
+  }
 }
 
-export const MatchFailureException = declare(
-  function MatchFailureException(this: MatchFailureException, arg1: string, arg2: number, arg3: number) {
+export class MatchFailureException extends FSharpException {
+  public arg1: string;
+  public arg2: number;
+  public arg3: number;
+
+  constructor(arg1: string, arg2: number, arg3: number) {
+    super();
     this.arg1 = arg1;
     this.arg2 = arg2 | 0;
     this.arg3 = arg3 | 0;
     this.message = "The match cases were incomplete";
-  }, FSharpException);
+  }
+}
 
 export const Attribute = declare(function Attribute() { return; }, SystemObject);

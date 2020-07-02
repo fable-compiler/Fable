@@ -44,7 +44,6 @@ export function getAssemblyReader(getUrl, assemblies) {
 function babelOptions(BabelTemplate, extraPlugin) {
     var commonPlugins = [
         BabelPlugins.getTransformMacroExpressions(BabelTemplate),
-        BabelPlugins.getRemoveUnneededNulls(),
     ];
     return {
         plugins:

@@ -22,7 +22,6 @@ const JAVASCRIPT_EXT = /\.js$/;
 const MACRO = /^\${(\w+)}[\\/]?(.*?)([\\/]?)$/;
 
 const customPlugins: any[] = [
-    babelPlugins.getRemoveUnneededNulls(),
     babelPlugins.getTransformMacroExpressions(Babel.template),
 ];
 
@@ -40,7 +39,17 @@ export type FableOptions = {
     plugins?: string[],
     typedArrays?: boolean,
     clampByteArrays?: boolean,
+    classTypes?: boolean,
+    typescript?: boolean,
     // extra?: any,
+};
+
+export type RunOptions = {
+    args: string[],
+    inspect?: boolean,
+    break?: boolean,
+    host?: string,
+    port?: number,
 };
 
 export type FableSplitterOptions = {
@@ -50,10 +59,15 @@ export type FableSplitterOptions = {
     babel?: Babel.TransformOptions,
     fable?: FableOptions,
     port?: number
-    cli?: {},
+    cli?: object,
     allFiles?: boolean,
     externals?: any,
-    postbuild?: () => void,
+    run?: boolean|RunOptions,
+    debug?: boolean,
+    commonjs?: boolean,
+    watch?: boolean,
+    usePolling?: boolean,
+    onCompiled?: () => void
 };
 
 function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {
@@ -298,12 +312,13 @@ function getBabelAstFromJsFile(path: string, info: CompilationInfo) {
     });
 }
 
-function generateJsCodeFromBabelAst(ast: Babel.types.Program, code?: string,
+function generateJsCodeFromBabelAst(ast: Babel.types.Program, fullPath: string, code?: string,
                                     options?: Babel.TransformOptions) {
     return new Promise<Babel.BabelFileResult | null>((resolve) => {
         Babel.transformFromAst(ast, code, options, (error, res) => {
             if (error != null) {
-                console.error("fable: Error transforming Babel AST", error);
+                const relPath = Path.relative(process.cwd(), fullPath);
+                console.error("fable: Error transforming Babel AST in " + relPath, error);
                 resolve(null);
             } else {
                 resolve(res);
@@ -335,9 +350,11 @@ async function generateJsCode(fullPath: string, ast: Babel.types.Program,
         .concat(getResolvePathPlugin(jsDir, options));
 
     // transform and save
-    const result = await generateJsCodeFromBabelAst(ast, code, babelOptions);
+    const result = await generateJsCodeFromBabelAst(ast, fullPath, code, babelOptions);
     if (result != null) {
-        await fs.writeFile(jsPath, result.code);
+        const source = options.fable?.typescript ?
+            result.code.replace(/\$INTERFACE_DECL_PREFIX\$_/g, "") : result.code;
+        await fs.writeFile(jsPath, source);
         if (result.map) {
             await fs.appendFile(jsPath, "\n//# sourceMappingURL=" + Path.basename(jsPath) + ".map");
             await fs.writeFile(jsPath + ".map", JSON.stringify(result.map));
@@ -437,7 +454,7 @@ export default function fableSplitter(options: FableSplitterOptions, previousInf
     return transformAsync(options.path || options.entry, options, info, true)
         .then(() => {
             if (options.allFiles) {
-                const promises: Array<Promise<void>> = [];
+                const promises: Promise<void>[] = [];
                 for (const file of ensureArray(info.projectFiles)) {
                     promises.push(transformAsync(file, options, info));
                 }
@@ -458,10 +475,6 @@ export default function fableSplitter(options: FableSplitterOptions, previousInf
             const duration = (elapsed[0] + elapsed[1] / 1e9).toFixed(3);
 
             console.log(`fable: Compilation ${hasError ? "failed" : "succeeded"} at ${dateStr} (${duration} s)`);
-
-            if (!hasError && typeof options.postbuild === "function") {
-                options.postbuild();
-            }
             return info;
         })
         .catch((err) => {

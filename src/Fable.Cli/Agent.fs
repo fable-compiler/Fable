@@ -133,7 +133,7 @@ let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra opti
             else proj
     | None ->
         let projectOptions, fableLibraryDir =
-            getFullProjectOpts msg.define msg.rootDir projFile
+            getFullProjectOpts msg.define msg.noReferences msg.rootDir projFile
         Log.verbose(lazy
             let proj = getRelativePath projectOptions.ProjectFileName
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
@@ -260,7 +260,7 @@ let startCompilation (respond: obj->unit) (com: Compiler) (project: ProjectExtra
             else
                 let babel =
                     FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
-                    |> FableTransforms.optimizeFile com
+                    |> FableTransforms.transformFile com
                     |> Fable2Babel.Compiler.transformFile com
                 Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
                 |> respond

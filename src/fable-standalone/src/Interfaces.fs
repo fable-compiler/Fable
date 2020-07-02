@@ -50,7 +50,8 @@ type IBabelResult =
 type CompilerConfig =
     { typedArrays: bool
       clampByteArrays: bool
-      typeDecls: bool
+      classTypes: bool
+      typescript: bool
       precompiledLib: (string -> (string * string) option) option
     }
 

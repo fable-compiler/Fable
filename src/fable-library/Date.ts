@@ -119,7 +119,7 @@ export function toString(date: IDateTime | IDateTimeOffset, format?: string, _pr
     : dateToStringWithKind(date, format);
 }
 
-export default function DateTime(value: number, kind?: DateKind) {
+export function DateTime(value: number, kind?: DateKind) {
   const d = new Date(value) as IDateTime;
   d.kind = (kind == null ? DateKind.Unspecified : kind) | 0;
   return d;
@@ -449,3 +449,5 @@ export function isDaylightSavingTime(x: IDateTime) {
 function isDST(janOffset: number, julOffset: number, tOffset: number) {
   return Math.min(janOffset, julOffset) === tOffset;
 }
+
+export default DateTime;

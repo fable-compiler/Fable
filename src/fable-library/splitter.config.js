@@ -8,9 +8,12 @@ const babelOptions = useCommonjs
   : { };
 
 const fableOptions = {
+  typedArrays: true,
   define: [
     "FX_NO_BIGINT"
   ],
+  noReferences: true
+  // classTypes: true,
 };
 
 const outDir = useCommonjs
@@ -20,7 +23,8 @@ const outDir = useCommonjs
 module.exports = {
   cli: {
     path: resolve("../Fable.Cli"),
-    fableLibrary: "force:${outDir}"
+    fableLibrary: "force:${outDir}",
+    verbose: true
   },
   entry: resolve("Fable.Library.fsproj"),
   outDir: resolve(outDir),

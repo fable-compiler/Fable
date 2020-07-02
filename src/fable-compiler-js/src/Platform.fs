@@ -6,7 +6,8 @@ type CmdLineOptions = {
     commonjs: bool
     optimize: bool
     sourceMaps: bool
-    typeDecls: bool
+    classTypes: bool
+    typescript: bool
     watchMode: bool
 }
 
@@ -30,6 +31,9 @@ module JS =
         abstract resolve: string -> string
         abstract relative: string * string -> string
 
+    type IGlob =
+        abstract sync: pattern: string * ?options: obj -> array<string>
+
     type IUtil =
         abstract getVersion: unit -> string
         abstract ensureDirExists: dir: string -> unit
@@ -42,6 +46,7 @@ module JS =
     let os: IOperSystem = importAll "os"
     let process: IProcess = importAll "process"
     let path: IPath = importAll "path"
+    let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
 
 let readAllBytes (filePath: string) = JS.fs.readFileSync(filePath)
@@ -75,6 +80,10 @@ let getDirFiles (path: string) (extension: string) =
     |> Array.map (fun x -> x.Replace('\\', '/'))
     |> Array.sort
 
+let getGlobFiles (path: string) =
+    if path.Contains("*") || path.Contains("?")
+    then JS.glob.sync(path)
+    else [| path |]
 
 module Path =
 
