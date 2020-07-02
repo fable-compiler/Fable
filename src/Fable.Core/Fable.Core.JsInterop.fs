@@ -33,6 +33,10 @@ let (==>) (key: string) (v: obj): string*obj = jsNative
 /// E.g. `createNew myCons (arg1, arg2)` in JS becomes `new myCons(arg1, arg2)`
 let createNew (o: obj) (args: obj): obj = jsNative
 
+/// Destructure a tuple of arguments and applies to literal JS code as with EmitAttribute.
+/// E.g. `emitJs "$0 + $1" (arg1, arg2)` in JS becomes `arg1 + arg2`
+let emitJs (jsCode: string) (args: obj): 'T = jsNative
+
 /// Create a literal JS object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
 let createObj (fields: #seq<string*obj>): obj = jsNative

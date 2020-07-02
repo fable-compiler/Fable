@@ -20,6 +20,7 @@ type MangleAttribute() =
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
 type EraseAttribute() =
     inherit Attribute()
+    new (caseRules: CaseRules) = EraseAttribute()
 
 /// The module, type, function... is globally accessible in JS.
 /// More info: http://fable.io/docs/interacting.html#Import-attribute

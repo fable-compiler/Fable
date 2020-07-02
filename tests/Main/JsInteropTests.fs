@@ -62,6 +62,19 @@ type ErasedUnion =
 type ErasedUnionWithMultipleFields =
     | ErasedUnionWithMultipleFields of string * int
 
+[<Erase; RequireQualifiedAccess>]
+type MyErasedUnion2 =
+    | Foo
+    | Ohmy
+    | Bar of float
+    | Baz of int[]
+
+[<Erase(CaseRules.KebabCase); RequireQualifiedAccess>]
+type MyErasedUnion3 =
+    | FooBar
+    | OhMyDear
+    | AnotherNumber of int
+
 type TextStyle =
     [<Emit("\"foo\"")>]
     abstract Bar : string
@@ -302,10 +315,44 @@ let tests =
         |> gimme
         |> equal "Gimme 5 apples"
 
+    testCase "Erased unions can have cases representing literal strings" <| fun _ ->
+        let getValue = function
+            | MyErasedUnion2.Foo -> 5
+            | MyErasedUnion2.Ohmy -> 0
+            | MyErasedUnion2.Bar f -> int f
+            | MyErasedUnion2.Baz xs -> Array.sum xs
+
+        MyErasedUnion2.Bar 4.4 |> getValue |> equal 4
+        MyErasedUnion2.Ohmy |> getValue |> equal 0
+        MyErasedUnion2.Baz [|1;2;3|] |> getValue |> equal 6
+        MyErasedUnion2.Foo |> getValue |> equal 5
+        box MyErasedUnion2.Foo |> equal (box "foo")
+        box MyErasedUnion2.Ohmy |> equal (box "ohmy")
+
+    testCase "Erased unions can have case rules" <| fun _ ->
+        let getValue = function
+            | MyErasedUnion3.FooBar -> 5
+            | MyErasedUnion3.OhMyDear -> 0
+            | MyErasedUnion3.AnotherNumber i -> i
+
+        MyErasedUnion3.AnotherNumber 3 |> getValue |> equal 3
+        MyErasedUnion3.OhMyDear |> getValue |> equal 0
+        MyErasedUnion3.FooBar |> getValue |> equal 5
+        box MyErasedUnion3.OhMyDear |> equal (box "oh-my-dear")
+        box MyErasedUnion3.FooBar |> equal (box "foo-bar")
+
     testCase "Emit attribute works" <| fun () ->
         let style = createEmpty<TextStyle>
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
+
+    testCase "emitJs works" <| fun () ->
+        let x = 4
+        let y = 8
+        let z1: int = emitJs "$0 * Math.pow(2, $1)" (x, y)
+        let z2: int = emitJs "$0 << $1" (x, y)
+        equal z1 z2
+        equal 1024 z1
 
     testCase "Assigning null with emit works" <| fun () ->
         let x = createEmpty<obj>
@@ -371,7 +418,7 @@ let tests =
         3 |> add 2 |> equal 5
 
     testCase "TypedArray element can be set and get using index" <| fun () ->
-        let arr = JS.Uint8Array.Create(5)
+        let arr = JS.Constructors.Uint8Array.Create(5)
         arr.[0] <- 5uy
         equal 5uy arr.[0]
 

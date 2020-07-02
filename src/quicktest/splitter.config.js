@@ -1,13 +1,12 @@
 const path = require("path");
+const portArgIndex = process.argv.indexOf("--port");
 
 module.exports = {
-  cli: {
-    // verbose: true,
-    path: resolve("../Fable.Cli")
-  },
+  port: portArgIndex >= 0 ?  process.argv[portArgIndex + 1] : undefined,
+  noReferences: true,
+  cli: { path: resolve("../Fable.Cli") },
   entry: resolve("QuickTest.fsproj"),
 //   outDir: resolve("temp"),
-//   port: 61225,
   fable: {
     noRestore: true,
     noReferences: true,
