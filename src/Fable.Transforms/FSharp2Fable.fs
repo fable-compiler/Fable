@@ -53,13 +53,14 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType with
-    | ErasedUnion(tdef, genArgs) ->
-        if List.isMultiple argExprs && tdef.UnionCases.Count > 1 then
+    | ErasedUnion(tdef, genArgs, rule) ->
+        match argExprs with
+        | [] -> transformStringEnum rule unionCase
+        | [argExpr] -> argExpr
+        | _ when tdef.UnionCases.Count > 1 ->
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
-        else
-            let genArgs = makeGenArgs com ctx.GenericArgs genArgs
-            Fable.NewErasedUnion(argExprs, genArgs) |> makeValue r
+        | argExprs -> Fable.NewTuple argExprs |> makeValue r
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -267,11 +268,10 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
   trampoline {
     let! unionExpr = transformExpr com ctx unionExpr
     match fsType with
-    | ErasedUnion(tdef, genArgs) ->
-        if unionCase.UnionCaseFields.Count <> 1 then
-            return "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
-            |> addErrorAndReturnNull com ctx.InlinePath r
-        else
+    | ErasedUnion(tdef, genArgs, rule) ->
+        match unionCase.UnionCaseFields.Count with
+        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
+        | 1 ->
             let fi = unionCase.UnionCaseFields.[0]
             let typ =
                 if fi.FieldType.IsGenericParameter then
@@ -283,6 +283,9 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 else fi.FieldType
             let kind = makeType com ctx.GenericArgs typ |> Fable.TypeTest
             return Fable.Test(unionExpr, kind, r)
+        | _ ->
+            return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
+            |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
         return Fable.Test(unionExpr, kind, r)

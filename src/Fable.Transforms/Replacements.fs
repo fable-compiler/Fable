@@ -717,7 +717,7 @@ let isCompatibleWithJsComparison = function
     | GenericParam _ -> false
     | AnonymousRecordType _ -> false
     | Any | Unit | Boolean | Number _ | String | Char | Regex
-    | Enum _ | ErasedUnion _ | FunctionType _ -> true
+    | Enum _ | FunctionType _ -> true
 
 // Overview of hash rules:
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.

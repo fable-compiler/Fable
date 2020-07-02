@@ -62,6 +62,19 @@ type ErasedUnion =
 type ErasedUnionWithMultipleFields =
     | ErasedUnionWithMultipleFields of string * int
 
+[<Erase; RequireQualifiedAccess>]
+type MyErasedUnion2 =
+    | Foo
+    | Ohmy
+    | Bar of float
+    | Baz of int[]
+
+[<Erase(CaseRules.KebabCase); RequireQualifiedAccess>]
+type MyErasedUnion3 =
+    | FooBar
+    | OhMyDear
+    | AnotherNumber of int
+
 type TextStyle =
     [<Emit("\"foo\"")>]
     abstract Bar : string
@@ -301,6 +314,32 @@ let tests =
         |> ErasedUnionWithMultipleFields
         |> gimme
         |> equal "Gimme 5 apples"
+
+    testCase "Erased unions can have cases representing literal strings" <| fun _ ->
+        let getValue = function
+            | MyErasedUnion2.Foo -> 5
+            | MyErasedUnion2.Ohmy -> 0
+            | MyErasedUnion2.Bar f -> int f
+            | MyErasedUnion2.Baz xs -> Array.sum xs
+
+        MyErasedUnion2.Bar 4.4 |> getValue |> equal 4
+        MyErasedUnion2.Ohmy |> getValue |> equal 0
+        MyErasedUnion2.Baz [|1;2;3|] |> getValue |> equal 6
+        MyErasedUnion2.Foo |> getValue |> equal 5
+        box MyErasedUnion2.Foo |> equal (box "foo")
+        box MyErasedUnion2.Ohmy |> equal (box "ohmy")
+
+    testCase "Erased unions can have case rules" <| fun _ ->
+        let getValue = function
+            | MyErasedUnion3.FooBar -> 5
+            | MyErasedUnion3.OhMyDear -> 0
+            | MyErasedUnion3.AnotherNumber i -> i
+
+        MyErasedUnion3.AnotherNumber 3 |> getValue |> equal 3
+        MyErasedUnion3.OhMyDear |> getValue |> equal 0
+        MyErasedUnion3.FooBar |> getValue |> equal 5
+        box MyErasedUnion3.OhMyDear |> equal (box "oh-my-dear")
+        box MyErasedUnion3.FooBar |> equal (box "foo-bar")
 
     testCase "Emit attribute works" <| fun () ->
         let style = createEmpty<TextStyle>

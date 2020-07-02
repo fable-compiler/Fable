@@ -329,7 +329,6 @@ module Util =
         | Fable.FunctionType(kind, returnType) ->
             makeFunctionTypeAnnotation com ctx typ kind returnType
         | Fable.GenericParam name -> makeSimpleTypeAnnotation com ctx name
-        | Fable.ErasedUnion genArgs -> makeUnionTypeAnnotation com ctx genArgs
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
         | Fable.AnonymousRecordType(fieldNames, genArgs) ->
@@ -680,7 +679,6 @@ module Util =
             let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
             coreReflectionCall com ctx None "class" args
         match t with
-        | Fable.ErasedUnion _genArgs -> primitiveTypeInfo "obj" // TODO: Type info for ErasedUnion?
         | Fable.Any -> primitiveTypeInfo "obj"
         | Fable.GenericParam name ->
             match Map.tryFind name genMap with
@@ -859,10 +857,6 @@ module Util =
                     else None
                 let values = (ofInt tag)::values |> List.toArray
                 upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
-        | Fable.NewErasedUnion(exprs,_) ->
-            match exprs with
-            | [e] -> com.TransformAsExpr(ctx, e)
-            | exprs -> makeArray com ctx exprs
 
     let enumerator2iterator com ctx =
         let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
@@ -1117,7 +1111,6 @@ module Util =
         | Fable.GenericParam name ->
             sprintf "Cannot resolve generic param %s for type testing, evals to true" name |> addWarning com [] r
             ofString "any"
-        | Fable.ErasedUnion _ -> ofString "any"
         | Fable.DeclaredType(ent, _) when ent.IsInterface ->
             "Cannot type test interfaces, evals to false" |> addWarning com [] r
             ofString "unknown"
