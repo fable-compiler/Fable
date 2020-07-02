@@ -102,9 +102,8 @@ type SecondaryCons(x: int) =
     new () = SecondaryCons(5)
     member __.Value = x
 
-// TODO: This should be disabled when compiling with `classTypes` option
-type SecondaryConsChild() =
-    inherit SecondaryCons()
+// type SecondaryConsChild() =
+//     inherit SecondaryCons()
 
 type MultipleCons(x: int, y: int) =
     new () = MultipleCons(2,3)
@@ -190,14 +189,14 @@ type ChildFoo() =
     inherit AbstractFoo()
     override this.Foo2() = "BAR"
 
-type BaseClass () =
+type BaseClass (x: int) =
     abstract member Init: unit -> int
-    default __.Init () = 5
+    default __.Init () = x
     abstract member Prop: string
     default __.Prop = "base"
 
 type ExtendedClass () =
-    inherit BaseClass ()
+    inherit BaseClass(5)
     override __.Init() = base.Init() + 2
     override __.Prop = base.Prop + "-extension"
 
@@ -377,6 +376,21 @@ type BarClass(x) =
         member _.Item with get(c) = x.ToCharArray() |> Array.exists ((=) c)
         member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
 
+type Interface2 =
+    abstract Value: int
+    abstract Add: unit -> int
+
+type Interface1 =
+    abstract Create: int -> Interface2
+
+type MixedThese(x: int) =
+    member _.Value = x
+    interface Interface1 with
+        member this1.Create(y: int) =
+            { new Interface2 with
+                member _.Value = y
+                member this2.Add() = this1.Value + this2.Value }
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
@@ -428,19 +442,20 @@ let tests =
             | :? string -> "string"
             | :? float -> "number"
             | :? bool -> "boolean"
-            | :? unit -> "null/undefined"
-            | :? (unit->unit) -> "function"
+            | :? unit -> "unit"
             | :? System.Text.RegularExpressions.Regex -> "RegExp"
-            | :? (int[]) | :? (string[]) -> "Array"
+            | :? (int[]) -> "int array"
+            | :? (string[]) -> "string array"
             | _ -> "unknown"
         "A" :> obj |> test |> equal "string"
         3. :> obj |> test |> equal "number"
         false :> obj |> test |> equal "boolean"
-        () :> obj |> test |> equal "null/undefined"
-        (fun()->()) :> obj |> test |> equal "function"
+        () :> obj |> test |> equal "unit"
+        // Workaround to make sure Fable is passing the argument
+        let a = () :> obj in test a |> equal "unit"
         System.Text.RegularExpressions.Regex(".") :> obj |> test |> equal "RegExp"
-        [|"A"|] :> obj |> test |> equal "Array"
-        [|1;2|] :> obj |> test |> equal "Array"
+        [|"A"|] :> obj |> test |> equal "string array"
+        [|1;2|] :> obj |> test |> equal "int array"
 
     testCase "Type test with Date" <| fun () ->
         let isDate (x: obj) =
@@ -584,9 +599,9 @@ let tests =
         equal 3 s1.Value
         equal 5 s2.Value
 
-    testCase "Inheriting from secondary constructors works" <| fun () ->
-        let s = SecondaryConsChild()
-        equal 5 s.Value
+    // testCase "Inheriting from secondary constructors works" <| fun () ->
+    //     let s = SecondaryConsChild()
+    //     equal 5 s.Value
 
     testCase "Multiple constructors work" <| fun () ->
         let m1 = MultipleCons()
@@ -840,4 +855,7 @@ let tests =
         bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
         bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
         bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
+
+    testCase "Multiple `this` references work in nested attached members" <| fun _ ->
+        (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5
   ]

@@ -1112,24 +1112,6 @@ let tests7 = [
         s 15 20 |> equal [3; 2; 1; 0; 15; 20]
 ]
 
-// Test ported directly from https://github.com/fable-compiler/Fable/pull/1336/files
-let private SomeProcedure (s: string): unit = failwith "Never called"
-let private SomeFunction (s: string): string = s
-
-[<Fable.Core.Emit("$0.name")>]
-let private getName (f: obj) = failwith "JS only"
-
-let tests8 =
-    [
-        #if FABLE_COMPILER
-        testCase "Functions passed as parameters don't generate intermediate anonymous functions" <| fun () ->
-            let functionName = getName SomeFunction
-            equal "SomeFunction" functionName
-            let procedureName = getName SomeProcedure
-            equal "SomeProcedure" procedureName
-        #endif
-    ]
-
 let tests =
     testList "Applicative" (
         tests1
@@ -1139,6 +1121,5 @@ let tests =
         @ tests5
         @ tests6
         @ tests7
-        @ tests8
         @ CurriedApplicative.tests
     )

@@ -394,28 +394,30 @@ module AST =
         let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
         Import(makeStrConst selector, makeStrConst path, Internal, t, None)
 
-    let argInfo thisArg args argTypes =
+    let makeSimpleCallInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
           SignatureArgTypes = argTypes
-          Spread = NoSpread
-          IsBaseCall = false
-          IsSelfConstructorCall = false }
+          HasSpread = false
+          AutoUncurrying = false
+          IsJsConstructor = false }
 
-    let staticCall r t argInfo functionExpr =
-        Operation(Call(StaticCall functionExpr, argInfo), t, r)
+    let destructureTupleArgs = function
+        | [MaybeCasted(Value(UnitConstant,_))] -> []
+        | [MaybeCasted(Value(NewTuple(args),_))] -> args
+        | args -> args
 
-    let constructorCall r t argInfo consExpr =
-        Operation(Call(ConstructorCall consExpr, argInfo), t, r)
-
-    let instanceCall r t argInfo memb =
-        Operation(Call(InstanceCall memb, argInfo), t, r)
+    let makeCall r t argInfo calleeExpr =
+        Operation(Call(calleeExpr, argInfo), t, r)
 
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
+
+    let getSimple (left: Expr) membName =
+        makeStrConst membName |> getExpr left.Range Any left
 
     let getNumberKindName kind =
         match kind with
@@ -474,7 +476,6 @@ module AST =
         | Option t1, Option t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
-        | ErasedUnion ts1, ErasedUnion ts2
         | Tuple ts1, Tuple ts2 -> listEquals (typeEquals strict) ts1 ts2
         | FunctionType(LambdaType a1, t1), FunctionType(LambdaType a2, t2) ->
             typeEquals strict a1 a2 && typeEquals strict t1 t2
@@ -513,8 +514,7 @@ module AST =
         | Boolean -> Types.bool
         | Char    -> Types.char
         | String  -> Types.string
-        // TODO: Type info forErasedUnion?
-        | ErasedUnion _ | Any -> Types.object
+        | Any -> Types.object
         | Number kind ->
             match kind with
             | Int8    -> Types.int8

@@ -7,8 +7,11 @@ import { compare, equals, structuralHash } from "./Util";
 
 // 1- `None` is always `undefined` in runtime, a non-strict null check
 //    (`x == null`) is enough to check the case of an option.
-// 2- To get the value of an option the `getValue` helper
+// 2- To get the value of an option the `value` helper
 //    below must **always** be used.
+
+// Note: We use non-strict null check for backwards compatibility with
+// code that use F# options to represent values that could be null in JS
 
 export type Option<T> = T | Some<T> | undefined;
 
@@ -66,8 +69,19 @@ export function value<T>(x: Option<T>) {
   }
 }
 
-export function tryValue<T>(x: Option<T>) {
-  return x instanceof Some ? x.value : x;
+export function ofNullable<T>(x: T|null): Option<T> {
+  // This will fail with unit probably, an alternative would be:
+  // return x === null ? undefined : (x === undefined ? new Some(x) : x);
+  return x == null ? undefined : x;
+}
+
+export function toNullable<T>(x: Option<T>): T|null {
+  return x == null ? null : value(x);
+}
+
+
+export function flatten<T>(x: Option<Option<T>>) {
+  return x == null ? undefined : value(x);
 }
 
 export function toArray<T>(opt: Option<T>): T[] {

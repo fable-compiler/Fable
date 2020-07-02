@@ -54,6 +54,7 @@
             "program": "${workspaceRoot}/src/quicktest/bin/QuickTest.js",
             "args": ["--help"],
             "cwd": "${workspaceRoot}/src/quicktest",
+            "sourceMaps": false,
             "stopOnEntry": true
         },
         {
