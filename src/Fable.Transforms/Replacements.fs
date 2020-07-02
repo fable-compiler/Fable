@@ -1030,6 +1030,10 @@ let defaultof com ctx (t: Type) =
     | _ -> Null t |> makeValue None
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let notFound() =
+        "Cannot find replacement for Fable.Core method, you may need to update fable-compiler"
+        |> addError com ctx.InlinePath r; None
+
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, ".ctor" -> typedObjExpr t [] |> Some
     | _, "jsNative" ->
@@ -1162,6 +1166,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                                 with AutoUncurrying = true
                                      IsJsConstructor = (m = "createNew") }
             makeCall r t argInfo callee |> Some
+        | "emitJs", macro::args ->
+            let args = destructureTupleArgs args
+            match macro with
+            | Fable.Value(Fable.StringConstant macro,_) -> emitJs r t args macro |> Some
+            | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
         | "createObj", [kvs] ->
@@ -1187,8 +1196,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
         | ("inflate"|"deflate"), _ -> List.tryHead args
-        | _ -> None
-    | _ -> None
+        | _ -> notFound()
+    | _ -> notFound()
 
 let getReference r t expr = get r t expr "contents"
 let setReference r expr value = Set(expr, makeStrConst "contents" |> ExprSet, value, r)

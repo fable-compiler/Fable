@@ -149,6 +149,16 @@ function concatSafe<T>(ar: T[]|undefined, item: T): T[] {
     }
 }
 
+function isDirectory(path: string) {
+    try {
+        var stat = fs.lstatSync(path);
+        return stat.isDirectory();
+    } catch (e) {
+        // lstatSync throws an error if path doesn't exist
+        return false;
+    }
+}
+
 /** Reads config from first match in filePaths argument */
 function tryReadConfig(...filePaths: string[]): FableSplitterOptions|undefined {
     for (let filePath of filePaths) {
@@ -161,6 +171,7 @@ function tryReadConfig(...filePaths: string[]): FableSplitterOptions|undefined {
 }
 
 function forceReadConfig(filePath: string): FableSplitterOptions {
+    filePath = isDirectory(filePath) ? path.join(filePath, "splitter.config.js") : filePath;
     const cfg = tryReadConfig(filePath);
     if (cfg == null) {
         throw new Error("Cannot read config file: " + filePath);

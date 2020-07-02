@@ -403,6 +403,7 @@ module AST =
           IsJsConstructor = false }
 
     let destructureTupleArgs = function
+        | [MaybeCasted(Value(UnitConstant,_))] -> []
         | [MaybeCasted(Value(NewTuple(args),_))] -> args
         | args -> args
 

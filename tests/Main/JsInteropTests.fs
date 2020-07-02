@@ -307,6 +307,14 @@ let tests =
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
 
+    testCase "emitJs works" <| fun () ->
+        let x = 4
+        let y = 8
+        let z1: int = emitJs "$0 * Math.pow(2, $1)" (x, y)
+        let z2: int = emitJs "$0 << $1" (x, y)
+        equal z1 z2
+        equal 1024 z1
+
     testCase "Assigning null with emit works" <| fun () ->
         let x = createEmpty<obj>
         x.["prop"] <- "prop value"
