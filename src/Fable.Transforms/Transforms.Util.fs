@@ -403,6 +403,7 @@ module AST =
           IsJsConstructor = false }
 
     let destructureTupleArgs = function
+        | [MaybeCasted(Value(UnitConstant,_))] -> []
         | [MaybeCasted(Value(NewTuple(args),_))] -> args
         | args -> args
 
@@ -475,7 +476,6 @@ module AST =
         | Option t1, Option t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
-        | ErasedUnion ts1, ErasedUnion ts2
         | Tuple ts1, Tuple ts2 -> listEquals (typeEquals strict) ts1 ts2
         | FunctionType(LambdaType a1, t1), FunctionType(LambdaType a2, t2) ->
             typeEquals strict a1 a2 && typeEquals strict t1 t2
@@ -514,8 +514,7 @@ module AST =
         | Boolean -> Types.bool
         | Char    -> Types.char
         | String  -> Types.string
-        // TODO: Type info forErasedUnion?
-        | ErasedUnion _ | Any -> Types.object
+        | Any -> Types.object
         | Number kind ->
             match kind with
             | Int8    -> Types.int8

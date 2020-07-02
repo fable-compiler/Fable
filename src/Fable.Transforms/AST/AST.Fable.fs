@@ -25,7 +25,6 @@ type Type =
     | List of genericArg: Type
     | FunctionType of FunctionTypeKind * returnType: Type
     | GenericParam of name: string
-    | ErasedUnion of genericArgs: Type list
     | DeclaredType of FSharpEntity * genericArgs: Type list
     | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
 
@@ -37,7 +36,6 @@ type Type =
         | FunctionType (LambdaType argType, returnType) -> [ argType; returnType ]
         | FunctionType (DelegateType argTypes, returnType) -> argTypes @ [ returnType ]
         | Tuple gen -> gen
-        | ErasedUnion gen -> gen
         | DeclaredType (_, gen) -> gen
         | _ -> []
 
@@ -53,7 +51,6 @@ type Type =
             let argTypes, returnType = List.splitLast newGen
             FunctionType(DelegateType argTypes, returnType)
         | Tuple _ -> Tuple newGen
-        | ErasedUnion _ -> ErasedUnion newGen
         | DeclaredType (ent, _) -> DeclaredType(ent, newGen)
         | t -> t
 
@@ -187,7 +184,6 @@ type ValueKind =
     | NewTuple of Expr list
     | NewRecord of Expr list * NewRecordKind * genArgs: Type list
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
-    | NewErasedUnion of Expr list * genericArgs: Type list
     member this.Type =
         match this with
         | TypeInfo _ -> MetaType
@@ -208,7 +204,6 @@ type ValueKind =
             | DeclaredRecord ent -> DeclaredType(ent, genArgs)
             | AnonymousRecord fieldNames -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
-        | NewErasedUnion (_, genArgs) -> ErasedUnion genArgs
 
 type LoopKind =
     | While of guard: Expr * body: Expr

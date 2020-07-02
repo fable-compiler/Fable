@@ -518,6 +518,11 @@ module Patterns =
         | false, _ -> None
 
     let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
+        let getCaseRule (att: FSharpAttribute) =
+            match Seq.tryHead att.ConstructorArguments with
+            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
+            | _ -> CaseRules.LowerFirst
+
         match tryDefinition typ with
         | None -> failwith "Union without definition"
         | Some(tdef, fullName) ->
@@ -528,11 +533,8 @@ module Patterns =
             | _ ->
                 tdef.Attributes |> Seq.tryPick (fun att ->
                     match att.AttributeType.TryFullName with
-                    | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments))
-                    | Some Atts.stringEnum ->
-                        match Seq.tryHead att.ConstructorArguments with
-                        | Some(_, (:? int as rule)) -> Some (StringEnum(tdef, enum<CaseRules>(rule)))
-                        | _ -> Some (StringEnum(tdef, CaseRules.LowerFirst))
+                    | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
+                    | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
                     | _ -> None)
                 |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
 
@@ -602,7 +604,7 @@ module TypeHelpers =
             | NumberKind kind -> Fable.Number kind
             // Special attributes
             | _ when hasAttribute Atts.stringEnum tdef.Attributes -> Fable.String
-            | _ when hasAttribute Atts.erase tdef.Attributes -> makeGenArgs com ctxTypeArgs genArgs |> Fable.ErasedUnion
+            | _ when hasAttribute Atts.erase tdef.Attributes -> Fable.Any
             // Rest of declared types
             | _ -> Fable.DeclaredType(tdef, makeGenArgs com ctxTypeArgs genArgs)
 

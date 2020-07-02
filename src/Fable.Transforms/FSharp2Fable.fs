@@ -53,13 +53,14 @@ let private transformBaseConsCall com ctx r baseEnt (baseCons: FSharpMemberOrFun
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType with
-    | ErasedUnion(tdef, genArgs) ->
-        if List.isMultiple argExprs && tdef.UnionCases.Count > 1 then
+    | ErasedUnion(tdef, genArgs, rule) ->
+        match argExprs with
+        | [] -> transformStringEnum rule unionCase
+        | [argExpr] -> argExpr
+        | _ when tdef.UnionCases.Count > 1 ->
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
-        else
-            let genArgs = makeGenArgs com ctx.GenericArgs genArgs
-            Fable.NewErasedUnion(argExprs, genArgs) |> makeValue r
+        | argExprs -> Fable.NewTuple argExprs |> makeValue r
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -267,11 +268,10 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
   trampoline {
     let! unionExpr = transformExpr com ctx unionExpr
     match fsType with
-    | ErasedUnion(tdef, genArgs) ->
-        if unionCase.UnionCaseFields.Count <> 1 then
-            return "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
-            |> addErrorAndReturnNull com ctx.InlinePath r
-        else
+    | ErasedUnion(tdef, genArgs, rule) ->
+        match unionCase.UnionCaseFields.Count with
+        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
+        | 1 ->
             let fi = unionCase.UnionCaseFields.[0]
             let typ =
                 if fi.FieldType.IsGenericParameter then
@@ -283,6 +283,9 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 else fi.FieldType
             let kind = makeType com ctx.GenericArgs typ |> Fable.TypeTest
             return Fable.Test(unionExpr, kind, r)
+        | _ ->
+            return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
+            |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
         return Fable.Test(unionExpr, kind, r)
@@ -571,10 +574,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let callInfo = { makeSimpleCallInfo None args [] with AutoUncurrying = true }
         return Fable.Operation(Fable.Call(e, callInfo), typ, makeRangeFrom fsExpr)
 
-    // TODO: Ask: for some reason the F# compiler translates `x.IsSome` as `Application(Call(x, get_IsSome),[unit])`
-    | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as optionProp, _genArgs, [BasicPatterns.Const(null, _)])
-        when memb.FullName = "Microsoft.FSharp.Core.IsSome" || memb.FullName = "Microsoft.FSharp.Core.IsNone" ->
-        return! transformExpr com ctx optionProp
+    // Some instance members such as Option.get_IsSome are compiled as static members, and the F# compiler
+    // wraps calls with an application. But in Fable they will be replaced so the application is not needed
+    | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as call, _genArgs, [BasicPatterns.Const(null, _)])
+         when memb.IsInstanceMember && not memb.IsInstanceMemberInCompiledCode ->
+         return! transformExpr com ctx call
 
     | BasicPatterns.Application(applied, _genArgs, args) ->
         let! applied = transformExpr com ctx applied

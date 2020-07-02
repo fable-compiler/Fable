@@ -717,7 +717,7 @@ let isCompatibleWithJsComparison = function
     | GenericParam _ -> false
     | AnonymousRecordType _ -> false
     | Any | Unit | Boolean | Number _ | String | Char | Regex
-    | Enum _ | ErasedUnion _ | FunctionType _ -> true
+    | Enum _ | FunctionType _ -> true
 
 // Overview of hash rules:
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.
@@ -925,11 +925,6 @@ let makePojoFromLambda arg =
     | _ -> None
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
     |> Option.defaultWith (fun () -> Helper.CoreCall("Util", "jsOptions", Any, [arg]))
-
-let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
-    let args = [keyValueList; caseRule]
-    let args = if com.Options.debugMode then args @ [makeBoolConst true] else args
-    Helper.CoreCall("Util", "createObj", Any, args)
 
 let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =
@@ -1162,13 +1157,20 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                                 with AutoUncurrying = true
                                      IsJsConstructor = (m = "createNew") }
             makeCall r t argInfo callee |> Some
+        | "emitJs", macro::args ->
+            let args = destructureTupleArgs args
+            match macro with
+            | Fable.Value(Fable.StringConstant macro,_) -> emitJs r t args macro |> Some
+            | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
-        | "createObj", [kvs] ->
-            let caseRule = CaseRules.None |> int |> makeIntConst
-            makePojo com r caseRule kvs |> Some
+        | "createObj", _ ->
+            let m = if com.Options.debugMode then "createObjDebug" else "createObj"
+            Helper.CoreCall("Util", m, Any, args) |> Some
          | "keyValueList", [caseRule; keyValueList] ->
-            makePojo com r caseRule keyValueList |> Some
+            let args = [keyValueList; caseRule]
+            let args = if com.Options.debugMode then args @ [makeBoolConst true] else args
+            Helper.CoreCall("Util", "keyValueList", Any, args) |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
@@ -1910,12 +1912,13 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t) |> makeValue r |> Some
     | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
-    | ("OfObj" | "OfNullable"), [c] -> TypeCast(c, t) |> Some
-    | ("ToObj" | "ToNullable" | "Flatten"), [c] ->
-        Helper.CoreCall("Option", "tryValue", t, args, ?loc=r) |> Some
+    | ("OfObj" | "OfNullable"), _ ->
+        Helper.CoreCall("Option", "ofNullable", t, args, ?loc=r) |> Some
+    | ("ToObj" | "ToNullable"), _ ->
+        Helper.CoreCall("Option", "toNullable", t, args, ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+    | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
         Helper.CoreCall("Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", [arg] ->
         toArray r t arg |> Some

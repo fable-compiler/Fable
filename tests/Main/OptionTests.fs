@@ -1,5 +1,7 @@
 module Fable.Tests.Option
 
+open System
+open Fable.Core.JsInterop
 open Util.Testing
 
 type Tree =
@@ -278,5 +280,48 @@ let tests =
 
     testCase "Some (box null) |> Option.isSome evals to true" <| fun () -> // See #1948
         Some (box null) |> Option.isSome |> equal true
-        Some (null) |> Option.isSome |> equal true        
+        Some (null) |> Option.isSome |> equal true
+
+#if FABLE_COMPILER
+    testCase "None and unit compile to JS undefined" <| fun () ->
+        let isActualJsNull (x: obj) = emitJs "$0 === null" x
+        let isActualJsUndefined (x: obj) = emitJs "$0 === void 0" x
+
+        let x: int option = None
+        let y = ()
+        isActualJsNull x |> equal false
+        isActualJsUndefined x |> equal true
+        isActualJsNull y |> equal false
+        isActualJsUndefined y |> equal true
+
+    testCase "Option.toObj/toNullable converts to null" <| fun () ->
+        let isActualJsNull (x: obj) = emitJs "$0 === null" x
+        let isActualJsUndefined (x: obj) = emitJs "$0 === void 0" x
+
+        let x: string option = None
+        let x2: int option = None
+        let y = Option.toObj x
+        let z = Option.toNullable x2
+        isActualJsNull y |> equal true
+        isActualJsUndefined y |> equal false
+        isActualJsNull z |> equal true
+        isActualJsUndefined z |> equal false
+
+    testCase "Option.ofObj/ofNullable converts to undefined" <| fun () ->
+        let isActualJsNull (x: obj) = emitJs "$0 === null" x
+        let isActualJsUndefined (x: obj) = emitJs "$0 === void 0" x
+
+        let x: string = null
+        let x2: Nullable<int> = Nullable()
+        let y = Option.ofObj x
+        let z = Option.ofNullable x2
+        isActualJsNull x |> equal true
+        isActualJsUndefined x |> equal false
+        isActualJsNull x2 |> equal true
+        isActualJsUndefined x2 |> equal false
+        isActualJsNull y |> equal false
+        isActualJsUndefined y |> equal true
+        isActualJsNull z |> equal false
+        isActualJsUndefined z |> equal true
+#endif
   ]
