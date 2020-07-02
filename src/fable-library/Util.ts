@@ -502,9 +502,26 @@ function changeCase(str: string, caseRule: number) {
   }
 }
 
-// TODO: For better performance, once we update the packages using keyValueList,
-// this will only accept arrays with first element being the key name (without case rule)
-export function createObj(fields: Iterable<any>, caseRule = CaseRules.None, isDebug = false) {
+export function createObj(fields: Iterable<[string, any]>) {
+  const obj: any = {};
+  for (let kv of fields) {
+    obj[kv[0]] = kv[1];
+  }
+  return obj;
+}
+
+export function createObjDebug(fields: Iterable<[string, any]>) {
+  const obj: any = {};
+  for (let kv of fields) {
+    if (kv[0] in obj) {
+      console.error(new Error(`Property ${kv[0]} is duplicated`));
+    }
+    obj[kv[0]] = kv[1];
+  }
+  return obj;
+}
+
+export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None, isDebug = false) {
   const obj: { [k: string]: any } = {};
   const definedCaseRule = caseRule;
 

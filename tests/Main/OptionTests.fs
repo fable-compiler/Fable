@@ -1,5 +1,7 @@
 module Fable.Tests.Option
 
+open System
+open Fable.Core.JsInterop
 open Util.Testing
 
 type Tree =

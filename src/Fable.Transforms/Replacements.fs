@@ -926,11 +926,6 @@ let makePojoFromLambda arg =
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
     |> Option.defaultWith (fun () -> Helper.CoreCall("Util", "jsOptions", Any, [arg]))
 
-let makePojo (com: Fable.ICompiler) r caseRule keyValueList =
-    let args = [keyValueList; caseRule]
-    let args = if com.Options.debugMode then args @ [makeBoolConst true] else args
-    Helper.CoreCall("Util", "createObj", Any, args)
-
 let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
     let (|GenericArg|_|) genArgs genArgIndex =
         List.tryItem genArgIndex genArgs
@@ -1030,10 +1025,6 @@ let defaultof com ctx (t: Type) =
     | _ -> Null t |> makeValue None
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let notFound() =
-        "Cannot find replacement for Fable.Core method, you may need to update fable-compiler"
-        |> addError com ctx.InlinePath r; None
-
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, ".ctor" -> typedObjExpr t [] |> Some
     | _, "jsNative" ->
@@ -1173,11 +1164,13 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
-        | "createObj", [kvs] ->
-            let caseRule = CaseRules.None |> int |> makeIntConst
-            makePojo com r caseRule kvs |> Some
+        | "createObj", _ ->
+            let m = if com.Options.debugMode then "createObjDebug" else "createObj"
+            Helper.CoreCall("Util", m, Any, args) |> Some
          | "keyValueList", [caseRule; keyValueList] ->
-            makePojo com r caseRule keyValueList |> Some
+            let args = [keyValueList; caseRule]
+            let args = if com.Options.debugMode then args @ [makeBoolConst true] else args
+            Helper.CoreCall("Util", "keyValueList", Any, args) |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
@@ -1196,8 +1189,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "ofJson", _ -> Helper.GlobalCall("JSON", t, args, memb="parse", ?loc=r) |> Some
         | "toJson", _ -> Helper.GlobalCall("JSON", t, args, memb="stringify", ?loc=r) |> Some
         | ("inflate"|"deflate"), _ -> List.tryHead args
-        | _ -> notFound()
-    | _ -> notFound()
+        | _ -> None
+    | _ -> None
 
 let getReference r t expr = get r t expr "contents"
 let setReference r expr value = Set(expr, makeStrConst "contents" |> ExprSet, value, r)
