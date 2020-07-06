@@ -160,13 +160,18 @@ let getSubExpressions = function
     | DecisionTree(expr, targets) -> expr::(List.map snd targets)
     | DecisionTreeSuccess(_, boundValues, _) -> boundValues
 
-let rec deepExists f expr =
-    f expr || (getSubExpressions expr |> List.exists (deepExists f))
-
-let rec deepExistsWithShortcircuit f expr =
-    match f expr with
-    | Some res -> res
-    | None -> getSubExpressions expr |> List.exists (deepExistsWithShortcircuit f)
+let deepExists (f: Expr -> bool) expr =
+    let rec deepExistsInner (exprs: ResizeArray<Expr>) =
+        let mutable found = false
+        let subExprs = ResizeArray()
+        for e in exprs do
+            if not found then
+                subExprs.AddRange(getSubExpressions e)
+                found <- f e
+        if found then true
+        elif subExprs.Count > 0 then deepExistsInner subExprs
+        else false
+    ResizeArray [|expr|] |> deepExistsInner
 
 let replaceValues replacements expr =
     if Map.isEmpty replacements
