@@ -1,4 +1,4 @@
-module Fable.Cli.Agent
+module rec Fable.Cli.Agent
 
 open Fable
 open Fable.AST
@@ -10,49 +10,76 @@ open FSharp.Compiler.SourceCodeServices
 open Newtonsoft.Json
 open ProjectCracker
 
-type File(normalizedFullPath: string) =
-    let mutable sourceHash = None
-    member __.NormalizedFullPath = normalizedFullPath
-    member __.ReadSource() =
-        match sourceHash with
-        | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
+let agentBody (agent: MailboxProcessor<AgentMsg>) =
+    let jsonSettings =
+        JsonSerializerSettings(
+            Converters=[|Json.ErasedUnionConverter()|],
+            ContractResolver=Serialization.CamelCasePropertyNamesContractResolver(),
+            NullValueHandling=NullValueHandling.Ignore)
+            // StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
+
+    let rec loop (state: Map<string, ProjectWrapper>) = async {
+      match! agent.Receive() with
+      | Parsed(projFile, proj, checker) ->
+        match Map.tryFind projFile state with
         | None ->
-            let source = File.readAllTextNonBlocking normalizedFullPath
-            let h = hash source
-            sourceHash <- Some h
-            h, lazy source
+            Log.always("Project parsed but proj file not found in state: " + projFile)
+            return! loop state
+        | Some projWrapper ->
+            let stackedMessages, projWrapper = projWrapper.WithParsedProject(proj, checker)
+            for msg in List.rev stackedMessages do
+                Received msg |> agent.Post
+            return! addOrUpdateProject state projWrapper |> fst |> loop
 
-/// Fable.Transforms.State.Project plus some properties only used here
-type ProjectExtra(project: Project, checker: InteractiveChecker,
-                  sourceFiles: File array, triggerFile: string,
-                  fableLibraryDir: string) =
-    let timestamp = DateTime.Now
-    member __.TimeStamp = timestamp
-    member __.Checker = checker
-    member __.Project = project
-    member __.ProjectOptions = project.ProjectOptions
-    member __.ImplementationFiles = project.ImplementationFiles
-    member __.Errors = project.Errors
-    member __.ProjectFile = project.ProjectFile
-    member __.SourceFiles = sourceFiles
-    member __.TriggerFile = triggerFile
-    member __.LibraryDir = fableLibraryDir
-    member __.ContainsFile(file) =
-        sourceFiles |> Array.exists (fun file2 ->
-            file = file2.NormalizedFullPath)
-    static member Create checker sourceFiles triggerFile fableLibraryDir project =
-        ProjectExtra(project, checker, sourceFiles, triggerFile, fableLibraryDir)
+      | Respond(value, msgHandler) ->
+        msgHandler.Respond(fun writer ->
+            // CloseOutput=false is necessary to prevent closing the underlying stream
+            use jsonWriter = new JsonTextWriter(writer, CloseOutput=false)
+            let serializer = JsonSerializer.Create(jsonSettings)
+            serializer.Serialize(jsonWriter, value))
+        return! loop state
 
-let getSourceFiles (opts: FSharpProjectOptions) =
-    opts.OtherOptions |> Array.choose (fun path ->
-        if not(path.StartsWith("-")) then
-            // These should be already normalized, but just in case
-            // TODO: We should add a NormalizedFullPath type so we don't need normalize everywhere
-            Path.normalizeFullPath path |> Some
-        else None)
+      | Received msgHandler ->
+        let respond(res: obj) =
+            Respond(res, msgHandler) |> agent.Post
+        try
+            let msg = Parser.parse msgHandler.Message
+            Log.verbose(lazy
+                if msg.path.EndsWith(".fsproj") then sprintf "Received %A" msg
+                else "")
+            let state, (projWrapper: ProjectWrapper) = updateState state msg
+            match projWrapper.ProjectStatus with
+            | ParsedProject(proj,_,_) ->
+                let com = projWrapper.MakeCompiler(msg.path, proj)
+                addFSharpErrorLogs com proj msg.path
+                startCompilation respond com proj
+                return! loop state
+            | ParsingProject _ ->
+                if msg.path.EndsWith(".fsproj") then
+                    // Quickly respond with a façade file so we don't block the client and cache can be activated
+                    let sourceFiles = getSourceFiles projWrapper.ProjectOptions
+                    Fable2Babel.Compiler.createFacade sourceFiles msg.path |> respond
+                    return! loop state
+                else
+                    return! projWrapper.StackMessage(msgHandler)
+                            |> addOrUpdateProject state
+                            |> fst |> loop
+        with ex ->
+            sendError respond ex
+            return! loop state
+    }
+
+    loop Map.empty
+
+let private agent = new MailboxProcessor<AgentMsg>(agentBody)
+
+let startAgent() = agent.Start(); agent
 
 let getRelativePath path =
     Path.getRelativePath (IO.Directory.GetCurrentDirectory()) path
+
+let getSourceFiles (opts: FSharpProjectOptions) =
+    opts.OtherOptions |> Array.filter (fun path -> path.StartsWith("-") |> not)
 
 let hasFlag flagName (opts: IDictionary<string, string>) =
     match opts.TryGetValue(flagName) with
@@ -82,72 +109,136 @@ let checkFableCoreVersion (checkedProject: FSharpCheckProjectResults) =
                 failwithf "Fable.Core v%i.%i detected, expecting v%i.%i" actualMajor actualMinor expectedMajor expectedMinor
             // else printfn "Fable.Core version matches"
 
-let checkProject (msg: Parser.Message)
-                 (opts: FSharpProjectOptions)
-                 (fableLibraryDir: string)
-                 (triggerFile: string)
-                 (srcFiles: File[])
-                 (checker: InteractiveChecker) =
-    Log.always(sprintf "Parsing %s..." (getRelativePath opts.ProjectFileName))
-    let checkedProject =
-        let fileDic = srcFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
-        let sourceReader f = fileDic.[f].ReadSource()
-        let filePaths = srcFiles |> Array.map (fun file -> file.NormalizedFullPath)
-        checker.ParseAndCheckProject(opts.ProjectFileName, filePaths, sourceReader)
-    // checkFableCoreVersion checkedProject
-    let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
-    let implFiles =
-        if not optimized
-        then checkedProject.AssemblyContents.ImplementationFiles
-        else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
-    if List.isEmpty implFiles then
-        Log.always "The list of files returned by F# compiler is empty"
-    let implFilesMap =
-        implFiles |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file) |> dict
-    tryGetOption "saveAst" msg.extra |> Option.iter (fun outDir ->
-        Printers.printAst outDir implFiles)
-    Project(opts, implFilesMap, checkedProject.Errors)
-    |> ProjectExtra.Create checker srcFiles triggerFile fableLibraryDir
+// TODO: Check the path is actually normalized?
+type File(normalizedFullPath: string) =
+    let mutable sourceHash = None
+    member _.NormalizedFullPath = normalizedFullPath
+    member _.ReadSource() =
+        match sourceHash with
+        | Some h -> h, lazy File.readAllTextNonBlocking normalizedFullPath
+        | None ->
+            let source = File.readAllTextNonBlocking normalizedFullPath
+            let h = hash source
+            sourceHash <- Some h
+            h, lazy source
 
-let createProject (msg: Parser.Message) projFile (prevProject: ProjectExtra option) =
+type ProjectStatus =
+    | ParsedProject of Project * InteractiveChecker * DateTime
+    | ParsingProject of msgStack: IMessageHandler list
+
+type CompilerFactory(compilerOptions, fableLibraryDir) =
+    member _.Make(currentFile, project) =
+        let fableLibraryDir = Path.getRelativePath currentFile fableLibraryDir
+        Compiler(currentFile, project, compilerOptions, fableLibraryDir)
+
+type ProjectWrapper(sourceFiles: File array,
+                    fsharpProjOptions: FSharpProjectOptions,
+                    compilerFactory: CompilerFactory,
+                    projectStatus: ProjectStatus) =
+    member _.ProjectStatus = projectStatus
+    member _.ProjectFile = fsharpProjOptions.ProjectFileName
+    member _.ProjectOptions = fsharpProjOptions
+    member _.SourceFiles = sourceFiles
+
+    member _.MakeCompiler(currentFile, project) =
+        compilerFactory.Make(currentFile, project)
+
+    member _.ContainsFile(file) =
+        sourceFiles |> Array.exists (fun file2 ->
+            file = file2.NormalizedFullPath)
+
+    member _.ResetSourceFiles(sourceFiles) =
+        ProjectWrapper(sourceFiles, fsharpProjOptions, compilerFactory, ParsingProject [])
+
+    member _.WithParsedProject(project, checker) =
+        let stackedMessages =
+            match projectStatus with
+            | ParsingProject stack -> stack
+            | _ -> []
+        let proj = ParsedProject(project, checker, DateTime.Now)
+        stackedMessages, ProjectWrapper(sourceFiles, fsharpProjOptions, compilerFactory, proj)
+
+    member this.StackMessage(msgHandler) =
+        match projectStatus with
+        | ParsingProject stack ->
+            let proj = ParsingProject(msgHandler::stack)
+            ProjectWrapper(sourceFiles, fsharpProjOptions, compilerFactory, proj)
+        | _ -> this
+
+    member this.ParseProject(?checker, ?saveAstDir: string) =
+        Log.always(sprintf "Parsing %s..." (getRelativePath this.ProjectFile))
+        Async.Start <| async {
+            let checker =
+                match checker with
+                | Some checker -> checker
+                | None -> InteractiveChecker.Create(this.ProjectOptions)
+            let checkedProject =
+                let fileDic = this.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
+                let sourceReader f = fileDic.[f].ReadSource()
+                let filePaths = this.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
+                checker.ParseAndCheckProject(this.ProjectFile, filePaths, sourceReader)
+            // checkFableCoreVersion checkedProject
+            let optimized = GlobalParams.Singleton.Experimental.Contains("optimize-fcs")
+            let implFiles =
+                if not optimized
+                then checkedProject.AssemblyContents.ImplementationFiles
+                else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+            match implFiles, saveAstDir with
+            | [], _ -> Log.always "The list of files returned by F# compiler is empty"
+            | _, Some saveAstDir -> Printers.printAst saveAstDir implFiles
+            | _ -> ()
+            let implFilesMap =
+                implFiles
+                |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file)
+                |> dict
+            let proj = Project(this.ProjectOptions, implFilesMap, checkedProject.Errors)
+            Parsed(this.ProjectFile, proj, checker) |> agent.Post
+        }
+        this
+
+    static member FromMessage(projFile: string, msg: Parser.Message) =
+        let projectOptions, fableLibraryDir =
+            getFullProjectOpts {
+                define = msg.define
+                noReferences = msg.noReferences
+                noRestore = msg.noRestore
+                rootDir = msg.rootDir
+                projFile = projFile
+            }
+        Log.verbose(lazy
+            let proj = getRelativePath projFile
+            let opts = projectOptions.OtherOptions |> String.concat "\n   "
+            sprintf "F# PROJECT: %s\n   %s" proj opts)
+        let sourceFiles = getSourceFiles projectOptions |> Array.map File
+        let compilerFactory = CompilerFactory(Parser.toCompilerOptions msg, fableLibraryDir)
+        ProjectWrapper(sourceFiles, projectOptions, compilerFactory, ParsingProject [])
+
+let createProject (msg: Parser.Message) projFile (prevProject: ProjectWrapper option) =
     match prevProject with
-    | Some proj ->
-        let mutable someDirtyFiles = false
-        // If now - proj.TimeStamp < 1s skip checking the lastwritetime for performance
-        if DateTime.Now - proj.TimeStamp < TimeSpan.FromSeconds(1.) then
-            proj
-        else
+    | Some projWrapper ->
+        match projWrapper.ProjectStatus with
+        // Ignore requests when the project is still parsing, parsed less than a second ago or doesn't have dirty files
+        | ParsedProject(_, checker, timestamp) when DateTime.Now - timestamp >= TimeSpan.FromSeconds(1.) ->
+            let mutable someDirtyFiles = false
             let sourceFiles =
-                proj.SourceFiles
+                projWrapper.SourceFiles
                 |> Array.map (fun file ->
                     let path = file.NormalizedFullPath
                     // Assume files in .fable folder are stable
-                    if path.Contains(".fable/") then file
+                    if Naming.isInFableHiddenDir path then file
                     else
-                        let isDirty = IO.File.GetLastWriteTime(path) > proj.TimeStamp
+                        let isDirty = IO.File.GetLastWriteTime(path) > timestamp
                         someDirtyFiles <- someDirtyFiles || isDirty
                         if isDirty then File(path) // Clear the cached source hash
                         else file)
             if someDirtyFiles then
-                checkProject msg proj.ProjectOptions proj.LibraryDir msg.path sourceFiles proj.Checker
-            else proj
+                projWrapper.ResetSourceFiles(sourceFiles)
+                    .ParseProject(checker)
+            else projWrapper
+        | _ -> projWrapper
     | None ->
-        let projectOptions, fableLibraryDir =
-            getFullProjectOpts msg.define msg.noReferences msg.rootDir projFile
-        Log.verbose(lazy
-            let proj = getRelativePath projectOptions.ProjectFileName
-            let opts = projectOptions.OtherOptions |> String.concat "\n   "
-            sprintf "F# PROJECT: %s\n   %s" proj opts)
-        let sourceFiles = getSourceFiles projectOptions |> Array.map File
-        InteractiveChecker.Create(projectOptions)
-        |> checkProject msg projectOptions fableLibraryDir projFile sourceFiles
-
-let jsonSettings =
-    JsonSerializerSettings(
-        Converters=[|Json.ErasedUnionConverter()|],
-        ContractResolver=Serialization.CamelCasePropertyNamesContractResolver(),
-        NullValueHandling=NullValueHandling.Ignore)
-        // StringEscapeHandling=StringEscapeHandling.EscapeNonAscii)
+        ProjectWrapper.FromMessage(projFile, msg)
+            .ParseProject(?saveAstDir=tryGetOption "saveAst" msg.extra)
 
 let sendError (respond: obj->unit) (ex: Exception) =
     let rec innerStack (ex: Exception) =
@@ -168,7 +259,7 @@ let findFsprojUpwards originalFile =
         | _ -> failwithf "Found more than one project file for %s, please disambiguate." originalFile
     IO.Path.GetDirectoryName(originalFile) |> innerLoop
 
-let addOrUpdateProject state (project: ProjectExtra) =
+let addOrUpdateProject state (project: ProjectWrapper) =
     let state = Map.add project.ProjectFile project state
     state, project
 
@@ -183,10 +274,9 @@ let tryFindAndUpdateProject onNotFound state (msg: Parser.Message) sourceFile =
     // disambiguate files referenced by several projects, see #1116
     match msg.extra.TryGetValue("projectFile") with
     | true, projFile ->
-        let projFile = Path.normalizeFullPath projFile
         checkIfProjectIsAlreadyInState state msg projFile
     | false, _ ->
-        state |> Map.tryPick (fun _ (project: ProjectExtra) ->
+        state |> Map.tryPick (fun _ (project: ProjectWrapper) ->
             if project.ContainsFile(sourceFile)
             then Some project
             else None)
@@ -196,7 +286,7 @@ let tryFindAndUpdateProject onNotFound state (msg: Parser.Message) sourceFile =
                         |> addOrUpdateProject state
                     | None -> onNotFound()
 
-let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
+let updateState (state: Map<string,ProjectWrapper>) (msg: Parser.Message) =
     match IO.Path.GetExtension(msg.path).ToLower() with
     | ".fsproj" ->
         createProject msg msg.path None
@@ -221,20 +311,20 @@ let updateState (state: Map<string,ProjectExtra>) (msg: Parser.Message) =
         failwithf "Signature files cannot be compiled to JS: %s" msg.path
     | _ -> failwithf "Not an F# source file: %s" msg.path
 
-let addFSharpErrorLogs (com: ICompiler) (proj: ProjectExtra) =
+let addFSharpErrorLogs (com: ICompiler) (proj: Project) (triggerFile: string) =
     proj.Errors |> Seq.filter (fun er ->
         // Report warnings always in the corresponding file
         // but ignore those from packages in `.fable` folder
         if er.Severity = FSharpErrorSeverity.Warning then
             com.CurrentFile = er.FileName && not(Naming.isInFableHiddenDir er.FileName)
         // For errors, if the trigger is the .fsproj (first compilation), report them in the corresponding file
-        elif proj.TriggerFile.EndsWith(".fsproj") then
+        elif triggerFile.EndsWith(".fsproj") then
             com.CurrentFile = er.FileName
-        // If another file triggers the compilation report errors there so they don't go missing
+        // If another file triggers the compilation, report errors there so they don't go missing
         // But ignore errors from packages in `.fable` folder, as this is watch mode and users can't do anything
         // See https://github.com/fable-compiler/Fable/pull/1714#issuecomment-463137486
         else
-            com.CurrentFile = proj.TriggerFile && not(Naming.isInFableHiddenDir er.FileName))
+            com.CurrentFile = triggerFile && not(Naming.isInFableHiddenDir er.FileName))
     |> Seq.map (fun er ->
         let severity =
             match er.Severity with
@@ -250,49 +340,15 @@ let addFSharpErrorLogs (com: ICompiler) (proj: ProjectExtra) =
         com.AddLog(msg, severity, range, fileName, "FSHARP"))
 
 /// Don't await file compilation to let the agent receive more requests to implement files.
-let startCompilation (respond: obj->unit) (com: Compiler) (project: ProjectExtra) =
+let startCompilation (respond: obj->unit) (com: Compiler) (project: Project)  =
     async {
         try
-            if com.CurrentFile.EndsWith(".fsproj") then
-                // If we compile the last file here, Webpack watcher will ignore changes in it
-                Fable2Babel.Compiler.createFacade (getSourceFiles project.ProjectOptions) com.CurrentFile
-                |> respond
-            else
-                let babel =
-                    FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
-                    |> FableTransforms.transformFile com
-                    |> Fable2Babel.Compiler.transformFile com
-                Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
-                |> respond
+            let babel =
+                FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
+                |> FableTransforms.transformFile com
+                |> Fable2Babel.Compiler.transformFile com
+            Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
+            |> respond
         with ex ->
             sendError respond ex
     } |> Async.Start
-
-let startAgent () = MailboxProcessor<AgentMsg>.Start(fun agent ->
-    let rec loop (state: Map<string, ProjectExtra>) = async {
-      match! agent.Receive() with
-      | Respond(value, msgHandler) ->
-        msgHandler.Respond(fun writer ->
-            // CloseOutput=false is necessary to prevent closing the underlying stream
-            use jsonWriter = new JsonTextWriter(writer, CloseOutput=false)
-            let serializer = JsonSerializer.Create(jsonSettings)
-            serializer.Serialize(jsonWriter, value))
-        return! loop state
-      | Received msgHandler ->
-        let respond(res: obj) =
-            Respond(res, msgHandler) |> agent.Post
-        try
-            let msg = Parser.parse msgHandler.Message
-            // lazy sprintf "Received message %A" msg |> Log.logVerbose
-            let newState, activeProject = updateState state msg
-            let libDir = Path.getRelativePath msg.path activeProject.LibraryDir
-            let com = Compiler(msg.path, activeProject.Project, Parser.toCompilerOptions msg, libDir)
-            addFSharpErrorLogs com activeProject
-            startCompilation respond com activeProject
-            return! loop newState
-        with ex ->
-            sendError respond ex
-            return! loop state
-    }
-    loop Map.empty
-  )

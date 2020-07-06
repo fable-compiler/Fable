@@ -8,6 +8,8 @@ module.exports = {
   entry: resolve("QuickTest.fsproj"),
 //   outDir: resolve("temp"),
   fable: {
+    noRestore: true,
+    noReferences: true,
     define: [] //["DEBUG"]
   },
   babel: {

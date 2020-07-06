@@ -55,6 +55,9 @@ type IMessageHandler =
     abstract Respond: write: (TextWriter->unit) -> unit
 
 type AgentMsg =
+    | Parsed of projectFile: string
+                * Fable.Transforms.State.Project
+                * FSharp.Compiler.SourceCodeServices.InteractiveChecker
     | Received of handler: IMessageHandler
     | Respond of response: obj * handler: IMessageHandler
 
@@ -125,7 +128,8 @@ module Log =
     let writerLock = obj()
 
     let always (msg: string) =
-        if GlobalParams.Singleton.Verbosity <> Fable.Verbosity.Silent then
+        if GlobalParams.Singleton.Verbosity <> Fable.Verbosity.Silent
+            && not(String.IsNullOrEmpty(msg)) then
             lock writerLock (fun () ->
                 Console.Out.WriteLine(msg)
                 Console.Out.Flush())

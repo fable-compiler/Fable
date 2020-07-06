@@ -24,7 +24,7 @@ open System.Collections.Concurrent
 type Project(projectOptions: FSharpProjectOptions,
              implFiles: IDictionary<string, FSharpImplementationFileContents>,
              errors: FSharpErrorInfo array) =
-    let projectFile = Path.normalizePath projectOptions.ProjectFileName
+    let projectFile = projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let rootModules =
         implFiles |> Seq.map (fun kv ->

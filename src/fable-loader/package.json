@@ -1,7 +1,7 @@
 {
   "name": "fable-loader",
   "version": "2.1.9",
-  "main": "index.js",
+  "main": "dist/index.js",
   "description": "Webpack loader for Fable compiler",
   "keywords": [
     "fable",
@@ -25,7 +25,7 @@
     "webpack": ">=4.23.0"
   },
   "devDependencies": {
-    "@types/babel__core": "^7.0.3"
+    "@types/babel__core": "^7.1.6"
   },
   "dependencies": {
     "fable-babel-plugins": "^2.3.0"
