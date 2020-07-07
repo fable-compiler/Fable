@@ -69,6 +69,7 @@ export type FableSplitterOptions = {
     watch?: boolean,
     usePolling?: boolean,
     onCompiled?: () => void
+    onErrored?: () => void
 };
 
 function getResolvePathPlugin(targetDir: string, opts: FableSplitterOptions) {

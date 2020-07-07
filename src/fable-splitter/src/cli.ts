@@ -5,6 +5,8 @@ import * as path from "path";
 import fableSplitter, { CompilationInfo, FableSplitterOptions, RunOptions } from "./index";
 import runScript from "./run";
 
+const calledFromCommandLine = require.main === module;
+
 function requireLazy(module: string) {
     let cache = null;
     return () => cache == null ? cache = require(module) : cache;
@@ -197,7 +199,12 @@ function onCompiled(opts: FableSplitterOptions, info: CompilationInfo, mustFinis
                 return;
             }
         }
+    } else {
+        if (typeof opts.onErrored === "function") {
+            opts.onErrored();
+        }
     }
+
     if (mustFinish) {
         process.exit(hasError ? 1 : 0);
     }
@@ -272,12 +279,12 @@ export default function run(entryOpts: FableSplitterOptions, cfgFile?: string) {
                     }
                 });
         } else {
-            onCompiled(opts, info, true);
+            onCompiled(opts, info, calledFromCommandLine); // Finish process only if called from command line
         }
     });
 }
 
-if (require.main === module) {
+if (calledFromCommandLine) {
     const processArgs = process.argv.slice(2);
     switch (processArgs[0]) {
         case "-h":

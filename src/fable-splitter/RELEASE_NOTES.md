@@ -1,3 +1,7 @@
+### 2.2.1
+
+* Improve API for cli mode
+
 ### 2.2.0
 
 * Add API for cli mode

@@ -1,10 +1,10 @@
 {
   "name": "fable-splitter",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "File splitter for Fable (F# to JavaScript compiler)",
   "author": "ncave",
   "license": "Apache-2.0",
-  "main": "./dist/index.js",
+  "main": "./index.js",
   "bin": {
     "fable-splitter": "./dist/cli.js"
   },
