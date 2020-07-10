@@ -1947,6 +1947,11 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.CoreCall(moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
+let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Parse" | "TryParse" as method -> None
+    | _ -> None
+
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseCall meth str style =
         let kind =
@@ -2915,6 +2920,7 @@ let private replacedModules =
     Types.valueType, valueTypes
     "System.Enum", enums
     "System.BitConverter", bitConvert
+    Types.bool, parseBool
     Types.int8, parseNum
     Types.uint8, parseNum
     Types.int16, parseNum
