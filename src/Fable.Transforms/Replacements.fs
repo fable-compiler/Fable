@@ -1949,9 +1949,9 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | ("Parse" | "TryParse" as method), [arg] ->
+    | ("Parse" | "TryParse" as method), str::_ ->
         let func = Naming.lowerFirst method
-        Helper.CoreCall("Boolean", func, t, [arg], [arg.Type], ?loc=r)
+        Helper.CoreCall("Boolean", func, t, [str], [str.Type], ?loc=r)
         |> Some
     | _ -> None
 
