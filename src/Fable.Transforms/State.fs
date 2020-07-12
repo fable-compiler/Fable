@@ -48,7 +48,6 @@ type Log =
 /// Type with utilities for compiling F# files to JS
 /// Not thread-safe, an instance must be created per file
 type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
-    let mutable id = 0
     let logs = ResizeArray<Log>()
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
     member __.GetLogs() =
@@ -94,7 +93,3 @@ type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
               Range = range
               FileName = fileName }
             |> logs.Add
-        // TODO: If name includes `$$2` at the end, remove it
-        member __.GetUniqueVar(name) =
-            id <- id + 1
-            Naming.getUniqueName (defaultArg name "var") id

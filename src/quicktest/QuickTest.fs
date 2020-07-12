@@ -58,3 +58,34 @@ let testCaseAsync msg f =
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+let rec test x f =
+    match x with
+    | [] -> f x
+    | h::t -> test t (f << id)
+
+// base can be used in a constructor
+// Can call a virtual member with default implementation in
+// this can be used in a function in a constructor
+
+
+[<AbstractClass>]
+type A() =
+    abstract Value: int
+    default _.Value = 5
+
+type B() =
+    inherit A()
+    let y = base.Value
+    override _.Value = y + 3
+
+
+type C() =
+    member _.Value = 4
+
+type D() =
+    inherit C()
+    member _.Value = base.Value + 8
+
+B().Value |> printfn "%i"
+D().Value |> printfn "%i"

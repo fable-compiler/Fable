@@ -12,6 +12,8 @@ open Fable.Transforms
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
+      UseNamesInRootScope: Set<string>
+      UseNamesInDeclarationScope: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
       EnclosingEntity: FSharpEntity option
@@ -22,9 +24,11 @@ type Context =
       InlinePath: Log.InlinePath list
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
     }
-    static member Create(enclosingEntity) =
+    static member Create(enclosingEntity, usedRootNames) =
         { Scope = []
           ScopeInlineValues = []
+          UseNamesInRootScope = usedRootNames
+          UseNamesInDeclarationScope = Unchecked.defaultof<_>
           GenericArgs = Map.empty
           EnclosingMember = None
           EnclosingEntity = enclosingEntity
@@ -45,8 +49,6 @@ type IFableCompiler =
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
-    abstract AddUsedVarName: string * ?isRoot: bool -> unit
-    abstract IsUsedVarName: string -> bool
     abstract AddInlineDependency: string -> unit
 
 module Helpers =
@@ -97,25 +99,18 @@ module Helpers =
         | Some fullName ->
             let loc = getEntityLocation ent
             let rootMod = com.GetRootModule(loc.FileName)
-            if fullName.StartsWith(rootMod)
-            then fullName.Substring(rootMod.Length).TrimStart('.')
+            if fullName.StartsWith(rootMod) then
+                fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
         | None -> ent.CompiledName
 
+    let cleanNameAsJsIdentifier (name: string) =
+        name.Replace('.','_').Replace('`','_')
+
     let getEntityDeclarationName (com: ICompiler) (ent: FSharpEntity) =
-        (getEntityMangledName com true ent, Naming.NoMemberPart)
+        let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
+        (entityName, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent (fun _ -> false)
-
-    let isUnit (typ: FSharpType) =
-        let typ = nonAbbreviatedType typ
-        if typ.HasTypeDefinition
-        then typ.TypeDefinition.TryFullName = Some Types.unit
-        else false
-
-    let getInterfaceImplementationName com (implementingEntity: FSharpEntity) (interfaceEntityFullName: string) =
-        let entityName = getEntityMangledName com true implementingEntity
-        let memberPart = Naming.StaticMemberPart(interfaceEntityFullName, "")
-        Naming.sanitizeIdent (fun _ -> false) entityName memberPart
 
     let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
@@ -139,14 +134,10 @@ module Helpers =
     /// Returns the sanitized name for the member declaration and whether it has an overload suffix
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
         let name, part = getMemberMangledName com true memb
+        let name = cleanNameAsJsIdentifier name
+        let part = part.Replace(fun s -> if s = ".ctor" then "$ctor" else s)
         let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name part
-        let hasOverloadSuffix =
-            match part with
-            | Naming.InstanceMemberPart(_, overloadSuffix)
-            | Naming.StaticMemberPart(_, overloadSuffix) ->
-                String.IsNullOrEmpty(overloadSuffix) |> not
-            | Naming.NoMemberPart -> false
-        sanitizedName, hasOverloadSuffix
+        sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary
     let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
@@ -154,14 +145,28 @@ module Helpers =
         ||> Naming.buildNameWithoutSanitation
 
     let getMemberFullName (memb: FSharpMemberOrFunctionOrValue) =
-        if memb.IsExplicitInterfaceImplementation
-        then true, memb.CompiledName.Replace("-",".")
+        if memb.IsExplicitInterfaceImplementation then
+            true, memb.CompiledName.Replace("-",".")
         else
             let ent = memb.ApparentEnclosingEntity
             ent.IsInterface, memb.FullName
 
     let getMemberDisplayName (memb: FSharpMemberOrFunctionOrValue) =
         Naming.removeGetSetPrefix memb.DisplayName
+
+    let isUsedName (ctx: Context) name =
+        ctx.UseNamesInRootScope.Contains name || ctx.UseNamesInDeclarationScope.Contains name
+
+    let getIdentUniqueName (ctx: Context) name =
+        let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (isUsedName ctx)
+        ctx.UseNamesInDeclarationScope.Add(name) |> ignore
+        name
+
+    let isUnit (typ: FSharpType) =
+        let typ = nonAbbreviatedType typ
+        if typ.HasTypeDefinition then
+            typ.TypeDefinition.TryFullName = Some Types.unit
+        else false
 
     let tryFindAtt fullName (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (fun att ->
@@ -665,7 +670,7 @@ module TypeHelpers =
         | Some ent ->
             match countConflictingCases 0 ent name with
             | 0 -> name
-            | n -> Naming.appendSuffix name (string n)
+            | n -> name + "_" + (string n)
 
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
         yield! tdef.TryGetMembersFunctionsAndValues
@@ -699,7 +704,7 @@ module TypeHelpers =
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
-    let tryFindMember com (entity: FSharpEntity) genArgs _COMPILED_NAME isInstance (argTypes: Fable.Type list) =
+    let tryFindMember com (entity: FSharpEntity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
                 let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
                 if args1Length = args2Length then
@@ -711,23 +716,9 @@ module TypeHelpers =
                 else false
         let argTypesLength = List.length argTypes
         getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
-            if m2.IsInstanceMember = isInstance && m2.CompiledName = _COMPILED_NAME
+            if m2.IsInstanceMember = isInstance && m2.CompiledName = compiledName
             then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
             else false)
-
-    // let tryFindMember com (entity: FSharpEntity) genArgs membCompiledName isInstance (argTypes : list<Fable.Type>) =
-    //     let argsEqual (args1 : Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>)=
-    //             let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
-    //             if args1Length = args2Length then
-    //                 let args2 = args2 |> Seq.collect (fun g ->
-    //                     g |> Seq.map (fun p -> makeType com genArgs p.Type) |> Seq.toList)
-    //                 listEquals (typeEquals false) args1 (Seq.toList args2)
-    //             else false
-    //     let argTypesLength = List.length argTypes
-    //     getOwnAndInheritedFsharpMembers entity |> Seq.tryFind (fun m2 ->
-    //         if m2.IsInstanceMember = isInstance && m2.CompiledName = membCompiledName
-    //         then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
-    //         else false)
 
     let inline (|FableType|) com (ctx: Context) t = makeType com ctx.GenericArgs t
 
@@ -740,11 +731,8 @@ module Identifiers =
 
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
-                            ||> Naming.sanitizeIdent com.IsUsedVarName
-        // Track all used var names in the file so they're not used for imports
-        // Also, in some situations variable names in different scopes can conflict
-        // so just try to give a unique name to each identifier per file for safety
-        com.AddUsedVarName sanitizedName
+                            ||> Naming.sanitizeIdent (isUsedName ctx)
+        ctx.UseNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName
           Type = makeType com ctx.GenericArgs fsRef.FullType
           Kind = if fsRef.IsCompilerGenerated then Fable.CompilerGenerated else Fable.UserDeclared
@@ -762,13 +750,14 @@ module Identifiers =
         let ident = makeIdentFrom com ctx fsRef
         putIdentInScope ctx fsRef ident (Some value), ident
 
-    let inline tryGetIdentFromScopeIf (ctx: Context) r predicate =
-        match List.tryFind (fun (fsRef,_,_)  -> predicate fsRef) ctx.Scope with
-        | Some(_,ident,_) ->
-            let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
-            { ident with Range = r |> Option.map (fun r -> { r with identifierName = originalName }) }
-            |> Fable.IdentExpr |> Some
-        | None -> None
+    let identWithRange r (ident: Fable.Ident) =
+        let originalName = ident.Range |> Option.bind (fun r -> r.identifierName)
+        { ident with Range = r |> Option.map (fun r -> { r with identifierName = originalName }) }
+
+    let tryGetIdentFromScopeIf (ctx: Context) r predicate =
+        ctx.Scope |> List.tryPick (fun (fsRef, ident, _) ->
+            if predicate fsRef then identWithRange r ident |> Fable.IdentExpr |> Some
+            else None)
 
     /// Get corresponding identifier to F# value in current scope
     let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
@@ -800,15 +789,10 @@ module Util =
     let bindMemberArgs com ctx (args: FSharpMemberOrFunctionOrValue list list) =
         let ctx, transformedArgs, args =
             match args with
-            // Within private members (first arg is ConstructorThisValue) F# AST uses
-            // ThisValue instead of Value (with .IsMemberConstructorThisValue = true)
-            | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue || firstArg.IsMemberThisValue ->
+            | (firstArg::restArgs1)::restArgs2 when firstArg.IsMemberThisValue ->
                 let ctx, thisArg = putArgInScope com ctx firstArg
-                let thisArg = { thisArg with Kind = Fable.ThisArgIdentDeclaration }
-                let ctx =
-                    if firstArg.IsConstructorThisValue
-                    then { ctx with BoundConstructorThis = Some thisArg }
-                    else { ctx with BoundMemberThis = Some thisArg }
+                let thisArg = { thisArg with Kind = Fable.ThisArgIdent }
+                let ctx = { ctx with BoundMemberThis = Some thisArg }
                 ctx, [thisArg], restArgs1::restArgs2
             | _ -> ctx, [], args
         let ctx, args =
@@ -874,62 +858,63 @@ module Util =
                 |> Path.getRelativePath com.CurrentFile
         else path
 
-    let (|ImportAtt|EmitDeclarationAtt|NoAtt|) (atts: #seq<FSharpAttribute>) =
+    let (|GlobalAtt|ImportAtt|NoGlobalNorImport|) (atts: #seq<FSharpAttribute>) =
         atts |> Seq.tryPick (function
-            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                Choice1Of3(selector.Trim(), path.Trim()) |> Some
-            | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
-                Choice1Of3("*", path.Trim()) |> Some
-            | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
-                Choice1Of3("default", path.Trim()) |> Some
-            | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
-                Choice1Of3(Naming.placeholder, path.Trim()) |> Some
-            | AttFullName(Atts.emitDeclaration, AttArguments [(:? string as macro)]) ->
-                Choice2Of3(macro) |> Some
+            | AttFullName(Atts.global_, att) ->
+                match att with
+                | AttArguments [:? string as customName] -> GlobalAtt(Some customName) |> Some
+                | _ -> GlobalAtt(None) |> Some
+
+            | AttFullName(Naming.StartsWith Atts.import _ as fullName, att) ->
+                match fullName, att with
+                | Atts.importAll, AttArguments [(:? string as path)] ->
+                    ImportAtt("*", path.Trim()) |> Some
+                | Atts.importDefault, AttArguments [(:? string as path)] ->
+                    ImportAtt("default", path.Trim()) |> Some
+                | Atts.importMember, AttArguments [(:? string as path)] ->
+                    ImportAtt(Naming.placeholder, path.Trim()) |> Some
+                | _, AttArguments [(:? string as selector); (:? string as path)] ->
+                    ImportAtt(selector.Trim(), path.Trim()) |> Some
+                | _ -> None
+
             | _ -> None)
-        |> Option.defaultValue (Choice3Of3 ())
+        |> Option.defaultValue NoGlobalNorImport
 
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember com typ (memb: FSharpMemberOrFunctionOrValue) =
         let getImportPath path =
             lazy getMemberLocation memb
             |> fixImportedRelativePath com path
-        memb.Attributes |> Seq.tryPick (function
-            | AttFullName(Atts.global_, att) ->
-                match att with
-                | AttArguments [:? string as customName] ->
-                    makeTypedIdentNonMangled typ customName |> Fable.IdentExpr |> Some
-                | _ -> getMemberDisplayName memb |> makeTypedIdentNonMangled typ |> Fable.IdentExpr |> Some
-            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                getImportPath path |> makeCustomImport typ selector |> Some
-            | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
-                getImportPath path |> makeCustomImport typ "*" |> Some
-            | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
-                getImportPath path |> makeCustomImport typ "default" |> Some
-            | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
-                let selector = getMemberDisplayName memb
-                getImportPath path |> makeCustomImport typ selector |> Some
-            | _ -> None)
+        match memb.Attributes with
+        | GlobalAtt(Some customName) ->
+            makeTypedIdent typ customName |> Fable.IdentExpr |> Some
+        | GlobalAtt None ->
+            getMemberDisplayName memb |> makeTypedIdent typ |> Fable.IdentExpr |> Some
+        | ImportAtt(selector, path) ->
+            let selector =
+                if selector = Naming.placeholder then getMemberDisplayName memb
+                else selector
+            let path =
+                lazy getMemberLocation memb
+                |> fixImportedRelativePath com path
+            makeCustomImport typ selector path |> Some
+        | _ -> None
 
     let tryGlobalOrImportedEntity (com: ICompiler) (ent: FSharpEntity) =
-        let getImportPath path =
-            lazy getEntityLocation ent
-            |> fixImportedRelativePath com path
-        ent.Attributes |> Seq.tryPick (function
-            | AttFullName(Atts.global_, att) ->
-                match att with
-                | AttArguments [:? string as customName] ->
-                    makeTypedIdentNonMangled Fable.Any customName |> Fable.IdentExpr |> Some
-                | _ -> ent.DisplayName |> makeTypedIdentNonMangled Fable.Any |> Fable.IdentExpr |> Some
-            | AttFullName(Atts.import, AttArguments [(:? string as selector); (:? string as path)]) ->
-                getImportPath path |> makeCustomImport Fable.Any selector |> Some
-            | AttFullName(Atts.importAll, AttArguments [(:? string as path)]) ->
-                getImportPath path |> makeCustomImport Fable.Any "*" |> Some
-            | AttFullName(Atts.importDefault, AttArguments [(:? string as path)]) ->
-                getImportPath path |> makeCustomImport Fable.Any "default" |> Some
-            | AttFullName(Atts.importMember, AttArguments [(:? string as path)]) ->
-                getImportPath path |> makeCustomImport Fable.Any ent.DisplayName |> Some
-            | _ -> None)
+        match ent.Attributes with
+        | GlobalAtt(Some customName) ->
+            makeTypedIdent Fable.Any customName |> Fable.IdentExpr |> Some
+        | GlobalAtt None ->
+            ent.DisplayName |> makeTypedIdent Fable.Any |> Fable.IdentExpr |> Some
+        | ImportAtt(selector, path) ->
+            let selector =
+                if selector = Naming.placeholder then ent.DisplayName
+                else selector
+            let path =
+                lazy getEntityLocation ent
+                |> fixImportedRelativePath com path
+            makeCustomImport  Fable.Any selector path |> Some
+        | _ -> None
 
     let isErasedOrStringEnumEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
@@ -937,17 +922,10 @@ module Util =
             | Some(Atts.erase | Atts.stringEnum) -> true
             | _ -> false)
 
-    let isErasedOrStringEnumOrGlobalOrImportedEntity (ent: FSharpEntity) =
-        ent.Attributes |> Seq.exists (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some(Atts.erase | Atts.stringEnum
-                    | Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
-            | _ -> false)
-
     let isGlobalOrImportedEntity (ent: FSharpEntity) =
         ent.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember) -> true
+            | Some(Atts.global_ | Naming.StartsWith Atts.import _) -> true
             | _ -> false)
 
     /// Entities coming from assemblies (we don't have access to source code) are candidates for replacement
@@ -970,10 +948,9 @@ module Util =
         else
             let entLoc = getEntityLocation ent
             let file = Path.normalizePathAndEnsureFsExtension entLoc.FileName
-            let entityName = getEntityDeclarationName com ent
-            let entityName = Naming.appendSuffix entityName suffix
+            let entityName = getEntityDeclarationName com ent + suffix
             if file = com.CurrentFile then
-                makeIdentExprNonMangled entityName
+                makeIdentExpr entityName
             elif isPublicEntity ent then
                 makeInternalImport com Fable.Any entityName file
             else
@@ -1000,7 +977,7 @@ module Util =
             // We assume the member belongs to the current file
             | None -> com.CurrentFile
         if file = com.CurrentFile then
-            { makeTypedIdentNonMangled typ memberName with Range = r }
+            { makeTypedIdent typ memberName with Range = r }
             |> Fable.IdentExpr
         elif isPublicMember memb then
             // If the overload suffix changes, we need to recompile the files that call this member
@@ -1111,7 +1088,7 @@ module Util =
     let (|Emitted|_|) com r typ callInfo (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
-            | Some(Naming.StartsWith "Fable.Core.Emit" _ as attFullName) ->
+            | Some(Naming.StartsWith Atts.emit _ as attFullName) ->
                 let callInfo =
                     // Allow combination of Import and Emit attributes
                     match callInfo, tryGlobalOrImportedMember com Fable.Any memb with
@@ -1122,16 +1099,15 @@ module Util =
                     match Seq.tryHead att.ConstructorArguments with
                     | Some(_, (:? string as macro)) -> macro
                     | _ -> ""
-                match attFullName with
-                | Atts.emit -> Some macro
-                | Atts.emitMethod -> "$0." + macro + "($1...)" |> Some
-                | Atts.emitConstructor -> "new $0($1...)" |> Some
-                | Atts.emitIndexer -> "$0[$1]{{=$2}}" |> Some
-                | Atts.emitProperty -> "$0." + macro + "{{=$1}}" |> Some
-                | _ -> None
-                |> Option.map (fun macro -> Fable.Operation(Fable.Emit(macro, callInfo), typ, r))
-            | _ -> None
-        )
+                let macro =
+                    match attFullName with
+                    | Atts.emitMethod -> "$0." + macro + "($1...)"
+                    | Atts.emitConstructor -> "new $0($1...)"
+                    | Atts.emitIndexer -> "$0[$1]{{=$2}}"
+                    | Atts.emitProperty -> "$0." + macro + "{{=$1}}"
+                    | _ -> macro
+                Fable.Operation(Fable.Emit(macro, callInfo), typ, r) |> Some
+            | _ -> None)
 
     let (|Imported|_|) com r typ callInfo (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         let importValueType = if Option.isSome callInfo then Fable.Any else typ
