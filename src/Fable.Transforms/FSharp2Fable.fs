@@ -360,7 +360,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let byrefType = makeType com ctx.GenericArgs (List.last membArgs).Type
         let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        let tupleIdent = makeIdentUnique com "tuple"
+        let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
         let tupleIdentExpr = Fable.IdentExpr tupleIdent
         let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleGet 1, tupleType, None)
@@ -394,7 +394,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType com ctx.GenericArgs)
         let byrefType = makeType com ctx.GenericArgs (List.last membArgs).Type
         let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        let tupleIdent = makeIdentUnique com "tuple"
+        let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
         let tupleIdentExpr = Fable.IdentExpr tupleIdent
         let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         let id1Expr = Fable.Get(tupleIdentExpr, Fable.TupleGet 0, tupleType, None)
@@ -448,30 +448,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Replacements.makeTypeConst (makeRangeFrom fsExpr) typ value
 
     | BasicPatterns.BaseValue typ ->
+        let r = makeRangeFrom fsExpr
         let typ = makeType com Map.empty typ
-        match ctx.BoundMemberThis, ctx.BoundConstructorThis with
-        | Some thisArg, _ | _, Some thisArg ->
-            return { thisArg with Kind = Fable.BaseValueIdent; Type = typ } |> Fable.IdentExpr
-        | _ ->
-            addError com ctx.InlinePath (makeRangeFrom fsExpr) "Unexpected unbound this for base value"
-            return Fable.Value(Fable.Null Fable.Any, None)
+        return Fable.Value(Fable.BaseValue(ctx.BoundMemberThis, typ), r)
 
+    // F# compiler doesn't represent `this` in non-constructors as BasicPatterns.ThisValue (but BasicPatterns.Value)
     | BasicPatterns.ThisValue typ ->
-        let fail r msg =
-            addError com ctx.InlinePath r msg
-            Fable.Value(Fable.Null Fable.Any, None)
-        // NOTE: We don't check ctx.BoundMemberThis here because F# compiler doesn't represent
-        // `this` in members as BasicPatterns.ThisValue (but BasicPatterns.Value)
+        let r = makeRangeFrom fsExpr
         return
             match typ, ctx.BoundConstructorThis with
-            // When the type is a ref type, it means this is a reference to a constructor this value `type C() as x`
+            // When it's ref type, this is the x in `type C() as x =`
             | RefType _, _ ->
-                let r = makeRangeFrom fsExpr
-                match tryGetIdentFromScopeIf ctx r (fun fsRef -> fsRef.IsConstructorThisValue) with
-                | Some e -> e
-                | None -> fail r "Cannot find ConstructorThisValue"
-            | _, Some thisArg -> Fable.IdentExpr thisArg
-            | _ -> fail (makeRangeFrom fsExpr) "Unexpected unbound this"
+                tryGetIdentFromScopeIf ctx r (fun fsRef -> fsRef.IsConstructorThisValue)
+                |> Option.defaultWith (fun () -> "Cannot find ConstructorThisValue"
+                                                 |> addErrorAndReturnNull com ctx.InlinePath r)
+            // Check if `this` has been bound previously to avoid conflicts with an object expression
+            | _, Some i -> identWithRange r i |> Fable.IdentExpr
+            | _, None -> Fable.Value(makeType com Map.empty typ |> Fable.ThisValue, r)
 
     | BasicPatterns.Value var ->
         let r = makeRangeFrom fsExpr
@@ -714,7 +707,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.NewTuple(argExprs) |> makeValue (makeRangeFrom fsExpr)
 
     | BasicPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
-        return! transformObjExpr com ctx objType baseCall overrides otherOverrides
+        let objExpr ctx =
+            transformObjExpr com ctx objType baseCall overrides otherOverrides
+        match ctx.EnclosingMember with
+        | Some m when m.IsImplicitConstructor ->
+            let thisArg = getIdentUniqueName ctx "_this" |> makeIdent
+            let thisValue = Fable.Value(Fable.ThisValue Fable.Any, None)
+            let ctx = { ctx with BoundConstructorThis = Some thisArg }
+            let! objExpr = transformObjExpr com ctx objType baseCall overrides otherOverrides
+            return Fable.Let([thisArg, thisValue], objExpr)
+        | _ -> return! transformObjExpr com ctx objType baseCall overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
         // TODO: Check arguments passed byref here too?
@@ -828,8 +830,7 @@ let private isIgnoredNonAttachedMember (meth: FSharpMemberOrFunctionOrValue) =
     Option.isSome meth.LiteralValue
     || meth.Attributes |> Seq.exists (fun att ->
         match att.AttributeType.TryFullName with
-        | Some(Atts.global_ | Atts.import | Atts.importAll | Atts.importDefault | Atts.importMember
-                | Atts.emit | Atts.emitMethod | Atts.emitConstructor | Atts.emitIndexer | Atts.emitProperty) -> true
+        | Some(Atts.global_ | Naming.StartsWith Atts.import _ | Naming.StartsWith Atts.emit _) -> true
         | _ -> false)
     || (match meth.DeclaringEntity with
         | Some ent -> isGlobalOrImportedEntity ent
@@ -848,10 +849,6 @@ let private transformImplicitConstructor com (ctx: Context)
     | None -> "Unexpected constructor without declaring entity: " + memb.FullName
               |> addError com ctx.InlinePath None; []
     | Some ent ->
-        let bodyCtx, args = bindMemberArgs com ctx args
-        let genArgs = ent.GenericParameters |> Seq.map (resolveGenParam ctx.GenericArgs) |> Seq.toList
-        let entType = Fable.DeclaredType(ent, genArgs)
-        let boundThis = makeTypedIdentUnique com entType "this"
         let mutable baseRefAndConsCall = None
         let captureBaseCall =
             ent.BaseType |> Option.bind (fun (NonAbbreviatedType baseType) ->
@@ -862,18 +859,16 @@ let private transformImplicitConstructor com (ctx: Context)
                         Some(ent, fun c -> baseRefAndConsCall <- Some c)
                     | _ -> None
                 else None)
-        let bodyCtx = { bodyCtx with BoundConstructorThis = Some boundThis
-                                     CaptureBaseConsCall = captureBaseCall }
+        let bodyCtx, args = bindMemberArgs com ctx args
+        let bodyCtx = { bodyCtx with CaptureBaseConsCall = captureBaseCall }
         let body = transformExpr com bodyCtx body |> run
         let consName, _ = getMemberDeclarationName com memb
         let entityName = getEntityDeclarationName com ent
-        com.AddUsedVarName(consName)
-        com.AddUsedVarName(entityName)
         let r = getEntityLocation ent |> makeRange
         let info = Fable.ClassImplicitConstructorInfo(ent, consName, entityName,
-                    args, boundThis, body, baseRefAndConsCall, hasSeqSpread memb,
+                    args, body, baseRefAndConsCall, hasSeqSpread memb,
                     isPublicMember memb, isPublicEntity ent, r)
-        [Fable.ClassImplicitConstructorDeclaration info]
+        [Fable.ClassImplicitConstructorDeclaration(info, set ctx.UseNamesInDeclarationScope)]
 
 /// When using `importMember`, uses the member display name as selector
 let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
@@ -888,7 +883,7 @@ let private transformImport com r typ isMutable isPublic name selector path =
         |> addError com [] None
     let info = Fable.ModuleMemberInfo(name, isValue=true, isPublic=isPublic, isMutable=isMutable)
     let fableValue = Fable.Import(selector, path, Fable.CustomImport, typ, r)
-    [Fable.ModuleMemberDeclaration([], fableValue, info)]
+    [Fable.ModuleMemberDeclaration([], fableValue, info, Set.empty)]
 
 let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let value = transformExpr com ctx value |> run
@@ -908,7 +903,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
         let r = makeRange memb.DeclarationLocation
         let info = Fable.ModuleMemberInfo(name, ?declaringEntity=memb.DeclaringEntity,
                     isValue=true, isPublic=isPublic, isMutable=memb.IsMutable, range=r)
-        [Fable.ModuleMemberDeclaration([], fableValue, info)]
+        [Fable.ModuleMemberDeclaration([], fableValue, info, set ctx.UseNamesInDeclarationScope)]
 
 let private moduleMemberDeclarationInfo name isValue isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.ModuleMemberInfo =
     Fable.ModuleMemberInfo(name,
@@ -936,15 +931,14 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         if memb.CompiledName = ".cctor" then
             let fn = Fable.Function(Fable.Delegate args, body, Some name)
             let apply = makeCall None Fable.Unit (makeSimpleCallInfo None [] []) fn
-            [Fable.ActionDeclaration apply]
+            [Fable.ActionDeclaration(apply, set ctx.UseNamesInDeclarationScope)]
         else
             let info = moduleMemberDeclarationInfo name false isPublic memb
-            [Fable.ModuleMemberDeclaration(args, body, info)]
+            [Fable.ModuleMemberDeclaration(args, body, info, set ctx.UseNamesInDeclarationScope)]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
     let name, _ = getMemberDeclarationName com memb
-    com.AddUsedVarName(name)
     match memb.Attributes with
     | ImportAtt(selector, path) ->
         let selector =
@@ -952,11 +946,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
             else selector
         let typ = makeType com Map.empty memb.FullType
         transformImport com None typ memb.IsMutable isPublic name (makeStrConst selector) (makeStrConst path)
-    | EmitDeclarationAtt macro ->
-        let typ = makeType com Map.empty memb.FullType
-        let info = moduleMemberDeclarationInfo name true isPublic memb
-        [Fable.ModuleMemberDeclaration([], Fable.Operation(Fable.Emit(macro, None), typ, None), info)]
-    | NoAtt ->
+    | _ ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name memb body
         else transformMemberFunction com ctx isPublic name memb args body
@@ -968,11 +958,12 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
     let body = transformExpr com bodyCtx body |> run
     let r = makeRange memb.DeclarationLocation |> Some
     let info = getAttachedMemberInfo com ctx r com.NonMangledAttachedMemberConflicts (Some declaringEntity) signature
-    [Fable.AttachedMemberDeclaration(args, body, info, declaringEntity)]
+    [Fable.AttachedMemberDeclaration(args, body, info, declaringEntity, set ctx.UseNamesInDeclarationScope)]
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
-    let ctx = { ctx with EnclosingMember = Some memb }
+    let ctx = { ctx with EnclosingMember = Some memb
+                         UseNamesInDeclarationScope = HashSet() }
     if isIgnoredNonAttachedMember memb then
         if memb.IsMutable && isPublicMember memb && hasAttribute Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
@@ -1008,55 +999,55 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
             | None -> []
     else transformMemberFunctionOrValue com ctx memb args body
 
-// In case this is a recursive module, do a first pass to add
-// all entity and member names as used var names
-let rec checkMemberNames (com: FableCompiler) decls =
-    for decl in decls do
+let private addUsedRootName com (usedRootNames: Set<string>) name =
+    if Set.contains name usedRootNames then
+        "Cannot have two module members with same name: " + name
+        |> addError com [] None
+    Set.add name usedRootNames
+
+// In case this is a recursive module, do a first pass to get all entity and member names
+let rec private getUsedRootNames com (usedNames: Set<string>) decls =
+    (usedNames, decls) ||> List.fold (fun usedNames decl ->
         match decl with
         | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
-            match sub with
-            | [] when ent.IsFSharpAbbreviation -> ()
-            | [] -> com.AddUsedVarName(getEntityDeclarationName com ent, isRoot=true)
-            | sub -> checkMemberNames com sub
+            if isErasedOrStringEnumEntity ent then usedNames
+            elif ent.IsFSharpUnion || isRecordLike ent then
+                getEntityDeclarationName com ent
+                |> addUsedRootName com usedNames
+            else
+                getUsedRootNames com usedNames sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
-            if not(memb.IsOverrideOrExplicitInterfaceImplementation || isIgnoredNonAttachedMember memb) then
+            if memb.IsOverrideOrExplicitInterfaceImplementation then usedNames
+            else
                 let memberName, _ = getMemberDeclarationName com memb
-                com.AddUsedVarName(memberName, isRoot=true)
-        | FSharpImplementationFileDeclaration.InitAction _ -> ()
-
-let private transformDeclarations (com: FableCompiler) ctx rootDecls =
-    let rec transformDeclarationsInner (com: FableCompiler) (ctx: Context) fsDecls =
-        fsDecls |> List.collect (fun fsDecl ->
-            match fsDecl with
-            | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
-                match ent.Attributes with
-                | ImportAtt(selector, path) ->
-                    let selector =
-                        if selector = Naming.placeholder then ent.DisplayName
-                        else selector
-                    let name = getEntityDeclarationName com ent
-                    com.AddUsedVarName(name)
-                    (makeStrConst selector, makeStrConst path)
-                    ||> transformImport com None Fable.Any false (not ent.Accessibility.IsPrivate) name
-                | _ when isErasedOrStringEnumOrGlobalOrImportedEntity ent ->
-                    []
-                | _ when ent.IsFSharpUnion || isRecordLike ent ->
+                let usedNames = addUsedRootName com usedNames memberName
+                match memb.DeclaringEntity with
+                | Some ent when memb.IsImplicitConstructor ->
                     let entityName = getEntityDeclarationName com ent
-                    com.AddUsedVarName(entityName)
-                    // TODO: Check Equality/Comparison attributes
-                    let r = getEntityLocation ent |> makeRange
-                    Fable.ConstructorInfo(ent, entityName, isPublicEntity ent, ent.IsFSharpUnion, r)
-                    |> Fable.CompilerGeneratedConstructorDeclaration
-                    |> List.singleton
-                | _ ->
-                    transformDeclarationsInner com { ctx with EnclosingEntity = Some ent } sub
-            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
-                transformMemberDecl com ctx meth args body
-            | FSharpImplementationFileDeclaration.InitAction fe ->
-                [transformExpr com ctx fe |> run |> Fable.ActionDeclaration])
+                    addUsedRootName com usedNames entityName
+                | _ -> usedNames
+        | FSharpImplementationFileDeclaration.InitAction _ -> usedNames)
 
-    checkMemberNames com rootDecls
-    transformDeclarationsInner com ctx rootDecls
+let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
+    fsDecls |> List.collect (fun fsDecl ->
+        match fsDecl with
+        | FSharpImplementationFileDeclaration.Entity(ent, sub) ->
+            if isErasedOrStringEnumEntity ent then []
+            elif ent.IsFSharpUnion || isRecordLike ent then
+                let entityName = getEntityDeclarationName com ent
+                // TODO: Check Equality/Comparison attributes
+                let r = getEntityLocation ent |> makeRange
+                Fable.ConstructorInfo(ent, entityName, isPublicEntity ent, ent.IsFSharpUnion, r)
+                |> Fable.CompilerGeneratedConstructorDeclaration
+                |> List.singleton
+            else
+                transformDeclarations com { ctx with EnclosingEntity = Some ent } sub
+        | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->
+            transformMemberDecl com ctx meth args body
+        | FSharpImplementationFileDeclaration.InitAction fe ->
+            let ctx = { ctx with UseNamesInDeclarationScope = HashSet() }
+            let e = transformExpr com ctx fe |> run
+            [Fable.ActionDeclaration(e, set ctx.UseNamesInDeclarationScope)])
 
 let private getRootModuleAndDecls decls =
     let rec getRootModuleAndDeclsInner outerEnt decls =
@@ -1087,17 +1078,9 @@ let private tryGetMemberArgsAndBody com (implFiles: IDictionary<string, FSharpIm
     | false, _ -> None
 
 type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplementationFileContents>) =
-    member val UsedVarNames = HashSet<string>()
     member val InlineDependencies = HashSet<string>()
     member val NonMangledAttachedMemberNames = Dictionary<string, HashSet<string>>()
     member __.Options = com.Options
-
-    member this.AddUsedVarName(varName, ?isRoot) =
-        let isRoot = defaultArg isRoot false
-        let success = this.UsedVarNames.Add(varName)
-        if not success && isRoot then
-            sprintf "Cannot have two module members with same name: %s" varName
-            |> addError com [] None
 
     member __.AddInlineExpr(memb, inlineExpr: InlineExpr) =
         let fullName = getMemberUniqueName com memb
@@ -1145,12 +1128,6 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
             | true, f -> Some f
             | false, _ -> None
 
-        member this.AddUsedVarName(varName, ?isRoot) =
-            this.AddUsedVarName(varName, ?isRoot=isRoot)
-
-        member this.IsUsedVarName(varName) =
-            this.UsedVarNames.Contains(varName)
-
         member this.AddInlineDependency(fileName) =
             this.InlineDependencies.Add(fileName) |> ignore
 
@@ -1158,8 +1135,6 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
         member __.Options = com.Options
         member __.LibraryDir = com.LibraryDir
         member __.CurrentFile = com.CurrentFile
-        member __.GetUniqueVar(name) =
-            com.GetUniqueVar(?name=name)
         member __.GetRootModule(fileName) =
             com.GetRootModule(fileName)
         member __.GetOrAddInlineExpr(fullName, generate) =
@@ -1174,17 +1149,15 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
     | None -> ""
 
 let transformFile (com: ICompiler) (implFiles: IDictionary<string, FSharpImplementationFileContents>) =
-    try
-        let file =
-            match implFiles.TryGetValue(com.CurrentFile) with
-            | true, file -> file
-            | false, _ ->
-                let projFiles = implFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
-                failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
-        let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
-        let fcom = FableCompiler(com, implFiles)
-        let ctx = Context.Create(rootEnt)
-        let rootDecls = transformDeclarations fcom ctx rootDecls
-        Fable.File(com.CurrentFile, rootDecls, set fcom.UsedVarNames, set fcom.InlineDependencies)
-    with
-    | ex -> exn (sprintf "%s (%s)" ex.Message com.CurrentFile, ex) |> raise
+    let file =
+        match implFiles.TryGetValue(com.CurrentFile) with
+        | true, file -> file
+        | false, _ ->
+            let projFiles = implFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
+            failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
+    let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
+    let fcom = FableCompiler(com, implFiles)
+    let usedRootNames = getUsedRootNames com Set.empty rootDecls
+    let ctx = Context.Create(rootEnt, usedRootNames)
+    let rootDecls = transformDeclarations fcom ctx rootDecls
+    Fable.File(com.CurrentFile, rootDecls, usedRootNames, set fcom.InlineDependencies)

@@ -89,45 +89,52 @@ type ConstructorInfo(entity, entityName, ?isEntityPublic, ?isUnion, ?range) =
     member _.Range: SourceLocation option = range
 
 type ClassImplicitConstructorInfo(entity, constructorName, entityName,
-                                  arguments, boundThis, body, baseCall,
-                                  ?hasSpread, ?isConstructorPublic,
-                                  ?isEntityPublic, ?range) =
+                                  arguments, body, baseCall, ?hasSpread,
+                                  ?isConstructorPublic, ?isEntityPublic, ?range) =
     inherit ConstructorInfo(entity, entityName, ?isEntityPublic=isEntityPublic, ?range=range)
 
     member _.ConstructorName: string = constructorName
     member _.Arguments: Ident list = arguments
-    member _.BoundThis: Ident = boundThis
     member _.Body: Expr = body
     member _.BaseCall: Expr option = baseCall
     member _.IsConstructorPublic = defaultArg isConstructorPublic false
     member _.HasSpread = defaultArg hasSpread false
 
     member _.WithBodyAndBaseCall(body, baseCall) =
-        ClassImplicitConstructorInfo(entity, constructorName, entityName, arguments, boundThis,
+        ClassImplicitConstructorInfo(entity, constructorName, entityName, arguments,
             body, baseCall, ?hasSpread=hasSpread, ?isConstructorPublic=isConstructorPublic,
             ?isEntityPublic=isEntityPublic, ?range=range)
 
+type UsedNames = Set<string>
+
 type Declaration =
-    | ActionDeclaration of Expr
+    | ActionDeclaration of Expr * UsedNames
     /// Note: Non-attached type members become module members
-    | ModuleMemberDeclaration of args: Ident list * body: Expr * ModuleMemberInfo
+    | ModuleMemberDeclaration of args: Ident list * body: Expr * ModuleMemberInfo * UsedNames
     /// Interface and abstract class implementations
-    | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberInfo * declaringEntity: FSharpEntity
+    | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberInfo * declaringEntity: FSharpEntity * UsedNames
     /// For unions, records and structs
     | CompilerGeneratedConstructorDeclaration of ConstructorInfo
-    | ClassImplicitConstructorDeclaration of ClassImplicitConstructorInfo
+    | ClassImplicitConstructorDeclaration of ClassImplicitConstructorInfo * UsedNames
 
-type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
+    member this.UsedNames =
+        match this with
+        | ActionDeclaration(_,u)
+        | ModuleMemberDeclaration(_,_,_,u)
+        | AttachedMemberDeclaration(_,_,_,_,u)
+        | ClassImplicitConstructorDeclaration(_,u) -> u
+        | CompilerGeneratedConstructorDeclaration _ -> Set.empty
+
+type File(sourcePath, decls, ?usedRootNames, ?inlineDependencies) =
     member __.SourcePath: string = sourcePath
     member __.Declarations: Declaration list = decls
-    member __.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
+    member __.UseNamesInRootScope: UsedNames = defaultArg usedRootNames Set.empty
     member __.InlineDependencies: Set<string> = defaultArg inlineDependencies Set.empty
 
 type IdentKind =
     | UserDeclared
     | CompilerGenerated
-    | BaseValueIdent
-    | ThisArgIdentDeclaration
+    | ThisArgIdent
 
 type Ident =
     { Name: string
@@ -140,14 +147,9 @@ type Ident =
         | CompilerGenerated -> true
         | _ -> false
 
-    member x.IsBaseValue =
+    member x.IsThisArgIdent =
         match x.Kind with
-        | BaseValueIdent -> true
-        | _ -> false
-
-    member x.IsThisArgDeclaration =
-        match x.Kind with
-        | ThisArgIdentDeclaration -> true
+        | ThisArgIdent -> true
         | _ -> false
 
     member x.DisplayName =
@@ -169,6 +171,11 @@ type NewRecordKind =
     | AnonymousRecord of fieldNames: string []
 
 type ValueKind =
+    // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
+    // ThisValue only appears in constructors and not in instance members (where `this` is passed as first argument)
+    // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
+    | ThisValue of Type
+    | BaseValue of boundIdent: Ident option * Type
     | TypeInfo of Type
     | Null of Type
     | UnitConstant
@@ -186,6 +193,8 @@ type ValueKind =
     | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
     member this.Type =
         match this with
+        | ThisValue t
+        | BaseValue(_,t) -> t
         | TypeInfo _ -> MetaType
         | Null t -> t
         | UnitConstant -> Unit

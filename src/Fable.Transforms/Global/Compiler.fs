@@ -37,7 +37,6 @@ type ICompiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
     abstract Options: CompilerOptions
-    abstract GetUniqueVar: ?name: string -> string
     abstract GetRootModule: string -> string
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
     abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation

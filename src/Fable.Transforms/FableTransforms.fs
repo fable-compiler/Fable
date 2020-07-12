@@ -12,6 +12,7 @@ let visit f e =
     | Import(e1, e2, kind, t, r) -> Import(f e1, f e2, kind, t, r)
     | Value(kind, r) ->
         match kind with
+        | ThisValue _ | BaseValue _
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> e
@@ -94,18 +95,13 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
     | Some e -> e
     | None -> visit (visitFromOutsideIn f) e
 
-let rec visitFromOutsideInWithContinueFlag f e =
-    match f e with
-    | _, Some e -> e
-    | true, None -> visit (visitFromOutsideInWithContinueFlag f) e
-    | false, None -> e
-
 let getSubExpressions = function
     | IdentExpr _ | Debugger _ -> []
     | TypeCast(e,_) -> [e]
     | Import(e1,e2,_,_,_) -> [e1;e2]
     | Value(kind,_) ->
         match kind with
+        | ThisValue _ | BaseValue _
         | TypeInfo _ | Null _ | UnitConstant
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> []
@@ -531,20 +527,20 @@ let optimizations =
 let transformExpr (com: ICompiler) e =
     List.fold (fun e f -> f com e) e optimizations
 
-let rec transformDeclaration (com: ICompiler) = function
-    | ActionDeclaration expr ->
-        ActionDeclaration(transformExpr com expr)
-    | ModuleMemberDeclaration(args, body, info) ->
+let transformDeclaration (com: ICompiler) = function
+    | ActionDeclaration(expr, usedNames) ->
+        ActionDeclaration(transformExpr com expr, usedNames)
+    | ModuleMemberDeclaration(args, body, info, usedNames) ->
         let body =
             if info.IsValue then body
             else uncurryIdentsAndReplaceInBody args body
-        ModuleMemberDeclaration(args, transformExpr com body, info)
-    | AttachedMemberDeclaration(args, body, info, e) ->
+        ModuleMemberDeclaration(args, transformExpr com body, info, usedNames)
+    | AttachedMemberDeclaration(args, body, info, e, usedNames) ->
         let body =
             if info.IsMethod then uncurryIdentsAndReplaceInBody args body
             else body
-        AttachedMemberDeclaration(args, transformExpr com body, info, e)
-    | ClassImplicitConstructorDeclaration info ->
+        AttachedMemberDeclaration(args, transformExpr com body, info, e, usedNames)
+    | ClassImplicitConstructorDeclaration(info, usedNames) ->
         let baseCall, body =
             match info.BaseCall with
             | Some baseCall ->
@@ -558,10 +554,9 @@ let rec transformDeclaration (com: ICompiler) = function
                     | body -> None, body // Unexpected, raise error?
             | None ->
                 None, uncurryIdentsAndReplaceInBody info.Arguments info.Body |> transformExpr com
-        info.WithBodyAndBaseCall(body, baseCall)
-        |> ClassImplicitConstructorDeclaration
+        ClassImplicitConstructorDeclaration(info.WithBodyAndBaseCall(body, baseCall), usedNames)
     | CompilerGeneratedConstructorDeclaration _ as d -> d
 
 let transformFile (com: ICompiler) (file: File) =
     let newDecls = List.map (transformDeclaration com) file.Declarations
-    File(file.SourcePath, newDecls, usedVarNames=file.UsedVarNames, inlineDependencies=file.InlineDependencies)
+    File(file.SourcePath, newDecls, usedRootNames=file.UseNamesInRootScope, inlineDependencies=file.InlineDependencies)

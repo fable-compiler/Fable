@@ -52,10 +52,6 @@ type ImportAllAttribute(from: string) =
 type EmitAttribute(macro: string) =
     inherit Attribute()
 
-/// The declaration value will be replaced with the JS code.
-type EmitDeclarationAttribute(macro: string) =
-    inherit Attribute()
-
 /// Same as `Emit("$0.methodName($1...)")`
 type EmitMethodAttribute(methodName: string) =
     inherit Attribute()

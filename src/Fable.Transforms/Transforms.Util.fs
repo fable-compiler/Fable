@@ -9,17 +9,16 @@ module Atts =
     let [<Literal>] entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
     let [<Literal>] sealed_ = "Microsoft.FSharp.Core.SealedAttribute" // typeof<Microsoft.FSharp.Core.SealedAttribute>.FullName
     let [<Literal>] mangle = "Fable.Core.MangleAttribute" // typeof<Fable.Core.MangleAttribute>.FullName
-    let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
+    let [<Literal>] import = "Fable.Core.Import"
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
     let [<Literal>] importMember = "Fable.Core.ImportMemberAttribute" // typeof<Fable.Core.ImportMemberAttribute>.FullName
     let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
-    let [<Literal>] emit            = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitMethod      = "Fable.Core.EmitMethodAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
+    let [<Literal>] emit = "Fable.Core.Emit"
+    let [<Literal>] emitMethod = "Fable.Core.EmitMethodAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
     let [<Literal>] emitConstructor = "Fable.Core.EmitConstructorAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitIndexer     = "Fable.Core.EmitIndexerAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitProperty    = "Fable.Core.EmitPropertyAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitDeclaration = "Fable.Core.EmitDeclarationAttribute" // typeof<Fable.Core.EmitDeclarationAttribute>.FullName
+    let [<Literal>] emitIndexer = "Fable.Core.EmitIndexerAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
+    let [<Literal>] emitProperty = "Fable.Core.EmitPropertyAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
     let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
@@ -321,33 +320,25 @@ module AST =
         | Any | Unit | GenericParam _ | Option _ -> true
         | _ -> false
 
-    /// ATTENTION: Make sure the ident name will be unique within the file
-    let makeIdentNonMangled name =
+    /// ATTENTION: Make sure the ident name is unique
+    let makeIdent name =
         { Name = name
           Type = Any
           Kind = CompilerGenerated
           IsMutable = false
           Range = None }
 
-    /// Mangles ident name to prevent conflicts in the file
-    let makeIdentUnique (com: ICompiler) name =
-        com.GetUniqueVar(name) |> makeIdentNonMangled
-
-    /// ATTENTION: Make sure the ident name will be unique within the file
-    let makeTypedIdentNonMangled typ name =
+    /// ATTENTION: Make sure the ident name is unique
+    let makeTypedIdent typ name =
         { Name = name
           Type = typ
           Kind = CompilerGenerated
           IsMutable = false
           Range = None }
 
-    /// Mangles ident name to prevent conflicts in the file
-    let makeTypedIdentUnique (com: ICompiler) typ name =
-        com.GetUniqueVar(name) |> makeTypedIdentNonMangled typ
-
-    /// ATTENTION: Make sure the ident name will be unique within the file
-    let makeIdentExprNonMangled name =
-        makeIdentNonMangled name |> IdentExpr
+    /// ATTENTION: Make sure the ident name is unique
+    let makeIdentExpr name =
+        makeIdent name |> IdentExpr
 
     let makeLoop range loopKind = Loop (loopKind, range)
 

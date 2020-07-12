@@ -51,8 +51,8 @@ type Helper =
                              ?memb: string, ?isJsConstructor: bool, ?loc: SourceLocation) =
         let callee =
             match memb with
-            | Some memb -> getSimple (makeIdentExprNonMangled ident) memb
-            | None -> makeIdentExprNonMangled ident
+            | Some memb -> getSimple (makeIdentExpr ident) memb
+            | None -> makeIdentExpr ident
         let argTypes = defaultArg argTypes []
         let info = makeSimpleCallInfo None args argTypes
         let info =
@@ -62,7 +62,7 @@ type Helper =
         Operation(Call(callee, info), returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
-        get loc typ (makeIdentExprNonMangled ident) memb
+        get loc typ (makeIdentExpr ident) memb
 
 module Helpers =
     let inline makeType com t =
@@ -105,7 +105,7 @@ module Helpers =
         Operation(BinaryOperation(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
 
     let error msg =
-        Helper.JsConstructorCall(makeIdentExprNonMangled "Error", Any, [msg])
+        Helper.JsConstructorCall(makeIdentExpr "Error", Any, [msg])
 
     let s txt = Value(StringConstant txt, None)
 
@@ -591,8 +591,8 @@ let round (args: Expr list) =
 let arrayCons (com: ICompiler) genArg =
     match genArg with
     | Number numberKind when com.Options.typedArrays ->
-        getTypedArrayName com numberKind |> makeIdentExprNonMangled
-    | _ -> makeIdentExprNonMangled "Array"
+        getTypedArrayName com numberKind |> makeIdentExpr
+    | _ -> makeIdentExpr "Array"
 
 let toList returnType expr =
     Helper.CoreCall("List", "ofSeq", returnType, [expr])
@@ -806,8 +806,8 @@ and compareIf (com: ICompiler) r (left: Expr) (right: Expr) op =
         makeEqOp r comparison (makeIntConst 0) op
 
 and makeComparerFunction (com: ICompiler) typArg =
-    let x = makeTypedIdentUnique com typArg "x"
-    let y = makeTypedIdentUnique com typArg "y"
+    let x = makeTypedIdent typArg "x"
+    let y = makeTypedIdent typArg "y"
     let body = compare com None (IdentExpr x) (IdentExpr y)
     Function(Delegate [x; y], body, None)
 
@@ -815,8 +815,8 @@ and makeComparer (com: ICompiler) typArg =
     objExpr ["Compare", makeComparerFunction com typArg]
 
 let makeEqualityComparer (com: ICompiler) typArg =
-    let x = makeTypedIdentUnique com typArg "x"
-    let y = makeTypedIdentUnique com typArg "y"
+    let x = makeTypedIdent typArg "x"
+    let y = makeTypedIdent typArg "y"
     let body = equals com None true (IdentExpr x) (IdentExpr y)
     let f = Function(Delegate [x; y], body, None)
     objExpr ["Equals", f
@@ -887,8 +887,8 @@ let getOne (com: ICompiler) ctx (t: Type) =
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
-    let x = makeTypedIdentUnique com t "x"
-    let y = makeTypedIdentUnique com t "y"
+    let x = makeTypedIdent t "x"
+    let y = makeTypedIdent t "y"
     let body = applyOp com ctx None t Operators.addition [IdentExpr x; IdentExpr y] [t; t] []
     Function(Delegate [x; y], body, None)
 
@@ -900,8 +900,8 @@ let makeGenericAdder (com: ICompiler) ctx t =
 
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
-        let x = makeTypedIdentUnique com t "x"
-        let i = makeTypedIdentUnique com (Number Int32) "i"
+        let x = makeTypedIdent t "x"
+        let i = makeTypedIdent (Number Int32) "i"
         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i] [t; Number Int32] []
         Function(Delegate [x; i], body, None)
     objExpr [
@@ -957,7 +957,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
 let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     match ent.TryFullName with
     | Some(BuiltinDefinition BclDateTime)
-    | Some(BuiltinDefinition BclDateTimeOffset) -> makeIdentExprNonMangled "Date" |> Some
+    | Some(BuiltinDefinition BclDateTimeOffset) -> makeIdentExpr "Date" |> Some
     | Some(BuiltinDefinition BclTimer) -> makeCoreRef Any "default" "Timer" |> Some
     | Some(BuiltinDefinition BclInt64)
     | Some(BuiltinDefinition BclUInt64) -> makeCoreRef Any "default" "Long" |> Some
@@ -974,7 +974,7 @@ let tryEntityRef (com: Fable.ICompiler) (ent: FSharpEntity) =
     // | Some(BuiltinDefinition FSharpSet _) -> fail "Set" // TODO:
     // | Some(BuiltinDefinition FSharpMap _) -> fail "Map" // TODO:
     | Some Types.matchFail -> makeCoreRef Any "MatchFailureException" "Types" |> Some
-    | Some Types.exception_ -> makeIdentExprNonMangled "Error" |> Some
+    | Some Types.exception_ -> makeIdentExpr "Error" |> Some
     | Some entFullName ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib entFullName)
@@ -1084,7 +1084,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | Value(StringConstant "*",_) -> import
                 | selector ->
                     let selector =
-                        let m = makeIdentNonMangled "m"
+                        let m = makeIdent "m"
                         Function(Delegate [m], Get(IdentExpr m, ExprGet selector, Any, None), None)
                     Helper.InstanceCall(import, "then", t, [selector])
             let arg =
@@ -1177,7 +1177,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "jsOptions", [arg] ->
             makePojoFromLambda arg |> Some
         | "jsThis", _ ->
-            makeTypedIdentNonMangled t "this" |> IdentExpr |> Some
+            makeTypedIdent t "this" |> IdentExpr |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
             | DeclaredType(ent, _) -> jsConstructor com ent |> Some
@@ -1280,7 +1280,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match t with
             | FunctionType(LambdaType argType, retType) -> argType, retType
             | _ -> Any, Any
-        let tempVar = makeTypedIdentUnique com argType "arg"
+        let tempVar = makeTypedIdent argType "arg"
         let tempVarExpr =
             match argType with
             // Erase unit references, because the arg may be erased
@@ -1624,8 +1624,8 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
                     let info = makeSimpleCallInfo None [IdentExpr ident] []
                     Operation(Call(projection, info), genArg, None)
                 | None -> IdentExpr ident
-            let x = makeTypedIdentUnique com genArg "x"
-            let y = makeTypedIdentUnique com genArg "y"
+            let x = makeTypedIdent genArg "x"
+            let y = makeTypedIdent genArg "y"
             let comparison =
                 let comparison = compare com None (identExpr x) (identExpr y)
                 if descending
@@ -2282,7 +2282,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (_: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.JsConstructorCall(makeIdentExprNonMangled "Error", t, args, ?loc=r) |> Some
+    | ".ctor", _ -> Helper.JsConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
     | "get_Message", Some e -> get r t e "message" |> Some
     | "get_StackTrace", Some e -> get r t e "stack" |> Some
     | _ -> None
