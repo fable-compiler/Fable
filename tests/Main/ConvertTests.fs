@@ -86,8 +86,8 @@ let tests =
         Boolean.Parse "False" |> equal false
         Boolean.Parse " false " |> equal false
 
-        (fun () -> Boolean.Parse "tru") |> throwsError "String 'tru' was not recognized as a valid Boolean."
-        (fun () -> Boolean.Parse "falsee") |> throwsError "String 'falsee' was not recognized as a valid Boolean."
+        throwsAnyError (fun () -> Boolean.Parse "tru")
+        throwsAnyError (fun () -> Boolean.Parse "falsee")
 
     testCase "System.Boolean.TryParse works" <| fun () ->
         Boolean.TryParse "true" |> equal (true, true)
