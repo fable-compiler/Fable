@@ -78,6 +78,28 @@ let tests =
         tryParse Single.TryParse 0.0f "9SayWhat12Huh" |> equal (false, 0.0f)
         tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
 
+    testCase "System.Boolean.Parse works" <| fun () ->
+        Boolean.Parse "true" |> equal true
+        Boolean.Parse "True" |> equal true
+        Boolean.Parse " true " |> equal true
+        Boolean.Parse "false" |> equal false
+        Boolean.Parse "False" |> equal false
+        Boolean.Parse " false " |> equal false
+
+        throwsAnyError (fun () -> Boolean.Parse "tru")
+        throwsAnyError (fun () -> Boolean.Parse "falsee")
+
+    testCase "System.Boolean.TryParse works" <| fun () ->
+        Boolean.TryParse "true" |> equal (true, true)
+        Boolean.TryParse "True" |> equal (true, true)
+        Boolean.TryParse " true " |> equal (true, true)
+        Boolean.TryParse "false" |> equal (true, false)
+        Boolean.TryParse "False" |> equal (true, false)
+        Boolean.TryParse " false " |> equal (true, false)
+
+        Boolean.TryParse "tru" |> equal (false, false)
+        Boolean.TryParse "falsee" |> equal (false, false)
+
     testCase "System.SByte.Parse works" <| fun () ->
         SByte.Parse("5") |> equal 5y
         SByte.Parse("-5") |> equal -5y
