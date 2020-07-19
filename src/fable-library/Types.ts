@@ -56,7 +56,7 @@ function compareList<T>(self: List<T>, other: List<T>) {
     }
     const idxDiff = self.idx - other.idx;
     for (let i = self.idx; i >= 0; i--) {
-      let otherIdx = i - idxDiff;
+      const otherIdx = i - idxDiff;
       if (otherIdx < 0) { return 1; }
       const selfItem = self.vals[i];
       const otherItem = other.vals[otherIdx];
@@ -73,7 +73,6 @@ export function newList<T>(head: T, tail: List<T>): List<T> {
   const vals = tail.vals.length === tail.idx + 1 ? tail.vals : tail.vals.slice(0, tail.idx + 1);
   vals.push(head);
   const li = new List(vals);
-  li._tail = tail;
   return li;
 }
 
@@ -92,7 +91,7 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
     this.idx = idx ?? this.vals.length - 1;
   }
 
-  public get empty() {
+  public get isEmpty() {
     return this.idx < 0;
   }
 
@@ -101,9 +100,7 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 
   public get tail(): List<T> | undefined {
-    return !this.empty
-      ? this._tail ?? (this._tail = new List(this.vals, this.idx - 1))
-      : undefined;
+    return this.idx >= 0 ? new List(this.vals, this.idx - 1) : undefined;
   }
 
   public get length() {
