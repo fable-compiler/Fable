@@ -131,6 +131,13 @@ let tests =
         li.AddRange [1;2;3]
         equal 3 li.Count
 
+    testCase "ResizeArray.GetRange works" <| fun () ->
+        let li = ResizeArray<_>()
+        li.AddRange [1;2;3]
+        let sub = li.GetRange(1, 2)
+        sub.Count |> equal 2
+        sub.Contains(1) |> equal false
+
     testCase "ResizeArray.Contains works" <| fun () ->
         let li = ResizeArray<_>()
         li.Add("ab")
