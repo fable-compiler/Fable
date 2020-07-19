@@ -1733,6 +1733,8 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.CoreCall("Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
     | "AddRange", Some ar, [arg] ->
         Helper.CoreCall("Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "GetRange", Some ar, [idx; cnt] ->
+        Helper.CoreCall("Array", "getSubArray", t, [ar; idx; cnt], ?loc=r) |> Some
     | "Contains", Some (MaybeCasted(ar)), [arg] ->
         match ar.Type with
         | Array _ ->
