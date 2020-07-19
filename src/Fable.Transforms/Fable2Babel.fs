@@ -176,12 +176,6 @@ module Util =
         let entRef = Replacements.jsConstructor com ent
         com.TransformAsExpr(ctx, entRef)
 
-    let makeList com ctx headAndTail =
-        match headAndTail with
-        | None -> [||]
-        | Some(TransformExpr com ctx head, TransformExpr com ctx tail) -> [|head; tail|]
-        |> coreLibConstructorCall com ctx "Types" "List"
-
     // TODO: range
     let makeArray (com: IBabelCompiler) ctx exprs =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
@@ -814,12 +808,12 @@ module Util =
         | Fable.NewTuple vals -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
         // Optimization for bundle size: compile list literals as List.ofArray
         | Replacements.ListLiteral(exprs, t) ->
-            match exprs with
-            | [] -> makeList com ctx None
-            | [expr] -> Some(expr, Fable.Value(Fable.NewList (None,t), None)) |> makeList com ctx
-            | exprs -> [|makeArray com ctx exprs|] |> coreLibCall com ctx r "List" "ofArray"
+            [|List.rev exprs |> makeArray com ctx|] |> coreLibConstructorCall com ctx "Types" "List"
         | Fable.NewList (headAndTail, _) ->
-            makeList com ctx headAndTail
+            match headAndTail with
+            | None -> coreLibConstructorCall com ctx "Types" "List" [||]
+            | Some(TransformExpr com ctx head, TransformExpr com ctx tail) ->
+                coreLibCall com ctx None "Types" "newList" [|head; tail|]
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->
@@ -1217,9 +1211,9 @@ module Util =
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             upcast BinaryExpression(op, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.ListTest nonEmpty ->
-            let expr = com.TransformAsExpr(ctx, expr)
-            let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            upcast BinaryExpression(op, get None expr "tail", NullLiteral(), ?loc=range)
+            let expr = get range (com.TransformAsExpr(ctx, expr)) "empty"
+            if nonEmpty then upcast UnaryExpression(UnaryNot, expr, ?loc=range)
+            else expr
         | Fable.UnionCaseTest(uci, ent) ->
             let expected = FSharp2Fable.Helpers.unionCaseTag ent uci |> ofInt
             let actual = com.TransformAsExpr(ctx, expr) |> getUnionExprTag None

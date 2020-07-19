@@ -54,24 +54,60 @@ function compareList<T>(self: List<T>, other: List<T>) {
     if (other == null) {
       return -1;
     }
-    while (self.tail != null) {
-      if (other.tail == null) { return 1; }
-      const res = compare(self.head, other.head);
+    const idxDiff = self.idx - other.idx;
+    for (let i = self.idx; i >= 0; i--) {
+      let otherIdx = i - idxDiff;
+      if (otherIdx < 0) { return 1; }
+      const selfItem = self.vals[i];
+      const otherItem = other.vals[otherIdx];
+      const res = compare(selfItem, otherItem);
       if (res !== 0) { return res; }
-      self = self.tail;
-      other = other.tail;
     }
-    return other.tail == null ? 0 : -1;
+    return self.length === other.length ? 0 : -1;
   }
 }
 
-export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
-  public head: T;
-  public tail?: List<T>;
+export function newList<T>(head: T, tail: List<T>): List<T> {
+  // If the tail points to the last index of the stack, push the new value into it.
+  // Otherwise, create a new stack
+  const vals = tail.vals.length === tail.idx + 1 ? tail.vals : tail.vals.slice(0, tail.idx + 1);
+  vals.push(head);
+  const li = new List(vals);
+  li._tail = tail;
+  return li;
+}
 
-  constructor(head?: T, tail?: List<T>) {
-    this.head = head as T;
-    this.tail = tail;
+/**
+ * F# list is represented in runtime by an optimized type that uses a stack (a reverted JS array)
+ * to store the values, so we can a have a big list represented by a single object (plus the stack).
+ * It also allows for optimizations in the List module.
+ */
+export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
+  public vals: T[];
+  public idx: number;
+  public _tail: List<T> | undefined;
+
+  constructor(vals?: T[], idx?: number) {
+    this.vals = vals ?? [];
+    this.idx = idx ?? this.vals.length - 1;
+  }
+
+  public get empty() {
+    return this.idx < 0;
+  }
+
+  public get head(): T | undefined {
+    return this.vals[this.idx];
+  }
+
+  public get tail(): List<T> | undefined {
+    return !this.empty
+      ? this._tail ?? (this._tail = new List(this.vals, this.idx - 1))
+      : undefined;
+  }
+
+  public get length() {
+    return this.idx + 1;
   }
 
   public toString() {
@@ -83,20 +119,25 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 
   public [Symbol.iterator](): Iterator<T> {
-    let cur: List<T> | undefined = this;
+    let curIdx = this.idx;
     return {
-      next: (): IteratorResult<T> => {
-        const value = cur?.head as T;
-        const done = cur?.tail == null;
-        cur = cur?.tail;
-        return { done, value };
-      },
+      next: () => ({
+        done: curIdx < 0,
+        value: this.vals[curIdx--],
+      }),
     };
   }
 
   public GetHashCode() {
-    const hashes = Array.from(this).map(structuralHash);
-    return combineHashCodes(hashes);
+    if (this.idx < 0) {
+      return 0;
+    } else {
+      const hashes: number[] = new Array(this.idx + 1);
+      for (let i = this.idx; i >= 0; i--) {
+        hashes[i] = structuralHash(this.vals[i]);
+      }
+      return combineHashCodes(hashes);
+    }
   }
 
   public Equals(other: List<T>): boolean {
