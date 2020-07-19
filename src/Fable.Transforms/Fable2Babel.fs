@@ -1211,7 +1211,7 @@ module Util =
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             upcast BinaryExpression(op, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.ListTest nonEmpty ->
-            let expr = get range (com.TransformAsExpr(ctx, expr)) "empty"
+            let expr = get range (com.TransformAsExpr(ctx, expr)) "isEmpty"
             if nonEmpty then upcast UnaryExpression(UnaryNot, expr, ?loc=range)
             else expr
         | Fable.UnionCaseTest(uci, ent) ->
