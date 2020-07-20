@@ -86,6 +86,18 @@ export class Uri {
     }
   }
 
+  get absoluteUri(): string {
+    if (this.kind === UriKind.Absolute) {
+      return (this.url as URL).href;
+    }
+
+    if (this.kind === UriKind.RelativeOrAbsolute) {
+      return this.url as string;
+    }
+
+    throw new Error("This operation is not supported for a relative URI.");
+  }
+
   get scheme() {
     const protocol = this.parseUrl().protocol;
     return protocol.slice(0, protocol.length - 1);

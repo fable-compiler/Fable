@@ -2733,6 +2733,8 @@ let uris (_: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     | "get_AbsolutePath" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
+    | "get_AbsoluteUri" ->
+        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     | "get_PathAndQuery" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     | "get_Query" ->
