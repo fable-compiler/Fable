@@ -813,7 +813,7 @@ module Util =
             match headAndTail with
             | None -> coreLibConstructorCall com ctx "Types" "List" [||]
             | Some(TransformExpr com ctx head, TransformExpr com ctx tail) ->
-                coreLibCall com ctx None "Types" "newList" [|head; tail|]
+                callFunction r (get None tail "add") [head]
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->

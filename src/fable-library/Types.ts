@@ -54,26 +54,15 @@ function compareList<T>(self: List<T>, other: List<T>) {
     if (other == null) {
       return -1;
     }
-    const idxDiff = self.idx - other.idx;
-    for (let i = self.idx; i >= 0; i--) {
-      const otherIdx = i - idxDiff;
-      if (otherIdx < 0) { return 1; }
-      const selfItem = self.vals[i];
-      const otherItem = other.vals[otherIdx];
-      const res = compare(selfItem, otherItem);
+    const selfLen = self.length;
+    const otherLen = other.length;
+    const minLen = Math.min(selfLen, otherLen);
+    for (let i = 0; i < minLen; i++) {
+      const res = compare(self.item(i), other.item(i));
       if (res !== 0) { return res; }
     }
-    return self.length === other.length ? 0 : -1;
+    return selfLen > otherLen ? 1 : (selfLen < otherLen ? -1 : 0);
   }
-}
-
-export function newList<T>(head: T, tail: List<T>): List<T> {
-  // If the tail points to the last index of the stack, push the new value into it.
-  // Otherwise, create a new stack
-  const vals = tail.vals.length === tail.idx + 1 ? tail.vals : tail.vals.slice(0, tail.idx + 1);
-  vals.push(head);
-  const li = new List(vals);
-  return li;
 }
 
 /**
@@ -91,20 +80,50 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
     this.idx = idx ?? this.vals.length - 1;
   }
 
-  public get isEmpty() {
-    return this.idx < 0;
+  add(item: T): List<T> {
+    // If this points to the last index of the stack, push the new value into it.
+    // Otherwise, this becomes an "actual" tail.
+    if (this.vals.length === this.idx + 1) {
+      this.vals.push(item);
+      return new List(this.vals);
+    } else {
+      const li = new List([item]);
+      li._tail = this;
+      return li;
+    }
+   }
+
+  /** Unsafe, check length before calling it */
+  public item(i: number): T | undefined {
+    let rev_i = this.idx - i;
+    if (rev_i >= 0) {
+      return this.vals[rev_i];
+    } else if (this._tail) {
+      return this._tail.item(rev_i * -1 - 1);
+    }
+    return undefined;
   }
 
+  /** Unsafe, check isEmpty before calling it */
   public get head(): T | undefined {
     return this.vals[this.idx];
   }
 
   public get tail(): List<T> | undefined {
-    return this.idx >= 0 ? new List(this.vals, this.idx - 1) : undefined;
+    if (this.idx === 0 && this._tail) {
+      return this._tail;
+    } else if (this.idx >= 0) {
+      return new List(this.vals, this.idx - 1);
+    }
+    return undefined;
   }
 
-  public get length() {
-    return this.idx + 1;
+  public get isEmpty() {
+    return this.idx < 0;
+  }
+
+  public get length(): number {
+    return this.idx + 1 + (this._tail?.length ?? 0);
   }
 
   public toString() {
@@ -117,11 +136,19 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
 
   public [Symbol.iterator](): Iterator<T> {
     let curIdx = this.idx;
+    let li: List<T> = this;
     return {
-      next: () => ({
-        done: curIdx < 0,
-        value: this.vals[curIdx--],
-      }),
+      next: (): IteratorResult<T> => {
+        if (curIdx < 0) {
+          if (li._tail) {
+            li = li._tail;
+            curIdx = li.idx;
+          } else {
+            return { done: true, value: undefined };
+          }
+        }
+        return { done: false, value: li.vals[curIdx--] };
+      }
     };
   }
 
