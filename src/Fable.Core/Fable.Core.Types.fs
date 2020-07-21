@@ -49,11 +49,14 @@ type ImportAllAttribute(from: string) =
 
 /// Function calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#emit-attribute
-type EmitAttribute(macro: string) =
+type EmitAttribute(macro: string, ?isStatement: bool) =
     inherit Attribute()
 
 /// Same as `Emit("$0.methodName($1...)")`
 type EmitMethodAttribute(methodName: string) =
+    inherit Attribute()
+
+type TestAttribute(r: System.Text.RegularExpressions.Regex) =
     inherit Attribute()
 
 /// Same as `Emit("new $0($1...)")`
@@ -74,13 +77,6 @@ type EmitPropertyAttribute(propertyName: string) =
 type StringEnumAttribute() =
     inherit Attribute()
     new (caseRules: CaseRules) = StringEnumAttribute()
-
-/// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
-[<AttributeUsage(AttributeTargets.Parameter)>]
-type ParamSeqAttribute() =
-    inherit Attribute()
-
-type ParamListAttribute = ParamSeqAttribute
 
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]

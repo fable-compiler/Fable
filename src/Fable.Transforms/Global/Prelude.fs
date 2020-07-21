@@ -6,8 +6,9 @@ type Position =
     static member Empty = { line = 1; column = 0 }
 
 type SourceLocation =
-    { start: Position;
-      ``end``: Position;
+    { start: Position
+      ``end``: Position
+      /// We added the display name here because it seemed to be used by Babel source map generation
       identifierName: string option }
     static member (+)(r1, r2) =
         { start = r1.start
@@ -31,6 +32,11 @@ module Tuple3 =
     let item1 (x,_,_) = x
     let item2 (_,y,_) = y
     let item3 (_,_,z) = z
+
+[<RequireQualifiedAccess>]
+module Seq =
+    let mapToList (f: 'a -> 'b) (xs: 'a seq) =
+        ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
 
 [<RequireQualifiedAccess>]
 module Array =
