@@ -1,3 +1,8 @@
+### 2.10.2
+
+* Implement boolean parsing @inosik
+* Add support for System.Uri.AbsoluteUri @BillHally
+
 ### 2.10.1
 
 * Improve compiler switch `--classTypes` @ncave
