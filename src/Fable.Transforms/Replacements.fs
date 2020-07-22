@@ -1840,15 +1840,16 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Use methods for Head and Tail (instead of Get(ListHead) for example) to check for empty lists
-    | ReplaceName
-      [ "get_Head",   "head"
-        "get_Tail",   "tail"
-        "get_Item",   "item"
-        "get_Length", "length"
-        "GetSlice",   "slice" ] methName, Some x, _ ->
-            let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
-            Helper.CoreCall("List", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "get_IsEmpty", Some x, _ -> Test(x, ListTest false, r) |> Some
+    | ("get_Head" | "get_Tail" | "get_Length" | "get_IsEmpty"), Some callee, _ ->
+        let meth = Naming.removeGetSetPrefix i.CompiledName
+        get r t callee meth |> Some
+    | "get_Item", Some callee, _ ->
+        let meth = Naming.removeGetSetPrefix i.CompiledName
+        Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GetSlice", Some x, _ ->
+        let meth = Naming.lowerFirst i.CompiledName
+        let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
+        Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_Empty", None, _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     | "Cons", None, [h;t] -> NewList(Some(h,t), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     | ("GetHashCode" | "Equals" | "CompareTo"), Some callee, _ ->

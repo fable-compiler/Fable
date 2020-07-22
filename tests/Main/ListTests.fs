@@ -42,12 +42,25 @@ module List =
 
 let tests =
   testList "Lists" [
-    // TODO: Empty lists may be represented as null, make sure they don't conflict with None
     testCase "Some [] works" <| fun () ->
         let xs: int list option = Some []
         let ys: int list option = None
         Option.isSome xs |> equal true
         Option.isNone ys |> equal true
+
+    testCase "List equality works" <| fun () ->
+        let xs = [1;2;3]
+        let ys = [1;2;3]
+        let zs = [1;4;3]
+        xs = ys |> equal true
+        xs = zs |> equal false
+
+    testCase "List comparison works" <| fun () ->
+        let xs = [1;2;3]
+        let ys = [1;2;3]
+        let zs = [1;4;3]
+        xs < ys |> equal false
+        xs < zs |> equal true
 
     testCase "Pattern matching with lists works" <| fun () ->
         match [] with [] -> true | _ -> false
@@ -302,9 +315,9 @@ let tests =
             |> List.sum |> equal 9
 
     testCase "List.rev works" <| fun () ->
-            let xs = [1; 2]
+            let xs = [1; 2; 3]
             let ys = xs |> List.rev
-            equal 2 ys.Head
+            equal 3 ys.Head
 
     testCase "List.scan works" <| fun () ->
             let xs = [1; 2; 3; 4]
