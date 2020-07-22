@@ -54,14 +54,29 @@ function compareList<T>(self: List<T>, other: List<T>) {
     if (other == null) {
       return -1;
     }
-    const selfLen = self.length;
-    const otherLen = other.length;
+    const selfLen = self.Length;
+    const otherLen = other.Length;
     const minLen = Math.min(selfLen, otherLen);
     for (let i = 0; i < minLen; i++) {
-      const res = compare(self.item(i), other.item(i));
+      const res = compare(self.Item(i), other.Item(i));
       if (res !== 0) { return res; }
     }
     return selfLen > otherLen ? 1 : (selfLen < otherLen ? -1 : 0);
+  }
+}
+
+export function newList<T>(vals: T[]): List<T> {
+  return new List(vals);
+}
+
+export function cons<T>(head: T, tail: List<T>): List<T> {
+  // If this points to the last index of the stack, push the new value into it.
+  // Otherwise, this becomes an "actual" tail.
+  if (tail.vals.length === tail.idx + 1) {
+    tail.vals.push(head);
+    return new List(tail.vals, tail.tail);
+  } else {
+    return new List([head], tail);
   }
 }
 
@@ -73,57 +88,52 @@ function compareList<T>(self: List<T>, other: List<T>) {
 export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
   public vals: T[];
   public idx: number;
-  public _tail: List<T> | undefined;
+  public tail?: List<T>;
 
-  constructor(vals?: T[], idx?: number) {
+  constructor(vals?: T[], tail?: List<T>, idx?: number) {
     this.vals = vals ?? [];
     this.idx = idx ?? this.vals.length - 1;
+    this.tail = tail;
   }
 
-  add(item: T): List<T> {
-    // If this points to the last index of the stack, push the new value into it.
-    // Otherwise, this becomes an "actual" tail.
-    if (this.vals.length === this.idx + 1) {
-      this.vals.push(item);
-      return new List(this.vals);
+  public Item(i: number): T {
+    if (i < 0) {
+      throw new Error("Index out of range");
+    } else if (i <= this.idx) {
+      return this.vals[this.idx - i];
+    } else if (this.tail) {
+      return this.tail.Item(i - this.idx - 1);
     } else {
-      const li = new List([item]);
-      li._tail = this;
-      return li;
+      throw new Error("Index out of range");
     }
-   }
-
-  /** Unsafe, check length before calling it */
-  public item(i: number): T | undefined {
-    let rev_i = this.idx - i;
-    if (rev_i >= 0) {
-      return this.vals[rev_i];
-    } else if (this._tail) {
-      return this._tail.item(rev_i * -1 - 1);
-    }
-    return undefined;
   }
 
-  /** Unsafe, check isEmpty before calling it */
-  public get head(): T | undefined {
-    return this.vals[this.idx];
+  public get Head(): T {
+    if (this.idx >= 0) {
+      return this.vals[this.idx];
+    } else if (this.idx < 0 && this.tail) {
+      return this.tail.Head;
+    } else  {
+      throw new Error("List was empty");
+    }
   }
 
-  public get tail(): List<T> | undefined {
-    if (this.idx === 0 && this._tail) {
-      return this._tail;
+  public get Tail(): List<T> | undefined {
+    if (this.idx === 0 && this.tail) {
+      return this.tail;
     } else if (this.idx >= 0) {
-      return new List(this.vals, this.idx - 1);
+      return new List(this.vals, this.tail, this.idx - 1);
+    } else {
+      return this.tail?.Tail;
     }
-    return undefined;
   }
 
-  public get isEmpty() {
-    return this.idx < 0;
+  public get IsEmpty(): boolean {
+    return this.idx < 0 && (this.tail?.IsEmpty ?? true);
   }
 
-  public get length(): number {
-    return this.idx + 1 + (this._tail?.length ?? 0);
+  public get Length(): number {
+    return this.idx + 1 + (this.tail?.Length ?? 0);
   }
 
   public toString() {
@@ -139,15 +149,13 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
     let li: List<T> = this;
     return {
       next: (): IteratorResult<T> => {
-        if (curIdx < 0) {
-          if (li._tail) {
-            li = li._tail;
-            curIdx = li.idx;
-          } else {
-            return { done: true, value: undefined };
-          }
+        while (curIdx < 0 && li.tail) {
+          li = li.tail;
+          curIdx = li.idx;
         }
-        return { done: false, value: li.vals[curIdx--] };
+        return (curIdx < 0)
+          ? { done: true, value: undefined }
+          : { done: false, value: li.vals[curIdx--] };
       }
     };
   }

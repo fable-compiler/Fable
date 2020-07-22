@@ -808,12 +808,13 @@ module Util =
         | Fable.NewTuple vals -> makeTypedArray com ctx Fable.Any (Fable.ArrayValues vals)
         // Optimization for bundle size: compile list literals as List.ofArray
         | Replacements.ListLiteral(exprs, t) ->
-            [|List.rev exprs |> makeArray com ctx|] |> coreLibConstructorCall com ctx "Types" "List"
+            [|List.rev exprs |> makeArray com ctx|]
+            |> coreLibCall com ctx r "Types" "newList"
         | Fable.NewList (headAndTail, _) ->
             match headAndTail with
-            | None -> coreLibConstructorCall com ctx "Types" "List" [||]
+            | None -> coreLibCall com ctx r "Types" "newList" [||]
             | Some(TransformExpr com ctx head, TransformExpr com ctx tail) ->
-                callFunction r (get None tail "add") [head]
+                coreLibCall com ctx r "Types" "cons" [|head; tail|]
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->
@@ -1053,8 +1054,8 @@ module Util =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         match getKind with
         | Fable.ExprGet(TransformExpr com ctx prop) -> getExpr range expr prop
-        | Fable.ListHead -> get range expr "head"
-        | Fable.ListTail -> get range expr "tail"
+        | Fable.ListHead -> get range expr "Head"
+        | Fable.ListTail -> get range expr "Tail"
         | Fable.FieldGet(fieldName,_,_) ->
             let expr =
                 match fableExpr with
@@ -1211,7 +1212,7 @@ module Util =
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             upcast BinaryExpression(op, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.ListTest nonEmpty ->
-            let expr = get range (com.TransformAsExpr(ctx, expr)) "isEmpty"
+            let expr = get range (com.TransformAsExpr(ctx, expr)) "IsEmpty"
             if nonEmpty then upcast UnaryExpression(UnaryNot, expr, ?loc=range)
             else expr
         | Fable.UnionCaseTest(uci, ent) ->
