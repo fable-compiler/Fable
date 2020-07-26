@@ -717,6 +717,8 @@ let identityHash r (arg: Expr) =
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
     | DeclaredType(ent,_) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
+    | DeclaredType(ent,_) ->
+        Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
     | _ ->
         Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
 
