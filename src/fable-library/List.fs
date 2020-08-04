@@ -3,156 +3,237 @@ module List
 // Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"
 
-open System.Collections.Generic
 open Fable.Core
 
-let head = function
-    | x::_ -> x
-    | _ -> failwith "List was empty"
+let msgListWasEmpty = "List was empty"
+let msgListNoMatch = "List did not contain any matching elements"
 
-let tryHead = function
-    | x::_ -> Some x
-    | _ -> None
+type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
+    let mutable hashCode = None
 
-let tail = function
-    | _::xs -> xs
-    | _ -> failwith "List was empty"
+    static member Empty = new List<'T>(0, ResizeArray<'T>())
+    static member internal Cons (x: 'T, xs: 'T list) = xs.Add(x)
 
-let rec last = function
-    | [] -> failwith "List was empty"
-    | [x] -> x
-    | _::xs -> last xs
+    member inline internal _.Add(x: 'T) =
+        let values =
+            if Count = Values.Count
+            then Values
+            else Values.GetRange(0, Count)
+        values.Add(x)
+        new List<'T>(values.Count, values)
 
-let rec tryLast = function
-    | [] -> None
-    | [x] -> Some x
-    | _::xs -> tryLast xs
+    member inline _.IsEmpty = Count <= 0
+    member inline _.Length = Count
+
+    member _.Head =
+        if Count > 0
+        then Values.[Count - 1]
+        else failwith msgListWasEmpty
+
+    member _.Tail =
+        if Count > 0
+        then new List<'T>(Count - 1, Values)
+        else failwith msgListWasEmpty
+
+    member inline _.Item with get(index) =
+        Values.[Count - 1 - index]
+
+    override xs.ToString() =
+        "[" + System.String.Join("; ", xs) + "]"
+
+    override xs.Equals(other: obj) =
+        let ys = other :?> 'T list
+        if xs.Length <> ys.Length then false
+        elif xs.GetHashCode() <> ys.GetHashCode() then false
+        else Seq.forall2 (Unchecked.equals) xs ys
+        // else (xs :> System.IComparable).CompareTo(other) = 0
+
+    override xs.GetHashCode() =
+        match hashCode with
+        | Some h -> h
+        | None ->
+            let inline combineHash i x y = (x <<< 1) + y + 631 * i
+            let len = min (xs.Length - 1) 18 // limit the hash count
+            let mutable h = 0
+            for i = 0 to len do
+                h <- combineHash i h (hash xs.[i])
+            hashCode <- Some h
+            h
+
+    interface System.IComparable with
+        member xs.CompareTo(other: obj) =
+            Seq.compareWith compare xs (other :?> 'T list)
+            // List.CompareWith compare xs (other :?> 'T list)
+
+    interface System.Collections.Generic.IEnumerable<'T> with
+        member xs.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
+            let elems = seq { for i=xs.Length - 1 downto 0 do yield Values.[i] }
+            elems.GetEnumerator()
+
+            // new ListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
+
+            // let mutable i = Count
+            // {
+            //     new System.Collections.Generic.IEnumerator<'T> with
+            //         member _.Current = Values.[i]
+            //     interface System.Collections.IEnumerator with
+            //         member _.Current: obj = box (Values.[i])
+            //         member _.MoveNext() = i <- i - 1; i >= 0
+            //         member _.Reset() = i <- Count
+            //     interface System.IDisposable with
+            //         member _.Dispose(): unit = ()
+            // }
+
+    interface System.Collections.IEnumerable with
+        member xs.GetEnumerator(): System.Collections.IEnumerator =
+            ((xs :> System.Collections.Generic.IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
+
+    // static member internal CompareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
+    //     if obj.ReferenceEquals(xs, ys)
+    //     then 0
+    //     else
+    //         if xs.IsEmpty then
+    //             if ys.IsEmpty then 0 else -1
+    //         elif ys.IsEmpty then 1
+    //         else
+    //             let mutable i = 0
+    //             let mutable result = 0
+    //             if xs.Length > ys.Length then 1
+    //             elif xs.Length < ys.Length then -1
+    //             else
+    //                 while i < xs.Length && result = 0 do
+    //                     result <- comparer xs.[i] ys.[i]
+    //                     i <- i + 1
+    //                 result
+
+// and ListEnumerator<'T when 'T: comparison>(xs: List<'T>) =
+//     let mutable i = -1
+//     interface System.Collections.Generic.IEnumerator<'T> with
+//         member __.Current = xs.[i]
+//     interface System.Collections.IEnumerator with
+//         member __.Current = box (xs.[i])
+//         member __.MoveNext() = i <- i + 1; i < xs.Length
+//         member __.Reset() = i <- -1
+//     interface System.IDisposable with
+//         member __.Dispose() = ()
+
+and 'T list when 'T: comparison = List<'T>
+
+let newList (values: ResizeArray<'T>) = new List<'T>(values.Count, values)
+
+let empty () = List.Empty
+
+let cons (x: 'T) (xs: 'T list) = List.Cons (x, xs)
+
+let singleton x = cons x List.Empty
+
+let isEmpty (xs: 'T list) = xs.IsEmpty
+
+let length (xs: 'T list) = xs.Length
+
+let head (xs: 'T list) = xs.Head
+
+let tryHead (xs: 'T list) =
+    if xs.Length > 0
+    then Some xs.[0]
+    else None
+
+let tail (xs: 'T list) = xs.Tail
+
+let last (xs: 'T list) =
+    if xs.Length > 0
+    then xs.[xs.Length - 1]
+    else failwith msgListWasEmpty
+
+let tryLast (xs: 'T list) =
+    if xs.Length > 0
+    then Some xs.[xs.Length - 1]
+    else None
 
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
-    if obj.ReferenceEquals(xs, ys)
-    then 0
-    else
-        let rec loop xs ys =
-            match xs, ys with
-            | [], [] -> 0
-            | [], _ -> -1
-            | _, [] -> 1
-            | x::xs, y::ys ->
-                match comparer x y with
-                | 0 -> loop xs ys
-                | res -> res
-        loop xs ys
+    Seq.compareWith comparer xs ys
+    //List.CompareWith comparer xs ys
 
-let rec foldIndexedAux f i acc = function
-    | [] -> acc
-    | x::xs -> foldIndexedAux f (i+1) (f i acc x) xs
+let fold (folder: 'acc -> 'T -> 'acc) (state: 'acc) (xs: 'T list) =
+    let mutable acc = state
+    for i = 0 to xs.Length - 1 do
+        acc <- folder acc xs.[i]
+    acc
 
-let foldIndexed<'a,'acc> f (state: 'acc) (xs: 'a list) =
-    foldIndexedAux f 0 state xs
+let foldBack (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc) =
+    let mutable acc = state
+    for i = xs.Length - 1 downto 0 do
+        acc <- folder xs.[i] acc
+    acc
 
-let rec fold<'a,'acc> f (state: 'acc) (xs: 'a list) =
-    match xs with
-    | [] -> state
-    | h::t -> fold f (f state h) t
-
-let reverse xs =
-    fold (fun acc x -> x::acc) [] xs
-
-let foldBack<'a,'acc> f (xs: 'a list) (state: 'acc) =
-    fold (fun acc x -> f x acc) state (reverse xs)
+let reverse (xs: 'a list) =
+    fold (fun acc x -> cons x acc) List.Empty xs
 
 let toSeq (xs: 'a list): 'a seq =
     Seq.map id xs
 
 let ofSeq (xs: 'a seq): 'a list =
-    Seq.fold (fun acc x -> x::acc) [] xs
+    Seq.fold (fun acc x -> cons x acc) List.Empty xs
     |> reverse
 
 let concat (lists: seq<'a list>) =
-    Seq.fold (fold (fun acc x -> x::acc)) [] lists
+    Seq.fold (fold (fun acc x -> cons x acc)) List.Empty lists
     |> reverse
 
-let rec foldIndexed2Aux f i acc bs cs =
-    match bs, cs with
-    | [], [] -> acc
-    | x::xs, y::ys -> foldIndexed2Aux f (i+1) (f i acc x y) xs ys
-    | _ -> invalidOp "Lists had different lengths"
-
-let foldIndexed2<'a, 'b, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) =
-    foldIndexed2Aux f 0 state xs ys
-
-let fold2<'a, 'b, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) =
+let fold2 f (state: 'acc) (xs: 'a list) (ys: 'b list) =
     Seq.fold2 f state xs ys
 
-let foldBack2<'a, 'b, 'acc> f (xs: 'a list) (ys: 'b list) (state: 'acc) =
+let foldBack2 f (xs: 'a list) (ys: 'b list) (state: 'acc) =
     Seq.foldBack2 f xs ys state
 
-let unfold f state =
-    let rec unfoldInner acc state =
-        match f state with
-        | None -> reverse acc
-        | Some (x,state) -> unfoldInner (x::acc) state
-    unfoldInner [] state
+let unfold (gen: 'acc -> ('T * 'acc) option) (state: 'acc) =
+    let rec loop st acc =
+        match gen st with
+        | None -> acc
+        | Some (x, st) -> loop st (cons x acc)
+    loop state List.Empty
+    |> reverse
 
-let rec foldIndexed3Aux f i acc bs cs ds =
-    match bs, cs, ds with
-    | [], [], [] -> acc
-    | x::xs, y::ys, z::zs -> foldIndexed3Aux f (i+1) (f i acc x y z) xs ys zs
-    | _ -> invalidOp "Lists had different lengths"
-
-let foldIndexed3<'a, 'b, 'c, 'acc> f (seed: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
-    foldIndexed3Aux f 0 seed xs ys zs
-
-let fold3<'a, 'b, 'c, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
-    foldIndexed3 (fun _ acc x y z -> f acc x y z) state xs ys zs
-
-let scan<'a, 'acc> f (state: 'acc) (xs: 'a list) =
+let scan f (state: 'acc) (xs: 'a list) =
     Seq.scan f state xs |> ofSeq
 
-let scanBack<'a, 'acc> f (xs: 'a list) (state: 'acc) =
+let scanBack f (xs: 'a list) (state: 'acc) =
     Seq.scanBack f xs state |> ofSeq
 
-let length xs =
-    fold (fun acc _ -> acc + 1) 0 xs
-
-let append xs ys =
-    fold (fun acc x -> x::acc) ys (reverse xs)
+let append (xs: 'a list) (ys: 'a list) =
+    fold (fun acc x -> cons x acc) ys (reverse xs)
 
 let collect (f: 'a -> 'b list) (xs: 'a list) =
     Seq.collect f xs |> ofSeq
 
-let map f xs =
-    fold (fun acc x -> f x::acc) [] xs
+let mapIndexed (f: int -> 'a -> 'b) (xs: 'a list) =
+    let rec loop i acc =
+        if i < xs.Length
+        then loop (i + 1) (cons (f i xs.[i]) acc)
+        else acc
+    loop 0 List.Empty
     |> reverse
 
-let mapIndexed f xs =
-    foldIndexed (fun i acc x -> f i x::acc) [] xs
-    |> reverse
+let map (f: 'a -> 'b) (xs: 'a list) =
+    mapIndexed (fun i x -> f x) xs
 
-let indexed xs =
-    mapIndexed (fun i x -> (i,x)) xs
+let indexed (xs: 'a list) =
+    mapIndexed (fun i x -> (i, x)) xs
 
 let map2 f xs ys =
-    fold2 (fun acc x y -> f x y::acc) [] xs ys
-    |> reverse
+    Seq.map2 f xs ys |> ofSeq
 
 let mapIndexed2 f xs ys =
-    foldIndexed2 (fun i acc x y  -> f i x y:: acc) [] xs ys
-    |> reverse
+    Seq.mapi2 f xs ys |> ofSeq
 
 let map3 f xs ys zs =
-    fold3 (fun acc x y z -> f x y z::acc) [] xs ys zs
-    |> reverse
-
-let mapIndexed3 f xs ys zs =
-    foldIndexed3 (fun i acc x y z -> f i x y z:: acc) [] xs ys zs
-    |> reverse
+    Seq.map3 f xs ys zs |> ofSeq
 
 let mapFold (f: 'S -> 'T -> 'R * 'S) s xs =
-    let foldFn (nxs, fs) x =
+    let folder (nxs, fs) x =
         let nx, fs = f fs x
-        nx::nxs, fs
-    let nxs, s = fold foldFn ([], s) xs
+        cons nx nxs, fs
+    let nxs, s = fold folder (List.Empty, s) xs
     reverse nxs, s
 
 let mapFoldBack (f: 'T -> 'S -> 'R * 'S) xs s =
@@ -165,132 +246,138 @@ let iterate2 f xs ys =
     fold2 (fun () x y -> f x y) () xs ys
 
 let iterateIndexed f xs =
-    foldIndexed (fun i () x -> f i x) () xs
+    fold (fun i x -> f i x; i + 1) 0 xs |> ignore
 
 let iterateIndexed2 f xs ys =
-    foldIndexed2 (fun i () x y -> f i x y) () xs ys
+    fold2 (fun i x y -> f i x y; i + 1) 0 xs ys |> ignore
 
-let ofArray (xs: IList<'T>) =
-    // Array.foldBack (fun x acc -> x::acc) xs []
-    let mutable res = []
+let ofArray (xs: System.Collections.Generic.IList<'T>) =
+    let mutable res = List.Empty
     for i = xs.Count - 1 downto 0 do
-        res <- xs.[i]::res
+        res <- cons xs.[i] res
     res
 
-let empty<'a> : 'a list = []
+let tryPickIndexed (f: int -> 'a -> 'b option) (xs: 'a list) =
+    let rec loop i =
+        let res = f i xs.[i]
+        match res with
+        | Some _ -> res
+        | None -> if i < xs.Length - 1 then loop (i + 1) else None
+    if xs.Length > 0 then loop 0 else None
 
-let isEmpty = function
-    | [] -> true
-    | _ -> false
-
-let rec tryPickIndexedAux f i = function
-    | [] -> None
-    | x::xs ->
-        let result = f i x
-        match result with
-        | Some _ -> result
-        | None -> tryPickIndexedAux f (i+1) xs
-
-let tryPickIndexed f xs =
-    tryPickIndexedAux f 0 xs
+let tryPickIndexedBack (f: int -> 'a -> 'b option) (xs: 'a list) =
+    let rec loop i =
+        let res = f i xs.[i]
+        match res with
+        | Some _ -> res
+        | None -> if i > 0 then loop (i - 1) else None
+    if xs.Length > 0 then loop (xs.Length - 1) else None
 
 let tryPick f xs =
     tryPickIndexed (fun _ x -> f x) xs
 
 let pick f xs =
     match tryPick f xs with
-    | None -> invalidOp "List did not contain any matching elements"
+    | None -> invalidOp msgListNoMatch
     | Some x -> x
 
 let tryFindIndexed f xs =
     tryPickIndexed (fun i x -> if f i x then Some x else None) xs
 
-let tryFind f xs =
-    tryPickIndexed (fun _ x -> if f x then Some x else None) xs
+let tryFindIndexedBack f xs =
+    tryPickIndexedBack (fun i x -> if f i x then Some x else None) xs
 
 let findIndexed f xs =
     match tryFindIndexed f xs with
-    | None -> invalidOp "List did not contain any matching elements"
+    | None -> invalidOp msgListNoMatch
+    | Some x -> x
+
+let findIndexedBack f xs =
+    match tryFindIndexedBack f xs with
+    | None -> invalidOp msgListNoMatch
     | Some x -> x
 
 let find f xs =
     findIndexed (fun _ x -> f x) xs
 
 let findBack f xs =
-    xs |> reverse |> find f
+    findIndexedBack (fun _ x -> f x) xs
+
+let tryFind f xs =
+    tryPickIndexed (fun _ x -> if f x then Some x else None) xs
 
 let tryFindBack f xs =
-    xs |> reverse |> tryFind f
+    tryPickIndexedBack (fun _ x -> if f x then Some x else None) xs
 
 let tryFindIndex f xs: int option =
     tryPickIndexed (fun i x -> if f x then Some i else None) xs
 
 let tryFindIndexBack f xs: int option =
-    List.toArray xs
-    |> Array.tryFindIndexBack f
+    tryPickIndexedBack (fun i x -> if f x then Some i else None) xs
 
 let findIndex f xs: int =
     match tryFindIndex f xs with
-    | None -> invalidOp "List did not contain any matching elements"
+    | None -> invalidOp msgListNoMatch
     | Some x -> x
 
 let findIndexBack f xs: int =
-    List.toArray xs
-    |> Array.findIndexBack f
+    match tryFindIndexBack f xs with
+    | None -> invalidOp msgListNoMatch
+    | Some x -> x
 
-let item n xs =
-    findIndexed (fun i _ -> n = i) xs
+let item n (xs: 'a list) =
+    if n >= 0 && n < xs.Length
+    then xs.[n]
+    else failwith "Index out of range"
 
-let tryItem n xs =
-    tryFindIndexed (fun i _ -> n = i) xs
+let tryItem n (xs: 'a list) =
+    if n >= 0 && n < xs.Length
+    then Some xs.[n]
+    else None
 
 let filter f xs =
     fold (fun acc x ->
-        if f x then x::acc
-        else acc) [] xs |> reverse
+        if f x
+        then cons x acc
+        else acc) List.Empty xs
+    |> reverse
 
 let partition f xs =
     fold (fun (lacc, racc) x ->
-        if f x then x::lacc, racc
-        else lacc,x::racc) ([],[]) (reverse xs)
+        if f x then cons x lacc, racc
+        else lacc, cons x racc) (List.Empty, List.Empty) (reverse xs)
 
 let choose f xs =
     fold (fun acc x ->
         match f x with
-        | Some y -> y:: acc
-        | None -> acc) [] xs |> reverse
+        | Some y -> cons y acc
+        | None -> acc) List.Empty xs |> reverse
 
-let contains<'T> (value: 'T) (list: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
-    let rec loop xs =
-        match xs with
-        | [] -> false
-        | v::rest ->
-            if eq.Equals (value, v)
-            then true
-            else loop rest
-    loop list
+let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
+    tryFindIndex (fun v -> eq.Equals (value, v)) xs |> Option.isSome
 
-let except (itemsToExclude: seq<'t>) (array: 't list) ([<Inject>] eq: IEqualityComparer<'t>): 't list =
-    if isEmpty array then array
+let except (itemsToExclude: seq<'t>) (xs: 't list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'t>): 't list =
+    if isEmpty xs then xs
     else
-        let cached = HashSet(itemsToExclude, eq)
-        array |> filter cached.Add
+        let cached = System.Collections.Generic.HashSet(itemsToExclude, eq)
+        xs |> filter cached.Add
 
 let initialize n f =
-    let mutable xs = []
-    for i = 0 to n-1 do xs <- (f i)::xs
-    reverse xs
+    let mutable res = List.Empty
+    for i = 0 to n - 1 do
+        res <- cons (f i) res
+    res |> reverse
 
 let replicate n x =
     initialize n (fun _ -> x)
 
-let reduce f = function
-    | [] -> invalidOp "List was empty"
-    | h::t -> fold f h t
+let reduce f (xs: 't list) =
+    if isEmpty xs then invalidOp msgListWasEmpty
+    else fold f (head xs) (tail xs)
 
-let reduceBack f = function
-    | [] -> invalidOp "List was empty"
-    | h::t -> foldBack f t h
+let reduceBack f (xs: 't list) =
+    if isEmpty xs then invalidOp msgListWasEmpty
+    else foldBack f (tail xs) (head xs)
 
 let forAll f xs =
     fold (fun acc x -> acc && f x) true xs
@@ -298,21 +385,20 @@ let forAll f xs =
 let forAll2 f xs ys =
     fold2 (fun acc x y -> acc && f x y) true xs ys
 
-let rec exists f = function
-    | [] -> false
-    | x::xs -> f x || exists f xs
+let exists f xs =
+    tryFindIndex f xs |> Option.isSome
 
-let rec exists2 f bs cs =
-    match bs, cs with
-    | [], [] -> false
-    | x::xs, y::ys -> f x y || exists2 f xs ys
+let rec exists2 f xs ys =
+    match length xs, length ys with
+    | 0, 0 -> false
+    | x, y when x = y -> f (head xs) (head ys) || exists2 f (tail xs) (tail ys)
     | _ -> invalidOp "Lists had different lengths"
 
 let unzip xs =
-    foldBack (fun (x, y) (lacc, racc) -> x::lacc, y::racc) xs ([],[])
+    foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs (List.Empty, List.Empty)
 
 let unzip3 xs =
-    foldBack (fun (x, y, z) (lacc, macc, racc) -> x::lacc, y::macc, z::racc) xs ([],[],[])
+    foldBack (fun (x, y, z) (lacc, macc, racc) -> cons x lacc, cons y macc, cons z racc) xs (List.Empty, List.Empty, List.Empty)
 
 let zip xs ys =
     map2 (fun x y -> x, y) xs ys
@@ -320,20 +406,22 @@ let zip xs ys =
 let zip3 xs ys zs =
     map3 (fun x y z -> x, y, z) xs ys zs
 
-let sort (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (List.toArray xs) |> ofArray
+let sortWith (comparison: 'T -> 'T -> int) (xs: 'T list): 'T list =
+    let values = ResizeArray(xs)
+    values.Sort(System.Comparison<_>(comparison))
+    values |> ofSeq
 
-let sortBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (List.toArray xs) |> ofArray
+let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T list =
+    sortWith (fun x y -> comparer.Compare(x, y)) xs
 
-let sortDescending (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (List.toArray xs) |> ofArray
+let sortBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'b>): 'a list =
+    sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
 
-let sortByDescending (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (List.toArray xs) |> ofArray
+let sortDescending (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T list =
+    sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
 
-let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list): 'T list =
-    Array.sortInPlaceWith comparer (List.toArray xs) |> ofArray
+let sortByDescending (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'b>): 'a list =
+    sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
 
 let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
     fold (fun acc x -> adder.Add(acc, x)) (adder.GetZero()) xs
@@ -341,16 +429,16 @@ let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
 let sumBy (f: 'T -> 'T2) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T2>): 'T2 =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-let maxBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let maxBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'b>): 'a =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
 
-let max (li:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
+let max (li:'a list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) li
 
-let minBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let minBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'b>): 'a =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
 
-let min (xs: 'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
+let min (xs: 'a list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'a>): 'a =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>): 'T =
@@ -361,124 +449,78 @@ let averageBy (f: 'T -> 'T2) (xs: 'T list) ([<Inject>] averager: IGenericAverage
     let total = fold (fun acc x -> averager.Add(acc, f x)) (averager.GetZero()) xs
     averager.DivideByInt(total, length xs)
 
-let permute f xs =
-    xs
-    |> List.toArray
+let permute f (xs: 'T list) =
+    Array.ofSeq xs Array.DynamicArrayCons
     |> Array.permute f
     |> ofArray
 
 let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
-    xs
-    |> List.toArray
+    Array.ofSeq xs Array.DynamicArrayCons
     |> Array.chunkBySize chunkSize
     |> ofArray
     |> map ofArray
 
-let skip i xs =
-    let rec skipInner i xs =
-        match i, xs with
-        | 0, _ -> xs
-        | _, [] -> failwith "The input sequence has an insufficient number of elements."
-        | _, _::xs -> skipInner (i - 1) xs
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> xs
-    | 1, _::xs -> xs
-    | i, xs -> skipInner i xs
+let skip i (xs: 'T list) =
+    Seq.skip i xs |> ofSeq
 
-let rec skipWhile predicate xs =
-    match xs with
-    | h::t when predicate h -> skipWhile predicate t
-    | _ -> xs
-
-// TODO: Is there a more efficient algorithm?
-let rec takeSplitAux error i acc xs =
-    match i, xs with
-    | 0, _ -> reverse acc, xs
-    | _, [] ->
-        if error then
-            failwith "The input sequence has an insufficient number of elements."
-        else
-            reverse acc, xs
-    | _, x::xs -> takeSplitAux error (i - 1) (x::acc) xs
+let skipWhile predicate (xs: 'T list) =
+    Seq.skipWhile predicate xs |> ofSeq
 
 let take i xs =
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> []
-    | 1, x::_ -> [x]
-    | i, xs -> takeSplitAux true i [] xs |> fst
+    Seq.take i xs |> ofSeq
 
-let rec takeWhile predicate (xs: 'T list) =
-    match xs with
-    | [] -> xs
-    | x::([] as nil) -> if predicate x then xs else nil
-    | x::xs ->
-        if not (predicate x) then []
-        else x::(takeWhile predicate xs)
+let takeWhile predicate (xs: 'T list) =
+   Seq.takeWhile predicate xs |> ofSeq
 
 let truncate i xs =
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> []
-    | 1, x::_ -> [x]
-    | i, xs -> takeSplitAux false i [] xs |> fst
-
-let splitAt i xs =
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> [],xs
-    | 1, x::xs -> [x],xs
-    | i, xs -> takeSplitAux true i [] xs
-
-let outOfRange() = failwith "Index out of range"
+    Seq.truncate i xs |> ofSeq
 
 let getSlice (lower: int option) (upper: int option) (xs: 'T list) =
     let lower = defaultArg lower 0
-    let hasUpper = Option.isSome upper
-    if lower < 0 then outOfRange()
-    elif hasUpper && upper.Value < lower then []
+    let upper = defaultArg upper (xs.Length - 1)
+    if lower < 0 || upper >= xs.Length then failwith "Index out of range"
+    elif upper < lower then List.Empty
     else
-        let mutable lastIndex = -1
-        let res =
-            ([], xs) ||> foldIndexed (fun i acc x ->
-                lastIndex <- i
-                if lower <= i && (not hasUpper || i <= upper.Value) then x::acc
-                else acc)
-        if lower > (lastIndex + 1) || (hasUpper && upper.Value > lastIndex) then outOfRange()
-        reverse res
+        let values = ResizeArray(upper - lower + 1)
+        for i = lower to upper do values.Add(xs.[i])
+        values |> ofSeq
 
-let distinctBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
-    let hashSet = HashSet<'Key>(eq)
+let splitAt i (xs: 'T list) =
+    if i < 0 then invalidArg "index" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
+    if i > xs.Length then invalidArg "index" "The input sequence has an insufficient number of elements."
+    take i xs, skip i xs
+
+let distinctBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>) =
+    let hashSet = System.Collections.Generic.HashSet<'Key>(eq)
     xs |> filter (projection >> hashSet.Add)
 
-let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
+let distinct (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
     distinctBy id xs eq
 
 let exactlyOne (xs: 'T list) =
-    match xs with
-    | [] -> invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
-    | [x] -> x
-    | x1::x2::xs -> invalidArg "list" "Input list too long"
+    match xs.Length with
+    | 1 -> head xs
+    | 0 -> invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+    | _ -> invalidArg "list" "Input list too long"
 
-let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
-    let dict = Dictionary<'Key, 'T list>(eq)
-    let mutable keys = []
+let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>): ('Key * 'T list) list =
+    let dict = System.Collections.Generic.Dictionary<'Key, 'T list>(eq)
+    let mutable keys = List.Empty
     xs |> iterate (fun v ->
         let key = projection v
         match dict.TryGetValue(key) with
         | true, prev ->
-            dict.[key] <- v::prev
+            dict.[key] <- cons v prev
         | false, _ ->
-            dict.Add(key, [v])
-            keys <- key::keys )
-    let mutable result = []
-    keys |> iterate (fun key -> result <- (key, reverse dict.[key]) :: result)
+            dict.Add(key, cons v List.Empty)
+            keys <- cons key keys )
+    let mutable result = List.Empty
+    keys |> iterate (fun key -> result <- cons (key, reverse dict.[key]) result)
     result
 
-let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
-    let dict = Dictionary<'Key, int>(eq)
-    let mutable keys = []
+let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>) =
+    let dict = System.Collections.Generic.Dictionary<'Key, int>(eq)
+    let mutable keys = List.Empty
     xs |> iterate (fun v ->
         let key = projection v
         match dict.TryGetValue(key) with
@@ -486,29 +528,24 @@ let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityCompa
             dict.[key] <- prev + 1
         | false, _ ->
             dict.[key] <- 1
-            keys <- key::keys )
-    let mutable result = []
-    keys |> iterate (fun key -> result <- (key, dict.[key]) :: result)
+            keys <- cons key keys )
+    let mutable result = List.Empty
+    keys |> iterate (fun key -> result <- cons (key, dict.[key]) result)
     result
 
-let where predicate source =
-    filter predicate source
+let where predicate (xs: 'T list) =
+    filter predicate xs
 
-let pairwise source =
-    Seq.pairwise source
+let pairwise (xs: 'T list) =
+    Seq.pairwise xs |> ofSeq
+
+let windowed (windowSize: int) (xs: 'T list): 'T list list =
+    Seq.windowed windowSize xs
     |> ofSeq
+    |> map ofArray
 
-let windowed (windowSize: int) (source: 'T list): 'T list list =
-    if windowSize <= 0 then
-        failwith "windowSize must be positive"
-    let mutable res = []
-    for i = length source downto windowSize do
-        res <- (getSlice (Some(i-windowSize)) (Some(i-1)) source) :: res
-    res
-
-let splitInto (chunks: int) (source: 'T list): 'T list list =
-    source
-    |> List.toArray
+let splitInto (chunks: int) (xs: 'T list): 'T list list =
+    Array.ofSeq xs Array.DynamicArrayCons
     |> Array.splitInto chunks
     |> ofArray
     |> map ofArray

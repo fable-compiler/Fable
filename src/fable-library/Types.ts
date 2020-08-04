@@ -47,139 +47,139 @@ export class SystemObject implements IEquatable<any> {
   }
 }
 
-function compareList<T>(self: List<T>, other: List<T>) {
-  if (self === other) {
-    return 0;
-  } else {
-    if (other == null) {
-      return -1;
-    }
-    const selfLen = self.Length;
-    const otherLen = other.Length;
-    const minLen = Math.min(selfLen, otherLen);
-    for (let i = 0; i < minLen; i++) {
-      const res = compare(self.Item(i), other.Item(i));
-      if (res !== 0) { return res; }
-    }
-    return selfLen > otherLen ? 1 : (selfLen < otherLen ? -1 : 0);
-  }
-}
+// function compareList<T>(self: List<T>, other: List<T>) {
+//   if (self === other) {
+//     return 0;
+//   } else {
+//     if (other == null) {
+//       return -1;
+//     }
+//     const selfLen = self.Length;
+//     const otherLen = other.Length;
+//     const minLen = Math.min(selfLen, otherLen);
+//     for (let i = 0; i < minLen; i++) {
+//       const res = compare(self.Item(i), other.Item(i));
+//       if (res !== 0) { return res; }
+//     }
+//     return selfLen > otherLen ? 1 : (selfLen < otherLen ? -1 : 0);
+//   }
+// }
 
-export function newList<T>(vals: T[]): List<T> {
-  return new List(vals);
-}
+// export function newList<T>(vals: T[]): List<T> {
+//   return new List(vals);
+// }
 
-export function cons<T>(head: T, tail: List<T>): List<T> {
-  // If this points to the last index of the stack, push the new value into it.
-  // Otherwise, this becomes an "actual" tail.
-  if (tail.vals.length === tail.idx + 1) {
-    tail.vals.push(head);
-    return new List(tail.vals, tail.tail);
-  } else {
-    return new List([head], tail);
-  }
-}
+// export function cons<T>(head: T, tail: List<T>): List<T> {
+//   // If this points to the last index of the stack, push the new value into it.
+//   // Otherwise, this becomes an "actual" tail.
+//   if (tail.vals.length === tail.idx + 1) {
+//     tail.vals.push(head);
+//     return new List(tail.vals, tail.tail);
+//   } else {
+//     return new List([head], tail);
+//   }
+// }
 
-/**
- * F# list is represented in runtime by an optimized type that uses a stack (a reverted JS array)
- * to store the values, so we can a have a big list represented by a single object (plus the stack).
- * It also allows for optimizations in the List module.
- */
-export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
-  public vals: T[];
-  public idx: number;
-  public tail?: List<T>;
+// /**
+//  * F# list is represented in runtime by an optimized type that uses a stack (a reverted JS array)
+//  * to store the values, so we can a have a big list represented by a single object (plus the stack).
+//  * It also allows for optimizations in the List module.
+//  */
+// export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
+//   public vals: T[];
+//   public idx: number;
+//   public tail?: List<T>;
 
-  constructor(vals?: T[], tail?: List<T>, idx?: number) {
-    this.vals = vals ?? [];
-    this.idx = idx ?? this.vals.length - 1;
-    this.tail = tail;
-  }
+//   constructor(vals?: T[], tail?: List<T>, idx?: number) {
+//     this.vals = vals ?? [];
+//     this.idx = idx ?? this.vals.length - 1;
+//     this.tail = tail;
+//   }
 
-  public Item(i: number): T {
-    if (i < 0) {
-      throw new Error("Index out of range");
-    } else if (i <= this.idx) {
-      return this.vals[this.idx - i];
-    } else if (this.tail) {
-      return this.tail.Item(i - this.idx - 1);
-    } else {
-      throw new Error("Index out of range");
-    }
-  }
+//   public Item(i: number): T {
+//     if (i < 0) {
+//       throw new Error("Index out of range");
+//     } else if (i <= this.idx) {
+//       return this.vals[this.idx - i];
+//     } else if (this.tail) {
+//       return this.tail.Item(i - this.idx - 1);
+//     } else {
+//       throw new Error("Index out of range");
+//     }
+//   }
 
-  public get Head(): T {
-    if (this.idx >= 0) {
-      return this.vals[this.idx];
-    } else if (this.idx < 0 && this.tail) {
-      return this.tail.Head;
-    } else  {
-      throw new Error("List was empty");
-    }
-  }
+//   public get Head(): T {
+//     if (this.idx >= 0) {
+//       return this.vals[this.idx];
+//     } else if (this.idx < 0 && this.tail) {
+//       return this.tail.Head;
+//     } else  {
+//       throw new Error("List was empty");
+//     }
+//   }
 
-  public get Tail(): List<T> | undefined {
-    if (this.idx === 0 && this.tail) {
-      return this.tail;
-    } else if (this.idx >= 0) {
-      return new List(this.vals, this.tail, this.idx - 1);
-    } else {
-      return this.tail?.Tail;
-    }
-  }
+//   public get Tail(): List<T> | undefined {
+//     if (this.idx === 0 && this.tail) {
+//       return this.tail;
+//     } else if (this.idx >= 0) {
+//       return new List(this.vals, this.tail, this.idx - 1);
+//     } else {
+//       return this.tail?.Tail;
+//     }
+//   }
 
-  public get IsEmpty(): boolean {
-    return this.idx < 0 && (this.tail?.IsEmpty ?? true);
-  }
+//   public get IsEmpty(): boolean {
+//     return this.idx < 0 && (this.tail?.IsEmpty ?? true);
+//   }
 
-  public get Length(): number {
-    return this.idx + 1 + (this.tail?.Length ?? 0);
-  }
+//   public get Length(): number {
+//     return this.idx + 1 + (this.tail?.Length ?? 0);
+//   }
 
-  public toString() {
-    return "[" + Array.from(this).join("; ") + "]";
-  }
+//   public toString() {
+//     return "[" + Array.from(this).join("; ") + "]";
+//   }
 
-  public toJSON() {
-    return Array.from(this);
-  }
+//   public toJSON() {
+//     return Array.from(this);
+//   }
 
-  public [Symbol.iterator](): Iterator<T> {
-    let curIdx = this.idx;
-    let li: List<T> = this;
-    return {
-      next: (): IteratorResult<T> => {
-        while (curIdx < 0 && li.tail) {
-          li = li.tail;
-          curIdx = li.idx;
-        }
-        return (curIdx < 0)
-          ? { done: true, value: undefined }
-          : { done: false, value: li.vals[curIdx--] };
-      }
-    };
-  }
+//   public [Symbol.iterator](): Iterator<T> {
+//     let curIdx = this.idx;
+//     let li: List<T> = this;
+//     return {
+//       next: (): IteratorResult<T> => {
+//         while (curIdx < 0 && li.tail) {
+//           li = li.tail;
+//           curIdx = li.idx;
+//         }
+//         return (curIdx < 0)
+//           ? { done: true, value: undefined }
+//           : { done: false, value: li.vals[curIdx--] };
+//       }
+//     };
+//   }
 
-  public GetHashCode() {
-    if (this.idx < 0) {
-      return 0;
-    } else {
-      const hashes: number[] = new Array(this.idx + 1);
-      for (let i = this.idx; i >= 0; i--) {
-        hashes[i] = structuralHash(this.vals[i]);
-      }
-      return combineHashCodes(hashes);
-    }
-  }
+//   public GetHashCode() {
+//     if (this.idx < 0) {
+//       return 0;
+//     } else {
+//       const hashes: number[] = new Array(this.idx + 1);
+//       for (let i = this.idx; i >= 0; i--) {
+//         hashes[i] = structuralHash(this.vals[i]);
+//       }
+//       return combineHashCodes(hashes);
+//     }
+//   }
 
-  public Equals(other: List<T>): boolean {
-    return compareList(this, other) === 0;
-  }
+//   public Equals(other: List<T>): boolean {
+//     return compareList(this, other) === 0;
+//   }
 
-  public CompareTo(other: List<T>): number {
-    return compareList(this, other);
-  }
-}
+//   public CompareTo(other: List<T>): number {
+//     return compareList(this, other);
+//   }
+// }
 
 export class Union extends SystemObject implements IComparable<any> {
   public tag: number;

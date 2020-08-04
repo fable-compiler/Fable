@@ -717,6 +717,8 @@ let identityHash r (arg: Expr) =
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
     | DeclaredType(ent,_) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         Helper.CoreCall("Util", "structuralHash", Number Int32, [arg], ?loc=r)
+    | DeclaredType(ent,_) ->
+        Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
     | _ ->
         Helper.CoreCall("Util", "identityHash", Number Int32, [arg], ?loc=r)
 
@@ -1838,30 +1840,20 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Helper.CoreCall("Array", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
     match i.CompiledName, thisArg, args with
-    // Use methods for Head and Tail (instead of Get(ListHead) for example) to check for empty lists
-    | ("get_Head" | "get_Tail" | "get_Length" | "get_IsEmpty"), Some callee, _ ->
-        let meth = Naming.removeGetSetPrefix i.CompiledName
-        get r t callee meth |> Some
-    | "get_Item", Some callee, _ ->
-        let meth = Naming.removeGetSetPrefix i.CompiledName
-        Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "GetSlice", Some x, _ ->
-        let meth = Naming.lowerFirst i.CompiledName
-        let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
+    | ("get_Head" | "get_Tail" | "get_Length" | "get_IsEmpty"), Some x, _ ->
+        Helper.CoreCall("List", meth, t, [x], i.SignatureArgTypes, ?loc=r) |> Some
+    | ("get_Item" | "GetSlice"), Some x, _ ->
+        Helper.CoreCall("List", meth, t, args @ [x], i.SignatureArgTypes, ?loc=r) |> Some
+    | ("get_Empty" | "Cons"), None, _ ->
         Helper.CoreCall("List", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "get_Empty", None, _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
-    | "Cons", None, [h;t] -> NewList(Some(h,t), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     | ("GetHashCode" | "Equals" | "CompareTo"), Some callee, _ ->
         Helper.InstanceCall(callee, i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "IsEmpty", [x] -> Test(x, ListTest false, r) |> Some
-    | "Empty", _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
-    | "Singleton", [x] ->
-        NewList(Some(x, Value(NewList(None, t), None)), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some

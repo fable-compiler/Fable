@@ -123,7 +123,6 @@ module Helpers =
 open Helpers
 
 let private indexNotFoundMsg = "An index satisfying the predicate was not found in the collection."
-let inline indexNotFound() = failwith indexNotFoundMsg
 
 // Pay attention when benchmarking to append and filter functions below
 // if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
@@ -478,7 +477,7 @@ let partition (f: 'T -> bool) (source: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
 let find (predicate: 'T -> bool) (array: 'T[]): 'T =
     match findImpl predicate array with
     | Some res -> res
-    | None -> indexNotFound()
+    | None -> failwith indexNotFoundMsg
 
 let tryFind (predicate: 'T -> bool) (array: 'T[]): 'T option =
     findImpl predicate array
@@ -486,7 +485,7 @@ let tryFind (predicate: 'T -> bool) (array: 'T[]): 'T option =
 let findIndex (predicate: 'T -> bool) (array: 'T[]): int =
     match findIndexImpl predicate array with
     | index when index > -1 -> index
-    | _ -> indexNotFound()
+    | _ -> failwith indexNotFoundMsg
 
 let tryFindIndex (predicate: 'T -> bool) (array: 'T[]): int option =
     match findIndexImpl predicate array with
@@ -496,7 +495,7 @@ let tryFindIndex (predicate: 'T -> bool) (array: 'T[]): int option =
 let pick chooser (array: _[]) =
     let rec loop i =
         if i >= array.Length then
-            indexNotFound()
+            failwith indexNotFoundMsg
         else
             match chooser array.[i] with
             | None -> loop(i+1)
@@ -513,7 +512,7 @@ let tryPick chooser (array: _[]) =
 
 let findBack predicate (array: _[]) =
     let rec loop i =
-        if i < 0 then indexNotFound()
+        if i < 0 then failwith indexNotFoundMsg
         elif predicate array.[i] then array.[i]
         else loop (i - 1)
     loop (array.Length - 1)
@@ -534,7 +533,7 @@ let findLastIndex predicate (array: _[]) =
 
 let findIndexBack predicate (array: _[]) =
     let rec loop i =
-        if i < 0 then indexNotFound()
+        if i < 0 then failwith indexNotFoundMsg
         elif predicate array.[i] then i
         else loop (i - 1)
     loop (array.Length - 1)
