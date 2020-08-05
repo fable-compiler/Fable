@@ -11,8 +11,8 @@ let msgListNoMatch = "List did not contain any matching elements"
 type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
     let mutable hashCode = None
 
-    static member Empty = new List<'T>(0, ResizeArray<'T>())
-    static member internal Cons (x: 'T, xs: 'T list) = xs.Add(x)
+    static member inline Empty = new List<'T>(0, ResizeArray<'T>())
+    static member inline internal Cons (x: 'T, xs: 'T list) = xs.Add(x)
 
     member inline internal _.Add(x: 'T) =
         let values =
@@ -25,12 +25,12 @@ type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
     member inline _.IsEmpty = Count <= 0
     member inline _.Length = Count
 
-    member _.Head =
+    member inline _.Head =
         if Count > 0
         then Values.[Count - 1]
         else failwith msgListWasEmpty
 
-    member _.Tail =
+    member inline _.Tail =
         if Count > 0
         then new List<'T>(Count - 1, Values)
         else failwith msgListWasEmpty
@@ -67,22 +67,22 @@ type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
 
     interface System.Collections.Generic.IEnumerable<'T> with
         member xs.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
-            let elems = seq { for i=xs.Length - 1 downto 0 do yield Values.[i] }
-            elems.GetEnumerator()
+            // let elems = seq { for i=xs.Length - 1 downto 0 do yield Values.[i] }
+            // elems.GetEnumerator()
 
             // new ListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
 
-            // let mutable i = Count
-            // {
-            //     new System.Collections.Generic.IEnumerator<'T> with
-            //         member _.Current = Values.[i]
-            //     interface System.Collections.IEnumerator with
-            //         member _.Current: obj = box (Values.[i])
-            //         member _.MoveNext() = i <- i - 1; i >= 0
-            //         member _.Reset() = i <- Count
-            //     interface System.IDisposable with
-            //         member _.Dispose(): unit = ()
-            // }
+            let mutable i = Count
+            {
+                new System.Collections.Generic.IEnumerator<'T> with
+                    member _.Current = Values.[i]
+                interface System.Collections.IEnumerator with
+                    member _.Current: obj = box (Values.[i])
+                    member _.MoveNext() = i <- i - 1; i >= 0
+                    member _.Reset() = i <- Count
+                interface System.IDisposable with
+                    member _.Dispose(): unit = ()
+            }
 
     interface System.Collections.IEnumerable with
         member xs.GetEnumerator(): System.Collections.IEnumerator =
@@ -170,7 +170,7 @@ let reverse (xs: 'a list) =
     fold (fun acc x -> cons x acc) List.Empty xs
 
 let toSeq (xs: 'a list): 'a seq =
-    Seq.map id xs
+    xs :> System.Collections.Generic.IEnumerable<'a>
 
 let ofSeq (xs: 'a seq): 'a list =
     Seq.fold (fun acc x -> cons x acc) List.Empty xs
@@ -201,7 +201,7 @@ let scanBack f (xs: 'a list) (state: 'acc) =
     Seq.scanBack f xs state |> ofSeq
 
 let append (xs: 'a list) (ys: 'a list) =
-    fold (fun acc x -> cons x acc) ys (reverse xs)
+    foldBack (fun x acc -> cons x acc) xs ys
 
 let collect (f: 'a -> 'b list) (xs: 'a list) =
     Seq.collect f xs |> ofSeq
