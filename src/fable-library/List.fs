@@ -22,6 +22,17 @@ type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
         values.Add(x)
         new List<'T>(values.Count, values)
 
+    member internal _.Reverse() =
+        let values = Values.GetRange(0, Count) // copy values
+        values.Reverse()
+        new List<'T>(values.Count, values)
+
+    // This is a destructive internal optimization that
+    // can only be performed on newly constructed lists.
+    member internal xs.ReverseInPlace() =
+        Values.Reverse()
+        xs
+
     member _.IsEmpty = Count <= 0
     member _.Length = Count
 
@@ -131,18 +142,21 @@ let foldBack (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc) =
     acc
 
 let reverse (xs: 'a list) =
-    fold (fun acc x -> cons x acc) List.Empty xs
+    xs.Reverse()
+
+let reverseInPlace (xs: 'a list) =
+    xs.ReverseInPlace()
 
 let toSeq (xs: 'a list): 'a seq =
     xs :> System.Collections.Generic.IEnumerable<'a>
 
 let ofSeq (xs: 'a seq): 'a list =
     Seq.fold (fun acc x -> cons x acc) List.Empty xs
-    |> reverse
+    |> reverseInPlace
 
 let concat (lists: seq<'a list>) =
     Seq.fold (fold (fun acc x -> cons x acc)) List.Empty lists
-    |> reverse
+    |> reverseInPlace
 
 let fold2 f (state: 'acc) (xs: 'a list) (ys: 'b list) =
     Seq.fold2 f state xs ys
@@ -153,10 +167,9 @@ let foldBack2 f (xs: 'a list) (ys: 'b list) (state: 'acc) =
 let unfold (gen: 'acc -> ('T * 'acc) option) (state: 'acc) =
     let rec loop st acc =
         match gen st with
-        | None -> acc
+        | None -> reverse acc
         | Some (x, st) -> loop st (cons x acc)
     loop state List.Empty
-    |> reverse
 
 let scan f (state: 'acc) (xs: 'a list) =
     Seq.scan f state xs |> ofSeq
@@ -174,9 +187,8 @@ let mapIndexed (f: int -> 'a -> 'b) (xs: 'a list) =
     let rec loop i acc =
         if i < xs.Length
         then loop (i + 1) (cons (f i xs.[i]) acc)
-        else acc
+        else reverseInPlace acc
     loop 0 List.Empty
-    |> reverse
 
 let map (f: 'a -> 'b) (xs: 'a list) =
     mapIndexed (fun i x -> f x) xs
@@ -304,7 +316,7 @@ let filter f xs =
         if f x
         then cons x acc
         else acc) List.Empty xs
-    |> reverse
+    |> reverseInPlace
 
 let partition f xs =
     fold (fun (lacc, racc) x ->
@@ -315,7 +327,8 @@ let choose f xs =
     fold (fun acc x ->
         match f x with
         | Some y -> cons y acc
-        | None -> acc) List.Empty xs |> reverse
+        | None -> acc) List.Empty xs
+    |> reverseInPlace
 
 let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
     tryFindIndex (fun v -> eq.Equals (value, v)) xs |> Option.isSome
@@ -330,7 +343,7 @@ let initialize n f =
     let mutable res = List.Empty
     for i = 0 to n - 1 do
         res <- cons (f i) res
-    res |> reverse
+    res |> reverseInPlace
 
 let replicate n x =
     initialize n (fun _ -> x)
