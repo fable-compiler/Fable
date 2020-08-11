@@ -171,7 +171,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
 let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSharpType)
                     baseCallExpr (overrides: FSharpObjectExprOverride list) otherOverrides =
 
-    let mapOverride (over: FSharpObjectExprOverride) =
+    let mapOverride (typ: FSharpType) (over: FSharpObjectExprOverride) =
       trampoline {
         let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
         let! body = transformExpr com ctx over.Body
@@ -179,7 +179,12 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
         let name, kind =
             match over.Signature.Name with
             | Naming.StartsWith "get_" name when countNonCurriedParamsForOverride over = 0 ->
-                name, Fable.ObjectGetter
+                // performance optimization, compile get_Current as instance call instead of a getter
+                if over.Signature.Name = "get_Current" &&
+                    (typ.TypeDefinition.FullName = "System.Collections.Generic.IEnumerator`1" ||
+                     typ.TypeDefinition.FullName = "System.Collections.IEnumerator")
+                then name, Fable.ObjectMethod false
+                else name, Fable.ObjectGetter
             | Naming.StartsWith "set_" name when countNonCurriedParamsForOverride over = 1 ->
                 name, Fable.ObjectSetter
             | name ->
@@ -222,8 +227,8 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
 
       let! members =
         (objType, overrides)::otherOverrides
-        |> trampolineListMap (fun (_typ, overrides) ->
-            overrides |> trampolineListMap mapOverride)
+        |> trampolineListMap (fun (typ, overrides) ->
+            overrides |> trampolineListMap (mapOverride typ))
 
       return Fable.ObjectExpr(members |> List.concat, makeType com ctx.GenericArgs objType, baseCall)
     }
@@ -985,7 +990,11 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
         let kind =
             match args with
             | [_thisArg; unitArg] when memb.IsPropertyGetterMethod && unitArg.Type = Fable.Unit ->
-                Fable.ObjectGetter
+                // performance optimization, compile get_Current as instance call instead of a getter
+                if (memb.CompiledName = "System-Collections-Generic-IEnumerator`1-get_Current" ||
+                    memb.CompiledName = "System-Collections-IEnumerator-get_Current")
+                then Fable.ObjectMethod false
+                else Fable.ObjectGetter
             | [_thisArg; _valueArg] when memb.IsPropertySetterMethod ->
                 Fable.ObjectSetter
             | _ when memb.CompiledName = "System-Collections-Generic-IEnumerable`1-GetEnumerator" ->

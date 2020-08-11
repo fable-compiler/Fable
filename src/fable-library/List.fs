@@ -11,10 +11,10 @@ let msgListNoMatch = "List did not contain any matching elements"
 type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
     let mutable hashCode = None
 
-    static member inline Empty = new List<'T>(0, ResizeArray<'T>())
-    static member inline internal Cons (x: 'T, xs: 'T list) = xs.Add(x)
+    static member Empty = new List<'T>(0, ResizeArray<'T>())
+    static member internal Cons (x: 'T, xs: 'T list) = xs.Add(x)
 
-    member inline internal _.Add(x: 'T) =
+    member internal _.Add(x: 'T) =
         let values =
             if Count = Values.Count
             then Values
@@ -22,20 +22,20 @@ type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
         values.Add(x)
         new List<'T>(values.Count, values)
 
-    member inline _.IsEmpty = Count <= 0
-    member inline _.Length = Count
+    member _.IsEmpty = Count <= 0
+    member _.Length = Count
 
-    member inline _.Head =
+    member _.Head =
         if Count > 0
         then Values.[Count - 1]
         else failwith msgListWasEmpty
 
-    member inline _.Tail =
+    member _.Tail =
         if Count > 0
         then new List<'T>(Count - 1, Values)
         else failwith msgListWasEmpty
 
-    member inline _.Item with get(index) =
+    member _.Item with get(index) =
         Values.[Count - 1 - index]
 
     override xs.ToString() =
@@ -46,7 +46,6 @@ type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
         if xs.Length <> ys.Length then false
         elif xs.GetHashCode() <> ys.GetHashCode() then false
         else Seq.forall2 (Unchecked.equals) xs ys
-        // else (xs :> System.IComparable).CompareTo(other) = 0
 
     override xs.GetHashCode() =
         match hashCode with
@@ -63,59 +62,25 @@ type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
             Seq.compareWith compare xs (other :?> 'T list)
-            // List.CompareWith compare xs (other :?> 'T list)
 
     interface System.Collections.Generic.IEnumerable<'T> with
         member xs.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
-            // let elems = seq { for i=xs.Length - 1 downto 0 do yield Values.[i] }
-            // elems.GetEnumerator()
-
-            // new ListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
-
-            let mutable i = Count
-            {
-                new System.Collections.Generic.IEnumerator<'T> with
-                    member _.Current = Values.[i]
-                interface System.Collections.IEnumerator with
-                    member _.Current: obj = box (Values.[i])
-                    member _.MoveNext() = i <- i - 1; i >= 0
-                    member _.Reset() = i <- Count
-                interface System.IDisposable with
-                    member _.Dispose(): unit = ()
-            }
+            new ListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
 
     interface System.Collections.IEnumerable with
         member xs.GetEnumerator(): System.Collections.IEnumerator =
             ((xs :> System.Collections.Generic.IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
 
-    // static member internal CompareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
-    //     if obj.ReferenceEquals(xs, ys)
-    //     then 0
-    //     else
-    //         if xs.IsEmpty then
-    //             if ys.IsEmpty then 0 else -1
-    //         elif ys.IsEmpty then 1
-    //         else
-    //             let mutable i = 0
-    //             let mutable result = 0
-    //             if xs.Length > ys.Length then 1
-    //             elif xs.Length < ys.Length then -1
-    //             else
-    //                 while i < xs.Length && result = 0 do
-    //                     result <- comparer xs.[i] ys.[i]
-    //                     i <- i + 1
-    //                 result
-
-// and ListEnumerator<'T when 'T: comparison>(xs: List<'T>) =
-//     let mutable i = -1
-//     interface System.Collections.Generic.IEnumerator<'T> with
-//         member __.Current = xs.[i]
-//     interface System.Collections.IEnumerator with
-//         member __.Current = box (xs.[i])
-//         member __.MoveNext() = i <- i + 1; i < xs.Length
-//         member __.Reset() = i <- -1
-//     interface System.IDisposable with
-//         member __.Dispose() = ()
+and ListEnumerator<'T when 'T: comparison>(xs: List<'T>) =
+    let mutable i = -1
+    interface System.Collections.Generic.IEnumerator<'T> with
+        member __.Current = xs.[i]
+    interface System.Collections.IEnumerator with
+        member __.Current = box (xs.[i])
+        member __.MoveNext() = i <- i + 1; i < xs.Length
+        member __.Reset() = i <- -1
+    interface System.IDisposable with
+        member __.Dispose() = ()
 
 and 'T list when 'T: comparison = List<'T>
 
@@ -152,7 +117,6 @@ let tryLast (xs: 'T list) =
 
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
     Seq.compareWith comparer xs ys
-    //List.CompareWith comparer xs ys
 
 let fold (folder: 'acc -> 'T -> 'acc) (state: 'acc) (xs: 'T list) =
     let mutable acc = state

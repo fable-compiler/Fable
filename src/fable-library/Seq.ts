@@ -4,7 +4,7 @@ import { Option, some, value } from "./Option";
 import { compare, equals, IComparer, IDisposable } from "./Util";
 
 export interface IEnumerator<T> {
-  Current: T | undefined;
+  Current(): T | undefined; // intentionally not a getter (for performance reasons)
   MoveNext(): boolean;
   Reset(): void;
 }
@@ -32,7 +32,7 @@ export class Enumerator<T> implements IEnumerator<T>, IDisposable {
     this.current = cur.value;
     return !cur.done;
   }
-  get Current() {
+  Current() {
     return this.current;
   }
   public Reset() {
@@ -51,7 +51,7 @@ export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
   return {
     next() {
       return en.MoveNext()
-        ? { done: false, value: en.Current }
+        ? { done: false, value: en.Current() }
         : { done: true, value: undefined };
     },
   } as Iterator<T>;

@@ -1039,7 +1039,10 @@ module Util =
         | [arg] when memb.IsPropertySetterMethod ->
             let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType com Map.empty
             Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
-        | _ when memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 ->
+        | _ when memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
+            // performance optimization, compile get_Current as instance call instead of a getter
+            && memb.FullName <> "System.Collections.IEnumerator.get_Current"
+            && memb.FullName <> "System.Collections.Generic.IEnumerator.get_Current" ->
             let t = memb.ReturnParameter.Type |> makeType com Map.empty
             let kind = Fable.FieldGet(name, true, t)
             Fable.Get(callee, kind, typ, r)
