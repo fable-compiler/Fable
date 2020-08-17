@@ -8,67 +8,71 @@ open Fable.Core
 let msgListWasEmpty = "List was empty"
 let msgListNoMatch = "List did not contain any matching elements"
 
-type List<'T when 'T: comparison>(Count: int, Values: ResizeArray<'T>) =
-    let mutable hashCode = None
+[<CustomEquality; CustomComparison>]
+type List<'T when 'T: comparison> =
+    { Count: int; Values: ResizeArray<'T> }
 
-    static member Empty = new List<'T>(0, ResizeArray<'T>())
-    static member internal Cons (x: 'T, xs: 'T list) = xs.Add(x)
-
-    member internal _.Add(x: 'T) =
+    member inline internal xs.Add(x: 'T) =
         let values =
-            if Count = Values.Count
-            then Values
-            else Values.GetRange(0, Count)
+            if xs.Count = xs.Values.Count
+            then xs.Values
+            else xs.Values.GetRange(0, xs.Count)
         values.Add(x)
-        new List<'T>(values.Count, values)
+        { Count = values.Count; Values = values }
 
-    member internal _.Reverse() =
-        let values = Values.GetRange(0, Count) // copy values
+    member inline internal xs.Reverse() =
+        let values = xs.Values.GetRange(0, xs.Count) // copy values
         values.Reverse()
-        new List<'T>(values.Count, values)
+        { Count = values.Count; Values = values }
 
     // This is a destructive internal optimization that
     // can only be performed on newly constructed lists.
-    member internal xs.ReverseInPlace() =
-        Values.Reverse()
+    member inline internal xs.ReverseInPlace() =
+        xs.Values.Reverse()
         xs
 
-    member _.IsEmpty = Count <= 0
-    member _.Length = Count
+    static member inline Singleton(x: 'T) =
+        let values = ResizeArray<'T>()
+        values.Add(x)
+        { Count = 1; Values = values }
 
-    member _.Head =
-        if Count > 0
-        then Values.[Count - 1]
+    static member inline Empty = { Count = 0; Values = ResizeArray<'T>() }
+    static member inline Cons (x: 'T, xs: 'T list) = xs.Add(x)
+
+    member inline xs.IsEmpty = xs.Count <= 0
+    member inline xs.Length = xs.Count
+
+    member inline xs.Head =
+        if xs.Count > 0
+        then xs.Values.[xs.Count - 1]
         else failwith msgListWasEmpty
 
-    member _.Tail =
-        if Count > 0
-        then new List<'T>(Count - 1, Values)
+    member inline xs.Tail =
+        if xs.Count > 0
+        then { Count = xs.Count - 1; Values = xs.Values }
         else failwith msgListWasEmpty
 
-    member _.Item with get(index) =
-        Values.[Count - 1 - index]
+    member inline xs.Item with get (index: int) =
+        xs.Values.[xs.Count - 1 - index]
 
     override xs.ToString() =
         "[" + System.String.Join("; ", xs) + "]"
 
     override xs.Equals(other: obj) =
-        let ys = other :?> 'T list
-        if xs.Length <> ys.Length then false
-        elif xs.GetHashCode() <> ys.GetHashCode() then false
-        else Seq.forall2 (Unchecked.equals) xs ys
+        if obj.ReferenceEquals(xs, other)
+        then true
+        else
+            let ys = other :?> 'T list
+            if xs.Length <> ys.Length then false
+            else Seq.forall2 (Unchecked.equals) xs ys
 
     override xs.GetHashCode() =
-        match hashCode with
-        | Some h -> h
-        | None ->
-            let inline combineHash i x y = (x <<< 1) + y + 631 * i
-            let len = min (xs.Length - 1) 18 // limit the hash count
-            let mutable h = 0
-            for i = 0 to len do
-                h <- combineHash i h (hash xs.[i])
-            hashCode <- Some h
-            h
+        let inline combineHash i x y = (x <<< 1) + y + 631 * i
+        let len = min (xs.Length - 1) 18 // limit the hash count
+        let mutable h = 0
+        for i = 0 to len do
+            h <- combineHash i h (hash xs.[i])
+        h
 
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
@@ -95,13 +99,13 @@ and ListEnumerator<'T when 'T: comparison>(xs: List<'T>) =
 
 and 'T list when 'T: comparison = List<'T>
 
-let newList (values: ResizeArray<'T>) = new List<'T>(values.Count, values)
+let newList (values: ResizeArray<'T>) = { Count = values.Count; Values = values }
 
 let empty () = List.Empty
 
 let cons (x: 'T) (xs: 'T list) = List.Cons (x, xs)
 
-let singleton x = cons x List.Empty
+let singleton (x: 'T) = List.Singleton (x)
 
 let isEmpty (xs: 'T list) = xs.IsEmpty
 
@@ -144,7 +148,7 @@ let foldBack (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc) =
 let reverse (xs: 'a list) =
     xs.Reverse()
 
-let reverseInPlace (xs: 'a list) =
+let inline reverseInPlace (xs: 'a list) =
     xs.ReverseInPlace()
 
 let toSeq (xs: 'a list): 'a seq =
@@ -167,7 +171,7 @@ let foldBack2 f (xs: 'a list) (ys: 'b list) (state: 'acc) =
 let unfold (gen: 'acc -> ('T * 'acc) option) (state: 'acc) =
     let rec loop st acc =
         match gen st with
-        | None -> reverse acc
+        | None -> reverseInPlace acc
         | Some (x, st) -> loop st (cons x acc)
     loop state List.Empty
 
@@ -210,7 +214,7 @@ let mapFold (f: 'S -> 'T -> 'R * 'S) s xs =
         let nx, fs = f fs x
         cons nx nxs, fs
     let nxs, s = fold folder (List.Empty, s) xs
-    reverse nxs, s
+    reverseInPlace nxs, s
 
 let mapFoldBack (f: 'T -> 'S -> 'R * 'S) xs s =
     mapFold (fun s v -> f v s) s (reverse xs)
@@ -492,7 +496,7 @@ let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collect
             dict.Add(key, cons v List.Empty)
             keys <- cons key keys )
     let mutable result = List.Empty
-    keys |> iterate (fun key -> result <- cons (key, reverse dict.[key]) result)
+    keys |> iterate (fun key -> result <- cons (key, reverseInPlace dict.[key]) result)
     result
 
 let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>) =

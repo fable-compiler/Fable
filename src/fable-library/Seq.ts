@@ -191,8 +191,18 @@ export function choose<T, U>(f: (x: T) => U, xs: Iterable<T>) {
 }
 
 export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: Iterable<T>) {
-  const nonZero = tryFind((i: number) => i !== 0, map2(f, xs, ys));
-  return nonZero != null ? value(nonZero) : length(xs) - length(ys);
+  if (xs === ys) { return 0; }
+  let cur1: IteratorResult<T>;
+  let cur2: IteratorResult<T>;
+  let c = 0;
+  for (const iter1 = xs[Symbol.iterator](), iter2 = ys[Symbol.iterator](); ;) {
+    cur1 = iter1.next();
+    cur2 = iter2.next();
+    if (cur1.done || cur2.done) { break; }
+    c = f(cur1.value, cur2.value);
+    if (c !== 0) { break; }
+  }
+  return (c !== 0) ? c : (cur1.done && !cur2.done) ? -1 : (!cur1.done && cur2.done) ? 1 : 0;
 }
 
 export function delay<T>(f: () => Iterable<T>): Iterable<T> {

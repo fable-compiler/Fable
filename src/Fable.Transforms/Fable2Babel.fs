@@ -810,9 +810,13 @@ module Util =
         | Replacements.ListLiteral(exprs, t) ->
             [|List.rev exprs |> makeArray com ctx|]
             |> coreLibCall com ctx r "List" "newList"
+            // match exprs with
+            // | [] -> coreLibCall com ctx r "List" "empty" [||]
+            // | [TransformExpr com ctx expr] -> coreLibCall com ctx r "List" "singleton" [|expr|]
+            // | exprs -> [|makeArray com ctx exprs|] |> coreLibCall com ctx r "List" "ofArray"
         | Fable.NewList (headAndTail, _) ->
             match headAndTail with
-            | None -> coreLibCall com ctx r "List" "newList" [||]
+            | None -> coreLibCall com ctx r "List" "empty" [||]
             | Some(TransformExpr com ctx head, TransformExpr com ctx tail) ->
                 coreLibCall com ctx r "List" "cons" [|head; tail|]
         | Fable.NewOption (value, t) ->
@@ -1054,6 +1058,8 @@ module Util =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         match getKind with
         | Fable.ExprGet(TransformExpr com ctx prop) -> getExpr range expr prop
+        // | Fable.ListHead -> get range expr "Head"
+        // | Fable.ListTail -> get range expr "Tail"
         | Fable.ListHead -> coreLibCall com ctx range "List" "head" [|expr|]
         | Fable.ListTail -> coreLibCall com ctx range "List" "tail" [|expr|]
         | Fable.FieldGet(fieldName,_,_) ->
@@ -1212,6 +1218,7 @@ module Util =
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             upcast BinaryExpression(op, com.TransformAsExpr(ctx, expr), NullLiteral(), ?loc=range)
         | Fable.ListTest nonEmpty ->
+            // let expr = get range (com.TransformAsExpr(ctx, expr)) "IsEmpty"
             let expr = coreLibCall com ctx range "List" "isEmpty" [|com.TransformAsExpr(ctx, expr)|]
             if nonEmpty then upcast UnaryExpression(UnaryNot, expr, ?loc=range)
             else expr

@@ -1842,8 +1842,9 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
     match i.CompiledName, thisArg, args with
-    | ("get_Head" | "get_Tail" | "get_Length" | "get_IsEmpty"), Some x, _ ->
+    | ("get_Head" | "get_Tail" | "get_IsEmpty" | "get_Length"), Some x, _ ->
         Helper.CoreCall("List", meth, t, [x], i.SignatureArgTypes, ?loc=r) |> Some
+        // get r t x meth |> Some
     | ("get_Item" | "GetSlice"), Some x, _ ->
         Helper.CoreCall("List", meth, t, args @ [x], i.SignatureArgTypes, ?loc=r) |> Some
     | ("get_Empty" | "Cons"), None, _ ->
@@ -1854,6 +1855,11 @@ let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
 
 let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
+    // | ("Head" | "Tail" | "IsEmpty") as meth, [x] -> get r t x (Naming.lowerFirst meth) |> Some
+    // | "IsEmpty", [x] -> Test(x, ListTest false, r) |> Some
+    // | "Empty", _ -> NewList(None, (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
+    // | "Singleton", [x] ->
+    //     NewList(Some(x, Value(NewList(None, t), None)), (genArg com ctx r 0 i.GenericArgs)) |> makeValue r |> Some
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some
