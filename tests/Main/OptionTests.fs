@@ -284,8 +284,8 @@ let tests =
 
 #if FABLE_COMPILER
     testCase "None and unit compile to JS undefined" <| fun () ->
-        let isActualJsNull (x: obj) = emitJs "$0 === null" x
-        let isActualJsUndefined (x: obj) = emitJs "$0 === void 0" x
+        let isActualJsNull (x: obj) = emitJsExpr<bool> x "$0 === null"
+        let isActualJsUndefined (x: obj) = emitJsExpr<bool> x "$0 === void 0"
 
         let x: int option = None
         let y = ()
@@ -295,8 +295,8 @@ let tests =
         isActualJsUndefined y |> equal true
 
     testCase "Option.toObj/toNullable converts to null" <| fun () ->
-        let isActualJsNull (x: obj) = emitJs "$0 === null" x
-        let isActualJsUndefined (x: obj) = emitJs "$0 === void 0" x
+        let isActualJsNull (x: obj) = emitJsExpr<bool> x "$0 === null"
+        let isActualJsUndefined (x: obj) = emitJsExpr<bool> x "$0 === void 0"
 
         let x: string option = None
         let x2: int option = None
@@ -308,8 +308,8 @@ let tests =
         isActualJsUndefined z |> equal false
 
     testCase "Option.ofObj/ofNullable converts to undefined" <| fun () ->
-        let isActualJsNull (x: obj) = emitJs "$0 === null" x
-        let isActualJsUndefined (x: obj) = emitJs "$0 === void 0" x
+        let isActualJsNull (x: obj) = emitJsExpr<bool> x "$0 === null"
+        let isActualJsUndefined (x: obj) = emitJsExpr<bool> x "$0 === void 0"
 
         let x: string = null
         let x2: Nullable<int> = Nullable()

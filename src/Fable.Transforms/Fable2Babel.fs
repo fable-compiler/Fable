@@ -2003,8 +2003,8 @@ module Util =
         let args = fieldIds |> Array.map typedPattern
         declareType com ctx ent id args body baseExpr
 
-    let transformImplicitConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (id: Fable.Ident) (info: Fable.MemberDeclInfo) args body baseCall =
-        let consIdent = Identifier(id.Name) :> Expression
+    let transformImplicitConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (entIdent: Fable.Ident) (consIdent: Fable.Ident) (info: Fable.MemberDeclInfo) args body baseCall =
+        let classIdent = Identifier(entIdent.Name) :> Expression
         let babelArgs, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx ClassConstructor info.HasSpread args body
 
@@ -2012,7 +2012,7 @@ module Util =
             // change constructor's return type from void to entity type
             if com.Options.typescript then
                 let genParams = getEntityGenParams ent
-                let returnType = getGenericTypeAnnotation com ctx id genParams
+                let returnType = getGenericTypeAnnotation com ctx entIdent genParams
                 let typeParamDecl = makeTypeParamDecl genParams |> mergeTypeParamDecls typeParamDecl
                 returnType, typeParamDecl
             else
@@ -2042,7 +2042,7 @@ module Util =
         let exposedCons =
             let exposedConsBody =
                 BlockStatement [| ReturnStatement
-                    (NewExpression(consIdent, List.toArray argExprs)) |] |> U2.Case1
+                    (NewExpression(classIdent, List.toArray argExprs)) |] |> U2.Case1
             makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
 
         let baseExpr, body =
@@ -2063,8 +2063,8 @@ module Util =
             | None -> None, body
 
         [
-            yield! declareType com ctx ent id babelArgs body baseExpr
-            yield declareModuleMember info.IsPublic id false exposedCons
+            yield! declareType com ctx ent entIdent babelArgs body baseExpr
+            yield declareModuleMember info.IsPublic consIdent false exposedCons
         ]
 
     let rec transformDeclaration (com: IBabelCompiler) ctx decl =
@@ -2092,14 +2092,14 @@ module Util =
                 else
                     [transformModuleFunction com ctx memb.Info memb.Ident memb.Args memb.Body]
 
-        | Fable.ClassDeclaration(ent, ident, cons, baseCall, attachedMembers) ->
+        | Fable.ClassDeclaration(ent, entIdent, cons, baseCall, attachedMembers) ->
             let cons =
                 match cons with
-                | Some memb ->
-                    withCurrentScope ctx memb.UsedNames <| fun ctx ->
-                        transformImplicitConstructor com ctx ent ident memb.Info memb.Args memb.Body baseCall
-                | None when ent.IsFSharpUnion -> transformUnionConstructor com ctx ent ident
-                | None -> transformCompilerGeneratedConstructor com ctx ent ident
+                | Some cons ->
+                    withCurrentScope ctx cons.UsedNames <| fun ctx ->
+                        transformImplicitConstructor com ctx ent entIdent cons.Ident cons.Info cons.Args cons.Body baseCall
+                | None when ent.IsFSharpUnion -> transformUnionConstructor com ctx ent entIdent
+                | None -> transformCompilerGeneratedConstructor com ctx ent entIdent
 
             let attachedMembers =
                 attachedMembers |> List.collect (fun memb ->

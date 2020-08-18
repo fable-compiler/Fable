@@ -135,6 +135,7 @@ type FsEnt(ent: FSharpEntity) =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
         member _.IsPublic = FsEnt.IsPublic ent
+        member _.IsFSharpAbbreviation = ent.IsFSharpAbbreviation
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord
         member _.IsFSharpExceptionDeclaration = ent.IsFSharpExceptionDeclaration
@@ -1076,8 +1077,7 @@ module Util =
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: ICompiler) (ent: Fable.Entity) suffix =
         let error msg =
-            ent.FullName
-            |> sprintf "%s: %s" msg
+            sprintf "%s: %s" msg ent.FullName
             |> addErrorAndReturnNull com [] None
         if ent.IsInterface then
             error "Cannot reference an interface"

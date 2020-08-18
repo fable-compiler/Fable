@@ -1046,7 +1046,10 @@ let rec private getUsedRootNames com (usedNames: Set<string>) decls =
         match decl with
         | FSharpImplementationFileDeclaration.Entity(ent, []) ->
             let ent = FsEnt(ent) :> Fable.Entity
-            if isErasedOrStringEnumEntity ent then usedNames
+            if ent.IsInterface || ent.IsFSharpAbbreviation
+                || isErasedOrStringEnumEntity ent
+                || isGlobalOrImportedEntity ent then
+                usedNames
             else
                 getEntityDeclarationName com ent
                 |> addUsedRootName com usedNames
@@ -1064,7 +1067,10 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
         match fsDecl with
         | FSharpImplementationFileDeclaration.Entity(ent, []) ->
             let fableEnt = FsEnt(ent) :> Fable.Entity
-            if isErasedOrStringEnumEntity fableEnt then []
+            if ent.IsInterface || ent.IsFSharpAbbreviation
+                || isErasedOrStringEnumEntity fableEnt
+                || isGlobalOrImportedEntity fableEnt then
+                []
             else
                 let entityName = getEntityDeclarationName com fableEnt
                 let ident = makeRangedIdent ent.DeclarationLocation ent.DisplayName entityName

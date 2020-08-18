@@ -49,8 +49,9 @@ type ImportAllAttribute(from: string) =
 
 /// Function calls will be replaced by inlined JS code.
 /// More info: http://fable.io/docs/interacting.html#emit-attribute
-type EmitAttribute(macro: string, ?isStatement: bool) =
+type EmitAttribute(macro: string, isStatement: bool) =
     inherit Attribute()
+    new (macro: string) = EmitAttribute(macro, isStatement=false)
 
 /// Same as `Emit("$0.methodName($1...)")`
 type EmitMethodAttribute(methodName: string) =
@@ -74,9 +75,9 @@ type EmitPropertyAttribute(propertyName: string) =
 /// Compile union types as string literals.
 /// More info: http://fable.io/docs/interacting.html#StringEnum-attribute
 [<AttributeUsage(AttributeTargets.Class)>]
-type StringEnumAttribute() =
+type StringEnumAttribute(caseRules: CaseRules) =
     inherit Attribute()
-    new (caseRules: CaseRules) = StringEnumAttribute()
+    new () = StringEnumAttribute(CaseRules.LowerFirst)
 
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]
