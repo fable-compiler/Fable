@@ -346,13 +346,18 @@ let tests =
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
 
-    testCase "emitJs works" <| fun () ->
+    testCase "emitJsExpr works" <| fun () ->
         let x = 4
         let y = 8
-        let z1: int = emitJs "$0 * Math.pow(2, $1)" (x, y)
-        let z2: int = emitJs "$0 << $1" (x, y)
+        let z1: int = emitJsExpr (x, y) "$0 * Math.pow(2, $1)"
+        let z2: int = emitJsExpr (x, y) "$0 << $1"
         equal z1 z2
         equal 1024 z1
+
+    testCase "emitJsStatement works" <| fun () ->
+        let f x y: int =
+            emitJsStatement (x, y) "return $0 << $1"
+        f 4 8 |> equal 1024
 
     testCase "Assigning null with emit works" <| fun () ->
         let x = createEmpty<obj>

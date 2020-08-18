@@ -35,12 +35,12 @@ let createNew (o: obj) (args: obj): obj = jsNative
 
 /// Destructure a tuple of arguments and applies to literal JS code as with EmitAttribute.
 /// E.g. `emitJsExpr (arg1, arg2) "$0 + $1"` in JS becomes `arg1 + arg2`
-let emitJsExpr (args: obj) (jsCode: string): 'T = jsNative
+let emitJsExpr<'T> (args: obj) (jsCode: string): 'T = jsNative
 
 /// Same as emitJsExpr but intended for JS code that must appear in a statement position
 /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements
 /// E.g. `emitJsExpr aValue "while($0 < 5) doSomething()"`
-let emitJsStatement (args: obj) (jsCode: string): 'T = jsNative
+let emitJsStatement<'T> (args: obj) (jsCode: string): 'T = jsNative
 
 /// Create a literal JS object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`

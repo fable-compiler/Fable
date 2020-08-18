@@ -51,11 +51,10 @@ let parseArguments args =
             match Int32.TryParse portArg with
             | true, port -> port
             | false, _ ->
-                printfn "Value for --port is not a valid integer, using default port"
-                Literals.DEFAULT_PORT
+                printfn "Value for --port is not a valid integer, using free port"
+                getFreePort()
         | None ->
-            // Literals.DEFAULT_PORT
-            getFreePort() // Make free port the default
+            getFreePort()
     let workingDir =
         match tryFindArgValue "--cwd" args with
         | Some cwd -> Path.GetFullPath(cwd)
@@ -128,7 +127,7 @@ let setGlobalParams(args: string[]) =
     )
 
 let printHelp() =
-    (Literals.VERSION, Literals.DEFAULT_PORT) ||> printfn """Fable F# to JS compiler (%s)
+    Literals.VERSION |> printfn """Fable F# to JS compiler (%s)
 Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
 
 Commands:
@@ -138,7 +137,7 @@ Commands:
   yarn-run            Run Fable while a yarn script is running
   node-run            Run Fable while a node script is running
   shell-run           Run Fable while a shell script is running
-  start               Start Fable as a standalone daemon (default port: %i)
+  start               Start Fable as a standalone daemon
   [webpack-cli]       Other commands will be assumed to be binaries in `node_modules/.bin`
 
 Fable arguments:

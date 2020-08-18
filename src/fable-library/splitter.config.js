@@ -1,5 +1,5 @@
 const path = require("path");
-
+const portArgIndex = process.argv.indexOf("--port");
 const useCommonjs = process.argv.find(v => v === "--commonjs");
 console.log("Compiling to " + (useCommonjs ? "commonjs" : "ES2015 modules") + "...")
 
@@ -21,6 +21,7 @@ const outDir = useCommonjs
   : "../../build/fable-library";
 
 module.exports = {
+  port: portArgIndex >= 0 ?  process.argv[portArgIndex + 1] : undefined,
   cli: {
     path: resolve("../Fable.Cli"),
     fableLibrary: "force:${outDir}",
@@ -29,7 +30,6 @@ module.exports = {
   entry: resolve("Fable.Library.fsproj"),
   outDir: resolve(outDir),
   allFiles: true,
-  // port: 61225,
   babel: babelOptions,
   fable: fableOptions,
 };
