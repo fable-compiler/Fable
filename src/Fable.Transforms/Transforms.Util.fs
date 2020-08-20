@@ -414,9 +414,6 @@ module AST =
     let emitJsStatement r args macro =
         Emit({ Macro = macro; Args = args; IsJsStatement = true }, Unit, r)
 
-    let makeThrow range errorExpr =
-        emitJsStatement range [errorExpr] "throw $0"
-
     let makeDebugger range =
         emitJsStatement range [] "debugger"
 

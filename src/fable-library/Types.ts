@@ -5,33 +5,6 @@ function sameType(x: any, y: any) {
   return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
-// Taken from Babel helpers
-function inherits(subClass: any, superClass: any) {
-    // if (typeof superClass !== "function" && superClass !== null) {
-    //   throw new TypeError(
-    //     "Super expression must either be null or a function, not " +
-    //       typeof superClass
-    //   );
-    // }
-    subClass.prototype = Object.create(superClass && superClass.prototype, {
-      constructor: {
-        value: subClass,
-        enumerable: false,
-        writable: true,
-        configurable: true,
-      },
-    });
-    // if (superClass)
-    //   Object.setPrototypeOf
-    //     ? Object.setPrototypeOf(subClass, superClass)
-    //     : (subClass.__proto__ = superClass);
-  }
-
-  export function declare(cons: any, superClass?: any) {
-    inherits(cons, superClass || SystemObject);
-    return cons;
-}
-
 export class SystemObject implements IEquatable<any> {
 
   public toString() {
@@ -258,45 +231,33 @@ export class FSharpRef<T> extends Record {
 
 // EXCEPTIONS
 
-// export class Exception extends Error {
-//   constructor(message?: string) {
-//     super(message)
-//     if (Error.captureStackTrace) {
-//         Error.captureStackTrace(this, Exception)
-//     }
-//   }
+export class Exception extends Error {
+  constructor(message?: string) {
+    super(message)
+    if (Error.captureStackTrace) {
+        Error.captureStackTrace(this, Exception)
+    }
+  }
 
-//   public toString() {
-//     return this.ToString();
-//   }
+  public toString() {
+    return this.ToString();
+  }
 
-//   public ToString() {
-//     return Object.getPrototypeOf(this).constructor.name;
-//   }
+  public ToString() {
+    return Object.getPrototypeOf(this).constructor.name;
+  }
 
-//   public GetHashCode(x?: any) {
-//     return identityHash(x ?? this);
-//   }
+  public GetHashCode(x?: any) {
+    return identityHash(x ?? this);
+  }
 
-//   public Equals(x: any, y?: any) {
-//     return x === (y ?? this);
-//   }
-// }
-
-export interface Exception extends SystemObject {
-  stack?: string;
-  message?: string;
+  public Equals(x: any, y?: any) {
+    return x === (y ?? this);
+  }
 }
 
-// TODO: When moving to classTypes we can change this to a class extending error
-// See above and https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error (Custom Error Types)
-export const Exception = declare(function Exception(this: Exception, message?: string) {
-  this.stack = Error().stack;
-  this.message = message;
-}, SystemObject);
-
 export function isException(x: any) {
-  return x instanceof Error || x instanceof Exception;
+  return x instanceof Error;
 }
 
 function getFSharpExceptionFieldNames(self: any) {
@@ -350,4 +311,5 @@ export class MatchFailureException extends FSharpException {
   }
 }
 
-export const Attribute = declare(function Attribute() { return; }, SystemObject);
+export class Attribute extends SystemObject {
+}

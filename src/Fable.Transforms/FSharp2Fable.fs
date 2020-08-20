@@ -606,7 +606,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let errorMessage = "The match cases were incomplete"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
-                makeThrow rangeOfElseExpr errorExpr
+                Replacements.makeThrow com rangeOfElseExpr Fable.Any errorExpr
             | _ ->
                 fableElseExpr
 
@@ -802,7 +802,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                             fileNameWhereErrorOccurs
                     let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                     // Creates a "throw Error({errorMessage})" expression
-                    let throwExpr = makeThrow rangeOfLastDecisionTarget errorExpr
+                    let throwExpr = Replacements.makeThrow com rangeOfLastDecisionTarget Fable.Any errorExpr
 
                     fableDecisionTargets
                     |> List.replaceLast (fun _lastExpr -> [], throwExpr)

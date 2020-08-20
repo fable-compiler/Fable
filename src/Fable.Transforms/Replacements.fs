@@ -291,6 +291,9 @@ let coreModFor = function
     | BclDictionary _ -> "MutableMap"
     | BclKeyValuePair _ -> failwith "Cannot decide core module"
 
+let makeThrow com r t err =
+    Helper.LibCall(com, "Util", "raise", t, [err], ?loc=r)
+
 let makeLongInt com r t signed (x: uint64) =
     let lowBits = NumberConstant (float (uint32 x), Float64)
     let highBits = NumberConstant (float (x >>> 32), Float64)
@@ -997,7 +1000,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         let runtimeMsg =
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> makeValue None
-        makeThrow r (error runtimeMsg) |> Some
+        makeThrow com r t (error runtimeMsg) |> Some
     | _, ("nameof"|"nameof2" as meth) ->
         match args with
         | [Nameof com ctx name as arg] ->
@@ -1305,18 +1308,18 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
        ), _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [msg] | "InvalidOp", [msg] ->
-        makeThrow r (error msg) |> Some
+        makeThrow com r t (error msg) |> Some
     | "InvalidArg", [argName; msg] ->
         let msg = add (add msg (s "\\nParameter name: ")) argName
-        makeThrow r (error msg) |> Some
-    | "Raise", [arg] -> makeThrow r arg |> Some
+        makeThrow com r t (error msg) |> Some
+    | "Raise", [arg] -> makeThrow com r t arg |> Some
     | "Reraise", _ ->
         match ctx.CaughtException with
-        | Some ex -> makeThrow r (IdentExpr ex) |> Some
+        | Some ex -> makeThrow com r t (IdentExpr ex) |> Some
         | None ->
             "`reraise` used in context where caught exception is not available, please report"
             |> addError com ctx.InlinePath r
-            makeThrow r (error (s "")) |> Some
+            makeThrow com r t (error (s "")) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->

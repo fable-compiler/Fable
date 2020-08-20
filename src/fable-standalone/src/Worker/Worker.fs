@@ -115,7 +115,6 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let nonFSharpOptions = Map [
                 "--typedArrays", false
                 "--clampByteArrays", false
-                "--classTypes", false
                 "typescript", false
             ]
             let nonFSharpOptions, otherFSharpOptions =
@@ -130,7 +129,6 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                 let fableConfig =
                     { typedArrays = Map.find "--typedArrays" nonFSharpOptions
                       clampByteArrays = Map.find "--clampByteArrays" nonFSharpOptions
-                      classTypes = Map.find "--classTypes" nonFSharpOptions
                       typescript = Map.find "--typescript" nonFSharpOptions
                       precompiledLib = Some (fun x -> resolveLibCall(fable.LibMap, x)) }
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, fableConfig)) ()

@@ -1066,13 +1066,9 @@ module Util =
         match ent.AssemblyPath with
         | Some asmPath -> not(String.IsNullOrEmpty(asmPath)) // Do we still need the IsNullOrEmpty check?
         | None ->
-#if FABLE_COMPILER
-            // When compiling Fable itself, Fable.Core entities will be part of the code base,
+            // When compiling tests or Fable itself, Fable.Core entities will be part of the code base,
             // but still need to be replaced
             ent.FullName.StartsWith("Fable.Core.")
-#else
-            false
-#endif
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: ICompiler) (ent: Fable.Entity) suffix =
