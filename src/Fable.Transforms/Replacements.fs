@@ -1155,7 +1155,7 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
     let pos = i.DeclaringEntityFullName.LastIndexOf('.')
     let moduleName = i.DeclaringEntityFullName.Substring(0, pos).Replace("Microsoft.", "")
     let entityName = i.DeclaringEntityFullName.Substring(pos + 1) |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
-    let memberName = if i.CompiledName = ".ctor" then "$ctor" else FSharp2Fable.Helpers.cleanNameAsJsIdentifier i.CompiledName
+    let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
     let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix.Value
     moduleName, mangledName
 
@@ -1168,6 +1168,7 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     let moduleName, mangledName = getMangledNames i thisArg
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+// TODO: This is likely broken
 let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
     let memberName = Naming.sanitizeIdentForbiddenChars memberName
     let entityName = Naming.sanitizeIdentForbiddenChars entityName
@@ -2988,7 +2989,7 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | [Number _; IEqualityComparer], [_; eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected dictionary constructor"
-        let entityName = Naming.sanitizeIdentForbiddenChars "MutableMap`2"
+        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "MutableMap`2"
         Some(makeLibRef com Any entityName "MutableMap", args)
     | Types.hashset ->
         let args =
@@ -3002,6 +3003,6 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | [IEqualityComparer], [eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected hashset constructor"
-        let entityName = Naming.sanitizeIdentForbiddenChars "MutableSet`1"
+        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "MutableSet`1"
         Some(makeLibRef com Any entityName "MutableSet", args)
     | _ -> None

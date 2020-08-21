@@ -251,7 +251,8 @@ module Helpers =
             else fullName
 
     let cleanNameAsJsIdentifier (name: string) =
-        name.Replace('.','_').Replace('`','$')
+        if name = ".ctor" then "$ctor"
+        else name.Replace('.','_').Replace('`','$')
 
     let getEntityDeclarationName (com: ICompiler) (ent: Fable.Entity) =
         let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
@@ -281,7 +282,7 @@ module Helpers =
     let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
         let name, part = getMemberMangledName com true memb
         let name = cleanNameAsJsIdentifier name
-        let part = part.Replace(fun s -> if s = ".ctor" then "$ctor" else s)
+        let part = part.Replace(cleanNameAsJsIdentifier)
         let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
