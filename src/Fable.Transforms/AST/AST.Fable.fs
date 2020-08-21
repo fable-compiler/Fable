@@ -63,6 +63,8 @@ type Parameter =
     abstract Name: string option
     abstract Type: Type
 
+// TODO: More properties needed here Attributes, IsPublic, IsInstance...
+// Merge with MemberDeclInfo somehow?
 type MemberFunctionOrValue =
     abstract DisplayName: string
     abstract CompiledName: string
@@ -72,6 +74,7 @@ type MemberFunctionOrValue =
     abstract IsExplicitInterfaceImplementation: bool
     abstract ApparentEnclosingEntity: Entity
 
+// TODO: Add FableDeclarationName to be able to get a reference to the entity
 type Entity =
     abstract DisplayName: string
     abstract FullName: string
@@ -105,6 +108,8 @@ type MemberDeclInfo =
     abstract IsMangled: bool
 
 type MemberDecl = {
+    // TODO: It may be better to just use the declaration name instead
+    // of the entity, same for class declarations
     Ident: Ident
     Args: Ident list
     Body: Expr

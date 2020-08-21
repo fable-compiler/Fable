@@ -47,8 +47,6 @@ type Props =
     | Names of NameProp array
     | [<Erase>] Custom of key:string * value:obj
 
-let [<Emit("arguments.length")>] argCount: int = jsNative
-
 [<Erase>]
 type ErasedUnion =
     | ErasedInt of int
@@ -283,18 +281,11 @@ let tests =
         equal "5" u.bar
 
     testCase "Unit argument is not replaced by null in dynamic programming" <| fun () ->
-        let o = createObj ["foo" ==> fun () -> argCount]
+        let o = Fable.Tests.DllRef.Lib2.getArgCount
         o?foo() |> equal 0
         let f = box o?foo
         f$() |> equal 0
         (f :?> JsFunc).Invoke() |> unbox<int> |> equal 0
-
-    testCase "jsThis works" <| fun () ->
-        let o = createObj [
-            "z" ==> 5
-            "add" ==> fun x y -> x + y + jsThis?z
-        ]
-        o?add(2,3) |> equal 10
 
     testCase "Erase attribute works" <| fun () ->
         let convert = function

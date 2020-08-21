@@ -2,7 +2,6 @@ module Fable.Transforms.FableTransforms
 
 open Fable
 open Fable.AST.Fable
-open FSharp.Compiler.SourceCodeServices
 
 // TODO: Use trampoline here?
 let visit f e =

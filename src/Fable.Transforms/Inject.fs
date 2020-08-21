@@ -32,9 +32,9 @@ let (|GeneratedInterface|_|) com ctx r t =
             let fn = Fable.Value(Fable.TypeInfo t, r) |> makeDelegate []
             Replacements.Helpers.objExpr ["ResolveType", fn] |> Some
         | Types.comparer ->
-            Replacements.makeComparer com t |> Some
+            Replacements.makeComparer com ctx t |> Some
         | Types.equalityComparer ->
-            Replacements.makeEqualityComparer com t |> Some
+            Replacements.makeEqualityComparer com ctx t |> Some
         | Types.adder ->
             Replacements.makeGenericAdder com ctx t |> Some
         | Types.averager ->

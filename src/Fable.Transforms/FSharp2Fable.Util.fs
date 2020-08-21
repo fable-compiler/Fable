@@ -56,7 +56,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
 type FsAtt(att: FSharpAttribute) =
     interface Fable.Attribute with
         member _.FullName = defaultArg att.AttributeType.TryFullName ""
-        member _.ConstructorArguments = []
+        member _.ConstructorArguments = att.ConstructorArguments |> Seq.mapToList snd
 
 type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
@@ -642,26 +642,33 @@ module Patterns =
         | true, kind -> Some kind
         | false, _ -> None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|StringEnum|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType) =
+    let (|OptionUnion|ListUnion|ErasedUnion|ErasedUnionCase|StringEnum|DiscriminatedUnion|)
+                            (NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
         let getCaseRule (att: FSharpAttribute) =
             match Seq.tryHead att.ConstructorArguments with
             | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
             | _ -> CaseRules.LowerFirst
 
-        match tryDefinition typ with
-        | None -> failwith "Union without definition"
-        | Some(tdef, fullName) ->
-            match defaultArg fullName tdef.CompiledName with
-            | Types.valueOption
-            | Types.option -> OptionUnion typ.GenericArguments.[0]
-            | Types.list -> ListUnion typ.GenericArguments.[0]
-            | _ ->
-                tdef.Attributes |> Seq.tryPick (fun att ->
-                    match att.AttributeType.TryFullName with
-                    | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
-                    | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
-                    | _ -> None)
-                |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
+        unionCase.Attributes |> Seq.tryPick (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some Atts.erase -> Some ErasedUnionCase
+            | _ -> None)
+        |> Option.defaultWith (fun () ->
+            match tryDefinition typ with
+            | None -> failwith "Union without definition"
+            | Some(tdef, fullName) ->
+                match defaultArg fullName tdef.CompiledName with
+                | Types.valueOption
+                | Types.option -> OptionUnion typ.GenericArguments.[0]
+                | Types.list -> ListUnion typ.GenericArguments.[0]
+                | _ ->
+                    tdef.Attributes |> Seq.tryPick (fun att ->
+                        match att.AttributeType.TryFullName with
+                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
+                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
+                        | _ -> None)
+                    |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
+        )
 
     let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
         tryFindAtt fullName ent.Attributes
@@ -924,6 +931,11 @@ module Util =
                 let thisArg = { thisArg with IsThisArgument = true }
                 let ctx = { ctx with BoundMemberThis = Some thisArg }
                 ctx, [thisArg], restArgs1::restArgs2
+            | (firstArg::restArgs1)::restArgs2 when firstArg.IsConstructorThisValue ->
+                let ctx, thisArg = putArgInScope com ctx firstArg
+                let thisArg = { thisArg with IsThisArgument = true }
+                let ctx = { ctx with BoundConstructorThis = Some thisArg }
+                ctx, [thisArg], restArgs1::restArgs2
             | _ -> ctx, [], args
         let ctx, args =
             (args, (ctx, [])) ||> List.foldBack (fun tupledArg (ctx, accArgs) ->
@@ -991,23 +1003,22 @@ module Util =
 
     let (|GlobalAtt|ImportAtt|NoGlobalNorImport|) (atts: Fable.Attribute seq) =
         let (|AttFullName|) (att: Fable.Attribute) = att.FullName, att
-        let (|AttArguments|) (att: Fable.Attribute) = att.ConstructorArguments
 
         atts |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
-                match att with
-                | AttArguments [:? string as customName] -> GlobalAtt(Some customName) |> Some
+                match att.ConstructorArguments with
+                | [:? string as customName] -> GlobalAtt(Some customName) |> Some
                 | _ -> GlobalAtt(None) |> Some
 
             | AttFullName(Naming.StartsWith Atts.import _ as fullName, att) ->
-                match fullName, att with
-                | Atts.importAll, AttArguments [(:? string as path)] ->
+                match fullName, att.ConstructorArguments with
+                | Atts.importAll, [(:? string as path)] ->
                     ImportAtt("*", path.Trim()) |> Some
-                | Atts.importDefault, AttArguments [(:? string as path)] ->
+                | Atts.importDefault, [(:? string as path)] ->
                     ImportAtt("default", path.Trim()) |> Some
-                | Atts.importMember, AttArguments [(:? string as path)] ->
+                | Atts.importMember, [(:? string as path)] ->
                     ImportAtt(Naming.placeholder, path.Trim()) |> Some
-                | _, AttArguments [(:? string as selector); (:? string as path)] ->
+                | _, [(:? string as selector); (:? string as path)] ->
                     ImportAtt(selector.Trim(), path.Trim()) |> Some
                 | _ -> None
 
@@ -1043,7 +1054,7 @@ module Util =
             let selector =
                 if selector = Naming.placeholder then ent.DisplayName
                 else selector
-            fixImportedRelativePath com ent.SourcePath path
+            fixImportedRelativePath com path ent.SourcePath
             |> makeCustomImport Fable.Any selector |> Some
         | _ -> None
 
@@ -1216,10 +1227,23 @@ module Util =
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
-    let (|Emitted|_|) com r typ thisArg args (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|) com r typ thisArg args hasSpread (memb: FSharpMemberOrFunctionOrValue) =
+        let (|SplitLast|_|) = function
+            | [] -> None
+            | xs -> List.splitLast xs |> Some
+
         memb.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Naming.StartsWith Atts.emit _ as attFullName) ->
+                let args =
+                    match hasSpread, args with
+                    | _, [Fable.Value(Fable.UnitConstant, _)] -> []
+                    | true, SplitLast(args, Fable.Value(Fable.NewArray(args2, _),_)) -> args @ args2
+                    | true, _ ->
+                        "Don't pass an array to ParamArray for methods tha emit JS"
+                        |> addErrorAndReturnNull com [] r
+                        |> List.singleton
+                    | _ -> args
                 let args = (Option.toList thisArg) @ args
                 let args =
                     // Allow combination of Import and Emit attributes
@@ -1357,7 +1381,7 @@ module Util =
 
     let makeCallWithArgInfo com ctx r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
-        | Emitted com r typ callInfo.ThisArg callInfo.Args emitted, _ -> emitted
+        | Emitted com r typ callInfo.ThisArg callInfo.Args callInfo.HasSpread emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ genArgs callInfo replaced -> replaced
         | Inlined com ctx r genArgs callee callInfo.Args expr, _ -> expr
@@ -1401,7 +1425,7 @@ module Util =
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
-        | Emitted com r typ None [] emitted, _ -> emitted
+        | Emitted com r typ None [] false emitted, _ -> emitted
         | Imported com r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
         | _ -> memberRefTyped com ctx r typ v

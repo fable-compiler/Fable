@@ -411,11 +411,14 @@ module AST =
     let emitJsExpr r t args macro =
         Emit({ Macro = macro; Args = args; IsJsStatement = false }, t, r)
 
-    let emitJsStatement r args macro =
-        Emit({ Macro = macro; Args = args; IsJsStatement = true }, Unit, r)
+    let emitJsStatement r t args macro =
+        Emit({ Macro = macro; Args = args; IsJsStatement = true }, t, r)
+
+    let makeThrow r t err =
+        emitJsStatement r t [err] "throw $0"
 
     let makeDebugger range =
-        emitJsStatement range [] "debugger"
+        emitJsStatement range Unit [] "debugger"
 
     let destructureTupleArgs = function
         | [MaybeCasted(Value(UnitConstant,_))] -> []
