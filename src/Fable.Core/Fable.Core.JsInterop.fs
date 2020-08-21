@@ -44,7 +44,7 @@ let emitJsStatement<'T> (args: obj) (jsCode: string): 'T = jsNative
 
 /// Create a literal JS object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in JS becomes `{ a: 5 }`
-let createObj (fields: #seq<string*obj>): obj = jsNative
+let createObj (fields: seq<string*obj>): obj = jsNative
 
 /// Create a literal JS object from a collection of union constructors.
 /// E.g. `keyValueList CaseRules.LowerFirst [ MyUnion 4 ]` in JS becomes `{ myUnion: 4 }`
@@ -96,12 +96,6 @@ let importValueDynamic (x: 'T): JS.Promise<'T> = jsNative
 
 /// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
 let toPlainJsObj(o: 'T): obj = jsNative
-
-/// Compiles to JS `this` keyword.
-///
-/// ## Sample
-///     jqueryMethod(fun x y -> jsThis?add(x, y))
-let [<Emit("this")>] jsThis<'T> : 'T = jsNative
 
 /// JS `in` operator
 let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = jsNative

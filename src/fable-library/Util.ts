@@ -797,7 +797,3 @@ export function getItemFromDict<K, V>(map: Map<K, V>, key: K) {
     throw new Error(`The given key '${key}' was not present in the dictionary.`);
   }
 }
-
-export function raise<T>(err: Error): T {
-  throw err;
-}

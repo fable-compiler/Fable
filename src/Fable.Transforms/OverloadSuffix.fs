@@ -135,6 +135,8 @@ let hasEmptyOverloadSuffix (curriedParamTypes: ParamTypes) =
 
 let getHash (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
     // Members with curried params cannot be overloaded in F#
+    // TODO: Also private methods defined with `let` cannot be overloaded
+    // but I don't know how to identify them in the AST
     if m.CurriedParameterGroups.Count <> 1 then ""
     else
         let paramTypes = m.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type) |> Seq.toList

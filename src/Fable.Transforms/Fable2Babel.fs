@@ -1495,8 +1495,7 @@ module Util =
         | Fable.Emit(info, t, range) ->
             let e = transformEmit com ctx range info
             if info.IsJsStatement then
-                // Ignore the return strategy
-                [|ExpressionStatement(e)|]
+                [|ExpressionStatement(e)|] // Ignore the return strategy
             else [|resolveExpr t returnStrategy e|]
 
         | Fable.Operation(kind, t, range) ->
@@ -1909,7 +1908,7 @@ module Util =
                 |> Seq.map (getUnionCaseName >> makeStrConst)
                 |> Seq.toList
                 |> makeArray com ctx
-                |> ExpressionStatement :> Statement
+                |> ReturnStatement :> Statement
                 |> Array.singleton
                 |> BlockStatement
             ClassMethod(ClassFunction, Identifier "cases", [||], body) |> U2<_, ClassProperty>.Case1

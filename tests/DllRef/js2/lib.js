@@ -19,4 +19,10 @@ export class Bar {
     }
 }
 
+export const getArgCount = {
+    foo() {
+        return arguments.length;
+    }
+};
+
 export default "bar";

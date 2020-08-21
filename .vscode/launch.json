@@ -28,11 +28,11 @@
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp2.1/Fable.Cli.dll",
-            "args": ["fable-splitter", "--args", "-c tests/splitter.config.js"],
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp3.1/Fable.Cli.dll",
+            "args": ["start","--port", "61225"],
             "cwd": "${workspaceRoot}",
             "stopAtEntry": false,
-            "console": "internalConsole"
+            "console": "internalConsole",
         },
         {
             "name": ".NET Core Attach",

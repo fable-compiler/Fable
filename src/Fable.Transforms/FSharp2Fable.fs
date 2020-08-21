@@ -32,7 +32,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
     let argTypes = lazy getArgTypes com baseCons
     let baseArgs = transformExprList com ctx baseArgs |> run
     let genArgs = genArgs |> Seq.map (makeType ctx.GenericArgs)
-    match Replacements.tryBaseConstructor com baseEnt argTypes genArgs baseArgs with
+    match Replacements.tryBaseConstructor com ctx baseEnt argTypes genArgs baseArgs with
     | Some(baseRef, args) ->
         let callInfo: Fable.CallInfo =
           { ThisArg = None
@@ -53,8 +53,10 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
             | e -> e // Unexpected, throw error?
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
-    match fsType with
-    | ErasedUnion(tdef, genArgs, rule) ->
+    match fsType, unionCase with
+    | ErasedUnionCase ->
+        Fable.NewTuple argExprs |> makeValue r
+    | ErasedUnion(tdef, _genArgs, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
         | [argExpr] -> argExpr
@@ -281,7 +283,10 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                             unionExpr fsType (unionCase: FSharpUnionCase) =
   trampoline {
     let! unionExpr = transformExpr com ctx unionExpr
-    match fsType with
+    match fsType, unionCase with
+    | ErasedUnionCase ->
+        return "Cannot test erased union cases"
+        |> addErrorAndReturnNull com ctx.InlinePath r
     | ErasedUnion(tdef, genArgs, rule) ->
         match unionCase.UnionCaseFields.Count with
         | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
@@ -606,7 +611,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let errorMessage = "The match cases were incomplete"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
-                Replacements.makeThrow com rangeOfElseExpr Fable.Any errorExpr
+                makeThrow rangeOfElseExpr Fable.Any errorExpr
             | _ ->
                 fableElseExpr
 
@@ -660,7 +665,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.UnionCaseGet (unionExpr, fsType, unionCase, field) ->
         let r = makeRangeFrom fsExpr
         let! unionExpr = transformExpr com ctx unionExpr
-        match fsType with
+        match fsType, unionCase with
+        | ErasedUnionCase ->
+            let index = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = field.Name)
+            return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs fsType, r)
         | ErasedUnion _ ->
             if unionCase.UnionCaseFields.Count = 1 then return unionExpr
             else
@@ -802,7 +810,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                             fileNameWhereErrorOccurs
                     let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                     // Creates a "throw Error({errorMessage})" expression
-                    let throwExpr = Replacements.makeThrow com rangeOfLastDecisionTarget Fable.Any errorExpr
+                    let throwExpr = makeThrow rangeOfLastDecisionTarget Fable.Any errorExpr
 
                     fableDecisionTargets
                     |> List.replaceLast (fun _lastExpr -> [], throwExpr)
