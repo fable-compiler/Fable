@@ -391,15 +391,22 @@ module AST =
         let ext = if com.Options.typescript then "" else Naming.targetFileExtension
         com.LibraryDir + "/" + moduleName + ext
 
-    let makeLibRef (com: ICompiler) t memberName moduleName =
-        Import(makeStrConst memberName, makeStrConst (getLibPath com moduleName), t, None)
+    let makeImportUserGenerated r t selector path =
+        Import({ Selector = selector
+                 Path = path
+                 IsCompilerGenerated = false }, t, r)
 
-    let makeCustomImport t (selector: string) (path: string) =
-        Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, t, None)
+    let makeImportCompilerGenerated t (selector: string) (path: string) =
+        Import({ Selector = selector.Trim() |> makeStrConst
+                 Path = path.Trim() |> makeStrConst
+                 IsCompilerGenerated = true }, t, None)
 
-    let makeInternalImport (com: ICompiler) t (selector: string) (path: string) =
-        let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-        Import(makeStrConst selector, makeStrConst path, t, None)
+    let makeImportLib (com: ICompiler) t memberName moduleName =
+        makeImportCompilerGenerated t memberName (getLibPath com moduleName)
+
+    let makeImportInternal (com: ICompiler) t (selector: string) (path: string) =
+        Path.getRelativeFileOrDirPath false com.CurrentFile false path
+        |> makeImportCompilerGenerated t selector
 
     let makeCallInfo thisArg args argTypes =
         { ThisArg = thisArg

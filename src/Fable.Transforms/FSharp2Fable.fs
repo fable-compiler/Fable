@@ -914,7 +914,7 @@ let private transformImport com r typ isMutable isPublic name selector path =
     [Fable.MemberDeclaration
         { Ident = ident
           Args = []
-          Body = Fable.Import(selector, path, typ, r)
+          Body = makeImportUserGenerated r typ selector path
           UsedNames = Set.empty
           Info = info }]
 
@@ -922,7 +922,7 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
     let value = transformExpr com ctx value |> run
     match value with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
-    | Fable.Import(selector, path, typ, r) ->
+    | Fable.Import(info, typ, r) when not info.IsCompilerGenerated ->
         match typ with
         | Fable.LambdaType(_, Fable.LambdaType(_, _)) ->
             "Change declaration of member: " + name + "\n"
@@ -930,8 +930,8 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
             + "Use following syntax: `let add (x:int) (y:int): int = import ...`"
             |> addError com ctx.InlinePath None
         | _ -> ()
-        let selector = importExprSelector memb selector
-        transformImport com r typ memb.IsMutable isPublic name selector path
+        let selector = importExprSelector memb info.Selector
+        transformImport com r typ memb.IsMutable isPublic name selector info.Path
     | fableValue ->
         let info = MemberDeclInfo(memb.Attributes, isValue=true, isPublic=isPublic, isMutable=memb.IsMutable)
         [Fable.MemberDeclaration
@@ -953,11 +953,11 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
     let body = transformExpr com bodyCtx body |> run
     match body with
     // Accept import expressions, e.g. let foo x y = import "foo" "myLib"
-    | Fable.Import(selector, path, _, r) ->
+    | Fable.Import(info, _, r) when not info.IsCompilerGenerated ->
         // Use the full function type
         let typ = makeType Map.empty memb.FullType
-        let selector = importExprSelector memb selector
-        transformImport com r typ false isPublic name selector path
+        let selector = importExprSelector memb info.Selector
+        transformImport com r typ false isPublic name selector info.Path
     | body ->
         // If this is a static constructor, call it immediately
         if memb.CompiledName = ".cctor" then
