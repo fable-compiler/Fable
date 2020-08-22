@@ -8,7 +8,9 @@ let visit f e =
     match e with
     | IdentExpr _ -> e
     | TypeCast(e, t) -> TypeCast(f e, t)
-    | Import(e1, e2, t, r) -> Import(f e1, f e2, t, r)
+    | Import(info, t, r) ->
+        Import({ info with Selector = f info.Selector
+                           Path = f info.Path }, t, r)
     | Value(kind, r) ->
         match kind with
         | ThisValue _ | BaseValue _
@@ -89,10 +91,11 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
     | Some e -> e
     | None -> visit (visitFromOutsideIn f) e
 
+// TODO: We should likely make this a property of Fable.Expr
 let getSubExpressions = function
     | IdentExpr _ -> []
     | TypeCast(e,_) -> [e]
-    | Import(e1,e2,_,_) -> [e1;e2]
+    | Import(info,_,_) -> [info.Selector; info.Path]
     | Value(kind,_) ->
         match kind with
         | ThisValue _ | BaseValue _

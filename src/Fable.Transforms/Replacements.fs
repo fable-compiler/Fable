@@ -27,11 +27,11 @@ type Helper =
         Call(callee, info, returnType, loc)
 
     static member LibValue(com, coreModule: string, coreMember: string, returnType: Type) =
-        makeLibRef com returnType coreMember coreModule
+        makeImportLib com returnType coreMember coreModule
 
     static member LibCall(com, coreModule: string, coreMember: string, returnType: Type, args: Expr list,
                            ?argTypes: Type list, ?thisArg: Expr, ?hasSpread: bool, ?isJsConstructor: bool, ?loc: SourceLocation) =
-        let callee = makeLibRef com Any coreMember coreModule
+        let callee = makeImportLib com Any coreMember coreModule
         let info = makeCallInfo thisArg args (defaultArg argTypes [])
         Call(callee, { info with HasSpread = defaultArg hasSpread false
                                  IsJsConstructor = defaultArg isJsConstructor false }, returnType, loc)
@@ -789,7 +789,7 @@ let makeEqualityComparer (com: ICompiler) ctx typArg =
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
     let f = Delegate([x; y], body, None)
     objExpr ["Equals", f
-             "GetHashCode", makeLibRef com Any "structuralHash" "Util"]
+             "GetHashCode", makeImportLib com Any "structuralHash" "Util"]
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -927,14 +927,14 @@ let tryEntityRef (com: Fable.ICompiler) (ent: Entity) =
     match ent.FullName with
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
-    | BuiltinDefinition BclTimer -> makeLibRef com Any "default" "Timer" |> Some
+    | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
     | BuiltinDefinition BclInt64
-    | BuiltinDefinition BclUInt64 -> makeLibRef com Any "default" "Long" |> Some
-    | BuiltinDefinition BclDecimal -> makeLibRef com Any "default" "Decimal" |> Some
-    | BuiltinDefinition BclBigInt -> makeLibRef com Any "BigInteger" "BigInt/z" |> Some
-    | BuiltinDefinition(FSharpReference _) -> makeLibRef com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeLibRef com Any "Result" "Option" |> Some
-    | BuiltinDefinition(FSharpChoice _) -> makeLibRef com Any "Choice" "Option" |> Some
+    | BuiltinDefinition BclUInt64 -> makeImportLib com Any "default" "Long" |> Some
+    | BuiltinDefinition BclDecimal -> makeImportLib com Any "default" "Decimal" |> Some
+    | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
+    | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
+    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "Result" "Option" |> Some
+    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "Choice" "Option" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -942,14 +942,14 @@ let tryEntityRef (com: Fable.ICompiler) (ent: Entity) =
     // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
     // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
-    | Types.matchFail -> makeLibRef com Any "MatchFailureException" "Types" |> Some
+    | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Error" |> Some
     | entFullName ->
         com.Options.precompiledLib
         |> Option.bind (fun tryLib -> tryLib entFullName)
         |> Option.map (fun (entityName, importPath) ->
             let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
-            makeCustomImport Any entityName importPath)
+            makeImportCompilerGenerated Any entityName importPath)
 
 let tryJsConstructor com ent =
     if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
@@ -1063,21 +1063,21 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 | arg -> arg
             match arg with
             // TODO: Check this is not a fable-library import?
-            | Import(selector,path,_,_) ->
-                dynamicImport selector path |> Some
-            | NestedLambda(args, Call(Import(selector,path,_,_),info,_,_), None)
-                when argEquals args info.Args ->
-                dynamicImport selector path |> Some
+            | Import(info,_,_) ->
+                dynamicImport info.Selector info.Path |> Some
+            | NestedLambda(args, Call(Import(importInfo,_,_),callInfo,_,_), None)
+                when argEquals args callInfo.Args ->
+                dynamicImport importInfo.Selector importInfo.Path |> Some
             | _ ->
                 "The imported value is not coming from a different file"
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Naming.StartsWith "import" suffix, _ ->
             match suffix, args with
-            | "Member", [path]      -> Import(makeStrConst Naming.placeholder, path, t, r) |> Some
-            | "Default", [path]     -> Import(makeStrConst "default", path, t, r) |> Some
-            | "SideEffects", [path] -> Import(makeStrConst "", path, t, r) |> Some
-            | "All", [path]         -> Import(makeStrConst "*", path, t, r) |> Some
-            | _, [selector; path]   -> Import(selector, path, t, r) |> Some
+            | "Member", [path]      -> makeImportUserGenerated r t (makeStrConst Naming.placeholder) path |> Some
+            | "Default", [path]     -> makeImportUserGenerated r t (makeStrConst "default") path |> Some
+            | "SideEffects", [path] -> makeImportUserGenerated r t (makeStrConst "") path |> Some
+            | "All", [path]         -> makeImportUserGenerated r t (makeStrConst "*") path |> Some
+            | _, [selector; path]   -> makeImportUserGenerated r t (selector) path |> Some
             | _ -> None
         // Dynamic casting, erase
         | "op_BangHat", [arg] -> Some arg
@@ -1142,7 +1142,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let getReference r t expr = get r t expr "contents"
 let setReference r expr value = Set(expr, Some(ExprKey(makeStrConst "contents")), value, r)
-let newReference com r t value = Helper.JsConstructorCall(makeLibRef com t "FSharpRef" "Types", t, [value], ?loc=r)
+let newReference com r t value = Helper.JsConstructorCall(makeImportLib com t "FSharpRef" "Types", t, [value], ?loc=r)
 
 let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1182,10 +1182,10 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
 let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) (entityName, importPath) =
     let mangledName = getPrecompiledLibMangledName entityName i.CompiledName i.OverloadSuffix.Value (Option.isNone thisArg)
     if i.IsModuleValue
-    then makeCustomImport t mangledName importPath
+    then makeImportCompilerGenerated t mangledName importPath
     else
         let argInfo = { makeCallInfo thisArg args i.SignatureArgTypes with HasSpread = i.HasSpread }
-        makeCustomImport Any mangledName importPath |> makeCall r t argInfo
+        makeImportCompilerGenerated Any mangledName importPath |> makeCall r t argInfo
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1250,7 +1250,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "DefaultArg", _ ->
         Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
-        makeLibRef com t "singleton" "AsyncBuilder" |> Some
+        makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
@@ -2616,7 +2616,7 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
-    | _, "Singleton", _ -> makeLibRef com t "singleton" "AsyncBuilder" |> Some
+    | _, "Singleton", _ -> makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // For Using we need to cast the argument to IDisposable
     | Some x, "Using", [arg; f] ->
         Helper.InstanceCall(x, "Using", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
@@ -2974,8 +2974,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 
 let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
-    | Types.exception_ -> Some(makeLibRef com Any "Exception" "Types", args)
-    | Types.attribute -> Some(makeLibRef com Any "Attribute" "Types", args)
+    | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
+    | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =
             match argTypes.Value, args with
@@ -2990,7 +2990,7 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected dictionary constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "MutableMap`2"
-        Some(makeLibRef com Any entityName "MutableMap", args)
+        Some(makeImportLib com Any entityName "MutableMap", args)
     | Types.hashset ->
         let args =
             match argTypes.Value, args with
@@ -3004,5 +3004,5 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected hashset constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "MutableSet`1"
-        Some(makeLibRef com Any entityName "MutableSet", args)
+        Some(makeImportLib com Any entityName "MutableSet", args)
     | _ -> None

@@ -1042,7 +1042,7 @@ module Util =
             let path =
                 FsMemberFunctionOrValue.SourcePath memb
                 |> fixImportedRelativePath com path
-            makeCustomImport typ selector path |> Some
+            makeImportCompilerGenerated typ selector path |> Some
         | _ -> None
 
     let tryGlobalOrImportedEntity (com: ICompiler) (ent: Fable.Entity) =
@@ -1056,7 +1056,7 @@ module Util =
                 if selector = Naming.placeholder then ent.DisplayName
                 else selector
             fixImportedRelativePath com path ent.SourcePath
-            |> makeCustomImport Fable.Any selector |> Some
+            |> makeImportCompilerGenerated Fable.Any selector |> Some
         | _ -> None
 
     let isErasedOrStringEnumEntity (ent: Fable.Entity) =
@@ -1095,7 +1095,7 @@ module Util =
             if file = com.CurrentFile then
                 makeIdentExpr entityName
             elif ent.IsPublic then
-                makeInternalImport com Fable.Any entityName file
+                makeImportInternal com Fable.Any entityName file
             else
                 error "Cannot inline functions that reference private entities"
 
@@ -1124,7 +1124,7 @@ module Util =
             // If the overload suffix changes, we need to recompile the files that call this member
             if hasOverloadSuffix then
                 com.AddInlineDependency(file)
-            makeInternalImport com typ memberName file
+            makeImportInternal com typ memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
             |> sprintf "Cannot reference private members from other files: %s"

@@ -1124,9 +1124,9 @@ module Util =
     let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         match value with
         // Check imports with name placeholder
-        | Fable.Import((Fable.Value(Fable.StringConstant Naming.placeholder,_)), path, _, r) ->
+        | Fable.Import({ Selector = Fable.Value(Fable.StringConstant Naming.placeholder,_); Path = path }, _, r) ->
             transformImport com ctx r (makeStrConst var.Name) path
-        | Function(_,Fable.Import(Fable.Value(Fable.StringConstant Naming.placeholder,_), path, _, r)) ->
+        | Function(_,Fable.Import({ Selector = Fable.Value(Fable.StringConstant Naming.placeholder,_); Path = path }, _, r)) ->
             transformImport com ctx r (makeStrConst var.Name) path
         | Function(args, body) ->
             let name = Some var.Name
@@ -1390,7 +1390,7 @@ module Util =
 
         | Fable.IdentExpr id -> upcast ident id
 
-        | Fable.Import(selector, path, _, r) ->
+        | Fable.Import({ Selector = selector; Path = path }, _, r) ->
             transformImport com ctx r selector path
 
         | Fable.Test(expr, kind, range) ->
@@ -1467,7 +1467,7 @@ module Util =
         | Fable.IdentExpr id ->
             [|identAsExpr id |> resolveExpr id.Type returnStrategy|]
 
-        | Fable.Import(selector, path, t, r) ->
+        | Fable.Import({ Selector = selector; Path = path }, t, r) ->
             [|transformImport com ctx r selector path |> resolveExpr t returnStrategy|]
 
         | Fable.Test(expr, kind, range) ->

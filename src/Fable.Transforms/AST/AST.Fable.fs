@@ -217,6 +217,11 @@ type EmitInfo =
       Args: Expr list
       IsJsStatement: bool }
 
+type ImportInfo =
+    { Selector: Expr
+      Path: Expr
+      IsCompilerGenerated: bool }
+
 type OperationKind =
     | Unary of UnaryOperator * Expr
     | Binary of BinaryOperator * left: Expr * right: Expr
@@ -264,7 +269,7 @@ type Expr =
     | Operation of OperationKind * typ: Type * range: SourceLocation option
 
     // JS related: imports and statements
-    | Import of selector: Expr * path: Expr * Type * SourceLocation option
+    | Import of ImportInfo * Type * SourceLocation option
     | Emit of EmitInfo * typ: Type * range: SourceLocation option
 
     // Pattern matching
@@ -291,7 +296,7 @@ type Expr =
         | Call(_,_,t,_)
         | CurriedApply(_,_,t,_)
         | TypeCast (_, t)
-        | Import (_, _, t, _)
+        | Import (_, t, _)
         | Curry (_, _, t, _)
         | ObjectExpr (_, t, _)
         | Operation (_, t, _)
@@ -323,7 +328,7 @@ type Expr =
         | Call(_,_,_,r)
         | CurriedApply(_,_,_,r)
         | Emit (_,_,r)
-        | Import(_,_,_,r)
+        | Import(_,_,r)
         | Curry(_,_,_,r)
         | Value (_, r)
         | IfThenElse (_, _, _, r)

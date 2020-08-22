@@ -23,7 +23,9 @@ const fableOptions = {
   // extra: { saveAst: "./ast" }
 };
 
+const portArgIndex = process.argv.indexOf("--port");
 module.exports = {
+  port: portArgIndex >= 0 ? process.argv[portArgIndex + 1] : undefined,
   cli: { path: resolve("../Fable.Cli") },
   entry: resolve("./src/Fable.Standalone.fsproj"),
   outDir: resolve("../../build/fable-standalone/out-bundle"),
