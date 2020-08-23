@@ -4,6 +4,12 @@ open Fable
 open Fable.Core
 open Fable.AST
 
+type Printer =
+    abstract PushIndentation: unit -> unit
+    abstract PopIndentation: unit -> unit
+    abstract Print: string * ?range: SourceLocation -> unit
+    abstract PrintNewLine: unit -> unit
+
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
 /// You can use this field to determine which interface a node implements.
@@ -15,6 +21,10 @@ open Fable.AST
 type Node(``type``, ?loc) =
     member __.Type: string = ``type``
     member __.Loc: SourceLocation option = loc
+    abstract Print: Printer -> unit
+    // TODO: Temporary solution to make everything compile,
+    // remove before merging PR
+    default _.Print(printer) = printer.Print("TODO")
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 [<AbstractClass>] type Expression(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
@@ -167,6 +177,16 @@ type BlockStatement(body, ?directives_, ?loc) =
     let directives = defaultArg directives_ [||]
     member __.Body: Statement array = body
     member __.Directives: Directive array = directives
+    override _.Print(printer) =
+        printer.Print("{")
+        printer.PrintNewLine()
+        printer.PushIndentation()
+        // TODO: Directives?
+        for statement in body do
+            statement.Print(printer)
+            printer.PrintNewLine()
+        printer.PopIndentation()
+        printer.Print("}")
 
 /// An empty statement, i.e., a solitary semicolon.
 type EmptyStatement(?loc) =

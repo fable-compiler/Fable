@@ -347,8 +347,15 @@ let startCompilation (respond: obj->unit) (com: Compiler) (project: Project)  =
                 FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
-            Babel.Program(babel.FileName, babel.Body, babel.Directives, com.GetFormattedLogs(), babel.Dependencies)
-            |> respond
+
+            let program = Babel.Program(babel.FileName,
+                                        babel.Body,
+                                        babel.Directives,
+                                        com.GetFormattedLogs(),
+                                        babel.Dependencies)
+
+            do! BabelPrinter.run program
+            respond program
         with ex ->
             sendError respond ex
     } |> Async.Start
