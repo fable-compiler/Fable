@@ -1,3 +1,7 @@
+### 2.11.0
+
+* Add support for StringBuilder.Clear method (@MangelMaxime) 
+
 ### 2.10.2
 
 * Implement boolean parsing @inosik
