@@ -391,6 +391,7 @@ let toString com (ctx: Context) r (args: Expr list) =
     | head::tail ->
         match head.Type with
         | Char | String -> head
+        | Builtin BclGuid when tail.IsEmpty -> head
         | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64 as t) ->
             Helper.CoreCall(coreModFor t, "toString", String, args)
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
@@ -2712,8 +2713,7 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
     | "Parse"       -> Helper.CoreCall("Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
     | "TryParse"    -> Helper.CoreCall("Guid", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Boolean]) |> Some
     | "ToByteArray" -> Helper.CoreCall("Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
-    | "ToString" when (args.Length = 0) ->
-        Helper.CoreCall("Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
     | "ToString" when (args.Length = 1) ->
         match args.Head with
         | Value (StringConstant "N", _)
