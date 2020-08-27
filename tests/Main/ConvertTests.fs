@@ -1185,7 +1185,7 @@ let tests =
         let g2 = Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
 
         let testGuid (g: Guid) =
-            g.ToString()|> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+            g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
             g.ToString("N") |> equal "96258006c4ba4a7f80c4de7f2b2898c5"
             g.ToString("D") |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
             g.ToString("B") |> equal "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}"
