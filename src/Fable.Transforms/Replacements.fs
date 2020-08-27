@@ -2708,29 +2708,39 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     | meth -> Helper.CoreCall("Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let parseGuid (literalGuid: string) =
+        try
+            System.Guid.Parse(literalGuid) |> string |> makeStrConst |> Some
+        with e ->
+            e.Message |> addError com ctx.InlinePath r
+            None
+
     match i.CompiledName with
     | "NewGuid"     -> Helper.CoreCall("Guid", "newGuid", t, []) |> Some
-    | "Parse"       -> Helper.CoreCall("Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
+    | "Parse"       -> 
+        match args with
+        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | _-> Helper.CoreCall("Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
     | "TryParse"    -> Helper.CoreCall("Guid", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Boolean]) |> Some
     | "ToByteArray" -> Helper.CoreCall("Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
     | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
-    | "ToString" when (args.Length = 1) ->
-        match args.Head with
-        | Value (StringConstant "N", _)
-        | Value (StringConstant "D", _)
-        | Value (StringConstant "B", _)
-        | Value (StringConstant "P", _)
-        | Value (StringConstant "X", _) ->
-            Helper.CoreCall("Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-        | _ ->
-            "Guid.ToString doesn't support a custom format. It only handles \"N\", \"D\", \"B\", \"P\" and \"X\" format."
-            |> addError com ctx.InlinePath r
-            None
+    | "ToString" when (args.Length = 1) -> 
+        match args with
+        | [Value (StringConstant literalFormat, _)] ->
+            match literalFormat with
+            | "N" | "D" | "B" | "P" | "X" ->
+                Helper.CoreCall("Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+            | _ ->
+                "Guid.ToString doesn't support a custom format. It only handles \"N\", \"D\", \"B\", \"P\" and \"X\" format."
+                |> addError com ctx.InlinePath r
+                None
+        | _ -> Helper.CoreCall("Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | ".ctor" ->
         match args with
         | [] -> emptyGuid() |> Some
         | [ExprType (Array _)] -> Helper.CoreCall("Guid", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
-        | [ExprType String]    -> Helper.CoreCall("Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
+        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | [ExprType String] -> Helper.CoreCall("Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
     | _ -> None
 
