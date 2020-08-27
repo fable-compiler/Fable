@@ -1090,7 +1090,7 @@ let tests =
         |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
 
     // id is prefixed for guid creation as we check at compile time (if able) to create a string const
-    testCase "Guid.Parse works from literals" <| fun () ->
+    testCase "Guid.Parse works" <| fun () ->
         let guids = [
             Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
             Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
