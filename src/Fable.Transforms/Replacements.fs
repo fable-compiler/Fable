@@ -59,11 +59,11 @@ module Helpers =
 
     let objValue (k, v): Fable.MemberDecl =
         {
-            Ident = makeIdent k
+            Name = k
             Args = []
             Body = v
             UsedNames = Set.empty
-            Info = FSharp2Fable.MemberDeclInfo(isValue=true)
+            Info = FSharp2Fable.MemberInfo(isValue=true)
         }
 
     let typedObjExpr t kvs =

@@ -62,6 +62,11 @@ type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
         member _.Name = TypeHelpers.genParamName gen
 
+type FsParam(p: FSharpParameter) =
+    interface Fable.Parameter with
+        member _.Name = p.Name
+        member _.Type = TypeHelpers.makeType Map.empty p.Type
+
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
         member _.Definition = FsEnt ent :> _
@@ -73,11 +78,31 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         |> Path.normalizePathAndEnsureFsExtension
 
     interface Fable.MemberFunctionOrValue with
+        member _.Attributes =
+            m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+
+        // These two properties are only used for member declarations,
+        // setting them to false for now
+        member _.IsMangled = false
+        member _.IsEnumerator = false
+
+        member _.HasSpread = Helpers.hasParamArray m
+        member _.IsPublic = Helpers.isPublicMember m
+        // NOTE: Using memb.IsValue doesn't work for function values
+        // See isModuleValueForDeclarations below
+        member _.IsValue = m.IsValue
+        member _.IsInstance = m.IsInstanceMember
+        member _.IsMutable = m.IsMutable
+        member _.IsGetter = m.IsPropertyGetterMethod
+        member _.IsSetter = m.IsPropertySetterMethod
+
         member _.DisplayName = Naming.removeGetSetPrefix m.DisplayName
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
-        member _.CurriedParameterGroups = []
-        member _.ReturnParameter = failwith "todo"
+        member _.CurriedParameterGroups =
+            m.CurriedParameterGroups
+            |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
+        member _.ReturnParameter = upcast FsParam(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
         member _.ApparentEnclosingEntity = FsEnt m.ApparentEnclosingEntity :> _
 
@@ -142,7 +167,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface
 
-type MemberDeclInfo(?attributes: FSharpAttribute seq,
+type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
                     ?isPublic: bool,
                     ?isInstance: bool,
@@ -152,7 +177,7 @@ type MemberDeclInfo(?attributes: FSharpAttribute seq,
                     ?isSetter: bool,
                     ?isEnumerator: bool,
                     ?isMangled: bool) =
-    interface Fable.MemberDeclInfo with
+    interface Fable.MemberInfo with
         member _.Attributes =
             match attributes with
             | Some atts -> atts |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
@@ -365,19 +390,6 @@ module Helpers =
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
-
-    let makeRangedIdent (r: Range.range) (displayName: string) (compiledName: string): Fable.Ident =
-        { Name = compiledName
-          Type = Fable.Any
-          IsCompilerGenerated = false
-          IsThisArgument = false
-          IsMutable = false
-          Range = Some { start = { line = r.StartLine; column = r.StartColumn }
-                         ``end``= { line = r.StartLine; column = r.StartColumn + displayName.Length }
-                         identifierName = Some displayName } }
-
-    // let hasCaseWithFields (ent: FSharpEntity) =
-    //     ent.UnionCases |> Seq.exists (fun uci -> uci.UnionCaseFields.Count > 0)
 
     let unionCaseTag (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
         try

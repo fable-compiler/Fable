@@ -526,20 +526,24 @@ let transformMemberBody com (m: MemberDecl) =
     { m with Body = transformExpr com m.Body }
 
 let transformDeclaration (com: ICompiler) = function
-    | ActionDeclaration(expr, usedNames) ->
-        ActionDeclaration(transformExpr com expr, usedNames)
+    | ActionDeclaration decl ->
+        { decl with Body = transformExpr com decl.Body }
+        |> ActionDeclaration
 
     | MemberDeclaration m ->
-        uncurryMemberArgs m |> transformMemberBody com |> MemberDeclaration
+        uncurryMemberArgs m
+        |> transformMemberBody com
+        |> MemberDeclaration
 
-    | ClassDeclaration(ent, ident, cons, baseCall, attachedMembers) ->
+    | ClassDeclaration decl ->
+        // (ent, ident, cons, baseCall, attachedMembers)
         let attachedMembers =
-            attachedMembers
+            decl.AttachedMembers
             |> List.map (uncurryMemberArgs >> transformMemberBody com)
 
         let cons, baseCall =
-            match cons, baseCall with
-            | None, _ -> cons, baseCall
+            match decl.Constructor, decl.BaseCall with
+            | None, _ -> None, None
             | Some cons, None ->
                 uncurryMemberArgs cons |> transformMemberBody com |> Some, None
             | Some cons, Some baseCall ->
@@ -552,8 +556,11 @@ let transformDeclaration (com: ICompiler) = function
                     | Sequential [baseCall; body] -> Some { cons with Body = body }, Some baseCall
                     | body -> Some { cons with Body = body }, None // Unexpected, raise error?
 
-        ClassDeclaration(ent, ident, cons, baseCall, attachedMembers)
+        { decl with Constructor = cons
+                    BaseCall = baseCall
+                    AttachedMembers = attachedMembers }
+        |> ClassDeclaration
 
 let transformFile (com: ICompiler) (file: File) =
     let newDecls = List.map (transformDeclaration com) file.Declarations
-    File(file.SourcePath, newDecls, usedRootNames=file.UsedNamesInRootScope, inlineDependencies=file.InlineDependencies)
+    File(file.SourcePath, newDecls, usedRootNames=file.UsedNamesInRootScope, watchDependencies=file.WatchDependencies)

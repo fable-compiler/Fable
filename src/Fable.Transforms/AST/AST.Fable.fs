@@ -63,9 +63,20 @@ type Parameter =
     abstract Name: string option
     abstract Type: Type
 
-// TODO: More properties needed here Attributes, IsPublic, IsInstance...
-// Merge with MemberDeclInfo somehow?
+type MemberInfo =
+    abstract Attributes: Attribute seq
+    abstract HasSpread: bool
+    abstract IsMangled: bool
+    abstract IsPublic: bool
+    abstract IsInstance: bool
+    abstract IsValue: bool
+    abstract IsMutable: bool
+    abstract IsGetter: bool
+    abstract IsSetter: bool
+    abstract IsEnumerator: bool
+
 type MemberFunctionOrValue =
+    inherit MemberInfo
     abstract DisplayName: string
     abstract CompiledName: string
     abstract FullName: string
@@ -95,45 +106,47 @@ type Entity =
     abstract IsFSharpExceptionDeclaration: bool
     abstract IsInterface: bool
 
-type MemberDeclInfo =
-    abstract Attributes: Attribute seq
-    abstract HasSpread: bool
-    abstract IsPublic: bool
-    abstract IsInstance: bool
-    abstract IsValue: bool
-    abstract IsMutable: bool
-    abstract IsGetter: bool
-    abstract IsSetter: bool
-    abstract IsEnumerator: bool
-    abstract IsMangled: bool
-
-type MemberDecl = {
-    // TODO: It may be better to just use the declaration name instead
-    // of the entity, same for class declarations
-    Ident: Ident
-    Args: Ident list
+type ActionDecl = {
     Body: Expr
     UsedNames: Set<string>
-    Info: MemberDeclInfo
+}
+
+type MemberDecl = {
+    Name: string
+    Args: Ident list
+    Body: Expr
+    Info: MemberInfo
+    UsedNames: Set<string>
+}
+
+type ClassDecl = {
+    Name: string
+    Entity: Entity
+    Constructor: MemberDecl option
+    BaseCall: Expr option
+    AttachedMembers: MemberDecl list
 }
 
 type Declaration =
-    | ActionDeclaration of Expr * usedNames: Set<string>
+    | ActionDeclaration of ActionDecl
     | MemberDeclaration of MemberDecl
-    | ClassDeclaration of Entity * Ident * constructor: MemberDecl option * baseCall: Expr option * attachedMembers: MemberDecl list
+    | ClassDeclaration of ClassDecl
     member this.UsedNames =
         match this with
-        | ActionDeclaration(_, usedNames) -> usedNames
-        | MemberDeclaration m -> m.UsedNames
-        | ClassDeclaration(_,_,cons,_,attachedMembers) ->
-            let usedNames = match cons with Some c -> c.UsedNames | None -> Set.empty
-            (usedNames, attachedMembers) ||> List.fold (fun acc m -> Set.union acc m.UsedNames)
+        | ActionDeclaration d -> d.UsedNames
+        | MemberDeclaration d -> d.UsedNames
+        | ClassDeclaration d ->
+            d.Constructor
+            |> Option.map (fun c -> c.UsedNames)
+            |> Option.defaultValue Set.empty
+            |> fun usedNames -> usedNames, d.AttachedMembers
+            ||> List.fold (fun acc m -> Set.union acc m.UsedNames)
 
-type File(sourcePath, decls, ?usedRootNames, ?inlineDependencies) =
+type File(sourcePath, decls, ?usedRootNames, ?watchDependencies) =
     member __.SourcePath: string = sourcePath
     member __.Declarations: Declaration list = decls
     member __.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
-    member __.InlineDependencies: Set<string> = defaultArg inlineDependencies Set.empty
+    member __.WatchDependencies: Set<string> = defaultArg watchDependencies Set.empty
 
 type Ident =
     { Name: string
@@ -281,7 +294,7 @@ type Expr =
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option
     | Set of Expr * key: KeyKind option * value: Expr * range: SourceLocation option
 
-    // Flow control
+    // Control flow
     | Sequential of Expr list
     | WhileLoop of guard: Expr * body: Expr * range: SourceLocation option
     | ForLoop of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool * range: SourceLocation option
