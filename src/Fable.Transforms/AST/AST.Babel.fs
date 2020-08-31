@@ -1,14 +1,36 @@
-namespace Fable.AST.Babel
+namespace rec Fable.AST.Babel
 
 open Fable
 open Fable.Core
 open Fable.AST
+open PrinterExtensions
 
 type Printer =
+    abstract Line: int
+    abstract Column: int
     abstract PushIndentation: unit -> unit
     abstract PopIndentation: unit -> unit
-    abstract Print: string * ?range: SourceLocation -> unit
+    abstract Print: string * ?loc: SourceLocation -> unit
     abstract PrintNewLine: unit -> unit
+
+module PrinterExtensions =
+    type Printer with
+        member printer.Print(pattern: Pattern) =
+            match pattern with
+            | U2.Case1 p -> p.Print(printer)
+            | U2.Case2 p -> p.Print(printer)
+
+        member printer.PrintBlock(statements: #Node array) =
+            printer.Print("{")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+            for statement in statements do
+                statement.Print(printer)
+                if printer.Column > 0 then
+                    printer.Print(";")
+                    printer.PrintNewLine()
+            printer.PopIndentation()
+            printer.Print("}")
 
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
@@ -24,7 +46,7 @@ type Node(``type``, ?loc) =
     abstract Print: Printer -> unit
     // TODO: Temporary solution to make everything compile,
     // remove before merging PR
-    default _.Print(printer) = printer.Print("TODO")
+    default _.Print(printer) = () //printer.Print("TODO")
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 [<AbstractClass>] type Expression(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
@@ -98,6 +120,9 @@ type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
     member __.Optional: bool option = optional
     member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
     override __.ToString() = __.Name
+    override _.Print(printer) =
+        // TODO: optional, type annotation
+        printer.Print(name, ?loc=loc)
 
 // Literals
 type RegExpLiteral(pattern, flags_, ?loc) =
@@ -110,24 +135,43 @@ type RegExpLiteral(pattern, flags_, ?loc) =
             | RegexSticky -> "y") |> Seq.fold (+) ""
     member __.Pattern: string = pattern
     member __.Flags: string = flags
+    override _.Print(printer) =
+        printer.Print("/")
+        printer.Print(pattern)
+        printer.Print("/")
+        printer.Print(flags)
 
 type Undefined(?loc) =
     inherit Identifier("undefined", ?loc = loc)
+    override _.Print(printer) =
+        printer.Print("undefined") // TODO: Instead? (void 0)
 
 type NullLiteral(?loc) =
     inherit Literal("NullLiteral", ?loc = loc)
+    override _.Print(printer) =
+        printer.Print("null")
 
 type StringLiteral(value, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
     member __.Value: string = value
+    override _.Print(printer) =
+        printer.Print("\"")
+        // TODO: Do we need to check for line breaks?
+        printer.Print(value)
+        printer.Print("\"")
 
 type BooleanLiteral(value, ?loc) =
     inherit Literal("BooleanLiteral", ?loc = loc)
     member __.Value: bool = value
+    override _.Print(printer) =
+        let str = if value then "true" else "false"
+        printer.Print(str, ?loc=loc)
 
 type NumericLiteral(value, ?loc) =
     inherit Literal("NumericLiteral", ?loc = loc)
     member __.Value: float = value
+    override _.Print(printer) =
+        printer.Print(value.ToString(), ?loc=loc)
 
 // Misc
 type Decorator(value, ?loc) =
@@ -170,6 +214,8 @@ type Program(fileName, body, ?directives_, ?logs_, ?dependencies_, ?sourceFiles_
 type ExpressionStatement(expression, ?loc) =
     inherit Statement("ExpressionStatement", ?loc = loc)
     member __.Expression: Expression = expression
+    override _.Print(printer) =
+        expression.Print(printer)
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
 type BlockStatement(body, ?directives_, ?loc) =
@@ -178,15 +224,7 @@ type BlockStatement(body, ?directives_, ?loc) =
     member __.Body: Statement array = body
     member __.Directives: Directive array = directives
     override _.Print(printer) =
-        printer.Print("{")
-        printer.PrintNewLine()
-        printer.PushIndentation()
-        // TODO: Directives?
-        for statement in body do
-            statement.Print(printer)
-            printer.PrintNewLine()
-        printer.PopIndentation()
-        printer.Print("}")
+        printer.PrintBlock(body)
 
 /// An empty statement, i.e., a solitary semicolon.
 type EmptyStatement(?loc) =
@@ -194,22 +232,39 @@ type EmptyStatement(?loc) =
 
 type DebuggerStatement(?loc) =
     inherit Statement("DebuggerStatement", ?loc = loc)
+    override _.Print(printer) =
+        printer.Print("debugger")
 
-/// Statement (typically loop) prefixed with a label (for continuue and break)
+/// Statement (typically loop) prefixed with a label (for continue and break)
 type LabeledStatement(label, body, ?loc) =
     inherit Statement("LabeledStatement", ?loc = loc)
     member __.Body: Statement = body
     member __.Label: Identifier = label
+    override _.Print(printer) =
+        label.Print(printer)
+        printer.Print(":")
+        printer.PrintNewLine()
+        // Don't push indent
+        body.Print(printer)
 
 /// Break can optionally take a label of a loop to break
 type BreakStatement(?label, ?loc) =
     inherit Statement("BreakStatement", ?loc = loc)
     member __.Label: Identifier option = label
+    override _.Print(printer) =
+        printer.Print("break")
 
-/// Contineu can optionally take a label of a loop to continuue
+/// Continue can optionally take a label of a loop to continue
 type ContinueStatement(?label, ?loc) =
     inherit Statement("ContinueStatement", ?loc = loc)
     member __.Label: Identifier option = label
+    override _.Print(printer) =
+        printer.Print("continue")
+        match label with
+        | None -> ()
+        | Some label ->
+            printer.Print(" ")
+            label.Print(printer)
 
 // type WithStatement
 
@@ -217,33 +272,68 @@ type ContinueStatement(?label, ?loc) =
 type ReturnStatement(argument, ?loc) =
     inherit Statement("ReturnStatement", ?loc = loc)
     member __.Argument: Expression = argument
+    override _.Print(printer) =
+        printer.Print("return ")
+        argument.Print(printer)
 
-// type LabeledStatement
-// type BreakStatement
-// type ContinueStatement
-
-// U2
 type IfStatement(test, consequent, ?alternate, ?loc) =
     inherit Statement("IfStatement", ?loc = loc)
     member __.Test: Expression = test
     member __.Consequent: Statement = consequent
     member __.Alternate: Statement option = alternate
+    override _.Print(printer) =
+        printer.Print("if (")
+        test.Print(printer)
+        printer.Print(") ")
+        consequent.Print(printer)
+        match alternate with
+        | None -> ()
+        | Some alternate ->
+            printer.Print("else ")
+            alternate.Print(printer)
+        // If the consequent/alternate is a block
+        // a new line should already be printer
+        if printer.Column > 0 then
+            printer.PrintNewLine()
 
 /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
 type SwitchCase(consequent, ?test, ?loc) =
     inherit Node("SwitchCase", ?loc = loc)
     member __.Test: Expression option = test
     member __.Consequent: Statement array = consequent
+    override _.Print(printer) =
+        match test with
+        | None -> printer.Print("default:")
+        | Some test ->
+            printer.Print("case ")
+            test.Print(printer)
+            printer.Print(":")
+        match consequent.Length with
+        | 0 -> printer.PrintNewLine()
+        | 1 ->
+            printer.Print(" ")
+            consequent.[0].Print(printer)
+        | _ ->
+            printer.Print(" ")
+            printer.PrintBlock(consequent)
 
 type SwitchStatement(discriminant, cases, ?loc) =
     inherit Statement("SwitchStatement", ?loc = loc)
     member __.Discriminant: Expression = discriminant
     member __.Cases: SwitchCase array = cases
+    override _.Print(printer) =
+        printer.Print("switch (")
+        discriminant.Print(printer)
+        printer.Print(")")
+        printer.PrintBlock(cases)
 
 // Exceptions
 type ThrowStatement(argument, ?loc) =
     inherit Statement("ThrowStatement", ?loc = loc)
     member __.Argument: Expression = argument
+    override _.Print(printer) =
+        printer.Print("throw ")
+        argument.Print(printer)
 
 /// A catch clause following a try block.
 type CatchClause(param, body, ?loc) =
@@ -260,9 +350,16 @@ type TryStatement(block, ?handler, ?finalizer, ?loc) =
 
 // Declarations
 type VariableDeclarator(id, ?init, ?loc) =
-    inherit Declaration("VariableDeclarator", ?loc = loc)
+    inherit Node("VariableDeclarator", ?loc = loc)
     member __.Id: Pattern = id
     member __.Init: Expression option = init
+    override _.Print(printer) =
+        printer.Print(id)
+        match init with
+        | None -> ()
+        | Some init ->
+            printer.Print(" = ")
+            init.Print(printer)
 
 type VariableDeclarationKind = Var | Let | Const
 
@@ -273,6 +370,14 @@ type VariableDeclaration(kind_, declarations, ?loc) =
         VariableDeclaration(defaultArg kind Let, [|VariableDeclarator(var, ?init=init, ?loc=loc)|], ?loc=loc)
     member __.Declarations: VariableDeclarator array = declarations
     member __.Kind: string = kind
+    override _.Print(printer) =
+        printer.Print(kind + " ", ?loc=loc)
+        for i = 0 to declarations.Length - 1 do
+            declarations.[i].Print(printer)
+            if i < declarations.Length - 1 then
+                printer.Print(", ")
+        printer.Print(";")
+        printer.PrintNewLine()
 
 // Loops
 type WhileStatement(test, body, ?loc) =
@@ -694,6 +799,11 @@ type ExportNamedDeclaration(?declaration, ?specifiers_, ?source, ?loc) =
     member __.Declaration: Declaration option = declaration
     member __.Specifiers: ExportSpecifier array = specifiers
     member __.Source: Literal option = source
+    override _.Print(printer) =
+        printer.Print("export ")
+        match declaration with
+        | None -> () // TODO print specifiers and source
+        | Some decl -> decl.Print(printer)
 
 /// An export default declaration, e.g., export default function () {}; or export default 1;.
 type ExportDefaultDeclaration(declaration, ?loc) =

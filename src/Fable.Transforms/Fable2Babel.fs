@@ -898,6 +898,7 @@ module Util =
         | Fable.NumberConstant (x,_) ->
             if x < 0.
             // Negative numeric literals can give issues in Babel AST, see #1186
+            // TODO: We don't need this when using our own printer
             then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.), ?loc=r)
             else upcast NumericLiteral(x, ?loc=r)
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral(source, flags, ?loc=r)
