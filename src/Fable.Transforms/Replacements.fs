@@ -710,7 +710,7 @@ let isCompatibleWithJsComparison = function
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 let identityHash r (arg: Expr) =
     match arg.Type with
-    | Boolean | Char | String | Number _ | Enum _ | Option | Tuple | List
+    | Boolean | Char | String | Number _ | Enum _ | Option _ | Tuple _  | List _
     | Builtin(BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
     | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
     | Builtin(FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
