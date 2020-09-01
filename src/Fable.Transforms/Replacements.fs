@@ -2710,10 +2710,10 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
 let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseGuid (literalGuid: string) =
         try
-            System.Guid.Parse(literalGuid) |> string |> makeStrConst |> Some
+            System.Guid.Parse(literalGuid) |> string |> makeStrConst
         with e ->
-            e.Message |> addError com ctx.InlinePath r
-            None
+            e.Message |> addErrorAndReturnNull com ctx.InlinePath r
+        |> Some
 
     match i.CompiledName with
     | "NewGuid"     -> Helper.CoreCall("Guid", "newGuid", t, []) |> Some
