@@ -701,7 +701,7 @@ module Util =
     let makeJsObject pairs =
         pairs |> Seq.map (fun (name, value) ->
             let prop, computed = memberFromName name
-            ObjectProperty(prop, value, computed_=computed) |> U3.Case1)
+            ObjectProperty(prop, value, computed_=computed) |> U2.Case1)
         |> Seq.toArray
         |> ObjectExpression :> Expression
 
@@ -955,13 +955,13 @@ module Util =
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx Attached hasSpread args body
             ObjectMethod(kind, prop, args, body, computed_=computed,
-                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2
+                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U2.Case2
         let pojo =
             members |> List.collect (fun memb ->
                 let info = memb.Info
                 let prop, computed = memberFromName memb.Ident.Name
                 if info.IsValue then
-                    [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) |> U3.Case1]
+                    [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) |> U2.Case1]
                 elif info.IsGetter then
                     [makeObjMethod ObjectGetter prop computed false memb.Args memb.Body]
                 elif info.IsSetter then
@@ -971,7 +971,7 @@ module Util =
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
                         let body = enumerator2iterator com ctx
-                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> U3.Case2
+                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> U2.Case2
                     [method; iterator]
                 else
                     [makeObjMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]

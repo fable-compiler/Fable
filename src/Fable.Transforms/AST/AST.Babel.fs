@@ -12,25 +12,61 @@ type Printer =
     abstract PopIndentation: unit -> unit
     abstract Print: string * ?loc: SourceLocation -> unit
     abstract PrintNewLine: unit -> unit
+    abstract PrintLoc: SourceLocation option -> unit
 
 module PrinterExtensions =
     type Printer with
-        member printer.Print(pattern: Pattern) =
+        member printer.PrintPattern(pattern: Pattern) =
             match pattern with
             | U2.Case1 p -> p.Print(printer)
             | U2.Case2 p -> p.Print(printer)
 
-        member printer.PrintBlock(statements: #Node array) =
+        member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
             printer.Print("{")
             printer.PrintNewLine()
             printer.PushIndentation()
-            for statement in statements do
-                statement.Print(printer)
+            for node in nodes do
+                printNode printer node
+                printSeparator printer
+            printer.PopIndentation()
+            printer.Print("}")
+
+        member printer.PrintBlock(nodes: #Node array) =
+            printer.PrintBlock(nodes, (fun p x -> x.Print(p)), (fun p ->
                 if printer.Column > 0 then
                     printer.Print(";")
                     printer.PrintNewLine()
-            printer.PopIndentation()
-            printer.Print("}")
+            ))
+
+        member printer.PrintOptional(node: #Node option, ?before: string) =
+            match node, before with
+            | None, _ -> ()
+            | Some node, None -> node.Print(printer)
+            | Some node, Some before ->
+                printer.Print(before)
+                node.Print(printer)
+
+        member printer.PrintArray(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
+            for i = 0 to nodes.Length - 1 do
+                printNode printer nodes.[i]
+                if i < nodes.Length - 1 then
+                    printSeparator printer
+
+        member printer.PrintCommaSeparatedArray(nodes: #Node array) =
+            printer.PrintArray(nodes, (fun p x -> x.Print(printer)), (fun p -> printer.Print(", ")))
+
+        member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
+            printer.PrintArray(nodes, (fun p x -> printer.PrintPattern(x)), (fun p -> printer.Print(", ")))
+
+        // TODO: Check other expressions for which we don't need parens (functions, call expressions)
+        member printer.MaybeWithParens(expr: Expression) =
+            match expr with
+            | :? PatternExpression as e -> e.Print(printer)
+            | :? Literal as e -> e.Print(printer)
+            | _ ->
+                printer.Print("(")
+                expr.Print(printer)
+                printer.Print(")")
 
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
@@ -260,11 +296,7 @@ type ContinueStatement(?label, ?loc) =
     member __.Label: Identifier option = label
     override _.Print(printer) =
         printer.Print("continue")
-        match label with
-        | None -> ()
-        | Some label ->
-            printer.Print(" ")
-            label.Print(printer)
+        printer.PrintOptional(label, " ")
 
 // type WithStatement
 
@@ -286,13 +318,9 @@ type IfStatement(test, consequent, ?alternate, ?loc) =
         test.Print(printer)
         printer.Print(") ")
         consequent.Print(printer)
-        match alternate with
-        | None -> ()
-        | Some alternate ->
-            printer.Print("else ")
-            alternate.Print(printer)
+        printer.PrintOptional(alternate, if printer.Column > 0 then " else " else "else ")
         // If the consequent/alternate is a block
-        // a new line should already be printer
+        // a new line should already be printed
         if printer.Column > 0 then
             printer.PrintNewLine()
 
@@ -322,7 +350,7 @@ type SwitchStatement(discriminant, cases, ?loc) =
     member __.Discriminant: Expression = discriminant
     member __.Cases: SwitchCase array = cases
     override _.Print(printer) =
-        printer.Print("switch (")
+        printer.Print("switch (", ?loc=loc)
         discriminant.Print(printer)
         printer.Print(")")
         printer.PrintBlock(cases)
@@ -340,6 +368,11 @@ type CatchClause(param, body, ?loc) =
     inherit Node("CatchClause", ?loc = loc)
     member __.Param: Pattern = param
     member __.Body: BlockStatement = body
+    override _.Print(printer) =
+        printer.Print("catch (", ?loc=loc)
+        printer.PrintPattern(param)
+        printer.Print(") ")
+        body.Print(printer)
 
 /// If handler is null then finalizer must be a BlockStatement.
 type TryStatement(block, ?handler, ?finalizer, ?loc) =
@@ -347,6 +380,11 @@ type TryStatement(block, ?handler, ?finalizer, ?loc) =
     member __.Block: BlockStatement = block
     member __.Handler: CatchClause option = handler
     member __.Finalizer: BlockStatement option = finalizer
+    override _.Print(printer) =
+        printer.Print("try ", ?loc=loc)
+        block.Print(printer)
+        printer.PrintOptional(handler, "catch ")
+        printer.PrintOptional(finalizer, "finally ")
 
 // Declarations
 type VariableDeclarator(id, ?init, ?loc) =
@@ -354,12 +392,8 @@ type VariableDeclarator(id, ?init, ?loc) =
     member __.Id: Pattern = id
     member __.Init: Expression option = init
     override _.Print(printer) =
-        printer.Print(id)
-        match init with
-        | None -> ()
-        | Some init ->
-            printer.Print(" = ")
-            init.Print(printer)
+        printer.PrintPattern(id)
+        printer.PrintOptional(init, " = ")
 
 type VariableDeclarationKind = Var | Let | Const
 
@@ -372,12 +406,7 @@ type VariableDeclaration(kind_, declarations, ?loc) =
     member __.Kind: string = kind
     override _.Print(printer) =
         printer.Print(kind + " ", ?loc=loc)
-        for i = 0 to declarations.Length - 1 do
-            declarations.[i].Print(printer)
-            if i < declarations.Length - 1 then
-                printer.Print(", ")
-        printer.Print(";")
-        printer.PrintNewLine()
+        printer.PrintCommaSeparatedArray(declarations)
 
 // Loops
 type WhileStatement(test, body, ?loc) =
@@ -432,84 +461,120 @@ type FunctionDeclaration(``params``, body, ?id, ?async_, ?generator_, ?declare, 
 /// A super pseudo-expression.
 type Super(?loc) =
     inherit Expression("Super", ?loc = loc)
+    override _.Print(printer) =
+        printer.Print("super", ?loc=loc)
 
 type ThisExpression(?loc) =
     inherit Expression("ThisExpression", ?loc = loc)
+    override _.Print(printer) =
+        printer.Print("this", ?loc=loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression(``params``, body, ?async_, ?generator_, ?returnType, ?typeParameters, ?loc) =
+type ArrowFunctionExpression(``params``, body, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
     inherit Expression("ArrowFunctionExpression", ?loc = loc)
-    let async = defaultArg async_ false
-    let generator = defaultArg generator_ false
+//    let async = defaultArg async_ false
+//    let generator = defaultArg generator_ false
+//    member __.Async: bool = async
+//    member __.Generator: bool = generator
     let expression = Some (match body with U2.Case1 _ -> false | U2.Case2 _ -> true)
     member __.Params: Pattern array = ``params``
     member __.Body: U2<BlockStatement, Expression> = body
-    member __.Async: bool = async
-    member __.Generator: bool = generator
     member __.Expression: bool option = expression
     member __.ReturnType: TypeAnnotation option = returnType
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    override _.Print(printer) =
+        // TODO: type annotations
+        printer.Print("(")
+        printer.PrintCommaSeparatedArray(``params``)
+        printer.Print(") => ")
+        match body with
+        | U2.Case1 block -> block.Print(printer)
+        | U2.Case2 expr -> expr.Print(printer)
 
-type FunctionExpression(``params``, body, ?generator_, ?async_, ?id, ?returnType, ?typeParameters, ?loc) =
+type FunctionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
     inherit Expression("FunctionExpression", ?loc = loc)
-    let async = defaultArg async_ false
-    let generator = defaultArg generator_ false
+//    let async = defaultArg async_ false
+//    let generator = defaultArg generator_ false
+//    member __.Async: bool = async
+//    member __.Generator: bool = generator
     member __.Id: Identifier option = id
     member __.Params: Pattern array = ``params``
     member __.Body: BlockStatement = body
-    member __.Async: bool = async
-    member __.Generator: bool = generator
     member __.ReturnType: TypeAnnotation option = returnType
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    override _.Print(printer) =
+        printer.Print("function ", ?loc=loc)
+        printer.PrintOptional(id)
+        // TODO: type annotations
+        printer.Print("(")
+        printer.PrintCommaSeparatedArray(``params``)
+        printer.Print(") ")
+        body.Print(printer)
 
-/// e.g., x = do { var t = f(); t * t + 1 };
-/// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
-/// Doesn't seem to work well with block-scoped variables (let, const)
-type DoExpression(body, ?loc) =
-    inherit Expression("DoExpression", ?loc = loc)
-    member __.Body: BlockStatement = body
+///// e.g., x = do { var t = f(); t * t + 1 };
+///// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
+///// Doesn't seem to work well with block-scoped variables (let, const)
+//type DoExpression(body, ?loc) =
+//    inherit Expression("DoExpression", ?loc = loc)
+//    member __.Body: BlockStatement = body
 
-type YieldExpression(argument, ``delegate``, ?loc) =
-    inherit Expression("YieldExpression", ?loc = loc)
-    member __.Argument: Expression option = argument
-    /// Delegates to another generator? (yield*)
-    member __.Delegate: bool = ``delegate``
+//type YieldExpression(argument, ``delegate``, ?loc) =
+//    inherit Expression("YieldExpression", ?loc = loc)
+//    member __.Argument: Expression option = argument
+//    /// Delegates to another generator? (yield*)
+//    member __.Delegate: bool = ``delegate``
+//
+//type AwaitExpression(argument, ?loc) =
+//    inherit Expression("AwaitExpression", ?loc = loc)
+//    member __.Argument: Expression option = argument
 
-type AwaitExpression(argument, ?loc) =
-    inherit Expression("AwaitExpression", ?loc = loc)
-    member __.Argument: Expression option = argument
+//type RestProperty(argument, ?loc) =
+//    inherit Node("RestProperty", ?loc = loc)
+//    member __.Argument: Expression = argument
 
-type RestProperty(argument, ?loc) =
-    inherit Node("RestProperty", ?loc = loc)
-    member __.Argument: Expression = argument
+///// e.g., var z = { x: 1, ...y } // Copy all properties from y
+//type SpreadProperty(argument, ?loc) =
+//    inherit Node("SpreadProperty", ?loc = loc)
+//    member __.Argument: Expression = argument
 
-/// e.g., var z = { x: 1, ...y } // Copy all properties from y
-type SpreadProperty(argument, ?loc) =
-    inherit Node("SpreadProperty", ?loc = loc)
-    member __.Argument: Expression = argument
-
-/// Should derive from Node, but make it an expression for simplicity
+// Should derive from Node, but make it an expression for simplicity
 type SpreadElement(argument, ?loc) =
     inherit Expression("SpreadElement", ?loc = loc)
     member __.Argument: Expression = argument
+    override _.Print(printer) =
+        printer.Print("...", ?loc=loc)
+        argument.Print(printer)
 
 type ArrayExpression(elements, ?loc) =
     inherit Expression("ArrayExpression", ?loc = loc)
     // member __.Elements: U2<Expression, SpreadElement> option array = elements
     member __.Elements: Expression array = elements
+    override _.Print(printer) =
+        printer.Print("[", ?loc=loc)
+        printer.PrintCommaSeparatedArray(elements)
+        printer.Print("]")
 
-type ObjectProperty(key, value, ?computed_, ?shorthand_, ?loc) =
+type ObjectProperty(key, value, ?computed_, ?loc) = // ?shorthand_,
     inherit Node("ObjectProperty", ?loc = loc)
     let computed = defaultArg computed_ false
-    let shorthand = defaultArg shorthand_ false
+//    let shorthand = defaultArg shorthand_ false
+//    member __.Shorthand: bool = shorthand
     member __.Key: Expression = key
     member __.Value: Expression = value
     member __.Computed: bool = computed
-    member __.Shorthand: bool = shorthand
+    override _.Print(printer) =
+        if computed then
+            printer.Print("[")
+            key.Print(printer)
+            printer.Print("]: ")
+        else
+            key.Print(printer)
+            printer.Print(": ")
+        value.Print(printer)
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
-type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?async_, ?generator_, ?returnType, ?typeParameters, ?loc) =
+type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_,
     inherit Node("ObjectMethod", ?loc = loc)
     let kind =
         match kind_ with
@@ -517,17 +582,34 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?async_, ?generator_
         | ObjectSetter -> "set"
         | ObjectMeth -> "method"
     let computed = defaultArg computed_ false
-    let async = defaultArg async_ false
-    let generator = defaultArg generator_ false
+//    let async = defaultArg async_ false
+//    let generator = defaultArg generator_ false
+//    member __.Async: bool = async
+//    member __.Generator: bool = generator
     member __.Kind: string = kind
     member __.Key: Expression = key
     member __.Params: Pattern array = ``params``
     member __.Body: BlockStatement = body
     member __.Computed: bool = computed
-    member __.Async: bool = async
-    member __.Generator: bool = generator
     member __.ReturnType: TypeAnnotation option = returnType
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    override _.Print(printer) =
+        if kind <> "method" then
+            printer.Print(kind + " ")
+
+        if computed then
+            printer.Print("[")
+            key.Print(printer)
+            printer.Print("]")
+        else
+            key.Print(printer)
+
+        // TODO: type annotations
+        printer.Print("(")
+        printer.PrintCommaSeparatedArray(``params``)
+        printer.Print("): ")
+
+        body.Print(printer)
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -537,10 +619,30 @@ type MemberExpression(object, property, ?computed_, ?loc) =
     member __.Object: Expression = object
     member __.Property: Expression = property
     member __.Computed: bool = computed
+    override _.Print(printer) =
+        object.Print(printer)
+        if computed then
+            printer.Print("[", ?loc=loc)
+            property.Print(printer)
+            printer.Print("]")
+        else
+            printer.Print(".", ?loc=loc)
+            property.Print(printer)
 
 type ObjectExpression(properties, ?loc) =
     inherit Expression("ObjectExpression", ?loc = loc)
-    member __.Properties: U3<ObjectProperty, ObjectMethod, SpreadProperty> array = properties
+//    member __.Properties: U3<ObjectProperty, ObjectMethod, SpreadProperty> array = properties
+    member __.Properties: U2<ObjectProperty, ObjectMethod> array = properties
+    override _.Print(printer) =
+        let printProp (p: Printer) = function
+            | U2.Case1 (x: ObjectProperty) -> x.Print(printer)
+            | U2.Case2 (x: ObjectMethod) -> x.Print(printer)
+
+        let printSeparator (p: Printer) =
+            p.Print(",")
+            p.PrintNewLine()
+
+        printer.PrintBlock(properties, printProp, printSeparator)
 
 /// A conditional expression, i.e., a ternary ?/: expression.
 type ConditionalExpression(test, consequent, alternate, ?loc) =
@@ -548,6 +650,13 @@ type ConditionalExpression(test, consequent, alternate, ?loc) =
     member __.Test: Expression = test
     member __.Consequent: Expression = consequent
     member __.Alternate: Expression = alternate
+    override _.Print(printer) =
+        printer.PrintLoc(loc)
+        printer.MaybeWithParens(test)
+        printer.Print(" ? ")
+        printer.MaybeWithParens(consequent)
+        printer.Print(" : ")
+        printer.MaybeWithParens(alternate)
 
 /// A function or method call expression.
 type CallExpression(callee, arguments, ?loc) =
@@ -555,6 +664,12 @@ type CallExpression(callee, arguments, ?loc) =
     member __.Callee: Expression = callee
     // member __.Arguments: U2<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
+    override _.Print(printer) =
+        printer.PrintLoc(loc)
+        printer.MaybeWithParens(callee)
+        printer.Print("(")
+        printer.PrintCommaSeparatedArray(arguments)
+        printer.Print(")")
 
 type NewExpression(callee, arguments, ?typeArguments, ?loc) =
     inherit Expression("NewExpression", ?loc = loc)
