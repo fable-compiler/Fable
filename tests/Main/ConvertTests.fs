@@ -1089,31 +1089,74 @@ let tests =
         Convert.FromBase64String("AgQGCAoMDhASFA==")
         |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
 
+    // id is prefixed for guid creation as we check at compile time (if able) to create a string const
     testCase "Guid.Parse works" <| fun () ->
-        let g1 = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-        let g2 = Guid("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
-        g1.ToString().Trim('{','}').ToLower() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
-        g2.ToString().Trim('{','}').ToLower() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
-
-    testCase "Guid.Parse works relaxed" <| fun () ->
-        let g1 = Guid.Parse("773788c2-ae1c-2ce4-e053-6c04a8c05e57")
-        let g2 = Guid("{00000000-0000-0000-0000-000000000000}")
-        g1.ToString().Trim('{','}').ToLower() |> equal "773788c2-ae1c-2ce4-e053-6c04a8c05e57"
-        g2.ToString().Trim('{','}').ToLower() |> equal "00000000-0000-0000-0000-000000000000"
+        let guids = [
+            Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+            Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+            Guid.Parse("96258006c4ba4a7f80c4de7f2b2898c5")
+            Guid.Parse(id "96258006c4ba4a7f80c4de7f2b2898c5")
+            Guid.Parse("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+            Guid.Parse(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+            Guid.Parse("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+            Guid.Parse(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+            Guid.Parse("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+            Guid.Parse(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+            Guid("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+            Guid(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+            Guid("96258006c4ba4a7f80c4de7f2b2898c5")
+            Guid(id "96258006c4ba4a7f80c4de7f2b2898c5")
+            Guid("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+            Guid(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+            Guid("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+            Guid(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+            Guid("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+            Guid(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        ]
+        
+        guids
+        |> List.iter (fun g -> g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
 
     testCase "Guid.Parse fails if string is not well formed" <| fun () ->
         let success =
             try
-                let g1 = Guid.Parse("foo")
+                let g1 = Guid.Parse(id "foo")
                 true
             with _ -> false
         equal false success
 
     testCase "Guid.TryParse works" <| fun () ->
-        let success1, _ = Guid.TryParse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-        let success2, _ = Guid.TryParse("96258006-c4ba-4a7f-80c4")
-        equal true success1
-        equal false success2
+        let successGuids = [
+            Guid.TryParse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+            Guid.TryParse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+            Guid.TryParse("96258006c4ba4a7f80c4de7f2b2898c5")
+            Guid.TryParse(id "96258006c4ba4a7f80c4de7f2b2898c5")
+            Guid.TryParse("{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+            Guid.TryParse(id "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}")
+            Guid.TryParse("(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+            Guid.TryParse(id "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)")
+            Guid.TryParse("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+            Guid.TryParse(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
+        ]
+        
+        let failGuids = [
+            Guid.TryParse("96258006-c4ba-4a7f-80c4")
+            Guid.TryParse(id "96258006-c4ba-4a7f-80c4")
+            Guid.TryParse("96258007f80c4de7f2b2898c5")
+            Guid.TryParse(id "96258007f80c4de7f2b2898c5")
+            Guid.TryParse("{96258006-c4ba-4a7f-80c4}")
+            Guid.TryParse(id "{96258006-c4ba-4a7f-80c4}")
+            Guid.TryParse("(96258006-c4ba-80c4-de7f2b2898c5)")
+            Guid.TryParse(id "(96258006-c4ba-80c4-de7f2b2898c5)")
+            Guid.TryParse("{0x96258006,0xc4ba,{0x80,0xc4,0xde,0x7f,0x28,0x98,0xc5}}")
+            Guid.TryParse(id "{0x96258006,0xc4ba,{0x80,0xc4,0xde,0x7f,0x28,0x98,0xc5}}")
+        ]
+
+        successGuids
+        |> List.iter (fst >> (equal true))
+
+        failGuids
+        |> List.iter (fst >> (equal false))
 
     testCase "Parsed guids with different case are considered the same" <| fun () -> // See #1718
         let aGuid = Guid.NewGuid()
@@ -1128,11 +1171,29 @@ let tests =
 
     testCase "Convert Guid to byte[] works" <| fun () ->
         let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        let g2 = Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+
         g.ToByteArray() |> equal [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
+        g2.ToByteArray() |> equal [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
 
     testCase "Convert byte[] to Guid works" <| fun () ->
         let g = Guid [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
         g.ToString() |> equal("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+
+    testCase "Guid.ToString works with formats" <| fun () ->
+        let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+        let g2 = Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+
+        let testGuid (g: Guid) =
+            g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+            g.ToString("N") |> equal "96258006c4ba4a7f80c4de7f2b2898c5"
+            g.ToString("D") |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+            g.ToString("B") |> equal "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}"
+            g.ToString("P") |> equal "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)"
+            g.ToString("X") |> equal "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}"
+
+        testGuid g
+        testGuid g2
 
     //-------------------------------------
     // System.Text.Encoding

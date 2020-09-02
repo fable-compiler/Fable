@@ -281,7 +281,7 @@ let (|NewAnonymousRecord|_|) e =
     inner [] e
 
 let coreModFor = function
-    | BclGuid -> "String"
+    | BclGuid -> "Guid"
     | BclDateTime -> "Date"
     | BclDateTimeOffset -> "DateOffset"
     | BclTimer -> "Timer"
@@ -390,9 +390,9 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
-        | Char | String
-        | Builtin BclGuid -> head
-        | Builtin (BclTimeSpan|BclInt64|BclUInt64 as t) ->
+        | Char | String -> head
+        | Builtin BclGuid when tail.IsEmpty -> head
+        | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64 as t) ->
             Helper.CoreCall(coreModFor t, "toString", String, args)
         | Number Int16 -> Helper.CoreCall("Util", "int16ToString", String, args)
         | Number Int32 -> Helper.CoreCall("Util", "int32ToString", String, args)
@@ -710,7 +710,7 @@ let isCompatibleWithJsComparison = function
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 let identityHash r (arg: Expr) =
     match arg.Type with
-    | Boolean | Char | String | Number _ | Enum _ | Option | Tuple | List
+    | Boolean | Char | String | Number _ | Enum _ | Option _ | Tuple _ | List _
     | Builtin(BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
     | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
     | Builtin(FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
@@ -2707,17 +2707,40 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     // Fable.Core extensions
     | meth -> Helper.CoreCall("Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let guids (_: ICompiler) (ctx: Context) (_: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let parseGuid (literalGuid: string) =
+        try
+            System.Guid.Parse(literalGuid) |> string |> makeStrConst
+        with e ->
+            e.Message |> addErrorAndReturnNull com ctx.InlinePath r
+        |> Some
+
     match i.CompiledName with
-    | "NewGuid"     -> Helper.CoreCall("String", "newGuid", t, []) |> Some
-    | "Parse"       -> Helper.CoreCall("String", "validateGuid", t, args, i.SignatureArgTypes) |> Some
-    | "TryParse"    -> Helper.CoreCall("String", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Boolean]) |> Some
-    | "ToByteArray" -> Helper.CoreCall("String", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
+    | "NewGuid"     -> Helper.CoreCall("Guid", "newGuid", t, []) |> Some
+    | "Parse"       -> 
+        match args with
+        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | _-> Helper.CoreCall("Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
+    | "TryParse"    -> Helper.CoreCall("Guid", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Boolean]) |> Some
+    | "ToByteArray" -> Helper.CoreCall("Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
+    | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
+    | "ToString" when (args.Length = 1) -> 
+        match args with
+        | [Value (StringConstant literalFormat, _)] ->
+            match literalFormat with
+            | "N" | "D" | "B" | "P" | "X" ->
+                Helper.CoreCall("Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+            | _ ->
+                "Guid.ToString doesn't support a custom format. It only handles \"N\", \"D\", \"B\", \"P\" and \"X\" format."
+                |> addError com ctx.InlinePath r
+                None
+        | _ -> Helper.CoreCall("Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | ".ctor" ->
         match args with
         | [] -> emptyGuid() |> Some
-        | [ExprType (Array _)] -> Helper.CoreCall("String", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
-        | [ExprType String]    -> Helper.CoreCall("String", "validateGuid", t, args, i.SignatureArgTypes) |> Some
+        | [ExprType (Array _)] -> Helper.CoreCall("Guid", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
+        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | [ExprType String] -> Helper.CoreCall("Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
     | _ -> None
 
