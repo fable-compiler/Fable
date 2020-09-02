@@ -1,6 +1,10 @@
+### 2.12.0
+
+* Add Guid.ToString formats @Shmew
+
 ### 2.11.0
 
-* Add support for StringBuilder.Clear method (@MangelMaxime) 
+* Add support for StringBuilder.Clear method (@MangelMaxime)
 
 ### 2.10.2
 
