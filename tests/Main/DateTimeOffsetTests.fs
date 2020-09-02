@@ -26,6 +26,10 @@ let tests =
         DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("yyyyMM")
         |> equal "201709"
 
+    testCase "DateTime.ToString with meridiem" <| fun () ->
+        DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("tt")
+        |> equal "AM"
+
     // TODO
     // testCase "TimeSpan.ToString with format works" <| fun () ->
     //     TimeSpan.FromMinutes(234.).ToString("hh\:mm\:ss")

@@ -36,6 +36,10 @@ let tests =
         System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
         |> equal "2014-09-11T16:37:02.000Z"
 
+    testCase "DateTime.ToString with meridiem" <| fun () ->
+        DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("tt")
+        |> equal "PM"
+
     // TODO
     // Next test is disabled because it's depends on the time zone of the machine
     //A fix could be to use a regex or detect the time zone

@@ -12,6 +12,7 @@ import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToT
 import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util";
 
 export const offsetRegex = /(?:Z|[+-](\d+):?([0-5]?\d)?)\s*$/;
+const meridiemRegex = /(AM|PM)/g;
 
 export function dateOffsetToString(offset: number) {
   const isMinus = offset < 0;
@@ -53,9 +54,9 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
 }
 
 function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) {
-  return format.replace(/(\w)\1*/g, (match: string) => {
-    let rep = Number.NaN;
-    switch (match.substring(0, 1)) {
+  return format.replace(/(tt)|(\w)\1*/g, (match: string) => {
+    let rep : number | string = Number.NaN;
+    switch (match) {
       case "y":
         const y = utc ? date.getUTCFullYear() : date.getFullYear();
         rep = match.length < 4 ? y % 100 : y; break;
@@ -68,8 +69,18 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
       case "m": rep = utc ? date.getUTCMinutes() : date.getMinutes(); break;
       case "s": rep = utc ? date.getUTCSeconds() : date.getSeconds(); break;
       case "f": rep = utc ? date.getUTCMilliseconds() : date.getMilliseconds(); break;
+      case "tt":
+        const matchM = meridiemRegex.exec(utc ? date.toLocaleTimeString([], { timeZone: 'UTC' }) : date.toLocaleTimeString());
+
+        if (matchM && matchM[0]) {
+          rep = matchM[0];
+        }
+        break;
     }
-    if (Number.isNaN(rep)) {
+    if (rep === "AM" || rep === "PM") {
+      return rep;
+    }
+    else if (Number.isNaN(rep)) {
       return match;
     } else {
       return (rep < 10 && match.length > 1) ? "0" + rep : "" + rep;
