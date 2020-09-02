@@ -669,7 +669,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             // Mutable and public module values are compiled as functions, because
             // values imported from ES2015 modules cannot be modified (see #986)
             let valToSet = makeValueFrom com ctx r valToSet
-            return Fable.Operation(Fable.CurriedApply(valToSet, [valueExpr]), Fable.Unit, r)
+            let args = [valueExpr; makeBoolConst true]
+            let info = argInfo None args Fable.AutoUncurrying
+            return staticCall r Fable.Unit info valToSet
         | _ ->
             let valToSet = makeValueFrom com ctx r valToSet
             return Fable.Set(valToSet, Fable.VarSet, valueExpr, r)

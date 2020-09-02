@@ -32,8 +32,8 @@
     "terser": "^4.7.0",
     "tslint": "^6.1.2",
     "typescript": "^3.9.3",
-    "webpack": "^4.43.0",
-    "webpack-cli": "^3.3.11"
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12"
   },
   "devDependencies": {
     "@matthid/source-map-visualization": "^0.5.0",

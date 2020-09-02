@@ -150,4 +150,11 @@ let tests =
         Util.Nested.nestedMutableValue |> equal "C"
         Util.Nested.getValueTimes2() |> equal "CC"
         Util.getNestedValueTimes3() |> equal "CCC"
+
+    testCase "Module mutable option values work" <| fun () -> // See #2147
+        Util.mutableValueOpt <- Some 3
+        Util.mutableValueOpt.Value |> equal 3
+        Util.mutableValueOpt <- None
+        Util.mutableValueOpt.IsNone |> equal true
+
   ]

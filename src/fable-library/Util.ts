@@ -469,10 +469,10 @@ export function max<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
   return comparer(x, y) > 0 ? x : y;
 }
 
-export function createAtom<T>(value: T): (v?: T) => T | void {
+export function createAtom<T>(value?: T): (v?: T, isSet?: boolean) => T | void {
   let atom = value;
-  return (value?: T) => {
-    if (value === void 0) {
+  return (value?: T, isSetter?: boolean) => {
+    if (!isSetter) {
       return atom;
     } else {
       atom = value;
