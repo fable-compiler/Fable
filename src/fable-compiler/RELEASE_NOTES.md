@@ -1,3 +1,7 @@
+### 2.13.0
+
+* Fix #2147: Mutable Option can't be change to None once it was set to Some @ncave
+
 ### 2.12.0
 
 * Add Guid.ToString formats @Shmew
