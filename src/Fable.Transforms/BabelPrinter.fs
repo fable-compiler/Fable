@@ -1,6 +1,7 @@
 module Fable.Transforms.BabelPrinter
 
 open System
+open Fable
 open Fable.Core
 open Fable.AST.Babel
 
@@ -22,11 +23,28 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
     let mutable line = 1
     let mutable column = 0
 
+    let addLoc (loc: SourceLocation option) =
+        match loc with
+        | None -> ()
+        | Some loc ->
+            map.AddMapping(source=path,
+                originalLine = loc.start.line,
+                originalColumn = loc.start.column,
+                generatedLine = line,
+                generatedColumn = column,
+                ?name = loc.identifierName)
+
     member _.Flush(): Async<unit> =
         async {
             do! stream.WriteAsync(builder.ToString()) |> Async.AwaitTask
             builder.Clear() |> ignore
         }
+
+    member _.PrintLines(lines: int) =
+        for i = 1 to lines do
+            builder.AppendLine() |> ignore
+        line <- line + lines
+        column <- 0
 
     interface IDisposable with
         member _.Dispose() = stream.Dispose()
@@ -41,16 +59,11 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
         member _.PopIndentation() =
             if indent > 0 then indent <- indent - 1
 
+        member _.AddLocation(loc) =
+            addLoc loc
+
         member _.Print(str, loc) =
-            match loc with
-            | None -> ()
-            | Some loc ->
-                map.AddMapping(source=path,
-                    originalLine = loc.start.line,
-                    originalColumn = loc.start.column,
-                    generatedLine = line,
-                    generatedColumn = column,
-                    ?name = loc.identifierName)
+            addLoc loc
 
             if column = 0 then
                 let indent = String.replicate indent indentSpaces
@@ -60,11 +73,8 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
             builder.Append(str) |> ignore
             column <- column + str.Length
 
-        member _.PrintNewLine() =
-            builder.AppendLine() |> ignore
-            builder.Append(String.replicate indent indentSpaces) |> ignore
-            line <- line + 1
-            column <- 0
+        member this.PrintNewLine() =
+            this.PrintLines(1)
 
 let run (program: Program): Async<unit> =
     // TODO: Dummy interface until we have a dotnet port of SourceMapGenerator
@@ -79,5 +89,7 @@ let run (program: Program): Async<unit> =
             match decl with
             | U2.Case1 statement -> statement.Print(printer)
             | U2.Case2 moduleDecl -> moduleDecl.Print(printer)
+            // TODO: Don't print 2 lines if next decl is import
+            printer.PrintLines(2)
             do! printer.Flush()
     }

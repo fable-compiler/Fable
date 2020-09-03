@@ -891,7 +891,7 @@ module Util =
             //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
             // else
                 upcast NullLiteral(?loc=r)
-        | Fable.UnitConstant -> upcast UnaryExpression(UnaryVoid, NullLiteral(), ?loc=r)
+        | Fable.UnitConstant -> upcast UnaryExpression(UnaryVoid, NumericLiteral(0.), ?loc=r)
         | Fable.BoolConstant x -> upcast BooleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> upcast StringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> upcast StringLiteral(x, ?loc=r)
@@ -1641,9 +1641,7 @@ module Util =
                     ?typeParameters = e.TypeParameters)
             | :? FunctionExpression as e ->
                 upcast FunctionDeclaration(
-                    e.Params,
-                    e.Body,
-                    ?id = Some id,
+                    e.Params, e.Body, id,
                     ?returnType = e.ReturnType,
                     ?typeParameters = e.TypeParameters)
             | _ -> upcast varDeclaration id isMutable expr
