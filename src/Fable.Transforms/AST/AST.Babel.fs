@@ -302,15 +302,17 @@ type NumericLiteral(value, ?loc) =
 //    inherit Node("Decorator", ?loc = loc)
 //    member __.Value = value
 //
-//type DirectiveLiteral(value, ?loc) =
-//    inherit Literal("DirectiveLiteral", ?loc = loc)
-//    member __.Value: string = value
+type DirectiveLiteral(value, ?loc) =
+    inherit Literal("DirectiveLiteral", ?loc = loc)
+    member __.Value: string = value
+    override _.Print(_) = failwith "not implemented"
 
 /// e.g. "use strict";
-//type Directive(value, ?loc) =
-//    inherit Node("Directive", ?loc = loc)
-//    new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc)
-//    member __.Value: DirectiveLiteral = value
+type Directive(value, ?loc) =
+    inherit Node("Directive", ?loc = loc)
+    new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc)
+    member __.Value: DirectiveLiteral = value
+    override _.Print(_) = failwith "not implemented"
 
 // Program
 
@@ -323,8 +325,8 @@ type Program(fileName, body, ?logs_, ?dependencies_, ?sourceFiles_) = // ?direct
     let logs = defaultArg logs_ Map.empty
     let sourceFiles = defaultArg sourceFiles_ [||]
     let dependencies = defaultArg dependencies_ [||]
-//    let directives = defaultArg directives_ [||]
-//    member __.Directives: Directive array = directives
+    let directives = [||] // defaultArg directives_ [||]
+    member __.Directives: Directive array = directives
     member __.SourceType: string = sourceType
     member __.Body: U2<Statement, ModuleDeclaration> array = body
     // Properties below don't belong to babel specs
@@ -346,9 +348,9 @@ type ExpressionStatement(expression, ?loc) =
 /// A block statement, i.e., a sequence of statements surrounded by braces.
 type BlockStatement(body, ?loc) = // ?directives_,
     inherit Statement("BlockStatement", ?loc = loc)
-//    let directives = defaultArg directives_ [||]
+    let directives = [||] // defaultArg directives_ [||]
+    member __.Directives: Directive array = directives
     member __.Body: Statement array = body
-//    member __.Directives: Directive array = directives
     override _.Print(printer) =
         printer.PrintBlock(body)
 
