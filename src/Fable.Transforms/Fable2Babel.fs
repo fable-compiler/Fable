@@ -238,13 +238,13 @@ module Reflection =
             [|
                 yield StringLiteral fullname :> Expression
                 match generics with
-                | [||] -> yield Undefined() :> Expression
+                | [||] -> yield Util.undefined None
                 | generics -> yield ArrayExpression generics :> _
                 match tryJsConstructor com ctx ent with
                 | Some cons -> yield cons
                 | None -> ()
             |]
-            |> libReflectionCall com ctx None "class"
+            |> libReflectionCall com ctx r "class"
 
     let private ofString s = StringLiteral s :> Expression
     let private ofArray babelExprs = ArrayExpression(List.toArray babelExprs) :> Expression
@@ -701,7 +701,7 @@ module Util =
     let makeJsObject pairs =
         pairs |> Seq.map (fun (name, value) ->
             let prop, computed = memberFromName name
-            ObjectProperty(prop, value, computed_=computed) |> U3.Case1)
+            ObjectProperty(prop, value, computed_=computed) |> U2.Case1)
         |> Seq.toArray
         |> ObjectExpression :> Expression
 
@@ -743,6 +743,10 @@ module Util =
 
     let macroExpression range (txt: string) args =
         MacroExpression(txt, List.toArray args, ?loc=range) :> Expression
+
+    let undefined range =
+//        Undefined(?loc=range) :> Expression
+        UnaryExpression(UnaryVoid, NumericLiteral(0.), ?loc=range) :> Expression
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -891,13 +895,14 @@ module Util =
             //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
             // else
                 upcast NullLiteral(?loc=r)
-        | Fable.UnitConstant -> upcast UnaryExpression(UnaryVoid, NullLiteral(), ?loc=r)
+        | Fable.UnitConstant -> undefined r
         | Fable.BoolConstant x -> upcast BooleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> upcast StringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> upcast StringLiteral(x, ?loc=r)
         | Fable.NumberConstant (x,_) ->
             if x < 0.
             // Negative numeric literals can give issues in Babel AST, see #1186
+            // TODO: We don't need this when using our own printer
             then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.), ?loc=r)
             else upcast NumericLiteral(x, ?loc=r)
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral(source, flags, ?loc=r)
@@ -918,7 +923,7 @@ module Util =
                 if mustWrapOption t
                 then libCall com ctx r "Option" "some" [|e|]
                 else e
-            | None -> upcast Undefined(?loc=r)
+            | None -> undefined r
         | Fable.EnumConstant(x,_) ->
             com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, genArgs) ->
@@ -954,13 +959,13 @@ module Util =
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx Attached hasSpread args body
             ObjectMethod(kind, prop, args, body, computed_=computed,
-                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U3.Case2
+                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U2.Case2
         let pojo =
             members |> List.collect (fun memb ->
                 let info = memb.Info
                 let prop, computed = memberFromName memb.Ident.Name
                 if info.IsValue then
-                    [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) |> U3.Case1]
+                    [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) |> U2.Case1]
                 elif info.IsGetter then
                     [makeObjMethod ObjectGetter prop computed false memb.Args memb.Body]
                 elif info.IsSetter then
@@ -970,7 +975,7 @@ module Util =
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
                         let body = enumerator2iterator com ctx
-                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> U3.Case2
+                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> U2.Case2
                     [method; iterator]
                 else
                     [makeObjMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
@@ -1640,9 +1645,7 @@ module Util =
                     ?typeParameters = e.TypeParameters)
             | :? FunctionExpression as e ->
                 upcast FunctionDeclaration(
-                    e.Params,
-                    e.Body,
-                    ?id = Some id,
+                    e.Params, e.Body, id,
                     ?returnType = e.ReturnType,
                     ?typeParameters = e.TypeParameters)
             | _ -> upcast varDeclaration id isMutable expr

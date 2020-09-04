@@ -21,6 +21,7 @@
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
     <Compile Include="Fable2Babel.fs" />
+    <Compile Include="BabelPrinter.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>

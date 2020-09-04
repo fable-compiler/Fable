@@ -953,6 +953,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
     let body = transformExpr com bodyCtx body |> run
     match body with
     // Accept import expressions, e.g. let foo x y = import "foo" "myLib"
+    // TODO: This should likely be a declaration replacement plugin
     | Fable.Import(info, _, r) when not info.IsCompilerGenerated ->
         // Use the full function type
         let typ = makeType Map.empty memb.FullType
