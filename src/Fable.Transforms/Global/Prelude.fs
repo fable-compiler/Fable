@@ -54,6 +54,12 @@ module Array =
             | Some x -> li <- x::li
         li
 
+    let splitWhile (f: 'a -> bool) (xs: 'a array) =
+        Array.tryFindIndex (f >> not) xs
+        |> function
+        | Some i -> Array.splitAt i xs
+        | None -> xs, [||]
+
 [<RequireQualifiedAccess>]
 module List =
     let isSingle = function

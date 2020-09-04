@@ -238,13 +238,13 @@ module Reflection =
             [|
                 yield StringLiteral fullname :> Expression
                 match generics with
-                | [||] -> yield Undefined() :> Expression
+                | [||] -> yield Util.undefined None
                 | generics -> yield ArrayExpression generics :> _
                 match tryJsConstructor com ctx ent with
                 | Some cons -> yield cons
                 | None -> ()
             |]
-            |> libReflectionCall com ctx None "class"
+            |> libReflectionCall com ctx r "class"
 
     let private ofString s = StringLiteral s :> Expression
     let private ofArray babelExprs = ArrayExpression(List.toArray babelExprs) :> Expression
@@ -744,6 +744,10 @@ module Util =
     let macroExpression range (txt: string) args =
         MacroExpression(txt, List.toArray args, ?loc=range) :> Expression
 
+    let undefined range =
+//        Undefined(?loc=range) :> Expression
+        UnaryExpression(UnaryVoid, NumericLiteral(0.), ?loc=range) :> Expression
+
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
             | Fable.GenericParam name -> [name]
@@ -891,7 +895,7 @@ module Util =
             //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
             // else
                 upcast NullLiteral(?loc=r)
-        | Fable.UnitConstant -> upcast UnaryExpression(UnaryVoid, NumericLiteral(0.), ?loc=r)
+        | Fable.UnitConstant -> undefined r
         | Fable.BoolConstant x -> upcast BooleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> upcast StringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> upcast StringLiteral(x, ?loc=r)
@@ -919,7 +923,7 @@ module Util =
                 if mustWrapOption t
                 then libCall com ctx r "Option" "some" [|e|]
                 else e
-            | None -> upcast Undefined(?loc=r)
+            | None -> undefined r
         | Fable.EnumConstant(x,_) ->
             com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, genArgs) ->

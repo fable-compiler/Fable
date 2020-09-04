@@ -21,7 +21,8 @@ module PrinterExtensions =
             | U2.Case1 p -> p.Print(printer)
             | U2.Case2 p -> p.Print(printer)
 
-        member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
+        member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?newLineAtEnd) =
+            let newLineAtEnd = defaultArg newLineAtEnd true
             printer.Print("{")
             printer.PrintNewLine()
             printer.PushIndentation()
@@ -30,9 +31,23 @@ module PrinterExtensions =
                 printSeparator printer
             printer.PopIndentation()
             printer.Print("}")
+            if newLineAtEnd then
+                printer.PrintNewLine()
 
-        member printer.PrintBlock(nodes: #Node array) =
-            printer.PrintBlock(nodes, (fun p x -> x.Print(p)), (fun p ->
+        member printer.PrintBlock(nodes: Statement array) =
+            let printStatement printer (s: Statement) =
+                match s with
+                | :? ExpressionStatement as e ->
+                    match e.Expression with
+                    | :? NullLiteral -> ()
+                    // TODO: Check the argument has no side-effect?
+                    | :? UnaryExpression as e when e.Operator = "void" -> ()
+                    // Constructors of classes deriving from System.Object add an empty object at the end
+                    | :? ObjectExpression as o when o.Properties.Length = 0 -> ()
+                    | _ -> e.Print(printer)
+                | _ -> s.Print(printer)
+
+            printer.PrintBlock(nodes, printStatement, (fun p ->
                 if printer.Column > 0 then
                     printer.Print(";")
                     printer.PrintNewLine()
@@ -108,9 +123,9 @@ type Node(``type``, ?loc) =
     member __.Type: string = ``type``
     member __.Loc: SourceLocation option = loc
     abstract Print: Printer -> unit
-    // TODO: Temporary solution to make everything compile,
-    // remove before merging PR
-    default _.Print(printer) = printer.Print(sprintf "TODO: %s" ``type``)
+//    // TODO: Temporary solution to make everything compile,
+//    // remove before merging PR
+//    default _.Print(printer) = printer.Print(sprintf "TODO: %s" ``type``)
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 [<AbstractClass>] type Expression(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
@@ -138,8 +153,73 @@ type MacroExpression(value, args, ?loc) =
     member __.Args: Expression array = args
     member __.Macro: bool = macro
     override _.Print(printer) =
-        // TODO: emit js
-        printer.Print(value)
+        printer.AddLocation(loc)
+
+        let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
+            System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
+
+        // Macro transformations
+        // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+        let value =
+            value
+            |> replace @"\$(\d+)\.\.\." (fun m ->
+                let rep = ResizeArray()
+                let i = int m.Groups.[1].Value
+                for j = i to args.Length - 1 do
+                    rep.Add("$" + string j)
+                String.concat ", " rep)
+
+            |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                let i = int m.Groups.[1].Value
+                match args.[i] with
+                | :? BooleanLiteral as b when b.Value -> m.Groups.[2].Value
+                | _ -> m.Groups.[3].Value)
+
+            |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                let i = int m.Groups.[2].Value
+                match Array.tryItem i args with
+                | Some _ -> m.Groups.[1].Value
+                | None -> "")
+
+            // This is to emit string literals as JS, I think it's no really
+            // used and it shouldn't be necessary with the new emitJsExpr
+//            |> replace @"\$(\d+)!" (fun m ->
+//                let i = int m.Groups.[1].Value
+//                match Array.tryItem i args with
+//                | Some(:? StringLiteral as s) -> s.Value
+//                | _ -> "")
+
+        let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
+            let segmentLength = segmentEnd - segmentStart
+            if segmentLength > 0 then
+                let segment = value.Substring(segmentStart, segmentLength)
+                let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
+                for i = 1 to subSegments.Length do
+                    printer.Print(subSegments.[i - 1])
+                    if i < subSegments.Length then
+                        printer.PrintNewLine()
+
+        let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+        if matches.Count > 0 then
+                for i = 0 to matches.Count - 1 do
+                    let m = matches.[i]
+
+                    let segmentStart =
+                        if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                        else 0
+
+                    printSegment printer value segmentStart m.Index
+
+                    let argIndex = int m.Value.[1..]
+                    match Array.tryItem argIndex args with
+                    | Some e -> printer.MaybeWithParens(e)
+                    | None -> printer.Print("(void \"missing\")")
+
+                let lastMatch = matches.[matches.Count - 1]
+                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
+
+        else
+            printer.Print(value)
 
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
@@ -181,36 +261,35 @@ type RegExpLiteral(pattern, flags_, ?loc) =
     member __.Pattern: string = pattern
     member __.Flags: string = flags
     override _.Print(printer) =
-        printer.Print("/")
+        printer.Print("/", ?loc=loc)
         printer.Print(pattern)
         printer.Print("/")
         printer.Print(flags)
 
 type Undefined(?loc) =
     inherit Identifier("undefined", ?loc = loc)
+    // TODO: Use `void 0` instead? Just remove this node?
     override _.Print(printer) =
-        printer.Print("undefined") // TODO: Instead? (void 0)
+        printer.Print("undefined", ?loc=loc)
 
 type NullLiteral(?loc) =
     inherit Literal("NullLiteral", ?loc = loc)
     override _.Print(printer) =
-        printer.Print("null")
+        printer.Print("null", ?loc=loc)
 
 type StringLiteral(value, ?loc) =
     inherit Literal("StringLiteral", ?loc = loc)
     member __.Value: string = value
     override _.Print(printer) =
-        printer.Print("\"")
-        // TODO: Escape line breaks and quotations
-        printer.Print(value)
+        printer.Print("\"", ?loc=loc)
+        printer.Print(System.Web.HttpUtility.JavaScriptStringEncode(value))
         printer.Print("\"")
 
 type BooleanLiteral(value, ?loc) =
     inherit Literal("BooleanLiteral", ?loc = loc)
     member __.Value: bool = value
     override _.Print(printer) =
-        let str = if value then "true" else "false"
-        printer.Print(str, ?loc=loc)
+        printer.Print((if value then "true" else "false"), ?loc=loc)
 
 type NumericLiteral(value, ?loc) =
     inherit Literal("NumericLiteral", ?loc = loc)
@@ -219,40 +298,42 @@ type NumericLiteral(value, ?loc) =
         printer.Print(value.ToString(), ?loc=loc)
 
 // Misc
-type Decorator(value, ?loc) =
-    inherit Node("Decorator", ?loc = loc)
-    member __.Value = value
-
-type DirectiveLiteral(value, ?loc) =
-    inherit Literal("DirectiveLiteral", ?loc = loc)
-    member __.Value: string = value
+//type Decorator(value, ?loc) =
+//    inherit Node("Decorator", ?loc = loc)
+//    member __.Value = value
+//
+//type DirectiveLiteral(value, ?loc) =
+//    inherit Literal("DirectiveLiteral", ?loc = loc)
+//    member __.Value: string = value
 
 /// e.g. "use strict";
-type Directive(value, ?loc) =
-    inherit Node("Directive", ?loc = loc)
-    new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc)
-    member __.Value: DirectiveLiteral = value
+//type Directive(value, ?loc) =
+//    inherit Node("Directive", ?loc = loc)
+//    new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc)
+//    member __.Value: DirectiveLiteral = value
 
 // Program
 
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
-type Program(fileName, body, ?directives_, ?logs_, ?dependencies_, ?sourceFiles_) =
+type Program(fileName, body, ?logs_, ?dependencies_, ?sourceFiles_) = // ?directives_,
     inherit Node("Program")
     let sourceType = "module" // Don't use "script"
-    let directives = defaultArg directives_ [||]
     let logs = defaultArg logs_ Map.empty
-    let dependencies = defaultArg dependencies_ [||]
     let sourceFiles = defaultArg sourceFiles_ [||]
+    let dependencies = defaultArg dependencies_ [||]
+//    let directives = defaultArg directives_ [||]
+//    member __.Directives: Directive array = directives
     member __.SourceType: string = sourceType
     member __.Body: U2<Statement, ModuleDeclaration> array = body
-    member __.Directives: Directive array = directives
     // Properties below don't belong to babel specs
     member __.FileName: string = fileName
     member __.Logs: Map<string, string array> = logs
     member __.Dependencies: string[] = dependencies
     member __.SourceFiles: string[] = sourceFiles
+    override _.Print(_) =
+        failwith "Program cannot be printed directly"
 
 // Statements
 /// An expression statement, i.e., a statement consisting of a single expression.
@@ -263,22 +344,23 @@ type ExpressionStatement(expression, ?loc) =
         expression.Print(printer)
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
-type BlockStatement(body, ?directives_, ?loc) =
+type BlockStatement(body, ?loc) = // ?directives_,
     inherit Statement("BlockStatement", ?loc = loc)
-    let directives = defaultArg directives_ [||]
+//    let directives = defaultArg directives_ [||]
     member __.Body: Statement array = body
-    member __.Directives: Directive array = directives
+//    member __.Directives: Directive array = directives
     override _.Print(printer) =
         printer.PrintBlock(body)
 
 /// An empty statement, i.e., a solitary semicolon.
-type EmptyStatement(?loc) =
-    inherit Statement("EmptyStatement", ?loc = loc)
+//type EmptyStatement(?loc) =
+//    inherit Statement("EmptyStatement", ?loc = loc)
+//    override _.Print(_) = ()
 
 type DebuggerStatement(?loc) =
     inherit Statement("DebuggerStatement", ?loc = loc)
     override _.Print(printer) =
-        printer.Print("debugger")
+        printer.Print("debugger", ?loc=loc)
 
 /// Statement (typically loop) prefixed with a label (for continue and break)
 type LabeledStatement(label, body, ?loc) =
@@ -297,14 +379,14 @@ type BreakStatement(?label, ?loc) =
     inherit Statement("BreakStatement", ?loc = loc)
     member __.Label: Identifier option = label
     override _.Print(printer) =
-        printer.Print("break")
+        printer.Print("break", ?loc=loc)
 
 /// Continue can optionally take a label of a loop to continue
 type ContinueStatement(?label, ?loc) =
     inherit Statement("ContinueStatement", ?loc = loc)
     member __.Label: Identifier option = label
     override _.Print(printer) =
-        printer.Print("continue")
+        printer.Print("continue", ?loc=loc)
         printer.PrintOptional(" ", label)
 
 // type WithStatement
@@ -314,7 +396,7 @@ type ReturnStatement(argument, ?loc) =
     inherit Statement("ReturnStatement", ?loc = loc)
     member __.Argument: Expression = argument
     override _.Print(printer) =
-        printer.Print("return ")
+        printer.Print("return ", ?loc=loc)
         argument.Print(printer)
 
 type IfStatement(test, consequent, ?alternate, ?loc) =
@@ -323,10 +405,11 @@ type IfStatement(test, consequent, ?alternate, ?loc) =
     member __.Consequent: Statement = consequent
     member __.Alternate: Statement option = alternate
     override _.Print(printer) =
-        printer.Print("if (")
+        printer.Print("if (", ?loc=loc)
         test.Print(printer)
         printer.Print(") ")
         consequent.Print(printer)
+        // TODO: Remove else clauses if they become empty after removing null statements (see PrintBlock)
         printer.PrintOptional((if printer.Column > 0 then " else " else "else "), alternate)
         // If the consequent/alternate is a block
         // a new line should already be printed
@@ -339,6 +422,7 @@ type SwitchCase(consequent, ?test, ?loc) =
     member __.Test: Expression option = test
     member __.Consequent: Statement array = consequent
     override _.Print(printer) =
+        printer.AddLocation(loc)
         match test with
         | None -> printer.Print("default:")
         | Some test ->
@@ -361,15 +445,15 @@ type SwitchStatement(discriminant, cases, ?loc) =
     override _.Print(printer) =
         printer.Print("switch (", ?loc=loc)
         discriminant.Print(printer)
-        printer.Print(")")
-        printer.PrintBlock(cases)
+        printer.Print(") ")
+        printer.PrintBlock(cases, (fun p x -> x.Print(p)), fun _ -> ())
 
 // Exceptions
 type ThrowStatement(argument, ?loc) =
     inherit Statement("ThrowStatement", ?loc = loc)
     member __.Argument: Expression = argument
     override _.Print(printer) =
-        printer.Print("throw ")
+        printer.Print("throw ", ?loc=loc)
         argument.Print(printer)
 
 /// A catch clause following a try block.
@@ -393,8 +477,8 @@ type TryStatement(block, ?handler, ?finalizer, ?loc) =
     override _.Print(printer) =
         printer.Print("try ", ?loc=loc)
         block.Print(printer)
-        printer.PrintOptional(" catch ", handler)
-        printer.PrintOptional(" finally ", finalizer)
+        printer.PrintOptional("catch ", handler)
+        printer.PrintOptional("finally ", finalizer)
 
 // Declarations
 type VariableDeclarator(id, ?init, ?loc) =
@@ -402,6 +486,7 @@ type VariableDeclarator(id, ?init, ?loc) =
     member __.Id: Pattern = id
     member __.Init: Expression option = init
     override _.Print(printer) =
+        printer.AddLocation(loc)
         printer.PrintPattern(id)
         printer.PrintOptional(" = ", init)
 
@@ -446,9 +531,9 @@ type ForStatement(body, ?init, ?test, ?update, ?loc) =
         | None -> ()
         | Some(U2.Case1 x) -> x.Print(printer)
         | Some(U2.Case2 x) -> x.Print(printer)
-        printer.Print(", ")
+        printer.Print("; ")
         printer.PrintOptional(test)
-        printer.Print(", ")
+        printer.Print("; ")
         printer.PrintOptional(update)
         printer.Print(") ")
         body.Print(printer)
@@ -513,7 +598,8 @@ type ArrowFunctionExpression(``params``, body, ?returnType, ?typeParameters, ?lo
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
     override _.Print(printer) =
         // TODO: type annotations
-        printer.Print("(")
+        // TODO: Remove parens if we only have one argument (and no annotation)
+        printer.Print("(", ?loc=loc)
         printer.PrintCommaSeparatedArray(``params``)
         printer.Print(") => ")
         match body with
@@ -645,6 +731,7 @@ type MemberExpression(object, property, ?computed_, ?loc) =
     member __.Property: Expression = property
     member __.Computed: bool = computed
     override _.Print(printer) =
+        printer.AddLocation(loc)
         object.Print(printer)
         if computed then
             printer.Print("[", ?loc=loc)
@@ -667,7 +754,8 @@ type ObjectExpression(properties, ?loc) =
             p.Print(",")
             p.PrintNewLine()
 
-        printer.PrintBlock(properties, printProp, printSeparator)
+        printer.AddLocation(loc)
+        printer.PrintBlock(properties, printProp, printSeparator, newLineAtEnd=false)
 
 /// A conditional expression, i.e., a ternary ?/: expression.
 type ConditionalExpression(test, consequent, alternate, ?loc) =
@@ -948,6 +1036,7 @@ type ClassBody(body, ?loc) =
             | U2.Case1 x -> x.Print(printer)
             | U2.Case2 x -> x.Print(printer)
 
+        printer.AddLocation(loc)
         printer.PrintBlock(body, printMember, (fun p ->
             if printer.Column > 0 then
                 printer.Print(";")
@@ -1109,20 +1198,24 @@ type TypeAnnotationInfo(``type``) =
 type TypeAnnotation(typeAnnotation) =
     inherit Node("TypeAnnotation")
     member __.TypeAnnotation: TypeAnnotationInfo = typeAnnotation
+    override _.Print(_) = failwith "not implemented"
 
 type TypeParameter(name, ?bound, ?``default``) =
     inherit Node("TypeParameter")
     member __.Name: string = name
     member __.Bound: TypeAnnotation option = bound
     member __.Default: TypeAnnotationInfo option = ``default``
+    override _.Print(_) = failwith "not implemented"
 
 type TypeParameterDeclaration(``params``) =
     inherit Node("TypeParameterDeclaration")
     member __.Params: TypeParameter array = ``params``
+    override _.Print(_) = failwith "not implemented"
 
 type TypeParameterInstantiation(``params``) =
     inherit Node("TypeParameterInstantiation")
     member __.Params: TypeAnnotationInfo array = ``params``
+    override _.Print(_) = failwith "not implemented"
 
 type StringTypeAnnotation() =
     inherit TypeAnnotationInfo("StringTypeAnnotation")
@@ -1152,6 +1245,7 @@ type FunctionTypeParam(name, typeInfo, ?optional) =
     member __.Name: Identifier = name
     member __.TypeAnnotation: TypeAnnotationInfo = typeInfo
     member __.Optional: bool option = optional
+    override _.Print(_) = failwith "not implemented"
 
 type FunctionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest) =
     inherit TypeAnnotationInfo("FunctionTypeAnnotation")
@@ -1178,6 +1272,7 @@ type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto, ?meth
     member __.Optional: bool option = optional
     member __.Proto: bool option = proto
     member __.Method: bool option = method
+    override _.Print(_) = failwith "not implemented"
 
 type ObjectTypeIndexer(key, value, ?id, ?``static``) =
     inherit Node("ObjectTypeIndexer")
@@ -1185,11 +1280,13 @@ type ObjectTypeIndexer(key, value, ?id, ?``static``) =
     member __.Key: Identifier = key
     member __.Value: TypeAnnotationInfo = value
     member __.Static: bool option = ``static``
+    override _.Print(_) = failwith "not implemented"
 
 type ObjectTypeCallProperty(value, ?``static``) =
     inherit Node("ObjectTypeCallProperty")
     member __.Value: TypeAnnotationInfo = value
     member __.Static: bool option = ``static``
+    override _.Print(_) = failwith "not implemented"
 
 type ObjectTypeInternalSlot(id, value, optional, ``static``, method) =
     inherit Node("ObjectTypeInternalSlot")
@@ -1198,6 +1295,7 @@ type ObjectTypeInternalSlot(id, value, optional, ``static``, method) =
     member __.Optional: bool = optional
     member __.Static: bool = ``static``
     member __.Method: bool = method
+    override _.Print(_) = failwith "not implemented"
 
 type ObjectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
     inherit TypeAnnotationInfo("ObjectTypeAnnotation")
@@ -1215,6 +1313,7 @@ type InterfaceExtends(id, ?typeParameters) =
     inherit Node("InterfaceExtends")
     member __.Id: Identifier = id
     member __.TypeParameters: TypeParameterInstantiation option = typeParameters
+    override _.Print(_) = failwith "not implemented"
 
 type InterfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_, ?loc) = // ?mixins_,
     inherit Declaration("InterfaceDeclaration", ?loc = loc)
@@ -1227,3 +1326,4 @@ type InterfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_, ?l
     member __.Implements: ClassImplements array = implements
 //    member __.Mixins: InterfaceExtends array = mixins
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    override _.Print(_) = failwith "not implemented"

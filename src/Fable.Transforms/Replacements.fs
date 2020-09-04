@@ -1255,7 +1255,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", _ -> "void ($0)" |> emitJsExpr r t args |> Some
+    | "Ignore", _ -> "void $0" |> emitJsExpr r t args |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
@@ -2650,6 +2650,11 @@ let guids (com: ICompiler) (ctx: Context) (_: SourceLocation option) t (i: CallI
         | _ -> None
     | _ -> None
 
+let httpUtility (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "JavaScriptStringEncode" -> emitJsExpr r t args "JSON.stringify($0).slice(1, -1)" |> Some
+    | _ -> None
+
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" -> Helper.LibCall(com, "Uri", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
@@ -2916,6 +2921,7 @@ let private replacedModules =
     "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
     Types.guid, guids
     "System.Uri", uris
+    "System.Web.HttpUtility", httpUtility
     "System.Lazy`1", laziness
     "Microsoft.FSharp.Control.Lazy", laziness
     "Microsoft.FSharp.Control.LazyExtensions", laziness

@@ -350,7 +350,6 @@ let startCompilation (respond: obj->unit) (com: Compiler) (project: Project)  =
 
             let program = Babel.Program(babel.FileName,
                                         babel.Body,
-                                        babel.Directives,
                                         com.GetFormattedLogs(),
                                         babel.Dependencies)
 

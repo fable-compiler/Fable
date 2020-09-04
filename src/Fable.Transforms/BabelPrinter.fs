@@ -40,10 +40,9 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
             builder.Clear() |> ignore
         }
 
-    member _.PrintLines(lines: int) =
-        for i = 1 to lines do
-            builder.AppendLine() |> ignore
-        line <- line + lines
+    member _.PrintNewLine() =
+        builder.AppendLine() |> ignore
+        line <- line + 1
         column <- 0
 
     interface IDisposable with
@@ -74,7 +73,7 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
             column <- column + str.Length
 
         member this.PrintNewLine() =
-            this.PrintLines(1)
+            this.PrintNewLine()
 
 let run (program: Program): Async<unit> =
     // TODO: Dummy interface until we have a dotnet port of SourceMapGenerator
@@ -83,13 +82,32 @@ let run (program: Program): Async<unit> =
         { new SourceMapGenerator with
             member _.AddMapping(_,_,_,_,_,_) = () }
 
+    let printDeclWithExtraLine extraLine printer (decl: U2<Statement, ModuleDeclaration>) =
+        match decl with
+        | U2.Case1 statement -> statement.Print(printer)
+        | U2.Case2 moduleDecl -> moduleDecl.Print(printer)
+
+        if printer.Column > 0 then
+            printer.Print(";")
+            printer.PrintNewLine()
+        if extraLine then
+            printer.PrintNewLine()
+
     async {
         use printer = new FilePrinter(program.FileName + ".js", map)
-        for decl in program.Body do
-            match decl with
-            | U2.Case1 statement -> statement.Print(printer)
-            | U2.Case2 moduleDecl -> moduleDecl.Print(printer)
-            // TODO: Don't print 2 lines if next decl is import
-            printer.PrintLines(2)
+
+        let imports, restDecls =
+            program.Body |> Array.splitWhile (function
+                | U2.Case2(:? ImportDeclaration) -> true
+                | _ -> false)
+
+        for decl in imports do
+            printDeclWithExtraLine false printer decl
+
+        printer.PrintNewLine()
+        do! printer.Flush()
+
+        for decl in restDecls do
+            printDeclWithExtraLine true printer decl
             do! printer.Flush()
     }
