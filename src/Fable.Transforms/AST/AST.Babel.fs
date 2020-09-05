@@ -282,7 +282,7 @@ type StringLiteral(value, ?loc) =
     member __.Value: string = value
     override _.Print(printer) =
         printer.Print("\"", ?loc=loc)
-        printer.Print(System.Web.HttpUtility.JavaScriptStringEncode(value))
+        printer.Print(value.Replace("\"", "\\\""))
         printer.Print("\"")
 
 type BooleanLiteral(value, ?loc) =
