@@ -86,13 +86,42 @@ module PrinterExtensions =
             body.Print(printer)
 
         // TODO: type annotations
-        member printer.PrintFunction(id: Identifier option, ``params``: Pattern array, body: BlockStatement, loc) =
-            printer.Print("function ", ?loc=loc)
-            printer.PrintOptional(id)
-            printer.Print("(")
-            printer.PrintCommaSeparatedArray(``params``)
-            printer.Print(") ")
-            body.Print(printer)
+        member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement, loc, ?isArrow) =
+            let isArrow = defaultArg isArrow false
+            printer.AddLocation(loc)
+
+            // Check if we can remove the function
+            let skipExpr =
+                match body.Body with
+                | [|:? ReturnStatement as r|] ->
+                    match r.Argument with
+                    | :? CallExpression as c when parameters.Length = c.Arguments.Length ->
+                        Array.zip parameters c.Arguments
+                        |> Array.forall (function
+                            | U2.Case2(:? Identifier as p), (:? Identifier as a) -> p.Name = a.Name
+                            | _ -> false)
+                        |> function true -> Some(c.Callee) | false -> None
+                    | _ -> None
+                | _ -> None
+
+            match skipExpr with
+            | Some e -> e.Print(printer)
+            | None ->
+                if isArrow then
+                    // TODO: Remove parens if we only have one argument (and no annotation)
+                    printer.Print("(")
+                    printer.PrintCommaSeparatedArray(parameters)
+                    printer.Print(") => ")
+                    match body.Body with
+                    | [|:? ReturnStatement as r |] -> r.Argument.Print(printer)
+                    | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
+                else
+                printer.Print("function ")
+                printer.PrintOptional(id)
+                printer.Print("(")
+                printer.PrintCommaSeparatedArray(parameters)
+                printer.Print(") ")
+                printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
         member printer.MaybeWithParens(expr: Expression) =
             match expr with
@@ -158,37 +187,6 @@ type MacroExpression(value, args, ?loc) =
         let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
             System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
 
-        // Macro transformations
-        // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
-        let value =
-            value
-            |> replace @"\$(\d+)\.\.\." (fun m ->
-                let rep = ResizeArray()
-                let i = int m.Groups.[1].Value
-                for j = i to args.Length - 1 do
-                    rep.Add("$" + string j)
-                String.concat ", " rep)
-
-            |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
-                let i = int m.Groups.[1].Value
-                match args.[i] with
-                | :? BooleanLiteral as b when b.Value -> m.Groups.[2].Value
-                | _ -> m.Groups.[3].Value)
-
-            |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
-                let i = int m.Groups.[2].Value
-                match Array.tryItem i args with
-                | Some _ -> m.Groups.[1].Value
-                | None -> "")
-
-            // This is to emit string literals as JS, I think it's no really
-            // used and it shouldn't be necessary with the new emitJsExpr
-//            |> replace @"\$(\d+)!" (fun m ->
-//                let i = int m.Groups.[1].Value
-//                match Array.tryItem i args with
-//                | Some(:? StringLiteral as s) -> s.Value
-//                | _ -> "")
-
         let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
             let segmentLength = segmentEnd - segmentStart
             if segmentLength > 0 then
@@ -199,27 +197,61 @@ type MacroExpression(value, args, ?loc) =
                     if i < subSegments.Length then
                         printer.PrintNewLine()
 
-        let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
-        if matches.Count > 0 then
-                for i = 0 to matches.Count - 1 do
-                    let m = matches.[i]
-
-                    let segmentStart =
-                        if i > 0 then matches.[i-1].Index + matches.[i-1].Length
-                        else 0
-
-                    printSegment printer value segmentStart m.Index
-
-                    let argIndex = int m.Value.[1..]
-                    match Array.tryItem argIndex args with
-                    | Some e -> printer.MaybeWithParens(e)
-                    | None -> printer.Print("(void \"missing\")")
-
-                let lastMatch = matches.[matches.Count - 1]
-                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
-
+        if args.Length = 0 then
+            printSegment printer value 0 value.Length
         else
-            printer.Print(value)
+            // Macro transformations
+            // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+            let value =
+                value
+                |> replace @"\$(\d+)\.\.\." (fun m ->
+                    let rep = ResizeArray()
+                    let i = int m.Groups.[1].Value
+                    for j = i to args.Length - 1 do
+                        rep.Add("$" + string j)
+                    String.concat ", " rep)
+
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match args.[i] with
+                    | :? BooleanLiteral as b when b.Value -> m.Groups.[2].Value
+                    | _ -> m.Groups.[3].Value)
+
+                |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                    let i = int m.Groups.[2].Value
+                    match Array.tryItem i args with
+                    | Some _ -> m.Groups.[1].Value
+                    | None -> "")
+
+                // This is to emit string literals as JS, I think it's no really
+                // used and it shouldn't be necessary with the new emitJsExpr
+    //            |> replace @"\$(\d+)!" (fun m ->
+    //                let i = int m.Groups.[1].Value
+    //                match Array.tryItem i args with
+    //                | Some(:? StringLiteral as s) -> s.Value
+    //                | _ -> "")
+
+            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            if matches.Count > 0 then
+                    for i = 0 to matches.Count - 1 do
+                        let m = matches.[i]
+
+                        let segmentStart =
+                            if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                            else 0
+
+                        printSegment printer value segmentStart m.Index
+
+                        let argIndex = int m.Value.[1..]
+                        match Array.tryItem argIndex args with
+                        | Some e -> printer.MaybeWithParens(e)
+                        | None -> printer.Print("(void \"missing\")")
+
+                    let lastMatch = matches.[matches.Count - 1]
+                    printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
+
+            else
+                printer.Print(value)
 
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
@@ -569,6 +601,7 @@ type FunctionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?lo
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
     override _.Print(printer) =
         printer.PrintFunction(Some id, ``params``, body, loc)
+        printer.PrintNewLine()
 
 // Expressions
 
@@ -597,17 +630,11 @@ type ArrowFunctionExpression(``params``, body, ?returnType, ?typeParameters, ?lo
     member __.ReturnType: TypeAnnotation option = returnType
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
     override _.Print(printer) =
-        // TODO: type annotations
-        // TODO: Remove parens if we only have one argument (and no annotation)
-        printer.Print("(", ?loc=loc)
-        printer.PrintCommaSeparatedArray(``params``)
-        printer.Print(") => ")
-        match body with
-        | U2.Case1 block ->
-            match block.Body with
-            | [|:? ReturnStatement as r |] -> r.Argument.Print(printer)
-            | _ -> printer.PrintBlock(block.Body, skipNewLineAtEnd=true)
-        | U2.Case2 expr -> expr.Print(printer)
+        let body =
+            match body with
+            | U2.Case1 block -> block
+            | U2.Case2 expr -> BlockStatement [|ReturnStatement expr|]
+        printer.PrintFunction(None, ``params``, body, loc, isArrow=true)
 
 type FunctionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
     inherit Expression("FunctionExpression", ?loc = loc)
