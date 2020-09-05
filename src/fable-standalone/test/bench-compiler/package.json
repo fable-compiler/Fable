@@ -28,15 +28,18 @@
     "webpack-bundle": "npm run webpack -- -p --entry ./out-node/app.js --output ./dist/bundle.min.js --target node",
 
     "prebuild-lib-dotnet-ts": "if exist out-lib (rmdir /s /q out-lib)",
+    "build-lib-dotnet": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib && npm run build-lib-transform",
     "build-lib-dotnet-ts": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib --classTypes --typescript && npm run build-lib-transform -- --typescript",
     "build-lib-transform": "node transform ../../../fable-library/Fable.Library.fsproj out-lib ../../../../build/fable-library",
     "postbuild-lib-transform": "rmdir /s /q out-lib\\fable-library && xcopy /s /y ..\\..\\..\\fable-library\\*.ts out-lib\\",
     "tsc-lib-init": "npm run tsc -- --init --target es2020 --module es2020 --allowJs",
     "tsc-lib": "npm run tsc -- -p ./out-lib --outDir ./out-lib-js",
 
-    "build-test-node-ts": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --classTypes --typescript && npm run build-test-transform -- --typescript",
+    "build-test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test && npm run build-test-transform",
     "build-test-dotnet-ts": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --classTypes --typescript && npm run build-test-transform -- --typescript",
     "build-test-dotnet-opt": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --optimize-fcs && npm run build-test-transform",
+    "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test && npm run build-test-transform",
+    "build-test-node-ts": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --classTypes --typescript && npm run build-test-transform -- --typescript",
     "build-test-transform": "node transform ../../../../../fable-test/fable-test.fsproj out-test ../../../../build/fable-library",
     "test-node": "node ./out-test/src/test.js",
 

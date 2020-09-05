@@ -35,6 +35,7 @@ let references_core = [|
     "System.Threading"
     "System.Threading.Tasks"
     "System.ValueTuple"
+    "System.Web.HttpUtility"
     |]
 
 let references_net45 = [|
