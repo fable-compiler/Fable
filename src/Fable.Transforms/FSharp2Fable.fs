@@ -1016,11 +1016,9 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
     elif isInline memb then
         let inlineExpr = { Args = List.concat args
                            Body = body
-                           FileName = (com :> ICompiler).CurrentFile }
+                           FileName = (com :> Compiler).CurrentFile }
         com.AddInlineExpr(memb, inlineExpr)
-        if com.Options.outputPublicInlinedFunctions && isPublicMember memb then
-            transformMemberFunctionOrValue com ctx memb args body
-        else []
+        []
     elif memb.IsImplicitConstructor then
         transformImplicitConstructor com ctx memb args body
     elif memb.IsOverrideOrExplicitInterfaceImplementation then
@@ -1087,7 +1085,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                       Constructor = None
                       BaseCall = None
                       AttachedMembers = [] }]
-        | Entity(ent, sub) ->
+        | Entity(_, sub) ->
             transformDeclarations com ctx sub
         | MemberOrFunctionOrValue(meth, args, body) ->
             transformMemberDecl com ctx meth args body
@@ -1126,7 +1124,7 @@ let private tryGetMemberArgsAndBody com (implFiles: IDictionary<string, FSharpIm
     | true, f -> f.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName)
     | false, _ -> None
 
-type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplementationFileContents>) =
+type FableCompiler(com: Compiler, implFiles: IDictionary<string, FSharpImplementationFileContents>) =
     let attachedMembers = Dictionary<string, _>()
 
     member val WatchDependencies = HashSet<string>()
@@ -1206,7 +1204,7 @@ type FableCompiler(com: ICompiler, implFiles: IDictionary<string, FSharpImplemen
         member this.AddInlineDependency(fileName) =
             this.WatchDependencies.Add(fileName) |> ignore
 
-    interface ICompiler with
+    interface Compiler with
         member __.Options = com.Options
         member __.LibraryDir = com.LibraryDir
         member __.CurrentFile = com.CurrentFile
@@ -1223,7 +1221,7 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
     | Some rootEnt -> getEntityFullName rootEnt
     | None -> ""
 
-let transformFile (com: ICompiler) (implFiles: IDictionary<string, FSharpImplementationFileContents>) =
+let transformFile (com: Compiler) (implFiles: IDictionary<string, FSharpImplementationFileContents>) =
     let file =
         match implFiles.TryGetValue(com.CurrentFile) with
         | true, file -> file

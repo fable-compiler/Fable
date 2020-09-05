@@ -222,7 +222,7 @@ type Context =
         }
 
 type IFableCompiler =
-    inherit ICompiler
+    inherit Compiler
     abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type *
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
@@ -266,7 +266,7 @@ module Helpers =
         else (nonAbbreviatedType t).GenericArguments
 
 
-    let private getEntityMangledName (com: ICompiler) trimRootModule (ent: Fable.Entity) =
+    let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.Entity) =
         match ent.FullName with
         | fullName when not trimRootModule -> fullName
         | fullName ->
@@ -279,12 +279,12 @@ module Helpers =
         if name = ".ctor" then "$ctor"
         else name.Replace('.','_').Replace('`','$')
 
-    let getEntityDeclarationName (com: ICompiler) (ent: Fable.Entity) =
+    let getEntityDeclarationName (com: Compiler) (ent: Fable.Entity) =
         let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
         (entityName, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent (fun _ -> false)
 
-    let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
+    let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
             let overloadSuffix = OverloadSuffix.getExtensionHash memb
             let entName = getEntityMangledName com false (FsEnt memb.ApparentEnclosingEntity)
@@ -304,7 +304,7 @@ module Helpers =
             | None -> memb.CompiledName, Naming.NoMemberPart
 
     /// Returns the sanitized name for the member declaration and whether it has an overload suffix
-    let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
+    let getMemberDeclarationName (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         let name, part = getMemberMangledName com true memb
         let name = cleanNameAsJsIdentifier name
         let part = part.Replace(cleanNameAsJsIdentifier)
@@ -312,7 +312,7 @@ module Helpers =
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary
-    let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
+    let getMemberUniqueName (com: Compiler) (memb: FSharpMemberOrFunctionOrValue): string =
         getMemberMangledName com false memb
         ||> Naming.buildNameWithoutSanitation
 
@@ -1004,7 +1004,7 @@ module Util =
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
-    let fixImportedRelativePath (com: ICompiler) (path: string) normalizedSourcePath =
+    let fixImportedRelativePath (com: Compiler) (path: string) normalizedSourcePath =
         if Path.isRelativePath path then
             let file = Path.normalizePathAndEnsureFsExtension normalizedSourcePath
             if file = com.CurrentFile
@@ -1057,7 +1057,7 @@ module Util =
             makeImportCompilerGenerated typ selector path |> Some
         | _ -> None
 
-    let tryGlobalOrImportedEntity (com: ICompiler) (ent: Fable.Entity) =
+    let tryGlobalOrImportedEntity (com: Compiler) (ent: Fable.Entity) =
         match ent.Attributes with
         | GlobalAtt(Some customName) ->
             makeTypedIdent Fable.Any customName |> Fable.IdentExpr |> Some
@@ -1095,7 +1095,7 @@ module Util =
             ent.FullName.StartsWith("Fable.Core.")
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
-    let entityRefWithSuffix (com: ICompiler) (ent: Fable.Entity) suffix =
+    let entityRefWithSuffix (com: Compiler) (ent: Fable.Entity) suffix =
         let error msg =
             sprintf "%s: %s" msg ent.FullName
             |> addErrorAndReturnNull com [] None
@@ -1111,11 +1111,11 @@ module Util =
             else
                 error "Cannot inline functions that reference private entities"
 
-    let entityRef (com: ICompiler) (ent: Fable.Entity) =
+    let entityRef (com: Compiler) (ent: Fable.Entity) =
         entityRefWithSuffix com ent ""
 
     /// First checks if the entity is global or imported
-    let entityRefMaybeGlobalOrImported (com: ICompiler) (ent: Fable.Entity) =
+    let entityRefMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
         match tryGlobalOrImportedEntity com ent with
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
@@ -1434,7 +1434,7 @@ module Util =
         let typ = makeType ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit ->
-            if com.Options.verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
+            if com.Options.Verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)

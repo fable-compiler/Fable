@@ -6,18 +6,21 @@ open Fable.Core
 open Fable.AST.Babel
 
 type SourceMapGenerator =
-    abstract AddMapping: source: string
-        * originalLine: int
+    abstract AddMapping:
+        originalLine: int
         * originalColumn: int
         * generatedLine: int
         * generatedColumn: int
         * ?name: string
         -> unit
 
-type FilePrinter(path: string, map: SourceMapGenerator) =
+type Writer =
+    inherit IDisposable
+    abstract Write: string -> Async<unit>
+
+type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
     // TODO: We can make this configurable later
     let indentSpaces = "    "
-    let stream = new IO.StreamWriter(path)
     let builder = Text.StringBuilder()
     let mutable indent = 0
     let mutable line = 1
@@ -27,16 +30,15 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
         match loc with
         | None -> ()
         | Some loc ->
-            map.AddMapping(source=path,
-                originalLine = loc.start.line,
-                originalColumn = loc.start.column,
-                generatedLine = line,
-                generatedColumn = column,
-                ?name = loc.identifierName)
+            map.AddMapping(originalLine = loc.start.line,
+                           originalColumn = loc.start.column,
+                           generatedLine = line,
+                           generatedColumn = column,
+                           ?name = loc.identifierName)
 
     member _.Flush(): Async<unit> =
         async {
-            do! stream.WriteAsync(builder.ToString()) |> Async.AwaitTask
+            do! writer.Write(builder.ToString())
             builder.Clear() |> ignore
         }
 
@@ -46,7 +48,7 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
         column <- 0
 
     interface IDisposable with
-        member _.Dispose() = stream.Dispose()
+        member _.Dispose() = writer.Dispose()
 
     interface Printer with
         member _.Line = line
@@ -75,12 +77,7 @@ type FilePrinter(path: string, map: SourceMapGenerator) =
         member this.PrintNewLine() =
             this.PrintNewLine()
 
-let run (program: Program): Async<unit> =
-    // TODO: Dummy interface until we have a dotnet port of SourceMapGenerator
-    // https://github.com/mozilla/source-map#with-sourcemapgenerator-low-level-api
-    let map =
-        { new SourceMapGenerator with
-            member _.AddMapping(_,_,_,_,_,_) = () }
+let run writer map (program: Program): Async<unit> =
 
     let printDeclWithExtraLine extraLine printer (decl: U2<Statement, ModuleDeclaration>) =
         match decl with
@@ -94,7 +91,7 @@ let run (program: Program): Async<unit> =
             printer.PrintNewLine()
 
     async {
-        use printer = new FilePrinter(program.FileName + ".js", map)
+        use printer = new PrinterImpl(writer, map)
 
         let imports, restDecls =
             program.Body |> Array.splitWhile (function
@@ -109,5 +106,6 @@ let run (program: Program): Async<unit> =
 
         for decl in restDecls do
             printDeclWithExtraLine true printer decl
+            // TODO: Only flush every XXX lines?
             do! printer.Flush()
     }

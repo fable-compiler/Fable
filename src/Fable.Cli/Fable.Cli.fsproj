@@ -10,12 +10,9 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="Globbing.fs" />
-    <Compile Include="Parser.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
-    <Compile Include="Server.fs" />
-    <Compile Include="Stdin.fs" />
     <Compile Include="Agent.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
@@ -26,8 +23,7 @@
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.39.1" />
+    <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
     <PackageReference Include="FSharp.Core" Version="4.7.2" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
   </ItemGroup>
 </Project>

@@ -47,7 +47,7 @@ type Log =
 
 /// Type with utilities for compiling F# files to JS
 /// Not thread-safe, an instance must be created per file
-type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
+type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string) =
     let logs = ResizeArray<Log>()
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
     member __.GetLogs() =
@@ -72,7 +72,7 @@ type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
         |> Map
     member __.Options = options
     member __.CurrentFile = currentFile
-    interface ICompiler with
+    interface Compiler with
         member __.Options = options
         member __.LibraryDir = fableLibraryDir
         member __.CurrentFile = currentFile
@@ -82,7 +82,7 @@ type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
             | true, rootModule -> rootModule
             | false, _ ->
                 let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
-                (x :> ICompiler).AddLog(msg, Severity.Warning)
+                (x :> Compiler).AddLog(msg, Severity.Warning)
                 "" // failwith msg
         member __.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())

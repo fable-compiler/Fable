@@ -1,31 +1,8 @@
 module Fable.Cli.Main
 
 open System
-open System.IO
-open System.Net
-open Fable
 open Agent
-
-type Arguments =
-    { port: int; cwd: string; commandArgs: string option }
-
-let konst k _ = k
-
-let rec findPackageJsonDir dir =
-    if File.Exists(IO.Path.Combine(dir, "package.json"))
-    then dir
-    else
-        let parent = Directory.GetParent(dir)
-        if isNull parent then
-            failwith "Couldn't find package.json directory"
-        findPackageJsonDir parent.FullName
-
-let getFreePort () =
-    let l = Sockets.TcpListener(System.Net.IPAddress.Loopback, 0)
-    l.Start()
-    let port = (l.LocalEndpoint :?> IPEndPoint).Port
-    l.Stop()
-    port
+open Fable
 
 let tryFindArgValue key (args: string[]) =
     args
@@ -42,71 +19,6 @@ let tryFindArgValue key (args: string[]) =
     | None ->
         None
 
-let parseArguments args =
-    let port =
-        match tryFindArgValue "--port" args with
-        | Some "free" -> getFreePort()
-        | Some portArg ->
-            // make sure port is parsable as an integer
-            match Int32.TryParse portArg with
-            | true, port -> port
-            | false, _ ->
-                printfn "Value for --port is not a valid integer, using free port"
-                getFreePort()
-        | None ->
-            getFreePort()
-    let workingDir =
-        match tryFindArgValue "--cwd" args with
-        | Some cwd -> Path.GetFullPath(cwd)
-        | None -> Directory.GetCurrentDirectory()
-    let commandArgs =
-        // Check first --args for compatibility with the old way
-        match tryFindArgValue "--args" args with
-        | Some commandArgs -> Some commandArgs
-        | None ->
-            match args |> Array.tryFindIndex ((=) "--") with
-            | Some i -> args.[(i+1)..] |> String.concat " " |> Some
-            | None -> None
-    { port = port; cwd = workingDir; commandArgs = commandArgs}
-
-let startServer port onMessage continuation =
-    try
-        let work = Server.start port (AgentMsg.Received >> onMessage)
-        continuation work
-    with
-    | ex ->
-        printfn "Cannot start Fable daemon, please check the port %i is free: %s" port ex.Message
-        1
-
-let startServerWithProcess workingDir port exec args =
-    GlobalParams.Singleton.SetValues(workingDir = workingDir)
-    let mutable disposed = false
-    let killProcessAndServer =
-        fun (p: System.Diagnostics.Process) ->
-            if not disposed then
-                disposed <- true
-                printfn "Killing process..."
-                p.Kill()
-                Server.stop port
-    let agent = startAgent()
-    startServer port agent.Post <| fun listen ->
-        Async.Start listen
-        let p =
-            printfn "CWD: %s" workingDir
-            printfn "%s %s" exec args
-            Process.Options(envVars=Map["FABLE_SERVER_PORT", string port])
-            |> Process.start workingDir exec args
-        Console.CancelKeyPress.Add (fun _ -> killProcessAndServer p)
-        #if NETFX
-        System.AppDomain.CurrentDomain.ProcessExit.Add (fun _ -> killProcessAndServer p)
-        #else
-        System.Runtime.Loader.AssemblyLoadContext.Default.add_Unloading(fun _ -> killProcessAndServer p)
-        #endif
-        p.WaitForExit()
-        disposed <- true
-        Server.stop port
-        p.ExitCode
-
 let setGlobalParams(args: string[]) =
     let verbosity =
         match tryFindArgValue "--verbose" args, tryFindArgValue "--silent" args with
@@ -116,8 +28,6 @@ let setGlobalParams(args: string[]) =
     GlobalParams.Singleton.SetValues(
         verbosity = verbosity,
         forcePkgs = (tryFindArgValue "--force-pkgs" args |> Option.isSome),
-        ?replaceFiles = (tryFindArgValue "--replace-files" args),
-        ?experimental = (tryFindArgValue "--experimental" args),
         ?fableLibraryPath =
             (tryFindArgValue "--fable-library" args
              |> Option.map (fun path ->
@@ -127,104 +37,58 @@ let setGlobalParams(args: string[]) =
     )
 
 let printHelp() =
-    Literals.VERSION |> printfn """Fable F# to JS compiler (%s)
-Usage: dotnet fable [command] [script] [fable arguments] [-- [script arguments]]
+    Log.always """Usage: fable [watch] [.fsproj file or dir path] [arguments]
 
 Commands:
   -h|--help           Show help
   --version           Print version
-  npm-run             Run Fable while an npm script is running
-  yarn-run            Run Fable while a yarn script is running
-  node-run            Run Fable while a node script is running
-  shell-run           Run Fable while a shell script is running
-  start               Start Fable as a standalone daemon
-  [webpack-cli]       Other commands will be assumed to be binaries in `node_modules/.bin`
+  watch               Run Fable in watch mode
 
-Fable arguments:
-  --cwd               Working directory where the subprocess should run
-  --port              Port number where the Fable daemon should run
+Arguments:
   --verbose           Print more info during execution
-  --silent            Don't print any log
   --force-pkgs        Force a new copy of package sources into `.fable` folder.
 
-To pass arguments to the script, write them after `--`. Example:
-
-    dotnet fable webpack-cli -- --mode production
-
-You can use shortcuts for npm and yarn scripts in the following way:
-
-    dotnet fable yarn-start       # Same as `dotnet fable yarn-run start`
 """
 
-let runNpmOrYarn npmOrYarn (args: string[]) =
-    if args.Length = 0 then
-        printfn """Missing argument after %s-run, expected the name of a script. Examples:
+let startCompilation watchMode fsprojDirOrFilePath args =
+    fsprojDirOrFilePath
+    |> Option.defaultWith IO.Directory.GetCurrentDirectory
+    |> Path.normalizeFullPath
+    |> fun path ->
+        if IO.Directory.Exists(path) then
+            IO.Directory.EnumerateFileSystemEntries(path)
+            |> Seq.filter (fun file -> file.EndsWith(".fsproj"))
+            |> Seq.toList
+            |> function
+                | [] -> Error("Cannot find .fsproj in dir: " + path)
+                | [fsproj] -> Ok fsproj
+                | _ -> Error("Found multiple .fsproj in dir: " + path)
+        else
+            Ok path
+    |> function
+        | Error msg -> printfn "%s" msg; 1
+        | Ok projFile ->
+            let msg = MessageHelper.Make()
+            let config = AgentConfig.FromMessage(projFile, msg)
+            let agent = AgentState.ParseProject(config)
+            agent.Compile() |> Async.RunSynchronously
+            0
 
-    dotnet fable %s-run start
-    dotnet fable %s-run build
-
-Where 'start' and 'build' are the names of scripts in package.json:
-
-    "scripts" :{
-        "start": "webpack-dev-server"
-        "build": "webpack"
-    }""" npmOrYarn npmOrYarn npmOrYarn
-        0
-    else
-        let fableArgs = args.[1..] |> parseArguments
-        let execArgs =
-            match fableArgs.commandArgs with
-            | Some cargs ->
-                // Yarn 1.0 doesn't require "--" to forward options to scripts
-                let separator = if npmOrYarn = "yarn" then " " else " -- "
-                "run " + args.[0] + separator + cargs
-            | None -> "run " + args.[0]
-        let workingDir = fableArgs.cwd |> findPackageJsonDir
-        startServerWithProcess workingDir fableArgs.port npmOrYarn execArgs
+let (|SplitCommandArgs|) (xs: string list) =
+    xs |> List.splitWhile (fun x -> x.StartsWith("-") |> not)
 
 [<EntryPoint>]
 let main argv =
+    Log.always("Fable: F# to JS compiler " + Literals.VERSION)
     setGlobalParams(argv)
-    match Array.tryHead argv with
-    | Some ("--help"|"-h") ->
-        printHelp(); 0
-    | Some "--version" -> printfn "%s" Literals.VERSION; 0
-    | Some "start" ->
-        let args = argv.[1..] |> parseArguments
-        let agent = startAgent()
-        startServer args.port agent.Post (Async.RunSynchronously >> konst 0)
-    | Some "start-stdin" ->
-        let agent = startAgent()
-        Stdin.start (AgentMsg.Received >> agent.Post)
-    | Some "npm-run" ->
-        runNpmOrYarn "npm" argv.[1..]
-    | Some (Naming.StartsWith "npm-" command) ->
-        Array.append [|command|] argv.[1..] |> runNpmOrYarn "npm"
-    | Some "yarn-run" ->
-        runNpmOrYarn "yarn" argv.[1..]
-    | Some (Naming.StartsWith "yarn-" command) ->
-        Array.append [|command|] argv.[1..] |> runNpmOrYarn "yarn"
-    | Some "node-run" ->
-        let args = argv.[2..] |> parseArguments
-        let execArgs =
-            match args.commandArgs with
-            | Some scriptArgs -> argv.[1] + " " + scriptArgs
-            | None -> argv.[1]
-        startServerWithProcess args.cwd args.port "node" execArgs
-    | Some "shell-run" ->
-        let cmd = argv.[1]
-        let args = argv.[2..] |> parseArguments
-        let execArgs = defaultArg args.commandArgs ""
-        startServerWithProcess args.cwd args.port cmd execArgs
-    | Some npmBin ->
-        let args = argv.[1..] |> parseArguments
-        let pkgJsonDir = findPackageJsonDir args.cwd
-        let binPath =
-            let binPath = IO.Path.Combine(pkgJsonDir, "node_modules/.bin/" + npmBin)
-            if Process.isWindows then binPath + ".cmd" else binPath
-        if File.Exists(binPath) |> not then
-            printfn "Path does not exist, please make sure you've restored npm dependencies: %s" binPath; -1
-        else
-            defaultArg args.commandArgs ""
-            |> startServerWithProcess pkgJsonDir args.port binPath
-    | None -> printfn "Command missing. Use `dotnet fable --help` to see available options."; -1
+
+    match Array.toList argv with
+    | ("help"|"--help"|"-h")::_ -> printHelp(); 0
+    | ("--version")::_ -> printfn "%s" Literals.VERSION; 0
+    | SplitCommandArgs(commands, args) ->
+        match commands with
+        | ["watch"; path] -> startCompilation true (Some path) args
+        | ["watch"] -> startCompilation true None args
+        | [path] -> startCompilation false (Some path) args
+        | [] -> startCompilation false None args
+        | _ -> printfn "Unexpected arguments. Use `fable --help` to see available options."; 1

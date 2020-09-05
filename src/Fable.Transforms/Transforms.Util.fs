@@ -170,7 +170,7 @@ module Log =
         FromRange: SourceLocation option
     }
 
-    let private addLog (com: ICompiler) (inlinePath: InlinePath list) range msg severity =
+    let private addLog (com: Compiler) (inlinePath: InlinePath list) range msg severity =
         let printInlineSource fromPath (p: InlinePath) =
             let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
             match p.FromRange with
@@ -187,17 +187,17 @@ module Log =
                 file, msg + " - Inline call from " + inlinePath
         com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
-    let addWarning (com: ICompiler) inlinePath range warning =
+    let addWarning (com: Compiler) inlinePath range warning =
         addLog com inlinePath range warning Severity.Warning
 
-    let addError (com: ICompiler) inlinePath range error =
+    let addError (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Error
 
-    let addWarningAndReturnNull (com: ICompiler) inlinePath range error =
+    let addWarningAndReturnNull (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Warning
         AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None)
 
-    let addErrorAndReturnNull (com: ICompiler) inlinePath range error =
+    let addErrorAndReturnNull (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Error
         AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None)
 
@@ -387,8 +387,8 @@ module AST =
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
 
-    let getLibPath (com: ICompiler) moduleName =
-        let ext = if com.Options.typescript then "" else Naming.targetFileExtension
+    let getLibPath (com: Compiler) moduleName =
+        let ext = if com.Options.Typescript then "" else Naming.targetFileExtension
         com.LibraryDir + "/" + moduleName + ext
 
     let makeImportUserGenerated r t selector path =
@@ -401,10 +401,10 @@ module AST =
                  Path = path.Trim() |> makeStrConst
                  IsCompilerGenerated = true }, t, None)
 
-    let makeImportLib (com: ICompiler) t memberName moduleName =
+    let makeImportLib (com: Compiler) t memberName moduleName =
         makeImportCompilerGenerated t memberName (getLibPath com moduleName)
 
-    let makeImportInternal (com: ICompiler) t (selector: string) (path: string) =
+    let makeImportInternal (com: Compiler) t (selector: string) (path: string) =
         Path.getRelativeFileOrDirPath false com.CurrentFile false path
         |> makeImportCompilerGenerated t selector
 
@@ -455,10 +455,10 @@ module AST =
         | Float32 -> "float32"
         | Float64 -> "float64"
 
-    let getTypedArrayName (com: ICompiler) numberKind =
+    let getTypedArrayName (com: Compiler) numberKind =
         match numberKind with
         | Int8 -> "Int8Array"
-        | UInt8 -> if com.Options.clampByteArrays then "Uint8ClampedArray" else "Uint8Array"
+        | UInt8 -> if com.Options.ClampByteArrays then "Uint8ClampedArray" else "Uint8Array"
         | Int16 -> "Int16Array"
         | UInt16 -> "Uint16Array"
         | Int32 -> "Int32Array"

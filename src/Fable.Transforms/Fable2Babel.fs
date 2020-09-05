@@ -37,7 +37,7 @@ type Context =
     ScopedTypeParams: Set<string> }
 
 type IBabelCompiler =
-    inherit ICompiler
+    inherit Compiler
     abstract GetAllImports: unit -> seq<Import>
     abstract GetImportExpr: Context * selector: string * path: string -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
@@ -434,7 +434,7 @@ module Annotation =
 
     let makeArrayTypeAnnotation com ctx genArg =
         match genArg with
-        | Fable.Number kind when com.Options.typedArrays ->
+        | Fable.Number kind when com.Options.TypedArrays ->
             let name = getTypedArrayName com kind
             makeSimpleTypeAnnotation com ctx name
         | _ ->
@@ -514,7 +514,7 @@ module Annotation =
          upcast AnyTypeAnnotation() // TODO:
 
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
-        if com.Options.typescript then
+        if com.Options.Typescript then
             let ta = typeAnnotation com ctx id.Type |> TypeAnnotation |> Some
             let optional = None // match id.Type with | Fable.Option _ -> Some true | _ -> None
             Identifier(id.Name, ?optional=optional, ?typeAnnotation=ta, ?loc=id.Range)
@@ -522,7 +522,7 @@ module Annotation =
             Identifier(id.Name, ?loc=id.Range)
 
     let transformFunctionWithAnnotations (com: IBabelCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
-        if com.Options.typescript then
+        if com.Options.Typescript then
             let argTypes = args |> List.map (fun id -> id.Type)
             let genTypeParams = Util.getGenericTypeParams (argTypes @ [body.Type])
             let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
@@ -569,7 +569,7 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
 
-    type NamedTailCallOpportunity(com: ICompiler, ctx, name, args: Fable.Ident list) =
+    type NamedTailCallOpportunity(com: Compiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
         // TODO: Local unique ident names
@@ -612,7 +612,7 @@ module Util =
         | Fable.IfThenElse(_,thenExpr,elseExpr,_) ->
             preferStatement || isJsStatement ctx false thenExpr || isJsStatement ctx false elseExpr
 
-    let addErrorAndReturnNull (com: ICompiler) (range: SourceLocation option) (error: string) =
+    let addErrorAndReturnNull (com: Compiler) (range: SourceLocation option) (error: string) =
         addError com [] range error
         NullLiteral () :> Expression
 
@@ -675,7 +675,7 @@ module Util =
 
     let makeTypedArray (com: IBabelCompiler) ctx typ (args: Fable.Expr list) =
         match typ with
-        | Fable.Number kind when com.Options.typedArrays ->
+        | Fable.Number kind when com.Options.TypedArrays ->
             let jsName = getTypedArrayName com kind
             let args =
                 [| List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) args
@@ -686,7 +686,7 @@ module Util =
 
     let makeTypedAllochedArray (com: IBabelCompiler) ctx typ (TransformExpr com ctx size) =
         match typ with
-        | Fable.Number kind when com.Options.typedArrays ->
+        | Fable.Number kind when com.Options.TypedArrays ->
             let jsName = getTypedArrayName com kind
             let args = [|size|]
             NewExpression(Identifier jsName, [|size|]) :> Expression
@@ -783,7 +783,7 @@ module Util =
         let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx funcName args body
 
         let typeParamDecl =
-            if com.Options.typescript then
+            if com.Options.Typescript then
                 makeTypeParamDecl genTypeParams |> mergeTypeParamDecls typeParamDecl
             else typeParamDecl
 
@@ -930,7 +930,7 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = jsConstructor com ctx ent
             let typeParamInst =
-                if com.Options.typescript && (ent.FullName = Types.reference)
+                if com.Options.Typescript && (ent.FullName = Types.reference)
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
@@ -944,7 +944,7 @@ module Util =
             let consRef = jsConstructor com ctx ent
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let typeParamInst =
-                if com.Options.typescript
+                if com.Options.Typescript
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             let values = (ofInt tag)::values |> List.toArray
@@ -1109,7 +1109,7 @@ module Util =
         | Fable.ListTail -> get range expr "tail"
         | Fable.TupleIndex index -> getExpr range expr (ofInt index)
         | Fable.OptionValue ->
-            if mustWrapOption typ || com.Options.typescript
+            if mustWrapOption typ || com.Options.Typescript
             then libCall com ctx None "Option" "value" [|expr|]
             else expr
         | Fable.UnionTag -> getUnionExprTag range expr
@@ -1205,7 +1205,7 @@ module Util =
     let getDecisionTargetAndBindValues (com: IBabelCompiler) (ctx: Context) targetIndex boundValues =
         let idents, target = getDecisionTarget ctx targetIndex
         let identsAndValues = matchTargetIdentAndValues idents boundValues
-        if not com.Options.debugMode then
+        if not com.Options.DebugMode then
             let bindings, replacements =
                 (([], Map.empty), identsAndValues)
                 ||> List.fold (fun (bindings, replacements) (ident, expr) ->
@@ -1346,7 +1346,7 @@ module Util =
         // If some targets are referenced multiple times, hoist bound idents,
         // resolve the decision index and compile the targets as a switch
         let targetsWithMultiRefs =
-            if com.Options.typescript then [] // no hoisting when compiled with types
+            if com.Options.Typescript then [] // no hoisting when compiled with types
             else getTargetsWithMultipleReferences treeExpr
         match targetsWithMultiRefs with
         | [] ->
@@ -1654,7 +1654,7 @@ module Util =
         else ExportNamedDeclaration(decl) :> ModuleDeclaration |> U2.Case2
 
     let makeEntityTypeParamDecl (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        if com.Options.typescript then
+        if com.Options.Typescript then
             getEntityGenParams ent |> makeTypeParamDecl
         else
             None
@@ -1803,7 +1803,7 @@ module Util =
             else consBody
         let classCons = ClassMethod(ClassImplicitConstructor, consId, consArgs, consBody)
         let classFields =
-            if com.Options.typescript then
+            if com.Options.Typescript then
                 getEntityFieldsAsProps com ctx ent
                 |> Array.map (fun prop ->
                     let ta = prop.Value |> TypeAnnotation |> Some
@@ -1821,14 +1821,14 @@ module Util =
             let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent |> typedIdent com ctx)
             let body = transformReflectionInfo com ctx None ent (Array.map (fun x -> x :> _) genArgs)
             let returnType =
-                if com.Options.typescript then
+                if com.Options.Typescript then
                     makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
                     |> TypeAnnotation |> Some
                 else None
             let args = genArgs |> Array.map toPattern
             makeFunctionExpression None (args, U2.Case2 body, returnType, None)
             |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
-        if com.Options.typescript then
+        if com.Options.Typescript then
             let interfaceDecl = makeInterfaceDecl com ctx ent entName baseExpr
             let interfaceDeclaration = ExportNamedDeclaration(interfaceDecl) :> ModuleDeclaration |> U2.Case2
             [interfaceDeclaration; typeDeclaration; reflectionDeclaration]
@@ -1945,7 +1945,7 @@ module Util =
 
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
-            if com.Options.typescript then
+            if com.Options.Typescript then
                 let genParams = getEntityGenParams classDecl.Entity
                 let returnType = getGenericTypeAnnotation com ctx classDecl.Name genParams
                 let typeParamDecl = makeTypeParamDecl genParams |> mergeTypeParamDecls typeParamDecl
@@ -2091,12 +2091,12 @@ module Util =
 module Compiler =
     open Util
 
-    type BabelCompiler (com: ICompiler) =
+    type BabelCompiler (com: Compiler) =
         let imports = Dictionary<string,Import>()
 
         interface IBabelCompiler with
             member __.GetImportExpr(ctx, selector, path) =
-                let ext = if com.Options.typescript then "" else Naming.targetFileExtension
+                let ext = if com.Options.Typescript then "" else Naming.targetFileExtension
                 let cachedName = path + "::" + selector
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
@@ -2123,7 +2123,7 @@ module Compiler =
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path)
 
-        interface ICompiler with
+        interface Compiler with
             member __.Options = com.Options
             member __.LibraryDir = com.LibraryDir
             member __.CurrentFile = com.CurrentFile
@@ -2144,7 +2144,7 @@ module Compiler =
             |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> Array.singleton
         Program(facadeFile, decls, sourceFiles_ = sourceFiles)
 
-    let transformFile (com: ICompiler) (file: Fable.File) =
+    let transformFile (com: Compiler) (file: Fable.File) =
         let com = makeCompiler com :> IBabelCompiler
         let declScopes =
             let hs = HashSet()

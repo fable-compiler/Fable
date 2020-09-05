@@ -203,7 +203,7 @@ module private Transforms =
 
     let (|FieldType|) (fi: Field) = fi.FieldType
 
-    let lambdaBetaReduction (com: ICompiler) e =
+    let lambdaBetaReduction (com: Compiler) e =
         // Sometimes the F# compiler creates a lot of binding closures, as with printfn
         let (|NestedLetsAndLambdas|_|) expr =
             let rec inner accBindings accArgs body name =
@@ -225,7 +225,7 @@ module private Transforms =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if (not com.Options.debugMode) && canInlineArg ident.Name expr body
+                    if (not com.Options.DebugMode) && canInlineArg ident.Name expr body
                     then bindings, Map.add ident.Name expr replacements
                     else (ident, expr)::bindings, replacements)
             match bindings with
@@ -254,14 +254,14 @@ module private Transforms =
 
     /// Tuples created when pattern matching multiple elements can usually be erased
     /// after the binding and lambda beta reduction
-    let tupleBetaReduction (_: ICompiler) = function
+    let tupleBetaReduction (_: Compiler) = function
         | Get(Value(NewTuple exprs, _), TupleIndex index, _, _) -> List.item index exprs
         | e -> e
 
-    let bindingBetaReduction (com: ICompiler) e =
+    let bindingBetaReduction (com: Compiler) e =
         // Don't erase user-declared bindings in debug mode for better source maps
         let isErasingCandidate (ident: Ident) =
-            (not com.Options.debugMode) || ident.IsCompilerGenerated
+            (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
         | Let([ident, value], letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
@@ -388,7 +388,7 @@ module private Transforms =
                 then uncurryExpr com (Some arity) arg
                 else arg)
 
-    let uncurryInnerFunctions (_: ICompiler) e =
+    let uncurryInnerFunctions (_: Compiler) e =
         let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
@@ -405,7 +405,7 @@ module private Transforms =
             |> makeCall r t info
         | e -> e
 
-    let propagateUncurryingThroughLets (_: ICompiler) = function
+    let propagateUncurryingThroughLets (_: Compiler) = function
         | Let(identsAndValues, body) ->
             let identsAndValues, replacements =
                 (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
@@ -426,7 +426,7 @@ module private Transforms =
         if m.Info.IsValue then m
         else { m with Body = uncurryIdentsAndReplaceInBody m.Args m.Body }
 
-    let uncurryReceivedArgs (_: ICompiler) e =
+    let uncurryReceivedArgs (_: Compiler) e =
         match e with
         | Lambda(arg, body, name) ->
             let body = uncurryIdentsAndReplaceInBody [arg] body
@@ -444,7 +444,7 @@ module private Transforms =
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
         | e -> e
 
-    let uncurrySendingArgs (com: ICompiler) e =
+    let uncurrySendingArgs (com: Compiler) e =
         let uncurryConsArgs args (fields: seq<Field>) =
             let argTypes =
                 fields
@@ -479,7 +479,7 @@ module private Transforms =
             Set(e, Some(FieldKey fi), List.head value, r)
         | e -> e
 
-    let rec uncurryApplications (com: ICompiler) e =
+    let rec uncurryApplications (com: Compiler) e =
         let uncurryApply r t applied args uncurriedArity =
             let argsLen = List.length args
             if uncurriedArity = argsLen then
@@ -519,13 +519,13 @@ let optimizations =
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
     ]
 
-let transformExpr (com: ICompiler) e =
+let transformExpr (com: Compiler) e =
     List.fold (fun e f -> f com e) e optimizations
 
 let transformMemberBody com (m: MemberDecl) =
     { m with Body = transformExpr com m.Body }
 
-let transformDeclaration (com: ICompiler) = function
+let transformDeclaration (com: Compiler) = function
     | ActionDeclaration decl ->
         { decl with Body = transformExpr com decl.Body }
         |> ActionDeclaration
@@ -561,6 +561,6 @@ let transformDeclaration (com: ICompiler) = function
                     AttachedMembers = attachedMembers }
         |> ClassDeclaration
 
-let transformFile (com: ICompiler) (file: File) =
+let transformFile (com: Compiler) (file: File) =
     let newDecls = List.map (transformDeclaration com) file.Declarations
     File(file.SourcePath, newDecls, usedRootNames=file.UsedNamesInRootScope, watchDependencies=file.WatchDependencies)

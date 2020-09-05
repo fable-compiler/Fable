@@ -1,23 +1,29 @@
 namespace Fable
 
-[<RequireQualifiedAccessAttribute>]
+[<RequireQualifiedAccess>]
 type Verbosity =
     | Normal
     | Verbose
     | Silent
 
 type CompilerOptions =
-    { typedArrays: bool
-      clampByteArrays: bool
-      typescript: bool
-      debugMode: bool
-      verbosity: Verbosity
-      /// Meant for precompiled libraries (like the Repl Lib)
-      /// to make public inlined functions part of the JS
-      outputPublicInlinedFunctions: bool
-      /// Mainly intended for the REPL to compile REPL lib calls
-      precompiledLib: (string -> (string*string) option) option
-  }
+      abstract TypedArrays: bool
+      abstract ClampByteArrays: bool
+      abstract Typescript: bool
+      abstract DebugMode: bool
+      abstract Verbosity: Verbosity
+
+type CompilerOptionsHelper =
+    static member Make(?typedArrays,
+                       ?typescript,
+                       ?debugMode,
+                       ?verbosity) =
+        { new CompilerOptions with
+              member _.TypedArrays = defaultArg typedArrays false
+              member _.Typescript = defaultArg typescript false
+              member _.DebugMode = defaultArg debugMode false
+              member _.Verbosity = defaultArg verbosity Verbosity.Normal
+              member _.ClampByteArrays = false }
 
 [<RequireQualifiedAccess>]
 type Severity =
@@ -32,7 +38,7 @@ type InlineExpr =
       Body: FSharpExpr
       FileName: string }
 
-type ICompiler =
+type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
     abstract Options: CompilerOptions

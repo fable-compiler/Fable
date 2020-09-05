@@ -104,6 +104,12 @@ module List =
         xs |> List.iteri (fun i x -> ar.[i] <- f i x)
         ar
 
+    let splitWhile (f: 'a -> bool) (xs: 'a list) =
+        List.tryFindIndex (f >> not) xs
+        |> function
+        | Some i -> List.splitAt i xs
+        | None -> xs, []
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 

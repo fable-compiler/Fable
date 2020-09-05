@@ -21,8 +21,8 @@ module PrinterExtensions =
             | U2.Case1 p -> p.Print(printer)
             | U2.Case2 p -> p.Print(printer)
 
-        member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?newLineAtEnd) =
-            let newLineAtEnd = defaultArg newLineAtEnd true
+        member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
+            let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
             printer.Print("{")
             printer.PrintNewLine()
             printer.PushIndentation()
@@ -31,10 +31,10 @@ module PrinterExtensions =
                 printSeparator printer
             printer.PopIndentation()
             printer.Print("}")
-            if newLineAtEnd then
+            if not skipNewLineAtEnd then
                 printer.PrintNewLine()
 
-        member printer.PrintBlock(nodes: Statement array) =
+        member printer.PrintBlock(nodes: Statement array, ?skipNewLineAtEnd) =
             let printStatement printer (s: Statement) =
                 match s with
                 | :? ExpressionStatement as e ->
@@ -51,7 +51,7 @@ module PrinterExtensions =
                 if printer.Column > 0 then
                     printer.Print(";")
                     printer.PrintNewLine()
-            ))
+            ), ?skipNewLineAtEnd=skipNewLineAtEnd)
 
         member printer.PrintOptional(before: string, node: #Node option) =
             match node with
@@ -319,10 +319,9 @@ type Directive(value, ?loc) =
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
-type Program(fileName, body, ?logs_, ?dependencies_, ?sourceFiles_) = // ?directives_,
+type Program(fileName, body, ?dependencies_, ?sourceFiles_) = // ?directives_,
     inherit Node("Program")
     let sourceType = "module" // Don't use "script"
-    let logs = defaultArg logs_ Map.empty
     let sourceFiles = defaultArg sourceFiles_ [||]
     let dependencies = defaultArg dependencies_ [||]
     let directives = [||] // defaultArg directives_ [||]
@@ -331,7 +330,6 @@ type Program(fileName, body, ?logs_, ?dependencies_, ?sourceFiles_) = // ?direct
     member __.Body: U2<Statement, ModuleDeclaration> array = body
     // Properties below don't belong to babel specs
     member __.FileName: string = fileName
-    member __.Logs: Map<string, string array> = logs
     member __.Dependencies: string[] = dependencies
     member __.SourceFiles: string[] = sourceFiles
     override _.Print(_) =
@@ -605,7 +603,10 @@ type ArrowFunctionExpression(``params``, body, ?returnType, ?typeParameters, ?lo
         printer.PrintCommaSeparatedArray(``params``)
         printer.Print(") => ")
         match body with
-        | U2.Case1 block -> block.Print(printer)
+        | U2.Case1 block ->
+            match block.Body with
+            | [|:? ReturnStatement as r |] -> r.Argument.Print(printer)
+            | _ -> printer.PrintBlock(block.Body, skipNewLineAtEnd=true)
         | U2.Case2 expr -> expr.Print(printer)
 
 type FunctionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
@@ -757,7 +758,7 @@ type ObjectExpression(properties, ?loc) =
             p.PrintNewLine()
 
         printer.AddLocation(loc)
-        printer.PrintBlock(properties, printProp, printSeparator, newLineAtEnd=false)
+        printer.PrintBlock(properties, printProp, printSeparator, skipNewLineAtEnd=true)
 
 /// A conditional expression, i.e., a ternary ?/: expression.
 type ConditionalExpression(test, consequent, alternate, ?loc) =
