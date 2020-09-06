@@ -1,7 +1,6 @@
 module rec Fable.Transforms.Fable2Babel
 
 open Fable
-open Fable.Core
 open Fable.AST
 open Fable.AST.Babel
 open System.Collections.Generic
@@ -44,7 +43,7 @@ type IBabelCompiler =
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr
-        -> (Pattern array) * U2<BlockStatement, Expression>
+        -> (Pattern array) * Choice<BlockStatement, Expression>
 
 // TODO: All things that depend on the library should be moved to Replacements
 // to become independent of the specific implementation
@@ -91,7 +90,7 @@ module Reflection =
                 let typeInfo = transformTypeInfo com ctx r genMap fi.FieldType
                 (ArrayExpression [|StringLiteral fi.Name; typeInfo|] :> Expression))
             |> Seq.toArray
-        let fields = ArrowFunctionExpression([||], ArrayExpression fields :> Expression |> U2.Case2) :> Expression
+        let fields = ArrowFunctionExpression([||], ArrayExpression fields :> Expression |> Choice2Of2) :> Expression
         [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; fields|]
         |> libReflectionCall com ctx None "record"
 
@@ -110,7 +109,7 @@ module Reflection =
                     |] :> Expression)
                 |> ArrayExpression :> Expression
             ) |> Seq.toArray
-        let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> U2.Case2) :> Expression
+        let cases = ArrowFunctionExpression([||], ArrayExpression cases :> Expression |> Choice2Of2) :> Expression
         [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; cases|]
         |> libReflectionCall com ctx None "union"
 
@@ -617,7 +616,7 @@ module Util =
         NullLiteral () :> Expression
 
     let toPattern (e: PatternExpression): Pattern =
-        U2.Case2 e
+        Choice2Of2 e
 
     let ident (id: Fable.Ident) =
         Identifier(id.Name, ?loc=id.Range)
@@ -701,7 +700,7 @@ module Util =
     let makeJsObject pairs =
         pairs |> Seq.map (fun (name, value) ->
             let prop, computed = memberFromName name
-            ObjectProperty(prop, value, computed_=computed) |> U2.Case1)
+            ObjectProperty(prop, value, computed_=computed) |> Choice1Of2)
         |> Seq.toArray
         |> ObjectExpression :> Expression
 
@@ -729,7 +728,7 @@ module Util =
         VariableDeclaration(toPattern var, value, kind, ?loc=addRanges[var.Loc; value.Loc])
 
     let restElement (var: Identifier) =
-        RestElement(toPattern var, ?typeAnnotation=var.TypeAnnotation) :> PatternNode |> U2.Case1
+        RestElement(toPattern var, ?typeAnnotation=var.TypeAnnotation) :> PatternNode |> Choice1Of2
 
     let callSuperConstructor r (args: Expression list) =
         CallExpression(Super(), List.toArray args, ?loc=r) :> Expression
@@ -791,13 +790,13 @@ module Util =
             if not hasSpread then args
             else
                 let args = Array.rev args
-                let restEl = RestElement(Array.head args) :> PatternNode |> U2.Case1
+                let restEl = RestElement(Array.head args) :> PatternNode |> Choice1Of2
                 Array.append [|restEl|] (Array.tail args) |> Array.rev
 
         let body =
             match body with
-            | U2.Case1 e -> e
-            | U2.Case2 e -> BlockStatement [|ReturnStatement(e, ?loc=e.Loc)|]
+            | Choice1Of2 e -> e
+            | Choice2Of2 e -> BlockStatement [|ReturnStatement(e, ?loc=e.Loc)|]
 
         args, body, returnType, typeParamDecl
 
@@ -817,15 +816,15 @@ module Util =
             BinaryExpression(BinaryOrBitwise, e, NumericLiteral(0.)) :> Expression
         | _ -> e
 
-    let makeArrowFunctionExpression name (args, (body: U2<BlockStatement, Expression>), returnType, typeParamDecl): Expression =
+    let makeArrowFunctionExpression name (args, (body: Choice<BlockStatement, Expression>), returnType, typeParamDecl): Expression =
         upcast ArrowFunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
-    let makeFunctionExpression name (args, (body: U2<BlockStatement, Expression>), returnType, typeParamDecl): Expression =
+    let makeFunctionExpression name (args, (body: Choice<BlockStatement, Expression>), returnType, typeParamDecl): Expression =
         let id = name |> Option.map Identifier
         let body =
             match body with
-            | U2.Case1 body -> body
-            | U2.Case2 e -> BlockStatement [|ReturnStatement(e, ?loc=e.Loc)|]
+            | Choice1Of2 body -> body
+            | Choice2Of2 e -> BlockStatement [|ReturnStatement(e, ?loc=e.Loc)|]
         upcast FunctionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
     let optimizeTailCall (com: IBabelCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
@@ -959,13 +958,13 @@ module Util =
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx Attached hasSpread args body
             ObjectMethod(kind, prop, args, body, computed_=computed,
-                ?returnType=returnType, ?typeParameters=typeParamDecl) |> U2.Case2
+                ?returnType=returnType, ?typeParameters=typeParamDecl) |> Choice2Of2
         let pojo =
             members |> List.collect (fun memb ->
                 let info = memb.Info
                 let prop, computed = memberFromName memb.Name
                 if info.IsValue then
-                    [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) |> U2.Case1]
+                    [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) |> Choice1Of2]
                 elif info.IsGetter then
                     [makeObjMethod ObjectGetter prop computed false memb.Args memb.Body]
                 elif info.IsSetter then
@@ -975,7 +974,7 @@ module Util =
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
                         let body = enumerator2iterator com ctx
-                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> U2.Case2
+                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) |> Choice2Of2
                     [method; iterator]
                 else
                     [makeObjMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
@@ -1569,7 +1568,7 @@ module Util =
                 else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
             [|ForStatement(
                 transformBlock com ctx None body,
-                start |> varDeclaration (typedIdent com ctx var) true |> U2.Case1,
+                start |> varDeclaration (typedIdent com ctx var) true |> Choice1Of2,
                 BinaryExpression (op1, ident var, limit),
                 UpdateExpression (op2, false, ident var), ?loc=range) :> Statement|]
 
@@ -1584,15 +1583,15 @@ module Util =
             { ctx with TailCallOpportunity = tailcallChance
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
-        let body: U2<BlockStatement, Expression> =
+        let body: Choice<BlockStatement, Expression> =
             if body.Type = Fable.Unit
-            then transformBlock com ctx (Some ReturnUnit) body |> U2.Case1
+            then transformBlock com ctx (Some ReturnUnit) body |> Choice1Of2
             elif isJsStatement ctx (Option.isSome tailcallChance) body
-            then transformBlock com ctx (Some Return) body |> U2.Case1
-            else transformAsExpr com ctx body |> U2.Case2
+            then transformBlock com ctx (Some Return) body |> Choice1Of2
+            else transformAsExpr com ctx body |> Choice2Of2
         let args, body =
             match isTailCallOptimized, tailcallChance, body with
-            | true, Some tc, U2.Case1 body ->
+            | true, Some tc, Choice1Of2 body ->
                 // Replace args, see NamedTailCallOpportunity constructor
                 let args, body =
                     let tcArgs =
@@ -1609,7 +1608,7 @@ module Util =
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = BlockStatement(Array.append body.Body [|BreakStatement()|])
                 args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
-                :> Statement |> Array.singleton |> BlockStatement |> U2.Case1
+                :> Statement |> Array.singleton |> BlockStatement |> Choice1Of2
             | _ -> args, body
         let body =
             if declaredVars.Count = 0
@@ -1619,9 +1618,9 @@ module Util =
                     multiVarDeclaration Var [for v in declaredVars -> typedIdent com ctx v, None]
                 let bodyStatements =
                     match body with
-                    | U2.Case1 bodyBlock -> bodyBlock.Body
-                    | U2.Case2 bodyExpr -> [|ReturnStatement(bodyExpr, ?loc=bodyExpr.Loc) :> Statement|]
-                BlockStatement(Array.append [|varDeclStatement|] bodyStatements) |> U2.Case1
+                    | Choice1Of2 bodyBlock -> bodyBlock.Body
+                    | Choice2Of2 bodyExpr -> [|ReturnStatement(bodyExpr, ?loc=bodyExpr.Loc) :> Statement|]
+                BlockStatement(Array.append [|varDeclStatement|] bodyStatements) |> Choice1Of2
         args |> List.mapToArray toPattern, body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
@@ -1650,8 +1649,8 @@ module Util =
                     ?typeParameters = e.TypeParameters)
             | _ -> upcast varDeclaration membName isMutable expr
         if not isPublic
-        then U2.Case1 (decl :> Statement)
-        else ExportNamedDeclaration(decl) :> ModuleDeclaration |> U2.Case2
+        then Choice1Of2 (decl :> Statement)
+        else ExportNamedDeclaration(decl) :> ModuleDeclaration |> Choice2Of2
 
     let makeEntityTypeParamDecl (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         if com.Options.Typescript then
@@ -1761,7 +1760,7 @@ module Util =
                 :> TypeAnnotationInfo
             // TODO!!! This should be the compiled name if the interface is not mangled
             let name = memb.DisplayName
-            let membId = Identifier(name) |> U2.Case1
+            let membId = Identifier(name) |> Choice1Of2
             ObjectTypeProperty(membId, funcTypeInfo)
         )
         |> Seq.toArray
@@ -1771,8 +1770,8 @@ module Util =
         |> Seq.map (fun field ->
             let id =
                 if Naming.hasIdentForbiddenChars field.Name
-                then StringLiteral(field.Name) |> U2.Case2
-                else Identifier(field.Name) |> U2.Case1
+                then StringLiteral(field.Name) |> Choice2Of2
+                else Identifier(field.Name) |> Choice1Of2
             let ta =
                 typeAnnotation com ctx field.FieldType
             let isStaticOpt = if field.IsStatic then Some true else None
@@ -1807,15 +1806,15 @@ module Util =
                 getEntityFieldsAsProps com ctx ent
                 |> Array.map (fun prop ->
                     let ta = prop.Value |> TypeAnnotation |> Some
-                    ClassProperty(prop.Key, ?``static``=prop.Static, ?typeAnnotation=ta) |> U2.Case2)
+                    ClassProperty(prop.Key, ?``static``=prop.Static, ?typeAnnotation=ta) |> Choice2Of2)
             else Array.empty
         // no need for constructor in unions
-        let classMembers = if ent.IsFSharpUnion then classMembers else Array.append [| U2.Case1 classCons |] classMembers
+        let classMembers = if ent.IsFSharpUnion then classMembers else Array.append [| Choice1Of2 classCons |] classMembers
         let classBody = ClassBody([| yield! classFields; yield! classMembers |])
         let classExpr = ClassExpression(classBody, ?superClass=Some baseRef, ?typeParameters=typeParamDecl)
         classExpr |> declareModuleMember ent.IsPublic entName false
 
-    let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: U2<Statement, ModuleDeclaration> list =
+    let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: Choice<Statement, ModuleDeclaration> list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration =
             let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent |> typedIdent com ctx)
@@ -1826,11 +1825,11 @@ module Util =
                     |> TypeAnnotation |> Some
                 else None
             let args = genArgs |> Array.map toPattern
-            makeFunctionExpression None (args, U2.Case2 body, returnType, None)
+            makeFunctionExpression None (args, Choice2Of2 body, returnType, None)
             |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
         if com.Options.Typescript then
             let interfaceDecl = makeInterfaceDecl com ctx ent entName baseExpr
-            let interfaceDeclaration = ExportNamedDeclaration(interfaceDecl) :> ModuleDeclaration |> U2.Case2
+            let interfaceDeclaration = ExportNamedDeclaration(interfaceDecl) :> ModuleDeclaration |> Choice2Of2
             [interfaceDeclaration; typeDeclaration; reflectionDeclaration]
         else
             [typeDeclaration; reflectionDeclaration]
@@ -1842,7 +1841,7 @@ module Util =
         info.Attributes
         |> Seq.exists (fun att -> att.FullName = Atts.entryPoint)
         |> function
-        | true -> declareEntryPoint com ctx expr |> U2.Case1
+        | true -> declareEntryPoint com ctx expr |> Choice1Of2
         | false -> declareModuleMember info.IsPublic membName false expr
 
     let transformAction (com: IBabelCompiler) ctx expr =
@@ -1853,8 +1852,8 @@ module Util =
                 | _ -> false)
         if hasVarDeclarations then
             [ CallExpression(FunctionExpression([||], BlockStatement(statements)), [||])
-              |> ExpressionStatement :> Statement |> U2.Case1 ]
-        else Array.map U2.Case1 statements |> Array.toList
+              |> ExpressionStatement :> Statement |> Choice1Of2 ]
+        else Array.map Choice1Of2 statements |> Array.toList
 
     let transformAttachedProperty (com: IBabelCompiler) ctx (memb: Fable.MemberDecl) =
         let kind = if memb.Info.IsGetter then ClassGetter else ClassSetter
@@ -1862,7 +1861,7 @@ module Util =
             getMemberArgsAndBody com ctx Attached false memb.Args memb.Body
         let key, computed = memberFromName memb.Name
         ClassMethod(kind, key, args, body, computed_=computed)
-        |> U2<_,ClassProperty>.Case1
+        |> Choice<_,ClassProperty>.Choice1Of2
         |> Array.singleton
 
     let transformAttachedMethod (com: IBabelCompiler) ctx (memb: Fable.MemberDecl) =
@@ -1871,12 +1870,12 @@ module Util =
         let key, computed = memberFromName memb.Name
         let method =
             ClassMethod(ClassFunction, key, args, body, computed_=computed)
-            |> U2<_,ClassProperty>.Case1
+            |> Choice<_,ClassProperty>.Choice1Of2
         if memb.Info.IsEnumerator then
             let iterator =
                 let key, computed = memberFromName "Symbol.iterator"
                 ClassMethod(ClassFunction, key, [||], enumerator2iterator com ctx, computed_=computed)
-                |> U2<_,ClassProperty>.Case1
+                |> Choice<_,ClassProperty>.Choice1Of2
             [|method; iterator|]
         else
             [|method|]
@@ -1913,7 +1912,7 @@ module Util =
                 |> ReturnStatement :> Statement
                 |> Array.singleton
                 |> BlockStatement
-            ClassMethod(ClassFunction, Identifier "cases", [||], body) |> U2<_, ClassProperty>.Case1
+            ClassMethod(ClassFunction, Identifier "cases", [||], body) |> Choice<_, ClassProperty>.Choice1Of2
 
         Array.append [|cases|] classMembers
         |> declareType com ctx ent entName args body (Some baseRef)
@@ -1971,7 +1970,7 @@ module Util =
         let exposedCons =
             let exposedConsBody =
                 BlockStatement [| ReturnStatement
-                    (NewExpression(classIdent, List.toArray argExprs)) |] |> U2.Case1
+                    (NewExpression(classIdent, List.toArray argExprs)) |] |> Choice1Of2
             makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
 
         let baseExpr, consBody =
@@ -2040,16 +2039,16 @@ module Util =
             | None when ent.IsFSharpUnion -> transformUnion com ctx ent decl.Name classMembers
             | None -> transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-    let transformImports (imports: Import seq): U2<Statement, ModuleDeclaration> list =
+    let transformImports (imports: Import seq): Choice<Statement, ModuleDeclaration> list =
         imports |> Seq.map (fun import ->
             let specifier =
                 import.LocalIdent
                 |> Option.map (fun localId ->
                     let localId = Identifier(localId)
                     match import.Selector with
-                    | "*" -> ImportNamespaceSpecifier(localId) |> U3.Case3
-                    | "default" | "" -> ImportDefaultSpecifier(localId) |> U3.Case2
-                    | memb -> ImportSpecifier(localId, Identifier memb) |> U3.Case1)
+                    | "*" -> ImportNamespaceSpecifier(localId) |> Choice3Of3
+                    | "default" | "" -> ImportDefaultSpecifier(localId) |> Choice2Of3
+                    | memb -> ImportSpecifier(localId, Identifier memb) |> Choice1Of3)
             import.Path, specifier)
         |> Seq.groupBy fst
         |> Seq.collect (fun (path, specifiers) ->
@@ -2058,9 +2057,9 @@ module Util =
                 ||> Seq.fold (fun (mems, defs, alls) x ->
                     let t =
                         match x with
-                        | U3.Case1 x -> x.Type
-                        | U3.Case2 x -> x.Type
-                        | U3.Case3 x -> x.Type
+                        | Choice1Of3 x -> x.Type
+                        | Choice2Of3 x -> x.Type
+                        | Choice3Of3 x -> x.Type
                     match t with
                     | "ImportNamespaceSpecifier" -> mems, defs, x::alls
                     | "ImportDefaultSpecifier" -> mems, x::defs, alls
@@ -2070,13 +2069,13 @@ module Util =
             match [mems; defs; alls] with
             | [[];[];[]] ->
                 // No specifiers, so this is just an import for side effects
-                [ImportDeclaration([||], StringLiteral path) :> ModuleDeclaration |> U2.Case2]
+                [ImportDeclaration([||], StringLiteral path) :> ModuleDeclaration |> Choice2Of2]
             | specifiers ->
                 specifiers |> List.choose (function
                 | [] -> None
                 | specifiers ->
                     ImportDeclaration(List.toArray specifiers, StringLiteral path)
-                    :> ModuleDeclaration |> U2.Case2 |> Some))
+                    :> ModuleDeclaration |> Choice2Of2 |> Some))
         |> Seq.toList
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
@@ -2141,7 +2140,7 @@ module Compiler =
         let decls =
             let importFile = Array.last sourceFiles
             StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
-            |> ExportAllDeclaration :> ModuleDeclaration |> U2.Case2 |> Array.singleton
+            |> ExportAllDeclaration :> ModuleDeclaration |> Choice2Of2 |> Array.singleton
         Program(facadeFile, decls, sourceFiles_ = sourceFiles)
 
     let transformFile (com: Compiler) (file: Fable.File) =

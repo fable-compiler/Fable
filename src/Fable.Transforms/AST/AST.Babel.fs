@@ -1,7 +1,6 @@
 namespace rec Fable.AST.Babel
 
 open Fable
-open Fable.Core
 open Fable.AST
 open PrinterExtensions
 
@@ -19,8 +18,8 @@ module PrinterExtensions =
     type Printer with
         member printer.PrintPattern(pattern: Pattern) =
             match pattern with
-            | U2.Case1 p -> p.Print(printer)
-            | U2.Case2 p -> p.Print(printer)
+            | Choice1Of2 p -> p.Print(printer)
+            | Choice2Of2 p -> p.Print(printer)
 
         member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
@@ -48,7 +47,7 @@ module PrinterExtensions =
                     | _ -> e.Print(printer)
                 | _ -> s.Print(printer)
 
-            printer.PrintBlock(nodes, printStatement, (fun p ->
+            printer.PrintBlock(nodes, printStatement, (fun printer ->
                 if printer.Column > 0 then
                     printer.Print(";")
                     printer.PrintNewLine()
@@ -73,10 +72,10 @@ module PrinterExtensions =
                     printSeparator printer
 
         member printer.PrintCommaSeparatedArray(nodes: #Node array) =
-            printer.PrintArray(nodes, (fun p x -> x.Print(printer)), (fun p -> printer.Print(", ")))
+            printer.PrintArray(nodes, (fun p x -> x.Print(p)), (fun p -> p.Print(", ")))
 
         member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
-            printer.PrintArray(nodes, (fun p x -> printer.PrintPattern(x)), (fun p -> printer.Print(", ")))
+            printer.PrintArray(nodes, (fun p x -> p.PrintPattern(x)), (fun p -> p.Print(", ")))
 
         // TODO: (super) type parameters, implements
         member printer.PrintClass(id: Identifier option, superClass: Expression option, body: ClassBody, loc) =
@@ -99,7 +98,7 @@ module PrinterExtensions =
                     | :? CallExpression as c when parameters.Length = c.Arguments.Length ->
                         Array.zip parameters c.Arguments
                         |> Array.forall (function
-                            | U2.Case2(:? Identifier as p), (:? Identifier as a) -> p.Name = a.Name
+                            | Choice2Of2(:? Identifier as p), (:? Identifier as a) -> p.Name = a.Name
                             | _ -> false)
                         |> function true -> Some(c.Callee) | false -> None
                     | _ -> None
@@ -163,7 +162,7 @@ type Node(``type``, ?loc) =
 [<AbstractClass>] type PatternNode(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
 [<AbstractClass>] type PatternExpression(``type``, ?loc) = inherit Expression(``type``, ?loc = loc)
 
-type Pattern = U2<PatternNode, PatternExpression>
+type Pattern = Choice<PatternNode, PatternExpression>
 
 [<AbstractClass>] type Literal(``type``, ?loc) = inherit Expression(``type``, ?loc = loc)
 
@@ -360,7 +359,7 @@ type Program(fileName, body, ?dependencies_, ?sourceFiles_) = // ?directives_,
     let directives = [||] // defaultArg directives_ [||]
     member __.Directives: Directive array = directives
     member __.SourceType: string = sourceType
-    member __.Body: U2<Statement, ModuleDeclaration> array = body
+    member __.Body: Choice<Statement, ModuleDeclaration> array = body
     // Properties below don't belong to babel specs
     member __.FileName: string = fileName
     member __.Dependencies: string[] = dependencies
@@ -555,15 +554,15 @@ type WhileStatement(test, body, ?loc) =
 type ForStatement(body, ?init, ?test, ?update, ?loc) =
     inherit Statement("ForStatement", ?loc = loc)
     member __.Body: BlockStatement = body
-    member __.Init: U2<VariableDeclaration, Expression> option = init
+    member __.Init: Choice<VariableDeclaration, Expression> option = init
     member __.Test: Expression option = test
     member __.Update: Expression option = update
     override _.Print(printer) =
         printer.Print("for (", ?loc=loc)
         match init with
         | None -> ()
-        | Some(U2.Case1 x) -> x.Print(printer)
-        | Some(U2.Case2 x) -> x.Print(printer)
+        | Some(Choice1Of2 x) -> x.Print(printer)
+        | Some(Choice2Of2 x) -> x.Print(printer)
         printer.Print("; ")
         printer.PrintOptional(test)
         printer.Print("; ")
@@ -576,7 +575,7 @@ type ForStatement(body, ?init, ?test, ?update, ?loc) =
 //type ForInStatement(left, right, body, ?loc) =
 //    inherit Statement("ForInStatement", ?loc = loc)
 //    member __.Body: BlockStatement = body
-//    member __.Left: U2<VariableDeclaration, Expression> = left
+//    member __.Left: Choice<VariableDeclaration, Expression> = left
 //    member __.Right: Expression = right
 
 /// When passing a VariableDeclaration, the bound value must go through
@@ -584,7 +583,7 @@ type ForStatement(body, ?init, ?test, ?update, ?loc) =
 //type ForOfStatement(left, right, body, ?loc) =
 //    inherit Statement("ForOfStatement", ?loc = loc)
 //    member __.Body: BlockStatement = body
-//    member __.Left: U2<VariableDeclaration, Expression> = left
+//    member __.Left: Choice<VariableDeclaration, Expression> = left
 //    member __.Right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
@@ -624,17 +623,17 @@ type ArrowFunctionExpression(``params``, body, ?returnType, ?typeParameters, ?lo
 //    let generator = defaultArg generator_ false
 //    member __.Async: bool = async
 //    member __.Generator: bool = generator
-    let expression = Some (match body with U2.Case1 _ -> false | U2.Case2 _ -> true)
+    let expression = Some (match body with Choice1Of2 _ -> false | Choice2Of2 _ -> true)
     member __.Params: Pattern array = ``params``
-    member __.Body: U2<BlockStatement, Expression> = body
+    member __.Body: Choice<BlockStatement, Expression> = body
     member __.Expression: bool option = expression
     member __.ReturnType: TypeAnnotation option = returnType
     member __.TypeParameters: TypeParameterDeclaration option = typeParameters
     override _.Print(printer) =
         let body =
             match body with
-            | U2.Case1 block -> block
-            | U2.Case2 expr -> BlockStatement [|ReturnStatement expr|]
+            | Choice1Of2 block -> block
+            | Choice2Of2 expr -> BlockStatement [|ReturnStatement expr|]
         printer.PrintFunction(None, ``params``, body, loc, isArrow=true)
 
 type FunctionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
@@ -687,7 +686,7 @@ type SpreadElement(argument, ?loc) =
 
 type ArrayExpression(elements, ?loc) =
     inherit Expression("ArrayExpression", ?loc = loc)
-    // member __.Elements: U2<Expression, SpreadElement> option array = elements
+    // member __.Elements: Choice<Expression, SpreadElement> option array = elements
     member __.Elements: Expression array = elements
     override _.Print(printer) =
         printer.Print("[", ?loc=loc)
@@ -774,12 +773,12 @@ type MemberExpression(object, property, ?computed_, ?loc) =
 
 type ObjectExpression(properties, ?loc) =
     inherit Expression("ObjectExpression", ?loc = loc)
-//    member __.Properties: U3<ObjectProperty, ObjectMethod, SpreadProperty> array = properties
-    member __.Properties: U2<ObjectProperty, ObjectMethod> array = properties
+//    member __.Properties: Choice<ObjectProperty, ObjectMethod, SpreadProperty> array = properties
+    member __.Properties: Choice<ObjectProperty, ObjectMethod> array = properties
     override _.Print(printer) =
         let printProp (printer: Printer) = function
-            | U2.Case1 (x: ObjectProperty) -> x.Print(printer)
-            | U2.Case2 (x: ObjectMethod) -> x.Print(printer)
+            | Choice1Of2 (x: ObjectProperty) -> x.Print(printer)
+            | Choice2Of2 (x: ObjectMethod) -> x.Print(printer)
 
         let printSeparator (p: Printer) =
             p.Print(",")
@@ -806,7 +805,7 @@ type ConditionalExpression(test, consequent, alternate, ?loc) =
 type CallExpression(callee, arguments, ?loc) =
     inherit Expression("CallExpression", ?loc = loc)
     member __.Callee: Expression = callee
-    // member __.Arguments: U2<Expression, SpreadElement> array = arguments
+    // member __.Arguments: Choice<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
     override _.Print(printer) =
         printer.AddLocation(loc)
@@ -818,7 +817,7 @@ type CallExpression(callee, arguments, ?loc) =
 type NewExpression(callee, arguments, ?typeArguments, ?loc) =
     inherit Expression("NewExpression", ?loc = loc)
     member __.Callee: Expression = callee
-    // member __.Arguments: U2<Expression, SpreadElement> array = arguments
+    // member __.Arguments: Choice<Expression, SpreadElement> array = arguments
     member __.Arguments: Expression array = arguments
     member __.TypeArguments: TypeParameterInstantiation option = typeArguments
     override _.Print(printer) =
@@ -951,7 +950,7 @@ type LogicalExpression(operator_, left, right, ?loc) =
 
 // type ObjectPattern(properties, ?loc) =
 //     inherit Node("ObjectPattern", ?loc = loc)
-//     member __.Properties: U2<AssignmentProperty, RestProperty> array = properties
+//     member __.Properties: Choice<AssignmentProperty, RestProperty> array = properties
 //     interface Pattern
 
 //type ArrayPattern(elements, ?typeAnnotation, ?loc) =
@@ -1029,7 +1028,7 @@ type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstr
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
 type ClassProperty(key, ?value, ?``static``, ?optional, ?typeAnnotation, ?loc) =
     inherit Node("ClassProperty", ?loc = loc)
-    member __.Key: U2<Identifier, StringLiteral> = key
+    member __.Key: Choice<Identifier, StringLiteral> = key
     member __.Value: Expression option = value
     member __.Static: bool option = ``static``
     member __.Optional: bool option = optional
@@ -1039,8 +1038,8 @@ type ClassProperty(key, ?value, ?``static``, ?optional, ?typeAnnotation, ?loc) =
         if ``static`` = Some true then
             printer.Print("static ")
         match key with
-        | U2.Case1 key -> key.Print(printer)
-        | U2.Case2 key ->
+        | Choice1Of2 key -> key.Print(printer)
+        | Choice2Of2 key ->
             printer.Print("[")
             key.Print(printer)
             printer.Print("]")
@@ -1060,15 +1059,15 @@ type ClassImplements(id, ?typeParameters, ?loc) =
 
 type ClassBody(body, ?loc) =
     inherit Node("ClassBody", ?loc = loc)
-    member __.Body: U2<ClassMethod, ClassProperty> array = body
+    member __.Body: Choice<ClassMethod, ClassProperty> array = body
     override _.Print(printer) =
-        let printMember printer (memb: U2<ClassMethod, ClassProperty>) =
+        let printMember printer (memb: Choice<ClassMethod, ClassProperty>) =
             match memb with
-            | U2.Case1 x -> x.Print(printer)
-            | U2.Case2 x -> x.Print(printer)
+            | Choice1Of2 x -> x.Print(printer)
+            | Choice2Of2 x -> x.Print(printer)
 
         printer.AddLocation(loc)
-        printer.PrintBlock(body, printMember, (fun p ->
+        printer.PrintBlock(body, printMember, (fun printer ->
             if printer.Column > 0 then
                 printer.Print(";")
                 printer.PrintNewLine()
@@ -1141,12 +1140,12 @@ type ImportNamespaceSpecifier(local, ?loc) =
 /// e.g., import foo from "mod";.
 type ImportDeclaration(specifiers, source, ?loc) =
     inherit ModuleDeclaration("ImportDeclaration", ?loc = loc)
-    member __.Specifiers: U3<ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier> array = specifiers
+    member __.Specifiers: Choice<ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier> array = specifiers
     member __.Source: Literal = source
     override _.Print(printer) =
-        let members = specifiers |> Array.choose (function U3.Case1 x -> Some x | _ -> None)
-        let defaults = specifiers|> Array.choose (function U3.Case2 x -> Some x | _ -> None)
-        let namespaces = specifiers |> Array.choose (function U3.Case3 x -> Some x | _ -> None)
+        let members = specifiers |> Array.choose (function Choice1Of3 x -> Some x | _ -> None)
+        let defaults = specifiers|> Array.choose (function Choice2Of3 x -> Some x | _ -> None)
+        let namespaces = specifiers |> Array.choose (function Choice3Of3 x -> Some x | _ -> None)
 
         printer.Print("import ", ?loc = loc)
 
@@ -1206,12 +1205,12 @@ type ExportNamedDeclaration(?declaration, ?specifiers_, ?source, ?loc) =
 /// An export default declaration, e.g., export default function () {}; or export default 1;.
 type ExportDefaultDeclaration(declaration, ?loc) =
     inherit ModuleDeclaration("ExportDefaultDeclaration", ?loc = loc)
-    member __.Declaration: U2<Declaration, Expression> = declaration
+    member __.Declaration: Choice<Declaration, Expression> = declaration
     override _.Print(printer) =
         printer.Print("export default ", ?loc=loc)
         match declaration with
-        | U2.Case1 x -> x.Print(printer)
-        | U2.Case2 x -> x.Print(printer)
+        | Choice1Of2 x -> x.Print(printer)
+        | Choice2Of2 x -> x.Print(printer)
 
 /// An export batch declaration, e.g., export * from "mod";.
 type ExportAllDeclaration(source, ?loc) =
@@ -1296,7 +1295,7 @@ type GenericTypeAnnotation(id, ?typeParameters) =
 
 type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto, ?method) =
     inherit Node("ObjectTypeProperty")
-    member __.Key: U2<Identifier, StringLiteral> = key
+    member __.Key: Choice<Identifier, StringLiteral> = key
     member __.Value: TypeAnnotationInfo = value
     member __.Kind: string option = kind
     member __.Static: bool option = ``static``

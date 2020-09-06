@@ -83,10 +83,10 @@ type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
 
 let run writer map (program: Program): Async<unit> =
 
-    let printDeclWithExtraLine extraLine printer (decl: U2<Statement, ModuleDeclaration>) =
+    let printDeclWithExtraLine extraLine printer (decl: Choice<Statement, ModuleDeclaration>) =
         match decl with
-        | U2.Case1 statement -> statement.Print(printer)
-        | U2.Case2 moduleDecl -> moduleDecl.Print(printer)
+        | Choice1Of2 statement -> statement.Print(printer)
+        | Choice2Of2 moduleDecl -> moduleDecl.Print(printer)
 
         if printer.Column > 0 then
             printer.Print(";")
@@ -99,7 +99,7 @@ let run writer map (program: Program): Async<unit> =
 
         let imports, restDecls =
             program.Body |> Array.splitWhile (function
-                | U2.Case2(:? ImportDeclaration) -> true
+                | Choice2Of2(:? ImportDeclaration) -> true
                 | _ -> false)
 
         for decl in imports do
