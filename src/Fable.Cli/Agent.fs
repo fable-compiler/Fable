@@ -183,6 +183,8 @@ type FileWriter(path: string) =
     interface BabelPrinter.Writer with
         member _.Write(str) =
             stream.WriteAsync(str) |> Async.AwaitTask
+        member _.EscapeJsStringLiteral(str) =
+            Web.HttpUtility.JavaScriptStringEncode(str)
         member _.Dispose() =
             stream.Dispose()
 

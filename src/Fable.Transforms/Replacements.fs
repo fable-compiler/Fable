@@ -9,7 +9,7 @@ open Fable.AST.Fable
 
 type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
-type CallInfo = Fable.ReplaceCallInfo
+type CallInfo = ReplaceCallInfo
 
 type Helper =
     static member JsConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?loc: SourceLocation) =
@@ -2645,11 +2645,6 @@ let guids (com: ICompiler) (ctx: Context) (_: SourceLocation option) t (i: CallI
         | _ -> None
     | _ -> None
 
-let httpUtility (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | "JavaScriptStringEncode" -> emitJsExpr r t args "JSON.stringify($0).slice(1, -1)" |> Some
-    | _ -> None
-
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | ".ctor" -> Helper.LibCall(com, "Uri", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
@@ -2916,7 +2911,6 @@ let private replacedModules =
     "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
     Types.guid, guids
     "System.Uri", uris
-    "System.Web.HttpUtility", httpUtility
     "System.Lazy`1", laziness
     "Microsoft.FSharp.Control.Lazy", laziness
     "Microsoft.FSharp.Control.LazyExtensions", laziness

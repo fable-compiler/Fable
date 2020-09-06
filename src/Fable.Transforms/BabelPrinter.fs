@@ -16,6 +16,7 @@ type SourceMapGenerator =
 
 type Writer =
     inherit IDisposable
+    abstract EscapeJsStringLiteral: string -> string
     abstract Write: string -> Async<unit>
 
 type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
@@ -76,6 +77,9 @@ type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
 
         member this.PrintNewLine() =
             this.PrintNewLine()
+
+        member this.EscapeJsStringLiteral(str) =
+            writer.EscapeJsStringLiteral(str)
 
 let run writer map (program: Program): Async<unit> =
 

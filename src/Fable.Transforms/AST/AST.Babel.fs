@@ -13,6 +13,7 @@ type Printer =
     abstract Print: string * ?loc: SourceLocation -> unit
     abstract PrintNewLine: unit -> unit
     abstract AddLocation: SourceLocation option -> unit
+    abstract EscapeJsStringLiteral: string -> string
 
 module PrinterExtensions =
     type Printer with
@@ -314,7 +315,7 @@ type StringLiteral(value, ?loc) =
     member __.Value: string = value
     override _.Print(printer) =
         printer.Print("\"", ?loc=loc)
-        printer.Print(System.Web.HttpUtility.JavaScriptStringEncode(value))
+        printer.Print(printer.EscapeJsStringLiteral(value))
         printer.Print("\"")
 
 type BooleanLiteral(value, ?loc) =
