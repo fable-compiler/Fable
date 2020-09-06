@@ -563,4 +563,4 @@ let transformDeclaration (com: Compiler) = function
 
 let transformFile (com: Compiler) (file: File) =
     let newDecls = List.map (transformDeclaration com) file.Declarations
-    File(file.SourcePath, newDecls, usedRootNames=file.UsedNamesInRootScope, watchDependencies=file.WatchDependencies)
+    File(newDecls, usedRootNames=file.UsedNamesInRootScope)

@@ -31,6 +31,7 @@ type Severity =
     | Error
     | Info
 
+open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 
 type InlineExpr =
@@ -42,7 +43,9 @@ type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
     abstract Options: CompilerOptions
+    abstract ImplementationFiles: IDictionary<string, FSharpImplementationFileContents>
     abstract GetRootModule: string -> string
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
+    abstract AddWatchDependency: file: string -> unit
     abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation
                         * ?fileName:string * ?tag: string -> unit

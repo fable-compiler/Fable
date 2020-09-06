@@ -230,7 +230,6 @@ type IFableCompiler =
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
-    abstract AddInlineDependency: string -> unit
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
@@ -1120,7 +1119,7 @@ module Util =
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
 
-    let memberRefTyped (com: IFableCompiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRefTyped (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
@@ -1135,7 +1134,7 @@ module Util =
         elif isPublicMember memb then
             // If the overload suffix changes, we need to recompile the files that call this member
             if hasOverloadSuffix then
-                com.AddInlineDependency(file)
+                com.AddWatchDependency(file)
             makeImportInternal com typ memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName

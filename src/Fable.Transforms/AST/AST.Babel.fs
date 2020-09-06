@@ -351,19 +351,13 @@ type Directive(value, ?loc) =
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
-type Program(fileName, body, ?dependencies_, ?sourceFiles_) = // ?directives_,
+type Program(body) = // ?directives_,
     inherit Node("Program")
     let sourceType = "module" // Don't use "script"
-    let sourceFiles = defaultArg sourceFiles_ [||]
-    let dependencies = defaultArg dependencies_ [||]
     let directives = [||] // defaultArg directives_ [||]
     member __.Directives: Directive array = directives
     member __.SourceType: string = sourceType
     member __.Body: Choice<Statement, ModuleDeclaration> array = body
-    // Properties below don't belong to babel specs
-    member __.FileName: string = fileName
-    member __.Dependencies: string[] = dependencies
-    member __.SourceFiles: string[] = sourceFiles
     override _.Print(_) =
         failwith "Program cannot be printed directly"
 

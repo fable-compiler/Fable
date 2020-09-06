@@ -142,11 +142,9 @@ type Declaration =
             |> fun usedNames -> usedNames, d.AttachedMembers
             ||> List.fold (fun acc m -> Set.union acc m.UsedNames)
 
-type File(sourcePath, decls, ?usedRootNames, ?watchDependencies) =
-    member __.SourcePath: string = sourcePath
+type File(decls, ?usedRootNames) =
     member __.Declarations: Declaration list = decls
     member __.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
-    member __.WatchDependencies: Set<string> = defaultArg watchDependencies Set.empty
 
 type Ident =
     { Name: string

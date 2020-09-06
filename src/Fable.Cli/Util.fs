@@ -10,66 +10,49 @@ module Literals =
     let [<Literal>] FORCE = "force:"
     let [<Literal>] EXIT = "exit"
 
-type Message =
-      abstract RootDir: string
-      abstract Define: string[]
-      abstract NoReferences: bool
-      abstract NoRestore: bool
-      abstract TypedArrays: bool
-      abstract Typescript: bool
-
-type MessageHelper =
-    static member Make() =
-        { new Message with
-              member _.RootDir = Directory.GetCurrentDirectory()
-              member _.Define = [||]
-              member _.NoReferences = false
-              member _.NoRestore = false
-              member _.TypedArrays = false
-              member _.Typescript = false }
+type CliArgs =
+    { ProjectFile: string
+      RootDir: string
+      Define: string[]
+      NoReferences: bool
+      NoRestore: bool
+      TypedArrays: bool
+      Typescript: bool }
 
 type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
-type GlobalParams private (verbosity, forcePkgs, fableLibraryPath, workingDir) =
+type GlobalParams private (fableLibraryPath) =
     static let mutable singleton: GlobalParams option = None
-    let mutable _verbosity = verbosity
-    let mutable _forcePkgs = forcePkgs
-    let mutable _fableLibraryPath = fableLibraryPath
-    let mutable _workingDir = workingDir
-    let mutable _experimental: Set<string> = Set.empty
+    let mutable _forcePkgs = false
+    let mutable _verbosity = Fable.Verbosity.Normal
 
     static member Singleton =
         match singleton with
         | Some x -> x
         | None ->
-            let workingDir = Directory.GetCurrentDirectory()
             let execDir =
               typeof<TypeInThisAssembly>.Assembly.Location
               |> Path.GetDirectoryName
             let defaultFableLibraryPaths =
-                [ "../fable-library"                         // running from npm package
-                  "../../fable-library/"                     // running from nuget package
+                [ "../../fable-library/"                     // running from nuget package
                   "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp2.0
                 |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
             let fableLibraryPath =
                 defaultFableLibraryPaths
                 |> List.tryFind Directory.Exists
                 |> Option.defaultValue (List.last defaultFableLibraryPaths)
-            let p = GlobalParams(Fable.Verbosity.Normal, false, fableLibraryPath, workingDir)
+            let p = GlobalParams(fableLibraryPath)
             singleton <- Some p
             p
 
     member __.Verbosity: Fable.Verbosity = _verbosity
     member __.ForcePkgs: bool = _forcePkgs
-    member __.FableLibraryPath: string = _fableLibraryPath
-    member __.WorkingDir: string = _workingDir
+    member __.FableLibraryPath: string = fableLibraryPath
 
-    member __.SetValues(?verbosity, ?forcePkgs, ?fableLibraryPath, ?workingDir) =
+    member __.SetValues(?verbosity, ?forcePkgs) =
         _verbosity      <- defaultArg verbosity _verbosity
         _forcePkgs      <- defaultArg forcePkgs _forcePkgs
-        _fableLibraryPath  <- defaultArg fableLibraryPath _fableLibraryPath
-        _workingDir     <- defaultArg workingDir _workingDir
 
 [<RequireQualifiedAccess>]
 module Log =

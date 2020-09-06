@@ -735,8 +735,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.NewTuple(argExprs) |> makeValue (makeRangeFrom fsExpr)
 
     | BasicPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
-        let objExpr ctx =
-            transformObjExpr com ctx objType baseCall overrides otherOverrides
         match ctx.EnclosingMember with
         | Some m when m.IsImplicitConstructor ->
             let thisArg = getIdentUniqueName ctx "_this" |> makeIdent
@@ -1107,8 +1105,7 @@ let private getRootModuleAndDecls decls =
         | decls -> outerEnt, decls
     getRootModuleAndDeclsInner None decls
 
-let private tryGetMemberArgsAndBody com (implFiles: IDictionary<string, FSharpImplementationFileContents>)
-                                    fileName entityFullName memberUniqueName =
+let private tryGetMemberArgsAndBody (com: Compiler) fileName entityFullName memberUniqueName =
     let rec tryGetMemberArgsAndBodyInner (entityFullName: string) (memberUniqueName: string) = function
         | Entity (e, decls) ->
             let entityFullName2 = getEntityFullName e
@@ -1120,14 +1117,13 @@ let private tryGetMemberArgsAndBody com (implFiles: IDictionary<string, FSharpIm
             then Some(args, body)
             else None
         | InitAction _ -> None
-    match implFiles.TryGetValue(fileName) with
+    match com.ImplementationFiles.TryGetValue(fileName) with
     | true, f -> f.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName)
     | false, _ -> None
 
-type FableCompiler(com: Compiler, implFiles: IDictionary<string, FSharpImplementationFileContents>) =
+type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
 
-    member val WatchDependencies = HashSet<string>()
     member __.Options = com.Options
 
     member _.AddInlineExpr(memb, inlineExpr: InlineExpr) =
@@ -1185,10 +1181,10 @@ type FableCompiler(com: Compiler, implFiles: IDictionary<string, FSharpImplement
                 // for type extensions, see #1667
                 let entFullName = getEntityFullName ent
                 let fileName = FsMemberFunctionOrValue.SourcePath memb
-                if fileName <> com.CurrentFile then
-                    (this :> IFableCompiler).AddInlineDependency(fileName)
+                com.AddWatchDependency(fileName)
+
                 com.GetOrAddInlineExpr(membUniqueName, fun () ->
-                    match tryGetMemberArgsAndBody com implFiles fileName entFullName membUniqueName with
+                    match tryGetMemberArgsAndBody com fileName entFullName membUniqueName with
                     | Some(args, body) ->
                         { Args = List.concat args
                           Body = body
@@ -1197,22 +1193,22 @@ type FableCompiler(com: Compiler, implFiles: IDictionary<string, FSharpImplement
 
         member _.TryGetImplementationFile (fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match implFiles.TryGetValue(fileName) with
+            match com.ImplementationFiles.TryGetValue(fileName) with
             | true, f -> Some f
             | false, _ -> None
 
-        member this.AddInlineDependency(fileName) =
-            this.WatchDependencies.Add(fileName) |> ignore
-
     interface Compiler with
-        member __.Options = com.Options
-        member __.LibraryDir = com.LibraryDir
-        member __.CurrentFile = com.CurrentFile
-        member __.GetRootModule(fileName) =
+        member _.Options = com.Options
+        member _.LibraryDir = com.LibraryDir
+        member _.CurrentFile = com.CurrentFile
+        member _.ImplementationFiles = com.ImplementationFiles
+        member _.GetRootModule(fileName) =
             com.GetRootModule(fileName)
-        member __.GetOrAddInlineExpr(fullName, generate) =
+        member _.GetOrAddInlineExpr(fullName, generate) =
             com.GetOrAddInlineExpr(fullName, generate)
-        member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
+        member _.AddWatchDependency(fileName) =
+            com.AddWatchDependency(fileName)
+        member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
 let getRootModuleFullName (file: FSharpImplementationFileContents) =
@@ -1221,14 +1217,14 @@ let getRootModuleFullName (file: FSharpImplementationFileContents) =
     | Some rootEnt -> getEntityFullName rootEnt
     | None -> ""
 
-let transformFile (com: Compiler) (implFiles: IDictionary<string, FSharpImplementationFileContents>) =
+let transformFile (com: Compiler) =
     let file =
-        match implFiles.TryGetValue(com.CurrentFile) with
+        match com.ImplementationFiles.TryGetValue(com.CurrentFile) with
         | true, file -> file
         | false, _ ->
-            let projFiles = implFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
+            let projFiles = com.ImplementationFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
             failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
-    let fcom = FableCompiler(com, implFiles)
+    let fcom = FableCompiler(com)
     let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
     let usedRootNames = getUsedRootNames com Set.empty rootDecls
     let ctx = Context.Create(rootEnt, usedRootNames)
@@ -1244,4 +1240,4 @@ let transformFile (com: Compiler) (implFiles: IDictionary<string, FSharpImplemen
                     |> Fable.ClassDeclaration)
                 |> Option.defaultValue classDecl
             | decl -> decl)
-    Fable.File(com.CurrentFile, rootDecls, usedRootNames, set fcom.WatchDependencies)
+    Fable.File(rootDecls, usedRootNames)

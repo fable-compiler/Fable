@@ -151,7 +151,7 @@ module Reflection =
                 ent.FSharpFields |> Seq.choose (fun fi ->
                     // F# seems to include a field with this name in the underlying type
                     match fi.Name with
-                    | "value__" ->
+                    | "value_" ->
                         match fi.FieldType with
                         | Fable.Number kind -> numberKind <- kind
                         | _ -> ()
@@ -575,9 +575,9 @@ module Util =
         let argIds = discardUnitArg args |> List.map (fun arg ->
             getUniqueNameInDeclarationScope ctx (arg.Name + "_mut"))
         interface ITailCallOpportunity with
-            member __.Label = name
-            member __.Args = argIds
-            member __.IsRecursiveRef(e) =
+            member _.Label = name
+            member _.Args = argIds
+            member _.IsRecursiveRef(e) =
                 match e with Fable.IdentExpr id -> name = id.Name | _ -> false
 
     let getDecisionTarget (ctx: Context) targetIndex =
@@ -2094,7 +2094,7 @@ module Compiler =
         let imports = Dictionary<string,Import>()
 
         interface IBabelCompiler with
-            member __.GetImportExpr(ctx, selector, path) =
+            member _.GetImportExpr(ctx, selector, path) =
                 let ext = if com.Options.Typescript then "" else Naming.targetFileExtension
                 let cachedName = path + "::" + selector
                 match imports.TryGetValue(cachedName) with
@@ -2116,32 +2116,24 @@ module Compiler =
                     match localId with
                     | Some localId -> upcast Identifier(localId)
                     | None -> upcast NullLiteral ()
-            member __.GetAllImports() = upcast imports.Values
+            member _.GetAllImports() = upcast imports.Values
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path)
 
         interface Compiler with
-            member __.Options = com.Options
-            member __.LibraryDir = com.LibraryDir
-            member __.CurrentFile = com.CurrentFile
-            member __.GetRootModule(fileName) = com.GetRootModule(fileName)
-            member __.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
-            member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
+            member _.Options = com.Options
+            member _.LibraryDir = com.LibraryDir
+            member _.CurrentFile = com.CurrentFile
+            member _.ImplementationFiles = com.ImplementationFiles
+            member _.GetRootModule(fileName) = com.GetRootModule(fileName)
+            member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
+            member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
+            member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
     let makeCompiler com = BabelCompiler(com)
-
-    let createFacade (sourceFiles: string[]) (facadeFile: string) =
-        // Remove signature files so fable-splitter doesn't try to compile them
-        // when `allFiles` option is selected
-        let sourceFiles = sourceFiles |> Array.filter (fun x -> x.EndsWith(".fsi") |> not)
-        let decls =
-            let importFile = Array.last sourceFiles
-            StringLiteral(Path.getRelativeFileOrDirPath false facadeFile false importFile)
-            |> ExportAllDeclaration :> ModuleDeclaration |> Choice2Of2 |> Array.singleton
-        Program(facadeFile, decls, sourceFiles_ = sourceFiles)
 
     let transformFile (com: Compiler) (file: Fable.File) =
         let com = makeCompiler com :> IBabelCompiler
@@ -2164,7 +2156,4 @@ module Compiler =
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports
         let body = importDecls @ rootDecls |> List.toArray
-        // We don't add imports as dependencies because those will be handled by Webpack
-        // TODO: Do it for other clients, like fable-splitter?
-        let dependencies = Array.ofSeq file.WatchDependencies
-        Program(file.SourcePath, body, dependencies_ = dependencies)
+        Program(body)

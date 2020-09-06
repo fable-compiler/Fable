@@ -13,8 +13,8 @@
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
-    <Compile Include="Agent.fs" />
     <Compile Include="Main.fs" />
+    <Compile Include="Entry.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
