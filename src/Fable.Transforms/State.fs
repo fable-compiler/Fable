@@ -45,6 +45,16 @@ type Log =
       Range: SourceLocation option
       FileName: string option }
 
+    static member Make(severity, msg, ?fileName, ?range, ?tag) =
+        { Message = msg
+          Tag = defaultArg tag "FABLE"
+          Severity = severity
+          Range = range
+          FileName = fileName }
+
+    static member MakeError(msg, ?fileName, ?range, ?tag) =
+        Log.Make(Severity.Error, msg, ?fileName=fileName, ?range=range, ?tag=tag)
+
 /// Type with utilities for compiling F# files to JS
 /// Not thread-safe, an instance must be created per file
 type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string) =
@@ -79,9 +89,5 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 watchDependencies.Add(file) |> ignore
 
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
-            { Message = msg
-              Tag = defaultArg tag "FABLE"
-              Severity = severity
-              Range = range
-              FileName = fileName }
+            Log.Make(severity, msg, ?range=range, ?fileName=fileName, ?tag=tag)
             |> logs.Add

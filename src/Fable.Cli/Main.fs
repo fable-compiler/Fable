@@ -47,12 +47,12 @@ type Watcher(projDir: string) =
         timer.Elapsed.Add(fun _ ->
             changes
             |> Seq.map Path.normalizeFullPath
-            |> Seq.distinct
-            |> Seq.toList
+            |> set
             |> observable.Trigger
             changes.Clear())
 
         watcher.Changed.Add(fun ev ->
+            // TODO: Reset timer for every change?
             if not timer.Enabled then
                 timer.Start()
             changes.Add(ev.FullPath))
@@ -102,33 +102,35 @@ module private Util =
             | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity log.Tag log.Message
             | None -> sprintf "%s(1,1): %s %s: %s" file severity log.Tag log.Message
 
-    let addFSharpErrorLogs (com: Compiler) (proj: Project) (triggerFile: string) =
-        proj.Errors |> Seq.filter (fun er ->
-            // Report warnings always in the corresponding file
-            // but ignore those from packages in `.fable` folder
-            if er.Severity = FSharpErrorSeverity.Warning then
-                com.CurrentFile = er.FileName && not(Naming.isInFableHiddenDir er.FileName)
-            // For errors, if the trigger is the .fsproj (first compilation), report them in the corresponding file
-            elif triggerFile.EndsWith(".fsproj") then
-                com.CurrentFile = er.FileName
-            // If another file triggers the compilation, report errors there so they don't go missing
-            // But ignore errors from packages in `.fable` folder, as this is watch mode and users can't do anything
-            // See https://github.com/fable-compiler/Fable/pull/1714#issuecomment-463137486
-            else
-                com.CurrentFile = triggerFile && not(Naming.isInFableHiddenDir er.FileName))
-        |> Seq.map (fun er ->
+    let getFSharpErrorLogs (proj: Project) =
+        proj.Errors
+        // Ignore warnings from packages in `.fable` folder
+//        |> Array.filter (fun er ->
+//            if er.Severity = FSharpErrorSeverity.Warning then
+//                not(Naming.isInFableHiddenDir er.FileName)
+//            else true)
+        |> Array.map (fun er ->
             let severity =
                 match er.Severity with
                 | FSharpErrorSeverity.Warning -> Severity.Warning
                 | FSharpErrorSeverity.Error -> Severity.Error
+
             let range =
                 { start={ line=er.StartLineAlternate; column=er.StartColumn+1}
                   ``end``={ line=er.EndLineAlternate; column=er.EndColumn+1}
                   identifierName = None }
-            (er.FileName, range, severity, sprintf "%s (code %i)" er.Message er.ErrorNumber))
-        |> Seq.distinct // Sometimes errors are duplicated
-        |> Seq.iter (fun (fileName, range, severity, msg) ->
-            com.AddLog(msg, severity, range, fileName, "FSHARP"))
+
+            let msg = sprintf "%s (code %i)" er.Message er.ErrorNumber
+
+            Log.Make(severity, msg, fileName=er.FileName, range=range, tag="FSHARP")
+        )
+        |> Array.distinct // Sometimes errors are duplicated
+
+    let hasWatchDependency (path: string) (dirtyFiles: Set<string>) watchDependencies =
+        match Map.tryFind path watchDependencies with
+        | None -> false
+        | Some watchDependencies ->
+            watchDependencies |> Array.exists (fun p -> Set.contains p dirtyFiles)
 
     let compileFile (com: CompilerImpl) = async {
         try
@@ -137,11 +139,18 @@ module private Util =
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
 
-            let writer = new FileWriter(com.CurrentFile + ".js")
             // TODO: Dummy interface until we have a dotnet port of SourceMapGenerator
             // https://github.com/mozilla/source-map#with-sourcemapgenerator-low-level-api
             let map = { new BabelPrinter.SourceMapGenerator with
                             member _.AddMapping(_,_,_,_,_) = () }
+
+            let newExtension =
+                match com.Options.FileExtension with
+                | "" when com.Options.Typescript -> ".ts"
+                | "" -> ".js"
+                | ext -> ext
+            let writer = new FileWriter(Path.replaceExtension newExtension com.CurrentFile)
+
             do! BabelPrinter.run writer map babel
 
             Log.always(sprintf "Compiled %s" com.CurrentFile)
@@ -181,13 +190,15 @@ type ProjectCracked(sourceFiles: File array,
         let fableLibraryDir = Path.getRelativePath currentFile fableLibraryDir
         CompilerImpl(currentFile, project, fableCompilerOptions, fableLibraryDir)
 
-    member _.WithSourceFiles(sourceFiles) =
-        ProjectCracked(sourceFiles, fsharpProjOptions, fableCompilerOptions, fableLibraryDir)
+    member _.MapSourceFiles(f) =
+        ProjectCracked(Array.map f sourceFiles, fsharpProjOptions, fableCompilerOptions, fableLibraryDir)
 
     static member Init(msg: CliArgs) =
         let projectOptions, fableLibraryDir =
             getFullProjectOpts {
+                fableLib = msg.FableLibraryPath
                 define = msg.Define
+                forcePkgs = msg.ForcePackages
                 noReferences = msg.NoReferences
                 noRestore = msg.NoRestore
                 rootDir = msg.RootDir
@@ -200,12 +211,7 @@ type ProjectCracked(sourceFiles: File array,
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
         let sourceFiles = getSourceFiles projectOptions |> Array.map File
-        let compilerOptions = CompilerOptionsHelper.Make(typedArrays = msg.TypedArrays,
-                                                         typescript = msg.Typescript,
-                                                         debugMode = Array.contains "DEBUG" msg.Define,
-                                                         verbosity = GlobalParams.Singleton.Verbosity)
-
-        ProjectCracked(sourceFiles, projectOptions, compilerOptions, fableLibraryDir)
+        ProjectCracked(sourceFiles, projectOptions, msg.CompilerOptions, fableLibraryDir)
 
 type ProjectParsed(project: Project,
                    checker: InteractiveChecker) =
@@ -247,67 +253,76 @@ type ProjectParsed(project: Project,
         let proj = Project(config.ProjectOptions, implFilesMap, checkedProject.Errors)
         ProjectParsed(proj, checker)
 
-//    member this.Update() =
-//        // Do nothing if project is parsed less than a second ago or doesn't have dirty files
-//        if DateTime.Now - timestamp < TimeSpan.FromSeconds(1.) then
-//           this
-//        else
-//            let mutable someDirtyFiles = false
-//            let sourceFiles =
-//                this.Config.SourceFiles
-//                |> Array.map (fun file ->
-//                    let path = file.NormalizedFullPath
-//                    // Assume files in .fable folder are stable
-//                    if Naming.isInFableHiddenDir path then file
-//                    else
-//                        let isDirty = IO.File.GetLastWriteTime(path) > timestamp
-//                        someDirtyFiles <- someDirtyFiles || isDirty
-//                        if isDirty then File(path) // Clear the cached source hash
-//                        else file)
-//
-//            if not someDirtyFiles then this
-//            else AgentState.ParseProject(this.Config.WithSourceFiles(sourceFiles), checker)
-
 type State =
     { CliArgs: CliArgs
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
       Watcher: Watcher option
       WatchDependencies: Map<string, string[]> }
 
-let rec startCompilation changes (state: State) = async {
-    let cracked, parsed =
+let rec startCompilation (changes: Set<string>) (state: State) = async {
+    let cracked, parsed, filesToCompile =
         match state.ProjectCrackedAndParsed with
         // TODO: If changes contain project file, crack and parse the project again
-        // TODO: If not, only parse the project again resetting the dirty files (see Update above)
-        | Some(cracked, parsed) -> cracked, parsed
+        | Some(cracked, parsed) ->
+            cracked.SourceFiles
+            |> Array.choose (fun file ->
+                let path = file.NormalizedFullPath
+                if Set.contains path changes then Some path
+                else None)
+//                    Some(File(file.NormalizedFullPath)) // Clear the cached source hash
+            |> function
+                | [||] -> cracked, parsed, [||]
+                | dirtyFiles ->
+                    let dirtyFiles = set dirtyFiles
+                    let cracked = cracked.MapSourceFiles(fun file ->
+                        if Set.contains file.NormalizedFullPath dirtyFiles then
+                            File(file.NormalizedFullPath) // Clear the cached source hash
+                        else file)
+                    let parsed = ProjectParsed.Init(cracked, parsed.Checker)
+                    // TODO: Use WatchDependencies tree to check other files that need to be recompiled to JS
+                    let filesToCompile =
+                        cracked.SourceFiles
+                        |> Array.choose (fun file ->
+                            let path = file.NormalizedFullPath
+                            if Set.contains path dirtyFiles
+                                || hasWatchDependency path dirtyFiles state.WatchDependencies then Some path
+                            else None)
+                    cracked, parsed, filesToCompile
         | None ->
             let cracked = ProjectCracked.Init(state.CliArgs)
             let parsed = ProjectParsed.Init(cracked)
-            cracked, parsed
+            cracked, parsed, cracked.SourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
+
+    // TODO: Fail already if F# compilation gives error?
+    let logs = getFSharpErrorLogs parsed.Project
 
     let! logs, watchDependencies =
-        cracked.SourceFiles
-        |> Array.map (fun f ->
-            cracked.MakeCompiler(f.NormalizedFullPath, parsed.Project)
+        filesToCompile
+        |> Array.map (fun file ->
+            cracked.MakeCompiler(file, parsed.Project)
             |> compileFile)
         |> Async.Parallel
         |> Async.map (fun results ->
-            (([||], state.WatchDependencies), results) ||> Array.fold (fun (logs, deps) -> function
+            ((logs, state.WatchDependencies), results) ||> Array.fold (fun (logs, deps) -> function
                 | Ok res ->
                     let logs = Array.append logs res.Logs
                     let deps = Map.add res.File res.WatchDependencies deps
                     logs, deps
                 | Error e ->
-                    formatException e.File e.Exception
-                    |> Log.always
-                    logs, deps))
+                    let log = Log.MakeError(e.Exception.Message, fileName=e.File, tag="EXCEPTION")
+                    Array.append logs [|log|], deps))
 
-    // TODO: print logs including those from F# compilation
+    // TODO: Print first info, then warning and finally errors
+    logs
+    |> Array.map formatLog
+    |> Array.iter Log.always
 
     match state.Watcher with
-    // TODO: If there's a log with error severity and we're not in watch mode return error
-    | None -> return Ok()
+    | None ->
+        let hasError = logs |> Array.exists (fun log -> log.Severity = Severity.Error)
+        return if not hasError then Ok() else Error()
     | Some watcher ->
+        Log.always("Watching...")
         let! changes = watcher.AwaitChanges()
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

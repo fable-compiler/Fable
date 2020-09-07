@@ -12,18 +12,22 @@ type CompilerOptions =
       abstract Typescript: bool
       abstract DebugMode: bool
       abstract Verbosity: Verbosity
+      abstract FileExtension: string
 
 type CompilerOptionsHelper =
     static member Make(?typedArrays,
                        ?typescript,
                        ?debugMode,
-                       ?verbosity) =
+                       ?verbosity,
+                       ?fileExtension,
+                       ?clampByteArrays) =
         { new CompilerOptions with
               member _.TypedArrays = defaultArg typedArrays false
               member _.Typescript = defaultArg typescript false
               member _.DebugMode = defaultArg debugMode false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
-              member _.ClampByteArrays = false }
+              member _.FileExtension = defaultArg fileExtension ".fs.js"
+              member _.ClampByteArrays = defaultArg clampByteArrays false }
 
 [<RequireQualifiedAccess>]
 type Severity =

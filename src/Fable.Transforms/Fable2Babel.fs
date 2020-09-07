@@ -2095,7 +2095,6 @@ module Compiler =
 
         interface IBabelCompiler with
             member _.GetImportExpr(ctx, selector, path) =
-                let ext = if com.Options.Typescript then "" else Naming.targetFileExtension
                 let cachedName = path + "::" + selector
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
@@ -2106,12 +2105,15 @@ module Compiler =
                     let localId = getIdentForImport ctx path selector
                     let i =
                       { Selector =
-                            if selector = Naming.placeholder
-                            then "`importMember` must be assigned to a variable"
+                            if selector = Naming.placeholder then
+                                 "`importMember` must be assigned to a variable"
                                  |> addError com [] None; selector
                             else selector
-                        LocalIdent = localId
-                        Path = path }
+                        Path =
+                            if path.EndsWith(".fs") then
+                                Path.replaceExtension com.Options.FileExtension path
+                            else path
+                        LocalIdent = localId }
                     imports.Add(cachedName, i)
                     match localId with
                     | Some localId -> upcast Identifier(localId)

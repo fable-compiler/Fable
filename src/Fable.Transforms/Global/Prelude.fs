@@ -134,10 +134,6 @@ module Naming =
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
         else None
 
-    /// This used to be "" for compatibility with Require.js
-    /// Mainly used for fable-library imports
-    let targetFileExtension = ".js"
-
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
@@ -503,6 +499,11 @@ module Path =
         if path.EndsWith(".fsi")
         then path.Substring(0, path.Length - 1)
         else path
+
+    let replaceExtension (newExt: string) (path: string) =
+        let i = path.LastIndexOf(".")
+        if i > 0 then path.Substring(0, i) + newExt
+        else path + newExt
 
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =

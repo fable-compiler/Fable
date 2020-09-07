@@ -7,28 +7,49 @@ open Fable
 let hasFlag flag (args: string list) =
     List.contains flag args
 
-let setGlobalParams(args: string list) =
-    let verbosity =
-        match hasFlag "--verbose" args, hasFlag "--silent" args with
-        | true, _ -> Verbosity.Verbose
-        | false, true -> Verbosity.Silent
-        | false, false -> Verbosity.Normal
-    GlobalParams.Singleton.SetValues(
-        verbosity = verbosity,
-        forcePkgs = (hasFlag "--force-pkgs" args)
-    )
+let argValue key (args: string list) =
+    args
+    |> List.windowed 2
+    |> List.tryPick (function
+        | [key2; value] when key = key2 -> Some value
+        | _ -> None)
+
+let argValues key (args: string list) =
+    args
+    |> List.windowed 2
+    |> List.fold (fun acc window ->
+        match window with
+        | [key2; value] when key = key2 -> value::acc
+        | _ -> acc) []
+    |> List.rev
+
+let getFableLibraryPath() =
+    let execDir =
+      typeof<TypeInThisAssembly>.Assembly.Location
+      |> Path.GetDirectoryName
+
+    let defaultFableLibraryPaths =
+        [ "../../fable-library/"                     // running from nuget package
+          "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp2.0
+        |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
+
+    defaultFableLibraryPaths
+    |> List.tryFind IO.Directory.Exists
+    |> Option.defaultValue (List.last defaultFableLibraryPaths)
 
 let printHelp() =
     Log.always """Usage: fable [watch] [.fsproj file or dir path] [arguments]
 
 Commands:
-  -h|--help           Show help
-  --version           Print version
-  watch               Run Fable in watch mode
+  -h|--help         Show help
+  --version         Print version
+  watch             Run Fable in watch mode
 
 Arguments:
-  --verbose           Print more info during execution
-  --force-pkgs        Force a new copy of package sources into `.fable` folder.
+  --define          Defines a symbol for use in conditional compilation
+  --extension       Extension for generated JS files (default .fs.js)
+  --verbose         Print more info during execution
+  --force-pkgs      Force a new copy of package sources into `.fable` folder
 
 """
 
@@ -50,14 +71,36 @@ let run watchMode fsprojDirOrFilePath args =
     |> function
         | Error msg -> printfn "%s" msg; 1
         | Ok projFile ->
+            let verbosity =
+                if hasFlag "--verbose" args then
+                    Log.makeVerbose()
+                    Verbosity.Verbose
+                else Verbosity.Normal
+
+            let defines =
+                argValues "--define" args
+                |> List.append ["FABLE_COMPILER"]
+                |> List.distinct
+                |> List.toArray
+
+            let compilerOptions =
+                CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
+                                           typedArrays = hasFlag "--typed-arrays" args,
+                                           ?fileExtension = argValue "--extension" args,
+                                           debugMode = Array.contains "DEBUG" defines,
+                                           verbosity = verbosity)
+
             let cliArgs =
                 { ProjectFile = projFile
+                  FableLibraryPath =
+                      argValue "--fable-library" args
+                      |> Option.defaultWith getFableLibraryPath
                   RootDir = IO.Directory.GetCurrentDirectory()
+                  ForcePackages = hasFlag "--force-pkgs" args
                   NoReferences = hasFlag "--no-references" args
                   NoRestore = hasFlag "--no-restore" args
-                  Define = [||] // TODO
-                  TypedArrays = false // TODO
-                  Typescript = false } // TODO
+                  Define = defines
+                  CompilerOptions = compilerOptions }
 
             let watcher =
                 if watchMode then
@@ -70,7 +113,7 @@ let run watchMode fsprojDirOrFilePath args =
               ProjectCrackedAndParsed = None
               Watcher = watcher
               WatchDependencies = Map.empty }
-            |> startCompilation []
+            |> startCompilation Set.empty
             |> Async.RunSynchronously
             |> function
                 | Ok _ -> 0
@@ -83,10 +126,7 @@ let (|SplitCommandArgs|) (xs: string list) =
 let main argv =
     Log.always("Fable: F# to JS compiler " + Literals.VERSION)
 
-    let argv = List.ofArray argv
-    setGlobalParams(argv)
-
-    match argv with
+    match List.ofArray argv with
     | ("help"|"--help"|"-h")::_ -> printHelp(); 0
     | ("--version")::_ -> printfn "%s" Literals.VERSION; 0
     | SplitCommandArgs(commands, args) ->

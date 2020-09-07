@@ -13,62 +13,36 @@ module Literals =
 type CliArgs =
     { ProjectFile: string
       RootDir: string
+      FableLibraryPath: string
       Define: string[]
+      ForcePackages: bool
       NoReferences: bool
       NoRestore: bool
-      TypedArrays: bool
-      Typescript: bool }
+      CompilerOptions: Fable.CompilerOptions }
 
 type private TypeInThisAssembly = class end
-
-[<RequireQualifiedAccess>]
-type GlobalParams private (fableLibraryPath) =
-    static let mutable singleton: GlobalParams option = None
-    let mutable _forcePkgs = false
-    let mutable _verbosity = Fable.Verbosity.Normal
-
-    static member Singleton =
-        match singleton with
-        | Some x -> x
-        | None ->
-            let execDir =
-              typeof<TypeInThisAssembly>.Assembly.Location
-              |> Path.GetDirectoryName
-            let defaultFableLibraryPaths =
-                [ "../../fable-library/"                     // running from nuget package
-                  "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp2.0
-                |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
-            let fableLibraryPath =
-                defaultFableLibraryPaths
-                |> List.tryFind Directory.Exists
-                |> Option.defaultValue (List.last defaultFableLibraryPaths)
-            let p = GlobalParams(fableLibraryPath)
-            singleton <- Some p
-            p
-
-    member __.Verbosity: Fable.Verbosity = _verbosity
-    member __.ForcePkgs: bool = _forcePkgs
-    member __.FableLibraryPath: string = fableLibraryPath
-
-    member __.SetValues(?verbosity, ?forcePkgs) =
-        _verbosity      <- defaultArg verbosity _verbosity
-        _forcePkgs      <- defaultArg forcePkgs _forcePkgs
 
 [<RequireQualifiedAccess>]
 module Log =
     open System
 
+    let mutable private verbosity = Fable.Verbosity.Silent
+
+    /// To be called only at the beginning of the app
+    let makeVerbose() =
+        verbosity <- Fable.Verbosity.Verbose
+
     let writerLock = obj()
 
     let always (msg: string) =
-        if GlobalParams.Singleton.Verbosity <> Fable.Verbosity.Silent
+        if verbosity <> Fable.Verbosity.Silent
             && not(String.IsNullOrEmpty(msg)) then
 //            lock writerLock <| fun () ->
                 Console.Out.WriteLine(msg)
                 Console.Out.Flush()
 
     let verbose (msg: Lazy<string>) =
-        if GlobalParams.Singleton.Verbosity = Fable.Verbosity.Verbose then
+        if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
 
 [<RequireQualifiedAccess>]

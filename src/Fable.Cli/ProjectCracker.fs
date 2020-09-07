@@ -11,7 +11,9 @@ open Fable
 open Globbing.Operators
 
 type Options = {
+    fableLib: string
     define: string[]
+    forcePkgs: bool
     noReferences: bool
     noRestore: bool
     rootDir: string
@@ -380,8 +382,8 @@ let createFableDir rootDir =
         IO.File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")
     fableDir
 
-let copyDirIfDoesNotExist (source: string) (target: string) =
-    if GlobalParams.Singleton.ForcePkgs || isDirectoryEmpty target then
+let copyDirIfDoesNotExist (opts: Options) (source: string) (target: string) =
+    if opts.forcePkgs || isDirectoryEmpty target then
         IO.Directory.CreateDirectory(target) |> ignore
         if IO.Directory.Exists source |> not then
             failwith ("Source directory is missing: " + source)
@@ -392,9 +394,9 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
         for newPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
             IO.File.Copy(newPath, newPath.Replace(source, target), true)
 
-let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
-    let fableDir = createFableDir rootDir
-    let fableLibrarySource = GlobalParams.Singleton.FableLibraryPath
+let copyFableLibraryAndPackageSources (opts: Options) (pkgs: FablePackage list) =
+    let fableDir = createFableDir opts.rootDir
+    let fableLibrarySource = opts.fableLib
     let fableLibraryPath =
         if fableLibrarySource.StartsWith(Literals.FORCE)
         then fableLibrarySource.Replace(Literals.FORCE, "")
@@ -403,13 +405,13 @@ let copyFableLibraryAndPackageSources rootDir (pkgs: FablePackage list) =
                 failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableDir, "fable-library" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            copyDirIfDoesNotExist opts fableLibrarySource fableLibraryTarget
             fableLibraryTarget
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableDir, pkg.Id + "." + pkg.Version)
-            copyDirIfDoesNotExist sourceDir targetDir
+            copyDirIfDoesNotExist opts sourceDir targetDir
             IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)))
     fableLibraryPath, pkgRefs
 
@@ -423,7 +425,7 @@ let getFullProjectOpts (opts: Options) =
         failwith ("File does not exist: " + opts.projFile)
     let projRefs, mainProj = retryGetCrackedProjects opts
     let fableLibraryPath, pkgRefs =
-        copyFableLibraryAndPackageSources opts.rootDir mainProj.PackageReferences
+        copyFableLibraryAndPackageSources opts mainProj.PackageReferences
     let projOpts =
         let sourceFiles =
             let pkgSources = pkgRefs |> List.collect getSourcesFromFsproj
