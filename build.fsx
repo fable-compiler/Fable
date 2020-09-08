@@ -48,43 +48,60 @@ let updateVersionInCliUtil() =
 let downloadAndExtractTo (url: string) (targetDir: string) =
     sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
 
-let buildTypescript projectDir =
+let runTypescript projectDir =
     // run ("npx tslint --project " + projectDir)
     run ("npx tsc --project " + projectDir)
 
-// TODO: Run fable-splitter tests
-let buildFableSplitter() =
-    buildTypescript "src/fable-splitter"
+let runFableWithArgs projectDir args =
+    run ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
-let buildFableLoader() =
-    buildTypescript "src/fable-loader"
-
-let buildSplitterWithArgs projectDir args =
-    if pathExists "src/fable-splitter/dist" |> not then
-        buildFableSplitter()
-        runInDir "src/fable-splitter" "npm install"
-
-    run ("node src/fable-splitter/dist/cli -c " + (projectDir </> "splitter.config.js") + " " + args)
-
-let buildSplitter projectDir =
-    buildSplitterWithArgs projectDir ""
-
-let buildWebpack projectDir =
-    run ("npx webpack --config " + (projectDir </> "webpack.config.js"))
+let runFable projectDir =
+    runFableWithArgs projectDir []
 
 let buildLibrary() =
-    cleanDirs ["build/fable-library"]
-    buildTypescript "src/fable-library"
-    // run "dotnet run -p src/Fable.Cli -- src/fable-library --no-references --verbose --define FX_NO_BIGINT --fable-library force:. --extension .js"
-    // TODO: Move files to build folde
-    buildSplitter "src/fable-library"
+    let buildDir = fullPath "build/fable-library"
+    let projDir = fullPath "src/fable-library"
+
+    // cleanDirs [buildDir]
+    // runTypescript projDir
+
+    // runFableWithArgs projDir [
+    //     "--no-references"
+    //     "--define FX_NO_BIGINT"
+    //     "--fable-library force:."
+    //     "--extension .js"
+    // ]
+
+    // Move js files to build folder
+    let moveJsFile oldDir newDir (file: string) =
+        if file.EndsWith(".js") then
+            let newPath = newDir </> file
+            let newDir = dirname newPath
+            if not(pathExists newDir) then
+                makeDirRecursive(newDir)
+            moveFile (oldDir </> file) newPath
+
+    for file in dirFiles projDir do
+        if isDirectory (projDir </> file) then
+            let dir = file
+            if not(List.contains dir ["lib"; "bin"; "obj"]) then
+                for file in dirFiles (projDir </> dir) do
+                    moveJsFile projDir buildDir (dir </> file)
+        else
+            moveJsFile projDir buildDir file
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
     let buildDirTs = "build/fable-library-ts"
     let buildDirJs = "build/fable-library-js"
     cleanDirs [buildDirTs; buildDirJs]
-    buildSplitterWithArgs projectDir ("--typescript --classTypes --outDir " + buildDirTs)
+    runFableWithArgs projectDir [
+        "--no-references"
+        "--define FX_NO_BIGINT"
+        "--fable-library force:."
+        "--typescript"
+        "--extension .ts" // .fs.ts?
+    ]
     // TODO: cleanDirs [buildDirTs </> "fable-library"]
     // TODO: copy *.ts/*.js from projectDir to buildDir
     runInDir buildDirTs "npx tsc --init --target es2020 --module es2020 --allowJs"
@@ -100,21 +117,11 @@ let quicktest additionalCommands =
         yield! additionalCommands
     |]
 
-let buildCompiler() =
-    let projectDir = "src/fable-compiler"
-    let libraryDir = "build/fable-library"
-    cleanDirs [projectDir </> "dist"; projectDir </> "bin"]
-    buildTypescript projectDir
-    updateVersionInCliUtil()
-    run "dotnet publish -c Release -o src/fable-compiler/bin/fable-cli src/Fable.Cli/Fable.Cli.fsproj"
-    buildLibrary()
-    copyDirRecursive libraryDir (projectDir </> "bin/fable-library")
-
 let buildCompilerJs() =
     let projectDir = "src/fable-compiler-js"
     let buildDir = "build/fable-compiler-js"
     cleanDirs [buildDir; projectDir </> "dist"]
-    buildSplitterWithArgs projectDir ("--outDir " + buildDir + "/out")
+    runFableWithArgs projectDir ["--outDir " + buildDir + "/out"]
     run (sprintf "npx rollup %s/out/app.js --file %s/dist/app.js --format umd --name Fable" buildDir projectDir)
     run (sprintf "npx terser %s/dist/app.js -o %s/dist/app.min.js --mangle --compress" projectDir projectDir)
 
@@ -130,8 +137,8 @@ let buildStandalone() =
     cleanDirs [buildDir; distDir]
     mkDirRecursive distDir
     // build
-    buildSplitterWithArgs projectDir ("--outDir " + buildDir + "/out-bundle")
-    buildSplitterWithArgs (projectDir + "/src/Worker") ("--outDir " + buildDir + "/out-worker")
+    runFableWithArgs projectDir ["--outDir " + buildDir + "/out-bundle"]
+    runFableWithArgs (projectDir + "/src/Worker") ["--outDir " + buildDir + "/out-worker"]
     // bundle
     run (sprintf "npx rollup %s/out-bundle/Main.js --file %s/bundle.js --format umd --name __FABLE_STANDALONE__" buildDir buildDir)
     run (sprintf "npx rollup %s/out-worker/Worker.js --file %s/worker.js --format esm" buildDir buildDir)
@@ -197,7 +204,7 @@ let test() =
         buildLibrary()
 
     cleanDirs ["build/tests"]
-    buildSplitter "tests"
+    runFable "tests"
     run "npx mocha build/tests --reporter dot -t 10000"
     runInDir "tests/Main" "dotnet run"
 
@@ -218,7 +225,7 @@ let coverage() =
         buildLibrary()
 
     cleanDirs ["build/tests"]
-    buildSplitter "tests"
+    runFable "tests"
 
     // JS
     run "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
@@ -291,13 +298,9 @@ let syncFcsRepo() =
 
 let packages =
     ["Fable.Core", doNothing
-     "fable-babel-plugins", doNothing
-     "fable-compiler", buildCompiler
      "fable-compiler-js", buildCompilerJs
-     "fable-loader", buildFableLoader
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
-     "fable-splitter", buildFableSplitter
      "fable-standalone", downloadStandalone
     ]
 
@@ -324,10 +327,7 @@ match argsLower with
     |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
-| ("fable-compiler"|"compiler")::_ -> buildCompiler()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
-| ("fable-splitter"|"splitter")::_ -> buildFableSplitter()
-| ("fable-loader"|"loader")::_ -> buildFableLoader()
 | ("fable-standalone"|"standalone")::_ -> buildStandalone()
 | "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
