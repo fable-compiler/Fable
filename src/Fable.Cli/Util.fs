@@ -26,7 +26,7 @@ type private TypeInThisAssembly = class end
 module Log =
     open System
 
-    let mutable private verbosity = Fable.Verbosity.Silent
+    let mutable private verbosity = Fable.Verbosity.Normal
 
     /// To be called only at the beginning of the app
     let makeVerbose() =
@@ -168,4 +168,3 @@ module File =
 
     let getRelativePath path =
         Fable.Path.getRelativePath (Directory.GetCurrentDirectory()) path
-

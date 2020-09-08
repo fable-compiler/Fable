@@ -62,15 +62,15 @@ let buildLibrary() =
     let buildDir = fullPath "build/fable-library"
     let projDir = fullPath "src/fable-library"
 
-    // cleanDirs [buildDir]
-    // runTypescript projDir
+    cleanDirs [buildDir]
+    runTypescript projDir
 
-    // runFableWithArgs projDir [
-    //     "--no-references"
-    //     "--define FX_NO_BIGINT"
-    //     "--fable-library force:."
-    //     "--extension .js"
-    // ]
+    runFableWithArgs projDir [
+        "--no-references"
+        "--define FX_NO_BIGINT"
+        "--fable-library force:."
+        "--extension .js"
+    ]
 
     // Move js files to build folder
     let moveJsFile oldDir newDir (file: string) =
@@ -135,7 +135,7 @@ let buildStandalone() =
 
     // cleanup
     cleanDirs [buildDir; distDir]
-    mkDirRecursive distDir
+    makeDirRecursive distDir
     // build
     runFableWithArgs projectDir ["--outDir " + buildDir + "/out-bundle"]
     runFableWithArgs (projectDir + "/src/Worker") ["--outDir " + buildDir + "/out-worker"]
@@ -203,9 +203,8 @@ let test() =
     if pathExists "build/fable-library" |> not then
         buildLibrary()
 
-    cleanDirs ["build/tests"]
-    runFable "tests"
-    run "npx mocha build/tests --reporter dot -t 10000"
+    runFable "tests/Main"
+    run "npx mocha tests/Main --reporter dot -t 10000"
     runInDir "tests/Main" "dotnet run"
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then

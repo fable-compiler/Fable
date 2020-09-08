@@ -2,7 +2,6 @@ module Fable.Transforms.BabelPrinter
 
 open System
 open Fable
-open Fable.Core
 open Fable.AST.Babel
 
 type SourceMapGenerator =
@@ -83,10 +82,8 @@ type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
 
 let run writer map (program: Program): Async<unit> =
 
-    let printDeclWithExtraLine extraLine printer (decl: Choice<Statement, ModuleDeclaration>) =
-        match decl with
-        | Choice1Of2 statement -> statement.Print(printer)
-        | Choice2Of2 moduleDecl -> moduleDecl.Print(printer)
+    let printDeclWithExtraLine extraLine (printer: Printer) (decl: ModuleDeclaration) =
+        decl.Print(printer)
 
         if printer.Column > 0 then
             printer.Print(";")
@@ -99,7 +96,7 @@ let run writer map (program: Program): Async<unit> =
 
         let imports, restDecls =
             program.Body |> Array.splitWhile (function
-                | Choice2Of2(:? ImportDeclaration) -> true
+                | :? ImportDeclaration -> true
                 | _ -> false)
 
         for decl in imports do

@@ -128,7 +128,7 @@ let rec removeDirRecursive (p: string): unit =
 let makeDirRecursive (p: string): unit =
     fs?mkdirSync(p, %["recursive" ==> true])
 
-[<Obsolete("makeDirRecursive")>]
+[<Obsolete("Use makeDirRecursive")>]
 let mkDirRecursive (p: string): unit =
     makeDirRecursive p
 
