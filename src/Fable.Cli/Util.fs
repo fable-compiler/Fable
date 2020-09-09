@@ -6,18 +6,14 @@ module Literals =
 
     let [<Literal>] VERSION = "2.10.1"
     let [<Literal>] CORE_VERSION = "2.1.0"
-    let [<Literal>] DEFAULT_PORT = 61225
-    let [<Literal>] FORCE = "force:"
-    let [<Literal>] EXIT = "exit"
 
 type CliArgs =
     { ProjectFile: string
       RootDir: string
-      FableLibraryPath: string
+      FableLibraryPath: string option
       Define: string[]
       ForcePackages: bool
-      NoReferences: bool
-      NoRestore: bool
+      Exclude: string option
       CompilerOptions: Fable.CompilerOptions }
 
 type private TypeInThisAssembly = class end

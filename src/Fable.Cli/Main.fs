@@ -199,8 +199,6 @@ type ProjectCracked(sourceFiles: File array,
                 fableLib = msg.FableLibraryPath
                 define = msg.Define
                 forcePkgs = msg.ForcePackages
-                noReferences = msg.NoReferences
-                noRestore = msg.NoRestore
                 rootDir = msg.RootDir
                 projFile = msg.ProjectFile
             }
@@ -295,6 +293,12 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     // TODO: Fail already if F# compilation gives error?
     let logs = getFSharpErrorLogs parsed.Project
+
+    // TODO: Log skipped files in verbose mode
+    let filesToCompile =
+        match state.CliArgs.Exclude with
+        | Some exclude -> filesToCompile |> Array.filter (fun x -> not(x.Contains(exclude))) // Use regex?
+        | None -> filesToCompile
 
     let! logs, watchDependencies =
         filesToCompile

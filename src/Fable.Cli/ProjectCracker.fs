@@ -11,11 +11,9 @@ open Fable
 open Globbing.Operators
 
 type Options = {
-    fableLib: string
+    fableLib: string option
     define: string[]
     forcePkgs: bool
-    noReferences: bool
-    noRestore: bool
     rootDir: string
     projFile: string
 }
@@ -27,9 +25,6 @@ let isSystemPackage (pkgName: string) =
         || pkgName = "NETStandard.Library"
         || pkgName = "FSharp.Core"
         || pkgName = "Fable.Core"
-
-let logWarningAndReturn (v:'T) str =
-    Log.always("[WARNING] " + str); v
 
 type FablePackage =
     { Id: string
@@ -250,13 +245,10 @@ let fullCrack (opts: Options): CrackedFsproj =
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
 
     // Try restoring project
-    if opts.noRestore then
-        Log.always "Skipping restore..."
-    else
-        Process.runCmd Log.always
-            (IO.Path.GetDirectoryName projFile)
-            "dotnet" ["restore"; IO.Path.GetFileName projFile]
-        |> ignore
+    Process.runCmd Log.always
+        (IO.Path.GetDirectoryName projFile)
+        "dotnet" ["restore"; IO.Path.GetFileName projFile]
+    |> ignore
 
     Log.always("Parsing " + File.getRelativePath projFile + "...")
     let projOpts, projRefs, _msbuildProps =
@@ -283,15 +275,13 @@ let fullCrack (opts: Options): CrackedFsproj =
                 (Path.normalizeFullPath line)::src, otherOpts)
 
     let projRefs =
-        if opts.noReferences then []
-        else
-            projRefs |> List.choose (fun projRef ->
-                // Remove dllRefs corresponding to project references
-                let projName = Path.GetFileNameWithoutExtension(projRef)
-                let removed = dllRefs.Remove(projName)
-                if not removed then
-                    Log.always("Couldn't remove project reference " + projName + " from dll references")
-                Path.normalizeFullPath projRef |> Some)
+        projRefs |> List.choose (fun projRef ->
+            // Remove dllRefs corresponding to project references
+            let projName = Path.GetFileNameWithoutExtension(projRef)
+            let removed = dllRefs.Remove(projName)
+            if not removed then
+                Log.always("Couldn't remove project reference " + projName + " from dll references")
+            Path.normalizeFullPath projRef |> Some)
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
@@ -396,23 +386,40 @@ let copyDirIfDoesNotExist (opts: Options) (source: string) (target: string) =
 
 let copyFableLibraryAndPackageSources (opts: Options) (pkgs: FablePackage list) =
     let fableDir = createFableDir opts.rootDir
-    let fableLibrarySource = opts.fableLib
+
     let fableLibraryPath =
-        if fableLibrarySource.StartsWith(Literals.FORCE)
-        then fableLibrarySource.Replace(Literals.FORCE, "")
-        else
+        match opts.fableLib with
+        | Some path -> Path.normalizeFullPath path
+        | None ->
+            let execDir =
+              typeof<TypeInThisAssembly>.Assembly.Location
+              |> Path.GetDirectoryName
+
+            let defaultFableLibraryPaths =
+                [ "../../fable-library/"                     // running from nuget package
+                  "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
+                |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
+
+            let fableLibrarySource =
+                defaultFableLibraryPaths
+                |> List.tryFind IO.Directory.Exists
+                |> Option.defaultValue (List.last defaultFableLibraryPaths)
+
             if isDirectoryEmpty fableLibrarySource then
                 failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
+
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableDir, "fable-library" + "." + Literals.VERSION)
             copyDirIfDoesNotExist opts fableLibrarySource fableLibraryTarget
             fableLibraryTarget
+
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableDir, pkg.Id + "." + pkg.Version)
             copyDirIfDoesNotExist opts sourceDir targetDir
             IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)))
+
     fableLibraryPath, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it

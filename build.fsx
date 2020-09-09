@@ -69,10 +69,10 @@ let buildLibrary() =
     runTypescript projDir
 
     runFableWithArgs projDir [
-        "--no-references"
         "--define FX_NO_BIGINT"
-        "--fable-library force:."
+        "--fable-library src/fable-library"
         "--extension .js"
+        "--exclude Fable.Core"
     ]
 
     // Move js files to build folder
@@ -99,11 +99,11 @@ let buildLibraryTs() =
     let buildDirJs = "build/fable-library-js"
     cleanDirs [buildDirTs; buildDirJs]
     runFableWithArgs projectDir [
-        "--no-references"
         "--define FX_NO_BIGINT"
-        "--fable-library force:."
+        "--fable-library src/fable-library"
         "--typescript"
         "--extension .ts" // .fs.ts?
+        "--exclude Fable.Core"
     ]
     // TODO: cleanDirs [buildDirTs </> "fable-library"]
     // TODO: copy *.ts/*.js from projectDir to buildDir
@@ -111,7 +111,7 @@ let buildLibraryTs() =
     runInDir buildDirTs ("npx tsc --outDir ../../" + buildDirJs)
 
 let quicktest () =
-    runFableWithArgs "src/quicktest" ["--no-references"]
+    runFableWithArgs "src/quicktest" ["--exclude Fable.Core"]
     run "npx tsc src/quicktest/QuickTest.fs.js --allowJs -m commonJs --outDir build/quicktest"
     run "node build/quicktest/src/quicktest/QuickTest.fs.js"
 
@@ -201,7 +201,7 @@ let test() =
     if pathExists "build/fable-library" |> not then
         buildLibrary()
 
-    runFable "tests/Main"
+    runFableWithArgs "tests/Main" ["--exclude Fable.Core"; "--force-pkgs"]
     runTypescript "tests"
     run "npx mocha build/tests/tests/Main --reporter dot -t 10000"
     runInDir "tests/Main" "dotnet run"

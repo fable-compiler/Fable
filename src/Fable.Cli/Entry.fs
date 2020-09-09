@@ -23,20 +23,6 @@ let argValues key (args: string list) =
         | _ -> acc) []
     |> List.rev
 
-let getFableLibraryPath() =
-    let execDir =
-      typeof<TypeInThisAssembly>.Assembly.Location
-      |> Path.GetDirectoryName
-
-    let defaultFableLibraryPaths =
-        [ "../../fable-library/"                     // running from nuget package
-          "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp2.0
-        |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
-
-    defaultFableLibraryPaths
-    |> List.tryFind IO.Directory.Exists
-    |> Option.defaultValue (List.last defaultFableLibraryPaths)
-
 let printHelp() =
     Log.always """Usage: fable [watch] [.fsproj file or dir path] [arguments]
 
@@ -48,7 +34,8 @@ Commands:
 Arguments:
   --define          Defines a symbol for use in conditional compilation
   --extension       Extension for generated JS files (default .fs.js)
-  --verbose         Print more info during execution
+  --verbose         Print more info during compilation
+  --exclude         Skip Fable compilation for files containing the pattern
   --force-pkgs      Force a new copy of package sources into `.fable` folder
 
 """
@@ -92,13 +79,10 @@ let run watchMode fsprojDirOrFilePath args =
 
             let cliArgs =
                 { ProjectFile = projFile
-                  FableLibraryPath =
-                      argValue "--fable-library" args
-                      |> Option.defaultWith getFableLibraryPath
+                  FableLibraryPath = argValue "--fable-library" args
                   RootDir = IO.Directory.GetCurrentDirectory()
                   ForcePackages = hasFlag "--force-pkgs" args
-                  NoReferences = hasFlag "--no-references" args
-                  NoRestore = hasFlag "--no-restore" args
+                  Exclude = argValue "--exclude" args
                   Define = defines
                   CompilerOptions = compilerOptions }
 
