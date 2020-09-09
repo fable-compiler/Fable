@@ -32,24 +32,39 @@ module PrinterExtensions =
             if not skipNewLineAtEnd then
                 printer.PrintNewLine()
 
-        member printer.PrintBlock(nodes: Statement array, ?skipNewLineAtEnd) =
-            let printStatement (printer: Printer) (s: Statement) =
-                match s with
-                | :? ExpressionStatement as e ->
-                    match e.Expression with
-                    | :? NullLiteral -> ()
-                    // TODO: Check the argument has no side-effect?
-                    | :? UnaryExpression as e when e.Operator = "void" -> ()
-                    // Constructors of classes deriving from System.Object add an empty object at the end
-                    | :? ObjectExpression as o when o.Properties.Length = 0 -> ()
-                    | _ -> printer.Print(e)
-                | _ -> s.Print(printer)
+        member printer.PrintStatementSeparator() =
+            if printer.Column > 0 then
+                printer.Print(";")
+                printer.PrintNewLine()
 
-            printer.PrintBlock(nodes, printStatement, (fun printer ->
-                if printer.Column > 0 then
-                    printer.Print(";")
-                    printer.PrintNewLine()
-            ), ?skipNewLineAtEnd=skipNewLineAtEnd)
+        member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
+            let rec hasNoSideEffects (e: Expression) =
+                match e with
+                | :? Undefined
+                | :? NullLiteral
+                | :? StringLiteral
+                | :? BooleanLiteral
+                | :? NumericLiteral -> true
+                // Constructors of classes deriving from System.Object add an empty object at the end
+                | :? ObjectExpression as o -> o.Properties.Length = 0
+                | :? UnaryExpression as e when e.Operator = "void" -> hasNoSideEffects e.Argument
+                | _ -> false
+
+            match s with
+            | :? ExpressionStatement as e when hasNoSideEffects e.Expression -> ()
+            | _ ->
+                s.Print(printer)
+                printSeparator |> Option.iter (fun f -> f printer)
+
+        member printer.PrintProductiveStatements(statements: Statement[]) =
+            for s in statements do
+                printer.PrintProductiveStatement(s, (fun p -> p.PrintStatementSeparator()))
+
+        member printer.PrintBlock(nodes: Statement array, ?skipNewLineAtEnd) =
+            printer.PrintBlock(nodes,
+                               (fun p s -> p.PrintProductiveStatement(s)),
+                               (fun p -> p.PrintStatementSeparator()),
+                               ?skipNewLineAtEnd=skipNewLineAtEnd)
 
         member printer.PrintOptional(before: string, node: #Node option) =
             match node with
@@ -81,21 +96,30 @@ module PrinterExtensions =
             printer.Print(body)
 
         // TODO: type annotations
-        member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement, loc, ?isArrow) =
+        member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement, loc, ?isDeclaration, ?isArrow) =
+            let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
+                Array.zip passedArgs appliedAgs
+                |> Array.forall (function
+                    | (:? Identifier as p), (:? Identifier as a) -> p.Name = a.Name
+                    | _ -> false)
+
+            let isDeclaration = defaultArg isDeclaration false
             let isArrow = defaultArg isArrow false
+
             printer.AddLocation(loc)
 
             // Check if we can remove the function
             let skipExpr =
                 match body.Body with
-                | [|:? ReturnStatement as r|] ->
+                | [|:? ReturnStatement as r|] when not isDeclaration ->
                     match r.Argument with
                     | :? CallExpression as c when parameters.Length = c.Arguments.Length ->
-                        Array.zip parameters c.Arguments
-                        |> Array.forall (function
-                            | (:? Identifier as p), (:? Identifier as a) -> p.Name = a.Name
-                            | _ -> false)
-                        |> function true -> Some(c.Callee) | false -> None
+                        // To be sure we're not running side effects when deleting the function,
+                        // check the callee is an identifier (accept non-computed member expressions too?)
+                        match c.Callee with
+                        | :? Identifier when areEqualPassedAndAppliedArgs parameters c.Arguments ->
+                            Some c.Callee
+                        | _ -> None
                     | _ -> None
                 | _ -> None
 
@@ -123,7 +147,13 @@ module PrinterExtensions =
             expr.Print(printer)
             printer.Print(")")
 
-        member printer.MaybeWithParens(expr: Expression) =
+        member printer.SequenceExpressionWithParens(expr: Expression) =
+            match expr with
+            | :? SequenceExpression -> printer.WithParens(expr)
+            | _ -> printer.Print(expr)
+
+        /// Surround with parens anything that can potentially conflict with operator precedence
+        member printer.ComplexExpressionWithParens(expr: Expression) =
             match expr with
             | :? PatternExpression
             | :? Literal
@@ -133,9 +163,9 @@ module PrinterExtensions =
 
         member printer.PrintOperation(left, operator, right, loc) =
             printer.AddLocation(loc)
-            printer.MaybeWithParens(left)
+            printer.ComplexExpressionWithParens(left)
             printer.Print(" " + operator + " ")
-            printer.MaybeWithParens(right)
+            printer.ComplexExpressionWithParens(right)
 
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
@@ -181,61 +211,57 @@ type EmitExpression(value, args, ?loc) =
                         if i < subSegments.Length then
                             printer.PrintNewLine()
 
-            if args.Length = 0 then
-                printSegment printer value 0 value.Length
+            // Macro transformations
+            // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+            let value =
+                value
+                |> replace @"\$(\d+)\.\.\." (fun m ->
+                    let rep = ResizeArray()
+                    let i = int m.Groups.[1].Value
+                    for j = i to args.Length - 1 do
+                        rep.Add("$" + string j)
+                    String.concat ", " rep)
+
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match args.[i] with
+                    | :? BooleanLiteral as b when b.Value -> m.Groups.[2].Value
+                    | _ -> m.Groups.[3].Value)
+
+                |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                    let i = int m.Groups.[2].Value
+                    match Array.tryItem i args with
+                    | Some _ -> m.Groups.[1].Value
+                    | None -> "")
+
+                // This is to emit string literals as JS, I think it's no really
+                // used and it shouldn't be necessary with the new emitJsExpr
+    //            |> replace @"\$(\d+)!" (fun m ->
+    //                let i = int m.Groups.[1].Value
+    //                match Array.tryItem i args with
+    //                | Some(:? StringLiteral as s) -> s.Value
+    //                | _ -> "")
+
+            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            if matches.Count > 0 then
+                for i = 0 to matches.Count - 1 do
+                    let m = matches.[i]
+
+                    let segmentStart =
+                        if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                        else 0
+
+                    printSegment printer value segmentStart m.Index
+
+                    let argIndex = int m.Value.[1..]
+                    match Array.tryItem argIndex args with
+                    | Some e -> printer.ComplexExpressionWithParens(e)
+                    | None -> printer.Print("undefined")
+
+                let lastMatch = matches.[matches.Count - 1]
+                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
             else
-                // Macro transformations
-                // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
-                let value =
-                    value
-                    |> replace @"\$(\d+)\.\.\." (fun m ->
-                        let rep = ResizeArray()
-                        let i = int m.Groups.[1].Value
-                        for j = i to args.Length - 1 do
-                            rep.Add("$" + string j)
-                        String.concat ", " rep)
-
-                    |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
-                        let i = int m.Groups.[1].Value
-                        match args.[i] with
-                        | :? BooleanLiteral as b when b.Value -> m.Groups.[2].Value
-                        | _ -> m.Groups.[3].Value)
-
-                    |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
-                        let i = int m.Groups.[2].Value
-                        match Array.tryItem i args with
-                        | Some _ -> m.Groups.[1].Value
-                        | None -> "")
-
-                    // This is to emit string literals as JS, I think it's no really
-                    // used and it shouldn't be necessary with the new emitJsExpr
-        //            |> replace @"\$(\d+)!" (fun m ->
-        //                let i = int m.Groups.[1].Value
-        //                match Array.tryItem i args with
-        //                | Some(:? StringLiteral as s) -> s.Value
-        //                | _ -> "")
-
-                let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
-                if matches.Count > 0 then
-                        for i = 0 to matches.Count - 1 do
-                            let m = matches.[i]
-
-                            let segmentStart =
-                                if i > 0 then matches.[i-1].Index + matches.[i-1].Length
-                                else 0
-
-                            printSegment printer value segmentStart m.Index
-
-                            let argIndex = int m.Value.[1..]
-                            match Array.tryItem argIndex args with
-                            | Some e -> printer.MaybeWithParens(e)
-                            | None -> printer.Print("(void \"missing\")")
-
-                        let lastMatch = matches.[matches.Count - 1]
-                        printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
-
-                else
-                    printer.Print(value)
+                printer.Print(value)
 
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
@@ -310,7 +336,12 @@ type NumericLiteral(value, ?loc) =
     member _.Value: float = value
     interface Literal with
         member _.Print(printer) =
-            printer.Print(value.ToString(), ?loc=loc)
+            let value =
+                match value.ToString() with
+                | "∞" -> "Infinity"
+                | "-∞" -> "-Infinity"
+                | value -> value
+            printer.Print(value, ?loc=loc)
 
 // Misc
 //type Decorator(value, ?loc) =
@@ -406,20 +437,27 @@ type ReturnStatement(argument, ?loc) =
 
 type IfStatement(test, consequent, ?alternate, ?loc) =
     member _.Test: Expression = test
-    member _.Consequent: Statement = consequent
+    member _.Consequent: BlockStatement = consequent
     member _.Alternate: Statement option = alternate
     interface Statement with
         member _.Print(printer) =
-            printer.Print("if (", ?loc=loc)
-            test.Print(printer)
-            printer.Print(") ")
-            consequent.Print(printer)
-            // TODO: Remove else clauses if they become empty after removing null statements (see PrintBlock)
-            printer.PrintOptional((if printer.Column > 0 then " else " else "else "), alternate)
-            // If the consequent/alternate is a block
-            // a new line should already be printed
-            if printer.Column > 0 then
-                printer.PrintNewLine()
+            printer.AddLocation(loc)
+            match test, alternate with
+            | :? BooleanLiteral as b, _ when b.Value ->
+                printer.PrintProductiveStatements(consequent.Body)
+            | :? BooleanLiteral as b, Some(:? BlockStatement as alternate) when not b.Value ->
+                printer.PrintProductiveStatements(alternate.Body)
+            | _ ->
+                printer.Print("if (", ?loc=loc)
+                test.Print(printer)
+                printer.Print(") ")
+                printer.Print(consequent)
+                // TODO: Remove else clauses if they become empty after removing null statements (see PrintBlock)
+                printer.PrintOptional((if printer.Column > 0 then " else " else "else "), alternate)
+                // If the consequent/alternate is a block
+                // a new line should already be printed
+                if printer.Column > 0 then
+                    printer.PrintNewLine()
 
 /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
 type SwitchCase(consequent, ?test, ?loc) =
@@ -429,11 +467,11 @@ type SwitchCase(consequent, ?test, ?loc) =
         member _.Print(printer) =
             printer.AddLocation(loc)
             match test with
-            | None -> printer.Print("default:")
+            | None -> printer.Print("default")
             | Some test ->
                 printer.Print("case ")
                 test.Print(printer)
-                printer.Print(":")
+            printer.Print(":")
             match consequent.Length with
             | 0 -> printer.PrintNewLine()
             | 1 ->
@@ -495,12 +533,9 @@ type VariableDeclarator(id, ?init, ?loc) =
             id.Print(printer)
             match init with
             | None -> ()
-            | Some(:? SequenceExpression as e) ->
-                printer.Print(" = ")
-                printer.WithParens(e)
             | Some e ->
                 printer.Print(" = ")
-                e.Print(printer)
+                printer.SequenceExpressionWithParens(e)
 
 type VariableDeclarationKind = Var | Let | Const
 
@@ -578,7 +613,7 @@ type FunctionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?lo
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     interface Declaration with
         member _.Print(printer) =
-            printer.PrintFunction(Some id, ``params``, body, loc)
+            printer.PrintFunction(Some id, ``params``, body, loc, isDeclaration=true)
             printer.PrintNewLine()
 
 // Expressions
@@ -665,7 +700,7 @@ type ArrayExpression(elements, ?loc) =
     interface Expression with
         member _.Print(printer) =
             printer.Print("[", ?loc=loc)
-            printer.PrintCommaSeparatedArray(elements)
+            printer.PrintArray(elements, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
             printer.Print("]")
 
 type ObjectMember = inherit Node
@@ -739,7 +774,9 @@ type MemberExpression(object, property, ?computed_, ?loc) =
     interface PatternExpression with
         member _.Print(printer) =
             printer.AddLocation(loc)
-            printer.MaybeWithParens(object)
+            match object with
+            | :? NumericLiteral -> printer.WithParens(object)
+            | _ -> printer.ComplexExpressionWithParens(object)
             if computed then
                 printer.Print("[")
                 property.Print(printer)
@@ -767,11 +804,16 @@ type ConditionalExpression(test, consequent, alternate, ?loc) =
     interface Expression with
         member _.Print(printer) =
             printer.AddLocation(loc)
-            printer.MaybeWithParens(test)
-            printer.Print(" ? ")
-            printer.MaybeWithParens(consequent)
-            printer.Print(" : ")
-            printer.MaybeWithParens(alternate)
+            match test with
+            | :? BooleanLiteral as b ->
+                if b.Value then printer.Print(consequent)
+                else printer.Print(alternate)
+            | _ ->
+                printer.ComplexExpressionWithParens(test)
+                printer.Print(" ? ")
+                printer.ComplexExpressionWithParens(consequent)
+                printer.Print(" : ")
+                printer.ComplexExpressionWithParens(alternate)
 
 /// A function or method call expression.
 type CallExpression(callee, arguments, ?loc) =
@@ -781,9 +823,9 @@ type CallExpression(callee, arguments, ?loc) =
     interface Expression with
         member _.Print(printer) =
             printer.AddLocation(loc)
-            printer.MaybeWithParens(callee)
+            printer.ComplexExpressionWithParens(callee)
             printer.Print("(")
-            printer.PrintCommaSeparatedArray(arguments)
+            printer.PrintArray(arguments, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
             printer.Print(")")
 
 type NewExpression(callee, arguments, ?typeArguments, ?loc) =
@@ -794,7 +836,7 @@ type NewExpression(callee, arguments, ?typeArguments, ?loc) =
     interface Expression with
         member _.Print(printer) =
             printer.Print("new ", ?loc=loc)
-            printer.MaybeWithParens(callee)
+            printer.ComplexExpressionWithParens(callee)
             printer.Print("(")
             printer.PrintCommaSeparatedArray(arguments)
             printer.Print(")")
@@ -828,7 +870,7 @@ type UnaryExpression(operator_, argument, ?loc) =
             match operator with
             | "-" | "+" | "!" | "~" -> printer.Print(operator)
             | _ -> printer.Print(operator + " ")
-            printer.MaybeWithParens(argument)
+            printer.ComplexExpressionWithParens(argument)
 
 type UpdateExpression(operator_, prefix, argument, ?loc) =
     let operator =
@@ -843,9 +885,9 @@ type UpdateExpression(operator_, prefix, argument, ?loc) =
             printer.AddLocation(loc)
             if prefix then
                 printer.Print(operator)
-                printer.MaybeWithParens(argument)
+                printer.ComplexExpressionWithParens(argument)
             else
-                printer.MaybeWithParens(argument)
+                printer.ComplexExpressionWithParens(argument)
                 printer.Print(operator)
 
 // Binary Operations
@@ -1112,7 +1154,7 @@ type ImportNamespaceSpecifier(local) =
 /// e.g., import foo from "mod";.
 type ImportDeclaration(specifiers, source) =
     member _.Specifiers: ImportSpecifier array = specifiers
-    member _.Source: Literal = source
+    member _.Source: StringLiteral = source
     interface ModuleDeclaration with
         member _.Print(printer) =
             let members = specifiers |> Array.choose (function :? ImportMemberSpecifier as x -> Some x | _ -> None)
@@ -1136,8 +1178,9 @@ type ImportDeclaration(specifiers, source) =
                 printer.PrintCommaSeparatedArray(members)
                 printer.Print(" }")
 
-            printer.Print(" from ")
-            source.Print(printer)
+            if not(Array.isEmpty defaults && Array.isEmpty namespaces && Array.isEmpty members) then
+                printer.Print(" from ")
+            printer.Print(source)
 
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
 /// The exported field refers to the name exported in the module.
@@ -1157,24 +1200,23 @@ type ExportSpecifier(local: Identifier, exported) =
 
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
-type ExportNamedDeclaration(?declaration, ?specifiers_, ?source) =
-    let specifiers = defaultArg specifiers_ [||]
-    member _.Declaration: Declaration option = declaration
-    member _.Specifiers: ExportSpecifier array = specifiers
-    member _.Source: Literal option = source
+type ExportNamedDeclaration(declaration) =
+    member _.Declaration: Declaration = declaration
     interface ModuleDeclaration with
         member _.Print(printer) =
             printer.Print("export ")
-            match declaration with
-            | Some(:? FunctionDeclaration as decl) ->
-                printer.Print(decl)
-            | Some decl ->
-                printer.Print(decl)
-            | None ->
-                printer.Print("{ ")
-                printer.PrintCommaSeparatedArray(specifiers)
-                printer.Print(" }")
-                printer.PrintOptional(" from ", source)
+            printer.Print(declaration)
+
+type ExportNamedReferences(specifiers, ?source) =
+    member _.Specifiers: ExportSpecifier array = specifiers
+    member _.Source: StringLiteral option = source
+    interface ModuleDeclaration with
+        member _.Print(printer) =
+            printer.Print("export ")
+            printer.Print("{ ")
+            printer.PrintCommaSeparatedArray(specifiers)
+            printer.Print(" }")
+            printer.PrintOptional(" from ", source)
 
 /// An export default declaration, e.g., export default function () {}; or export default 1;.
 type ExportDefaultDeclaration(declaration) =

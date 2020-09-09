@@ -23,6 +23,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ASTViewer", "src\tools\ASTV
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Library", "src\fable-library\Fable.Library.fsproj", "{C6B876C9-8410-4FFF-AD89-46539E54253C}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Files", "Files", "{54BD4E45-0C5B-455A-9C7C-37736B216015}"
+ProjectSection(SolutionItems) = preProject
+	build.fsx = build.fsx
+EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

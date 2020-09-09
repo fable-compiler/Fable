@@ -1,0 +1,16 @@
+{
+    "exclude": [
+      "**/bin",
+      "**/obj",
+      "**/*.fs",
+      "**/*.fsproj"
+    ],
+    "compilerOptions": {
+      "outDir": "../build/tests",
+      "target": "es2015",
+      "module": "commonjs",
+      "allowJs": true,
+      "sourceMap": false,
+      "noEmitOnError": false,
+    }
+  }

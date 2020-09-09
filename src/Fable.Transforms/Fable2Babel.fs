@@ -150,7 +150,7 @@ module Reflection =
                 ent.FSharpFields |> Seq.choose (fun fi ->
                     // F# seems to include a field with this name in the underlying type
                     match fi.Name with
-                    | "value_" ->
+                    | "value__" ->
                         match fi.FieldType with
                         | Fable.Number kind -> numberKind <- kind
                         | _ -> ()
@@ -886,12 +886,7 @@ module Util =
         | Fable.BoolConstant x -> upcast BooleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> upcast StringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> upcast StringLiteral(x, ?loc=r)
-        | Fable.NumberConstant (x,_) ->
-            if x < 0.
-            // Negative numeric literals can give issues in Babel AST, see #1186
-            // TODO: We don't need this when using our own printer
-            then upcast UnaryExpression(UnaryMinus, NumericLiteral(x * -1.), ?loc=r)
-            else upcast NumericLiteral(x, ?loc=r)
+        | Fable.NumberConstant (x,_) -> upcast NumericLiteral(x, ?loc=r)
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
         | Fable.NewArrayAlloc (size, typ) -> makeTypedAllochedArray com ctx typ size
