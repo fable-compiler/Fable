@@ -1,11 +1,8 @@
 module Fable.Cli.Printers
 
-open System
 open System.IO
 open FSharp.Compiler.SourceCodeServices
-open Newtonsoft.Json
 open Fable
-open Fable.AST
 
 let attribsOfSymbol (s:FSharpSymbol) =
     [ match s with
@@ -107,10 +104,10 @@ let printAst outDir (implFiles: FSharpImplementationFileContents list) =
         Directory.CreateDirectory(outDir) |> ignore
     for implFile in implFiles do
         let target =
-            let fileName = System.IO.Path.GetFileNameWithoutExtension(implFile.FileName)
+            let fileName = Path.GetFileNameWithoutExtension(implFile.FileName)
             Path.Combine(outDir, fileName + ".fs.ast")
         Log.verbose(lazy sprintf "Print AST %s" target)
         printFSharpDecls "" implFile.Declarations
-        |> fun lines -> System.IO.File.WriteAllLines(target, lines)
+        |> fun lines -> File.WriteAllLines(target, lines)
         // printFableDecls fableFile.Declarations
         // |> fun lines -> System.IO.File.WriteAllLines(Path.Combine(outDir, fileName + ".fable.ast"), lines)

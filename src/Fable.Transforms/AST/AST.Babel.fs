@@ -1,7 +1,6 @@
 namespace rec Fable.AST.Babel
 
 open Fable
-open Fable.Core
 open Fable.AST
 open PrinterExtensions
 
@@ -13,16 +12,15 @@ type Printer =
     abstract Print: string * ?loc: SourceLocation -> unit
     abstract PrintNewLine: unit -> unit
     abstract AddLocation: SourceLocation option -> unit
+    abstract EscapeJsStringLiteral: string -> string
 
 module PrinterExtensions =
     type Printer with
-        member printer.PrintPattern(pattern: Pattern) =
-            match pattern with
-            | U2.Case1 p -> p.Print(printer)
-            | U2.Case2 p -> p.Print(printer)
+        member printer.Print(node: Node) =
+            node.Print(printer)
 
-        member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?newLineAtEnd) =
-            let newLineAtEnd = defaultArg newLineAtEnd true
+        member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
+            let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
             printer.Print("{")
             printer.PrintNewLine()
             printer.PushIndentation()
@@ -31,31 +29,46 @@ module PrinterExtensions =
                 printSeparator printer
             printer.PopIndentation()
             printer.Print("}")
-            if newLineAtEnd then
+            if not skipNewLineAtEnd then
                 printer.PrintNewLine()
 
-        member printer.PrintBlock(nodes: Statement array) =
-            let printStatement printer (s: Statement) =
-                match s with
-                | :? ExpressionStatement as e ->
-                    match e.Expression with
-                    | :? NullLiteral -> ()
-                    // TODO: Check the argument has no side-effect?
-                    | :? UnaryExpression as e when e.Operator = "void" -> ()
-                    // Constructors of classes deriving from System.Object add an empty object at the end
-                    | :? ObjectExpression as o when o.Properties.Length = 0 -> ()
-                    | _ -> e.Print(printer)
-                | _ -> s.Print(printer)
+        member printer.PrintStatementSeparator() =
+            if printer.Column > 0 then
+                printer.Print(";")
+                printer.PrintNewLine()
 
-            printer.PrintBlock(nodes, printStatement, (fun p ->
-                if printer.Column > 0 then
-                    printer.Print(";")
-                    printer.PrintNewLine()
-            ))
+        member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
+            let rec hasNoSideEffects (e: Expression) =
+                match e with
+                | :? Undefined
+                | :? NullLiteral
+                | :? StringLiteral
+                | :? BooleanLiteral
+                | :? NumericLiteral -> true
+                // Constructors of classes deriving from System.Object add an empty object at the end
+                | :? ObjectExpression as o -> o.Properties.Length = 0
+                | :? UnaryExpression as e when e.Operator = "void" -> hasNoSideEffects e.Argument
+                | _ -> false
+
+            match s with
+            | :? ExpressionStatement as e when hasNoSideEffects e.Expression -> ()
+            | _ ->
+                s.Print(printer)
+                printSeparator |> Option.iter (fun f -> f printer)
+
+        member printer.PrintProductiveStatements(statements: Statement[]) =
+            for s in statements do
+                printer.PrintProductiveStatement(s, (fun p -> p.PrintStatementSeparator()))
+
+        member printer.PrintBlock(nodes: Statement array, ?skipNewLineAtEnd) =
+            printer.PrintBlock(nodes,
+                               (fun p s -> p.PrintProductiveStatement(s)),
+                               (fun p -> p.PrintStatementSeparator()),
+                               ?skipNewLineAtEnd=skipNewLineAtEnd)
 
         member printer.PrintOptional(before: string, node: #Node option) =
             match node with
-            | None-> ()
+            | None -> ()
             | Some node ->
                 printer.Print(before)
                 node.Print(printer)
@@ -72,10 +85,7 @@ module PrinterExtensions =
                     printSeparator printer
 
         member printer.PrintCommaSeparatedArray(nodes: #Node array) =
-            printer.PrintArray(nodes, (fun p x -> x.Print(printer)), (fun p -> printer.Print(", ")))
-
-        member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
-            printer.PrintArray(nodes, (fun p x -> printer.PrintPattern(x)), (fun p -> printer.Print(", ")))
+            printer.PrintArray(nodes, (fun p x -> x.Print(p)), (fun p -> p.Print(", ")))
 
         // TODO: (super) type parameters, implements
         member printer.PrintClass(id: Identifier option, superClass: Expression option, body: ClassBody, loc) =
@@ -83,33 +93,79 @@ module PrinterExtensions =
             printer.PrintOptional(" ", id)
             printer.PrintOptional(" extends ", superClass)
             printer.Print(" ")
-            body.Print(printer)
+            printer.Print(body)
 
         // TODO: type annotations
-        member printer.PrintFunction(id: Identifier option, ``params``: Pattern array, body: BlockStatement, loc) =
-            printer.Print("function ", ?loc=loc)
-            printer.PrintOptional(id)
-            printer.Print("(")
-            printer.PrintCommaSeparatedArray(``params``)
-            printer.Print(") ")
-            body.Print(printer)
+        member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement, loc, ?isDeclaration, ?isArrow) =
+            let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
+                Array.zip passedArgs appliedAgs
+                |> Array.forall (function
+                    | (:? Identifier as p), (:? Identifier as a) -> p.Name = a.Name
+                    | _ -> false)
 
-        member printer.MaybeWithParens(expr: Expression) =
-            match expr with
-            | :? PatternExpression as e -> e.Print(printer)
-            | :? Literal as e -> e.Print(printer)
-            | :? CallExpression as e -> e.Print(printer)
-            | :? Super as e -> e.Print(printer)
-            | _ ->
+            let isDeclaration = defaultArg isDeclaration false
+            let isArrow = defaultArg isArrow false
+
+            printer.AddLocation(loc)
+
+            // Check if we can remove the function
+            let skipExpr =
+                match body.Body with
+                | [|:? ReturnStatement as r|] when not isDeclaration ->
+                    match r.Argument with
+                    | :? CallExpression as c when parameters.Length = c.Arguments.Length ->
+                        // To be sure we're not running side effects when deleting the function,
+                        // check the callee is an identifier (accept non-computed member expressions too?)
+                        match c.Callee with
+                        | :? Identifier when areEqualPassedAndAppliedArgs parameters c.Arguments ->
+                            Some c.Callee
+                        | _ -> None
+                    | _ -> None
+                | _ -> None
+
+            match skipExpr with
+            | Some e -> e.Print(printer)
+            | None ->
+                if isArrow then
+                    // TODO: Remove parens if we only have one argument (and no annotation)
+                    printer.Print("(")
+                    printer.PrintCommaSeparatedArray(parameters)
+                    printer.Print(") => ")
+                    match body.Body with
+                    | [|:? ReturnStatement as r |] -> r.Argument.Print(printer)
+                    | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
+                else
+                printer.Print("function ")
+                printer.PrintOptional(id)
                 printer.Print("(")
-                expr.Print(printer)
-                printer.Print(")")
+                printer.PrintCommaSeparatedArray(parameters)
+                printer.Print(") ")
+                printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
+
+        member printer.WithParens(expr: Expression) =
+            printer.Print("(")
+            expr.Print(printer)
+            printer.Print(")")
+
+        member printer.SequenceExpressionWithParens(expr: Expression) =
+            match expr with
+            | :? SequenceExpression -> printer.WithParens(expr)
+            | _ -> printer.Print(expr)
+
+        /// Surround with parens anything that can potentially conflict with operator precedence
+        member printer.ComplexExpressionWithParens(expr: Expression) =
+            match expr with
+            | :? PatternExpression
+            | :? Literal
+            | :? CallExpression
+            | :? Super -> expr.Print(printer)
+            | _ -> printer.WithParens(expr)
 
         member printer.PrintOperation(left, operator, right, loc) =
             printer.AddLocation(loc)
-            printer.MaybeWithParens(left)
+            printer.ComplexExpressionWithParens(left)
             printer.Print(" " + operator + " ")
-            printer.MaybeWithParens(right)
+            printer.ComplexExpressionWithParens(right)
 
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
@@ -118,89 +174,76 @@ module PrinterExtensions =
 /// If the node contains no information about the source location, the field is null;
 /// otherwise it is an object consisting of a start position (the position of the first character of the parsed source region)
 /// and an end position (the position of the first character after the parsed source region):
-[<AbstractClass>]
-type Node(``type``, ?loc) =
-    member __.Type: string = ``type``
-    member __.Loc: SourceLocation option = loc
+type Node =
     abstract Print: Printer -> unit
-//    // TODO: Temporary solution to make everything compile,
-//    // remove before merging PR
-//    default _.Print(printer) = printer.Print(sprintf "TODO: %s" ``type``)
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
-[<AbstractClass>] type Expression(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
-
-[<AbstractClass>] type PatternNode(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
-[<AbstractClass>] type PatternExpression(``type``, ?loc) = inherit Expression(``type``, ?loc = loc)
-
-type Pattern = U2<PatternNode, PatternExpression>
-
-[<AbstractClass>] type Literal(``type``, ?loc) = inherit Expression(``type``, ?loc = loc)
-
-[<AbstractClass>] type Statement(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
-
+type Expression = inherit Node
+type Pattern = inherit Node
+type PatternExpression =
+    inherit Pattern
+    inherit Expression
+type Literal = inherit Expression
+type Statement = inherit Node
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
-[<AbstractClass>] type Declaration(``type``, ?loc) = inherit Statement(``type``, ?loc = loc)
-
+type Declaration = inherit Statement
 /// A module import or export declaration.
-[<AbstractClass>] type ModuleDeclaration(``type``, ?loc) = inherit Node(``type``, ?loc = loc)
+type ModuleDeclaration = inherit Node
 
-/// Not in Babel specs, disguised as StringLiteral
-type MacroExpression(value, args, ?loc) =
-    inherit Literal("StringLiteral", ?loc = loc)
-    let macro = true
-    member __.Value: string = value
-    member __.Args: Expression array = args
-    member __.Macro: bool = macro
-    override _.Print(printer) =
-        printer.AddLocation(loc)
+/// Not in Babel specs
+type EmitExpression(value, args, ?loc) =
+    member _.Value: string = value
+    member _.Args: Expression array = args
+    interface Expression with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
 
-        let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
-            System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
+            let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
+                System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
 
-        // Macro transformations
-        // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
-        let value =
-            value
-            |> replace @"\$(\d+)\.\.\." (fun m ->
-                let rep = ResizeArray()
-                let i = int m.Groups.[1].Value
-                for j = i to args.Length - 1 do
-                    rep.Add("$" + string j)
-                String.concat ", " rep)
+            let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
+                let segmentLength = segmentEnd - segmentStart
+                if segmentLength > 0 then
+                    let segment = value.Substring(segmentStart, segmentLength)
+                    let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
+                    for i = 1 to subSegments.Length do
+                        printer.Print(subSegments.[i - 1])
+                        if i < subSegments.Length then
+                            printer.PrintNewLine()
 
-            |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
-                let i = int m.Groups.[1].Value
-                match args.[i] with
-                | :? BooleanLiteral as b when b.Value -> m.Groups.[2].Value
-                | _ -> m.Groups.[3].Value)
+            // Macro transformations
+            // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+            let value =
+                value
+                |> replace @"\$(\d+)\.\.\." (fun m ->
+                    let rep = ResizeArray()
+                    let i = int m.Groups.[1].Value
+                    for j = i to args.Length - 1 do
+                        rep.Add("$" + string j)
+                    String.concat ", " rep)
 
-            |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
-                let i = int m.Groups.[2].Value
-                match Array.tryItem i args with
-                | Some _ -> m.Groups.[1].Value
-                | None -> "")
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match args.[i] with
+                    | :? BooleanLiteral as b when b.Value -> m.Groups.[2].Value
+                    | _ -> m.Groups.[3].Value)
 
-            // This is to emit string literals as JS, I think it's no really
-            // used and it shouldn't be necessary with the new emitJsExpr
-//            |> replace @"\$(\d+)!" (fun m ->
-//                let i = int m.Groups.[1].Value
-//                match Array.tryItem i args with
-//                | Some(:? StringLiteral as s) -> s.Value
-//                | _ -> "")
+                |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                    let i = int m.Groups.[2].Value
+                    match Array.tryItem i args with
+                    | Some _ -> m.Groups.[1].Value
+                    | None -> "")
 
-        let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
-            let segmentLength = segmentEnd - segmentStart
-            if segmentLength > 0 then
-                let segment = value.Substring(segmentStart, segmentLength)
-                let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
-                for i = 1 to subSegments.Length do
-                    printer.Print(subSegments.[i - 1])
-                    if i < subSegments.Length then
-                        printer.PrintNewLine()
+                // This is to emit string literals as JS, I think it's no really
+                // used and it shouldn't be necessary with the new emitJsExpr
+    //            |> replace @"\$(\d+)!" (fun m ->
+    //                let i = int m.Groups.[1].Value
+    //                match Array.tryItem i args with
+    //                | Some(:? StringLiteral as s) -> s.Value
+    //                | _ -> "")
 
-        let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
-        if matches.Count > 0 then
+            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            if matches.Count > 0 then
                 for i = 0 to matches.Count - 1 do
                     let m = matches.[i]
 
@@ -212,481 +255,477 @@ type MacroExpression(value, args, ?loc) =
 
                     let argIndex = int m.Value.[1..]
                     match Array.tryItem argIndex args with
-                    | Some e -> printer.MaybeWithParens(e)
-                    | None -> printer.Print("(void \"missing\")")
+                    | Some e -> printer.ComplexExpressionWithParens(e)
+                    | None -> printer.Print("undefined")
 
                 let lastMatch = matches.[matches.Count - 1]
                 printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
-
-        else
-            printer.Print(value)
+            else
+                printer.Print(value)
 
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
 //    inherit Node("TemplateElement", ?loc = loc)
-//    member __.Tail: bool = tail
-//    member __.Value = dict [ ("raw", value); ("cooked", value) ]
+//    member _.Tail: bool = tail
+//    member _.Value = dict [ ("raw", value); ("cooked", value) ]
 //
 //type TemplateLiteral(quasis, expressions, ?loc) =
 //    inherit Literal("TemplateLiteral", ?loc = loc)
-//    member __.Quasis: TemplateElement array = quasis
-//    member __.Expressions: Expression array = expressions
+//    member _.Quasis: TemplateElement array = quasis
+//    member _.Expressions: Expression array = expressions
 //
 //type TaggedTemplateExpression(tag, quasi, ?loc) =
-//    inherit Expression("TaggedTemplateExpression", ?loc = loc)
-//    member __.Tag: Expression = tag
-//    member __.Quasi: TemplateLiteral = quasi
+//    interface Expression with
+//    member _.Tag: Expression = tag
+//    member _.Quasi: TemplateLiteral = quasi
 
 // Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
-    inherit PatternExpression("Identifier", ?loc = loc)
-    member __.Name: string = name
-    member __.Optional: bool option = optional
-    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
-    override __.ToString() = __.Name
-    override _.Print(printer) =
-        // TODO: optional, type annotation
-        printer.Print(name, ?loc=loc)
+    member _.Name: string = name
+    member _.Optional: bool option = optional
+    member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
+    interface PatternExpression with
+        member _.Print(printer) =
+            // TODO: optional, type annotation
+            printer.Print(name, ?loc=loc)
 
 // Literals
 type RegExpLiteral(pattern, flags_, ?loc) =
-    inherit Literal("RegExpLiteral", ?loc = loc)
     let flags =
         flags_ |> Seq.map (function
             | RegexGlobal -> "g"
             | RegexIgnoreCase -> "i"
             | RegexMultiline -> "m"
             | RegexSticky -> "y") |> Seq.fold (+) ""
-    member __.Pattern: string = pattern
-    member __.Flags: string = flags
-    override _.Print(printer) =
-        printer.Print("/", ?loc=loc)
-        printer.Print(pattern)
-        printer.Print("/")
-        printer.Print(flags)
+    member _.Pattern: string = pattern
+    member _.Flags: string = flags
+    interface Literal with
+        member _.Print(printer) =
+            printer.Print("/", ?loc=loc)
+            printer.Print(pattern)
+            printer.Print("/")
+            printer.Print(flags)
 
 type Undefined(?loc) =
-    inherit Identifier("undefined", ?loc = loc)
     // TODO: Use `void 0` instead? Just remove this node?
-    override _.Print(printer) =
-        printer.Print("undefined", ?loc=loc)
+    interface Expression with
+        member _.Print(printer) =
+            printer.Print("undefined", ?loc=loc)
 
 type NullLiteral(?loc) =
-    inherit Literal("NullLiteral", ?loc = loc)
-    override _.Print(printer) =
-        printer.Print("null", ?loc=loc)
+    interface Literal with
+        member _.Print(printer) =
+            printer.Print("null", ?loc=loc)
 
 type StringLiteral(value, ?loc) =
-    inherit Literal("StringLiteral", ?loc = loc)
-    member __.Value: string = value
-    override _.Print(printer) =
-        printer.Print("\"", ?loc=loc)
-        printer.Print(System.Web.HttpUtility.JavaScriptStringEncode(value))
-        printer.Print("\"")
+    member _.Value: string = value
+    interface Literal with
+        member _.Print(printer) =
+            printer.Print("\"", ?loc=loc)
+            printer.Print(printer.EscapeJsStringLiteral(value))
+            printer.Print("\"")
 
 type BooleanLiteral(value, ?loc) =
-    inherit Literal("BooleanLiteral", ?loc = loc)
-    member __.Value: bool = value
-    override _.Print(printer) =
-        printer.Print((if value then "true" else "false"), ?loc=loc)
+    member _.Value: bool = value
+    interface Literal with
+        member _.Print(printer) =
+            printer.Print((if value then "true" else "false"), ?loc=loc)
 
 type NumericLiteral(value, ?loc) =
-    inherit Literal("NumericLiteral", ?loc = loc)
-    member __.Value: float = value
-    override _.Print(printer) =
-        printer.Print(value.ToString(), ?loc=loc)
+    member _.Value: float = value
+    interface Literal with
+        member _.Print(printer) =
+            let value =
+                match value.ToString() with
+                | "∞" -> "Infinity"
+                | "-∞" -> "-Infinity"
+                | value -> value
+            printer.Print(value, ?loc=loc)
 
 // Misc
 //type Decorator(value, ?loc) =
 //    inherit Node("Decorator", ?loc = loc)
-//    member __.Value = value
+//    member _.Value = value
 //
-type DirectiveLiteral(value, ?loc) =
-    inherit Literal("DirectiveLiteral", ?loc = loc)
-    member __.Value: string = value
-    override _.Print(_) = failwith "not implemented"
+type DirectiveLiteral(value) =
+    member _.Value: string = value
+    interface Literal with
+        member _.Print(_) = failwith "not implemented"
 
 /// e.g. "use strict";
-type Directive(value, ?loc) =
-    inherit Node("Directive", ?loc = loc)
-    new (str, ?loc) = Directive(DirectiveLiteral str, ?loc = loc)
-    member __.Value: DirectiveLiteral = value
-    override _.Print(_) = failwith "not implemented"
+type Directive(value) =
+    new (str) = Directive(DirectiveLiteral str)
+    member _.Value: DirectiveLiteral = value
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 // Program
 
 /// A complete program source tree.
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
-type Program(fileName, body, ?logs_, ?dependencies_, ?sourceFiles_) = // ?directives_,
-    inherit Node("Program")
-    let sourceType = "module" // Don't use "script"
-    let logs = defaultArg logs_ Map.empty
-    let sourceFiles = defaultArg sourceFiles_ [||]
-    let dependencies = defaultArg dependencies_ [||]
-    let directives = [||] // defaultArg directives_ [||]
-    member __.Directives: Directive array = directives
-    member __.SourceType: string = sourceType
-    member __.Body: U2<Statement, ModuleDeclaration> array = body
-    // Properties below don't belong to babel specs
-    member __.FileName: string = fileName
-    member __.Logs: Map<string, string array> = logs
-    member __.Dependencies: string[] = dependencies
-    member __.SourceFiles: string[] = sourceFiles
-    override _.Print(_) =
-        failwith "Program cannot be printed directly"
+type Program(body) = // ?directives_,
+//    let sourceType = "module" // Don't use "script"
+//    member _.Directives: Directive array = directives
+//    member _.SourceType: string = sourceType
+    member _.Body: ModuleDeclaration array = body
 
 // Statements
 /// An expression statement, i.e., a statement consisting of a single expression.
-type ExpressionStatement(expression, ?loc) =
-    inherit Statement("ExpressionStatement", ?loc = loc)
-    member __.Expression: Expression = expression
-    override _.Print(printer) =
-        expression.Print(printer)
+type ExpressionStatement(expression) =
+    member _.Expression: Expression = expression
+    interface Statement with
+        member _.Print(printer) =
+            expression.Print(printer)
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
-type BlockStatement(body, ?loc) = // ?directives_,
-    inherit Statement("BlockStatement", ?loc = loc)
-    let directives = [||] // defaultArg directives_ [||]
-    member __.Directives: Directive array = directives
-    member __.Body: Statement array = body
-    override _.Print(printer) =
-        printer.PrintBlock(body)
+type BlockStatement(body) = // ?directives_,
+//    let directives = [||] // defaultArg directives_ [||]
+//    member _.Directives: Directive array = directives
+    member _.Body: Statement array = body
+    interface Statement with
+        member _.Print(printer) =
+            printer.PrintBlock(body)
 
 /// An empty statement, i.e., a solitary semicolon.
 //type EmptyStatement(?loc) =
 //    inherit Statement("EmptyStatement", ?loc = loc)
-//    override _.Print(_) = ()
+//    member _.Print(_) = ()
 
 type DebuggerStatement(?loc) =
-    inherit Statement("DebuggerStatement", ?loc = loc)
-    override _.Print(printer) =
-        printer.Print("debugger", ?loc=loc)
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("debugger", ?loc=loc)
 
 /// Statement (typically loop) prefixed with a label (for continue and break)
-type LabeledStatement(label, body, ?loc) =
-    inherit Statement("LabeledStatement", ?loc = loc)
-    member __.Body: Statement = body
-    member __.Label: Identifier = label
-    override _.Print(printer) =
-        label.Print(printer)
-        printer.Print(":")
-        printer.PrintNewLine()
-        // Don't push indent
-        body.Print(printer)
+type LabeledStatement(label, body) =
+    member _.Body: Statement = body
+    member _.Label: Identifier = label
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print(label)
+            printer.Print(":")
+            printer.PrintNewLine()
+            // Don't push indent
+            printer.Print(body)
 
 /// Break can optionally take a label of a loop to break
 type BreakStatement(?label, ?loc) =
-    inherit Statement("BreakStatement", ?loc = loc)
-    member __.Label: Identifier option = label
-    override _.Print(printer) =
-        printer.Print("break", ?loc=loc)
+    member _.Label: Identifier option = label
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("break", ?loc=loc)
 
 /// Continue can optionally take a label of a loop to continue
 type ContinueStatement(?label, ?loc) =
-    inherit Statement("ContinueStatement", ?loc = loc)
-    member __.Label: Identifier option = label
-    override _.Print(printer) =
-        printer.Print("continue", ?loc=loc)
-        printer.PrintOptional(" ", label)
+    member _.Label: Identifier option = label
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("continue", ?loc=loc)
+            printer.PrintOptional(" ", label)
 
 // type WithStatement
 
 // Control Flow
 type ReturnStatement(argument, ?loc) =
-    inherit Statement("ReturnStatement", ?loc = loc)
-    member __.Argument: Expression = argument
-    override _.Print(printer) =
-        printer.Print("return ", ?loc=loc)
-        argument.Print(printer)
+    member _.Argument: Expression = argument
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("return ", ?loc=loc)
+            argument.Print(printer)
 
 type IfStatement(test, consequent, ?alternate, ?loc) =
-    inherit Statement("IfStatement", ?loc = loc)
-    member __.Test: Expression = test
-    member __.Consequent: Statement = consequent
-    member __.Alternate: Statement option = alternate
-    override _.Print(printer) =
-        printer.Print("if (", ?loc=loc)
-        test.Print(printer)
-        printer.Print(") ")
-        consequent.Print(printer)
-        // TODO: Remove else clauses if they become empty after removing null statements (see PrintBlock)
-        printer.PrintOptional((if printer.Column > 0 then " else " else "else "), alternate)
-        // If the consequent/alternate is a block
-        // a new line should already be printed
-        if printer.Column > 0 then
-            printer.PrintNewLine()
+    member _.Test: Expression = test
+    member _.Consequent: BlockStatement = consequent
+    member _.Alternate: Statement option = alternate
+    interface Statement with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            match test, alternate with
+            | :? BooleanLiteral as b, _ when b.Value ->
+                printer.PrintProductiveStatements(consequent.Body)
+            | :? BooleanLiteral as b, Some(:? BlockStatement as alternate) when not b.Value ->
+                printer.PrintProductiveStatements(alternate.Body)
+            | _ ->
+                printer.Print("if (", ?loc=loc)
+                test.Print(printer)
+                printer.Print(") ")
+                printer.Print(consequent)
+                // TODO: Remove else clauses if they become empty after removing null statements (see PrintBlock)
+                printer.PrintOptional((if printer.Column > 0 then " else " else "else "), alternate)
+                // If the consequent/alternate is a block
+                // a new line should already be printed
+                if printer.Column > 0 then
+                    printer.PrintNewLine()
 
 /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
 type SwitchCase(consequent, ?test, ?loc) =
-    inherit Node("SwitchCase", ?loc = loc)
-    member __.Test: Expression option = test
-    member __.Consequent: Statement array = consequent
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        match test with
-        | None -> printer.Print("default:")
-        | Some test ->
-            printer.Print("case ")
-            test.Print(printer)
+    member _.Test: Expression option = test
+    member _.Consequent: Statement array = consequent
+    interface Node with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            match test with
+            | None -> printer.Print("default")
+            | Some test ->
+                printer.Print("case ")
+                test.Print(printer)
             printer.Print(":")
-        match consequent.Length with
-        | 0 -> printer.PrintNewLine()
-        | 1 ->
-            printer.Print(" ")
-            consequent.[0].Print(printer)
-        | _ ->
-            printer.Print(" ")
-            printer.PrintBlock(consequent)
+            match consequent.Length with
+            | 0 -> printer.PrintNewLine()
+            | 1 ->
+                printer.Print(" ")
+                consequent.[0].Print(printer)
+            | _ ->
+                printer.Print(" ")
+                printer.PrintBlock(consequent)
 
 type SwitchStatement(discriminant, cases, ?loc) =
-    inherit Statement("SwitchStatement", ?loc = loc)
-    member __.Discriminant: Expression = discriminant
-    member __.Cases: SwitchCase array = cases
-    override _.Print(printer) =
-        printer.Print("switch (", ?loc=loc)
-        discriminant.Print(printer)
-        printer.Print(") ")
-        printer.PrintBlock(cases, (fun p x -> x.Print(p)), fun _ -> ())
+    member _.Discriminant: Expression = discriminant
+    member _.Cases: SwitchCase array = cases
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("switch (", ?loc=loc)
+            discriminant.Print(printer)
+            printer.Print(") ")
+            printer.PrintBlock(cases, (fun p x -> p.Print(x)), fun _ -> ())
 
 // Exceptions
 type ThrowStatement(argument, ?loc) =
-    inherit Statement("ThrowStatement", ?loc = loc)
-    member __.Argument: Expression = argument
-    override _.Print(printer) =
-        printer.Print("throw ", ?loc=loc)
-        argument.Print(printer)
+    member _.Argument: Expression = argument
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("throw ", ?loc=loc)
+            argument.Print(printer)
 
 /// A catch clause following a try block.
 type CatchClause(param, body, ?loc) =
-    inherit Node("CatchClause", ?loc = loc)
-    member __.Param: Pattern = param
-    member __.Body: BlockStatement = body
-    override _.Print(printer) =
-        // "catch" is being printed by TryStatement
-        printer.Print("(", ?loc=loc)
-        printer.PrintPattern(param)
-        printer.Print(") ")
-        body.Print(printer)
+    member _.Param: Pattern = param
+    member _.Body: BlockStatement = body
+    interface Node with
+        member _.Print(printer) =
+            // "catch" is being printed by TryStatement
+            printer.Print("(", ?loc=loc)
+            param.Print(printer)
+            printer.Print(") ")
+            printer.Print(body)
 
 /// If handler is null then finalizer must be a BlockStatement.
 type TryStatement(block, ?handler, ?finalizer, ?loc) =
-    inherit Statement("TryStatement", ?loc = loc)
-    member __.Block: BlockStatement = block
-    member __.Handler: CatchClause option = handler
-    member __.Finalizer: BlockStatement option = finalizer
-    override _.Print(printer) =
-        printer.Print("try ", ?loc=loc)
-        block.Print(printer)
-        printer.PrintOptional("catch ", handler)
-        printer.PrintOptional("finally ", finalizer)
+    member _.Block: BlockStatement = block
+    member _.Handler: CatchClause option = handler
+    member _.Finalizer: BlockStatement option = finalizer
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("try ", ?loc=loc)
+            printer.Print(block)
+            printer.PrintOptional("catch ", handler)
+            printer.PrintOptional("finally ", finalizer)
 
 // Declarations
 type VariableDeclarator(id, ?init, ?loc) =
-    inherit Node("VariableDeclarator", ?loc = loc)
-    member __.Id: Pattern = id
-    member __.Init: Expression option = init
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        printer.PrintPattern(id)
-        printer.PrintOptional(" = ", init)
+    member _.Id: Pattern = id
+    member _.Init: Expression option = init
+    interface Node with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            id.Print(printer)
+            match init with
+            | None -> ()
+            | Some e ->
+                printer.Print(" = ")
+                printer.SequenceExpressionWithParens(e)
 
 type VariableDeclarationKind = Var | Let | Const
 
 type VariableDeclaration(kind_, declarations, ?loc) =
-    inherit Declaration("VariableDeclaration", ?loc = loc)
     let kind = match kind_ with Var -> "var" | Let -> "let" | Const -> "const"
     new (var, ?init, ?kind, ?loc) =
         VariableDeclaration(defaultArg kind Let, [|VariableDeclarator(var, ?init=init, ?loc=loc)|], ?loc=loc)
-    member __.Declarations: VariableDeclarator array = declarations
-    member __.Kind: string = kind
-    override _.Print(printer) =
-        printer.Print(kind + " ", ?loc=loc)
-        printer.PrintCommaSeparatedArray(declarations)
+    member _.Declarations: VariableDeclarator array = declarations
+    member _.Kind: string = kind
+    interface Declaration with
+        member _.Print(printer) =
+            printer.Print(kind + " ", ?loc=loc)
+            printer.PrintCommaSeparatedArray(declarations)
 
 // Loops
 type WhileStatement(test, body, ?loc) =
-    inherit Statement("WhileStatement", ?loc = loc)
-    member __.Test: Expression = test
-    member __.Body: BlockStatement = body
-    override _.Print(printer) =
-        printer.Print("while (", ?loc=loc)
-        test.Print(printer)
-        printer.Print(") ")
-        body.Print(printer)
+    member _.Test: Expression = test
+    member _.Body: BlockStatement = body
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("while (", ?loc=loc)
+            test.Print(printer)
+            printer.Print(") ")
+            printer.Print(body)
 
 //type DoWhileStatement(body, test, ?loc) =
 //    inherit Statement("DoWhileStatement", ?loc = loc)
-//    member __.Body: BlockStatement = body
-//    member __.Test: Expression = test
+//    member _.Body: BlockStatement = body
+//    member _.Test: Expression = test
 
 type ForStatement(body, ?init, ?test, ?update, ?loc) =
-    inherit Statement("ForStatement", ?loc = loc)
-    member __.Body: BlockStatement = body
-    member __.Init: U2<VariableDeclaration, Expression> option = init
-    member __.Test: Expression option = test
-    member __.Update: Expression option = update
-    override _.Print(printer) =
-        printer.Print("for (", ?loc=loc)
-        match init with
-        | None -> ()
-        | Some(U2.Case1 x) -> x.Print(printer)
-        | Some(U2.Case2 x) -> x.Print(printer)
-        printer.Print("; ")
-        printer.PrintOptional(test)
-        printer.Print("; ")
-        printer.PrintOptional(update)
-        printer.Print(") ")
-        body.Print(printer)
+    member _.Body: BlockStatement = body
+    // In JS this can be an expression too
+    member _.Init: VariableDeclaration option = init
+    member _.Test: Expression option = test
+    member _.Update: Expression option = update
+    interface Statement with
+        member _.Print(printer) =
+            printer.Print("for (", ?loc=loc)
+            printer.PrintOptional(init)
+            printer.Print("; ")
+            printer.PrintOptional(test)
+            printer.Print("; ")
+            printer.PrintOptional(update)
+            printer.Print(") ")
+            printer.Print(body)
 
 /// When passing a VariableDeclaration, the bound value must go through
 /// the `right` parameter instead of `init` property in VariableDeclarator
 //type ForInStatement(left, right, body, ?loc) =
 //    inherit Statement("ForInStatement", ?loc = loc)
-//    member __.Body: BlockStatement = body
-//    member __.Left: U2<VariableDeclaration, Expression> = left
-//    member __.Right: Expression = right
+//    member _.Body: BlockStatement = body
+//    member _.Left: Choice<VariableDeclaration, Expression> = left
+//    member _.Right: Expression = right
 
 /// When passing a VariableDeclaration, the bound value must go through
 /// the `right` parameter instead of `init` property in VariableDeclarator
 //type ForOfStatement(left, right, body, ?loc) =
 //    inherit Statement("ForOfStatement", ?loc = loc)
-//    member __.Body: BlockStatement = body
-//    member __.Left: U2<VariableDeclaration, Expression> = left
-//    member __.Right: Expression = right
+//    member _.Body: BlockStatement = body
+//    member _.Left: Choice<VariableDeclaration, Expression> = left
+//    member _.Right: Expression = right
 
 /// A function declaration. Note that id cannot be null.
 type FunctionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_, ?declare,
-    inherit Declaration("FunctionDeclaration", ?loc = loc)
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
-//    member __.Async: bool = async
-//    member __.Generator: bool = generator
-//    member __.Declare: bool option = declare
-    member __.Params: Pattern array = ``params``
-    member __.Body: BlockStatement = body
-    member __.Id: Identifier = id
-    member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    override _.Print(printer) =
-        printer.PrintFunction(Some id, ``params``, body, loc)
+//    member _.Async: bool = async
+//    member _.Generator: bool = generator
+//    member _.Declare: bool option = declare
+    member _.Params: Pattern array = ``params``
+    member _.Body: BlockStatement = body
+    member _.Id: Identifier = id
+    member _.ReturnType: TypeAnnotation option = returnType
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    interface Declaration with
+        member _.Print(printer) =
+            printer.PrintFunction(Some id, ``params``, body, loc, isDeclaration=true)
+            printer.PrintNewLine()
 
 // Expressions
 
 /// A super pseudo-expression.
 type Super(?loc) =
-    inherit Expression("Super", ?loc = loc)
-    override _.Print(printer) =
-        printer.Print("super", ?loc=loc)
+    interface Expression with
+        member _.Print(printer) =
+            printer.Print("super", ?loc=loc)
 
 type ThisExpression(?loc) =
-    inherit Expression("ThisExpression", ?loc = loc)
-    override _.Print(printer) =
-        printer.Print("this", ?loc=loc)
+    interface Expression with
+        member _.Print(printer) =
+            printer.Print("this", ?loc=loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression(``params``, body, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
-    inherit Expression("ArrowFunctionExpression", ?loc = loc)
+type ArrowFunctionExpression(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
+    new (``params``, body: Expression, ?returnType, ?typeParameters, ?loc) =
+        let body = BlockStatement [|ReturnStatement body|]
+        ArrowFunctionExpression(``params``, body, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
-//    member __.Async: bool = async
-//    member __.Generator: bool = generator
-    let expression = Some (match body with U2.Case1 _ -> false | U2.Case2 _ -> true)
-    member __.Params: Pattern array = ``params``
-    member __.Body: U2<BlockStatement, Expression> = body
-    member __.Expression: bool option = expression
-    member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    override _.Print(printer) =
-        // TODO: type annotations
-        // TODO: Remove parens if we only have one argument (and no annotation)
-        printer.Print("(", ?loc=loc)
-        printer.PrintCommaSeparatedArray(``params``)
-        printer.Print(") => ")
-        match body with
-        | U2.Case1 block -> block.Print(printer)
-        | U2.Case2 expr -> expr.Print(printer)
+//    member _.Async: bool = async
+//    member _.Generator: bool = generator
+    member _.Params: Pattern array = ``params``
+    member _.Body: BlockStatement = body
+    member _.ReturnType: TypeAnnotation option = returnType
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    interface Expression with
+        member _.Print(printer) =
+            printer.PrintFunction(None, ``params``, body, loc, isArrow=true)
 
 type FunctionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
-    inherit Expression("FunctionExpression", ?loc = loc)
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
-//    member __.Async: bool = async
-//    member __.Generator: bool = generator
-    member __.Id: Identifier option = id
-    member __.Params: Pattern array = ``params``
-    member __.Body: BlockStatement = body
-    member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    override _.Print(printer) =
-        printer.PrintFunction(id, ``params``, body, loc)
+//    member _.Async: bool = async
+//    member _.Generator: bool = generator
+    member _.Id: Identifier option = id
+    member _.Params: Pattern array = ``params``
+    member _.Body: BlockStatement = body
+    member _.ReturnType: TypeAnnotation option = returnType
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    interface Expression with
+        member _.Print(printer) =
+            printer.PrintFunction(id, ``params``, body, loc)
 
 ///// e.g., x = do { var t = f(); t * t + 1 };
 ///// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
 ///// Doesn't seem to work well with block-scoped variables (let, const)
 //type DoExpression(body, ?loc) =
-//    inherit Expression("DoExpression", ?loc = loc)
-//    member __.Body: BlockStatement = body
+//    interface Expression with
+//    member _.Body: BlockStatement = body
 
 //type YieldExpression(argument, ``delegate``, ?loc) =
-//    inherit Expression("YieldExpression", ?loc = loc)
-//    member __.Argument: Expression option = argument
+//    interface Expression with
+//    member _.Argument: Expression option = argument
 //    /// Delegates to another generator? (yield*)
-//    member __.Delegate: bool = ``delegate``
+//    member _.Delegate: bool = ``delegate``
 //
 //type AwaitExpression(argument, ?loc) =
-//    inherit Expression("AwaitExpression", ?loc = loc)
-//    member __.Argument: Expression option = argument
+//    interface Expression with
+//    member _.Argument: Expression option = argument
 
 //type RestProperty(argument, ?loc) =
 //    inherit Node("RestProperty", ?loc = loc)
-//    member __.Argument: Expression = argument
+//    member _.Argument: Expression = argument
 
 ///// e.g., var z = { x: 1, ...y } // Copy all properties from y
 //type SpreadProperty(argument, ?loc) =
 //    inherit Node("SpreadProperty", ?loc = loc)
-//    member __.Argument: Expression = argument
+//    member _.Argument: Expression = argument
 
 // Should derive from Node, but make it an expression for simplicity
 type SpreadElement(argument, ?loc) =
-    inherit Expression("SpreadElement", ?loc = loc)
-    member __.Argument: Expression = argument
-    override _.Print(printer) =
-        printer.Print("...", ?loc=loc)
-        argument.Print(printer)
+    member _.Argument: Expression = argument
+    interface Expression with
+        member _.Print(printer) =
+            printer.Print("...", ?loc=loc)
+            argument.Print(printer)
 
 type ArrayExpression(elements, ?loc) =
-    inherit Expression("ArrayExpression", ?loc = loc)
-    // member __.Elements: U2<Expression, SpreadElement> option array = elements
-    member __.Elements: Expression array = elements
-    override _.Print(printer) =
-        printer.Print("[", ?loc=loc)
-        printer.PrintCommaSeparatedArray(elements)
-        printer.Print("]")
+    // member _.Elements: Choice<Expression, SpreadElement> option array = elements
+    member _.Elements: Expression array = elements
+    interface Expression with
+        member _.Print(printer) =
+            printer.Print("[", ?loc=loc)
+            printer.PrintArray(elements, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
+            printer.Print("]")
 
-type ObjectProperty(key, value, ?computed_, ?loc) = // ?shorthand_,
-    inherit Node("ObjectProperty", ?loc = loc)
+type ObjectMember = inherit Node
+
+type ObjectProperty(key, value, ?computed_) = // ?shorthand_,
     let computed = defaultArg computed_ false
 //    let shorthand = defaultArg shorthand_ false
-//    member __.Shorthand: bool = shorthand
-    member __.Key: Expression = key
-    member __.Value: Expression = value
-    member __.Computed: bool = computed
-    override _.Print(printer) =
-        if computed then
-            printer.Print("[")
-            key.Print(printer)
-            printer.Print("]: ")
-        else
-            key.Print(printer)
+//    member _.Shorthand: bool = shorthand
+    member _.Key: Expression = key
+    member _.Value: Expression = value
+    member _.Computed: bool = computed
+    interface ObjectMember with
+        member _.Print(printer) =
+            if computed then
+                printer.Print("[")
+                key.Print(printer)
+                printer.Print("]")
+            else
+                printer.Print(key)
             printer.Print(": ")
-        value.Print(printer)
+            value.Print(printer)
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
 type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_,
-    inherit Node("ObjectMethod", ?loc = loc)
     let kind =
         match kind_ with
         | ObjectGetter -> "get"
@@ -695,121 +734,123 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typePa
     let computed = defaultArg computed_ false
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
-//    member __.Async: bool = async
-//    member __.Generator: bool = generator
-    member __.Kind: string = kind
-    member __.Key: Expression = key
-    member __.Params: Pattern array = ``params``
-    member __.Body: BlockStatement = body
-    member __.Computed: bool = computed
-    member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    override _.Print(printer) =
-        printer.AddLocation(loc)
+//    member _.Async: bool = async
+//    member _.Generator: bool = generator
+    member _.Kind: string = kind
+    member _.Key: Expression = key
+    member _.Params: Pattern array = ``params``
+    member _.Body: BlockStatement = body
+    member _.Computed: bool = computed
+    member _.ReturnType: TypeAnnotation option = returnType
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    interface ObjectMember with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
 
-        if kind <> "method" then
-            printer.Print(kind + " ")
+            if kind <> "method" then
+                printer.Print(kind + " ")
 
-        if computed then
-            printer.Print("[")
-            key.Print(printer)
-            printer.Print("]")
-        else
-            key.Print(printer)
+            if computed then
+                printer.Print("[")
+                key.Print(printer)
+                printer.Print("]")
+            else
+                key.Print(printer)
 
-        // TODO: type annotations
-        printer.Print("(")
-        printer.PrintCommaSeparatedArray(``params``)
-        printer.Print(") ")
+            // TODO: type annotations
+            printer.Print("(")
+            printer.PrintCommaSeparatedArray(``params``)
+            printer.Print(") ")
 
-        body.Print(printer)
+            printer.Print(body)
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
 type MemberExpression(object, property, ?computed_, ?loc) =
-    inherit PatternExpression("MemberExpression", ?loc = loc)
     let computed = defaultArg computed_ false
-    member __.Object: Expression = object
-    member __.Property: Expression = property
-    member __.Computed: bool = computed
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        object.Print(printer)
-        if computed then
-            printer.Print("[", ?loc=loc)
-            property.Print(printer)
-            printer.Print("]")
-        else
-            printer.Print(".", ?loc=loc)
-            property.Print(printer)
+    member _.Object: Expression = object
+    member _.Property: Expression = property
+    member _.Computed: bool = computed
+    interface PatternExpression with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            match object with
+            | :? NumericLiteral -> printer.WithParens(object)
+            | _ -> printer.ComplexExpressionWithParens(object)
+            if computed then
+                printer.Print("[")
+                property.Print(printer)
+                printer.Print("]")
+            else
+                printer.Print(".")
+                property.Print(printer)
 
 type ObjectExpression(properties, ?loc) =
-    inherit Expression("ObjectExpression", ?loc = loc)
-//    member __.Properties: U3<ObjectProperty, ObjectMethod, SpreadProperty> array = properties
-    member __.Properties: U2<ObjectProperty, ObjectMethod> array = properties
-    override _.Print(printer) =
-        let printProp (printer: Printer) = function
-            | U2.Case1 (x: ObjectProperty) -> x.Print(printer)
-            | U2.Case2 (x: ObjectMethod) -> x.Print(printer)
+    member _.Properties: ObjectMember array = properties
+    interface Expression with
+        member _.Print(printer) =
+            let printSeparator (p: Printer) =
+                p.Print(",")
+                p.PrintNewLine()
 
-        let printSeparator (p: Printer) =
-            p.Print(",")
-            p.PrintNewLine()
-
-        printer.AddLocation(loc)
-        printer.PrintBlock(properties, printProp, printSeparator, newLineAtEnd=false)
+            printer.AddLocation(loc)
+            printer.PrintBlock(properties, (fun p x -> p.Print(x)), printSeparator, skipNewLineAtEnd=true)
 
 /// A conditional expression, i.e., a ternary ?/: expression.
 type ConditionalExpression(test, consequent, alternate, ?loc) =
-    inherit Expression("ConditionalExpression", ?loc = loc)
-    member __.Test: Expression = test
-    member __.Consequent: Expression = consequent
-    member __.Alternate: Expression = alternate
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        printer.MaybeWithParens(test)
-        printer.Print(" ? ")
-        printer.MaybeWithParens(consequent)
-        printer.Print(" : ")
-        printer.MaybeWithParens(alternate)
+    member _.Test: Expression = test
+    member _.Consequent: Expression = consequent
+    member _.Alternate: Expression = alternate
+    interface Expression with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            match test with
+            | :? BooleanLiteral as b ->
+                if b.Value then printer.Print(consequent)
+                else printer.Print(alternate)
+            | _ ->
+                printer.ComplexExpressionWithParens(test)
+                printer.Print(" ? ")
+                printer.ComplexExpressionWithParens(consequent)
+                printer.Print(" : ")
+                printer.ComplexExpressionWithParens(alternate)
 
 /// A function or method call expression.
 type CallExpression(callee, arguments, ?loc) =
-    inherit Expression("CallExpression", ?loc = loc)
-    member __.Callee: Expression = callee
-    // member __.Arguments: U2<Expression, SpreadElement> array = arguments
-    member __.Arguments: Expression array = arguments
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        printer.MaybeWithParens(callee)
-        printer.Print("(")
-        printer.PrintCommaSeparatedArray(arguments)
-        printer.Print(")")
+    member _.Callee: Expression = callee
+    // member _.Arguments: Choice<Expression, SpreadElement> array = arguments
+    member _.Arguments: Expression array = arguments
+    interface Expression with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            printer.ComplexExpressionWithParens(callee)
+            printer.Print("(")
+            printer.PrintArray(arguments, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
+            printer.Print(")")
 
 type NewExpression(callee, arguments, ?typeArguments, ?loc) =
-    inherit Expression("NewExpression", ?loc = loc)
-    member __.Callee: Expression = callee
-    // member __.Arguments: U2<Expression, SpreadElement> array = arguments
-    member __.Arguments: Expression array = arguments
-    member __.TypeArguments: TypeParameterInstantiation option = typeArguments
-    override _.Print(printer) =
-        printer.Print("new ", ?loc=loc)
-        printer.MaybeWithParens(callee)
-        printer.Print("(")
-        printer.PrintCommaSeparatedArray(arguments)
-        printer.Print(")")
+    member _.Callee: Expression = callee
+    // member _.Arguments: Choice<Expression, SpreadElement> array = arguments
+    member _.Arguments: Expression array = arguments
+    member _.TypeArguments: TypeParameterInstantiation option = typeArguments
+    interface Expression with
+        member _.Print(printer) =
+            printer.Print("new ", ?loc=loc)
+            printer.ComplexExpressionWithParens(callee)
+            printer.Print("(")
+            printer.PrintCommaSeparatedArray(arguments)
+            printer.Print(")")
 
 /// A comma-separated sequence of expressions.
 type SequenceExpression(expressions, ?loc) =
-    inherit Expression("SequenceExpression", ?loc = loc)
-    member __.Expressions: Expression array = expressions
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        printer.PrintCommaSeparatedArray(expressions)
+    member _.Expressions: Expression array = expressions
+    interface Expression with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            printer.PrintCommaSeparatedArray(expressions)
 
 // Unary Operations
 type UnaryExpression(operator_, argument, ?loc) =
-    inherit Expression("UnaryExpression", ?loc = loc)
     let prefix = true
     let operator =
         match operator_ with
@@ -820,37 +861,37 @@ type UnaryExpression(operator_, argument, ?loc) =
         | UnaryTypeof -> "typeof"
         | UnaryVoid -> "void"
         | UnaryDelete -> "delete"
-    member __.Prefix: bool = prefix
-    member __.Argument: Expression = argument
-    member __.Operator: string = operator
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        match operator with
-        | "-" | "+" | "!" | "~" -> printer.Print(operator)
-        | _ -> printer.Print(operator + " ")
-        printer.MaybeWithParens(argument)
+    member _.Prefix: bool = prefix
+    member _.Argument: Expression = argument
+    member _.Operator: string = operator
+    interface Expression with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            match operator with
+            | "-" | "+" | "!" | "~" -> printer.Print(operator)
+            | _ -> printer.Print(operator + " ")
+            printer.ComplexExpressionWithParens(argument)
 
 type UpdateExpression(operator_, prefix, argument, ?loc) =
-    inherit Expression("UpdateExpression", ?loc = loc)
     let operator =
         match operator_ with
         | UpdateMinus -> "--"
         | UpdatePlus -> "++"
-    member __.Prefix: bool = prefix
-    member __.Argument: Expression = argument
-    member __.Operator: string = operator
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        if prefix then
-            printer.Print(operator)
-            printer.MaybeWithParens(argument)
-        else
-            printer.MaybeWithParens(argument)
-            printer.Print(operator)
+    member _.Prefix: bool = prefix
+    member _.Argument: Expression = argument
+    member _.Operator: string = operator
+    interface Expression with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            if prefix then
+                printer.Print(operator)
+                printer.ComplexExpressionWithParens(argument)
+            else
+                printer.ComplexExpressionWithParens(argument)
+                printer.Print(operator)
 
 // Binary Operations
 type BinaryExpression(operator_, left, right, ?loc) =
-    inherit Expression("BinaryExpression", ?loc = loc)
     let operator =
         match operator_ with
         | BinaryEqual -> "=="
@@ -875,14 +916,14 @@ type BinaryExpression(operator_, left, right, ?loc) =
         | BinaryAndBitwise -> "&"
         | BinaryIn -> "in"
         | BinaryInstanceOf -> "instanceof"
-    member __.Left: Expression = left
-    member __.Right: Expression = right
-    member __.Operator: string = operator
-    override _.Print(printer) =
-        printer.PrintOperation(left, operator, right, loc)
+    member _.Left: Expression = left
+    member _.Right: Expression = right
+    member _.Operator: string = operator
+    interface Expression with
+        member _.Print(printer) =
+            printer.PrintOperation(left, operator, right, loc)
 
 type AssignmentExpression(operator_, left, right, ?loc) =
-    inherit Expression("AssignmentExpression", ?loc = loc)
     let operator =
         match operator_ with
         | AssignEqual -> "="
@@ -897,60 +938,62 @@ type AssignmentExpression(operator_, left, right, ?loc) =
         | AssignOrBitwise -> "|="
         | AssignXorBitwise -> "^="
         | AssignAndBitwise -> "&="
-    member __.Left: Expression = left
-    member __.Right: Expression = right
-    member __.Operator: string = operator
-    override _.Print(printer) =
-        printer.PrintOperation(left, operator, right, loc)
+    member _.Left: Expression = left
+    member _.Right: Expression = right
+    member _.Operator: string = operator
+    interface Expression with
+        member _.Print(printer) =
+            printer.PrintOperation(left, operator, right, loc)
 
 type LogicalExpression(operator_, left, right, ?loc) =
-    inherit Expression("LogicalExpression", ?loc = loc)
     let operator =
         match operator_ with
         | LogicalOr -> "||"
         | LogicalAnd-> "&&"
-    member __.Left: Expression = left
-    member __.Right: Expression = right
-    member __.Operator: string = operator
-    override _.Print(printer) =
-        printer.PrintOperation(left, operator, right, loc)
+    member _.Left: Expression = left
+    member _.Right: Expression = right
+    member _.Operator: string = operator
+    interface Expression with
+        member _.Print(printer) =
+            printer.PrintOperation(left, operator, right, loc)
 
 // Patterns
 // type AssignmentProperty(key, value, ?loc) =
 //     inherit ObjectProperty("AssignmentProperty", ?loc = loc)
-//     member __.Value: Pattern = value
+//     member _.Value: Pattern = value
 
 // type ObjectPattern(properties, ?loc) =
 //     inherit Node("ObjectPattern", ?loc = loc)
-//     member __.Properties: U2<AssignmentProperty, RestProperty> array = properties
+//     member _.Properties: Choice<AssignmentProperty, RestProperty> array = properties
 //     interface Pattern
 
 //type ArrayPattern(elements, ?typeAnnotation, ?loc) =
-//    inherit PatternNode("ArrayPattern", ?loc = loc)
-//    member __.Elements: Pattern option array = elements
-//    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
+//    inherit Pattern("ArrayPattern", ?loc = loc)
+//    member _.Elements: Pattern option array = elements
+//    member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
 //type AssignmentPattern(left, right, ?typeAnnotation, ?loc) =
-//    inherit PatternNode("AssignmentPattern", ?loc = loc)
-//    member __.Left: Pattern = left
-//    member __.Right: Expression = right
-//    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
+//    inherit Pattern("AssignmentPattern", ?loc = loc)
+//    member _.Left: Pattern = left
+//    member _.Right: Expression = right
+//    member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
 type RestElement(argument, ?typeAnnotation, ?loc) =
-    inherit PatternNode("RestElement", ?loc = loc)
-    member __.Argument: Pattern = argument
-    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
-    override _.Print(printer) =
-        printer.Print("...", ?loc=loc)
-        // TODO: Type annotation
-        printer.PrintPattern(argument)
+    member _.Argument: Pattern = argument
+    member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
+    interface Pattern with
+        member _.Print(printer) =
+            printer.Print("...", ?loc=loc)
+            // TODO: Type annotation
+            argument.Print(printer)
 
 // Classes
+type ClassMember = inherit Node
+
 type ClassMethodKind =
     | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
 
 type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) =
-    inherit Node("ClassMethod", ?loc = loc)
     let kind =
         match kind_ with
         | ClassImplicitConstructor -> "constructor"
@@ -958,186 +1001,186 @@ type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstr
         | ClassSetter -> "set"
         | ClassFunction -> "method"
     let computed = defaultArg computed_ false
-    member __.Kind = kind
-    member __.Key: Expression = key
-    member __.Params: Pattern array = ``params``
-    member __.Body: BlockStatement = body
-    member __.Computed: bool = computed
-    member __.Static: bool option = ``static``
-    member __.Abstract: bool option = ``abstract``
-    member __.ReturnType: TypeAnnotation option = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member _.Kind = kind
+    member _.Key: Expression = key
+    member _.Params: Pattern array = ``params``
+    member _.Body: BlockStatement = body
+    member _.Computed: bool = computed
+    member _.Static: bool option = ``static``
+    member _.Abstract: bool option = ``abstract``
+    member _.ReturnType: TypeAnnotation option = returnType
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     // This appears in astexplorer.net but it's not documented
-    // member __.Expression: bool = false
-    override _.Print(printer) =
-        printer.AddLocation(loc)
+    // member _.Expression: bool = false
+    interface ClassMember with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
 
-        let keywords = [
-            if ``static`` = Some true then yield "static"
-            if ``abstract`` = Some true then yield "abstract"
-            if kind = "get" || kind = "set" then yield kind
-        ]
+            let keywords = [
+                if ``static`` = Some true then yield "static"
+                if ``abstract`` = Some true then yield "abstract"
+                if kind = "get" || kind = "set" then yield kind
+            ]
 
-        if not (List.isEmpty keywords) then
-            printer.Print((String.concat " " keywords) + " ")
+            if not (List.isEmpty keywords) then
+                printer.Print((String.concat " " keywords) + " ")
 
-        if computed then
-            printer.Print("[")
-            key.Print(printer)
-            printer.Print("]")
-        else
-            key.Print(printer)
+            if computed then
+                printer.Print("[")
+                key.Print(printer)
+                printer.Print("]")
+            else
+                key.Print(printer)
 
-        // TODO: type annotations
-        printer.Print("(")
-        printer.PrintCommaSeparatedArray(``params``)
-        printer.Print(") ")
+            // TODO: type annotations
+            printer.Print("(")
+            printer.PrintCommaSeparatedArray(``params``)
+            printer.Print(") ")
 
-        body.Print(printer)
+            printer.Print(body)
 
 /// ES Class Fields & Static Properties
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
-type ClassProperty(key, ?value, ?``static``, ?optional, ?typeAnnotation, ?loc) =
-    inherit Node("ClassProperty", ?loc = loc)
-    member __.Key: U2<Identifier, StringLiteral> = key
-    member __.Value: Expression option = value
-    member __.Static: bool option = ``static``
-    member __.Optional: bool option = optional
-    member __.TypeAnnotation: TypeAnnotation option = typeAnnotation
-    override _.Print(printer) =
-        printer.AddLocation(loc)
-        if ``static`` = Some true then
-            printer.Print("static ")
-        match key with
-        | U2.Case1 key -> key.Print(printer)
-        | U2.Case2 key ->
-            printer.Print("[")
-            key.Print(printer)
-            printer.Print("]")
-        if optional = Some true then
-            printer.Print("?")
-        // TODO: Type annotation
-        printer.PrintOptional(": ", value)
+type ClassProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc) =
+    let computed = defaultArg computed_ false
+    member _.Key: Expression = key
+    member _.Value: Expression option = value
+    member _.Computed = computed
+    member _.Static = defaultArg ``static`` false
+    member _.Optional = defaultArg optional false
+    member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
+    interface ClassMember with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            if ``static`` = Some true then
+                printer.Print("static ")
+            if computed then
+                printer.Print("[")
+                printer.Print(key)
+                printer.Print("]")
+            else
+                printer.Print(key)
+            if optional = Some true then
+                printer.Print("?")
+            // TODO: Type annotation
+            printer.PrintOptional(": ", value)
 
 type ClassImplements(id, ?typeParameters, ?loc) =
-    inherit Expression("ClassImplements", ?loc = loc)
-    member __.Id: Identifier = id
-    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
-    override _.Print(printer) =
-        printer.Print(" implements ", ?loc=loc)
-        // TODO: Type parameters
-        id.Print(printer)
+    member _.Id: Identifier = id
+    member _.TypeParameters: TypeParameterInstantiation option = typeParameters
+    interface Expression with
+        member _.Print(printer) =
+            printer.Print(" implements ", ?loc=loc)
+            // TODO: Type parameters
+            printer.Print(id)
 
 type ClassBody(body, ?loc) =
-    inherit Node("ClassBody", ?loc = loc)
-    member __.Body: U2<ClassMethod, ClassProperty> array = body
-    override _.Print(printer) =
-        let printMember printer (memb: U2<ClassMethod, ClassProperty>) =
-            match memb with
-            | U2.Case1 x -> x.Print(printer)
-            | U2.Case2 x -> x.Print(printer)
-
-        printer.AddLocation(loc)
-        printer.PrintBlock(body, printMember, (fun p ->
-            if printer.Column > 0 then
-                printer.Print(";")
-                printer.PrintNewLine()
-        ))
+    member _.Body: ClassMember array = body
+    interface Node with
+        member _.Print(printer) =
+            printer.AddLocation(loc)
+            printer.PrintBlock(body, (fun p x -> p.Print(x)), (fun printer ->
+                if printer.Column > 0 then
+                    printer.Print(";")
+                    printer.PrintNewLine()
+            ))
 
 type ClassDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-    inherit Declaration("ClassDeclaration", ?loc = loc)
-    member __.Body: ClassBody = body
-    member __.Id: Identifier option = id
-    member __.SuperClass: Expression option = superClass
-    member __.Implements: ClassImplements array option = implements
-    member __.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    override _.Print(printer) =
-        printer.PrintClass(id, superClass, body, loc)
+    member _.Body: ClassBody = body
+    member _.Id: Identifier option = id
+    member _.SuperClass: Expression option = superClass
+    member _.Implements: ClassImplements array option = implements
+    member _.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    interface Declaration with
+        member _.Print(printer) =
+            printer.PrintClass(id, superClass, body, loc)
 
 /// Anonymous class: e.g., var myClass = class { }
 type ClassExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-    inherit Expression("ClassExpression", ?loc = loc)
-    member __.Body: ClassBody = body
-    member __.Id: Identifier option = id
-    member __.SuperClass: Expression option = superClass
-    member __.Implements: ClassImplements array option = implements
-    member __.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    override _.Print(printer) =
-        printer.PrintClass(id, superClass, body, loc)
+    member _.Body: ClassBody = body
+    member _.Id: Identifier option = id
+    member _.SuperClass: Expression option = superClass
+    member _.Implements: ClassImplements array option = implements
+    member _.SuperTypeParameters: TypeParameterInstantiation option = superTypeParameters
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    interface Expression with
+        member _.Print(printer) =
+            printer.PrintClass(id, superClass, body, loc)
 
 // type MetaProperty(meta, property, ?loc) =
-//     inherit Expression("MetaProperty", ?loc = loc)
-//     member __.Meta: Identifier = meta
-//     member __.Property: Expression = property
+//     interface Expression with
+//     member _.Meta: Identifier = meta
+//     member _.Property: Expression = property
 
 // Modules
-/// A specifier in an import or export declaration.
-[<AbstractClass>]
-type ModuleSpecifier(``type``, local, ?loc) =
-    inherit Node(``type``, ?loc = loc)
-    member __.Local: Identifier = local
+type PrivateModuleDeclaration(statement) =
+    member _.Statement = statement
+    interface ModuleDeclaration with
+        member _.Print(printer) =
+            printer.Print(statement)
+
+type ImportSpecifier = inherit Node
 
 /// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
 /// The imported field refers to the name of the export imported from the module.
 /// The local field refers to the binding imported into the local module scope.
 /// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
-type ImportSpecifier(local, imported, ?loc) =
-    inherit ModuleSpecifier("ImportSpecifier", local, ?loc = loc)
-    member __.Imported: Identifier = imported
-    override this.Print(printer) =
-        // Don't print the braces, this will be done in the import declaration
-        let local = this.Local
-        imported.Print(printer)
-        if imported.Name <> local.Name then
-            printer.Print(" as ")
-            local.Print(printer)
+type ImportMemberSpecifier(local: Identifier, imported) =
+    member _.Imported: Identifier = imported
+    interface ImportSpecifier with
+        member this.Print(printer) =
+            // Don't print the braces, this will be done in the import declaration
+            printer.Print(imported)
+            if imported.Name <> local.Name then
+                printer.Print(" as ")
+                printer.Print(local)
 
 /// A default import specifier, e.g., foo in import foo from "mod".
-type ImportDefaultSpecifier(local, ?loc) =
-    inherit ModuleSpecifier("ImportDefaultSpecifier", local, ?loc = loc)
-    override this.Print(printer) =
-        this.Local.Print(printer)
+type ImportDefaultSpecifier(local) =
+    interface ImportSpecifier with
+        member _.Print(printer) =
+            printer.Print(local)
 
 /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
-type ImportNamespaceSpecifier(local, ?loc) =
-    inherit ModuleSpecifier("ImportNamespaceSpecifier", local, ?loc = loc)
-    override this.Print(printer) =
-        printer.Print("* as ")
-        this.Local.Print(printer)
+type ImportNamespaceSpecifier(local) =
+    interface ImportSpecifier with
+        member _.Print(printer) =
+            printer.Print("* as ")
+            printer.Print(local)
 
 /// e.g., import foo from "mod";.
-type ImportDeclaration(specifiers, source, ?loc) =
-    inherit ModuleDeclaration("ImportDeclaration", ?loc = loc)
-    member __.Specifiers: U3<ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier> array = specifiers
-    member __.Source: Literal = source
-    override _.Print(printer) =
-        let members = specifiers |> Array.choose (function U3.Case1 x -> Some x | _ -> None)
-        let defaults = specifiers|> Array.choose (function U3.Case2 x -> Some x | _ -> None)
-        let namespaces = specifiers |> Array.choose (function U3.Case3 x -> Some x | _ -> None)
+type ImportDeclaration(specifiers, source) =
+    member _.Specifiers: ImportSpecifier array = specifiers
+    member _.Source: StringLiteral = source
+    interface ModuleDeclaration with
+        member _.Print(printer) =
+            let members = specifiers |> Array.choose (function :? ImportMemberSpecifier as x -> Some x | _ -> None)
+            let defaults = specifiers|> Array.choose (function :? ImportDefaultSpecifier as x -> Some x | _ -> None)
+            let namespaces = specifiers |> Array.choose (function :? ImportNamespaceSpecifier as x -> Some x | _ -> None)
 
-        printer.Print("import ", ?loc = loc)
+            printer.Print("import ")
 
-        if not(Array.isEmpty defaults) then
-            printer.PrintCommaSeparatedArray(defaults)
-            if not(Array.isEmpty namespaces && Array.isEmpty members) then
-                printer.Print(", ")
+            if not(Array.isEmpty defaults) then
+                printer.PrintCommaSeparatedArray(defaults)
+                if not(Array.isEmpty namespaces && Array.isEmpty members) then
+                    printer.Print(", ")
 
-        if not(Array.isEmpty namespaces) then
-            printer.PrintCommaSeparatedArray(namespaces)
+            if not(Array.isEmpty namespaces) then
+                printer.PrintCommaSeparatedArray(namespaces)
+                if not(Array.isEmpty members) then
+                    printer.Print(", ")
+
             if not(Array.isEmpty members) then
-                printer.Print(", ")
+                printer.Print("{ ")
+                printer.PrintCommaSeparatedArray(members)
+                printer.Print(" }")
 
-        if not(Array.isEmpty members) then
-            printer.Print("{ ")
-            printer.PrintCommaSeparatedArray(members)
-            printer.Print(" }")
-
-        printer.Print(" from ")
-        source.Print(printer)
+            if not(Array.isEmpty defaults && Array.isEmpty namespaces && Array.isEmpty members) then
+                printer.Print(" from ")
+            printer.Print(source)
 
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
 /// The exported field refers to the name exported in the module.
@@ -1145,187 +1188,199 @@ type ImportDeclaration(specifiers, source, ?loc) =
 /// If it is a basic named export, such as in export {foo}, both exported and local are equivalent Identifier nodes;
 /// in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo},
 /// the exported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
-type ExportSpecifier(local, exported, ?loc) =
-    inherit ModuleSpecifier("ExportSpecifier", local, ?loc = loc)
-    member __.Exported: Identifier = exported
-    override this.Print(printer) =
-        // Don't print the braces, this will be done in the export declaration
-        let local = this.Local
-        local.Print(printer)
-        if exported.Name <> local.Name then
-            printer.Print(" as ")
-            exported.Print(printer)
+type ExportSpecifier(local: Identifier, exported) =
+    member _.Exported: Identifier = exported
+    interface Node with
+        member _.Print(printer) =
+            // Don't print the braces, this will be done in the export declaration
+            printer.Print(local)
+            if exported.Name <> local.Name then
+                printer.Print(" as ")
+                printer.Print(exported)
 
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
-type ExportNamedDeclaration(?declaration, ?specifiers_, ?source, ?loc) =
-    inherit ModuleDeclaration("ExportNamedDeclaration", ?loc = loc)
-    let specifiers = defaultArg specifiers_ [||]
-    member __.Declaration: Declaration option = declaration
-    member __.Specifiers: ExportSpecifier array = specifiers
-    member __.Source: Literal option = source
-    override _.Print(printer) =
-        printer.Print("export ", ?loc=loc)
-        match declaration with
-        | Some decl -> decl.Print(printer)
-        | None ->
+type ExportNamedDeclaration(declaration) =
+    member _.Declaration: Declaration = declaration
+    interface ModuleDeclaration with
+        member _.Print(printer) =
+            printer.Print("export ")
+            printer.Print(declaration)
+
+type ExportNamedReferences(specifiers, ?source) =
+    member _.Specifiers: ExportSpecifier array = specifiers
+    member _.Source: StringLiteral option = source
+    interface ModuleDeclaration with
+        member _.Print(printer) =
+            printer.Print("export ")
             printer.Print("{ ")
             printer.PrintCommaSeparatedArray(specifiers)
             printer.Print(" }")
             printer.PrintOptional(" from ", source)
 
 /// An export default declaration, e.g., export default function () {}; or export default 1;.
-type ExportDefaultDeclaration(declaration, ?loc) =
-    inherit ModuleDeclaration("ExportDefaultDeclaration", ?loc = loc)
-    member __.Declaration: U2<Declaration, Expression> = declaration
-    override _.Print(printer) =
-        printer.Print("export default ", ?loc=loc)
-        match declaration with
-        | U2.Case1 x -> x.Print(printer)
-        | U2.Case2 x -> x.Print(printer)
+type ExportDefaultDeclaration(declaration) =
+    member _.Declaration: Choice<Declaration, Expression> = declaration
+    interface ModuleDeclaration with
+        member _.Print(printer) =
+            printer.Print("export default ")
+            match declaration with
+            | Choice1Of2 x -> x.Print(printer)
+            | Choice2Of2 x -> x.Print(printer)
 
 /// An export batch declaration, e.g., export * from "mod";.
 type ExportAllDeclaration(source, ?loc) =
-    inherit ModuleDeclaration("ExportAllDeclaration", ?loc = loc)
-    member __.Source: Literal = source
-    override _.Print(printer) =
-        printer.Print("export * from ", ?loc=loc)
-        source.Print(printer)
+    member _.Source: Literal = source
+    interface ModuleDeclaration with
+        member _.Print(printer) =
+            printer.Print("export * from ", ?loc=loc)
+            source.Print(printer)
 
 // Type Annotations
-[<AbstractClass>]
-type TypeAnnotationInfo(``type``) =
-    member __.Type: string = ``type``
+type TypeAnnotationInfo = inherit Node
 
 type TypeAnnotation(typeAnnotation) =
-    inherit Node("TypeAnnotation")
-    member __.TypeAnnotation: TypeAnnotationInfo = typeAnnotation
-    override _.Print(_) = failwith "not implemented"
+    member _.TypeAnnotation: TypeAnnotationInfo = typeAnnotation
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type TypeParameter(name, ?bound, ?``default``) =
-    inherit Node("TypeParameter")
-    member __.Name: string = name
-    member __.Bound: TypeAnnotation option = bound
-    member __.Default: TypeAnnotationInfo option = ``default``
-    override _.Print(_) = failwith "not implemented"
+    member _.Name: string = name
+    member _.Bound: TypeAnnotation option = bound
+    member _.Default: TypeAnnotationInfo option = ``default``
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type TypeParameterDeclaration(``params``) =
-    inherit Node("TypeParameterDeclaration")
-    member __.Params: TypeParameter array = ``params``
-    override _.Print(_) = failwith "not implemented"
+    member _.Params: TypeParameter array = ``params``
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type TypeParameterInstantiation(``params``) =
-    inherit Node("TypeParameterInstantiation")
-    member __.Params: TypeAnnotationInfo array = ``params``
-    override _.Print(_) = failwith "not implemented"
+    member _.Params: TypeAnnotationInfo array = ``params``
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type StringTypeAnnotation() =
-    inherit TypeAnnotationInfo("StringTypeAnnotation")
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type NumberTypeAnnotation() =
-    inherit TypeAnnotationInfo("NumberTypeAnnotation")
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type BooleanTypeAnnotation() =
-    inherit TypeAnnotationInfo("BooleanTypeAnnotation")
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type AnyTypeAnnotation() =
-    inherit TypeAnnotationInfo("AnyTypeAnnotation")
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type VoidTypeAnnotation() =
-    inherit TypeAnnotationInfo("VoidTypeAnnotation")
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type TupleTypeAnnotation(types) =
-    inherit TypeAnnotationInfo("TupleTypeAnnotation")
-    member __.Types: TypeAnnotationInfo array = types
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
+    member _.Types: TypeAnnotationInfo array = types
 
 type UnionTypeAnnotation(types) =
-    inherit TypeAnnotationInfo("UnionTypeAnnotation")
-    member __.Types: TypeAnnotationInfo array = types
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
+    member _.Types: TypeAnnotationInfo array = types
 
 type FunctionTypeParam(name, typeInfo, ?optional) =
-    inherit Node("FunctionTypeParam")
-    member __.Name: Identifier = name
-    member __.TypeAnnotation: TypeAnnotationInfo = typeInfo
-    member __.Optional: bool option = optional
-    override _.Print(_) = failwith "not implemented"
+    member _.Name: Identifier = name
+    member _.TypeAnnotation: TypeAnnotationInfo = typeInfo
+    member _.Optional: bool option = optional
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type FunctionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest) =
-    inherit TypeAnnotationInfo("FunctionTypeAnnotation")
-    member __.Params: FunctionTypeParam array = ``params``
-    member __.ReturnType: TypeAnnotationInfo = returnType
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    member __.Rest: FunctionTypeParam option = rest
+    member _.Params: FunctionTypeParam array = ``params``
+    member _.ReturnType: TypeAnnotationInfo = returnType
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    member _.Rest: FunctionTypeParam option = rest
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type NullableTypeAnnotation(``type``) =
-    inherit TypeAnnotationInfo("NullableTypeAnnotation")
-    member __.TypeAnnotation: TypeAnnotationInfo = ``type``
+    member _.TypeAnnotation: TypeAnnotationInfo = ``type``
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type GenericTypeAnnotation(id, ?typeParameters) =
-    inherit TypeAnnotationInfo("GenericTypeAnnotation")
-    member __.Id: Identifier = id
-    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
+    member _.Id: Identifier = id
+    member _.TypeParameters: TypeParameterInstantiation option = typeParameters
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
-type ObjectTypeProperty(key, value, ?kind, ?``static``, ?optional, ?proto, ?method) =
-    inherit Node("ObjectTypeProperty")
-    member __.Key: U2<Identifier, StringLiteral> = key
-    member __.Value: TypeAnnotationInfo = value
-    member __.Kind: string option = kind
-    member __.Static: bool option = ``static``
-    member __.Optional: bool option = optional
-    member __.Proto: bool option = proto
-    member __.Method: bool option = method
-    override _.Print(_) = failwith "not implemented"
+type ObjectTypeProperty(key, value, ?computed, ?kind, ?``static``, ?optional, ?proto, ?method) =
+    let computed = defaultArg computed false
+    member _.Key: Expression = key
+    member _.Value: TypeAnnotationInfo = value
+    member _.Kind: string option = kind
+    member _.Computed = computed
+    member _.Static: bool option = ``static``
+    member _.Optional: bool option = optional
+    member _.Proto: bool option = proto
+    member _.Method: bool option = method
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeIndexer(key, value, ?id, ?``static``) =
-    inherit Node("ObjectTypeIndexer")
-    member __.Id: Identifier option = id
-    member __.Key: Identifier = key
-    member __.Value: TypeAnnotationInfo = value
-    member __.Static: bool option = ``static``
-    override _.Print(_) = failwith "not implemented"
+    member _.Id: Identifier option = id
+    member _.Key: Identifier = key
+    member _.Value: TypeAnnotationInfo = value
+    member _.Static: bool option = ``static``
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeCallProperty(value, ?``static``) =
-    inherit Node("ObjectTypeCallProperty")
-    member __.Value: TypeAnnotationInfo = value
-    member __.Static: bool option = ``static``
-    override _.Print(_) = failwith "not implemented"
+    member _.Value: TypeAnnotationInfo = value
+    member _.Static: bool option = ``static``
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeInternalSlot(id, value, optional, ``static``, method) =
-    inherit Node("ObjectTypeInternalSlot")
-    member __.Id: Identifier = id
-    member __.Value: TypeAnnotationInfo = value
-    member __.Optional: bool = optional
-    member __.Static: bool = ``static``
-    member __.Method: bool = method
-    override _.Print(_) = failwith "not implemented"
+    member _.Id: Identifier = id
+    member _.Value: TypeAnnotationInfo = value
+    member _.Optional: bool = optional
+    member _.Static: bool = ``static``
+    member _.Method: bool = method
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
-    inherit TypeAnnotationInfo("ObjectTypeAnnotation")
     let exact = defaultArg exact_ false
     let indexers = defaultArg indexers_ [||]
     let callProperties = defaultArg callProperties_ [||]
     let internalSlots = defaultArg internalSlots_ [||]
-    member __.Properties: ObjectTypeProperty array = properties
-    member __.Indexers: ObjectTypeIndexer array = indexers
-    member __.CallProperties: ObjectTypeCallProperty array = callProperties
-    member __.InternalSlots: ObjectTypeInternalSlot array = internalSlots
-    member __.Exact: bool = exact
+    member _.Properties: ObjectTypeProperty array = properties
+    member _.Indexers: ObjectTypeIndexer array = indexers
+    member _.CallProperties: ObjectTypeCallProperty array = callProperties
+    member _.InternalSlots: ObjectTypeInternalSlot array = internalSlots
+    member _.Exact: bool = exact
+    interface TypeAnnotationInfo with
+        member _.Print(_) = failwith "not implemented"
 
 type InterfaceExtends(id, ?typeParameters) =
-    inherit Node("InterfaceExtends")
-    member __.Id: Identifier = id
-    member __.TypeParameters: TypeParameterInstantiation option = typeParameters
-    override _.Print(_) = failwith "not implemented"
+    member _.Id: Identifier = id
+    member _.TypeParameters: TypeParameterInstantiation option = typeParameters
+    interface Node with
+        member _.Print(_) = failwith "not implemented"
 
-type InterfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_, ?loc) = // ?mixins_,
-    inherit Declaration("InterfaceDeclaration", ?loc = loc)
+type InterfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_) = // ?mixins_,
     let extends = defaultArg extends_ [||]
     let implements = defaultArg implements_ [||]
 //    let mixins = defaultArg mixins_ [||]
-    member __.Id: Identifier = id
-    member __.Body: ObjectTypeAnnotation = body
-    member __.Extends: InterfaceExtends array = extends
-    member __.Implements: ClassImplements array = implements
-//    member __.Mixins: InterfaceExtends array = mixins
-    member __.TypeParameters: TypeParameterDeclaration option = typeParameters
-    override _.Print(_) = failwith "not implemented"
+    member _.Id: Identifier = id
+    member _.Body: ObjectTypeAnnotation = body
+    member _.Extends: InterfaceExtends array = extends
+    member _.Implements: ClassImplements array = implements
+//    member _.Mixins: InterfaceExtends array = mixins
+    member _.TypeParameters: TypeParameterDeclaration option = typeParameters
+    interface Declaration with
+        member _.Print(_) = failwith "not implemented"

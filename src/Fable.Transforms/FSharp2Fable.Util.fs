@@ -62,6 +62,11 @@ type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
         member _.Name = TypeHelpers.genParamName gen
 
+type FsParam(p: FSharpParameter) =
+    interface Fable.Parameter with
+        member _.Name = p.Name
+        member _.Type = TypeHelpers.makeType Map.empty p.Type
+
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
         member _.Definition = FsEnt ent :> _
@@ -73,11 +78,31 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         |> Path.normalizePathAndEnsureFsExtension
 
     interface Fable.MemberFunctionOrValue with
+        member _.Attributes =
+            m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
+
+        // These two properties are only used for member declarations,
+        // setting them to false for now
+        member _.IsMangled = false
+        member _.IsEnumerator = false
+
+        member _.HasSpread = Helpers.hasParamArray m
+        member _.IsPublic = Helpers.isPublicMember m
+        // NOTE: Using memb.IsValue doesn't work for function values
+        // See isModuleValueForDeclarations below
+        member _.IsValue = m.IsValue
+        member _.IsInstance = m.IsInstanceMember
+        member _.IsMutable = m.IsMutable
+        member _.IsGetter = m.IsPropertyGetterMethod
+        member _.IsSetter = m.IsPropertySetterMethod
+
         member _.DisplayName = Naming.removeGetSetPrefix m.DisplayName
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
-        member _.CurriedParameterGroups = []
-        member _.ReturnParameter = failwith "todo"
+        member _.CurriedParameterGroups =
+            m.CurriedParameterGroups
+            |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
+        member _.ReturnParameter = upcast FsParam(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
         member _.ApparentEnclosingEntity = FsEnt m.ApparentEnclosingEntity :> _
 
@@ -142,7 +167,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface
 
-type MemberDeclInfo(?attributes: FSharpAttribute seq,
+type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
                     ?isPublic: bool,
                     ?isInstance: bool,
@@ -152,7 +177,7 @@ type MemberDeclInfo(?attributes: FSharpAttribute seq,
                     ?isSetter: bool,
                     ?isEnumerator: bool,
                     ?isMangled: bool) =
-    interface Fable.MemberDeclInfo with
+    interface Fable.MemberInfo with
         member _.Attributes =
             match attributes with
             | Some atts -> atts |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
@@ -197,7 +222,7 @@ type Context =
         }
 
 type IFableCompiler =
-    inherit ICompiler
+    inherit Compiler
     abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type *
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
@@ -205,7 +230,6 @@ type IFableCompiler =
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
-    abstract AddInlineDependency: string -> unit
 
 module Helpers =
     let rec nonAbbreviatedType (t: FSharpType) =
@@ -241,7 +265,7 @@ module Helpers =
         else (nonAbbreviatedType t).GenericArguments
 
 
-    let private getEntityMangledName (com: ICompiler) trimRootModule (ent: Fable.Entity) =
+    let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.Entity) =
         match ent.FullName with
         | fullName when not trimRootModule -> fullName
         | fullName ->
@@ -254,12 +278,12 @@ module Helpers =
         if name = ".ctor" then "$ctor"
         else name.Replace('.','_').Replace('`','$')
 
-    let getEntityDeclarationName (com: ICompiler) (ent: Fable.Entity) =
+    let getEntityDeclarationName (com: Compiler) (ent: Fable.Entity) =
         let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
         (entityName, Naming.NoMemberPart)
         ||> Naming.sanitizeIdent (fun _ -> false)
 
-    let private getMemberMangledName (com: ICompiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
+    let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
             let overloadSuffix = OverloadSuffix.getExtensionHash memb
             let entName = getEntityMangledName com false (FsEnt memb.ApparentEnclosingEntity)
@@ -279,7 +303,7 @@ module Helpers =
             | None -> memb.CompiledName, Naming.NoMemberPart
 
     /// Returns the sanitized name for the member declaration and whether it has an overload suffix
-    let getMemberDeclarationName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue) =
+    let getMemberDeclarationName (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         let name, part = getMemberMangledName com true memb
         let name = cleanNameAsJsIdentifier name
         let part = part.Replace(cleanNameAsJsIdentifier)
@@ -287,7 +311,7 @@ module Helpers =
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary
-    let getMemberUniqueName (com: ICompiler) (memb: FSharpMemberOrFunctionOrValue): string =
+    let getMemberUniqueName (com: Compiler) (memb: FSharpMemberOrFunctionOrValue): string =
         getMemberMangledName com false memb
         ||> Naming.buildNameWithoutSanitation
 
@@ -365,19 +389,6 @@ module Helpers =
 
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
-
-    let makeRangedIdent (r: Range.range) (displayName: string) (compiledName: string): Fable.Ident =
-        { Name = compiledName
-          Type = Fable.Any
-          IsCompilerGenerated = false
-          IsThisArgument = false
-          IsMutable = false
-          Range = Some { start = { line = r.StartLine; column = r.StartColumn }
-                         ``end``= { line = r.StartLine; column = r.StartColumn + displayName.Length }
-                         identifierName = Some displayName } }
-
-    // let hasCaseWithFields (ent: FSharpEntity) =
-    //     ent.UnionCases |> Seq.exists (fun uci -> uci.UnionCaseFields.Count > 0)
 
     let unionCaseTag (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
         try
@@ -992,7 +1003,7 @@ module Util =
 
     // When importing a relative path from a different path where the member,
     // entity... is declared, we need to resolve the path
-    let fixImportedRelativePath (com: ICompiler) (path: string) normalizedSourcePath =
+    let fixImportedRelativePath (com: Compiler) (path: string) normalizedSourcePath =
         if Path.isRelativePath path then
             let file = Path.normalizePathAndEnsureFsExtension normalizedSourcePath
             if file = com.CurrentFile
@@ -1045,7 +1056,7 @@ module Util =
             makeImportCompilerGenerated typ selector path |> Some
         | _ -> None
 
-    let tryGlobalOrImportedEntity (com: ICompiler) (ent: Fable.Entity) =
+    let tryGlobalOrImportedEntity (com: Compiler) (ent: Fable.Entity) =
         match ent.Attributes with
         | GlobalAtt(Some customName) ->
             makeTypedIdent Fable.Any customName |> Fable.IdentExpr |> Some
@@ -1083,7 +1094,7 @@ module Util =
             ent.FullName.StartsWith("Fable.Core.")
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
-    let entityRefWithSuffix (com: ICompiler) (ent: Fable.Entity) suffix =
+    let entityRefWithSuffix (com: Compiler) (ent: Fable.Entity) suffix =
         let error msg =
             sprintf "%s: %s" msg ent.FullName
             |> addErrorAndReturnNull com [] None
@@ -1099,16 +1110,16 @@ module Util =
             else
                 error "Cannot inline functions that reference private entities"
 
-    let entityRef (com: ICompiler) (ent: Fable.Entity) =
+    let entityRef (com: Compiler) (ent: Fable.Entity) =
         entityRefWithSuffix com ent ""
 
     /// First checks if the entity is global or imported
-    let entityRefMaybeGlobalOrImported (com: ICompiler) (ent: Fable.Entity) =
+    let entityRefMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
         match tryGlobalOrImportedEntity com ent with
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
 
-    let memberRefTyped (com: IFableCompiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRefTyped (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
@@ -1123,7 +1134,7 @@ module Util =
         elif isPublicMember memb then
             // If the overload suffix changes, we need to recompile the files that call this member
             if hasOverloadSuffix then
-                com.AddInlineDependency(file)
+                com.AddWatchDependency(file)
             makeImportInternal com typ memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
@@ -1422,7 +1433,7 @@ module Util =
         let typ = makeType ctx.GenericArgs v.FullType
         match v, v.DeclaringEntity with
         | _ when typ = Fable.Unit ->
-            if com.Options.verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
+            if com.Options.Verbosity = Verbosity.Verbose && not v.IsCompilerGenerated then // See #1516
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)

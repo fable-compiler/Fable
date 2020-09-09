@@ -112,6 +112,9 @@ let filenameWithoutExtension (p: string) =
 let removeFile (p: string): unit =
     fs?unlinkSync(p)
 
+let moveFile (oldPath: string) (newPath: string): unit =
+    fs?renameSync(oldPath, newPath)
+
 let rec removeDirRecursive (p: string): unit =
     if fs?existsSync(p) then
         for file in dirFiles p do
@@ -122,12 +125,16 @@ let rec removeDirRecursive (p: string): unit =
                 fs?unlinkSync(curPath)
         fs?rmdirSync(p)
 
-let mkDirRecursive (p: string): unit =
+let makeDirRecursive (p: string): unit =
     fs?mkdirSync(p, %["recursive" ==> true])
+
+[<Obsolete("Use makeDirRecursive")>]
+let mkDirRecursive (p: string): unit =
+    makeDirRecursive p
 
 let rec copyDir (source: string) (target: string) (recursive: bool): unit =
     if fs?existsSync(target) |> not then
-        mkDirRecursive target
+        makeDirRecursive target
     for file in dirFiles source do
         let source = source </> file
         let target = target </> file

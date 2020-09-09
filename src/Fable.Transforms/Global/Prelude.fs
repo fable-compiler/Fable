@@ -104,6 +104,12 @@ module List =
         xs |> List.iteri (fun i x -> ar.[i] <- f i x)
         ar
 
+    let splitWhile (f: 'a -> bool) (xs: 'a list) =
+        List.tryFindIndex (f >> not) xs
+        |> function
+        | Some i -> List.splitAt i xs
+        | None -> xs, []
+
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
 
@@ -127,10 +133,6 @@ module Naming =
         if txt.EndsWith(pattern)
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
         else None
-
-    /// This used to be "" for compatibility with Require.js
-    /// Mainly used for fable-library imports
-    let targetFileExtension = ".js"
 
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
@@ -497,6 +499,11 @@ module Path =
         if path.EndsWith(".fsi")
         then path.Substring(0, path.Length - 1)
         else path
+
+    let replaceExtension (newExt: string) (path: string) =
+        let i = path.LastIndexOf(".")
+        if i > 0 then path.Substring(0, i) + newExt
+        else path + newExt
 
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =

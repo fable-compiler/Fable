@@ -5,6 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "args": [
+                "${workspaceFolder}/build/tests/tests/Main",
+                "--reporter",
+                "dot",
+                "--timeout",
+                "10000"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            "name": "Mocha Tests",
+            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "pwa-node"
+        },
+        {
             "name": "Fable TCP server",
             "type": "coreclr",
             "request": "launch",

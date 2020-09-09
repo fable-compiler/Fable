@@ -1,6 +1,6 @@
 "use strict";
 
-const exports = {
+const _exports = {
 
     foo: "foo",
 
@@ -41,5 +41,5 @@ const exports = {
     }
 };
 
-export const { foo, apply, square, add, MyClass, fooOptional } = exports;
-// module.exports = exports;
+export const { foo, apply, square, add, MyClass, fooOptional } = _exports;
+// module.exports = _exports;

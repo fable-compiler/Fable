@@ -9,7 +9,7 @@ open Fable.AST.Fable
 
 type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
-type CallInfo = Fable.ReplaceCallInfo
+type CallInfo = ReplaceCallInfo
 
 type Helper =
     static member JsConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?loc: SourceLocation) =
@@ -59,11 +59,11 @@ module Helpers =
 
     let objValue (k, v): Fable.MemberDecl =
         {
-            Ident = makeIdent k
+            Name = k
             Args = []
             Body = v
             UsedNames = Set.empty
-            Info = FSharp2Fable.MemberDeclInfo(isValue=true)
+            Info = FSharp2Fable.MemberInfo(isValue=true)
         }
 
     let typedObjExpr t kvs =
@@ -566,7 +566,7 @@ let round com (args: Expr list) =
 
 let arrayCons (com: ICompiler) genArg =
     match genArg with
-    | Number numberKind when com.Options.typedArrays ->
+    | Number numberKind when com.Options.TypedArrays ->
         getTypedArrayName com numberKind |> makeIdentExpr
     | _ -> makeIdentExpr "Array"
 
@@ -923,7 +923,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | None -> args
         | Some injections -> args @ injections
 
-let tryEntityRef (com: Fable.ICompiler) (ent: Entity) =
+let tryEntityRef (com: Fable.Compiler) (ent: Entity) =
     match ent.FullName with
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
@@ -944,12 +944,7 @@ let tryEntityRef (com: Fable.ICompiler) (ent: Entity) =
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Error" |> Some
-    | entFullName ->
-        com.Options.precompiledLib
-        |> Option.bind (fun tryLib -> tryLib entFullName)
-        |> Option.map (fun (entityName, importPath) ->
-            let entityName = Naming.sanitizeIdentForbiddenChars entityName |> Naming.checkJsKeywords
-            makeImportCompilerGenerated Any entityName importPath)
+    | _ -> None
 
 let tryJsConstructor com ent =
     if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
@@ -1115,11 +1110,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 match args with
                 | [Value(ListLiteral(args,t),r)] -> [NewArray(args, t) |> makeValue r]
                 | _ -> args
-            let m = if com.Options.debugMode then "createObjDebug" else "createObj"
+            let m = if com.Options.DebugMode then "createObjDebug" else "createObj"
             Helper.LibCall(com, "Util", m, Any, args) |> Some
          | "keyValueList", [caseRule; keyValueList] ->
             let args = [keyValueList; caseRule]
-            let args = if com.Options.debugMode then args @ [makeBoolConst true] else args
+            let args = if com.Options.DebugMode then args @ [makeBoolConst true] else args
             Helper.LibCall(com, "Util", "keyValueList", Any, args) |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
@@ -1732,7 +1727,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Value(NewArrayAlloc(size, t), None)
     let createArray size value =
         match t, value with
-        | Array(Number _ as t2), None when com.Options.typedArrays -> newArray size t2
+        | Array(Number _ as t2), None when com.Options.TypedArrays -> newArray size t2
         | Array t2, value ->
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             // If we don't fill the array some operations may behave unexpectedly, like Array.prototype.reduce
@@ -2315,7 +2310,7 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | Builtin BclUInt64 -> "getBytesUInt64"
             | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
         let expr = Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r)
-        if com.Options.typedArrays then expr |> Some
+        if com.Options.TypedArrays then expr |> Some
         else toArray com t expr |> Some // convert to dynamic array
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
@@ -2565,7 +2560,7 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "GetBytes", Some callee, (1 | 3) ->
         let meth = Naming.lowerFirst i.CompiledName
         let expr = Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r)
-        if com.Options.typedArrays then expr |> Some
+        if com.Options.TypedArrays then expr |> Some
         else toArray com t expr |> Some // convert to dynamic array
     | "GetString", Some callee, (1 | 3) ->
         let meth = Naming.lowerFirst i.CompiledName
@@ -2648,11 +2643,6 @@ let guids (com: ICompiler) (ctx: Context) (_: SourceLocation option) t (i: CallI
         | [ExprType (Array _)] -> Helper.LibCall(com, "String", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
         | [ExprType String]    -> Helper.LibCall(com, "String", "validateGuid", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
-    | _ -> None
-
-let httpUtility (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | "JavaScriptStringEncode" -> emitJsExpr r t args "JSON.stringify($0).slice(1, -1)" |> Some
     | _ -> None
 
 let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2921,7 +2911,6 @@ let private replacedModules =
     "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
     Types.guid, guids
     "System.Uri", uris
-    "System.Web.HttpUtility", httpUtility
     "System.Lazy`1", laziness
     "Microsoft.FSharp.Control.Lazy", laziness
     "Microsoft.FSharp.Control.LazyExtensions", laziness
@@ -2972,10 +2961,6 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             | c ->
                 Helper.LibCall(com, "Reflection", "name", t, [c], ?loc=r) |> Some
         | _ -> None
-    | _ when not info.IsInterface ->
-        com.Options.precompiledLib
-        |> Option.bind (fun tryLib -> tryLib info.DeclaringEntityFullName)
-        |> Option.map (precompiledLib r t info thisArg args)
     | _ -> None
 
 let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs args =

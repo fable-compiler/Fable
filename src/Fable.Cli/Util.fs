@@ -1,187 +1,45 @@
 namespace Fable.Cli
 
+open System.IO
+
 module Literals =
 
     let [<Literal>] VERSION = "2.10.1"
     let [<Literal>] CORE_VERSION = "2.1.0"
-    let [<Literal>] DEFAULT_PORT = 61225
-    let [<Literal>] FORCE = "force:"
-    let [<Literal>] EXIT = "exit"
 
-    /// System references needed to compile Fable projects, see fable-standalone/src/Metadata
-    let SYSTEM_CORE_REFERENCES = [|
-        // "Fable.Core"
-        // "FSharp.Core"
-        "mscorlib"
-        "netstandard"
-        "System.Collections"
-        "System.Collections.Concurrent"
-        "System.ComponentModel"
-        "System.ComponentModel.Primitives"
-        "System.ComponentModel.TypeConverter"
-        "System.Console"
-        "System.Core"
-        "System.Diagnostics.Debug"
-        "System.Diagnostics.Tools"
-        "System.Diagnostics.Tracing"
-        "System.Globalization"
-        "System"
-        "System.IO"
-        "System.Net.Requests"
-        "System.Net.WebClient"
-        "System.Numerics"
-        "System.Reflection"
-        "System.Reflection.Extensions"
-        "System.Reflection.Metadata"
-        "System.Reflection.Primitives"
-        "System.Reflection.TypeExtensions"
-        "System.Runtime"
-        "System.Runtime.Extensions"
-        "System.Runtime.Numerics"
-        "System.Text.Encoding"
-        "System.Text.Encoding.Extensions"
-        "System.Text.RegularExpressions"
-        "System.Threading"
-        "System.Threading.Tasks"
-        "System.ValueTuple"
-        |]
-
-open System.IO
-open System.Reflection
-open System.Text.RegularExpressions
-
-type IMessageHandler =
-    abstract Message: string
-    abstract Respond: write: (TextWriter->unit) -> unit
-
-type AgentMsg =
-    | Parsed of projectFile: string
-                * Fable.Transforms.State.Project
-                * FSharp.Compiler.SourceCodeServices.InteractiveChecker
-    | Received of handler: IMessageHandler
-    | Respond of response: obj * handler: IMessageHandler
+type CliArgs =
+    { ProjectFile: string
+      RootDir: string
+      FableLibraryPath: string option
+      Define: string[]
+      ForcePackages: bool
+      Exclude: string option
+      CompilerOptions: Fable.CompilerOptions }
 
 type private TypeInThisAssembly = class end
-
-[<RequireQualifiedAccess>]
-type GlobalParams private (verbosity, forcePkgs, fableLibraryPath, workingDir) =
-    static let mutable singleton: GlobalParams option = None
-    let mutable _verbosity = verbosity
-    let mutable _forcePkgs = forcePkgs
-    let mutable _fableLibraryPath = fableLibraryPath
-    let mutable _workingDir = workingDir
-    let mutable _replaceFiles = []
-    let mutable _experimental: Set<string> = Set.empty
-
-    static member Singleton =
-        match singleton with
-        | Some x -> x
-        | None ->
-            let workingDir = Directory.GetCurrentDirectory()
-            let execDir =
-              typeof<TypeInThisAssembly>.GetTypeInfo().Assembly.Location
-              |> Path.GetDirectoryName
-            let defaultFableLibraryPaths =
-                [ "../fable-library"                         // running from npm package
-                  "../../fable-library/"                     // running from nuget package
-                  "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp2.0
-                |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
-            let fableLibraryPath =
-                defaultFableLibraryPaths
-                |> List.tryFind Directory.Exists
-                |> Option.defaultValue (List.last defaultFableLibraryPaths)
-            let p = GlobalParams(Fable.Verbosity.Normal, false, fableLibraryPath, workingDir)
-            singleton <- Some p
-            p
-
-    member __.Verbosity: Fable.Verbosity = _verbosity
-    member __.ForcePkgs: bool = _forcePkgs
-    member __.FableLibraryPath: string = _fableLibraryPath
-    member __.WorkingDir: string = _workingDir
-    member __.ReplaceFiles = _replaceFiles
-    member __.Experimental = _experimental
-
-    member __.SetValues(?verbosity, ?forcePkgs, ?fableLibraryPath, ?workingDir, ?replaceFiles: string, ?experimental: string) =
-        _verbosity      <- defaultArg verbosity _verbosity
-        _forcePkgs      <- defaultArg forcePkgs _forcePkgs
-        _fableLibraryPath  <- defaultArg fableLibraryPath _fableLibraryPath
-        _workingDir     <- defaultArg workingDir _workingDir
-        _replaceFiles   <-
-            match replaceFiles with
-            | None -> _replaceFiles
-            | Some replaceFiles ->
-                replaceFiles.Split([|","; ";"|], System.StringSplitOptions.RemoveEmptyEntries)
-                |> Array.map (fun pair ->
-                    let parts = pair.Split(':')
-                    parts.[0].Trim(), parts.[1].Trim())
-                |> Array.toList
-        _experimental   <-
-            match experimental with
-            | None -> _experimental
-            | Some experimental ->
-                experimental.Split([|","; ";"|], System.StringSplitOptions.RemoveEmptyEntries) |> Set
 
 [<RequireQualifiedAccess>]
 module Log =
     open System
 
+    let mutable private verbosity = Fable.Verbosity.Normal
+
+    /// To be called only at the beginning of the app
+    let makeVerbose() =
+        verbosity <- Fable.Verbosity.Verbose
+
     let writerLock = obj()
 
     let always (msg: string) =
-        if GlobalParams.Singleton.Verbosity <> Fable.Verbosity.Silent
+        if verbosity <> Fable.Verbosity.Silent
             && not(String.IsNullOrEmpty(msg)) then
-            lock writerLock (fun () ->
+//            lock writerLock <| fun () ->
                 Console.Out.WriteLine(msg)
-                Console.Out.Flush())
+                Console.Out.Flush()
 
     let verbose (msg: Lazy<string>) =
-        if GlobalParams.Singleton.Verbosity = Fable.Verbosity.Verbose then
+        if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
-
-module Json =
-    open FSharp.Reflection
-    open Newtonsoft.Json
-    open System.Collections.Concurrent
-    open System
-
-    let isErasedUnion (t: System.Type) =
-        t.Name = "FSharpOption`1" ||
-        FSharpType.IsUnion t &&
-            t.GetCustomAttributes true
-            |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
-
-    let getErasedUnionValue (v: obj) =
-        match FSharpValue.GetUnionFields (v, v.GetType()) with
-        | _, [|v|] -> Some v
-        | _ -> None
-
-    type ErasedUnionConverter() =
-        inherit JsonConverter()
-        let typeCache = ConcurrentDictionary<Type,bool>()
-        override __.CanConvert t =
-            typeCache.GetOrAdd(t, isErasedUnion)
-        override __.ReadJson(_reader, _t, _v, _serializer) =
-            failwith "Not implemented"
-        override __.WriteJson(writer, v, serializer) =
-            match getErasedUnionValue v with
-            | Some v -> serializer.Serialize(writer, v)
-            | None -> writer.WriteNull()
-
-    type LocationEraser() =
-        inherit JsonConverter()
-        let typeCache = ConcurrentDictionary<Type,bool>()
-        override __.CanConvert t =
-            typeCache.GetOrAdd(t, fun t -> typeof<Fable.AST.Babel.Node>.GetTypeInfo().IsAssignableFrom(t))
-        override __.ReadJson(_reader, _t, _v, _serializer) =
-            failwith "Not implemented"
-        override __.WriteJson(writer, v, serializer) =
-            writer.WriteStartObject()
-            v.GetType().GetTypeInfo().GetProperties()
-            |> Seq.filter (fun p -> p.Name <> "loc")
-            |> Seq.iter (fun p ->
-                writer.WritePropertyName(p.Name)
-                serializer.Serialize(writer, p.GetValue(v)))
-            writer.WriteEndObject()
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -222,7 +80,7 @@ module Process =
         let logOut = System.Collections.Concurrent.ConcurrentQueue<string>()
         let logErr = System.Collections.Concurrent.ConcurrentQueue<string>()
 
-        let psi = System.Diagnostics.ProcessStartInfo()
+        let psi = ProcessStartInfo()
         psi.FileName <- exePath
         psi.WorkingDirectory <- workingDir
         psi.RedirectStandardOutput <- true
@@ -231,7 +89,7 @@ module Process =
         psi.CreateNoWindow <- true
         psi.UseShellExecute <- false
 
-        use p = new System.Diagnostics.Process()
+        use p = new Process()
         p.StartInfo <- psi
 
         p.OutputDataReceived.Add(fun ea -> logOut.Enqueue (ea.Data))
@@ -298,10 +156,11 @@ module Async =
     }
 
 module File =
-    open System.IO
-
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
     let readAllTextNonBlocking (path: string) =
         use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
         use textReader = new StreamReader(fileStream)
         textReader.ReadToEnd()
+
+    let getRelativePath path =
+        Fable.Path.getRelativePath (Directory.GetCurrentDirectory()) path
