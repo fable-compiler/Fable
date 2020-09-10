@@ -274,7 +274,7 @@ let (|NewAnonymousRecord|_|) e =
     inner [] e
 
 let coreModFor = function
-    | BclGuid -> "String"
+    | BclGuid -> "Guid"
     | BclDateTime -> "Date"
     | BclDateTimeOffset -> "DateOffset"
     | BclTimer -> "Timer"
@@ -387,9 +387,9 @@ let toString com (ctx: Context) r (args: Expr list) =
         |> addErrorAndReturnNull com ctx.InlinePath r
     | head::tail ->
         match head.Type with
-        | Char | String
-        | Builtin BclGuid -> head
-        | Builtin (BclTimeSpan|BclInt64|BclUInt64 as t) ->
+        | Char | String -> head
+        | Builtin BclGuid when tail.IsEmpty -> head
+        | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64 as t) ->
             Helper.LibCall(com, coreModFor t, "toString", String, args)
         | Number Int16 -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number Int32 -> Helper.LibCall(com, "Util", "int32ToString", String, args)
@@ -708,6 +708,8 @@ let identityHash com r (arg: Expr) =
         Helper.LibCall(com, "Util", "structuralHash", Number Int32, [arg], ?loc=r)
     | DeclaredType(ent,_) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         Helper.LibCall(com, "Util", "structuralHash", Number Int32, [arg], ?loc=r)
+    | DeclaredType(ent,_) ->
+        Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
     | _ ->
         Helper.LibCall(com, "Util", "identityHash", Number Int32, [arg], ?loc=r)
 
@@ -1881,6 +1883,14 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
+let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, args with
+    | ("Parse" | "TryParse" as method), str::_ ->
+        let func = Naming.lowerFirst method
+        Helper.LibCall(com, "Boolean", func, t, [str], [str.Type], ?loc=r)
+        |> Some
+    | _ -> None
+
 let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let parseCall meth str style =
         let kind =
@@ -2631,17 +2641,40 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
     // Fable.Core extensions
     | meth -> Helper.LibCall(com, "Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let guids (com: ICompiler) (ctx: Context) (_: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let parseGuid (literalGuid: string) =
+        try
+            System.Guid.Parse(literalGuid) |> string |> makeStrConst
+        with e ->
+            e.Message |> addErrorAndReturnNull com ctx.InlinePath r
+        |> Some
+
     match i.CompiledName with
-    | "NewGuid"     -> Helper.LibCall(com, "String", "newGuid", t, []) |> Some
-    | "Parse"       -> Helper.LibCall(com, "String", "validateGuid", t, args, i.SignatureArgTypes) |> Some
-    | "TryParse"    -> Helper.LibCall(com, "String", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Boolean]) |> Some
-    | "ToByteArray" -> Helper.LibCall(com, "String", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
+    | "NewGuid"     -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
+    | "Parse"       ->
+        match args with
+        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | _-> Helper.LibCall(com, "Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
+    | "TryParse"    -> Helper.LibCall(com, "Guid", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Boolean]) |> Some
+    | "ToByteArray" -> Helper.LibCall(com, "Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
+    | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
+    | "ToString" when (args.Length = 1) ->
+        match args with
+        | [Value (StringConstant literalFormat, _)] ->
+            match literalFormat with
+            | "N" | "D" | "B" | "P" | "X" ->
+                Helper.LibCall(com, "Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+            | _ ->
+                "Guid.ToString doesn't support a custom format. It only handles \"N\", \"D\", \"B\", \"P\" and \"X\" format."
+                |> addError com ctx.InlinePath r
+                None
+        | _ -> Helper.LibCall(com, "Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | ".ctor" ->
         match args with
         | [] -> emptyGuid() |> Some
-        | [ExprType (Array _)] -> Helper.LibCall(com, "String", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
-        | [ExprType String]    -> Helper.LibCall(com, "String", "validateGuid", t, args, i.SignatureArgTypes) |> Some
+        | [ExprType (Array _)] -> Helper.LibCall(com, "Guid", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
+        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | [ExprType String] -> Helper.LibCall(com, "Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
     | _ -> None
 
@@ -2658,6 +2691,8 @@ let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallIn
     | "get_Host" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     | "get_AbsolutePath" ->
+        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
+    | "get_AbsoluteUri" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     | "get_PathAndQuery" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
@@ -2864,6 +2899,7 @@ let private replacedModules =
     Types.valueType, valueTypes
     "System.Enum", enums
     "System.BitConverter", bitConvert
+    Types.bool, parseBool
     Types.int8, parseNum
     Types.uint8, parseNum
     Types.int16, parseNum

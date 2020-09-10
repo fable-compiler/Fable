@@ -122,6 +122,7 @@ let rec nonNestedRecursive s = update s
 and update s = String.replicate 3 s
 
 let mutable mutableValue = 1
+let mutable mutableValueOpt = Some 1
 
 let getValueTimes2() = mutableValue * 2
 

@@ -16,3 +16,6 @@ type StringBuilder(value: string, capacity: int) =
     member x.ToString(firstIndex: int, length: int) =
         let str = x.ToString()
         str.Substring(firstIndex, length)
+    member x.Clear() =
+        buf.Clear()
+        x

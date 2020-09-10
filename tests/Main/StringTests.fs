@@ -56,6 +56,12 @@ let tests =
             sb.Append("Hello") |> ignore
             sb.AppendLine() |> ignore
             equal "ll" (sb.ToString(2, 2))
+            
+      testCase "StringBuilder.Clear works" <| fun () ->
+            let builder = new System.Text.StringBuilder()
+            builder.Append("1111") |> ignore
+            builder.Clear() |> ignore
+            equal "" (builder.ToString())
 
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
