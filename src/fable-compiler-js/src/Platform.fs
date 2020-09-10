@@ -43,7 +43,7 @@ module JS =
 
     let fs: IFileSystem = importAll "fs"
     let os: IOperSystem = importAll "os"
-    let process: IProcess = importAll "process"
+    let proc: IProcess = importAll "process"
     let path: IPath = importAll "path"
     let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
@@ -53,10 +53,13 @@ let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimSt
 let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.process.hrtime()
+    let startTime = JS.proc.hrtime()
     let res = f x
-    let elapsed = JS.process.hrtime(startTime)
+    let elapsed = JS.proc.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
+
+let javaScriptStringEncode (str: string) =
+    Fable.Core.JS.JSON.stringify(str)?slice(1, -1)
 
 let getVersion = JS.util.getVersion
 let ensureDirExists = JS.util.ensureDirExists

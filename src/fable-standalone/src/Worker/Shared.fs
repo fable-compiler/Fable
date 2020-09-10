@@ -8,7 +8,7 @@ open Thoth.Json
 
 type WorkerRequest =
     /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
-    | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * libJsonUrl: string option * otherFSharpOptions: string[]
+    | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * otherFSharpOptions: string[]
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
     | CompileCode of fsharpCode: string * otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
@@ -37,7 +37,7 @@ type WorkerAnswer =
 
 type ObservableWorker<'InMsg>(worker: obj, decoder: Decoder<'InMsg>, ?name: string) =
     let name = defaultArg name "FABLE WORKER"
-    let listeners = new Dictionary<Guid, IObserver<'InMsg>>()
+    let listeners = Dictionary<Guid, IObserver<'InMsg>>()
     do worker?addEventListener("message", fun ev ->
         match ev?data: obj with
         | :? string as msg when not(String.IsNullOrEmpty(msg)) ->
@@ -54,7 +54,7 @@ type ObservableWorker<'InMsg>(worker: obj, decoder: Decoder<'InMsg>, ?name: stri
     member inline this.Post(msg: 'OutMsg): unit =
         this.Worker?postMessage(Encode.Auto.toString(0, msg))
     member inline this.PostAndAwaitResponse(msg: 'OutMsg, picker: 'InMsg -> 'Res option): Async<'Res> =
-        Async.FromContinuations(fun (cont, err, cancel) ->
+        Async.FromContinuations(fun (cont, _err, _cancel) ->
             let mutable disp = Unchecked.defaultof<IDisposable>
             disp <- this |> Observable.subscribe(fun msg ->
                 match picker msg with

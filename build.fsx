@@ -117,16 +117,17 @@ let quicktest () =
 
 let buildCompilerJs() =
     let projectDir = "src/fable-compiler-js"
-    let buildDir = "build/fable-compiler-js"
-    cleanDirs [buildDir; projectDir </> "dist"]
-    runFableWithArgs projectDir ["--outDir " + buildDir + "/out"]
-    run (sprintf "npx rollup %s/out/app.js --file %s/dist/app.js --format umd --name Fable" buildDir projectDir)
+    cleanDirs [projectDir </> "dist"]
+    runFableWithArgs (projectDir </> "src") [
+        "--exclude Fable.Core"
+    ]
+    run (sprintf "npx rollup %s/src/app.fs.js --file %s/dist/app.js --format umd --name Fable" projectDir projectDir)
     run (sprintf "npx terser %s/dist/app.js -o %s/dist/app.min.js --mangle --compress" projectDir projectDir)
 
 let buildStandalone() =
     let buildDir = "build/fable-standalone"
     let libraryDir = "build/fable-library"
-    let projectDir = "src/fable-standalone"
+    let projectDir = "src/fable-standalone/src"
     let distDir = "src/fable-standalone/dist"
     if pathExists libraryDir |> not then
         buildLibrary()
@@ -134,16 +135,30 @@ let buildStandalone() =
     // cleanup
     cleanDirs [buildDir; distDir]
     makeDirRecursive distDir
+
     // build
-    runFableWithArgs projectDir ["--outDir " + buildDir + "/out-bundle"]
-    runFableWithArgs (projectDir + "/src/Worker") ["--outDir " + buildDir + "/out-worker"]
+    runFableWithArgs projectDir [
+        "--typed-arrays"
+        "--define FX_NO_CORHOST_SIGNER"
+        "--define FX_NO_LINKEDRESOURCES"
+        "--define FX_NO_PDB_READER"
+        "--define FX_NO_PDB_WRITER"
+        "--define FX_NO_WEAKTABLE"
+        "--define FX_REDUCED_EXCEPTIONS"
+        "--define NO_COMPILER_BACKEND"
+        "--define NO_EXTENSIONTYPING"
+        "--define NO_INLINE_IL_PARSER"
+    ]
+    runFable (projectDir + "/Worker")
+
     // bundle
-    run (sprintf "npx rollup %s/out-bundle/Main.js --file %s/bundle.js --format umd --name __FABLE_STANDALONE__" buildDir buildDir)
-    run (sprintf "npx rollup %s/out-worker/Worker.js --file %s/worker.js --format esm" buildDir buildDir)
+    run (sprintf "npx rollup %s/Main.fs.js --file %s/bundle.js --format umd --name __FABLE_STANDALONE__" projectDir buildDir)
+    run (sprintf "npx rollup %s/Worker/Worker.fs.js --file %s/worker.js --format esm" projectDir buildDir)
+
     // minimize
     run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
     // run (sprintf "npx terser %s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir)
-    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/worker.config.js" buildDir distDir projectDir)
+    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
@@ -153,15 +168,15 @@ let buildStandalone() =
     let libraryTarget = distDir </> "fable-library"
     copyDirRecursive libraryDir libraryTarget
     // These files will be used in the browser, so make sure the import paths include .js extension
-    let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
-    getFullPathsInDirectoryRecursively libraryTarget
-    |> Array.filter (fun file -> file.EndsWith(".js"))
-    |> Array.iter (fun file ->
-        reg.Replace(readFile file, fun m ->
-            let fst = m.Groups.[1].Value
-            if fst.EndsWith(".js") then m.Value
-            else sprintf "import %s.js%s" fst m.Groups.[2].Value)
-        |> writeFile file)
+    // let reg = Regex(@"^import (.*"".*)("".*)$", RegexOptions.Multiline)
+    // getFullPathsInDirectoryRecursively libraryTarget
+    // |> Array.filter (fun file -> file.EndsWith(".js"))
+    // |> Array.iter (fun file ->
+    //     reg.Replace(readFile file, fun m ->
+    //         let fst = m.Groups.[1].Value
+    //         if fst.EndsWith(".js") then m.Value
+    //         else sprintf "import %s.js%s" fst m.Groups.[2].Value)
+    //     |> writeFile file)
 
     // Bump version
     // let compilerVersion = Publish.loadReleaseVersion "src/fable-compiler"
@@ -207,8 +222,8 @@ let test() =
     runInDir "tests/Main" "dotnet run"
 
     // TODO: Temporarily deactivated to get green builds
-//    if envVarOrNone "APPVEYOR" |> Option.isSome then
-//        testJs()
+    if envVarOrNone "APPVEYOR" |> Option.isSome then
+        testJs()
 
 let coverage() =
     // report converter

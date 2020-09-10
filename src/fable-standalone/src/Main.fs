@@ -213,28 +213,6 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
         return [||]
 }
 
-let defaultCompilerConfig: CompilerConfig =
-    { typedArrays = false
-      clampByteArrays = false
-      typescript = false
-      precompiledLib = None }
-
-let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: string[]): Fable.CompilerOptions =
-    let config = defaultArg config defaultCompilerConfig
-    let isDebug = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
-    { typedArrays = config.typedArrays
-      clampByteArrays = config.clampByteArrays
-      typescript = config.typescript
-      debugMode = isDebug
-      verbosity = Fable.Verbosity.Normal
-      outputPublicInlinedFunctions = false
-      precompiledLib = config.precompiledLib }
-
-let compileAst (com: Compiler) (project: Project) =
-    FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
-    |> FableTransforms.transformFile com
-    |> Fable2Babel.Compiler.transformFile com
-
 let init () =
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes, otherOptions) =
@@ -276,15 +254,19 @@ let init () =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string, ?config) =
+        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string,
+                                    ?typedArrays, ?typescript) =
             let res = parseResults :?> ParseResults
             let project = res.GetProject()
-            let options = makeCompilerOptions config parseResults.OtherFSharpOptions
-            let com = Compiler(fileName, project, options, fableLibrary)
-            let ast = compileAst com project
+            let isDebug = parseResults.OtherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
+            let options = Fable.CompilerOptionsHelper.Make(debugMode=isDebug, ?typedArrays=typedArrays, ?typescript=typescript)
+            let com = CompilerImpl(fileName, project, options, fableLibrary)
+            let ast =
+                FSharp2Fable.Compiler.transformFile com
+                |> FableTransforms.transformFile com
+                |> Fable2Babel.Compiler.transformFile com
             let errors =
-                com.GetLogs()
-                |> List.map (fun log ->
+                [] |> List.map (fun log -> // TODO com.Logs
                     let r = defaultArg log.Range Fable.SourceLocation.Empty
                     { FileName = fileName
                       StartLineAlternate = r.start.line

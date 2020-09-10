@@ -132,7 +132,10 @@ module PrinterExtensions =
                     printer.PrintCommaSeparatedArray(parameters)
                     printer.Print(") => ")
                     match body.Body with
-                    | [|:? ReturnStatement as r |] -> r.Argument.Print(printer)
+                    | [|:? ReturnStatement as r |] ->
+                        match r.Argument with
+                        | :? ObjectExpression as e -> printer.WithParens(e)
+                        | e -> printer.Print(e)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
                 else
                 printer.Print("function ")
@@ -155,9 +158,17 @@ module PrinterExtensions =
         /// Surround with parens anything that can potentially conflict with operator precedence
         member printer.ComplexExpressionWithParens(expr: Expression) =
             match expr with
-            | :? PatternExpression
-            | :? Literal
+            | :? Undefined
+            | :? NullLiteral
+            | :? StringLiteral
+            | :? BooleanLiteral
+            | :? NumericLiteral
+            | :? Identifier
+            | :? MemberExpression
             | :? CallExpression
+            // | :? NewExpression // Safe?
+            | :? ObjectExpression
+            | :? ThisExpression
             | :? Super -> expr.Print(printer)
             | _ -> printer.WithParens(expr)
 

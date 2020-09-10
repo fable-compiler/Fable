@@ -4,19 +4,6 @@
 import * as BabelPlugins from "fable-babel-plugins";
 import { template, transformFromAstSync } from "@babel/core";
 
-export function resolveLibCall(libMap, entityName) {
-    if (libMap != null) {
-        var k = Object.keys(libMap).find((k) => entityName.indexOf(k) === 0);
-        if (k != null) {
-            var result = libMap[k];
-            // Remove the root module
-            var entityNameTrimmed = entityName.substr(result[0].length).replace(/^\.+/, "");
-            return [entityNameTrimmed, "fable-repl-lib/" + result[1]];
-        }
-    }
-    return null;
-}
-
 function fetchBlob(getUrl, name) {
     return fetch(getUrl(name))
         .then(function (res) {

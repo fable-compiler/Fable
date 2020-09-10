@@ -2,7 +2,6 @@ module Fable.Compiler.App
 
 open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
-open Fable.Core
 open Fable.Core.JsInterop
 
 let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
@@ -23,12 +22,6 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     if hasErrors then
         errors |> Array.iter printError
         failwith "Too many errors."
-
-let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
-    { typedArrays = false
-      clampByteArrays = false
-      typescript = options.typescript
-      precompiledLib = None }
 
 let parseFiles projectFileName outDir options =
     // parse project
@@ -70,8 +63,7 @@ let parseFiles projectFileName outDir options =
 
     // Fable (F# to Babel)
     let fableLibraryDir = "fable-library"
-    let fableConfig = options |> toFableCompilerConfig
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, fableConfig)
+    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, typescript=options.typescript)
     let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
     let libDir = getFableLibDir() |> normalizeFullPath
