@@ -1,6 +1,12 @@
 import * as fs from "fs";
 import * as Path from "path";
 
+// JSON.stringify doesn't escape line/paragraph separators, which are not valid in JS.
+// https://github.com/expressjs/express/issues/1132
+export function escapeJsStringLiteral(str) {
+  return JSON.stringify(str).slice(1, -1).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
 export function ensureDirExists(dir, cont) {
   if (fs.existsSync(dir)) {
     if (typeof cont === "function") { cont(); }
