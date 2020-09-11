@@ -1925,8 +1925,7 @@ module Util =
                     ClassProperty(prop.Key, ?``static``=prop.Static, ?typeAnnotation=ta) |> U2.Case2)
             else Array.empty
         // no need for constructor in unions
-        let classMethods = if ent.IsFSharpUnion then [||] else [| U2.Case1 classCons |]
-        let classBody = ClassBody([| yield! classFields; yield! classMethods |])
+        let classBody = ClassBody([| yield! classFields; yield U2.Case1 classCons |])
         let classExpr = ClassExpression(classBody, ?superClass=Some baseRef, ?typeParameters=typeParamDecl, ?loc=r)
         classExpr |> declareModuleMember r isPublic name false
 
@@ -2029,11 +2028,20 @@ module Util =
                typedIdent com ctx fieldsId |> restElement |]
         let body =
             if com.Options.classTypes then
-                [ (ident tagId) :> Expression
-                  (ident nameId) :> Expression
-                  SpreadElement(ident fieldsId) :> Expression ]
-                |> callSuperConstructor None baseRef thisExpr
-                |> ExpressionStatement :> Statement |> Array.singleton |> BlockStatement
+                let callSuper =
+                    callSuperConstructor None baseRef thisExpr []
+                    |> ExpressionStatement :> Statement |> Array.singleton
+
+                [| tagId; nameId; fieldsId |]
+                |> Array.map (fun id ->
+                    let left = get None thisExpr id.Name
+                    let right =
+                        match id.Type with
+                        | Fable.Number _ ->
+                            BinaryExpression(BinaryOrBitwise, ident id, NumericLiteral(0.)) :> Expression
+                        | _ -> ident id :> Expression
+                    assign None left right |> ExpressionStatement :> Statement)
+                |> Array.append callSuper |> BlockStatement
             else
                 [| tagId; nameId; fieldsId |]
                 |> Array.map (fun id ->

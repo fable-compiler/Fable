@@ -112,12 +112,54 @@ export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
 
 // CHOICE
 
-export class Choice<_T1, _T2> extends Union { }
-export class Choice3<_T1, _T2, _T3> extends Union { }
-export class Choice4<_T1, _T2, _T3, _T4> extends Union { }
-export class Choice5<_T1, _T2, _T3, _T4, _T5> extends Union { }
-export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> extends Union { }
-export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> extends Union { }
+export class Choice<_T1, _T2> extends Union {
+  constructor(tag: number, name: string, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.name = name;
+    this.fields = fields;
+  }
+}
+export class Choice3<_T1, _T2, _T3> extends Union {
+  constructor(tag: number, name: string, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.name = name;
+    this.fields = fields;
+  }
+}
+export class Choice4<_T1, _T2, _T3, _T4> extends Union {
+  constructor(tag: number, name: string, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.name = name;
+    this.fields = fields;
+  }
+}
+export class Choice5<_T1, _T2, _T3, _T4, _T5> extends Union {
+  constructor(tag: number, name: string, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.name = name;
+    this.fields = fields;
+  }
+}
+export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> extends Union {
+  constructor(tag: number, name: string, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.name = name;
+    this.fields = fields;
+  }
+}
+export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> extends Union {
+  constructor(tag: number, name: string, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.name = name;
+    this.fields = fields;
+  }
+}
 
 export function choice1Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
   return new Choice(0, "Choice1Of2", x);
@@ -137,7 +179,14 @@ export function tryValueIfChoice2Of2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
 
 // RESULT
 
-export class Result<_T, _U> extends Union { }
+export class Result<_T, _U> extends Union {
+  constructor(tag: number, name: string, ...fields: any[]) {
+    super();
+    this.tag = tag | 0;
+    this.name = name;
+    this.fields = fields;
+  }
+}
 
 export function ok<T, U>(x: T | U): Result<T, U> {
   return new Result(0, "Ok", x);

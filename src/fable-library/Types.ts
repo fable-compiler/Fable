@@ -108,17 +108,10 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 }
 
-export class Union extends SystemObject implements IComparable<any> {
-  public tag: number;
-  public name: string;
-  public fields: any[];
-
-  constructor(tag: number, name: string, ...fields: any[]) {
-    super();
-    this.tag = tag | 0;
-    this.name = name;
-    this.fields = fields;
-  }
+export abstract class Union extends SystemObject implements IComparable<any> {
+  public tag!: number;
+  public name!: string;
+  public fields!: any[];
 
   public toString() {
     const len = this.fields.length;
