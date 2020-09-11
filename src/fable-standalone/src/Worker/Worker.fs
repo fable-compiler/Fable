@@ -18,7 +18,6 @@ importScripts "bundle.min.js"
 let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = jsNative
 
 let getAssemblyReader(_getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
-let getBabelAstCompiler(): JS.Promise<obj->string> = importMember "./util.js"
 
 let measureTime f arg =
     let before: float = self?performance?now()
@@ -29,7 +28,6 @@ let measureTime f arg =
 type FableState =
     { Manager: IFableManager
       Checker: IChecker
-      BabelAstCompiler: obj->string
       LoadTime: float
       References: string[]
       Reader: string->byte[]
@@ -51,14 +49,12 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
             let getBlobUrl name =
                 refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
             let manager = FableInit.init()
-            let! babelCompiler = getBabelAstCompiler() |> Async.AwaitPromise
             let references = Array.append Metadata.references_core extraRefs
             let! reader = getAssemblyReader(getBlobUrl, references) |> Async.AwaitPromise
             let (checker, checkerTime) = measureTime (fun () ->
                 manager.CreateChecker(references, reader, otherFSharpOptions)) ()
             return { Manager = manager
                      Checker = checker
-                     BabelAstCompiler = babelCompiler
                      LoadTime = checkerTime
                      References = references
                      Reader = reader
@@ -122,7 +118,9 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                                                 typescript=Map.find "--typescript" nonFSharpOptions)) ()
             let (jsCode, babelTime, babelErrors) =
                 try
-                    let code, t = measureTime fable.BabelAstCompiler res.BabelAst
+//                    let code, t = measureTime fable.BabelAstCompiler res.BabelAst
+                    let code = "" // TODO
+                    let t = 0.
                     code, t, [||]
                 with ex ->
                     let error =

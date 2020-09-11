@@ -84,8 +84,17 @@ module PrinterExtensions =
                 if i < nodes.Length - 1 then
                     printSeparator printer
 
-        member printer.PrintCommaSeparatedArray(nodes: #Node array) =
-            printer.PrintArray(nodes, (fun p x -> x.Print(p)), (fun p -> p.Print(", ")))
+        member printer.PrintCommaSeparatedArray(nodes: ExportSpecifier array) =
+            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
+        member printer.PrintCommaSeparatedArray(nodes: #ImportSpecifier array) =
+            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
+        member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
+            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
+        member printer.PrintCommaSeparatedArray(nodes: Expression array) =
+            printer.PrintArray(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
 
         // TODO: (super) type parameters, implements
         member printer.PrintClass(id: Identifier option, superClass: Expression option, body: ClassBody, loc) =
@@ -127,15 +136,13 @@ module PrinterExtensions =
             | Some e -> e.Print(printer)
             | None ->
                 if isArrow then
-                    // TODO: Remove parens if we only have one argument (and no annotation)
+                    // Remove parens if we only have one argument? (and no annotation)
                     printer.Print("(")
                     printer.PrintCommaSeparatedArray(parameters)
                     printer.Print(") => ")
                     match body.Body with
                     | [|:? ReturnStatement as r |] ->
-                        match r.Argument with
-                        | :? ObjectExpression as e -> printer.WithParens(e)
-                        | e -> printer.Print(e)
+                        printer.ComplexExpressionWithParens(r.Argument, objExpr=true)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
                 else
                 printer.Print("function ")
@@ -156,7 +163,7 @@ module PrinterExtensions =
             | _ -> printer.Print(expr)
 
         /// Surround with parens anything that can potentially conflict with operator precedence
-        member printer.ComplexExpressionWithParens(expr: Expression) =
+        member printer.ComplexExpressionWithParens(expr: Expression, ?objExpr) =
             match expr with
             | :? Undefined
             | :? NullLiteral
@@ -167,9 +174,12 @@ module PrinterExtensions =
             | :? MemberExpression
             | :? CallExpression
             // | :? NewExpression // Safe?
-            | :? ObjectExpression
             | :? ThisExpression
             | :? Super -> expr.Print(printer)
+            | :? ObjectExpression ->
+                match objExpr with
+                | Some true -> printer.WithParens(expr)
+                | _ -> expr.Print(printer)
             | _ -> printer.WithParens(expr)
 
         member printer.PrintOperation(left, operator, right, loc) =
@@ -535,31 +545,33 @@ type TryStatement(block, ?handler, ?finalizer, ?loc) =
             printer.PrintOptional("finally ", finalizer)
 
 // Declarations
-type VariableDeclarator(id, ?init, ?loc) =
+type VariableDeclarator(id, ?init) =
     member _.Id: Pattern = id
     member _.Init: Expression option = init
-    interface Node with
-        member _.Print(printer) =
-            printer.AddLocation(loc)
-            id.Print(printer)
-            match init with
-            | None -> ()
-            | Some e ->
-                printer.Print(" = ")
-                printer.SequenceExpressionWithParens(e)
 
 type VariableDeclarationKind = Var | Let | Const
 
 type VariableDeclaration(kind_, declarations, ?loc) =
     let kind = match kind_ with Var -> "var" | Let -> "let" | Const -> "const"
     new (var, ?init, ?kind, ?loc) =
-        VariableDeclaration(defaultArg kind Let, [|VariableDeclarator(var, ?init=init, ?loc=loc)|], ?loc=loc)
+        VariableDeclaration(defaultArg kind Let, [|VariableDeclarator(var, ?init=init)|], ?loc=loc)
     member _.Declarations: VariableDeclarator array = declarations
     member _.Kind: string = kind
     interface Declaration with
         member _.Print(printer) =
             printer.Print(kind + " ", ?loc=loc)
-            printer.PrintCommaSeparatedArray(declarations)
+            let canConflict = declarations.Length > 1
+            for i = 0 to declarations.Length - 1 do
+                let decl = declarations.[i]
+                printer.Print(decl.Id)
+                match decl.Init with
+                | None -> ()
+                | Some e ->
+                    printer.Print(" = ")
+                    if canConflict then printer.ComplexExpressionWithParens(e)
+                    else printer.SequenceExpressionWithParens(e)
+                if i < declarations.Length - 1 then
+                    printer.Print(", ")
 
 // Loops
 type WhileStatement(test, body, ?loc) =

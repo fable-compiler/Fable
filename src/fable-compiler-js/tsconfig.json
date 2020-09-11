@@ -1,0 +1,17 @@
+{
+  "include": [
+    "src/**/*.js"
+  ],
+  "exclude": [
+    "src/bin",
+    "src/obj"
+  ],
+  "compilerOptions": {
+    "outDir": "dist",
+    "target": "es2015",
+    "module": "commonjs",
+    "allowJs": true,
+    "sourceMap": false,
+    "noEmitOnError": false,
+  }
+}

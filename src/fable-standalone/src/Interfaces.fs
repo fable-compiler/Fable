@@ -44,8 +44,12 @@ type IParseResults =
     abstract Errors: Error[]
 
 type IBabelResult =
-    abstract BabelAst: obj
     abstract FableErrors: Error[]
+
+type IWriter =
+    inherit System.IDisposable
+    abstract EscapeJsStringLiteral: string -> string
+    abstract Write: string -> Async<unit>
 
 type IFableManager =
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker
@@ -60,4 +64,5 @@ type IFableManager =
     abstract CompileToBabelAst: fableLibrary: string * parseResults: IParseResults * fileName: string
                                 * ?typedArrays: bool
                                 * ?typescript: bool -> IBabelResult
+    abstract PrintBabelAst: babelResult: IBabelResult * IWriter -> Async<unit>
     abstract FSharpAstToString: parseResults: IParseResults * fileName: string -> string

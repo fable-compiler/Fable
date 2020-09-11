@@ -16,6 +16,7 @@
     <Compile Include="Platform.fs" />
     <Compile Include="ProjectParser.fs" />
     <Compile Include="app.fs" />
+    <Content Include="util.js" />
   </ItemGroup>
 
 </Project>

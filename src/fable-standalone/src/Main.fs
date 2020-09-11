@@ -213,6 +213,11 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
         return [||]
 }
 
+type BabelResult(program: Babel.Program, errors) =
+    member _.Program = program
+    interface IBabelResult with
+        member _.FableErrors = errors
+
 let init () =
   { new IFableManager with
         member __.CreateChecker(references, readAllBytes, otherOptions) =
@@ -266,7 +271,7 @@ let init () =
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
             let errors =
-                [] |> List.map (fun log -> // TODO com.Logs
+                com.Logs |> Array.map (fun log ->
                     let r = defaultArg log.Range Fable.SourceLocation.Empty
                     { FileName = fileName
                       StartLineAlternate = r.start.line
@@ -283,10 +288,23 @@ let init () =
                         | Fable.Severity.Warning
                         | Fable.Severity.Info -> true
                     })
-                |> List.toArray
-            { new IBabelResult with
-                member __.BabelAst = ast :> obj
-                member __.FableErrors = errors }
+            upcast BabelResult(ast, errors)
+
+        member _.PrintBabelAst(babelResult, writer) =
+            match babelResult with
+            | :? BabelResult as babel ->
+                let writer =
+                    { new BabelPrinter.Writer with
+                        member _.Dispose() = writer.Dispose()
+                        member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
+                        member _.Write(str) = writer.Write(str) }
+
+                let map = { new BabelPrinter.SourceMapGenerator with
+                                member _.AddMapping(_,_,_,_,_) = () }
+
+                BabelPrinter.run writer map babel.Program
+            | _ ->
+                failwith "Unexpected Babel result"
 
         member __.FSharpAstToString(parseResults:IParseResults, fileName:string) =
             let res = parseResults :?> ParseResults

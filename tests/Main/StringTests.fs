@@ -47,16 +47,16 @@ let tests =
             let sb = System.Text.StringBuilder()
             sb.Append("Hello") |> ignore
             // We don't test the AppendLine for Length because depending on the OS
-            // the result is different. Unix \n VS Windows \r\n 
-            // sb.AppendLine() |> ignore 
+            // the result is different. Unix \n VS Windows \r\n
+            // sb.AppendLine() |> ignore
             equal 5 sb.Length
-      
+
       testCase "StringBuilder.ToString works with index and length" <| fun () ->
             let sb = System.Text.StringBuilder()
             sb.Append("Hello") |> ignore
             sb.AppendLine() |> ignore
             equal "ll" (sb.ToString(2, 2))
-            
+
       testCase "StringBuilder.Clear works" <| fun () ->
             let builder = new System.Text.StringBuilder()
             builder.Append("1111") |> ignore

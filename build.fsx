@@ -111,18 +111,27 @@ let buildLibraryTs() =
     runInDir buildDirTs ("npx tsc --outDir ../../" + buildDirJs)
 
 let quicktest () =
-    runFableWithArgs "src/quicktest" ["--exclude Fable.Core"]
+    runFableWithArgs "src/quicktest" [
+        "--force-pkgs"
+        "--exclude Fable.Core"
+    ]
     run "npx tsc src/quicktest/QuickTest.fs.js --allowJs -m commonJs --outDir build/quicktest"
     run "node build/quicktest/src/quicktest/QuickTest.fs.js"
 
-let buildCompilerJs() =
-    let projectDir = "src/fable-compiler-js"
-    cleanDirs [projectDir </> "dist"]
-    runFableWithArgs (projectDir </> "src") [
-        "--exclude Fable.Core"
+let compileFcs() =
+    runFableWithArgs "src/fable-standalone/src" [
+        "--force-pkgs"
+        "--typed-arrays"
+        "--define FX_NO_CORHOST_SIGNER"
+        "--define FX_NO_LINKEDRESOURCES"
+        "--define FX_NO_PDB_READER"
+        "--define FX_NO_PDB_WRITER"
+        "--define FX_NO_WEAKTABLE"
+        "--define FX_REDUCED_EXCEPTIONS"
+        "--define NO_COMPILER_BACKEND"
+        "--define NO_EXTENSIONTYPING"
+        "--define NO_INLINE_IL_PARSER"
     ]
-    run (sprintf "npx rollup %s/src/app.fs.js --file %s/dist/app.js --format umd --name Fable" projectDir projectDir)
-    run (sprintf "npx terser %s/dist/app.js -o %s/dist/app.min.js --mangle --compress" projectDir projectDir)
 
 let buildStandalone() =
     let buildDir = "build/fable-standalone"
@@ -137,19 +146,10 @@ let buildStandalone() =
     makeDirRecursive distDir
 
     // build
-    runFableWithArgs projectDir [
-        "--typed-arrays"
-        "--define FX_NO_CORHOST_SIGNER"
-        "--define FX_NO_LINKEDRESOURCES"
-        "--define FX_NO_PDB_READER"
-        "--define FX_NO_PDB_WRITER"
-        "--define FX_NO_WEAKTABLE"
-        "--define FX_REDUCED_EXCEPTIONS"
-        "--define NO_COMPILER_BACKEND"
-        "--define NO_EXTENSIONTYPING"
-        "--define NO_INLINE_IL_PARSER"
+    compileFcs()
+    runFableWithArgs (projectDir + "/Worker") [
+        "--force-pkgs"
     ]
-    runFable (projectDir + "/Worker")
 
     // bundle
     run (sprintf "npx rollup %s/Main.fs.js --file %s/bundle.js --format umd --name __FABLE_STANDALONE__" projectDir buildDir)
@@ -187,41 +187,74 @@ let buildStandalone() =
     //     (if comMajor > staMajor || comMinor > staMinor then compilerVersion
     //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
-let testJs() =
+let buildCompilerJs() =
+    compileFcs()
+
     let projectDir = "src/fable-compiler-js"
-    let buildDir = "build/tests-js"
-    if not (pathExists "build/fable-standalone") then
-        buildStandalone()
-    if not (pathExists "build/fable-compiler-js") then
-        buildCompilerJs()
+    runFableWithArgs (projectDir </> "src") [
+        "--force-pkgs"
+        "--exclude Fable.Core"
+    ]
 
-    cleanDirs [buildDir]
+    cleanDirs [projectDir </> "dist"]
+    // run (sprintf "npx rollup %s/src/app.fs.js --file %s/dist/app.js --format umd --name Fable" projectDir projectDir)
+    // run (sprintf "npx terser %s/dist/app.js -o %s/dist/app.min.js --mangle --compress" projectDir projectDir)
 
-    // Link fable-compiler-js to local packages
-    runInDir projectDir "npm link ../fable-metadata"
-    runInDir projectDir "npm link ../fable-standalone"
+    // Compile to commonjs modules
+    runTypescript "src/fable-compiler-js"
+    // Copy fable-library
+    copyDirRecursive ("build/fable-library") (projectDir </> "dist/fable-library")
+    // Copy fable-metadata
+    copyDirRecursive ("src/fable-metadata/lib") (projectDir </> "dist/fable-metadata")
 
-    // Test fable-compiler-js locally
-    run ("node " + projectDir + " tests/Main/Fable.Tests.fsproj " + buildDir + " --commonjs")
-    run ("npx mocha " + buildDir + " --reporter dot -t 10000")
-    // and another test
-    runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
-    runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
-
-    // Unlink local packages after test
-    runInDir projectDir "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
-    runInDir projectDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
-
-let test() =
-    if pathExists "build/fable-library" |> not then
-        buildLibrary()
-
-    runFableWithArgs "tests/Main" ["--exclude Fable.Core"; "--force-pkgs"]
+let compileAndRunTests(compileTests) =
+    // TODO: "rm tests/**/*.fs.js"
+    compileTests()
+    cleanDirs ["build/tests"]
     runTypescript "tests"
     run "npx mocha build/tests/tests/Main --reporter dot -t 10000"
-    runInDir "tests/Main" "dotnet run"
 
-    // TODO: Temporarily deactivated to get green builds
+let testJs() =
+    buildCompilerJs()
+    compileAndRunTests(fun () ->
+        run "node src/fable-compiler-js tests/Main/Fable.Tests.fsproj")
+
+    // let projectDir = "src/fable-compiler-js"
+    // let buildDir = "build/tests-js"
+    // if not (pathExists "build/fable-standalone") then
+    //     buildStandalone()
+    // if not (pathExists "build/fable-compiler-js") then
+    //     buildCompilerJs()
+
+    // cleanDirs [buildDir]
+
+    // // Link fable-compiler-js to local packages
+    // runInDir projectDir "npm link ../fable-metadata"
+    // runInDir projectDir "npm link ../fable-standalone"
+
+    // // Test fable-compiler-js locally
+    // run ("node " + projectDir + " tests/Main/Fable.Tests.fsproj " + buildDir + " --commonjs")
+    // run ("npx mocha " + buildDir + " --reporter dot -t 10000")
+    // // and another test
+    // runInDir "src/fable-compiler-js/test" "node .. test_script.fsx --commonjs"
+    // runInDir "src/fable-compiler-js/test" "node bin/test_script.js"
+
+    // // Unlink local packages after test
+    // runInDir projectDir "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
+    // runInDir projectDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
+
+let test() =
+    compileAndRunTests(fun () ->
+        if pathExists "build/fable-library" |> not then
+                buildLibrary()
+
+        runFableWithArgs "tests/Main" [
+            "--force-pkgs"
+            "--exclude Fable.Core"
+        ]
+    )
+
+    runInDir "tests/Main" "dotnet run"
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJs()
 
@@ -342,6 +375,7 @@ match argsLower with
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
 | ("fable-standalone"|"standalone")::_ -> buildStandalone()
+| "fcs"::_ -> compileFcs()
 | "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->
