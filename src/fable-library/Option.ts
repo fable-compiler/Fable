@@ -23,12 +23,12 @@ export class Some<T> {
     this.value = value;
   }
 
-  public toString() {
-    return this.ToString();
-  }
-
   public toJSON() {
     return this.value;
+  }
+
+  public toString() {
+    return this.ToString();
   }
 
   // Don't add "Some" for consistency with erased options

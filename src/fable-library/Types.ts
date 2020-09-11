@@ -1,8 +1,12 @@
 // tslint:disable: space-before-function-paren
-import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, numberHash, structuralHash } from "./Util";
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, isComparable, isEquatable, isHashable, isSameType, isStringable, numberHash, structuralHash } from "./Util";
 
-function sameType(x: any, y: any) {
-  return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
+export function objectToString(self: any) {
+  if (isStringable(self)) {
+    return self.ToString();
+  } else {
+    return Object.getPrototypeOf(self).constructor.name;
+  }
 }
 
 export class SystemObject implements IEquatable<any> {
@@ -12,7 +16,7 @@ export class SystemObject implements IEquatable<any> {
   }
 
   public ToString() {
-    return Object.getPrototypeOf(this).constructor.name;
+    return objectToString(this);
   }
 
   public GetHashCode(x?: any) {
@@ -51,14 +55,6 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
     this.tail = tail;
   }
 
-  public toString() {
-    return this.ToString();
-  }
-
-  public toJSON() {
-    return Array.from(this);
-  }
-
   public [Symbol.iterator](): Iterator<T> {
     let cur: List<T> | undefined = this;
     return {
@@ -69,6 +65,14 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
         return { done, value };
       },
     };
+  }
+
+  public toJSON() {
+    return Array.from(this);
+  }
+
+  public toString() {
+    return this.ToString();
   }
 
   public ToString() {
@@ -89,7 +93,63 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 }
 
-export class Union extends SystemObject implements IComparable<any> {
+export function unionToString(self: any) {
+  const name = self.cases()[self.tag];
+  if (isStringable(self)) {
+    return self.ToString();
+  } else if (self.fields.length === 0) {
+    return name;
+  } else if (self.fields.length === 1) {
+    return name + " " + String(self.fields[0]);
+  } else {
+    return name + " (" + self.fields.map((x: any) => String(x)).join(",") + ")";
+  }
+}
+
+export function unionToJson(self: any) {
+  const name = self.cases()[self.tag];
+  return self.fields.length === 0 ? name : [name].concat(self.fields);
+}
+
+export function unionGetHashCode(self: any): number {
+  if (isHashable(self) && !(self instanceof Union)) {
+    return self.GetHashCode();
+  } else {
+    const hashes = self.fields.map((x: any) => structuralHash(x));
+    hashes.splice(0, 0, numberHash(self.tag));
+    return combineHashCodes(hashes);
+  }
+}
+
+export function unionEquals(self: any, other: any) {
+  if (self === other) {
+    return true;
+  } else if (isEquatable(self) && !(self instanceof Union)) {
+    return self.Equals(other);
+  } else if (!isSameType(self, other)) {
+    return false;
+  } else if (self.tag === other.tag) {
+    return equalArrays(self.fields, other.fields);
+  } else {
+    return false;
+  }
+}
+
+export function unionCompareTo(self: any, other: any) {
+  if (self === other) {
+    return 0;
+  } else if (isComparable(self) && !(self instanceof Union)) {
+    return self.CompareTo(other);
+  } else if (!isSameType(self, other)) {
+    return -1;
+  } else if (self.tag === other.tag) {
+    return compareArrays(self.fields, other.fields);
+  } else {
+    return self.tag < other.tag ? -1 : 1;
+  }
+}
+
+export class Union implements IEquatable<any>, IComparable<any> {
   public tag: number;
   public fields: any[];
 
@@ -97,75 +157,71 @@ export class Union extends SystemObject implements IComparable<any> {
       return [];
   }
 
-  public get name(): string {
-      return this.cases()[this.tag];
-  }
-
   constructor(tag: number, ...fields: any[]) {
-    super();
     this.tag = tag | 0;
     this.fields = fields;
   }
 
-  public ToString() {
-    const len = this.fields.length;
-    if (len === 0) {
-      return this.name;
-    } else if (len === 1) {
-      return this.name + " " + String(this.fields[0]);
-    } else {
-      return this.name + " (" + this.fields.map((x: any) => String(x)).join(",") + ")";
-    }
+  public toJSON() {
+    return unionToJson(this);
   }
 
-  public toJSON() {
-    return this.fields.length === 0
-      ? this.name
-      : [this.name].concat(this.fields);
+  public toString() {
+    return this.ToString();
+  }
+
+  public ToString() {
+    return unionToString(this);
   }
 
   public GetHashCode() {
-    const hashes = this.fields.map((x: any) => structuralHash(x));
-    hashes.splice(0, 0, numberHash(this.tag));
-    return combineHashCodes(hashes);
+    return unionGetHashCode(this);
   }
 
   public Equals(other: any) {
-    return this === other
-      || (sameType(this, other)
-        && this.tag === other.tag
-        && equalArrays(this.fields, other.fields));
+    return unionEquals(this, other);
   }
 
   public CompareTo(other: any) {
-    if (this === other) {
-      return 0;
-    } else if (!sameType(this, other)) {
-      return -1;
-    } else if (this.tag === other.tag) {
-      return compareArrays(this.fields, other.fields);
-    } else {
-      return this.tag < other.tag ? -1 : 1;
-    }
+    return unionCompareTo(this, other);
   }
 }
 
-function recordToJson(record: any, getFieldNames?: (arg: any) => any) {
+export function recordToString(self: any) {
+  if (isStringable(self)) {
+    return self.ToString();
+  } else {
+    return "{" + Object.entries(self).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
+  }
+}
+
+export function recordToJson(self: any, getFieldNames?: (arg: any) => any) {
   const o: any = {};
-  const keys = getFieldNames == null ? Object.keys(record) : getFieldNames(record);
+  const keys = getFieldNames == null ? Object.keys(self) : getFieldNames(self);
   for (let i = 0; i < keys.length; i++) {
-    o[keys[i]] = record[keys[i]];
+    o[keys[i]] = self[keys[i]];
   }
   return o;
 }
 
-function recordEquals(self: any, other: any, getFieldNames?: (arg: any) => any) {
+export function recordGetHashCode(self: any) {
+  if (isHashable(self) && !(self instanceof Record)) {
+    return self.GetHashCode();
+  } else {
+    const hashes = Object.values(self).map((v) => structuralHash(v));
+    return combineHashCodes(hashes);
+  }
+}
+
+export function recordEquals(self: any, other: any) {
   if (self === other) {
     return true;
-  } else if (!sameType(self, other)) {
+  } else if (isEquatable(self) && !(self instanceof Record)) {
+    return self.Equals(other);
+  } else if (!isSameType(self, other)) {
     return false;
   } else {
-    const thisNames = getFieldNames == null ? Object.keys(self) : getFieldNames(self);
+    const thisNames = Object.keys(self);
     for (let i = 0; i < thisNames.length; i++) {
       if (!equals(self[thisNames[i]], other[thisNames[i]])) {
         return false;
@@ -175,13 +231,15 @@ function recordEquals(self: any, other: any, getFieldNames?: (arg: any) => any) 
   }
 }
 
-function recordCompare(self: any, other: any, getFieldNames?: (arg: any) => any) {
+export function recordCompareTo(self: any, other: any) {
   if (self === other) {
     return 0;
-  } else if (!sameType(self, other)) {
+  } else if (isComparable(self) && !(self instanceof Record)) {
+    return self.CompareTo(other);
+  } else if (!isSameType(self, other)) {
     return -1;
   } else {
-    const thisNames = getFieldNames == null ? Object.keys(self) : getFieldNames(self);
+    const thisNames = Object.keys(self);
     for (let i = 0; i < thisNames.length; i++) {
       const result = compare(self[thisNames[i]], other[thisNames[i]]);
       if (result !== 0) {
@@ -192,19 +250,22 @@ function recordCompare(self: any, other: any, getFieldNames?: (arg: any) => any)
   }
 }
 
-export class Record extends SystemObject implements IComparable<any> {
-
-  public ToString() {
-    return "{" + Object.entries(this).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
-  }
+export class Record implements IEquatable<any>, IComparable<any> {
 
   public toJSON() {
     return recordToJson(this);
   }
 
+  public toString() {
+    return this.ToString();
+  }
+
+  public ToString() {
+    return recordToString(this);
+  }
+
   public GetHashCode() {
-    const hashes = Object.values(this).map((v) => structuralHash(v));
-    return combineHashCodes(hashes);
+    return recordGetHashCode(this);
   }
 
   public Equals(other: any) {
@@ -212,7 +273,7 @@ export class Record extends SystemObject implements IComparable<any> {
   }
 
   public CompareTo(other: any) {
-    return recordCompare(this, other);
+    return recordCompareTo(this, other);
   }
 }
 
@@ -231,7 +292,7 @@ export class FSharpRef<T> extends Record {
 
 // EXCEPTIONS
 
-export class Exception extends Error {
+export class Exception extends Error implements IEquatable<any> {
   constructor(message?: string) {
     super(message)
     if (Error.captureStackTrace) {
@@ -265,8 +326,13 @@ function getFSharpExceptionFieldNames(self: any) {
 }
 
 export class FSharpException extends Exception implements IComparable<any> {
+
   public toJSON() {
     return recordToJson(this, getFSharpExceptionFieldNames);
+  }
+
+  public toString() {
+    return this.ToString();
   }
 
   public ToString() {
@@ -289,11 +355,26 @@ export class FSharpException extends Exception implements IComparable<any> {
   }
 
   public Equals(other: any) {
-    return recordEquals(this, other, getFSharpExceptionFieldNames);
+    const self: any = this;
+    const thisNames = getFSharpExceptionFieldNames(self);
+    for (let i = 0; i < thisNames.length; i++) {
+      if (!equals(self[thisNames[i]], other[thisNames[i]])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public CompareTo(other: any) {
-    return recordCompare(this, other, getFSharpExceptionFieldNames);
+    const self: any = this;
+    const thisNames = getFSharpExceptionFieldNames(self);
+    for (let i = 0; i < thisNames.length; i++) {
+      const result = compare(self[thisNames[i]], other[thisNames[i]]);
+      if (result !== 0) {
+        return result;
+      }
+    }
+    return 0;
   }
 }
 
