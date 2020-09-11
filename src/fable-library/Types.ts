@@ -112,7 +112,7 @@ export function unionToJson(self: any) {
 }
 
 export function unionGetHashCode(self: any): number {
-  if (isHashable(self) && !(self instanceof Union)) {
+  if (isHashable(self)) { // && !(self instanceof Union)) {
     return self.GetHashCode();
   } else {
     const hashes = self.fields.map((x: any) => structuralHash(x));
@@ -124,7 +124,7 @@ export function unionGetHashCode(self: any): number {
 export function unionEquals(self: any, other: any) {
   if (self === other) {
     return true;
-  } else if (isEquatable(self) && !(self instanceof Union)) {
+  } else if (isEquatable(self)) { // && !(self instanceof Union)) {
     return self.Equals(other);
   } else if (!isSameType(self, other)) {
     return false;
@@ -138,7 +138,7 @@ export function unionEquals(self: any, other: any) {
 export function unionCompareTo(self: any, other: any) {
   if (self === other) {
     return 0;
-  } else if (isComparable(self) && !(self instanceof Union)) {
+  } else if (isComparable(self)) { // && !(self instanceof Union)) {
     return self.CompareTo(other);
   } else if (!isSameType(self, other)) {
     return -1;
@@ -149,43 +149,43 @@ export function unionCompareTo(self: any, other: any) {
   }
 }
 
-export class Union implements IEquatable<any>, IComparable<any> {
-  public tag: number;
-  public fields: any[];
+// export class Union implements IEquatable<any>, IComparable<any> {
+//   public tag: number;
+//   public fields: any[];
 
-  public cases(): string[] {
-      return [];
-  }
+//   public cases(): string[] {
+//       return [];
+//   }
 
-  constructor(tag: number, ...fields: any[]) {
-    this.tag = tag | 0;
-    this.fields = fields;
-  }
+//   constructor(tag: number, ...fields: any[]) {
+//     this.tag = tag | 0;
+//     this.fields = fields;
+//   }
 
-  public toJSON() {
-    return unionToJson(this);
-  }
+//   public toJSON() {
+//     return unionToJson(this);
+//   }
 
-  public toString() {
-    return this.ToString();
-  }
+//   public toString() {
+//     return this.ToString();
+//   }
 
-  public ToString() {
-    return unionToString(this);
-  }
+//   public ToString() {
+//     return unionToString(this);
+//   }
 
-  public GetHashCode() {
-    return unionGetHashCode(this);
-  }
+//   public GetHashCode() {
+//     return unionGetHashCode(this);
+//   }
 
-  public Equals(other: any) {
-    return unionEquals(this, other);
-  }
+//   public Equals(other: any) {
+//     return unionEquals(this, other);
+//   }
 
-  public CompareTo(other: any) {
-    return unionCompareTo(this, other);
-  }
-}
+//   public CompareTo(other: any) {
+//     return unionCompareTo(this, other);
+//   }
+// }
 
 export function recordToString(self: any) {
   if (isStringable(self)) {
@@ -205,7 +205,7 @@ export function recordToJson(self: any, getFieldNames?: (arg: any) => any) {
 }
 
 export function recordGetHashCode(self: any) {
-  if (isHashable(self) && !(self instanceof Record)) {
+  if (isHashable(self)) { // && !(self instanceof Record)) {
     return self.GetHashCode();
   } else {
     const hashes = Object.values(self).map((v) => structuralHash(v));
@@ -216,7 +216,7 @@ export function recordGetHashCode(self: any) {
 export function recordEquals(self: any, other: any) {
   if (self === other) {
     return true;
-  } else if (isEquatable(self) && !(self instanceof Record)) {
+  } else if (isEquatable(self)) { // && !(self instanceof Record)) {
     return self.Equals(other);
   } else if (!isSameType(self, other)) {
     return false;
@@ -234,7 +234,7 @@ export function recordEquals(self: any, other: any) {
 export function recordCompareTo(self: any, other: any) {
   if (self === other) {
     return 0;
-  } else if (isComparable(self) && !(self instanceof Record)) {
+  } else if (isComparable(self)) { // && !(self instanceof Record)) {
     return self.CompareTo(other);
   } else if (!isSameType(self, other)) {
     return -1;
@@ -250,42 +250,41 @@ export function recordCompareTo(self: any, other: any) {
   }
 }
 
-export class Record implements IEquatable<any>, IComparable<any> {
+// export class Record implements IEquatable<any>, IComparable<any> {
 
-  public toJSON() {
-    return recordToJson(this);
-  }
+//   public toJSON() {
+//     return recordToJson(this);
+//   }
 
-  public toString() {
-    return this.ToString();
-  }
+//   public toString() {
+//     return this.ToString();
+//   }
 
-  public ToString() {
-    return recordToString(this);
-  }
+//   public ToString() {
+//     return recordToString(this);
+//   }
 
-  public GetHashCode() {
-    return recordGetHashCode(this);
-  }
+//   public GetHashCode() {
+//     return recordGetHashCode(this);
+//   }
 
-  public Equals(other: any) {
-    return recordEquals(this, other);
-  }
+//   public Equals(other: any) {
+//     return recordEquals(this, other);
+//   }
 
-  public CompareTo(other: any) {
-    return recordCompareTo(this, other);
-  }
-}
+//   public CompareTo(other: any) {
+//     return recordCompareTo(this, other);
+//   }
+// }
 
 export function anonRecord(o: any) {
-  return Object.assign(Object.create(Record.prototype), o);
+  // return Object.assign(Object.create(Record.prototype), o);
+  return o;
 }
 
-export class FSharpRef<T> extends Record {
+export class FSharpRef<T> {
   public contents: T;
-
   constructor(contents: T | null) {
-    super();
     this.contents = contents as T;
   }
 }
@@ -392,5 +391,5 @@ export class MatchFailureException extends FSharpException {
   }
 }
 
-export class Attribute extends SystemObject {
+export class Attribute {
 }
