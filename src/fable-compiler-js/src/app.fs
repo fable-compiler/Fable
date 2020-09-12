@@ -1,16 +1,34 @@
 module Fable.Compiler.App
 
-open Fable.Compiler.Platform
-open Fable.Compiler.ProjectParser
 open Fable.Core
 open Fable.Core.JsInterop
+open Fable.Compiler.Platform
+open Fable.Compiler.ProjectParser
 
-let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
-let getMetadataDir(): string = importDefault "fable-metadata"
-let getFableLibDir(): string = importMember "./util.js"
+let [<Global>] __dirname = "__dirname"
+
+let initFable (): Fable.Standalone.IFableManager = import "init" "../../fable-standalone/src/Main.fs.js"
+
+// .NET BCL binaries (metadata)
+let getMetadataDir(): string =
+    // import "getAssembliesDir" "../../fable-metadata"
+    // getMetadataDir().TrimEnd('\\', '/') + "/"
+    __dirname + "/../../../fable-metadata/"
+
+// TODO: This should point to somewhere with fable-library compiled to commonjs
+let getFableLibDir(): string =
+    __dirname + "/../../../fable-library/"
 
 let references = Fable.Standalone.Metadata.references_core
-let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)
+let metadataPath = getMetadataDir()
+
+type SourceWriter() =
+    let sb = System.Text.StringBuilder()
+    interface Fable.Standalone.IWriter with
+        member _.Write(str) = async { return sb.Append(str) |> ignore }
+        member _.EscapeJsStringLiteral(str) = javaScriptStringEncode(str)
+        member _.Dispose() = ()
+    member __.Result = sb.ToString()
 
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
@@ -23,12 +41,6 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     if hasErrors then
         errors |> Array.iter printError
         failwith "Too many errors."
-
-let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
-    { typedArrays = false
-      clampByteArrays = false
-      typescript = options.typescript
-      precompiledLib = None }
 
 let parseFiles projectFileName outDir options =
     // parse project
@@ -49,7 +61,7 @@ let parseFiles projectFileName outDir options =
     let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
     let checker, ms0 = measureTime createChecker ()
-    printfn "fable-compiler-js v%s" (getVersion())
+    printfn "fable-compiler-js" // v%s" (getVersion())
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
 
@@ -69,21 +81,30 @@ let parseFiles projectFileName outDir options =
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to Babel)
-    let fableLibraryDir = "fable-library"
-    let fableConfig = options |> toFableCompilerConfig
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, fableConfig)
-    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
-    let libDir = getFableLibDir() |> normalizeFullPath
+    let fableLibraryDir = getFableLibDir()
+    let parseFable (res, fileName) =
+        let fableLibraryDir = getRelativePath (Path.GetDirectoryName fileName) fableLibraryDir
+        fable.CompileToBabelAst(fableLibraryDir, res, fileName, typescript=options.typescript)
 
-    for fileName in fileNames do
-        // transform F# AST to Babel AST
-        let res, ms2 = measureTime parseFable (parseRes, fileName)
-        printfn "File: %s, Fable time: %d ms" fileName ms2
-        res.FableErrors |> printErrors showWarnings
-        // transform and save Babel AST
-        let outPath = getRelativePath projDir fileName |> trimPath
-        transformAndSaveBabelAst(res.BabelAst, outPath, projDir, outDir, libDir, options)
+    // let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+    // let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
+
+    async {
+        for fileName in fileNames do
+            // transform F# AST to Babel AST
+            let res, ms2 = measureTime parseFable (parseRes, fileName)
+            printfn "File: %s, Fable time: %d ms" fileName ms2
+            res.FableErrors |> printErrors showWarnings
+
+            // Print Babel AST (measure time?)
+            let fileExt = if options.typescript then ".ts" else ".js"
+            // let filePath = getRelativePath projDir fileName |> trimPath |> Path.GetFileNameWithoutExtension
+            // let jsFilePath = Path.Combine(outDir, fileName + fileExt)
+            let jsFilePath = fileName + fileExt
+            let writer = new SourceWriter()
+            do! fable.PrintBabelAst(res, writer)
+            writeAllText jsFilePath writer.Result
+    }
 
 let run opts projectFileName outDir =
     let commandToRun =
@@ -94,14 +115,24 @@ let run opts projectFileName outDir =
             let runArgs = opts.[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
-        commonjs = Option.isSome commandToRun || opts |> Array.contains "--commonjs"
         optimize = opts |> Array.contains "--optimize-fcs"
         sourceMaps = opts |> Array.contains "--sourceMaps"
         typescript = opts |> Array.contains "--typescript"
         watchMode = opts |> Array.contains "--watch"
     }
-    parseFiles projectFileName outDir options
-    commandToRun |> Option.iter runCmdAndExitIfFails
+    async {
+        do! parseFiles projectFileName outDir options
+        commandToRun |> Option.iter runCmdAndExitIfFails
+    }
+
+let runAsync computation =
+    async {
+        try
+            do! computation
+        with e ->
+            printfn "[ERROR] %s" e.Message
+            printfn "%s" e.StackTrace
+    } |> Async.StartImmediate
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
@@ -116,8 +147,10 @@ let parseArguments (argv: string[]) =
     | _, [| projectFileName |] ->
         Path.Combine(Path.GetDirectoryName(projectFileName), "bin")
         |> run opts projectFileName
+        |> runAsync
     | _, [| projectFileName; outDir |] ->
         run opts projectFileName outDir
+        |> runAsync
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]

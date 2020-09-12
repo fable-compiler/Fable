@@ -101,12 +101,14 @@
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
+            // src/fable-compiler-js/ tests/Main/Fable.Tests.fsproj build/tests-js
+
             "type": "node",
             "request": "launch",
             "name": "transform tests to JS",
-            "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/transform.js",
-            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "${workspaceRoot}/build/fable-library", "--commonjs"],
-            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
+            "program": "${workspaceRoot}/build/fable-compiler-js/src/fable-compiler-js/src/app.fs.js",
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "build/tests-js"],
+            "stopOnEntry": true
         },
         {
             "type": "node",

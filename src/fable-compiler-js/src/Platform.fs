@@ -3,7 +3,6 @@ module Fable.Compiler.Platform
 open Fable.Core.JsInterop
 
 type CmdLineOptions = {
-    commonjs: bool
     optimize: bool
     sourceMaps: bool
     typescript: bool
@@ -40,10 +39,11 @@ module JS =
         abstract transformAndSaveBabelAst: babelAst: obj * outPath: string * projDir: string * outDir: string * libDir: string * options: CmdLineOptions -> unit
         abstract runCmdAndExitIfFails: cmd: string -> unit
         abstract getDirFiles: dir: string -> string[]
+        abstract escapeJsStringLiteral: string -> string
 
     let fs: IFileSystem = importAll "fs"
     let os: IOperSystem = importAll "os"
-    let process: IProcess = importAll "process"
+    let proc: IProcess = importAll "process"
     let path: IPath = importAll "path"
     let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
@@ -53,15 +53,17 @@ let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimSt
 let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.process.hrtime()
+    let startTime = JS.proc.hrtime()
     let res = f x
-    let elapsed = JS.process.hrtime(startTime)
+    let elapsed = JS.proc.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
+
+let javaScriptStringEncode (str: string) =
+    JS.util.escapeJsStringLiteral(str)
 
 let getVersion = JS.util.getVersion
 let ensureDirExists = JS.util.ensureDirExists
 let copyFolder = JS.util.copyFolder
-let transformAndSaveBabelAst = JS.util.transformAndSaveBabelAst
 let runCmdAndExitIfFails = JS.util.runCmdAndExitIfFails
 
 let normalizeFullPath (path: string) =

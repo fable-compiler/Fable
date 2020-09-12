@@ -11,17 +11,13 @@ type IFableInit =
     abstract member init: unit -> IFableManager
 
 let [<Global>] self: obj = jsNative
-let [<Global>] importScripts(path: string): unit = jsNative
-// let [<Global("import")>] importDynamic<'T>(path: string): JS.Promise<'T> = jsNative
-let [<Emit("fetch($0).then(x => x.json())")>] fetchJson(url: string): JS.Promise<obj> = jsNative
+let [<Global>] importScripts(_path: string): unit = jsNative
 
 // Load FCS+Fable bundle
 importScripts "bundle.min.js"
 let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = jsNative
 
-let resolveLibCall(libMap: obj, entityName: string): (string*string) option = importMember "./util.js"
-let getAssemblyReader(getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
-let getBabelAstCompiler(): JS.Promise<obj->string> = importMember "./util.js"
+let getAssemblyReader(_getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
 
 let measureTime f arg =
     let before: float = self?performance?now()
@@ -32,15 +28,13 @@ let measureTime f arg =
 type FableState =
     { Manager: IFableManager
       Checker: IChecker
-      BabelAstCompiler: obj->string
       LoadTime: float
-      LibMap: obj
       References: string[]
       Reader: string->byte[]
       OtherFSharpOptions: string[] }
 
 type FableStateConfig =
-    | Init of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * libJsonUrl: string option
+    | Init of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option
     | Initialized of FableState
 
 type State =
@@ -51,24 +45,17 @@ type State =
 let makeFableState (config: FableStateConfig) otherFSharpOptions =
     async {
         match config with
-        | Init(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl) ->
+        | Init(refsDirUrl, extraRefs, refsExtraSuffix) ->
             let getBlobUrl name =
                 refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
             let manager = FableInit.init()
-            let! babelCompiler = getBabelAstCompiler() |> Async.AwaitPromise
-            let! libMap =
-                match libJsonUrl with
-                | Some url -> fetchJson url |> Async.AwaitPromise
-                | None -> async.Return null
-            let references = Array.append Fable.Standalone.Metadata.references_core extraRefs
+            let references = Array.append Metadata.references_core extraRefs
             let! reader = getAssemblyReader(getBlobUrl, references) |> Async.AwaitPromise
             let (checker, checkerTime) = measureTime (fun () ->
                 manager.CreateChecker(references, reader, otherFSharpOptions)) ()
             return { Manager = manager
                      Checker = checker
-                     BabelAstCompiler = babelCompiler
                      LoadTime = checkerTime
-                     LibMap = libMap
                      References = references
                      Reader = reader
                      OtherFSharpOptions = otherFSharpOptions }
@@ -88,9 +75,9 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
 let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     let! msg = box.Receive()
     match state.Fable, msg with
-    | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl, otherFSharpOptions) ->
+    | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, otherFSharpOptions) ->
         try
-            let! fable = makeFableState (Init(refsDirUrl, extraRefs, refsExtraSuffix, libJsonUrl)) otherFSharpOptions
+            let! fable = makeFableState (Init(refsDirUrl, extraRefs, refsExtraSuffix)) otherFSharpOptions
             state.Worker.Post Loaded
             return! loop box { state with Fable = Some fable }
         with err ->
@@ -126,15 +113,14 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let! fable = makeFableState (Initialized fable) otherFSharpOptions
             let (parseResults, parsingTime) = measureTime (fun () -> fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             let (res, fableTransformTime) = measureTime (fun () ->
-                let fableConfig =
-                    { typedArrays = Map.find "--typedArrays" nonFSharpOptions
-                      clampByteArrays = Map.find "--clampByteArrays" nonFSharpOptions
-                      typescript = Map.find "--typescript" nonFSharpOptions
-                      precompiledLib = Some (fun x -> resolveLibCall(fable.LibMap, x)) }
-                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, fableConfig)) ()
+                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME,
+                                                typedArrays=Map.find "--typedArrays" nonFSharpOptions,
+                                                typescript=Map.find "--typescript" nonFSharpOptions)) ()
             let (jsCode, babelTime, babelErrors) =
                 try
-                    let code, t = measureTime fable.BabelAstCompiler res.BabelAst
+//                    let code, t = measureTime fable.BabelAstCompiler res.BabelAst
+                    let code = "" // TODO
+                    let t = 0.
                     code, t, [||]
                 with ex ->
                     let error =

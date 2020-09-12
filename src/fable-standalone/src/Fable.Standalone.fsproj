@@ -29,6 +29,7 @@
     <Compile Include="../../Fable.Transforms/FSharp2Fable.fs" />
     <Compile Include="../../Fable.Transforms/FableTransforms.fs" />
     <Compile Include="../../Fable.Transforms/Fable2Babel.fs" />
+    <Compile Include="../../Fable.Transforms/BabelPrinter.fs" />
     <Compile Include="../../Fable.Transforms/State.fs" />
 
     <Compile Include="Interfaces.fs"/>

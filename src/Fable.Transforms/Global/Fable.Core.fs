@@ -1,5 +1,7 @@
 namespace Fable.Core
 
+open System
+
 // Common types with Fable.Core
 
 type CaseRules =
@@ -13,7 +15,7 @@ type CaseRules =
     /// FooBar -> foo-bar
     | KebabCase = 4
 
-//[<AttributeUsage(AttributeTargets.Class)>]
-//type StringEnumAttribute() =
-//    inherit Attribute()
-//    new (caseRules: CaseRules) = StringEnumAttribute()
+[<AttributeUsage(AttributeTargets.Class)>]
+type StringEnumAttribute() =
+   inherit Attribute()
+   new (caseRules: CaseRules) = StringEnumAttribute()

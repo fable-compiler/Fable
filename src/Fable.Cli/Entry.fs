@@ -36,6 +36,7 @@ Arguments:
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
   --exclude         Skip Fable compilation for files containing the pattern
+  --typed-arrays    Compile numeric arrays to JS typed arrays
   --force-pkgs      Force a new copy of package sources into `.fable` folder
 
 """

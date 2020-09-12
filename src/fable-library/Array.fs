@@ -572,7 +572,7 @@ let forAll predicate (array: 'T[]) =
 let permute f (array: 'T[]) =
     let size = array.Length
     let res = copyImpl array
-    let checkFlags = Array.zeroCreate size
+    let checkFlags = DynamicArrayCons.Create(size)
     iterateIndexed (fun i x ->
         let j = f i
         if j < 0 || j >= size then

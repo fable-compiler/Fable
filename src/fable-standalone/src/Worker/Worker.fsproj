@@ -9,6 +9,7 @@
     <Compile Include="../Metadata.fs" />
     <Compile Include="Shared.fs" />
     <Compile Include="Worker.fs" />
+    <Content Include="util.js" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="4.7.2" />
