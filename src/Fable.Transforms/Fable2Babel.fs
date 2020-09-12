@@ -1782,10 +1782,6 @@ module Util =
     let declareClassType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) classMembers =
         let consId = Identifier "constructor"
         let typeParamDecl = makeEntityTypeParamDecl com ctx ent
-        // let baseRef =
-        //     match baseExpr with
-        //     | Some baseRef -> baseRef
-        //     | _ -> makeImportTypeId com ctx "Types" "SystemObject" :> Expression
         let consBody =
             if ent.IsFSharpExceptionDeclaration then
                 let super = callSuperConstructor None [] |> ExpressionStatement :> Statement
