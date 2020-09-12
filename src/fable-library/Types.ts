@@ -1,5 +1,5 @@
 // tslint:disable: space-before-function-paren
-import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, identityHash, isComparable, isEquatable, isHashable, isSameType, isStringable, numberHash, structuralHash } from "./Util";
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, isSameType, isStringable, numberHash, structuralHash } from "./Util";
 
 export function objectToString(self: any) {
   if (isStringable(self)) {
@@ -9,24 +9,24 @@ export function objectToString(self: any) {
   }
 }
 
-export class SystemObject implements IEquatable<any> {
+// export class SystemObject implements IEquatable<any> {
 
-  public toString() {
-    return this.ToString();
-  }
+//   public toString() {
+//     return this.ToString();
+//   }
 
-  public ToString() {
-    return objectToString(this);
-  }
+//   public ToString() {
+//     return objectToString(this);
+//   }
 
-  public GetHashCode(x?: any) {
-    return identityHash(x ?? this);
-  }
+//   public GetHashCode(x?: any) {
+//     return identityHash(x ?? this);
+//   }
 
-  public Equals(x: any, y?: any) {
-    return x === (y ?? this);
-  }
-}
+//   public Equals(x: any, y?: any) {
+//     return x === (y ?? this);
+//   }
+// }
 
 function compareList<T>(self: List<T>, other: List<T>) {
   if (self === other) {
@@ -291,33 +291,38 @@ export class FSharpRef<T> {
 
 // EXCEPTIONS
 
-export class Exception extends Error implements IEquatable<any> {
-  constructor(message?: string) {
-    super(message)
-    if (Error.captureStackTrace) {
-        Error.captureStackTrace(this, Exception)
-    }
-  }
+// export class Exception extends Error implements IEquatable<any> {
+//   constructor(message?: string) {
+//     super(message);
+//     if (Error.captureStackTrace) {
+//         Error.captureStackTrace(this, Exception)
+//     }
+//   }
 
-  public toString() {
-    return this.ToString();
-  }
+//   public toString() {
+//     return this.ToString();
+//   }
 
-  public ToString() {
-    return Object.getPrototypeOf(this).constructor.name;
-  }
+//   public ToString() {
+//     return Object.getPrototypeOf(this).constructor.name;
+//   }
 
-  public GetHashCode(x?: any) {
-    return identityHash(x ?? this);
-  }
+//   public GetHashCode(x?: any) {
+//     return identityHash(x ?? this);
+//   }
 
-  public Equals(x: any, y?: any) {
-    return x === (y ?? this);
-  }
+//   public Equals(x: any, y?: any) {
+//     return x === (y ?? this);
+//   }
+// }
+
+// Exception is intentionally not derived from Error, for performance reasons (see #2160)
+export class Exception {
+  constructor(public message?: string) {}
 }
 
 export function isException(x: any) {
-  return x instanceof Error;
+  return x instanceof Exception || x instanceof Error;
 }
 
 function getFSharpExceptionFieldNames(self: any) {
