@@ -389,11 +389,18 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | Char | String -> head
         | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64 as t) ->
-            Helper.LibCall(com, coreModFor t, "toString", String, args)
+        | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+            Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number Int16 -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number Int32 -> Helper.LibCall(com, "Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
+        | DeclaredType(ent, _) ->
+            let moduleName, methodName =
+                if ent.IsFSharpUnion then "Types", "unionToString"
+                elif ent.IsFSharpRecord then "Types", "recordToString"
+                elif ent.IsValueType then "Types", "objectToString"
+                else "Types", "objectToString"
+            Helper.LibCall(com, moduleName, methodName, String, [head], ?loc=r)
         | _ -> Helper.GlobalCall("String", String, [head])
 
 let getParseParams (kind: NumberExtKind) =
@@ -663,14 +670,14 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
                |> addErrorAndReturnNull com ctx.InlinePath r
     let argTypes = resolveArgTypes argTypes genArgs
     match argTypes with
-    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
+    | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt|BclDateTime|BclDateTimeOffset as bt)::_ ->
         let opName =
             match bt, opName with
             | BclUInt64, Operators.rightShift -> "op_RightShiftUnsigned" // See #1482
             | BclDecimal, Operators.divideByInt -> Operators.division
             | _ -> opName
         Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc=r)
-    | Builtin(FSharpSet _)::_ ->
+    | Builtin (FSharpSet _)::_ ->
         let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" true opName ""
         Helper.LibCall(com, "Set", mangledName, t, args, argTypes, ?loc=r)
     // | Builtin (FSharpMap _)::_ ->
@@ -684,9 +691,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithJsComparison = function
-    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt)
+    | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt)
     | Array _ | List _ | Tuple _ | Option _ | MetaType -> false
-    | Builtin(BclGuid|BclTimeSpan) -> true
+    | Builtin (BclGuid|BclTimeSpan) -> true
     // TODO: Non-record/union declared types without custom equality
     // should be compatible with JS comparison
     | DeclaredType _ -> false
@@ -699,39 +706,56 @@ let isCompatibleWithJsComparison = function
 // * `hash`, `Unchecked.hash` first check if GetHashCode is implemented and then default to structural hash.
 // * `.GetHashCode` called directly defaults to identity hash (for reference types except string) if not implemented.
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
-let identityHash com r (arg: Expr) =
-    match arg.Type with
+
+let getEntityHashMethod (ent: Entity) =
+    if ent.IsFSharpUnion then "Types", "unionGetHashCode"
+    elif ent.IsFSharpRecord then "Types", "recordGetHashCode"
+    elif ent.IsValueType then "Types", "recordGetHashCode"
+    else "Util", "identityHash"
+
+let identityHashMethod = function
     | Boolean | Char | String | Number _ | Enum _ | Option _ | Tuple _ | List _
-    | Builtin(BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
-    | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
-    | Builtin(FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
-        Helper.LibCall(com, "Util", "structuralHash", Number Int32, [arg], ?loc=r)
-    | DeclaredType(ent,_) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
-        Helper.LibCall(com, "Util", "structuralHash", Number Int32, [arg], ?loc=r)
-    | DeclaredType(ent,_) ->
-        Helper.InstanceCall(arg, "GetHashCode", Number Int32, [], ?loc=r)
-    | _ ->
-        Helper.LibCall(com, "Util", "identityHash", Number Int32, [arg], ?loc=r)
+    | Builtin (BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
+    | Builtin (BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
+    | Builtin (FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
+        "Util", "structuralHash"
+    | DeclaredType(ent, _) -> getEntityHashMethod ent
+    | _ -> "Util", "identityHash"
+
+let structuralHashMethod = function
+    | DeclaredType(ent, _) -> getEntityHashMethod ent
+    | _ -> "Util", "structuralHash"
+
+let identityHash com r (arg: Expr) =
+    let moduleName, methodName = identityHashMethod arg.Type
+    Helper.LibCall(com, moduleName, methodName, Number Int32, [arg], ?loc=r)
 
 let structuralHash com r (arg: Expr) =
-    Helper.LibCall(com, "Util", "structuralHash", Number Int32, [arg], ?loc=r)
+    let moduleName, methodName = structuralHashMethod arg.Type
+    Helper.LibCall(com, moduleName, methodName, Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
-        if equal
-        then expr
+        if equal then expr
         else makeUnOp None Boolean expr UnaryNot
     match left.Type with
-    | Builtin(BclGuid|BclTimeSpan)
+    | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
         let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
         makeBinOp r Boolean left right op
-    | Builtin(BclDateTime|BclDateTimeOffset) ->
+    | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Builtin(FSharpSet _|FSharpMap _) ->
+    | Builtin (FSharpSet _|FSharpMap _) ->
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+    | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
+    | DeclaredType(ent, _) ->
+        let moduleName, methodName =
+            if ent.IsFSharpUnion then "Types", "unionEquals"
+            elif ent.IsFSharpRecord then "Types", "recordEquals"
+            elif ent.IsValueType then "Types", "recordEquals"
+            else "Util", "equals"
+        Helper.LibCall(com, moduleName, methodName, Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
@@ -747,13 +771,20 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
-    | Builtin(BclGuid|BclTimeSpan)
+    | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
         Helper.LibCall(com, "Util", "comparePrimitives", Number Int32, [left; right], ?loc=r)
-    | Builtin(BclDateTime|BclDateTimeOffset) ->
+    | Builtin (BclDateTime|BclDateTimeOffset) ->
         Helper.LibCall(com, "Date", "compare", Number Int32, [left; right], ?loc=r)
-    | Builtin(BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+    | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number Int32, [left; right], ?loc=r)
+    | DeclaredType(ent, _) ->
+        let moduleName, methodName =
+            if ent.IsFSharpUnion then "Types", "unionCompareTo"
+            elif ent.IsFSharpRecord then "Types", "recordCompareTo"
+            elif ent.IsValueType then "Types", "recordCompareTo"
+            else "Util", "compare"
+        Helper.LibCall(com, moduleName, methodName, Number Int32, [left; right], ?loc=r)
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "compareWith", Number Int32, [f; left; right], ?loc=r)
@@ -769,7 +800,7 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
 /// Wraps comparison with the binary operator, like `comparison < 0`
 and compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
     match left.Type with
-    | Builtin(BclGuid|BclTimeSpan)
+    | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
         makeEqOp r left right op
     | _ ->
@@ -790,8 +821,9 @@ let makeEqualityComparer (com: ICompiler) ctx typArg =
     let y = makeUniqueIdent ctx typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
     let f = Delegate([x; y], body, None)
+    let moduleName, methodName = structuralHashMethod typArg
     objExpr ["Equals", f
-             "GetHashCode", makeImportLib com Any "structuralHash" "Util"]
+             "GetHashCode", makeImportLib com Any methodName moduleName]
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -1326,13 +1358,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Builtin(BclDecimal)::_  ->
+        | Builtin (BclDecimal)::_  ->
             Helper.LibCall(com, "Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes "pow" |> Some
     | ("Ceiling" | "Floor" as meth), _ ->
         let meth = Naming.lowerFirst meth
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Builtin(BclDecimal)::_  ->
+        | Builtin (BclDecimal)::_  ->
             Helper.LibCall(com, "Decimal", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             let meth = if meth = "ceiling" then "ceil" else meth
@@ -1344,7 +1376,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeBinOp r t dividend divisor BinaryDivide |> Some
     | "Abs", _ ->
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Builtin(BclInt64 | BclBigInt | BclDecimal as bt)::_  ->
+        | Builtin (BclInt64 | BclBigInt | BclDecimal as bt)::_  ->
             Helper.LibCall(com, coreModFor bt, "abs", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Acos", _ | "Asin", _ | "Atan", _ | "Atan2", _
@@ -1353,12 +1385,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         math r t args i.SignatureArgTypes i.CompiledName |> Some
     | "Round", _ ->
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Builtin(BclDecimal)::_  ->
+        | Builtin (BclDecimal)::_  ->
             Helper.LibCall(com, "Decimal", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> Helper.LibCall(com, "Util", "round", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Truncate", _ ->
         match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
-        | Builtin(BclDecimal)::_  ->
+        | Builtin (BclDecimal)::_  ->
             Helper.LibCall(com, "Decimal", "truncate", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ -> Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, memb="trunc", ?loc=r) |> Some
     | "Sign", _ ->
@@ -1714,14 +1746,14 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some ar, _ -> get r t ar "length" |> Some
-    | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
-    | "set_Item", Some ar, [idx; value] -> Set(ar, Some(ExprKey idx), value, r) |> Some
+    | "get_Length", Some arg, _ -> get r t arg "length" |> Some
+    | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
+    | "set_Item", Some arg, [idx; value] -> Set(arg, Some(ExprKey idx), value, r) |> Some
     | "Copy", None, [source; target; count] ->
         Helper.LibCall(com, "Array", "copyTo", t, [source; makeIntConst 0; target; makeIntConst 0; count], i.SignatureArgTypes, ?loc=r) |> Some
     | "Copy", None, [source; sourceIndex; target; targetIndex; count] ->
         Helper.LibCall(com, "Array", "copyTo", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
+    | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1995,7 +2027,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
         match i.SignatureArgTypes with
         | [Array _] ->
             Helper.LibCall(com, "BigInt", "fromByteArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | [Builtin(BclInt64|BclUInt64)] ->
+        | [Builtin (BclInt64|BclUInt64)] ->
             Helper.LibCall(com, "BigInt", "fromInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             Helper.LibCall(com, "BigInt", "fromInt32", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2077,7 +2109,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        Helper.LibCall(com, "Util", "identityHash", Number Int32, [arg], ?loc=r) |> Some
+        Helper.LibCall(com, "Util", "physicalHash", Number Int32, [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
     |  "GenericEqualityERComparer"
     |  "FastGenericComparer"
@@ -2143,8 +2175,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 
 let runtimeHelpers (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, args with
-    | "GetHashCode", [arg] ->
-        identityHash com r arg |> Some
+    | "GetHashCode", [arg] -> identityHash com r arg |> Some
     | _ -> None
 
 let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
@@ -2244,15 +2275,11 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
 let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
-    | "GetHashCode", Some arg, _ ->
-        identityHash com r arg |> Some
-    | "ToString", Some arg, _ ->
-        toString com ctx r [arg] |> Some
-    | "ReferenceEquals", _, [left; right] ->
-        makeEqOp r left right BinaryEqualStrict |> Some
+    | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
+    | "ReferenceEquals", _, [left; right] -> makeEqOp r left right BinaryEqualStrict |> Some
     | "Equals", Some arg1, [arg2]
-    | "Equals", None, [arg1; arg2] ->
-        Helper.LibCall(com, "Util", "equals", t, [arg1; arg2], ?loc=r) |> Some
+    | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
+    | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
             "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
@@ -2261,20 +2288,21 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | _ -> None
 
 let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg with
-    | ".ctor", _ -> typedObjExpr t [] |> Some
-    | "ToString", Some thisArg ->
-        Helper.InstanceCall(thisArg, "toString", String, [], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("GetHashCode" | "Equals" | "CompareTo"), Some thisArg ->
-        Helper.InstanceCall(thisArg, i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName, thisArg, args with
+    | ".ctor", _, _ -> typedObjExpr t [] |> Some
+    | "ToString", Some arg, _ -> toString com ctx r [arg] |> Some
+    | "Equals", Some arg1, [arg2]
+    | "Equals", None, [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
+    | "GetHashCode", Some arg, _ -> structuralHash com r arg |> Some
+    | "CompareTo", Some arg1, [arg2] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | "DefaultOf" -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com ctx |> Some
-    | "Hash" -> structuralHash com r args.Head |> Some
-    | "Equals" -> Helper.LibCall(com, "Util", "equals", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "Compare" -> Helper.LibCall(com, "Util", "compare", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    match i.CompiledName, args with
+    | "DefaultOf", _ -> (genArg com ctx r 0 i.GenericArgs) |> defaultof com ctx |> Some
+    | "Hash", [arg] -> structuralHash com r arg |> Some
+    | "Equals", [arg1; arg2] -> equals com ctx r true arg1 arg2 |> Some
+    | "Compare", [arg1; arg2] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
 
 let enums (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

@@ -6,6 +6,16 @@ open Fable.Compiler.ProjectParser
 let references = Fable.Standalone.Metadata.references_core
 let metadataPath = "../../../fable-metadata/lib/" // .NET BCL binaries
 
+let getVersion() = ".next"
+
+type SourceWriter() =
+    let sb = System.Text.StringBuilder()
+    interface Fable.Standalone.IWriter with
+        member _.Write(str) = async { return sb.Append(str) |> ignore }
+        member _.EscapeJsStringLiteral(str) = javaScriptStringEncode(str)
+        member _.Dispose() = ()
+    member __.Result = sb.ToString()
+
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
         let errorType = (if e.IsWarning then "Warning" else "Error")
@@ -17,12 +27,6 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     if hasErrors then
         errors |> Array.iter printError
         failwith "Too many errors."
-
-let toFableCompilerConfig (options: CmdLineOptions): Fable.Standalone.CompilerConfig =
-    { typedArrays = false
-      clampByteArrays = false
-      typescript = options.typescript
-      precompiledLib = None }
 
 let parseFiles projectFileName outDir options =
     // parse project
@@ -43,6 +47,7 @@ let parseFiles projectFileName outDir options =
     let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
     let checker, ms0 = measureTime createChecker ()
+    printfn "fable-compiler-js" // v%s" (getVersion())
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
 
@@ -51,7 +56,7 @@ let parseFiles projectFileName outDir options =
     let parseRes, ms1 = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
-    let showWarnings = true // turning off warnings for cleaner output
+    let showWarnings = true
     parseRes.Errors |> printErrors showWarnings
 
     // clear cache to lower memory usage
@@ -61,48 +66,78 @@ let parseFiles projectFileName outDir options =
     // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
-    // Fable (F# to Babel)
-    let fableLibraryDir = "fable-library"
-    let fableConfig = options |> toFableCompilerConfig
-    let parseFable (res, fileName) = fable.CompileToBabelAst(fableLibraryDir, res, fileName, fableConfig)
-    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
+    // Fable (F# to JS)
+    // let fableLibraryDir = getFableLibDir()
+    let fableLibraryDir =
+        let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
+        projDir + "/../../../../build/fable-library" // TODO: get path from parameter
+    let parseFable (res, fileName) =
+        let fableLibraryDir = getRelativePath (Path.GetDirectoryName fileName) fableLibraryDir
+        fable.CompileToBabelAst(fableLibraryDir, res, fileName, typescript=options.typescript)
 
-    for fileName in fileNames do
+    // let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+    // let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
 
-        // print F# AST
-        if false then
-            let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
-            printfn "%s Typed AST: %s" fileName fsAstStr
+    async {
+        for fileName in fileNames do
+            // transform F# AST to Babel AST
+            let res, ms2 = measureTime parseFable (parseRes, fileName)
+            printfn "File: %s, Fable time: %d ms" fileName ms2
+            res.FableErrors |> printErrors showWarnings
 
-        // transform F# AST to Babel AST
-        let res, ms2 = measureTime parseFable (parseRes, fileName)
-        printfn "File: %s, Fable time: %d ms" fileName ms2
-        res.FableErrors |> printErrors showWarnings
+            // Print Babel AST (measure time?)
+            let fileExt = if options.typescript then ".ts" else ".js"
+            // let filePath = getRelativePath projDir fileName |> trimPath |> Path.GetFileNameWithoutExtension
+            // let jsFilePath = Path.Combine(outDir, fileName + fileExt)
+            let jsFilePath = fileName + fileExt
+            let writer = new SourceWriter()
+            do! fable.PrintBabelAst(res, writer)
+            writeAllText jsFilePath writer.Result
+    }
 
-        // save Babel AST
-        let filePath = getRelativePath projDir fileName |> trimPath
-        let jsFileName = Path.ChangeExtension(filePath, ".json")
-        let jsFilePath = Path.Combine(outDir, jsFileName)
-        let jsFileText = res.BabelAst |> serializeToJson
-        // printfn "%s Babel AST: %s" fileName jsFileText
-        ensureDirExists(Path.GetDirectoryName jsFilePath)
-        writeAllText jsFilePath jsFileText
+let run opts projectFileName outDir =
+    let commandToRun =
+        opts |> Array.tryFindIndex ((=) "--run")
+        |> Option.map (fun i ->
+            // TODO: This only works if the project is an .fsx file
+            let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
+            let runArgs = opts.[i+1..] |> String.concat " "
+            sprintf "node %s %s" scriptFile runArgs)
+    let options = {
+        optimize = opts |> Array.contains "--optimize-fcs"
+        sourceMaps = opts |> Array.contains "--sourceMaps"
+        typescript = opts |> Array.contains "--typescript"
+        watchMode = opts |> Array.contains "--watch"
+    }
+    async {
+        do! parseFiles projectFileName outDir options
+        // commandToRun |> Option.iter runCmdAndExitIfFails
+    }
+
+let runAsync computation =
+    async {
+        try
+            do! computation
+        with e ->
+            printfn "[ERROR] %s" e.Message
+            printfn "%s" e.StackTrace
+    } |> Async.StartImmediate
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
     let usage = "Usage: fable <PROJECT_PATH> <OUT_DIR> [--options]"
-    let opts, args = argv |> Array.partition (fun s -> s.StartsWith("--"))
-    match args with
-    | [| projectFileName; outDir |] ->
-        let options = {
-            commonjs = opts |> Array.contains "--commonjs"
-            optimize = opts |> Array.contains "--optimize-fcs"
-            sourceMaps = opts |> Array.contains "--sourceMaps"
-            typescript = opts |> Array.contains "--typescript"
-            watchMode = opts |> Array.contains "--watch"
-        }
-        parseFiles projectFileName outDir options
+    let args, opts =
+        match argv |> Array.tryFindIndex (fun s -> s.StartsWith("--")) with
+        | None -> argv, [||]
+        | Some i -> argv.[..i-1], argv.[i..]
+    match opts, args with
+    | [| "--help" |], _ -> printfn "%s" usage
+    | [| "--version" |], _ -> printfn "v%s" (getVersion())
+    | _, [| projectFileName |] ->
+        let outDir = Path.Combine(Path.GetDirectoryName(projectFileName), "bin")
+        run opts projectFileName outDir |> runAsync
+    | _, [| projectFileName; outDir |] ->
+        run opts projectFileName outDir |> runAsync
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]
@@ -110,5 +145,5 @@ let main argv =
     try
         parseArguments argv
     with ex ->
-        printfn "Error: %A" ex.Message
+        printfn "Error: %s\n%s" ex.Message ex.StackTrace
     0

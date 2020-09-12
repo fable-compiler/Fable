@@ -1,6 +1,6 @@
 import { value as getOptionValue } from "./Option";
-import { anonRecord as makeAnonRecord, Record, Union, List } from "./Types";
-import { compareArraysWith, equalArraysWith, isArrayLike } from "./Util";
+import { anonRecord as makeAnonRecord, List } from "./Types";
+import { compareArraysWith, equalArraysWith, isArrayLike, isUnionLike } from "./Util";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -299,11 +299,11 @@ export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
 }
 
 export function isUnion(t: any): boolean {
-  return t instanceof TypeInfo ? t.cases != null : t instanceof Union;
+  return t instanceof TypeInfo ? t.cases != null : isUnionLike(t);
 }
 
 export function isRecord(t: any): boolean {
-  return t instanceof TypeInfo ? t.fields != null : t instanceof Record;
+  return t instanceof TypeInfo ? t.fields != null : typeof t === "object" && !isUnionLike(t); // TODO: better test
 }
 
 export function isTuple(t: TypeInfo): boolean {
@@ -399,7 +399,7 @@ export function getValue(propertyInfo : PropertyInfo, v : any) : any {
 // Fable.Core.Reflection
 
 function assertUnion(x: any) {
-  if (!(x instanceof Union)) {
+  if (!isUnionLike(x)) {
     throw new Error(`Value is not an F# union type`);
   }
 }
@@ -411,7 +411,7 @@ export function getCaseTag(x: any): number {
 
 export function getCaseName(x: any): string {
   assertUnion(x);
-  return x.name;
+  return x.cases()[x.tag];
 }
 
 export function getCaseFields(x: any): any[] {

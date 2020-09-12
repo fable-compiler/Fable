@@ -95,9 +95,9 @@
             "type": "coreclr",
             "request": "launch",
             "name": "bench-compile (.NET)",
-            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
+            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp3.1/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--typescript"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {

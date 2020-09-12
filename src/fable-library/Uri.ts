@@ -62,6 +62,10 @@ export class Uri {
   }
 
   public toString() {
+    return this.ToString();
+  }
+
+  public ToString() {
     return decodeURIComponent(this.parseUrl().toString());
   }
 
