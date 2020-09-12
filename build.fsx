@@ -37,7 +37,7 @@ let cleanDirs dirs =
 
 let updateVersionInCliUtil() =
     let filePath = "src/Fable.Cli/Util.fs"
-    let version = Publish.loadReleaseVersion "src/fable-compiler"
+    let version = Publish.loadReleaseVersion "src/Fable.Cli"
     // printfn "VERSION %s" version
     Regex.Replace(
         readFile filePath,
@@ -344,7 +344,8 @@ let syncFcsRepo() =
     |> writeFile fcsFableProj
 
 let packages =
-    ["Fable.Core", doNothing
+    ["Fable.Cli", updateVersionInCliUtil
+     "Fable.Core", doNothing
      "fable-compiler-js", buildCompilerJs
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
