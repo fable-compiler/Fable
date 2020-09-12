@@ -30,6 +30,7 @@ Commands:
   -h|--help         Show help
   --version         Print version
   watch             Run Fable in watch mode
+  clean             Clean generated JS files
 
 Arguments:
   --define          Defines a symbol for use in conditional compilation
@@ -104,18 +105,51 @@ let run watchMode fsprojDirOrFilePath args =
                 | Ok _ -> 0
                 | Error _ -> 1
 
+let clean args dir =
+    let ignoreDirs = set ["bin"; "obj"; "node_modules"]
+    let ext =
+        argValue "--extension" args
+        |> Option.defaultValue CompilerOptionsHelper.DefaultFileExtension
+
+    let rec recClean dir =
+        IO.Directory.GetFiles(dir)
+        |> Array.choose (fun file ->
+            if file.EndsWith(".fs") then Some(file.[.. (file.Length - 4)])
+            else None)
+        |> Array.iter (fun filename ->
+            let file = filename + ext
+            if IO.File.Exists(file) then
+                IO.File.Delete(file)
+                Log.verbose(lazy ("Deleted " + file))
+        )
+
+        IO.Directory.GetDirectories(dir)
+        |> Array.filter (fun subdir ->
+            ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
+        |> Array.iter recClean
+
+    recClean dir
+    Log.always("Clean completed!")
+    0
+
 let (|SplitCommandArgs|) (xs: string list) =
     xs |> List.splitWhile (fun x -> x.StartsWith("-") |> not)
 
 [<EntryPoint>]
 let main argv =
-    Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+    let argv = List.ofArray argv
 
-    match List.ofArray argv with
+    Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+    if hasFlag "--verbose" argv then
+        Log.makeVerbose()
+
+    match argv with
     | ("help"|"--help"|"-h")::_ -> printHelp(); 0
     | ("--version")::_ -> printfn "%s" Literals.VERSION; 0
     | SplitCommandArgs(commands, args) ->
         match commands with
+        | ["clean"; dir] -> clean args dir
+        | ["clean"] -> IO.Directory.GetCurrentDirectory() |> clean args
         | ["watch"; path] -> run true (Some path) args
         | ["watch"] -> run true None args
         | [path] -> run false (Some path) args

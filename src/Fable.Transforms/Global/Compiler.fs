@@ -15,6 +15,7 @@ type CompilerOptions =
       abstract FileExtension: string
 
 type CompilerOptionsHelper =
+    static member DefaultFileExtension = ".fs.js"
     static member Make(?typedArrays,
                        ?typescript,
                        ?debugMode,
@@ -26,7 +27,7 @@ type CompilerOptionsHelper =
               member _.Typescript = defaultArg typescript false
               member _.DebugMode = defaultArg debugMode false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
-              member _.FileExtension = defaultArg fileExtension ".fs.js"
+              member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultFileExtension
               member _.ClampByteArrays = defaultArg clampByteArrays false }
 
 [<RequireQualifiedAccess>]

@@ -208,7 +208,7 @@ let buildCompilerJs() =
     copyDirRecursive ("src/fable-metadata/lib") (projectDir </> "dist/fable-metadata")
 
 let compileAndRunTests(compileTests) =
-    // TODO: "rm tests/**/*.fs.js"
+    runFableWithArgs "clean" ["tests"]
     compileTests()
     cleanDirs ["build/tests"]
     runTypescript "tests"
