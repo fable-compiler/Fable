@@ -1,5 +1,5 @@
-import { Choice, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option";
-import { IDisposable } from "./Util";
+import { Choice, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option.js";
+import { IDisposable } from "./Util.js";
 
 export interface IObserver<T> {
   OnNext: (x: T) => void;

@@ -1,6 +1,6 @@
-import { value as getOptionValue } from "./Option";
-import { anonRecord as makeAnonRecord, List } from "./Types";
-import { compareArraysWith, equalArraysWith, isArrayLike, isUnionLike } from "./Util";
+import { value as getOptionValue } from "./Option.js";
+import { anonRecord as makeAnonRecord, List } from "./Types.js";
+import { compareArraysWith, equalArraysWith, isArrayLike, isUnionLike } from "./Util.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;

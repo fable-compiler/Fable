@@ -8,8 +8,8 @@
  * Basically; invariant: date.getTime() always return UTC time.
  */
 
-import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
-import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util";
+import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
+import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export const offsetRegex = /(?:Z|[+-](\d+):?([0-5]?\d)?)\s*$/;
 
@@ -168,11 +168,11 @@ export function parseRaw(input: string) {
   if (input === null) {
     throw new Error("Value cannot be null when parsing DateTime");
   }
-  
+
   if (input.trim() === "") {
     throw new Error("An empty string is not recognized as a valid DateTime");
   }
-  
+
   let date = new Date(input);
   if (isNaN(date.getTime())) {
     // Try to check strings JS Date cannot parse (see #1045, #1422)

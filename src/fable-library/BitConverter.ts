@@ -1,5 +1,5 @@
-import { uint8 } from "./Int32";
-import Long, { fromBits, getHighBits, getHighBitsUnsigned, getLowBits, getLowBitsUnsigned } from "./Long";
+import { uint8 } from "./Int32.js";
+import Long, { fromBits, getHighBits, getHighBitsUnsigned, getLowBits, getLowBitsUnsigned } from "./Long.js";
 
 const littleEndian = true;
 

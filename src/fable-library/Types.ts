@@ -1,5 +1,5 @@
 // tslint:disable: space-before-function-paren
-import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, isSameType, isStringable, numberHash, structuralHash } from "./Util";
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, isSameType, isStringable, numberHash, structuralHash } from "./Util.js";
 
 export function objectToString(self: any) {
   if (isStringable(self)) {

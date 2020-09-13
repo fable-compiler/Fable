@@ -1,4 +1,4 @@
-import { uint8 } from "./Int32";
+import { uint8 } from "./Int32.js";
 
 const littleEndian = true;
 
