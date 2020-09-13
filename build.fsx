@@ -210,9 +210,7 @@ let buildCompilerJs() =
 let compileAndRunTests(compileTests) =
     runFableWithArgs "clean" ["tests"]
     compileTests()
-    cleanDirs ["build/tests"]
-    runTypescript "tests"
-    run "npx mocha build/tests/tests/Main --reporter dot -t 10000"
+    run "npx mocha tests/Main -r esm --reporter dot -t 10000"
 
 let testJs() =
     buildCompilerJs()
