@@ -104,11 +104,6 @@ module private Util =
 
     let getFSharpErrorLogs (proj: Project) =
         proj.Errors
-        // Ignore warnings from packages in `.fable` folder
-//        |> Array.filter (fun er ->
-//            if er.Severity = FSharpErrorSeverity.Warning then
-//                not(Naming.isInFableHiddenDir er.FileName)
-//            else true)
         |> Array.map (fun er ->
             let severity =
                 match er.Severity with
@@ -267,7 +262,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 let path = file.NormalizedFullPath
                 if Set.contains path changes then Some path
                 else None)
-//                    Some(File(file.NormalizedFullPath)) // Clear the cached source hash
             |> function
                 | [||] -> cracked, parsed, [||]
                 | dirtyFiles ->
@@ -277,7 +271,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                             File(file.NormalizedFullPath) // Clear the cached source hash
                         else file)
                     let parsed = ProjectParsed.Init(cracked, parsed.Checker)
-                    // TODO: Use WatchDependencies tree to check other files that need to be recompiled to JS
+                    // TODO: We probably need to recompile errored files too even if they're not touched
                     let filesToCompile =
                         cracked.SourceFiles
                         |> Array.choose (fun file ->
@@ -320,9 +314,11 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     Array.append logs [|log|], deps))
 
     // TODO: Print first info, then warning and finally errors
-    logs
-    |> Array.map formatLog
-    |> Array.iter Log.always
+    for log in logs do
+        match log.Severity, log.FileName with
+        // Ignore warnings from packages in `.fable` folder
+        | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> ()
+        | _ -> Log.always(formatLog log)
 
     match state.Watcher with
     | None ->

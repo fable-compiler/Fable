@@ -292,7 +292,7 @@ let githubRelease() =
         async {
             try
                 let ghreleases: GhRealeases = JsInterop.importAll "ghreleases"
-                let! version, notes = Publish.loadReleaseVersionAndNotes "src/fable-compiler"
+                let! version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
                 run <| sprintf "git commit -am \"Release %s\" && git push" version
                 let! res = ghreleases.create(user, token, "fable-compiler", "Fable", version, String.concat "\n" notes) |> Async.AwaitPromise
                 printfn "Github release %s created successfully" version

@@ -210,7 +210,9 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                     // Setters can have same name as getters, assume there will always be a getter
                     if not isSetter && nonMangledNameConflicts declaringEntityName name then
                         sprintf "Member %s is duplicated, use Mangle attribute to prevent conflicts with interfaces" name
-                        |> addError com ctx.InlinePath r
+                        // TODO: Temporarily emitting a warning, because this errors in old libraries,
+                        // like Fable.React.HookBindings
+                        |> addWarning com ctx.InlinePath r
                     name, isGetter, isSetter
             name, isMangled, isGetter, isSetter, isEnumerator, hasSpread
         | None ->
