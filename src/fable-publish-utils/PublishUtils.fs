@@ -359,14 +359,13 @@ module Publish =
                 let tempDir = fullPath(projDir </> "temp")
                 removeDirRecursive tempDir
                 runList ["dotnet pack"; projDir; sprintf "-c Release -o %s" tempDir]
-                let pkgName = filenameWithoutExtension projFile
                 let nupkg =
                     dirFiles tempDir
                     |> Seq.tryPick (fun path ->
-                        if path.Contains(pkgName) then Some(tempDir </> path) else None)
+                        if path.EndsWith(".nupkg") then Some(tempDir </> path) else None)
                     |> function
                         | Some x -> x
-                        | None -> failwithf "Cannot find .nupgk with name %s" pkgName
+                        | None -> failwithf "Cannot find .nupgk for %s" projDir
                 runList ["dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetKey]
                 removeDirRecursive tempDir
             with _ ->

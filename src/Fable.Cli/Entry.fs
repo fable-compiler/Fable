@@ -55,6 +55,8 @@ let run watchMode fsprojDirOrFilePath args =
                 | [] -> Error("Cannot find .fsproj in dir: " + path)
                 | [fsproj] -> Ok fsproj
                 | _ -> Error("Found multiple .fsproj in dir: " + path)
+        elif not(IO.File.Exists(path)) then
+            Error("File does not exist: " + path)
         else
             Ok path
     |> function

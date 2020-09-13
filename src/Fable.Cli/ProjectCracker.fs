@@ -391,14 +391,14 @@ let copyFableLibraryAndPackageSources (opts: Options) (pkgs: FablePackage list) 
         match opts.fableLib with
         | Some path -> Path.normalizeFullPath path
         | None ->
-            let execDir =
+            let assemblyDir =
               typeof<TypeInThisAssembly>.Assembly.Location
               |> Path.GetDirectoryName
 
             let defaultFableLibraryPaths =
-                [ "../../fable-library/"                     // running from nuget package
+                [ "../../../fable-library/"               // running from nuget tools package
                   "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
-                |> List.map (fun x -> Path.GetFullPath(Path.Combine(execDir, x)))
+                |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
 
             let fableLibrarySource =
                 defaultFableLibraryPaths

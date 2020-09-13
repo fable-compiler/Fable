@@ -344,7 +344,9 @@ let syncFcsRepo() =
     |> writeFile fcsFableProj
 
 let packages =
-    ["Fable.Cli", updateVersionInCliUtil
+    ["Fable.Cli", (fun () ->
+        updateVersionInCliUtil()
+        buildLibrary())
      "Fable.Core", doNothing
      "fable-compiler-js", buildCompilerJs
      "fable-metadata", doNothing
