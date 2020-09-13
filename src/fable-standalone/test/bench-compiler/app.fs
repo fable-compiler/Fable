@@ -7,6 +7,7 @@ let references = Fable.Standalone.Metadata.references_core
 let metadataPath = "../../../fable-metadata/lib/" // .NET BCL binaries
 
 let getVersion() = ".next"
+let getFableLibDir() = "../../../../build/fable-library" // TODO: get from options
 
 type SourceWriter() =
     let sb = System.Text.StringBuilder()
@@ -28,6 +29,15 @@ let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
         errors |> Array.iter printError
         failwith "Too many errors."
 
+let runAsync computation =
+    async {
+        try
+            do! computation
+        with e ->
+            printfn "[ERROR] %s" e.Message
+            printfn "%s" e.StackTrace
+    } |> Async.StartImmediate
+
 let parseFiles projectFileName outDir options =
     // parse project
     let (dllRefs, fileNames, otherOptions) = parseProject projectFileName
@@ -47,7 +57,7 @@ let parseFiles projectFileName outDir options =
     let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
     let checker, ms0 = measureTime createChecker ()
-    printfn "fable-compiler-js" // v%s" (getVersion())
+    printfn "fable-compiler-js v%s" (getVersion())
     printfn "--------------------------------------------"
     printfn "InteractiveChecker created in %d ms" ms0
 
@@ -56,8 +66,12 @@ let parseFiles projectFileName outDir options =
     let parseRes, ms1 = measureTime parseFSharpProject ()
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
-    let showWarnings = true
+    let showWarnings = not options.benchmark
     parseRes.Errors |> printErrors showWarnings
+
+    // early stop for benchmarking
+    if options.benchmark then ()
+    else
 
     // clear cache to lower memory usage
     if not options.watchMode then
@@ -67,10 +81,10 @@ let parseFiles projectFileName outDir options =
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to JS)
-    // let fableLibraryDir = getFableLibDir()
+    // let fableLibraryDir = getFableLibDir() |> normalizeFullPath
     let fableLibraryDir =
         let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
-        projDir + "/../../../../build/fable-library" // TODO: get path from parameter
+        Path.Combine(projDir, getFableLibDir()) |> normalizeFullPath
     let parseFable (res, fileName) =
         let fableLibraryDir = getRelativePath (Path.GetDirectoryName fileName) fableLibraryDir
         fable.CompileToBabelAst(fableLibraryDir, res, fileName, typescript=options.typescript)
@@ -93,7 +107,7 @@ let parseFiles projectFileName outDir options =
             let writer = new SourceWriter()
             do! fable.PrintBabelAst(res, writer)
             writeAllText jsFilePath writer.Result
-    }
+    } |> runAsync
 
 let run opts projectFileName outDir =
     let commandToRun =
@@ -104,24 +118,14 @@ let run opts projectFileName outDir =
             let runArgs = opts.[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
+        benchmark = opts |> Array.contains "--benchmark"
         optimize = opts |> Array.contains "--optimize-fcs"
         sourceMaps = opts |> Array.contains "--sourceMaps"
         typescript = opts |> Array.contains "--typescript"
         watchMode = opts |> Array.contains "--watch"
     }
-    async {
-        do! parseFiles projectFileName outDir options
-        // commandToRun |> Option.iter runCmdAndExitIfFails
-    }
-
-let runAsync computation =
-    async {
-        try
-            do! computation
-        with e ->
-            printfn "[ERROR] %s" e.Message
-            printfn "%s" e.StackTrace
-    } |> Async.StartImmediate
+    parseFiles projectFileName outDir options
+    // commandToRun |> Option.iter runCmdAndExitIfFails
 
 let parseArguments (argv: string[]) =
     // TODO: more sophisticated argument parsing
@@ -135,9 +139,9 @@ let parseArguments (argv: string[]) =
     | [| "--version" |], _ -> printfn "v%s" (getVersion())
     | _, [| projectFileName |] ->
         let outDir = Path.Combine(Path.GetDirectoryName(projectFileName), "bin")
-        run opts projectFileName outDir |> runAsync
+        run opts projectFileName outDir
     | _, [| projectFileName; outDir |] ->
-        run opts projectFileName outDir |> runAsync
+        run opts projectFileName outDir
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]
