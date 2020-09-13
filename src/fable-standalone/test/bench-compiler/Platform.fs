@@ -1,6 +1,7 @@
 module Fable.Compiler.Platform
 
 type CmdLineOptions = {
+    benchmark: bool
     optimize: bool
     sourceMaps: bool
     typescript: bool
