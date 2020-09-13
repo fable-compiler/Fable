@@ -1,5 +1,5 @@
-import { isValid } from "./Int32";
-import * as LongLib from "./lib/long";
+import { isValid } from "./Int32.js";
+import * as LongLib from "./lib/long.js";
 
 export default LongLib.Long;
 export type Long = LongLib.Long;

@@ -1,5 +1,5 @@
-import Event from "./Event";
-import { IDisposable } from "./Util";
+import Event from "./Event.js";
+import { IDisposable } from "./Util.js";
 
 export class Timer implements IDisposable {
   public Interval: number;

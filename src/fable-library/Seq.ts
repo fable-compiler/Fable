@@ -1,7 +1,7 @@
-import Decimal, { makeRangeStepFunction as makeDecimalRangeStepFunction } from "./Decimal";
-import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long";
-import { Option, some, value } from "./Option";
-import { compare, equals, IComparer, IDisposable } from "./Util";
+import Decimal, { makeRangeStepFunction as makeDecimalRangeStepFunction } from "./Decimal.js";
+import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long.js";
+import { Option, some, value } from "./Option.js";
+import { compare, equals, IComparer, IDisposable } from "./Util.js";
 
 export interface IEnumerator<T> {
   Current: T | undefined;

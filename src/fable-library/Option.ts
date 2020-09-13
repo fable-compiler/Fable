@@ -1,4 +1,4 @@
-import { compare, equals, structuralHash } from "./Util";
+import { compare, equals, structuralHash } from "./Util.js";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate

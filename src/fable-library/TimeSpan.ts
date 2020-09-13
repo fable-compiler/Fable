@@ -1,6 +1,6 @@
 // tslint:disable:max-line-length
-import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long";
-import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util";
+import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long.js";
+import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 

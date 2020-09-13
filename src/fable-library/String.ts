@@ -1,7 +1,7 @@
-import { toString as dateToString } from "./Date";
-import Decimal from "./Decimal";
-import Long, * as _Long from "./Long";
-import { escape } from "./RegExp";
+import { toString as dateToString } from "./Date.js";
+import Decimal from "./Decimal.js";
+import Long, * as _Long from "./Long.js";
+import { escape } from "./RegExp.js";
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
@@ -309,7 +309,7 @@ export function format(str: string, ...args: any[]) {
       }
     } else if (rep instanceof Date) {
       rep = dateToString(rep, pattern || format);
-    } 
+    }
     padLength = parseInt((padLength || " ").substring(1), 10);
     if (!isNaN(padLength)) {
       rep = padLeft(String(rep), Math.abs(padLength), " ", padLength < 0);
