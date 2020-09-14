@@ -599,6 +599,11 @@ let tests =
         xs |> Array.sort |> Array.take 3 |> Array.sum |> equal 0
         ys |> Array.sort |> Array.item 1 |> equal "a"
 
+    testCase "Array.sort with tuples works" <| fun () ->
+        let xs = [|3; 1; 1; -3|]
+        let ys = [|"a"; "c"; "B"; "d"|]
+        (xs, ys) ||> Array.zip |> Array.sort |> Array.item 1 |> equal (1, "B")
+
     testCase "Array.truncate works" <| fun () ->
         let xs = [|1.; 2.; 3.; 4.; 5.|]
         xs |> Array.truncate 2
@@ -624,6 +629,12 @@ let tests =
         let ys = xs |> Array.sortBy (fun x -> -x)
         ys.[0] + ys.[1]
         |> equal 7.
+
+    testCase "Array.sortByDescending works" <| fun () ->
+        let xs = [|3.; 4.; 1.; 2.|]
+        let ys = xs |> Array.sortByDescending (fun x -> -x)
+        ys.[0] + ys.[1]
+        |> equal 3.
 
     testCase "Array.sortWith works" <| fun () ->
         let xs = [|3.; 4.; 1.; 2.|]
@@ -859,10 +870,8 @@ let tests =
         snd xs.[2] |> equal "c"
 
     testCase "Array.chunkBySize works" <| fun () ->
-        Array.chunkBySize 4 [|1..8|]
-        |> equal [| [|1..4|]; [|5..8|] |]
-        Array.chunkBySize 4 [|1..10|]
-        |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
+        [|1..8|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|] |]
+        [|1..10|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
 
     testCase "Array.splitAt works" <| fun () ->
         let ar = [|1;2;3;4|]
@@ -959,11 +968,11 @@ let tests =
         equal [| "a"; "xx"; "xyz" |] destination
 
     testCase "Array.splitInto works" <| fun () ->
-        Array.splitInto 3 [|1..10|] |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
-        Array.splitInto 3 [|1..11|] |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
-        Array.splitInto 3 [|1..12|] |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
-        Array.splitInto 4 [|1..5|] |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
-        Array.splitInto 20 [|1..4|] |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
+        [|1..10|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..7|]; [|8..10|] |]
+        [|1..11|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..11|] |]
+        [|1..12|] |> Array.splitInto 3 |> equal [| [|1..4|]; [|5..8|]; [|9..12|] |]
+        [|1..5|] |> Array.splitInto 4 |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
+        [|1..4|] |> Array.splitInto 20 |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
 
     testCase "Array.exactlyOne works" <| fun () ->
             [|1.|] |> Array.exactlyOne |> equal 1.

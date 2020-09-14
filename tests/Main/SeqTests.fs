@@ -81,21 +81,21 @@ let tests =
         |> equal 1.
 
     testCase "Seq.average works" <| fun () ->
-        let xs = seq {yield 1.; yield 2.; yield 3.; yield 4.}
+        let xs = seq {1.; 2.; 3.; 4.}
         Seq.average xs
         |> equal 2.5
 
     testCase "Seq.averageBy works" <| fun () ->
-        let xs = seq {yield 1.; yield 2.; yield 3.; yield 4.}
+        let xs = seq {1.; 2.; 3.; 4.}
         Seq.averageBy ((*) 2.) xs
         |> equal 5.
 
     testCase "Seq.average works with custom types" <| fun () ->
-        seq {yield MyNumber 1; yield MyNumber 2; yield MyNumber 3}
+        seq {MyNumber 1; MyNumber 2; MyNumber 3}
         |> Seq.average |> equal (MyNumber 2)
 
     testCase "Seq.averageBy works with custom types" <| fun () ->
-        seq {yield { MyNumber = MyNumber 5 }; yield { MyNumber = MyNumber 4 }; yield { MyNumber = MyNumber 3 }}
+        seq {{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }}
         |> Seq.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
     testCase "Seq.choose works" <| fun () ->
@@ -107,7 +107,7 @@ let tests =
         |> equal 7.
 
     testCase "Seq.choose works with generic arguments" <| fun () ->
-        let res = testSeqChoose  [ Some [  5  ] ]
+        let res = testSeqChoose [ Some [ 5 ] ]
         equal [ 5 ] res
 
     testCase "Seq.concat works" <| fun () ->
@@ -139,26 +139,14 @@ let tests =
         seq {
             for xs in xss do
                 for x in xs do
-                    yield x
+                    x
         }
         |> Seq.length
         |> equal 4
 
     testCase "Seq.chunkBySize works" <| fun () ->
-        let xs = [1;2;3]
-        Seq.chunkBySize 1 xs // [[1]; [2]; [3]]
-        |> Seq.length
-        |> equal 3
-
-        Seq.chunkBySize 2 xs // [[1;2]; [3]]
-        |> Seq.head
-        |> Seq.sum
-        |> equal 3
-
-        Seq.chunkBySize 10 xs // [[1;2;3]]
-        |> Seq.head
-        |> Seq.sum
-        |> equal 6
+        seq {1..8} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|] ]
+        seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
 
     testCase "Seq.exists works" <| fun () ->
         let xs = [1.; 2.; 3.; 4.]
@@ -341,7 +329,7 @@ let tests =
         |> equal 1.
 
     testCase "Seq.indexed works" <| fun () ->
-        let xs = seq { yield "a"; yield "b"; yield "c" } |> Seq.indexed
+        let xs = seq { "a"; "b"; "c" } |> Seq.indexed
         let x = xs |> Seq.tail |> Seq.head
         fst x |> equal 1
         snd x |> equal "b"
@@ -434,11 +422,11 @@ let tests =
         [p1; p2] |> Seq.sumBy (fun p -> p.y) |> equal 30
 
     testCase "Seq.sum with non numeric types works II" <| fun () ->
-        seq {yield MyNumber 1; yield MyNumber 2; yield MyNumber 3}
+        seq {MyNumber 1; MyNumber 2; MyNumber 3}
         |> Seq.sum |> equal (MyNumber 6)
 
     testCase "Seq.sumBy with non numeric types works II" <| fun () ->
-        seq {yield { MyNumber = MyNumber 5 }; yield { MyNumber = MyNumber 4 }; yield { MyNumber = MyNumber 3 }}
+        seq {{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }}
         |> Seq.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
     testCase "Seq.item works" <| fun () ->
@@ -560,9 +548,14 @@ let tests =
 
     testCase "Seq.sort works" <| fun () ->
         let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
-        xs |> Seq.sort |> Seq.take 3 |> Seq.sum |> equal 0.
         let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+        xs |> Seq.sort |> Seq.take 3 |> Seq.sum |> equal 0.
         ys |> Seq.sort |> Seq.item 1 |> equal "a"
+
+    testCase "Seq.sort with tuples works" <| fun () ->
+        let xs = seq {3; 1; 1; -3}
+        let ys = seq {"a"; "c"; "B"; "d"}
+        (xs, ys) ||> Seq.zip |> Seq.sort |> Seq.item 1 |> equal (1, "B")
 
     testCase "Seq.sortDescending works" <| fun () ->
         let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
@@ -575,6 +568,12 @@ let tests =
         let ys = xs |> Seq.sortBy (fun x -> -x)
         sumFirstTwo ys
         |> equal 7.
+
+    testCase "Seq.sortByDescending works" <| fun () ->
+        let xs = [3.; 1.; 4.; 2.]
+        let ys = xs |> Seq.sortByDescending (fun x -> -x)
+        sumFirstTwo ys
+        |> equal 3.
 
     testCase "Seq.skip works" <| fun () ->
         let xs = [1.; 2.; 3.]
@@ -738,8 +737,8 @@ let tests =
         |> equal 1.
 
     testCase "Seq.tryExactlyOne works" <| fun () ->
-            seq {yield 1.} |> Seq.tryExactlyOne |> equal (Some 1.)
-            seq {yield 1.; yield 2.} |> Seq.tryExactlyOne |> equal None
+            seq {1.} |> Seq.tryExactlyOne |> equal (Some 1.)
+            seq {1.; 2.} |> Seq.tryExactlyOne |> equal None
             Seq.empty<float> |> Seq.tryExactlyOne |> equal None
 
     testCase "Seq.initInfinite works" <| fun () ->
@@ -839,7 +838,7 @@ let tests =
         (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
 
     testCase "Seq iterators from range do rewind" <| fun () ->
-        let xs = seq {for i=1 to 5 do yield i}
+        let xs = seq {for i=1 to 5 do i}
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
         xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
@@ -867,8 +866,8 @@ let tests =
     testCase "Seq.allPairs works" <| fun () ->
         let mutable accX = 0
         let mutable accY = 0
-        let xs = seq { accX <- accX + 1; for i = 1 to 4 do yield i }
-        let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do yield i }
+        let xs = seq { accX <- accX + 1; for i = 1 to 4 do i }
+        let ys = seq { accY <- accY + 1; for i = 'a' to 'f' do i }
         let res = Seq.allPairs xs ys
         let res1 = List.ofSeq res
         let res2 = List.ofSeq res
@@ -881,6 +880,13 @@ let tests =
         accY |> equal 1
         equal expected res1
         equal expected res2
+
+    testCase "Seq.splitInto works" <| fun () ->
+        seq {1..10} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..7|]; [|8..10|] ]
+        seq {1..11} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..11|] ]
+        seq {1..12} |> Seq.splitInto 3 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..12|] ]
+        seq {1..5} |> Seq.splitInto 4 |> Seq.toList |> equal [ [|1..2|]; [|3|]; [|4|]; [|5|] ]
+        seq {1..4} |> Seq.splitInto 20 |> Seq.toList |> equal [ [|1|]; [|2|]; [|3|]; [|4|] ]
 
     testCase "Seq.transpose works" <| fun () ->
         let seqEqual (expected: seq<'T seq>) (actual: seq<'T seq>) =
@@ -907,7 +913,7 @@ let tests =
         // sequences of lists
         Seq.transpose [["a";"b"]; ["c";"d"]]
         |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
-        Seq.transpose (seq { yield ["a";"b"]; yield ["c";"d"] })
+        Seq.transpose (seq { ["a";"b"]; ["c";"d"] })
         |> seqEqual [seq ["a";"c"]; seq ["b";"d"]]
 
   ]

@@ -1,4 +1,3 @@
-// tslint:disable: space-before-function-paren
 import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, isSameType, isStringable, numberHash, structuralHash } from "./Util.js";
 
 export function objectToString(self: any) {
@@ -318,7 +317,7 @@ export class FSharpRef<T> {
 
 // Exception is intentionally not derived from Error, for performance reasons (see #2160)
 export class Exception {
-  constructor(public message?: string) {}
+  constructor(public message?: string) { }
 }
 
 export function isException(x: any) {

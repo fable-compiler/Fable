@@ -124,8 +124,9 @@
             "args": [
                 "--no-timeouts",
                 "--colors",
+                "-r", "esm",
                 // "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-tests"
-                "${workspaceFolder}/build/tests"
+                "${workspaceFolder}/tests/Main"
             ],
             "internalConsoleOptions": "openOnSessionStart"
         },

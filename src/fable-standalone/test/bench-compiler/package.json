@@ -6,14 +6,15 @@
     "build-fable": "dotnet run -c Release -p ../../Fable.Compiler yarn-splitter",
     "build-fable-js": "fable bench-compiler.fsproj out-node --commonjs",
 
+    "prebuild-dotnet": "git clean -fdx",
     "build-dotnet": "dotnet run -c Release bench-compiler.fsproj out-node",
     "build-dotnet-opt": "dotnet run -c Release bench-compiler.fsproj out-node --optimize-fcs",
     "postbuild-dotnet": "npm run build-dotnet-out && npm run rollup-bundle",
-    "build-dotnet-out": "rm -rf dist && rm -rf out-node && npm run tsc -- --outDir ./out-node",
+    "build-dotnet-out": "npm run tsc -- --outDir ./out-node",
 
     "build-node": "node dist/bundle.js bench-compiler.fsproj out-node2",
-    "build-node2": "node ./out-node/src/fable-standalone/test/bench-compiler/app.fs.js bench-compiler.fsproj out-node2 --benchmark",
     "bench-node": "node dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
+    "bench-node2": "node ./out-node/src/fable-standalone/test/bench-compiler/app.fs.js bench-compiler.fsproj out-node2 --benchmark",
 
     "compile-native": "dotnet publish -c Release -r win-x64",
     "native": "cd . && \"bin/Release/netcoreapp2.1/win-x64/native/bench-compiler\"",
