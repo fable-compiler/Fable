@@ -841,7 +841,7 @@ let makeMap (com: ICompiler) ctx r t methName args genArg =
     Helper.LibCall(com, "Map", Naming.lowerFirst methName, t, args, ?loc=r)
 
 let makeDictionaryWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "Map", "createMutable", t, [sourceSeq; comparer], ?loc=r)
+    Helper.LibCall(com, "MutableMap", "Dictionary", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
 
 let makeDictionary (com: ICompiler) ctx r t sourceSeq =
     match t with
@@ -852,7 +852,7 @@ let makeDictionary (com: ICompiler) ctx r t sourceSeq =
     | _ -> Helper.GlobalCall("Map", t, [sourceSeq], isJsConstructor=true, ?loc=r)
 
 let makeHashSetWithComparer com r t sourceSeq comparer =
-    Helper.LibCall(com, "Set", "createMutable", t, [sourceSeq; comparer], ?loc=r)
+    Helper.LibCall(com, "MutableSet", "HashSet", t, [sourceSeq; comparer], isJsConstructor=true, ?loc=r)
 
 let makeHashSet (com: ICompiler) ctx r t sourceSeq =
     match t with
@@ -1618,17 +1618,12 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
 
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
-    | ("Cache"|"ToArray"), [arg] -> toArray com t arg |> Some
+    | ("Cache" | "ToArray"), [arg] -> toArray com t arg |> Some
     | "OfList", [arg] -> toSeq t arg |> Some
     | "ToList", _ -> Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "ChunkBySize" | "Permute" as meth, [arg1; arg2] ->
+    | ("ChunkBySize" | "Permute" | "SplitInto") as meth, [arg1; arg2] ->
         let arg2 = toArray com (Array Any) arg2
-        let args =
-            match meth, t with
-            | "Permute", DeclaredType(_seq, [genArg]) ->
-                [arg1; arg2] @ [arrayCons com genArg]
-            | _ -> [arg1; arg2]
-        let result = Helper.LibCall(com, "Array", Naming.lowerFirst meth, Any, args)
+        let result = Helper.LibCall(com, "Array", Naming.lowerFirst meth, Any, [arg1; arg2])
         Helper.LibCall(com, "Seq", "ofArray", t, [result]) |> Some
     // For Using we need to cast the argument to IDisposable
     | "EnumerateUsing", [arg; f] ->
@@ -1700,6 +1695,8 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.LibCall(com, "Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
     | "AddRange", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
+    | "GetRange", Some ar, [idx; cnt] ->
+        Helper.LibCall(com, "Array", "getSubArray", t, [ar; idx; cnt], ?loc=r) |> Some
     | "Contains", Some (MaybeCasted(ar)), [arg] ->
         match ar.Type with
         | Array _ ->
@@ -1776,6 +1773,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "ToSeq", [arg] -> Some arg
     | "OfSeq", [arg] -> toArray com t arg |> Some
     | "OfList", [arg] -> listToArray com r t arg |> Some
+    | "ToList", _ -> Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Length" | "Count"), [arg] -> get r t arg "length" |> Some
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
@@ -2616,12 +2614,6 @@ let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
     | Some callee, "GetEnumerator" -> getEnumerator com r t callee |> Some
     | _ -> None
 
-let enumerators (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg with
-    | "get_Current", Some x -> get r t x "Current" |> Some
-    | meth, Some x -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | _ -> None
-
 let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
@@ -2908,11 +2900,6 @@ let private replacedModules =
     Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
     "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
-    Types.ienumeratorGeneric, enumerators
-    "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
-    "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
-    "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
-    "System.Collections.Generic.List`1.Enumerator", enumerators
     Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
     "System.Collections.IList", resizeArrays
@@ -3048,7 +3035,7 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | [Number _; IEqualityComparer], [_; eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected dictionary constructor"
-        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "MutableMap`2"
+        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Dictionary"
         Some(makeImportLib com Any entityName "MutableMap", args)
     | Types.hashset ->
         let args =
@@ -3062,6 +3049,6 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | [IEqualityComparer], [eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected hashset constructor"
-        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "MutableSet`1"
+        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
     | _ -> None

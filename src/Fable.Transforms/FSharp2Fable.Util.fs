@@ -264,7 +264,6 @@ module Helpers =
         then [||] :> IList<_>
         else (nonAbbreviatedType t).GenericArguments
 
-
     let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.Entity) =
         match ent.FullName with
         | fullName when not trimRootModule -> fullName
@@ -1179,7 +1178,6 @@ module Util =
             | "System.IObservable`1"
             | "System.IObserver`1"
             | Types.ienumerableGeneric
-            | Types.ienumerator
             // These are used for injections
             | Types.comparer
             | Types.equalityComparer -> false

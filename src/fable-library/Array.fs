@@ -279,18 +279,18 @@ let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComp
         array |> filterImpl cached.Add
 
 let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
-    let dict = Dictionary<'Key, 'T list>(eq)
+    let dict = Dictionary<'Key, ResizeArray<'T>>(eq)
     let keys: 'Key[] = [||]
     for v in array do
         let key = projection v
         match dict.TryGetValue(key) with
         | true, prev ->
-            dict.[key] <- v::prev
+            prev.Add(v)
         | false, _ ->
-            dict.Add(key, [v])
+            dict.Add(key, ResizeArray [|v|])
             pushImpl keys key |> ignore
     let result =
-        map (fun key -> key, (cons.FromSequence dict.[key] |> reverseImpl)) keys DynamicArrayCons
+        map (fun key -> key, cons.FromSequence dict.[key]) keys DynamicArrayCons
     result
 
 let inline private emptyImpl (cons: IArrayCons<'T>) = cons.Create(0)
@@ -847,12 +847,7 @@ let ofSeq (source: 'T seq) ([<Inject>] cons: IArrayCons<'T>) =
 let ofList (source: 'T list) ([<Inject>] cons: IArrayCons<'T>) =
     cons.FromSequence(source)
 
-let toList (source: 'T[]) =
-    let len = source.Length
-    let mutable target = []
-    for i = (len - 1) downto 0 do
-        target <- source.[i]::target
-    target
+// let toList (source: 'T[]) = List.ofArray (see Replacements)
 
 // TODO: Pass array constructor here too?
 let windowed (windowSize: int) (source: 'T[]): 'T[][] =
