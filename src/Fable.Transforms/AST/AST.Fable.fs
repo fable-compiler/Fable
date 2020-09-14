@@ -215,7 +215,7 @@ type CallInfo =
 type ReplaceCallInfo =
     { CompiledName: string
       OverloadSuffix: Lazy<string>
-      /// See ArgIngo.SignatureArgTypes
+      /// See ArgInfo.SignatureArgTypes
       SignatureArgTypes: Type list
       HasSpread: bool
       IsModuleValue: bool
@@ -226,6 +226,8 @@ type ReplaceCallInfo =
 type EmitInfo =
     { Macro: string
       Args: Expr list
+      /// Unused at the moment
+      SignatureArgTypes: Type list
       IsJsStatement: bool }
 
 type ImportInfo =

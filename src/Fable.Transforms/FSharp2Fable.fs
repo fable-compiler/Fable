@@ -587,6 +587,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let emitInfo: Fable.EmitInfo =
             { Macro = "$0($1...)"
               Args = e::args
+              SignatureArgTypes = [] // TODO
               IsJsStatement = false }
         return Fable.Emit(emitInfo, typ, makeRangeFrom fsExpr)
 
@@ -1043,7 +1044,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         []
     else transformMemberFunctionOrValue com ctx memb args body
 
-let private addUsedRootName com (usedRootNames: Set<string>) name =
+let private addUsedRootName com name (usedRootNames: Set<string>) =
     if Set.contains name usedRootNames then
         "Cannot have two module members with same name: " + name
         |> addError com [] None
@@ -1060,15 +1061,18 @@ let rec private getUsedRootNames com (usedNames: Set<string>) decls =
                 || isGlobalOrImportedEntity ent then
                 usedNames
             else
-                getEntityDeclarationName com ent
-                |> addUsedRootName com usedNames
+                let entName = getEntityDeclarationName com ent
+                addUsedRootName com entName usedNames
+                // Fable will inject an extra declaration for reflection,
+                // so add also the name with the reflection suffix
+                |> addUsedRootName com (entName + Naming.reflectionSuffix)
         | Entity(_, sub) ->
             getUsedRootNames com usedNames sub
         | MemberOrFunctionOrValue(memb,_,_) ->
             if memb.IsOverrideOrExplicitInterfaceImplementation then usedNames
             else
                 let memberName, _ = getMemberDeclarationName com memb
-                addUsedRootName com usedNames memberName
+                addUsedRootName com memberName usedNames
         | InitAction _ -> usedNames)
 
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =

@@ -4,7 +4,7 @@ open System.IO
 
 module Literals =
 
-    let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-002"
+    let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-003"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
 type CliArgs =

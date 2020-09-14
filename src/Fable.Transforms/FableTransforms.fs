@@ -462,12 +462,15 @@ module private Transforms =
                 CurriedApply(callee, uncurryArgs com false argTypes args, t, r)
             | _ -> e
         | Emit(info, t, r) ->
-            Emit({ info with Args = uncurryArgs com true [] info.Args }, t, r)
+            let autoUncurrying = List.isEmpty info.SignatureArgTypes
+            let args = uncurryArgs com autoUncurrying info.SignatureArgTypes info.Args
+            Emit({ info with Args = args }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
             let args = uncurryConsArgs args ent.FSharpFields
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs), r) ->
+            // TODO: Use field types instead of auto-uncurrying?
             let args = uncurryArgs com true [] args
             Value(NewAnonymousRecord(args, fieldNames, genArgs), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->

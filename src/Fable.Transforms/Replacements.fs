@@ -1134,7 +1134,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | Fable.Value(Fable.StringConstant macro,_) ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
-                let info: Fable.EmitInfo = { Macro = macro; Args = args; IsJsStatement = isStatement }
+                let info: Fable.EmitInfo =
+                    { Macro = macro
+                      Args = args
+                      SignatureArgTypes = []
+                      IsJsStatement = isStatement }
                 Emit(info, t, r) |> Some
             | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->

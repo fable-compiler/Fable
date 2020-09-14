@@ -439,9 +439,20 @@ module Helpers =
         | _ -> false
 
     let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
-        if memb.CurriedParameterGroups.Count <> 1 then false else
-        let args = memb.CurriedParameterGroups.[0]
-        args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
+
+        let hasParamArray (memb: FSharpMemberOrFunctionOrValue) =
+            if memb.CurriedParameterGroups.Count <> 1 then false else
+            let args = memb.CurriedParameterGroups.[0]
+            args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
+
+        // TODO: Remove this after removing ParamList from Fable.React
+        let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
+            Seq.tryLast memb.CurriedParameterGroups
+            |> Option.bind Seq.tryLast
+            |> Option.map (fun lastParam -> hasAttribute "Fable.Core.ParamListAttribute" lastParam.Attributes)
+            |> Option.defaultValue false
+
+        hasParamArray memb || hasParamSeq memb
 
 module Patterns =
     open BasicPatterns
@@ -1274,6 +1285,7 @@ module Util =
                 let i: Fable.EmitInfo = {
                     Macro = macro
                     Args = args
+                    SignatureArgTypes = [] // TODO
                     IsJsStatement = isStatement
                 }
                 Fable.Emit(i, typ, r) |> Some

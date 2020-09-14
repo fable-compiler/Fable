@@ -1955,14 +1955,26 @@ module Util =
             match classDecl.BaseCall with
             | Some baseCall ->
                 match baseCall with
-                | Fable.Call(TransformExpr com ctx baseRef, info,_,_) ->
-                    let args = transformCallArgs com ctx info.HasSpread info.Args
-                    let baseCall = callSuperConstructor baseCall.Range args
-                    Some baseRef, consBody.Body
-                                  |> Array.append [|ExpressionStatement baseCall :> Statement|]
-                                  |> BlockStatement
-                | _ -> None, consBody // Unexpected
-            | None -> None, consBody
+                | Fable.Emit({Args=(baseRef::args)},_,_) -> // "new $0($1...)"
+                    Some(baseRef, args, false)
+                | Fable.Call(baseRef, info,_,_) ->
+                    Some(baseRef, info.Args, info.HasSpread)
+                | _ ->
+                    "Unexpected base call expression, please report"
+                    |> addError com [] baseCall.Range
+                    None
+            | None -> None
+            |> Option.map (fun (baseRef, args, hasSpread ) ->
+                let baseRef = transformAsExpr com ctx baseRef
+                let args = transformCallArgs com ctx hasSpread args
+                let baseCall = callSuperConstructor None args
+                let consBody =
+                    consBody.Body
+                    |> Array.append [|ExpressionStatement baseCall :> Statement|]
+                    |> BlockStatement
+                Some(baseRef), consBody
+            )
+            |> Option.defaultValue (None, consBody)
 
         [
             yield! declareType com ctx classDecl.Entity classDecl.Name consArgs consBody baseExpr classMembers
@@ -2051,9 +2063,10 @@ module Util =
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then None
         else
+            let moduleName = Path.GetFileNameWithoutExtension(path)
             match selector with
-            | "*" | "default" -> Path.GetFileNameWithoutExtension(path)
-            | _ -> selector
+            | "*" | "default" -> moduleName
+            | _ -> moduleName + "_" + selector
             |> getUniqueNameInRootScope ctx
             |> Some
 

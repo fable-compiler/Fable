@@ -416,10 +416,16 @@ module AST =
           IsJsConstructor = false }
 
     let emitJsExpr r t args macro =
-        Emit({ Macro = macro; Args = args; IsJsStatement = false }, t, r)
+        Emit({ Macro = macro
+               Args = args
+               SignatureArgTypes = [] // TODO
+               IsJsStatement = false }, t, r)
 
     let emitJsStatement r t args macro =
-        Emit({ Macro = macro; Args = args; IsJsStatement = true }, t, r)
+        Emit({ Macro = macro
+               Args = args
+               SignatureArgTypes = [] // TODO
+               IsJsStatement = true }, t, r)
 
     let makeThrow r t err =
         emitJsStatement r t [err] "throw $0"

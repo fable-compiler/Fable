@@ -283,7 +283,12 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         | None ->
             let cracked = ProjectCracked.Init(state.CliArgs)
             let parsed = ProjectParsed.Init(cracked)
-            cracked, parsed, cracked.SourceFiles |> Array.map (fun f -> f.NormalizedFullPath)
+            // TODO: If compiled file more recent than F# file already exists,
+            // skip compilation if passing a --cache flag?
+            let filesToCompile =
+                cracked.SourceFiles
+                |> Array.map (fun f -> f.NormalizedFullPath)
+            cracked, parsed, filesToCompile
 
     // TODO: Fail already if F# compilation gives error?
     let logs = getFSharpErrorLogs parsed.Project

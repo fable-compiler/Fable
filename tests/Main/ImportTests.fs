@@ -29,6 +29,17 @@ type FooOptional =
 
 let square: int -> int = JsInterop.importMember "./js/1foo.js"
 // let add: int -> int -> int = JsInterop.importMember "./js/1foo.js"
+
+[<Import("MyJsClass", from="./js/1foo.js")>]
+[<AbstractClass>]
+type MyJsClass(x: int) =
+    member this.foo(): int = jsNative
+    abstract bar: unit -> int
+
+type MyFSharpClass() =
+    inherit MyJsClass(3)
+    override _.bar() = 4
+
 #endif
 
 let tests =
@@ -41,6 +52,10 @@ let tests =
 
     testCase "Symbols in external projects work" <| fun () ->
         equal "Fable Rocks!" Spaces.Helper.ConditionalExternalValue
+
+    testCase "Can inherit imported abstract classes" <| fun () ->
+        let x = MyFSharpClass()
+        x.foo() |> equal 7
     #endif
 
     testCase "Import with relative paths from project subdirectory works" <| fun () ->
