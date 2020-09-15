@@ -1,13 +1,13 @@
-import { OperationCanceledError, Trampoline } from "./AsyncBuilder";
-import { Continuation, Continuations } from "./AsyncBuilder";
-import { CancellationToken } from "./AsyncBuilder";
-import { IAsync } from "./AsyncBuilder";
-import { IAsyncContext } from "./AsyncBuilder";
-import { protectedCont } from "./AsyncBuilder";
-import { protectedBind } from "./AsyncBuilder";
-import { protectedReturn } from "./AsyncBuilder";
-import { choice1Of2, choice2Of2 } from "./Option";
-import { map } from "./Seq";
+import { OperationCanceledError, Trampoline } from "./AsyncBuilder.js";
+import { Continuation, Continuations } from "./AsyncBuilder.js";
+import { CancellationToken } from "./AsyncBuilder.js";
+import { IAsync } from "./AsyncBuilder.js";
+import { IAsyncContext } from "./AsyncBuilder.js";
+import { protectedCont } from "./AsyncBuilder.js";
+import { protectedBind } from "./AsyncBuilder.js";
+import { protectedReturn } from "./AsyncBuilder.js";
+import { choice1Of2, choice2Of2 } from "./Option.js";
+import { map } from "./Seq.js";
 
 // Implemented just for type references
 export class Async<_T> { }

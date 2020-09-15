@@ -1,14 +1,10 @@
-import { toString as dateToString } from "./Date";
-import Decimal from "./Decimal";
-import Long, * as _Long from "./Long";
-import { escape } from "./RegExp";
+import { toString as dateToString } from "./Date.js";
+import Decimal from "./Decimal.js";
+import Long, * as _Long from "./Long.js";
+import { escape } from "./RegExp.js";
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
-// RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
-// const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-// Relax GUID parsing, see #1637
-const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 type Numeric = number | Long | Decimal;
 
@@ -371,97 +367,6 @@ export function joinWithIndices(delimiter: string, xs: string[], startIndex: num
     throw new Error("Index and count must refer to a location within the buffer.");
   }
   return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
-}
-
-/** Validates UUID as specified in RFC4122 (versions 1-5). Trims braces. */
-export function validateGuid(str: string, doNotThrow?: boolean): string | [boolean, string] {
-  const trimmedAndLowered = trim(str, "{", "}").toLowerCase();
-  if (guidRegex.test(trimmedAndLowered)) {
-    return doNotThrow ? [true, trimmedAndLowered] : trimmedAndLowered;
-  } else if (doNotThrow) {
-    return [false, "00000000-0000-0000-0000-000000000000"];
-  }
-  throw new Error("Guid should contain 32 digits with 4 dashes: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
-}
-
-// From https://gist.github.com/LeverOne/1308368
-export function newGuid() {
-  let b = "";
-  for (let a = 0; a++ < 36;) {
-    b += a * 51 & 52
-      ? (a ^ 15 ? 8 ^ Math.random() * (a ^ 20 ? 16 : 4) : 4).toString(16)
-      : "-";
-  }
-  return b;
-}
-
-// Maps for number <-> hex string conversion
-let _convertMapsInitialized = false;
-let _byteToHex: string[];
-let _hexToByte: { [k: string]: number };
-
-function initConvertMaps() {
-  _byteToHex = new Array(256);
-  _hexToByte = {};
-  for (let i = 0; i < 256; i++) {
-    _byteToHex[i] = (i + 0x100).toString(16).substr(1);
-    _hexToByte[_byteToHex[i]] = i;
-  }
-  _convertMapsInitialized = true;
-}
-
-/** Parse a UUID into it's component bytes */
-// Adapted from https://github.com/zefferus/uuid-parse
-export function guidToArray(s: string) {
-  if (!_convertMapsInitialized) {
-    initConvertMaps();
-  }
-  let i = 0;
-  const buf = new Uint8Array(16);
-  s.toLowerCase().replace(/[0-9a-f]{2}/g, ((oct: number) => {
-    switch (i) {
-      // .NET saves first three byte groups with different endianness
-      // See https://stackoverflow.com/a/16722909/3922220
-      case 0: case 1: case 2: case 3:
-        buf[3 - i++] = _hexToByte[oct];
-        break;
-      case 4: case 5:
-        buf[9 - i++] = _hexToByte[oct];
-        break;
-      case 6: case 7:
-        buf[13 - i++] = _hexToByte[oct];
-        break;
-      case 8: case 9: case 10: case 11:
-      case 12: case 13: case 14: case 15:
-        buf[i++] = _hexToByte[oct];
-        break;
-    }
-  }) as any);
-  // Zero out remaining bytes if string was short
-  while (i < 16) {
-    buf[i++] = 0;
-  }
-  return buf;
-}
-
-/** Convert UUID byte array into a string */
-export function arrayToGuid(buf: ArrayLike<number>) {
-  if (buf.length !== 16) {
-    throw new Error("Byte array for GUID must be exactly 16 bytes long");
-  }
-  if (!_convertMapsInitialized) {
-    initConvertMaps();
-  }
-  const guid =
-    _byteToHex[buf[3]] + _byteToHex[buf[2]] +
-    _byteToHex[buf[1]] + _byteToHex[buf[0]] + "-" +
-    _byteToHex[buf[5]] + _byteToHex[buf[4]] + "-" +
-    _byteToHex[buf[7]] + _byteToHex[buf[6]] + "-" +
-    _byteToHex[buf[8]] + _byteToHex[buf[9]] + "-" +
-    _byteToHex[buf[10]] + _byteToHex[buf[11]] +
-    _byteToHex[buf[12]] + _byteToHex[buf[13]] +
-    _byteToHex[buf[14]] + _byteToHex[buf[15]];
-  return guid;
 }
 
 function notSupported(name: string): never {

@@ -6,8 +6,9 @@ type Position =
     static member Empty = { line = 1; column = 0 }
 
 type SourceLocation =
-    { start: Position;
-      ``end``: Position;
+    { start: Position
+      ``end``: Position
+      /// We added the display name here because it seemed to be used by Babel source map generation
       identifierName: string option }
     static member (+)(r1, r2) =
         { start = r1.start
@@ -33,6 +34,11 @@ module Tuple3 =
     let item3 (_,_,z) = z
 
 [<RequireQualifiedAccess>]
+module Seq =
+    let mapToList (f: 'a -> 'b) (xs: 'a seq) =
+        ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
+
+[<RequireQualifiedAccess>]
 module Array =
     let mapToList (f: 'a -> 'b) (xs: 'a array) =
         let mutable li = []
@@ -47,6 +53,12 @@ module Array =
             | None -> ()
             | Some x -> li <- x::li
         li
+
+    let splitWhile (f: 'a -> bool) (xs: 'a array) =
+        Array.tryFindIndex (f >> not) xs
+        |> function
+        | Some i -> Array.splitAt i xs
+        | None -> xs, [||]
 
 [<RequireQualifiedAccess>]
 module List =
@@ -78,6 +90,10 @@ module List =
         xs.[xs.Length - 1 ] <- f xs.[xs.Length - 1 ]
         List.ofArray xs
 
+    let collecti (f: int -> 'a -> 'b list) (xs: 'a list) =
+        let mutable i = -1
+        xs |> List.collect (fun x -> i <- i + 1; f i x)
+
     let mapToArray (f: 'a -> 'b) (xs: 'a list) =
         let ar: 'b[] = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f x)
@@ -87,6 +103,12 @@ module List =
         let ar: 'b[] = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f i x)
         ar
+
+    let splitWhile (f: 'a -> bool) (xs: 'a list) =
+        List.tryFindIndex (f >> not) xs
+        |> function
+        | Some i -> List.splitAt i xs
+        | None -> xs, []
 
 module Patterns =
     let (|Try|_|) (f: 'a -> 'b option) a = f a
@@ -112,10 +134,6 @@ module Naming =
         then txt.Substring(0, txt.Length - pattern.Length) |> Some
         else None
 
-    /// This used to be "" for compatibility with Require.js
-    /// Mainly used for fable-library imports
-    let targetFileExtension = ".js"
-
     let [<Literal>] fableCompilerConstant = "FABLE_COMPILER"
     let [<Literal>] placeholder = "__PLACE-HOLDER__"
     let [<Literal>] dummyFile = "__DUMMY-FILE__.txt"
@@ -128,20 +146,19 @@ module Naming =
     let umdModules =
         set ["commonjs"; "amd"; "umd"]
 
-    // Dollar sign is reserved by Fable as a special character
-    // to encode other characters, unique var names and as a separator
     let isIdentChar index (c: char) =
         let code = int c
-        c = '_'
+        c = '_' || c = '$'
         || (65 <= code && code <= 90)   // a-z
         || (97 <= code && code <= 122)  // A-Z
         // Digits are not allowed in first position, see #1397
         || (index > 0 && 48 <= code && code <= 57) // 0-9
 
     let hasIdentForbiddenChars (ident: string) =
-        let mutable i = 0
-        while i < ident.Length && (isIdentChar i ident.[i]) do i <- i + 1
-        i < ident.Length
+        let mutable found = false
+        for i = 0 to ident.Length - 1 do
+            found <- found || not(isIdentChar i ident.[i])
+        found
 
     let sanitizeIdentForbiddenChars (ident: string) =
         if hasIdentForbiddenChars ident then
@@ -153,10 +170,6 @@ module Naming =
                     else yield "$" + System.String.Format("{0:X}", int c).PadLeft(4, '0')
                 })
         else ident
-
-    /// Does not guarantee unique names, only used to clean function constructor names
-    let unsafeReplaceIdentForbiddenChars (replacement: char) (ident: string): string =
-        ident.ToCharArray() |> Array.mapi (fun i c -> if isIdentChar i c then c else replacement) |> System.String
 
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
@@ -192,58 +205,221 @@ module Naming =
 
     let jsKeywords =
         System.Collections.Generic.HashSet [
-            // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
-            "abstract"; "await"; "boolean"; "break"; "byte"; "case"; "catch"; "char"; "class"; "const"; "continue"; "debugger"; "default"; "delete"; "do"; "double";
-            "else"; "enum"; "export"; "extends"; "false"; "final"; "finally"; "float"; "for"; "function"; "goto"; "if"; "implements"; "import"; "in"; "instanceof"; "int"; "interface";
-            "let"; "long"; "native"; "new"; "null"; "package"; "private"; "protected"; "public"; "return"; "self"; "short"; "static"; "super"; "switch"; "synchronized";
-            "this"; "throw"; "throws"; "transient"; "true"; "try"; "typeof"; "undefined"; "var"; "void"; "volatile"; "while"; "with"; "yield";
-            // Standard built-in objects (https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects)
-            "Object"; "Function"; "Boolean"; "Symbol"; "Map"; "Set"; "NaN"; "Number"; "Math"; "Date"; "String"; "RegExp"; "JSON"; "Promise";
-            "Array"; "Int8Array"; "Uint8Array"; "Uint8ClampedArray"; "Int16Array"; "Uint16Array"; "Int32Array"; "Uint32Array"; "Float32Array"; "Float64Array";
-            // DOM interfaces (https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model)
-            "Attr"; "CharacterData"; "Comment"; "CustomEvent"; "Document"; "DocumentFragment"; "DocumentType"; "DOMError"; "DOMException"; "DOMImplementation";
-            "DOMString"; "DOMTimeStamp"; "DOMSettableTokenList"; "DOMStringList"; "DOMTokenList"; "Element"; "Event"; "EventTarget"; "Error"; "HTMLCollection"; "MutationObserver";
-            "MutationRecord"; "Node"; "NodeFilter"; "NodeIterator"; "NodeList"; "ProcessingInstruction"; "Range"; "Text"; "TreeWalker"; "URL"; "Window"; "Worker"; "XMLDocument";
-            // Other JS global and special objects/functions
-            // See #258, #1358
-            // See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-            // See https://twitter.com/FableCompiler/status/930725972629913600
-            "arguments"; "fetch"; "eval"; "window"; "console"; "global"; "document"
+            // Keywords: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Lexical_grammar#Keywords
+            "break"
+            "case"
+            "catch"
+            "class"
+            "const"
+            "continue"
+            "debugger"
+            "default"
+            "delete"
+            "do"
+            "else"
+            "export"
+            "extends"
+            "finally"
+            "for"
+            "function"
+            "if"
+            "import"
+            "in"
+            "instanceof"
+            "new"
+            "return"
+            "super"
+            "switch"
+            "this"
+            "throw"
+            "try"
+            "typeof"
+            "var"
+            "void"
+            "while"
+            "with"
+            "yield"
+
+            "enum"
+
+            "implements"
+            "interface"
+            "let"
+            "package"
+            "private"
+            "protected"
+            "public"
+            "static"
+
+            "await"
+
+            "null"
+            "true"
+            "false"
+            "arguments"
+            "get"
+            "set"
+
+            // Standard built-in objects: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects
+            "Infinity"
+            "NaN"
+            "undefined"
+            "globalThis"
+
+            "eval"
+            "uneval"
+            "isFinite"
+            "isNaN"
+            "parseFloat"
+            "parseInt"
+            "decodeURI"
+            "decodeURIComponent"
+            "encodeURI"
+            "encodeURIComponent"
+
+            "Object"
+            "Function"
+            "Boolean"
+            "Symbol"
+
+            "Error"
+            "AggregateError"
+            "EvalError"
+            "InternalError"
+            "RangeError"
+            "ReferenceError"
+            "SyntaxError"
+            "TypeError"
+            "URIError"
+
+            "Number"
+            "BigInt"
+            "Math"
+            "Date"
+
+            "String"
+            "RegExp"
+
+            "Array"
+            "Int8Array"
+            "Uint8Array"
+            "Uint8ClampedArray"
+            "Int16Array"
+            "Uint16Array"
+            "Int32Array"
+            "Uint32Array"
+            "Float32Array"
+            "Float64Array"
+            "BigInt64Array"
+            "BigUint64Array"
+
+            "Map"
+            "Set"
+            "WeakMap"
+            "WeakSet"
+
+            "ArrayBuffer"
+            "SharedArrayBuffer"
+            "Atomics"
+            "DataView"
+            "JSON"
+
+            "Promise"
+            "Generator"
+            "GeneratorFunction"
+            "AsyncFunction"
+
+            "Reflect"
+            "Proxy"
+
+            "Intl"
+            "WebAssembly"
+
+            // DOM interfaces (omitting SVG): https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model
+            "Attr"
+            "CDATASection"
+            "CharacterData"
+            "ChildNode"
+            "Comment"
+            "CustomEvent"
+            "Document"
+            "DocumentFragment"
+            "DocumentType"
+            "DOMError"
+            "DOMException"
+            "DOMImplementation"
+            "DOMString"
+            "DOMTimeStamp"
+            "DOMStringList"
+            "DOMTokenList"
+            "Element"
+            "Event"
+            "EventTarget"
+            "HTMLCollection"
+            "MutationObserver"
+            "MutationRecord"
+            "NamedNodeMap"
+            "Node"
+            "NodeFilter"
+            "NodeIterator"
+            "NodeList"
+            "NonDocumentTypeChildNode"
+            "ParentNode"
+            "ProcessingInstruction"
+            "Selection"
+            "Range"
+            "Text"
+            "TextDecoder"
+            "TextEncoder"
+            "TimeRanges"
+            "TreeWalker"
+            "URL"
+            "Window"
+            "Worker"
+            "XMLDocument"
+
+            // Other JS global and special objects/functions. See #258, #1358
+            "console"
+            "window"
+            "document"
+            "global"
+            "fetch"
         ]
 
-    // A dollar sign is used to prefix chars encoded in hexadecimal
-    // so use two as separator to prevent conflicts
-    // (see also `getUniqueName` and `buildName` below)
-    let preventConflicts conflicts name =
-        let rec check n =
-            let name = if n > 0 then name + "$$" + (string n) else name
-            if not (conflicts name) then name else check (n+1)
-        check 0
+    let preventConflicts conflicts originalName =
+        let rec check originalName n =
+            let name = if n > 0 then originalName + "_" + (string n) else originalName
+            if not (conflicts name) then name else check originalName (n+1)
+        check originalName 0
 
+    // TODO: Move this to FSharp2Fable.Util
     type MemberPart =
         | InstanceMemberPart of string * overloadSuffix: string
         | StaticMemberPart of string * overloadSuffix: string
         | NoMemberPart
+        member this.Replace(f: string -> string) =
+            match this with
+            | InstanceMemberPart(s, o) -> InstanceMemberPart(f s, o)
+            | StaticMemberPart(s, o) -> StaticMemberPart(f s, o)
+            | NoMemberPart -> this
 
-    let getUniqueName baseName (index: int) =
-        "$" + baseName + "$$" + string index
+        member this.OverloadSuffix =
+            match this with
+            | InstanceMemberPart(_,o)
+            | StaticMemberPart(_,o) -> o
+            | NoMemberPart -> ""
 
-    let appendSuffix baseName suffix =
-        if suffix = ""
-        then baseName
-        else baseName + "$" + suffix
-
-    let reflectionSuffix = "reflection"
+    let reflectionSuffix = "$reflection"
 
     let private printPart sanitize separator part overloadSuffix =
         (if part = "" then "" else separator + (sanitize part)) +
-            (if overloadSuffix = "" then "" else "$$" + overloadSuffix)
+            (if overloadSuffix = "" then "" else "_" + overloadSuffix)
 
     let private buildName sanitize name part =
         (sanitize name) +
             (match part with
-                | InstanceMemberPart(s, i) -> printPart sanitize "$$" s i
-                | StaticMemberPart(s, i)   -> printPart sanitize "$$$" s i
+                | InstanceMemberPart(s, i) -> printPart sanitize "__" s i
+                | StaticMemberPart(s, i) -> printPart sanitize "_" s i
                 | NoMemberPart -> "")
 
     let buildNameWithoutSanitation name part =
@@ -323,6 +499,11 @@ module Path =
         if path.EndsWith(".fsi")
         then path.Substring(0, path.Length - 1)
         else path
+
+    let replaceExtension (newExt: string) (path: string) =
+        let i = path.LastIndexOf(".")
+        if i > 0 then path.Substring(0, i) + newExt
+        else path + newExt
 
     /// Checks if path starts with "./", ".\" or ".."
     let isRelativePath (path: string) =

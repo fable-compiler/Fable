@@ -3,21 +3,28 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <!-- Allow users with dotnet SDK 3 to run Fable, see #1910 -->
+    <Version>3.0.0</Version>
+    <PackageVersion>3.0.0-nagareyama-alpha-003</PackageVersion>
+    <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <PackageId>Fable</PackageId>
+    <AssemblyName>fable</AssemblyName>
+    <PackAsTool>true</PackAsTool>
+    <Description>F# to JS compiler</Description>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\..\build\fable-library\**\*.js" PackagePath="fable-library\" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="Globbing.fs" />
-    <Compile Include="Parser.fs" />
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
-    <Compile Include="Server.fs" />
-    <Compile Include="Stdin.fs" />
-    <Compile Include="Agent.fs" />
     <Compile Include="Main.fs" />
+    <Compile Include="Entry.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
@@ -26,8 +33,7 @@
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.39.1" />
+    <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
     <PackageReference Include="FSharp.Core" Version="4.7.2" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,6 @@
 "use strict";
 
-const exports = {
+const _exports = {
 
     foo: "foo",
 
@@ -38,8 +38,17 @@ const exports = {
         Foo1() { return arguments.length },
         Foo2() { return arguments.length },
         Foo3() { return arguments.length }
+    },
+
+    MyJsClass: class {
+        constructor(x) {
+            this.value = x;
+        }
+        foo() {
+            return this.bar() + this.value;
+        }
     }
 };
 
-export const { foo, apply, square, add, MyClass, fooOptional } = exports;
-// module.exports = exports;
+export const { foo, apply, square, add, MyClass, MyJsClass, fooOptional } = _exports;
+// module.exports = _exports;

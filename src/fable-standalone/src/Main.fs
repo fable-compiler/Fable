@@ -213,29 +213,10 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
         return [||]
 }
 
-let defaultCompilerConfig: CompilerConfig =
-    { typedArrays = false
-      clampByteArrays = false
-      classTypes = false
-      typescript = false
-      precompiledLib = None }
-
-let makeCompilerOptions (config: CompilerConfig option) (otherFSharpOptions: string[]): Fable.CompilerOptions =
-    let config = defaultArg config defaultCompilerConfig
-    let isDebug = otherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
-    { typedArrays = config.typedArrays
-      clampByteArrays = config.clampByteArrays
-      classTypes = config.classTypes
-      typescript = config.typescript
-      debugMode = isDebug
-      verbosity = Fable.Verbosity.Normal
-      outputPublicInlinedFunctions = false
-      precompiledLib = config.precompiledLib }
-
-let compileAst (com: Compiler) (project: Project) =
-    FSharp2Fable.Compiler.transformFile com project.ImplementationFiles
-    |> FableTransforms.transformFile com
-    |> Fable2Babel.Compiler.transformFile com
+type BabelResult(program: Babel.Program, errors) =
+    member _.Program = program
+    interface IBabelResult with
+        member _.FableErrors = errors
 
 let init () =
   { new IFableManager with
@@ -278,15 +259,19 @@ let init () =
             let res = parseResults :?> ParseResults
             getCompletionsAtLocation res line col lineText
 
-        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string, ?config) =
+        member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string,
+                                    ?typedArrays, ?typescript) =
             let res = parseResults :?> ParseResults
             let project = res.GetProject()
-            let options = makeCompilerOptions config parseResults.OtherFSharpOptions
-            let com = Compiler(fileName, project, options, fableLibrary)
-            let ast = compileAst com project
+            let isDebug = parseResults.OtherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
+            let options = Fable.CompilerOptionsHelper.Make(debugMode=isDebug, ?typedArrays=typedArrays, ?typescript=typescript)
+            let com = CompilerImpl(fileName, project, options, fableLibrary)
+            let ast =
+                FSharp2Fable.Compiler.transformFile com
+                |> FableTransforms.transformFile com
+                |> Fable2Babel.Compiler.transformFile com
             let errors =
-                com.GetLogs()
-                |> List.map (fun log ->
+                com.Logs |> Array.map (fun log ->
                     let r = defaultArg log.Range Fable.SourceLocation.Empty
                     { FileName = fileName
                       StartLineAlternate = r.start.line
@@ -303,10 +288,23 @@ let init () =
                         | Fable.Severity.Warning
                         | Fable.Severity.Info -> true
                     })
-                |> List.toArray
-            { new IBabelResult with
-                member __.BabelAst = ast :> obj
-                member __.FableErrors = errors }
+            upcast BabelResult(ast, errors)
+
+        member _.PrintBabelAst(babelResult, writer) =
+            match babelResult with
+            | :? BabelResult as babel ->
+                let writer =
+                    { new BabelPrinter.Writer with
+                        member _.Dispose() = writer.Dispose()
+                        member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
+                        member _.Write(str) = writer.Write(str) }
+
+                let map = { new BabelPrinter.SourceMapGenerator with
+                                member _.AddMapping(_,_,_,_,_) = () }
+
+                BabelPrinter.run writer map babel.Program
+            | _ ->
+                failwith "Unexpected Babel result"
 
         member __.FSharpAstToString(parseResults:IParseResults, fileName:string) =
             let res = parseResults :?> ParseResults

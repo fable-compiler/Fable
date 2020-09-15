@@ -2,12 +2,11 @@ namespace rec Fable.AST.Fable
 
 open Fable
 open Fable.AST
-open FSharp.Compiler.SourceCodeServices
 open System
 
-type FunctionTypeKind =
-    | LambdaType of Type
-    | DelegateType of Type list
+type DeclaredType =
+    abstract Definition: Entity
+    abstract GenericArgs: Type list
 
 type Type =
     | MetaType
@@ -18,14 +17,15 @@ type Type =
     | String
     | Regex
     | Number of NumberKind
-    | Enum of FSharpEntity
+    | Enum of Entity
     | Option of genericArg: Type
     | Tuple of genericArgs: Type list
     | Array of genericArg: Type
     | List of genericArg: Type
-    | FunctionType of FunctionTypeKind * returnType: Type
+    | LambdaType of Type * returnType: Type
+    | DelegateType of Type list * returnType: Type
     | GenericParam of name: string
-    | DeclaredType of FSharpEntity * genericArgs: Type list
+    | DeclaredType of Entity * genericArgs: Type list
     | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
 
     member this.Generics =
@@ -33,142 +33,137 @@ type Type =
         | Option gen
         | Array gen
         | List gen -> [ gen ]
-        | FunctionType (LambdaType argType, returnType) -> [ argType; returnType ]
-        | FunctionType (DelegateType argTypes, returnType) -> argTypes @ [ returnType ]
+        | LambdaType(argType, returnType) -> [ argType; returnType ]
+        | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
         | Tuple gen -> gen
         | DeclaredType (_, gen) -> gen
+        | AnonymousRecordType (_, gen) -> gen
         | _ -> []
 
-    member this.ReplaceGenerics(newGen: Type list) =
-        match this with
-        | Option _ -> Option newGen.Head
-        | Array _ -> Array newGen.Head
-        | List _ -> List newGen.Head
-        | FunctionType (LambdaType _, _) ->
-            let argTypes, returnType = List.splitLast newGen
-            FunctionType(LambdaType argTypes.Head, returnType)
-        | FunctionType (DelegateType _, _) ->
-            let argTypes, returnType = List.splitLast newGen
-            FunctionType(DelegateType argTypes, returnType)
-        | Tuple _ -> Tuple newGen
-        | DeclaredType (ent, _) -> DeclaredType(ent, newGen)
-        | t -> t
+type Attribute =
+    abstract FullName: string
+    abstract ConstructorArguments: obj list
 
-type MemberInfo(name, ?declaringEntity, ?hasSpread, ?isValue, ?range) =
-    member _.Name: string = name
-    member _.IsValue = defaultArg isValue false
-    member _.HasSpread = defaultArg hasSpread false
-    member _.DeclaringEntity: FSharpEntity option = declaringEntity
-    member _.Range: SourceLocation option = range
+type Field =
+    abstract Name: string
+    abstract FieldType: Type
+    abstract IsMutable: bool
+    abstract IsStatic: bool
+    abstract LiteralValue: obj option
 
-type ModuleMemberInfo(name, ?declaringEntity, ?hasSpread, ?isValue, ?isPublic,
-                      ?isInstance, ?isMutable, ?isEntryPoint, ?range) =
-    inherit MemberInfo(name, ?declaringEntity=declaringEntity, ?hasSpread=hasSpread, ?isValue=isValue, ?range=range)
+type UnionCase =
+    abstract Name: string
+    abstract CompiledName: string option
+    abstract UnionCaseFields: Field list
 
-    member _.IsPublic = defaultArg isPublic false
-    member _.IsInstance = defaultArg isInstance false
-    member _.IsMutable = defaultArg isMutable false
-    member _.IsEntryPoint = defaultArg isEntryPoint false
+type GenericParam =
+    abstract Name: string
 
-type AttachedMemberInfo(name, declaringEntity, ?hasSpread, ?isValue,
-                        ?isGetter, ?isSetter, ?isEnumerator, ?range) =
-    inherit MemberInfo(name, ?declaringEntity=declaringEntity, ?hasSpread=hasSpread, ?isValue=isValue, ?range=range)
+type Parameter =
+    abstract Name: string option
+    abstract Type: Type
 
-    member _.IsGetter = defaultArg isGetter false
-    member _.IsSetter = defaultArg isSetter false
-    member _.IsEnumerator = defaultArg isEnumerator false
+type MemberInfo =
+    abstract Attributes: Attribute seq
+    abstract HasSpread: bool
+    abstract IsMangled: bool
+    abstract IsPublic: bool
+    abstract IsInstance: bool
+    abstract IsValue: bool
+    abstract IsMutable: bool
+    abstract IsGetter: bool
+    abstract IsSetter: bool
+    abstract IsEnumerator: bool
 
-    member this.IsMethod =
-        not this.IsValue && not this.IsGetter && not this.IsSetter && not this.IsEnumerator
+type MemberFunctionOrValue =
+    inherit MemberInfo
+    abstract DisplayName: string
+    abstract CompiledName: string
+    abstract FullName: string
+    abstract CurriedParameterGroups: Parameter list list
+    abstract ReturnParameter: Parameter
+    abstract IsExplicitInterfaceImplementation: bool
+    abstract ApparentEnclosingEntity: Entity
 
-type ConstructorInfo(entity, entityName, ?isEntityPublic, ?isUnion, ?range) =
-    member _.Entity: FSharpEntity = entity
-    member _.EntityName: string = entityName
-    member _.IsEntityPublic = defaultArg isEntityPublic false
-    member _.IsUnion = defaultArg isUnion false
-    member _.Range: SourceLocation option = range
+// TODO: Add FableDeclarationName to be able to get a reference to the entity
+type Entity =
+    abstract DisplayName: string
+    abstract FullName: string
+    abstract SourcePath: string
+    abstract AssemblyPath: string option
+    abstract Attributes: Attribute seq
+    abstract BaseDeclaration: DeclaredType option
+    abstract AllInterfaces: DeclaredType seq
+    abstract GenericParameters: GenericParam list
+    abstract MembersFunctionsAndValues: MemberFunctionOrValue seq
+    abstract FSharpFields: Field list
+    abstract UnionCases: UnionCase list
+    abstract IsPublic: bool
+    abstract IsFSharpAbbreviation: bool
+    abstract IsFSharpUnion: bool
+    abstract IsFSharpRecord: bool
+    abstract IsValueType: bool
+    abstract IsFSharpExceptionDeclaration: bool
+    abstract IsInterface: bool
 
-type ClassImplicitConstructorInfo(entity, constructorName, entityName,
-                                  arguments, boundThis, body, baseCall,
-                                  ?hasSpread, ?isConstructorPublic,
-                                  ?isEntityPublic, ?range) =
-    inherit ConstructorInfo(entity, entityName, ?isEntityPublic=isEntityPublic, ?range=range)
+type ActionDecl = {
+    Body: Expr
+    UsedNames: Set<string>
+}
 
-    member _.ConstructorName: string = constructorName
-    member _.Arguments: Ident list = arguments
-    member _.BoundThis: Ident = boundThis
-    member _.Body: Expr = body
-    member _.BaseCall: Expr option = baseCall
-    member _.IsConstructorPublic = defaultArg isConstructorPublic false
-    member _.HasSpread = defaultArg hasSpread false
+type MemberDecl = {
+    Name: string
+    Args: Ident list
+    Body: Expr
+    Info: MemberInfo
+    UsedNames: Set<string>
+}
 
-    member _.WithBodyAndBaseCall(body, baseCall) =
-        ClassImplicitConstructorInfo(entity, constructorName, entityName, arguments, boundThis,
-            body, baseCall, ?hasSpread=hasSpread, ?isConstructorPublic=isConstructorPublic,
-            ?isEntityPublic=isEntityPublic, ?range=range)
+type ClassDecl = {
+    Name: string
+    Entity: Entity
+    Constructor: MemberDecl option
+    BaseCall: Expr option
+    AttachedMembers: MemberDecl list
+}
 
 type Declaration =
-    | ActionDeclaration of Expr
-    /// Note: Non-attached type members become module members
-    | ModuleMemberDeclaration of args: Ident list * body: Expr * ModuleMemberInfo
-    /// Interface and abstract class implementations
-    | AttachedMemberDeclaration of args: Ident list * body: Expr * AttachedMemberInfo * declaringEntity: FSharpEntity
-    /// For unions, records and structs
-    | CompilerGeneratedConstructorDeclaration of ConstructorInfo
-    | ClassImplicitConstructorDeclaration of ClassImplicitConstructorInfo
+    | ActionDeclaration of ActionDecl
+    | MemberDeclaration of MemberDecl
+    | ClassDeclaration of ClassDecl
+    member this.UsedNames =
+        match this with
+        | ActionDeclaration d -> d.UsedNames
+        | MemberDeclaration d -> d.UsedNames
+        | ClassDeclaration d ->
+            d.Constructor
+            |> Option.map (fun c -> c.UsedNames)
+            |> Option.defaultValue Set.empty
+            |> fun usedNames -> usedNames, d.AttachedMembers
+            ||> List.fold (fun acc m -> Set.union acc m.UsedNames)
 
-type File(sourcePath, decls, ?usedVarNames, ?inlineDependencies) =
-    member __.SourcePath: string = sourcePath
+type File(decls, ?usedRootNames) =
     member __.Declarations: Declaration list = decls
-    member __.UsedVarNames: Set<string> = defaultArg usedVarNames Set.empty
-    member __.InlineDependencies: Set<string> = defaultArg inlineDependencies Set.empty
-
-type IdentKind =
-    | UserDeclared
-    | CompilerGenerated
-    | BaseValueIdent
-    | ThisArgIdentDeclaration
+    member __.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
 
 type Ident =
     { Name: string
       Type: Type
-      Kind: IdentKind
       IsMutable: bool
+      IsThisArgument: bool
+      IsCompilerGenerated: bool
       Range: SourceLocation option }
-    member x.IsCompilerGenerated =
-        match x.Kind with
-        | CompilerGenerated -> true
-        | _ -> false
-
-    member x.IsBaseValue =
-        match x.Kind with
-        | BaseValueIdent -> true
-        | _ -> false
-
-    member x.IsThisArgDeclaration =
-        match x.Kind with
-        | ThisArgIdentDeclaration -> true
-        | _ -> false
-
     member x.DisplayName =
         x.Range
         |> Option.bind (fun r -> r.identifierName)
         |> Option.defaultValue x.Name
 
-type ImportKind =
-    | Internal
-    | Library
-    | CustomImport
-
-type NewArrayKind =
-    | ArrayValues of Expr list
-    | ArrayAlloc of Expr
-
-type NewRecordKind =
-    | DeclaredRecord of FSharpEntity
-    | AnonymousRecord of fieldNames: string []
-
 type ValueKind =
+    // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
+    // ThisValue only appears in constructors and not in instance members (where `this` is passed as first argument)
+    // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
+    | ThisValue of Type
+    | BaseValue of boundIdent: Ident option * Type
     | TypeInfo of Type
     | Null of Type
     | UnitConstant
@@ -177,15 +172,19 @@ type ValueKind =
     | StringConstant of string
     | NumberConstant of float * NumberKind
     | RegexConstant of source: string * flags: RegexFlag list
-    | EnumConstant of Expr * FSharpEntity
+    | EnumConstant of Expr * Entity
     | NewOption of value: Expr option * Type
-    | NewArray of NewArrayKind * Type
+    | NewArray of Expr list * Type
+    | NewArrayAlloc of Expr * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
     | NewTuple of Expr list
-    | NewRecord of Expr list * NewRecordKind * genArgs: Type list
-    | NewUnion of Expr list * FSharpUnionCase * FSharpEntity * genArgs: Type list
+    | NewRecord of Expr list * Entity * genArgs: Type list
+    | NewAnonymousRecord of Expr list * fieldNames: string [] * genArgs: Type list
+    | NewUnion of Expr list * tag: int * Entity * genArgs: Type list
     member this.Type =
         match this with
+        | ThisValue t
+        | BaseValue(_,t) -> t
         | TypeInfo _ -> MetaType
         | Null t -> t
         | UnitConstant -> Unit
@@ -197,21 +196,12 @@ type ValueKind =
         | EnumConstant (_, ent) -> Enum ent
         | NewOption (_, t) -> Option t
         | NewArray (_, t) -> Array t
+        | NewArrayAlloc (_, t) -> Array t
         | NewList (_, t) -> List t
         | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
-        | NewRecord (_, kind, genArgs) ->
-            match kind with
-            | DeclaredRecord ent -> DeclaredType(ent, genArgs)
-            | AnonymousRecord fieldNames -> AnonymousRecordType(fieldNames, genArgs)
+        | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
+        | NewAnonymousRecord (_, fieldNames, genArgs) -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
-
-type LoopKind =
-    | While of guard: Expr * body: Expr
-    | For of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool
-
-type FunctionKind =
-    | Lambda of arg: Ident
-    | Delegate of args: Ident list
 
 type CallInfo =
     { ThisArg: Expr option
@@ -220,14 +210,12 @@ type CallInfo =
       /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
       SignatureArgTypes: Type list
       HasSpread: bool
-      AutoUncurrying: bool
-      /// Must apply `new` keyword when converted to JS
       IsJsConstructor: bool }
 
 type ReplaceCallInfo =
     { CompiledName: string
       OverloadSuffix: Lazy<string>
-      /// See ArgIngo.SignatureArgTypes
+      /// See ArgInfo.SignatureArgTypes
       SignatureArgTypes: Type list
       HasSpread: bool
       IsModuleValue: bool
@@ -235,61 +223,81 @@ type ReplaceCallInfo =
       DeclaringEntityFullName: string
       GenericArgs: (string * Type) list }
 
+type EmitInfo =
+    { Macro: string
+      Args: Expr list
+      /// Unused at the moment
+      SignatureArgTypes: Type list
+      IsJsStatement: bool }
+
+type ImportInfo =
+    { Selector: Expr
+      Path: Expr
+      IsCompilerGenerated: bool }
+
 type OperationKind =
-    | Call of callee: Expr * info: CallInfo
-    | CurriedApply of applied: Expr * args: Expr list
-    | Emit of macro: string * args: CallInfo option
-    | UnaryOperation of UnaryOperator * Expr
-    | BinaryOperation of BinaryOperator * left: Expr * right: Expr
-    | LogicalOperation of LogicalOperator * left: Expr * right: Expr
+    | Unary of UnaryOperator * Expr
+    | Binary of BinaryOperator * left: Expr * right: Expr
+    | Logical of LogicalOperator * left: Expr * right: Expr
+
+type KeyKind =
+    | FieldKey of Field
+    | ExprKey of Expr
 
 type GetKind =
-    | ExprGet of Expr
-    | TupleGet of int
-    | FieldGet of string * isFieldMutable: bool * fieldType: Type
-    | UnionField of FSharpField * FSharpUnionCase * fieldType: Type
+    | ByKey of KeyKind
+    | TupleIndex of int
+    | UnionField of index: int * fieldType: Type
     | UnionTag
     | ListHead
     | ListTail
     | OptionValue
 
-type SetKind =
-    | VarSet
-    | ExprSet of Expr
-    | FieldSet of string * Type
-
 type TestKind =
     | TypeTest of Type
-    | ErasedUnionTest of Type
     | OptionTest of isSome: bool
     | ListTest of isCons: bool
-    | UnionCaseTest of FSharpUnionCase * FSharpEntity
+    | UnionCaseTest of tag: int
 
 type Expr =
+    // Values and Idents
     | Value of ValueKind * SourceLocation option
     | IdentExpr of Ident
+
+    // Closures
+    /// Lambdas are curried, they always have a single argument (which can be unit)
+    | Lambda of arg: Ident * body: Expr * name: string option
+    /// Delegates are uncurried functions, can have none or multiple arguments
+    | Delegate of args: Ident list * body: Expr * name: string option
+    | ObjectExpr of MemberDecl list * Type * baseCall: Expr option
+
+    // Type cast and tests
     | TypeCast of Expr * Type
-    | Curry of Expr * arity: int * Type * SourceLocation option
-    | Import of selector: Expr * path: Expr * ImportKind * Type * SourceLocation option
-
-    | Function of FunctionKind * body: Expr * name: string option
-    | ObjectExpr of (Ident list * Expr * AttachedMemberInfo) list * Type * baseCall: Expr option
-
     | Test of Expr * TestKind * range: SourceLocation option
+
+    // Operations
+    | Call of callee: Expr * info: CallInfo * typ: Type * range: SourceLocation option
+    | CurriedApply of applied: Expr * args: Expr list * typ: Type * range: SourceLocation option
+    | Curry of Expr * arity: int * Type * SourceLocation option
     | Operation of OperationKind * typ: Type * range: SourceLocation option
-    | Get of Expr * GetKind * typ: Type * range: SourceLocation option
 
-    | Debugger of range: SourceLocation option
-    | Throw of Expr * typ: Type * range: SourceLocation option
+    // JS related: imports and statements
+    | Import of ImportInfo * Type * SourceLocation option
+    | Emit of EmitInfo * typ: Type * range: SourceLocation option
 
+    // Pattern matching
     | DecisionTree of Expr * targets: (Ident list * Expr) list
     | DecisionTreeSuccess of targetIndex: int * boundValues: Expr list * Type
 
-    | Sequential of Expr list
+    // Getters, setters and bindings
     | Let of bindings: (Ident * Expr) list * body: Expr
-    | Set of Expr * SetKind * value: Expr * range: SourceLocation option
-    // TODO: Check if we actually need range for loops
-    | Loop of LoopKind * range: SourceLocation option
+    | Get of Expr * GetKind * typ: Type * range: SourceLocation option
+    | Set of Expr * key: KeyKind option * value: Expr * range: SourceLocation option
+
+    // Control flow
+    | Sequential of Expr list
+    | WhileLoop of guard: Expr * body: Expr * range: SourceLocation option
+    | ForLoop of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
 
@@ -298,26 +306,26 @@ type Expr =
         | Test _ -> Boolean
         | Value (kind, _) -> kind.Type
         | IdentExpr id -> id.Type
+        | Call(_,_,t,_)
+        | CurriedApply(_,_,t,_)
         | TypeCast (_, t)
-        | Import (_, _, _, t, _)
+        | Import (_, t, _)
         | Curry (_, _, t, _)
         | ObjectExpr (_, t, _)
         | Operation (_, t, _)
         | Get (_, _, t, _)
-        | Throw (_, t, _)
+        | Emit (_,t,_)
         | DecisionTreeSuccess (_, _, t) -> t
-        | Debugger _
         | Set _
-        | Loop _ -> Unit
-        | Sequential exprs -> (List.last exprs).Type
+        | WhileLoop _
+        | ForLoop _-> Unit
+        | Sequential exprs -> List.tryLast exprs |> Option.map (fun e -> e.Type) |> Option.defaultValue Unit
         | Let (_, expr)
         | TryCatch (expr, _, _, _)
         | IfThenElse (_, expr, _, _)
         | DecisionTree (expr, _) -> expr.Type
-        | Function (kind, body, _) ->
-            match kind with
-            | Lambda arg -> FunctionType(LambdaType arg.Type, body.Type)
-            | Delegate args -> FunctionType(DelegateType(args |> List.map (fun a -> a.Type)), body.Type)
+        | Lambda(arg, body, _) -> LambdaType(arg.Type, body.Type)
+        | Delegate(args, body, _) -> DelegateType(args |> List.map (fun a -> a.Type), body.Type)
 
     member this.Range: SourceLocation option =
         match this with
@@ -326,20 +334,21 @@ type Expr =
         | Let _
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
-
-        | Function (_, e, _)
+        | Lambda (_, e, _)
+        | Delegate (_, e, _)
         | TypeCast (e, _) -> e.Range
         | IdentExpr id -> id.Range
-
-        | Import(_,_,_,_,r)
+        | Call(_,_,_,r)
+        | CurriedApply(_,_,_,r)
+        | Emit (_,_,r)
+        | Import(_,_,r)
         | Curry(_,_,_,r)
         | Value (_, r)
         | IfThenElse (_, _, _, r)
         | TryCatch (_, _, _, r)
-        | Debugger r
         | Test (_, _, r)
         | Operation (_, _, r)
         | Get (_, _, _, r)
-        | Throw (_, _, r)
         | Set (_, _, _, r)
-        | Loop (_, r) -> r
+        | ForLoop (_,_,_,_,_,r)
+        | WhileLoop (_,_,r) -> r

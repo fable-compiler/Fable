@@ -1,4 +1,4 @@
-import Decimal from "./lib/big";
+import Decimal from "./lib/big.js";
 
 export default Decimal;
 export type decimal = Decimal;

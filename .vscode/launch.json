@@ -5,6 +5,23 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "args": [
+                "${workspaceFolder}/build/tests/tests/Main",
+                "--reporter",
+                "dot",
+                "--timeout",
+                "10000"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            "name": "Mocha Tests",
+            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "pwa-node"
+        },
+        {
             "name": "Fable TCP server",
             "type": "coreclr",
             "request": "launch",
@@ -29,11 +46,11 @@
             "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp2.1/Fable.Cli.dll",
-            "args": ["fable-splitter", "--args", "-c tests/splitter.config.js"],
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp3.1/Fable.Cli.dll",
+            "args": ["start","--port", "61225"],
             "cwd": "${workspaceRoot}",
             "stopAtEntry": false,
-            "console": "internalConsole"
+            "console": "internalConsole",
         },
         {
             "name": ".NET Core Attach",
@@ -79,18 +96,20 @@
             "type": "coreclr",
             "request": "launch",
             "name": "bench-compile (.NET)",
-            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp2.1/bench-compiler.dll",
+            "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp3.1/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--commonjs"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--typescript"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
+            // src/fable-compiler-js/ tests/Main/Fable.Tests.fsproj build/tests-js
+
             "type": "node",
             "request": "launch",
             "name": "transform tests to JS",
-            "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/transform.js",
-            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "${workspaceRoot}/build/fable-library", "--commonjs"],
-            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
+            "program": "${workspaceRoot}/build/fable-compiler-js/src/fable-compiler-js/src/app.fs.js",
+            "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "build/tests-js"],
+            "stopOnEntry": true
         },
         {
             "type": "node",
@@ -106,8 +125,9 @@
             "args": [
                 "--no-timeouts",
                 "--colors",
+                "-r", "esm",
                 // "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-tests"
-                "${workspaceFolder}/build/tests"
+                "${workspaceFolder}/tests/Main"
             ],
             "internalConsoleOptions": "openOnSessionStart"
         },

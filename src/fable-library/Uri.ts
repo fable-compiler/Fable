@@ -62,6 +62,10 @@ export class Uri {
   }
 
   public toString() {
+    return this.ToString();
+  }
+
+  public ToString() {
     return decodeURIComponent(this.parseUrl().toString());
   }
 
@@ -84,6 +88,18 @@ export class Uri {
     } catch (e) {
       return false;
     }
+  }
+
+  get absoluteUri(): string {
+    if (this.kind === UriKind.Absolute) {
+      return (this.url as URL).href;
+    }
+
+    if (this.kind === UriKind.RelativeOrAbsolute) {
+      return this.url as string;
+    }
+
+    throw new Error("This operation is not supported for a relative URI.");
   }
 
   get scheme() {

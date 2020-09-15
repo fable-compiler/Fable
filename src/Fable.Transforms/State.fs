@@ -24,18 +24,18 @@ open System.Collections.Concurrent
 type Project(projectOptions: FSharpProjectOptions,
              implFiles: IDictionary<string, FSharpImplementationFileContents>,
              errors: FSharpErrorInfo array) =
-    let projectFile = Path.normalizePath projectOptions.ProjectFileName
+    let projectFile = projectOptions.ProjectFileName
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
     let rootModules =
         implFiles |> Seq.map (fun kv ->
             kv.Key, FSharp2Fable.Compiler.getRootModuleFullName kv.Value) |> dict
-    member __.ImplementationFiles = implFiles
-    member __.RootModules = rootModules
-    member __.InlineExprs = inlineExprs
-    member __.Errors = errors
-    member __.ProjectOptions = projectOptions
-    member __.ProjectFile = projectFile
-    member __.GetOrAddInlineExpr(fullName, generate) =
+    member _.ImplementationFiles = implFiles
+    member _.RootModules = rootModules
+    member _.InlineExprs = inlineExprs
+    member _.Errors = errors
+    member _.ProjectOptions = projectOptions
+    member _.ProjectFile = projectFile
+    member _.GetOrAddInlineExpr(fullName, generate) =
         inlineExprs.GetOrAdd(fullName, fun _ -> generate())
 
 type Log =
@@ -45,56 +45,49 @@ type Log =
       Range: SourceLocation option
       FileName: string option }
 
+    static member Make(severity, msg, ?fileName, ?range, ?tag) =
+        { Message = msg
+          Tag = defaultArg tag "FABLE"
+          Severity = severity
+          Range = range
+          FileName = fileName }
+
+    static member MakeError(msg, ?fileName, ?range, ?tag) =
+        Log.Make(Severity.Error, msg, ?fileName=fileName, ?range=range, ?tag=tag)
+
 /// Type with utilities for compiling F# files to JS
 /// Not thread-safe, an instance must be created per file
-type Compiler(currentFile, project: Project, options, fableLibraryDir: string) =
-    let mutable id = 0
+type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string) =
     let logs = ResizeArray<Log>()
+    let watchDependencies = HashSet<string>()
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
-    member __.GetLogs() =
-        logs |> Seq.toList
-    member __.GetFormattedLogs() =
-        let severityToString = function
-            | Severity.Warning -> "warning"
-            | Severity.Error -> "error"
-            | Severity.Info -> "info"
-        logs
-        |> Seq.groupBy (fun log -> severityToString log.Severity)
-        |> Seq.map (fun (severity, logs) ->
-            logs |> Seq.map (fun log ->
-                match log.FileName with
-                | Some file ->
-                    match log.Range with
-                    | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity log.Tag log.Message
-                    | None -> sprintf "%s(1,1): %s %s: %s" file severity log.Tag log.Message
-                | None -> log.Message)
-            |> Seq.toArray
-            |> Tuple.make2 severity)
-        |> Map
-    member __.Options = options
-    member __.CurrentFile = currentFile
-    interface ICompiler with
-        member __.Options = options
-        member __.LibraryDir = fableLibraryDir
-        member __.CurrentFile = currentFile
+
+    member _.Options = options
+    member _.CurrentFile = currentFile
+    member _.Logs = logs.ToArray()
+    member _.WatchDependencies = Array.ofSeq watchDependencies
+
+    interface Compiler with
+        member _.Options = options
+        member _.LibraryDir = fableLibraryDir
+        member _.CurrentFile = currentFile
+        member _.ImplementationFiles = project.ImplementationFiles
         member x.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
             match project.RootModules.TryGetValue(fileName) with
             | true, rootModule -> rootModule
             | false, _ ->
                 let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
-                (x :> ICompiler).AddLog(msg, Severity.Warning)
+                (x :> Compiler).AddLog(msg, Severity.Warning)
                 "" // failwith msg
-        member __.GetOrAddInlineExpr(fullName, generate) =
+
+        member _.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
-        member __.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
-            { Message = msg
-              Tag = defaultArg tag "FABLE"
-              Severity = severity
-              Range = range
-              FileName = fileName }
+
+        member _.AddWatchDependency(file) =
+            if file <> currentFile then
+                watchDependencies.Add(file) |> ignore
+
+        member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
+            Log.Make(severity, msg, ?range=range, ?fileName=fileName, ?tag=tag)
             |> logs.Add
-        // TODO: If name includes `$$2` at the end, remove it
-        member __.GetUniqueVar(name) =
-            id <- id + 1
-            Naming.getUniqueName (defaultArg name "var") id

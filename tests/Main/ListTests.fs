@@ -42,12 +42,25 @@ module List =
 
 let tests =
   testList "Lists" [
-    // TODO: Empty lists may be represented as null, make sure they don't conflict with None
     testCase "Some [] works" <| fun () ->
         let xs: int list option = Some []
         let ys: int list option = None
         Option.isSome xs |> equal true
         Option.isNone ys |> equal true
+
+    testCase "List equality works" <| fun () ->
+        let xs = [1;2;3]
+        let ys = [1;2;3]
+        let zs = [1;4;3]
+        xs = ys |> equal true
+        xs = zs |> equal false
+
+    testCase "List comparison works" <| fun () ->
+        let xs = [1;2;3]
+        let ys = [1;2;3]
+        let zs = [1;4;3]
+        xs < ys |> equal false
+        xs < zs |> equal true
 
     testCase "Pattern matching with lists works" <| fun () ->
         match [] with [] -> true | _ -> false
@@ -302,9 +315,9 @@ let tests =
             |> List.sum |> equal 9
 
     testCase "List.rev works" <| fun () ->
-            let xs = [1; 2]
+            let xs = [1; 2; 3]
             let ys = xs |> List.rev
-            equal 2 ys.Head
+            equal 3 ys.Head
 
     testCase "List.scan works" <| fun () ->
             let xs = [1; 2; 3; 4]
@@ -320,27 +333,38 @@ let tests =
 
     testCase "List.sort works" <| fun () ->
         let xs = [3; 4; 1; -3; 2; 10]
-        xs |> List.sort |> List.take 3 |> List.sum |> equal 0
         let ys = ["a"; "c"; "B"; "d"]
+        xs |> List.sort |> List.take 3 |> List.sum |> equal 0
         ys |> List.sort |> List.item 1 |> equal "a"
 
+    testCase "List.sort with tuples works" <| fun () ->
+        let xs = [3; 1; 1; -3]
+        let ys = ["a"; "c"; "B"; "d"]
+        (xs, ys) ||> List.zip |> List.sort |> List.item 1 |> equal (1, "B")
+
     testCase "List.sortBy works" <| fun () ->
-            let xs = [3; 1; 4; 2]
-            let ys = xs |> List.sortBy (fun x -> -x)
-            ys.Head + ys.Tail.Head
-            |> equal 7
+        let xs = [3; 1; 4; 2]
+        let ys = xs |> List.sortBy (fun x -> -x)
+        ys.Head + ys.Tail.Head
+        |> equal 7
 
     testCase "List.sortWith works" <| fun () ->
-            let xs = [3; 4; 1; 2]
-            let ys = xs |> List.sortWith (fun x y -> int(x - y))
-            ys.Head + ys.Tail.Head
-            |> equal 3
+        let xs = [3; 4; 1; 2]
+        let ys = xs |> List.sortWith (fun x y -> int(x - y))
+        ys.Head + ys.Tail.Head
+        |> equal 3
 
     testCase "List.sortDescending works" <| fun () ->
         let xs = [3; 4; 1; -3; 2; 10]
         xs |> List.sortDescending |> List.take 3 |> List.sum |> equal 17
         let ys = ["a"; "c"; "B"; "d"]
         ys |> List.sortDescending |> List.item 1 |> equal "c"
+
+    testCase "List.sortByDescending works" <| fun () ->
+        let xs = [3; 1; 4; 2]
+        let ys = xs |> List.sortByDescending (fun x -> -x)
+        ys.Head + ys.Tail.Head
+        |> equal 3
 
     testCase "List.max works" <| fun () ->
             let xs = [1; 2]
@@ -679,10 +703,8 @@ let tests =
             equal 6 ys.[4]
 
     testCase "List.chunkBySize works" <| fun () ->
-        List.chunkBySize 4 [1..8]
-        |> equal [ [1..4]; [5..8] ]
-        List.chunkBySize 4 [1..10]
-        |> equal [ [1..4]; [5..8]; [9..10] ]
+        [1..8] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8] ]
+        [1..10] |> List.chunkBySize 4 |> equal [ [1..4]; [5..8]; [9..10] ]
 
     testCase "List.range works" <| fun () ->
         [1..5]
@@ -826,11 +848,11 @@ let tests =
     // #endif
 
     testCase "List.splitInto works" <| fun () ->
-        List.splitInto 3 [1..10] |> equal [ [1..4]; [5..7]; [8..10] ]
-        List.splitInto 3 [1..11] |> equal [ [1..4]; [5..8]; [9..11] ]
-        List.splitInto 3 [1..12] |> equal [ [1..4]; [5..8]; [9..12] ]
-        List.splitInto 4 [1..5] |> equal [ [1..2]; [3]; [4]; [5] ]
-        List.splitInto 20 [1..4] |> equal [ [1]; [2]; [3]; [4] ]
+        [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
+        [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
+        [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
+        [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
+        [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
 
     testCase "List.transpose works" <| fun () ->
         // integer list

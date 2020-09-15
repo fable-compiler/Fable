@@ -1,7 +1,7 @@
-import { IObservable, IObserver, Observer, protect } from "./Observable";
-import { Choice, Option, some, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option";
-import { iterate as seqIterate } from "./Seq";
-import { IDisposable } from "./Util";
+import { IObservable, IObserver, Observer, protect } from "./Observable.js";
+import { Choice, Option, some, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option.js";
+import { iterate as seqIterate } from "./Seq.js";
+import { IDisposable } from "./Util.js";
 
 export type Delegate<T> = (x: T) => void;
 export type DotNetDelegate<T> = (sender: any, x: T) => void;

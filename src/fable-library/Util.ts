@@ -43,6 +43,10 @@ export interface IDisposable {
   Dispose(): void;
 }
 
+export interface IStringable {
+  ToString(): void;
+}
+
 export interface IComparer<T> {
   Compare(x: T, y: T): number;
 }
@@ -112,6 +116,18 @@ export function isHashable<T>(x: T | IHashable): x is IHashable {
 
 export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
   return x != null && typeof (x as IDisposable).Dispose === "function";
+}
+
+export function isStringable<T>(x: T | IStringable): x is IStringable {
+  return x != null && typeof (x as IStringable).ToString === "function";
+}
+
+export function isSameType(x: any, y: any) {
+  return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
+}
+
+export function isUnionLike(x: any) {
+  return x != null && x.tag != null && x.fields != null && typeof x.cases === "function";
 }
 
 export class Comparer<T> implements IComparer<T> {
@@ -277,7 +293,7 @@ export function combineHashCodes(hashes: number[]) {
   });
 }
 
-export function identityHash<T>(x: T): number {
+export function physicalHash<T>(x: T): number {
   if (x == null) {
     return 0;
   }
@@ -290,6 +306,14 @@ export function identityHash<T>(x: T): number {
       return stringHash(x);
     default:
       return numberHash(ObjectRef.id(x));
+  }
+}
+
+export function identityHash<T>(x: T): number {
+  if (isHashable(x)) {
+    return x.GetHashCode();
+  } else {
+    return physicalHash(x);
   }
 }
 
@@ -335,23 +359,23 @@ export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
   return equalArraysWith(x, y, equals);
 }
 
-// export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
-//   if (x == null) { return y == null; }
-//   if (y == null) { return false; }
-//   const xKeys = Object.keys(x);
-//   const yKeys = Object.keys(y);
-//   if (xKeys.length !== yKeys.length) {
-//     return false;
-//   }
-//   xKeys.sort();
-//   yKeys.sort();
-//   for (let i = 0; i < xKeys.length; i++) {
-//     if (xKeys[i] !== yKeys[i] || !equals(x[xKeys[i]], y[yKeys[i]])) {
-//       return false;
-//     }
-//   }
-//   return true;
-// }
+export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
+  if (x == null) { return y == null; }
+  if (y == null) { return false; }
+  const xKeys = Object.keys(x);
+  const yKeys = Object.keys(y);
+  if (xKeys.length !== yKeys.length) {
+    return false;
+  }
+  xKeys.sort();
+  yKeys.sort();
+  for (let i = 0; i < xKeys.length; i++) {
+    if (xKeys[i] !== yKeys[i] || !equals(x[xKeys[i]], y[yKeys[i]])) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export function equals<T>(x: T, y: T): boolean {
   if (x === y) {
@@ -369,7 +393,7 @@ export function equals<T>(x: T, y: T): boolean {
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
-    return false;
+    return equalObjects(x, y);
   }
 }
 
@@ -448,7 +472,7 @@ export function compare<T>(x: T, y: T): number {
   } else if (x instanceof Date && y instanceof Date) {
     return compareDates(x, y);
   } else {
-    return 1;
+    return compareObjects(x, y);
   }
 }
 
@@ -460,10 +484,10 @@ export function max<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
   return comparer(x, y) > 0 ? x : y;
 }
 
-export function createAtom<T>(value: T): (v?: T) => T | void {
+export function createAtom<T>(value?: T): (v?: T, isSet?: boolean) => T | void {
   let atom = value;
-  return (value?: T) => {
-    if (value === void 0) {
+  return (value?: T, isSetter?: boolean) => {
+    if (!isSetter) {
       return atom;
     } else {
       atom = value;
@@ -542,8 +566,9 @@ export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None, i
       fail(kvPair);
     }
     // Deflate unions and use the defined case rule
-    if (typeof kvPair.toJSON === "function") {
-      kvPair = kvPair.toJSON();
+    if (isUnionLike(kvPair)) {
+      const name = kvPair.cases()[kvPair.tag];
+      kvPair = kvPair.fields.length === 0 ? name : [name].concat(kvPair.fields);
       caseRule = definedCaseRule;
     }
     if (Array.isArray(kvPair)) {

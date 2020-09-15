@@ -27,17 +27,17 @@ let (|GeneratedInterface|_|) com ctx r t =
     match t with
     | Fable.DeclaredType(typDef,[t]) ->
         // TODO: Unify with Replacements.injectArg?
-        match typDef.TryFullName with
-        | Some Types.typeResolver ->
+        match typDef.FullName with
+        | Types.typeResolver ->
             let fn = Fable.Value(Fable.TypeInfo t, r) |> makeDelegate []
             Replacements.Helpers.objExpr ["ResolveType", fn] |> Some
-        | Some Types.comparer ->
-            Replacements.makeComparer com t |> Some
-        | Some Types.equalityComparer ->
-            Replacements.makeEqualityComparer com t |> Some
-        | Some Types.adder ->
+        | Types.comparer ->
+            Replacements.makeComparer com ctx t |> Some
+        | Types.equalityComparer ->
+            Replacements.makeEqualityComparer com ctx t |> Some
+        | Types.adder ->
             Replacements.makeGenericAdder com ctx t |> Some
-        | Some Types.averager ->
+        | Types.averager ->
             Replacements.makeGenericAverager com ctx t |> Some
         | _ -> None
     | _ -> None
@@ -47,7 +47,7 @@ let injectArg com ctx r (genArgs: (string * Fable.Type) list) (par: FSharpParame
     let typ =
         // The type of the parameter must be an option
         if parType.HasTypeDefinition && parType.TypeDefinition.TryFullName = Some Types.option
-        then makeType com (Map genArgs) parType.GenericArguments.[0] |> Some
+        then makeType (Map genArgs) parType.GenericArguments.[0] |> Some
         else None
     match typ with
     | Some(GeneratedInterface com ctx r e) -> e

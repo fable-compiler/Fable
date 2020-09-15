@@ -18,6 +18,7 @@ type IMutableSet<'T> =
     abstract entries: unit -> ('T * 'T) seq
 
 [<Sealed>]
+[<CompiledName("HashSet"); Fable.Core.Replaces("System.Collections.Generic.HashSet`1")>]
 type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer<'T>) as this =
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of 'T.
@@ -79,10 +80,7 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
 
     interface IEnumerable<'T> with
         member this.GetEnumerator(): IEnumerator<'T> =
-            let elems = seq {
-                for values in hashMap.Values do
-                    for value in values do
-                        yield value }
+            let elems = Seq.concat hashMap.Values
             elems.GetEnumerator()
 
     interface ICollection<'T> with

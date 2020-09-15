@@ -1,5 +1,4 @@
-import { Union } from "./Types";
-import { compare, equals, structuralHash } from "./Util";
+import { compare, equals, structuralHash } from "./Util.js";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate
@@ -23,12 +22,12 @@ export class Some<T> {
     this.value = value;
   }
 
-  public toString() {
-    return this.ToString();
-  }
-
   public toJSON() {
     return this.value;
+  }
+
+  public toString() {
+    return this.ToString();
   }
 
   // Don't add "Some" for consistency with erased options
@@ -130,23 +129,35 @@ export function tryOp<T, U>(op: (x: T) => U, arg: T): Option<U> {
 
 // CHOICE
 
-export class Choice<_T1, _T2> extends Union {
-    public cases() { return ["Choice1Of2", "Choice2Of2"]; }
+export class Choice<_T1, _T2> {
+  public fields: any[];
+  constructor(public tag: number, ...fields: any[]) { this.fields = fields; }
+  public cases() { return ["Choice1Of2", "Choice2Of2"]; }
 }
-export class Choice3<_T1, _T2, _T3> extends Union {
-    public cases() { return ["Choice1Of3", "Choice2Of3", "Choice3Of3"]; }
+export class Choice3<_T1, _T2, _T3> {
+  public fields: any[];
+  constructor(public tag: number, ...fields: any[]) { this.fields = fields; }
+  public cases() { return ["Choice1Of3", "Choice2Of3", "Choice3Of3"]; }
 }
-export class Choice4<_T1, _T2, _T3, _T4> extends Union {
-    public cases() { return ["Choice1Of4", "Choice2Of4", "Choice3Of4", "Choice4Of4"]; }
+export class Choice4<_T1, _T2, _T3, _T4> {
+  public fields: any[];
+  constructor(public tag: number, ...fields: any[]) { this.fields = fields; }
+  public cases() { return ["Choice1Of4", "Choice2Of4", "Choice3Of4", "Choice4Of4"]; }
 }
-export class Choice5<_T1, _T2, _T3, _T4, _T5> extends Union {
-    public cases() { return ["Choice1Of5", "Choice2Of5", "Choice3Of5", "Choice4Of5", "Choice5Of5"]; }
+export class Choice5<_T1, _T2, _T3, _T4, _T5> {
+  public fields: any[];
+  constructor(public tag: number, ...fields: any[]) { this.fields = fields; }
+  public cases() { return ["Choice1Of5", "Choice2Of5", "Choice3Of5", "Choice4Of5", "Choice5Of5"]; }
 }
-export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> extends Union {
-    public cases() { return ["Choice1Of6", "Choice2Of6", "Choice3Of6", "Choice4Of6", "Choice5Of6", "Choice6Of6"]; }
+export class Choice6<_T1, _T2, _T3, _T4, _T5, _T6> {
+  public fields: any[];
+  constructor(public tag: number, ...fields: any[]) { this.fields = fields; }
+  public cases() { return ["Choice1Of6", "Choice2Of6", "Choice3Of6", "Choice4Of6", "Choice5Of6", "Choice6Of6"]; }
 }
-export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> extends Union {
-    public cases() { return ["Choice1Of7", "Choice2Of7", "Choice3Of7", "Choice4Of7", "Choice5Of7", "Choice6Of7", "Choice7Of7"]; }
+export class Choice7<_T1, _T2, _T3, _T4, _T5, _T6, _T7> {
+  public fields: any[];
+  constructor(public tag: number, ...fields: any[]) { this.fields = fields; }
+  public cases() { return ["Choice1Of7", "Choice2Of7", "Choice3Of7", "Choice4Of7", "Choice5Of7", "Choice6Of7", "Choice7Of7"]; }
 }
 
 export function choice1Of2<T1, T2>(x: T1 | T2): Choice<T1, T2> {
@@ -167,8 +178,10 @@ export function tryValueIfChoice2Of2<T1, T2>(x: Choice<T1, T2>): Option<T2> {
 
 // RESULT
 
-export class Result<_T, _U> extends Union {
-    public cases() { return ["Ok", "Error"]; }
+export class Result<_T, _U> {
+  public fields: any[];
+  constructor(public tag: number, ...fields: any[]) { this.fields = fields; }
+  public cases() { return ["Ok", "Error"]; }
 }
 
 export function ok<T, U>(x: T | U): Result<T, U> {

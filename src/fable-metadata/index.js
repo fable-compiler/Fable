@@ -2,7 +2,7 @@
 
 // path.join(path.dirname(require.resolve("fable-metadata")), "lib")
 
-module.exports = function getAssembliesDir() {
+exports.getAssembliesDir = function () {
     const path = require("path");
     return path.join(__dirname, "lib");
 }

@@ -1,3 +1,4 @@
 # Output
 out*/
 dist/
+perf*.data

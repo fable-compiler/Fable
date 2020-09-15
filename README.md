@@ -2,8 +2,6 @@
 
 [![Mono Build Status](https://travis-ci.org/fable-compiler/Fable.svg?branch=master "Mono Build Status")](https://travis-ci.org/fable-compiler/Fable) [![.NET Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5/branch/master?svg=true ".NET Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![npm version](https://badge.fury.io/js/fable-compiler.svg)](https://www.npmjs.com/package/fable-compiler) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/fable-compiler/Fable/)
-
 [Follow us on Twitter!](https://twitter.com/FableCompiler)
 
 Fable is an F# to JavaScript compiler powered by [Babel](https://babeljs.io/), designed to make F# a first-class citizen of the JavaScript ecosystem. [Check the website](http://fable.io) for more information and if you find the project useful, don't forget to give us a star!

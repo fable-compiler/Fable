@@ -9,20 +9,18 @@ module Atts =
     let [<Literal>] entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
     let [<Literal>] sealed_ = "Microsoft.FSharp.Core.SealedAttribute" // typeof<Microsoft.FSharp.Core.SealedAttribute>.FullName
     let [<Literal>] mangle = "Fable.Core.MangleAttribute" // typeof<Fable.Core.MangleAttribute>.FullName
-    let [<Literal>] import = "Fable.Core.ImportAttribute" // typeof<Fable.Core.ImportAttribute>.FullName
+    let [<Literal>] import = "Fable.Core.Import"
     let [<Literal>] importAll = "Fable.Core.ImportAllAttribute" // typeof<Fable.Core.ImportAllAttribute>.FullName
     let [<Literal>] importDefault = "Fable.Core.ImportDefaultAttribute" // typeof<Fable.Core.ImportDefaultAttribute>.FullName
     let [<Literal>] importMember = "Fable.Core.ImportMemberAttribute" // typeof<Fable.Core.ImportMemberAttribute>.FullName
     let [<Literal>] global_ = "Fable.Core.GlobalAttribute" // typeof<Fable.Core.GlobalAttribute>.FullName
-    let [<Literal>] emit            = "Fable.Core.EmitAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitMethod      = "Fable.Core.EmitMethodAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
+    let [<Literal>] emit = "Fable.Core.Emit"
+    let [<Literal>] emitMethod = "Fable.Core.EmitMethodAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
     let [<Literal>] emitConstructor = "Fable.Core.EmitConstructorAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitIndexer     = "Fable.Core.EmitIndexerAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitProperty    = "Fable.Core.EmitPropertyAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
-    let [<Literal>] emitDeclaration = "Fable.Core.EmitDeclarationAttribute" // typeof<Fable.Core.EmitDeclarationAttribute>.FullName
+    let [<Literal>] emitIndexer = "Fable.Core.EmitIndexerAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
+    let [<Literal>] emitProperty = "Fable.Core.EmitPropertyAttribute" // typeof<Fable.Core.EmitAttribute>.FullName
     let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
-    let [<Literal>] paramList = "Fable.Core.ParamListAttribute" // typeof<Fable.Core.ParamListAttribute>.FullName
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
 
 [<RequireQualifiedAccess>]
@@ -172,7 +170,7 @@ module Log =
         FromRange: SourceLocation option
     }
 
-    let private addLog (com: ICompiler) (inlinePath: InlinePath list) range msg severity =
+    let private addLog (com: Compiler) (inlinePath: InlinePath list) range msg severity =
         let printInlineSource fromPath (p: InlinePath) =
             let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
             match p.FromRange with
@@ -189,13 +187,17 @@ module Log =
                 file, msg + " - Inline call from " + inlinePath
         com.AddLog(msg, severity, ?range=range, fileName=actualFile)
 
-    let addWarning (com: ICompiler) inlinePath range warning =
+    let addWarning (com: Compiler) inlinePath range warning =
         addLog com inlinePath range warning Severity.Warning
 
-    let addError (com: ICompiler) inlinePath range error =
+    let addError (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Error
 
-    let addErrorAndReturnNull (com: ICompiler) inlinePath range error =
+    let addWarningAndReturnNull (com: Compiler) inlinePath range error =
+        addLog com inlinePath range error Severity.Warning
+        AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None)
+
+    let addErrorAndReturnNull (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Error
         AST.Fable.Value(AST.Fable.Null AST.Fable.Any, None)
 
@@ -221,22 +223,22 @@ module AST =
 
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
-            | FunctionType(LambdaType arg, returnType) ->
+            | LambdaType(arg, returnType) ->
                 nestedLambda (arg::acc) returnType
             | returnType -> Some(List.rev acc, returnType)
         match t with
-        | FunctionType(LambdaType arg, returnType) -> nestedLambda [arg] returnType
+        | LambdaType(arg, returnType) -> nestedLambda [arg] returnType
         | _ -> None
 
     /// Only matches lambda immediately nested within each other
     let rec nestedLambda checkArity expr =
         let rec inner accArgs body name =
             match body with
-            | Function(Lambda arg, body, None) ->
+            | Lambda(arg, body, None) ->
                 inner (arg::accArgs) body name
             | _ -> List.rev accArgs, body, name
         match expr with
-        | Function(Lambda arg, body, name) ->
+        | Lambda(arg, body, name) ->
             let args, body, name = inner [arg] body name
             if checkArity then
                 match expr.Type with
@@ -257,26 +259,26 @@ module AST =
     let (|NestedApply|_|) expr =
         let rec nestedApply r t accArgs applied =
             match applied with
-            | Operation(CurriedApply(applied, args), _, _) ->
+            | CurriedApply(applied, args, _, _) ->
                 nestedApply r t (args@accArgs) applied
             | _ -> Some(applied, accArgs, t, r)
         match expr with
-        | Operation(CurriedApply(applied, args), t, r) ->
+        | CurriedApply(applied, args, t, r) ->
             nestedApply r t args applied
         | _ -> None
 
     let (|LambdaUncurriedAtCompileTime|_|) arity expr =
         let rec uncurryLambdaInner name accArgs remainingArity expr =
             if remainingArity = Some 0
-            then Function(Delegate(List.rev accArgs), expr, name) |> Some
+            then Delegate(List.rev accArgs, expr, name) |> Some
             else
                 match expr, remainingArity with
-                | Function(Lambda arg, body, name2), _ ->
+                | Lambda(arg, body, name2), _ ->
                     let remainingArity = remainingArity |> Option.map (fun x -> x - 1)
                     uncurryLambdaInner (Option.orElse name2 name) (arg::accArgs) remainingArity body
                 // If there's no arity expectation we can return the flattened part
                 | _, None when List.isEmpty accArgs |> not ->
-                    Function(Delegate(List.rev accArgs), expr, name) |> Some
+                    Delegate(List.rev accArgs, expr, name) |> Some
                 // We cannot flatten lambda to the expected arity
                 | _, _ -> None
         match expr with
@@ -307,10 +309,10 @@ module AST =
         | Get(e,kind,_,_) ->
             match kind with
             // OptionValue has a runtime check
-            | ListHead | ListTail | TupleGet _
+            | ListHead | ListTail | TupleIndex _
             | UnionTag | UnionField _ -> canHaveSideEffects e
-            | FieldGet(_,isFieldMutable,_) ->
-                if isFieldMutable then true
+            | ByKey(FieldKey fi) ->
+                if fi.IsMutable then true
                 else canHaveSideEffects e
             | _ -> true
         | _ -> true
@@ -321,47 +323,48 @@ module AST =
         | Any | Unit | GenericParam _ | Option _ -> true
         | _ -> false
 
-    /// ATTENTION: Make sure the ident name will be unique within the file
-    let makeIdentNonMangled name =
-        { Name = name
-          Type = Any
-          Kind = CompilerGenerated
-          IsMutable = false
-          Range = None }
+    let makeFieldKey name isMutable typ =
+        FieldKey({ new Field with
+                    member _.Name = name
+                    member _.IsMutable = isMutable
+                    member _.IsStatic = false
+                    member _.FieldType = typ
+                    member _.LiteralValue = None })
 
-    /// Mangles ident name to prevent conflicts in the file
-    let makeIdentUnique (com: ICompiler) name =
-        com.GetUniqueVar(name) |> makeIdentNonMangled
-
-    /// ATTENTION: Make sure the ident name will be unique within the file
-    let makeTypedIdentNonMangled typ name =
+    /// ATTENTION: Make sure the ident name is unique
+    let makeTypedIdent typ name =
         { Name = name
           Type = typ
-          Kind = CompilerGenerated
+          IsCompilerGenerated = true
+          IsThisArgument = false
           IsMutable = false
           Range = None }
 
-    /// Mangles ident name to prevent conflicts in the file
-    let makeTypedIdentUnique (com: ICompiler) typ name =
-        com.GetUniqueVar(name) |> makeTypedIdentNonMangled typ
+    /// ATTENTION: Make sure the ident name is unique
+    let makeIdent name =
+        makeTypedIdent Any name
 
-    /// ATTENTION: Make sure the ident name will be unique within the file
-    let makeIdentExprNonMangled name =
-        makeIdentNonMangled name |> IdentExpr
+    /// ATTENTION: Make sure the ident name is unique
+    let makeIdentExpr name =
+        makeIdent name |> IdentExpr
 
-    let makeLoop range loopKind = Loop (loopKind, range)
+    let makeWhileLoop range guardExpr bodyExpr =
+        WhileLoop (guardExpr, bodyExpr, range)
+
+    let makeForLoop range isUp ident start limit body =
+        ForLoop (ident, start, limit, body, isUp, range)
 
     let makeBinOp range typ left right op =
-        Operation(BinaryOperation(op, left, right), typ, range)
+        Operation(Binary(op, left, right), typ, range)
 
     let makeUnOp range typ arg op =
-        Operation(UnaryOperation(op, arg), typ, range)
+        Operation(Unary(op, arg), typ, range)
 
     let makeLogOp range left right op =
-        Operation(LogicalOperation(op, left, right), Boolean, range)
+        Operation(Logical(op, left, right), Boolean, range)
 
     let makeEqOp range left right op =
-        Operation(BinaryOperation(op, left, right), Boolean, range)
+        Operation(Binary(op, left, right), Boolean, range)
 
     let makeNull () =
         Value(Null Any, None)
@@ -370,37 +373,65 @@ module AST =
         Value(value, r)
 
     let makeArray elementType arrExprs =
-        NewArray(ArrayValues arrExprs, elementType) |> makeValue None
+        NewArray(arrExprs, elementType) |> makeValue None
 
     let makeDelegate args body =
-        Function(Delegate args, body, None)
+        Delegate(args, body, None)
 
     let makeLambda (args: Ident list) (body: Expr) =
         (args, body) ||> List.foldBack (fun arg body ->
-            Function(Lambda arg, body, None))
+            Lambda(arg, body, None))
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
 
-    let makeCoreRef t memberName moduleName =
-        Import(makeStrConst memberName, makeStrConst moduleName, Library, t, None)
+    let getLibPath (com: Compiler) moduleName =
+        let ext = if com.Options.Typescript then "" else ".js"
+        com.LibraryDir + "/" + moduleName + ext
 
-    let makeCustomImport t (selector: string) (path: string) =
-        Import(selector.Trim() |> makeStrConst, path.Trim() |> makeStrConst, CustomImport, t, None)
+    let makeImportUserGenerated r t selector path =
+        Import({ Selector = selector
+                 Path = path
+                 IsCompilerGenerated = false }, t, r)
 
-    let makeInternalImport (com: ICompiler) t (selector: string) (path: string) =
-        let path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-        Import(makeStrConst selector, makeStrConst path, Internal, t, None)
+    let makeImportCompilerGenerated t (selector: string) (path: string) =
+        Import({ Selector = selector.Trim() |> makeStrConst
+                 Path = path.Trim() |> makeStrConst
+                 IsCompilerGenerated = true }, t, None)
 
-    let makeSimpleCallInfo thisArg args argTypes =
+    let makeImportLib (com: Compiler) t memberName moduleName =
+        makeImportCompilerGenerated t memberName (getLibPath com moduleName)
+
+    let makeImportInternal (com: Compiler) t (selector: string) (path: string) =
+        Path.getRelativeFileOrDirPath false com.CurrentFile false path
+        |> makeImportCompilerGenerated t selector
+
+    let makeCallInfo thisArg args argTypes =
         { ThisArg = thisArg
           Args = args
           SignatureArgTypes = argTypes
           HasSpread = false
-          AutoUncurrying = false
           IsJsConstructor = false }
+
+    let emitJsExpr r t args macro =
+        Emit({ Macro = macro
+               Args = args
+               SignatureArgTypes = [] // TODO
+               IsJsStatement = false }, t, r)
+
+    let emitJsStatement r t args macro =
+        Emit({ Macro = macro
+               Args = args
+               SignatureArgTypes = [] // TODO
+               IsJsStatement = true }, t, r)
+
+    let makeThrow r t err =
+        emitJsStatement r t [err] "throw $0"
+
+    let makeDebugger range =
+        emitJsStatement range Unit [] "debugger"
 
     let destructureTupleArgs = function
         | [MaybeCasted(Value(UnitConstant,_))] -> []
@@ -408,10 +439,10 @@ module AST =
         | args -> args
 
     let makeCall r t argInfo calleeExpr =
-        Operation(Call(calleeExpr, argInfo), t, r)
+        Call(calleeExpr, argInfo, t, r)
 
     let getExpr r t left memb =
-        Get(left, ExprGet memb, t, r)
+        Get(left, ByKey(ExprKey memb), t, r)
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
@@ -430,10 +461,10 @@ module AST =
         | Float32 -> "float32"
         | Float64 -> "float64"
 
-    let getTypedArrayName (com: ICompiler) numberKind =
+    let getTypedArrayName (com: Compiler) numberKind =
         match numberKind with
         | Int8 -> "Int8Array"
-        | UInt8 -> if com.Options.clampByteArrays then "Uint8ClampedArray" else "Uint8Array"
+        | UInt8 -> if com.Options.ClampByteArrays then "Uint8ClampedArray" else "Uint8Array"
         | Int16 -> "Int16Array"
         | UInt16 -> "Uint16Array"
         | Int32 -> "Int32Array"
@@ -460,10 +491,8 @@ module AST =
 
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
-        let entEquals (ent1: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen1 (ent2: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen2 =
-            match ent1.TryFullName, ent2.TryFullName with
-            | Some n1, Some n2 when n1 = n2 -> listEquals (typeEquals strict) gen1 gen2
-            | _ -> false
+        let entEquals (ent1: Entity) gen1 (ent2: Entity) gen2 =
+            ent1.FullName = ent2.FullName && listEquals (typeEquals strict) gen1 gen2
         match typ1, typ2 with
         | Any, Any
         | Unit, Unit
@@ -477,24 +506,21 @@ module AST =
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
         | Tuple ts1, Tuple ts2 -> listEquals (typeEquals strict) ts1 ts2
-        | FunctionType(LambdaType a1, t1), FunctionType(LambdaType a2, t2) ->
+        | LambdaType(a1, t1), LambdaType(a2, t2) ->
             typeEquals strict a1 a2 && typeEquals strict t1 t2
-        | FunctionType(DelegateType as1, t1), FunctionType(DelegateType as2, t2) ->
+        | DelegateType(as1, t1), DelegateType(as2, t2) ->
             listEquals (typeEquals strict) as1 as2 && typeEquals strict t1 t2
         | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
-            match ent1.TryFullName, ent2.TryFullName with
-            | Some n1, Some n2 when n1 = n2 -> listEquals (typeEquals strict) gen1 gen2
-            | _ -> false
+            ent1.FullName = ent2.FullName && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _ | _, GenericParam _ when not strict -> true
         | GenericParam name1, GenericParam name2 -> name1 = name2
         | _ -> false
 
     let rec getTypeFullName prettify t =
-        let getEntityFullName (ent: FSharp.Compiler.SourceCodeServices.FSharpEntity) gen =
-            match ent.TryFullName with
-            | None -> Naming.unknown
-            | Some fullname when List.isEmpty gen -> fullname
-            | Some fullname ->
+        let getEntityFullName (ent: Entity) gen =
+            let fullname = ent.FullName
+            if List.isEmpty gen then fullname
+            else
                 let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")
                 let fullname =
                     if prettify then
@@ -525,13 +551,13 @@ module AST =
             | UInt32  -> Types.uint32
             | Float32 -> Types.float32
             | Float64 -> Types.float64
-        | FunctionType(LambdaType argType, returnType) ->
+        | LambdaType(argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType
             if prettify
             then argType + " -> " + returnType
             else "Microsoft.FSharp.Core.FSharpFunc`2[" + argType + "," + returnType + "]"
-        | FunctionType(DelegateType argTypes, returnType) ->
+        | DelegateType(argTypes, returnType) ->
             sprintf "System.Func`%i[%s,%s]"
                 (List.length argTypes + 1)
                 (List.map (getTypeFullName prettify) argTypes |> String.concat ",")

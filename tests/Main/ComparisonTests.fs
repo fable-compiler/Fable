@@ -434,6 +434,10 @@ let tests =
         (OTest(1).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
         (OTest(2).GetHashCode(), OTest(1).GetHashCode()) ||> notEqual
 
+    testCase "GetHashCode with objects that overwrite it works" <| fun () ->
+        (Test(1).GetHashCode(), Test(1).GetHashCode()) ||> equal
+        (Test(2).GetHashCode(), Test(1).GetHashCode()) ||> notEqual
+
     testCase "GetHashCode with same object works" <| fun () ->
         let o = OTest(1)
         let h1 = o.GetHashCode()

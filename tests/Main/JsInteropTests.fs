@@ -47,8 +47,6 @@ type Props =
     | Names of NameProp array
     | [<Erase>] Custom of key:string * value:obj
 
-let [<Emit("arguments.length")>] argCount: int = jsNative
-
 [<Erase>]
 type ErasedUnion =
     | ErasedInt of int
@@ -283,18 +281,11 @@ let tests =
         equal "5" u.bar
 
     testCase "Unit argument is not replaced by null in dynamic programming" <| fun () ->
-        let o = createObj ["foo" ==> fun () -> argCount]
+        let o = Fable.Tests.DllRef.Lib2.getArgCount
         o?foo() |> equal 0
         let f = box o?foo
         f$() |> equal 0
         (f :?> JsFunc).Invoke() |> unbox<int> |> equal 0
-
-    testCase "jsThis works" <| fun () ->
-        let o = createObj [
-            "z" ==> 5
-            "add" ==> fun x y -> x + y + jsThis?z
-        ]
-        o?add(2,3) |> equal 10
 
     testCase "Erase attribute works" <| fun () ->
         let convert = function
@@ -346,13 +337,18 @@ let tests =
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
 
-    testCase "emitJs works" <| fun () ->
+    testCase "emitJsExpr works" <| fun () ->
         let x = 4
         let y = 8
-        let z1: int = emitJs "$0 * Math.pow(2, $1)" (x, y)
-        let z2: int = emitJs "$0 << $1" (x, y)
+        let z1: int = emitJsExpr (x, y) "$0 * Math.pow(2, $1)"
+        let z2: int = emitJsExpr (x, y) "$0 << $1"
         equal z1 z2
         equal 1024 z1
+
+    testCase "emitJsStatement works" <| fun () ->
+        let f x y: int =
+            emitJsStatement (x, y) "return $0 << $1"
+        f 4 8 |> equal 1024
 
     testCase "Assigning null with emit works" <| fun () ->
         let x = createEmpty<obj>

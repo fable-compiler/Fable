@@ -1,10 +1,9 @@
 module Fable.Compiler.Platform
 
 type CmdLineOptions = {
-    commonjs: bool
+    benchmark: bool
     optimize: bool
     sourceMaps: bool
-    classTypes: bool
     typescript: bool
     watchMode: bool
 }
@@ -22,6 +21,9 @@ let measureTime (f: 'a -> 'b) x =
     let res = f x
     sw.Stop()
     res, sw.ElapsedMilliseconds
+
+let javaScriptStringEncode (str: string) =
+    System.Web.HttpUtility.JavaScriptStringEncode(str)
 
 module Json =
     open Newtonsoft.Json
@@ -122,13 +124,14 @@ module JS =
         abstract serializeToJson: data: obj -> string
         abstract ensureDirExists: dir: string -> unit
         abstract getDirFiles: dir: string -> string[]
+        abstract escapeJsStringLiteral: string -> string
 
     // type IPerformance =
     //     abstract now: unit -> float
 
     let fs: IFileSystem = importAll "fs"
     let os: IOperSystem = importAll "os"
-    let process: IProcess = importAll "process"
+    let proc: IProcess = importAll "process"
     let path: IPath = importAll "path"
     // let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
@@ -145,10 +148,13 @@ let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePat
 //     res, int64 (t1 - t0)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.process.hrtime()
+    let startTime = JS.proc.hrtime()
     let res = f x
-    let elapsed = JS.process.hrtime(startTime)
+    let elapsed = JS.proc.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
+
+let javaScriptStringEncode (str: string) =
+    JS.util.escapeJsStringLiteral(str)
 
 let serializeToJson = JS.util.serializeToJson
 let ensureDirExists = JS.util.ensureDirExists

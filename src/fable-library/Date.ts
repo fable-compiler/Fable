@@ -8,8 +8,8 @@
  * Basically; invariant: date.getTime() always return UTC time.
  */
 
-import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long";
-import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util";
+import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
+import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export const offsetRegex = /(?:Z|[+-](\d+):?([0-5]?\d)?)\s*$/;
 
@@ -164,12 +164,20 @@ export function maxValue() {
   return DateTime(253402300799999, DateKind.Unspecified);
 }
 
-export function parseRaw(str: string) {
-  let date = new Date(str);
+export function parseRaw(input: string) {
+  if (input === null) {
+    throw new Error("Value cannot be null when parsing DateTime");
+  }
+
+  if (input.trim() === "") {
+    throw new Error("An empty string is not recognized as a valid DateTime");
+  }
+
+  let date = new Date(input);
   if (isNaN(date.getTime())) {
     // Try to check strings JS Date cannot parse (see #1045, #1422)
     // tslint:disable-next-line:max-line-length
-    const m = /^\s*(\d+[^\w\s:]\d+[^\w\s:]\d+)?\s*(\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*([AaPp][Mm])?\s*([+-]\d+(?::\d+)?)?\s*$/.exec(str);
+    const m = /^\s*(\d+[^\w\s:]\d+[^\w\s:]\d+)?\s*(\d+:\d+(?::\d+(?:\.\d+)?)?)?\s*([AaPp][Mm])?\s*([+-]\d+(?::\d+)?)?\s*$/.exec(input);
     if (m != null) {
       let baseDate: Date;
       let timeInSeconds = 0;
@@ -227,10 +235,6 @@ export function parse(str: string, detectUTC = false): IDateTime {
 
 export function tryParse(v: string, _refValue?: any): [boolean, IDateTime] {
   try {
-    // if value is null or whitespace, parsing fails
-    if (v == null || v.trim() === "") {
-      return [false, minValue()];
-    }
     return [true, parse(v)];
   } catch (_err) {
     return [false, minValue()];
