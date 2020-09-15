@@ -8,7 +8,6 @@ open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Range
-open FSharp.Compiler.InfoReader
 
 /// What should the decision tree contain for any incomplete match? 
 type ActionOnFailure = 
@@ -51,10 +50,7 @@ val ilFieldToTastConst: ILFieldInit -> Const
 val internal CompilePattern: 
     TcGlobals ->
     DisplayEnv ->
-    Import.ImportMap ->
-    // tcVal
-    (ValRef -> ValUseFlag -> TTypes -> range -> Expr * TType) ->
-    InfoReader ->
+    Import.ImportMap -> 
     // range of the expression we are matching on 
     range ->  
     // range to report "incomplete match" on

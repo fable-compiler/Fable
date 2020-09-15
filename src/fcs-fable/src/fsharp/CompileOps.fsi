@@ -35,7 +35,7 @@ open FSharp.Compiler.ExtensionTyping
 #endif
 
 #if !FABLE_COMPILER
-open Microsoft.DotNet.DependencyManager
+open Microsoft.Interactive.DependencyManager
 #endif
 
 #if DEBUG

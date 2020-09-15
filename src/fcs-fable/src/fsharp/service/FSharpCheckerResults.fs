@@ -155,8 +155,8 @@ type internal TypeCheckInfo
     let getToolTipTextCache = AgedLookup<CompilationThreadToken, int*int*string, FSharpToolTipText<Layout>>(getToolTipTextSize,areSimilar=(fun (x,y) -> x = y))
     
     let amap = tcImports.GetImportMap()
-    let infoReader = InfoReader(g,amap)
-    let ncenv = NameResolver(g,amap,infoReader,NameResolution.FakeInstantiationGenerator)
+    let infoReader = new InfoReader(g,amap)
+    let ncenv = new NameResolver(g,amap,infoReader,NameResolution.FakeInstantiationGenerator)
     let cenv = SymbolEnv(g, thisCcu, Some ccuSigForFile, tcImports, amap, infoReader)
     
     /// Find the most precise naming environment for the given line and column
@@ -237,8 +237,7 @@ type internal TypeCheckInfo
                 NameResResult.TypecheckStaleAndTextChanged // typecheck is stale, wait for second-chance IntelliSense to bring up right result
             else
                 NameResResult.Members (items, denv, m) 
-        else 
-            NameResResult.Empty
+        else NameResResult.Empty
 
     let GetCapturedNameResolutions (endOfNamesPos: pos) resolveOverloads =
         let filter (endPos: pos) items =
@@ -283,7 +282,7 @@ type internal TypeCheckInfo
         // then the expression typings get confused (thinking 'varA:int'), so we use name resolution even for usual values.
         
         | CNR(Item.Value(vref), occurence, denv, nenv, ad, m)::_, Some _ ->
-            if occurence = ItemOccurence.Binding || occurence = ItemOccurence.Pattern then 
+            if (occurence = ItemOccurence.Binding || occurence = ItemOccurence.Pattern) then 
               // Return empty list to stop further lookup - for value declarations
               NameResResult.Cancel(denv, m)
             else 
@@ -526,25 +525,19 @@ type internal TypeCheckInfo
     /// This also checks that there are some remaining results 
     /// exactMatchResidueOpt = Some _ -- means that we are looking for exact matches
     let FilterRelevantItemsBy (getItem: 'a -> Item) (exactMatchResidueOpt : _ option) check (items: 'a list, denv, m) =
+            
         // can throw if type is in located in non-resolved CCU: i.e. bigint if reference to System.Numerics is absent
-        let inline safeCheck item = try check item with _ -> false
+        let safeCheck item = try check item with _ -> false
                                                 
         // Are we looking for items with precisely the given name?
-        if isNil items then 
+        if not (isNil items) && exactMatchResidueOpt.IsSome then
+            let items = items |> FilterDeclItemsByResidue getItem exactMatchResidueOpt.Value |> List.filter safeCheck 
+            if not (isNil items) then Some(items, denv, m) else None        
+        else 
             // When (items = []) we must returns Some([],..) and not None
             // because this value is used if we want to stop further processing (e.g. let x.$ = ...)
-            Some(items, denv, m)
-        else
-            match exactMatchResidueOpt with
-            | Some exactMatchResidue ->
-                let items = 
-                    items 
-                    |> FilterDeclItemsByResidue getItem exactMatchResidue 
-                    |> List.filter safeCheck 
-                if not (isNil items) then Some(items, denv, m) else None
-            | _ ->
-                let items = items |> List.filter safeCheck
-                Some(items, denv, m) 
+            let items = items |> List.filter safeCheck
+            Some(items, denv, m) 
 
     /// Post-filter items to make sure they have precisely the right name
     /// This also checks that there are some remaining results 
@@ -1053,8 +1046,9 @@ type internal TypeCheckInfo
                 | None -> []
                 | Some(loadClosure) -> 
                     loadClosure.References
-                    |> List.collect snd
-                    |> List.filter(fun ar -> isPosMatch(pos, ar.originalReference))
+                        |> List.map snd
+                        |> List.concat 
+                        |> List.filter(fun ar->isPosMatch(pos, ar.originalReference))
 
             match matches with 
             | resolved::_ // Take the first seen
@@ -1569,26 +1563,23 @@ module internal ParseAndCheckFile =
             //  Join the sets and report errors. 
             //  It is by-design that these messages are only present in the language service. A true build would report the errors at their
             //  spots in the individual source files.
-            for fileOfHashLoad, rangesOfHashLoad in hashLoadsInFile do
-                for file, errorGroupedByFileName in hashLoadBackgroundDiagnosticsGroupedByFileName do
+            for (fileOfHashLoad, rangesOfHashLoad) in hashLoadsInFile do
+                for (file, errorGroupedByFileName) in hashLoadBackgroundDiagnosticsGroupedByFileName do
                     if sameFile file fileOfHashLoad then
                         for rangeOfHashLoad in rangesOfHashLoad do // Handle the case of two #loads of the same file
                             let diagnostics = errorGroupedByFileName |> Array.map(fun (_,(pe,f)) -> pe.Exception,f) // Strip the build phase here. It will be replaced, in total, with TypeCheck
-                            let errors = [ for err, sev in diagnostics do if sev = FSharpErrorSeverity.Error then yield err ]
-                            let warnings = [ for err, sev in diagnostics do if sev = FSharpErrorSeverity.Warning then yield err ]
+                            let errors = [ for (err,sev) in diagnostics do if sev = FSharpErrorSeverity.Error then yield err ]
+                            let warnings = [ for (err,sev) in diagnostics do if sev = FSharpErrorSeverity.Warning then yield err ]
                                     
                             let message = HashLoadedSourceHasIssues(warnings,errors,rangeOfHashLoad)
-                            if isNil errors then 
-                                warning message
-                            else 
-                                errorR message
+                            if errors=[] then warning(message)
+                            else errorR(message)
             
             // Replay other background errors.
-            for phasedError, sev in otherBackgroundDiagnostics do
+            for (phasedError,sev) in otherBackgroundDiagnostics do
                 if sev = FSharpErrorSeverity.Warning then 
                     warning phasedError.Exception 
-                else 
-                    errorR phasedError.Exception
+                else errorR phasedError.Exception
             
         | None -> 
             // For non-scripts, check for disallow #r and #load.
@@ -1645,7 +1636,7 @@ module internal ParseAndCheckFile =
         errHandler.ErrorSeverityOptions <- tcConfig.errorSeverityOptions
             
         // Play background errors and warnings for this file.
-        for err, sev in backgroundDiagnostics do
+        for (err,sev) in backgroundDiagnostics do
             diagnosticSink (err, (sev = FSharpErrorSeverity.Error))
             
 #if !FABLE_COMPILER
@@ -1794,7 +1785,7 @@ type FSharpCheckFileResults
     member __.HasFullTypeCheckInfo = details.IsSome
     
 #if !FABLE_COMPILER
-    member __.TryGetCurrentTcImports () =
+    member info.TryGetCurrentTcImports () =
         match builderX with
         | Some builder -> builder.TryGetCurrentTcImports ()
         | _ -> None
@@ -2124,8 +2115,8 @@ type FSharpCheckProjectResults
 
         tcSymbolUses
         |> Seq.collect (fun r -> r.GetUsesOfSymbol symbol.Item)
-        |> Seq.filter (fun symbolUse -> symbolUse.ItemOccurence <> ItemOccurence.RelatedText)
-        |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurence, symbolUse.Range)
+        |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurence, symbolUse.Range) 
+        |> Seq.filter (fun symbolUse -> symbolUse.ItemOccurence <> ItemOccurence.RelatedText) 
         |> Seq.map (fun symbolUse -> FSharpSymbolUse(tcGlobals, symbolUse.DisplayEnv, symbol, symbolUse.ItemOccurence, symbolUse.Range)) 
         |> Seq.toArray
         |> async.Return
@@ -2136,18 +2127,18 @@ type FSharpCheckProjectResults
         let cenv = SymbolEnv(tcGlobals, thisCcu, Some ccuSig, tcImports)
 
         [| for r in tcSymbolUses do
-            for symbolUseChunk in r.AllUsesOfSymbols do
+             for symbolUseChunk in r.AllUsesOfSymbols do
                 for symbolUse in symbolUseChunk do
-                    if symbolUse.ItemOccurence <> ItemOccurence.RelatedText then
-                      let symbol = FSharpSymbol.Create(cenv, symbolUse.Item)
-                      yield FSharpSymbolUse(tcGlobals, symbolUse.DisplayEnv, symbol, symbolUse.ItemOccurence, symbolUse.Range) |]
+                if symbolUse.ItemOccurence <> ItemOccurence.RelatedText then
+                  let symbol = FSharpSymbol.Create(cenv, symbolUse.Item)
+                  yield FSharpSymbolUse(tcGlobals, symbolUse.DisplayEnv, symbol, symbolUse.ItemOccurence, symbolUse.Range) |]
         |> async.Return
 
     member __.ProjectContext = 
         let (tcGlobals, tcImports, thisCcu, _ccuSig, _tcSymbolUses, _topAttribs, _tcAssemblyData, _ilAssemRef, ad, _tcAssemblyExpr, _dependencyFiles) = getDetails()
         let assemblies = 
-            tcImports.GetImportedAssemblies()
-            |> List.map (fun x -> FSharpAssembly(tcGlobals, tcImports, x.FSharpViewOfMetadata))
+            [ for x in tcImports.GetImportedAssemblies() do
+                yield FSharpAssembly(tcGlobals, tcImports, x.FSharpViewOfMetadata) ]
         FSharpProjectContext(thisCcu, assemblies, ad) 
 
     member __.RawFSharpAssemblyData = 
@@ -2212,7 +2203,7 @@ type FsiInteractiveChecker(legacyReferenceResolver,
             return
                 match tcFileInfo with 
                 | Result.Ok tcFileInfo ->
-                    let errors = Array.append parseErrors tcErrors
+                    let errors = [|  yield! parseErrors; yield! tcErrors |]
                     let typeCheckResults = FSharpCheckFileResults (filename, errors, Some tcFileInfo, dependencyFiles, None, reactorOps, false)   
                     let projectResults = 
                         FSharpCheckProjectResults (filename, Some tcConfig,

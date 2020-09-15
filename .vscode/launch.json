@@ -25,7 +25,6 @@
             "name": "Fable TCP server",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "build",
             "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/netcoreapp2.1/Fable.Cli.dll",
             "args": ["start", "--port", "61225"],
             "cwd": "${workspaceFolder}",

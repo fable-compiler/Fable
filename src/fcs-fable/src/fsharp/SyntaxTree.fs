@@ -29,7 +29,7 @@ type LongIdent = Ident list
 type LongIdentWithDots =
     | LongIdentWithDots of id: LongIdent * dotms: range list
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
        match this with
        | LongIdentWithDots([], _) -> failwith "rangeOfLidwd"
@@ -44,7 +44,7 @@ type LongIdentWithDots =
     /// Indicates if the construct ends in '.' due to error recovery
     member this.ThereIsAnExtraDotAtTheEnd = match this with LongIdentWithDots(lid, dots) -> lid.Length = dots.Length
 
-    /// Gets the syntax range for part of this construct
+    /// Gets the syntax range for part of this constuct
     member this.RangeSansAnyExtraDot =
        match this with
        | LongIdentWithDots([], _) -> failwith "rangeOfLidwd"
@@ -75,7 +75,7 @@ type TyparStaticReq =
 type SynTypar =
     | Typar of ident: Ident * staticReq: TyparStaticReq * isCompGen: bool
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | Typar(id, _, _) ->
@@ -154,7 +154,7 @@ type SynConst =
     /// Old comment: "we never iterate, so the const here is not another SynConst.Measure"
     | Measure of constant: SynConst * SynMeasure
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member c.Range dflt =
         match c with
         | SynConst.String (_, m0) | SynConst.Bytes (_, m0) -> m0
@@ -322,7 +322,7 @@ type RecordFieldName = LongIdentWithDots * bool
 
 /// Indicates if an expression is an atomic expression.
 ///
-/// An atomic expression has no whitespace unless enclosed in parentheses, e.g.
+/// An atomic expression has no whitespace unlessenclosed in parentheses, e.g.
 /// 1, "3", ident, ident.[expr] and (expr). If an atomic expression has type T,
 /// then the largest expression ending at the same range as the atomic expression
 /// also has type T.
@@ -515,11 +515,7 @@ type SynType =
        value: SynType *
        range: range
 
-    | Paren of
-      innerType: SynType *
-      range: range
-
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member x.Range =
         match x with
         | SynType.App (range=m)
@@ -536,8 +532,7 @@ type SynType =
         | SynType.StaticConstantNamed (range=m)
         | SynType.HashConstraint (range=m)
         | SynType.MeasureDivide (range=m)
-        | SynType.MeasurePower (range=m)
-        | SynType.Paren (range=m) -> m
+        | SynType.MeasurePower (range=m) -> m
         | SynType.LongIdent lidwd -> lidwd.Range
 
 /// Represents a syntax tree for F# expressions
@@ -807,7 +802,7 @@ type SynExpr =
 
     /// F# syntax: expr.ident...ident <- expr
     | DotSet of
-        targetExpr: SynExpr *
+        targetExpe: SynExpr *
         longDotId: LongIdentWithDots *
         rhsExpr: SynExpr *
         range: range
@@ -1008,7 +1003,7 @@ type SynExpr =
         expr: SynExpr *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member e.Range =
         match e with
         | SynExpr.Paren (_, leftParenRange, rightParenRange, r) ->
@@ -1128,7 +1123,7 @@ type SynIndexerArg =
         expr: SynExpr *
         fromEnd: bool * range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member x.Range = match x with Two (e1, _, e2, _, _, _) -> unionRanges e1.Range e2.Range | One (e, _, _) -> e.Range
 
     /// Get the one or two expressions as a list
@@ -1210,7 +1205,7 @@ type SynSimplePats =
         targetType: SynType *
         range: range
 
-/// Represents a syntax tree for arguments patterns 
+/// Represents a syntax tree for argumments patterns 
 type SynArgPats =
     | Pats of
         pats: SynPat list
@@ -1278,7 +1273,7 @@ type SynPat =
         elementPats: SynPat list *
         range: range
 
-    /// A parenthesized pattern
+    /// A parentehsized pattern
     | Paren of
         pat: SynPat *
         range: range
@@ -1332,7 +1327,7 @@ type SynPat =
         pat: SynPat *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member p.Range =
       match p with
       | SynPat.Const (range=m)
@@ -1370,7 +1365,7 @@ type SynMatchClause =
         range: range *
         spInfo: DebugPointForTarget
 
-    /// Gets the syntax range of part of this construct
+    /// Gets the syntax range of part of this constuct
     member this.RangeOfGuardAndRhs =
         match this with
         | Clause(_, eo, e, _, _) ->
@@ -1378,7 +1373,7 @@ type SynMatchClause =
             | None -> e.Range
             | Some x -> unionRanges e.Range x.Range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | Clause(_, eo, e, m, _) ->
@@ -1601,7 +1596,7 @@ type SynTypeDefnSimpleRepr =
     | Exception of
         exnRepr: SynExceptionDefnRepr
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | Union (range=m)
@@ -1623,7 +1618,7 @@ type SynEnumCase =
         xmldoc: PreXmlDoc *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | EnumCase (range=m) -> m
@@ -1640,7 +1635,7 @@ type SynUnionCase =
         accessibility: SynAccess option *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | UnionCase (range=m) -> m
@@ -1675,7 +1670,7 @@ type SynTypeDefnSigRepr =
 
     | Exception of SynExceptionDefnRepr
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | ObjectModel (range=m)
@@ -1720,7 +1715,7 @@ type SynComponentInfo =
         accessibility: SynAccess option *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | ComponentInfo (range=m) -> m
@@ -1790,7 +1785,7 @@ type SynExceptionDefnRepr =
         accessibility: SynAccess option *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range = match this with SynExceptionDefnRepr (range=m) -> m
 
 /// Represents the right hand side of an exception declaration 'exception E = ... ' plus
@@ -1803,7 +1798,7 @@ type SynExceptionDefn =
         members: SynMemberDefns *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | SynExceptionDefn (range=m) -> m
@@ -1828,7 +1823,7 @@ type SynTypeDefnRepr =
     | Exception of
         exnRepr: SynExceptionDefnRepr
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | ObjectModel (range=m)
@@ -1845,7 +1840,7 @@ type SynTypeDefn =
         members: SynMemberDefns *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | TypeDefn (range=m) -> m
@@ -1929,7 +1924,7 @@ type SynMemberDefn =
         getSetRange: range option *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member d.Range =
         match d with
         | SynMemberDefn.Member (range=m)
@@ -2005,7 +2000,7 @@ type SynModuleDecl =
     | NamespaceFragment of
         fragment: SynModuleOrNamespace
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member d.Range =
         match d with
         | SynModuleDecl.ModuleAbbrev (range=m)
@@ -2073,7 +2068,7 @@ type SynModuleSigDecl =
     | NamespaceFragment of
         SynModuleOrNamespaceSig
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member d.Range =
         match d with
         | SynModuleSigDecl.ModuleAbbrev (range=m)
@@ -2119,7 +2114,7 @@ type SynModuleOrNamespace =
         accessibility: SynAccess option *
         range: range
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member this.Range =
         match this with
         | SynModuleOrNamespace (range=m) -> m
@@ -2233,7 +2228,7 @@ type QualifiedNameOfFile =
     /// The identifier for the name of the file 
     member x.Id = (let (QualifiedNameOfFile t) = x in t)
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member x.Range = (let (QualifiedNameOfFile t) = x in t.idRange)
 
 /// Represents the full syntax tree, file name and other parsing information for an implementation file
@@ -2267,7 +2262,7 @@ type ParsedInput =
     /// A parsed signature file
     | SigFile of ParsedSigFileInput
 
-    /// Gets the syntax range of this construct
+    /// Gets the syntax range of this constuct
     member inp.Range =
         match inp with
         | ParsedInput.ImplFile (ParsedImplFileInput (modules=SynModuleOrNamespace(range=m) :: _))

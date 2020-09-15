@@ -38,17 +38,8 @@ module internal ExtensionTyping =
     let GetTypeProviderImplementationTypes (runTimeAssemblyFileName, designTimeAssemblyNameString, m:range, compilerToolPaths:string list) =
 
         // Report an error, blaming the particular type provider component
-        let raiseError designTimeAssemblyPathOpt (e: exn) =
-            let attrName = typeof<TypeProviderAssemblyAttribute>.Name
-            let exnTypeName = e.GetType().FullName
-            let exnMsg = e.Message
-            match designTimeAssemblyPathOpt with 
-            | None -> 
-                let msg = FSComp.SR.etProviderHasWrongDesignerAssemblyNoPath(attrName, designTimeAssemblyNameString, exnTypeName, exnMsg)
-                raise (TypeProviderError(msg, runTimeAssemblyFileName, m))
-            | Some designTimeAssemblyPath -> 
-                let msg = FSComp.SR.etProviderHasWrongDesignerAssembly(attrName, designTimeAssemblyNameString, designTimeAssemblyPath, exnTypeName, exnMsg)
-                raise (TypeProviderError(msg, runTimeAssemblyFileName, m))
+        let raiseError (e: exn) =
+            raise (TypeProviderError(FSComp.SR.etProviderHasWrongDesignerAssembly(typeof<TypeProviderAssemblyAttribute>.Name, designTimeAssemblyNameString, e.Message), runTimeAssemblyFileName, m))
 
         let designTimeAssemblyOpt = getTypeProviderAssembly (runTimeAssemblyFileName, designTimeAssemblyNameString, compilerToolPaths, raiseError)
 
@@ -63,17 +54,7 @@ module internal ExtensionTyping =
                               yield t ]
                 filtered
             with e ->
-                let folder = System.IO.Path.GetDirectoryName loadedDesignTimeAssembly.Location
-                let exnTypeName = e.GetType().FullName
-                let exnMsg = e.Message
-                match e with 
-                | :? System.IO.FileLoadException -> 
-                    let msg = FSComp.SR.etProviderHasDesignerAssemblyDependency(designTimeAssemblyNameString, folder, exnTypeName, exnMsg)
-                    raise (TypeProviderError(msg, runTimeAssemblyFileName, m))
-                
-                | _ -> 
-                    let msg = FSComp.SR.etProviderHasDesignerAssemblyException(designTimeAssemblyNameString, folder, exnTypeName, exnMsg)
-                    raise (TypeProviderError(msg, runTimeAssemblyFileName, m))
+                raiseError e
         | None -> []
 
     let StripException (e: exn) =
@@ -236,10 +217,6 @@ module internal ExtensionTyping =
         BindingFlags.Instance |||
         BindingFlags.Public
 
-    type CustomAttributeData = System.Reflection.CustomAttributeData
-    type CustomAttributeNamedArgument = System.Reflection.CustomAttributeNamedArgument
-    type CustomAttributeTypedArgument = System.Reflection.CustomAttributeTypedArgument
-
     // NOTE: for the purposes of remapping the closure of generated types, the FullName is sufficient.
     // We do _not_ rely on object identity or any other notion of equivalence provided by System.Type
     // itself. The mscorlib implementations of System.Type equality relations are not suitable: for
@@ -250,12 +227,11 @@ module internal ExtensionTyping =
     // providers can implement wrap-and-filter "views" over existing System.Type clusters without needing
     // to preserve object identity when presenting the types to the F# compiler.
 
-    type ProvidedTypeComparer() = 
-        let key (ty: ProvidedType) = (ty.Assembly.FullName, ty.FullName)
-        static member val Instance = ProvidedTypeComparer()
-        interface IEqualityComparer<ProvidedType> with
-            member __.GetHashCode(ty: ProvidedType) = hash (key ty)
-            member __.Equals(ty1: ProvidedType, ty2: ProvidedType) = (key ty1 = key ty2)
+    let providedSystemTypeComparer = 
+        let key (ty: System.Type) = (ty.Assembly.FullName, ty.FullName)
+        { new IEqualityComparer<Type> with 
+            member __.GetHashCode(ty: Type) = hash (key ty)
+            member __.Equals(ty1: Type, ty2: Type) = (key ty1 = key ty2) }
 
     /// The context used to interpret information in the closure of System.Type, System.MethodInfo and other 
     /// info objects coming from the type provider.
@@ -265,9 +241,9 @@ module internal ExtensionTyping =
     ///
     /// Laziness is used "to prevent needless computation for every type during remapping". However it
     /// appears that the laziness likely serves no purpose and could be safely removed.
-    and ProvidedTypeContext = 
+    type ProvidedTypeContext = 
         | NoEntries
-        | Entries of Dictionary<ProvidedType, ILTypeRef> * Lazy<Dictionary<ProvidedType, obj>>
+        | Entries of Dictionary<System.Type, ILTypeRef> * Lazy<Dictionary<System.Type, obj>>
 
         static member Empty = NoEntries
 
@@ -276,7 +252,7 @@ module internal ExtensionTyping =
         member ctxt.GetDictionaries()  = 
             match ctxt with
             | NoEntries -> 
-                Dictionary<ProvidedType, ILTypeRef>(ProvidedTypeComparer.Instance), Dictionary<ProvidedType, obj>(ProvidedTypeComparer.Instance)
+                Dictionary<System.Type, ILTypeRef>(providedSystemTypeComparer), Dictionary<System.Type, obj>(providedSystemTypeComparer)
             | Entries (lookupILTR, lookupILTCR) ->
                 lookupILTR, lookupILTCR.Force()
 
@@ -301,12 +277,16 @@ module internal ExtensionTyping =
             match ctxt with 
             | NoEntries -> NoEntries
             | Entries(d1, d2) ->
-                Entries(d1, lazy (let dict = Dictionary<ProvidedType, obj>(ProvidedTypeComparer.Instance)
+                Entries(d1, lazy (let dict = new Dictionary<System.Type, obj>(providedSystemTypeComparer)
                                   for KeyValue (st, tcref) in d2.Force() do dict.Add(st, f tcref)
                                   dict))
 
-    and [<AllowNullLiteral; Sealed>]
-        ProvidedType (x: System.Type, ctxt: ProvidedTypeContext) =
+    type CustomAttributeData = System.Reflection.CustomAttributeData
+    type CustomAttributeNamedArgument = System.Reflection.CustomAttributeNamedArgument
+    type CustomAttributeTypedArgument = System.Reflection.CustomAttributeTypedArgument
+
+    [<AllowNullLiteral; Sealed>]
+    type ProvidedType (x: System.Type, ctxt: ProvidedTypeContext) =
         inherit ProvidedMemberInfo(x, ctxt)
         let isMeasure = 
             lazy
@@ -331,7 +311,7 @@ module internal ExtensionTyping =
         member __.Namespace = x.Namespace
         member __.FullName = x.FullName
         member __.IsArray = x.IsArray
-        member __.Assembly: ProvidedAssembly = x.Assembly |> ProvidedAssembly.Create
+        member __.Assembly = x.Assembly |> ProvidedAssembly.Create
         member __.GetInterfaces() = x.GetInterfaces() |> ProvidedType.CreateArray ctxt
         member __.GetMethods() = x.GetMethods bindingFlags |> ProvidedMethodInfo.CreateArray ctxt
         member __.GetEvents() = x.GetEvents bindingFlags |> ProvidedEventInfo.CreateArray ctxt
@@ -382,7 +362,6 @@ module internal ExtensionTyping =
         member __.MakeGenericType (args: ProvidedType[]) =
             let argTypes = args |> Array.map (fun arg -> arg.RawSystemType)
             ProvidedType.CreateNoContext(x.MakeGenericType(argTypes))
-        member __.AsProvidedVar name = ProvidedVar.Create ctxt (Quotations.Var(name, x))
         static member Create ctxt x = match x with null -> null | t -> ProvidedType (t, ctxt)
         static member CreateWithNullCheck ctxt name x = match x with null -> nullArg name | t -> ProvidedType (t, ctxt)
         static member CreateArray ctxt xs = match xs with null -> null | _ -> xs |> Array.map (ProvidedType.Create ctxt)
@@ -391,9 +370,9 @@ module internal ExtensionTyping =
         member __.Handle = x
         override __.Equals y = assert false; match y with :? ProvidedType as y -> x.Equals y.Handle | _ -> false
         override __.GetHashCode() = assert false; x.GetHashCode()
+        member __.TryGetILTypeRef() = ctxt.TryGetILTypeRef x
+        member __.TryGetTyconRef() = ctxt.TryGetTyconRef x
         member __.Context = ctxt
-        member this.TryGetILTypeRef() = this.Context.TryGetILTypeRef this
-        member this.TryGetTyconRef() = this.Context.TryGetTyconRef this
         static member ApplyContext (pt: ProvidedType, ctxt) = ProvidedType(pt.Handle, ctxt)
         static member TaintedEquals (pt1: Tainted<ProvidedType>, pt2: Tainted<ProvidedType>) = 
            Tainted.EqTainted (pt1.PApplyNoFailure(fun st -> st.Handle)) (pt2.PApplyNoFailure(fun st -> st.Handle))
@@ -652,7 +631,7 @@ module internal ExtensionTyping =
         override __.Equals y = assert false; match y with :? ProvidedConstructorInfo as y -> x.Equals y.Handle | _ -> false
         override __.GetHashCode() = assert false; x.GetHashCode()
 
-    and ProvidedExprType =
+    type ProvidedExprType =
         | ProvidedNewArrayExpr of ProvidedType * ProvidedExpr[]
 #if PROVIDED_ADDRESS_OF
         | ProvidedAddressOfExpr of ProvidedExpr
@@ -743,6 +722,7 @@ module internal ExtensionTyping =
         member __.Handle = x
         member __.Context = ctxt
         static member Create ctxt t = match box t with null -> null | _ -> ProvidedVar (t, ctxt)
+        static member Fresh (nm, ty: ProvidedType) = ProvidedVar.Create ty.Context (Quotations.Var(nm, ty.Handle))
         static member CreateArray ctxt xs = match xs with null -> null | _ -> xs |> Array.map (ProvidedVar.Create ctxt)
         override __.Equals y = match y with :? ProvidedVar as y -> x.Equals y.Handle | _ -> false
         override __.GetHashCode() = x.GetHashCode()

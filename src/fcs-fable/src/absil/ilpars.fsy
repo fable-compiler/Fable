@@ -31,6 +31,17 @@ let resolveMethodSpecScopeThen (ResolvedAtMethodSpecScope f) g =
 let resolveCurrentMethodSpecScope obj = 
     resolveMethodSpecScope obj mkILEmptyGenericParams
 
+
+let findSystemRuntimeAssemblyRef() = 
+  match parseILGlobals.primaryAssemblyScopeRef with
+  | ILScopeRef.Assembly aref -> aref
+  | _ -> pfailwith "systemRuntimeScopeRef not set to valid assembly reference in parseILGlobals"
+
+let findAssemblyRef nm = 
+  if nm = "mscorlib" then findSystemRuntimeAssemblyRef() 
+  else
+  pfailwith ("Undefined assembly ref '" + nm + "'") 
+
 %} 
 
 /*-----------------------------------------------------------------------
@@ -167,7 +178,8 @@ name1:
 className:
      LBRACK name1 RBRACK slashedName
         { let (enc,nm) = $4 
-          ILScopeRef.PrimaryAssembly, enc, nm }
+          let aref = findAssemblyRef $2 
+          ILScopeRef.Assembly aref, enc, nm }
    | slashedName
         { let enc, nm = $1 in (ILScopeRef.Local, enc, nm) }
 
@@ -223,9 +235,9 @@ callKind:
  *---------------------------------------------*/
 
 typ: STRING
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_String } 
+       { noMethodSpecScope parseILGlobals.typ_String } 
    | OBJECT
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Object } 
+       { noMethodSpecScope parseILGlobals.typ_Object } 
    | CLASS typeNameInst
        { resolveMethodSpecScopeThen $2 (fun tspec -> 
           noMethodSpecScope (mkILBoxedType tspec)) } 
@@ -244,45 +256,45 @@ typ: STRING
    | typ STAR
        { resolveMethodSpecScopeThen $1 (fun ty -> noMethodSpecScope (ILType.Ptr ty)) }
    | CHAR
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Char }
+       { noMethodSpecScope parseILGlobals.typ_Char }
    | VOID
        { noMethodSpecScope ILType.Void }
    | BOOL
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Bool }
+       { noMethodSpecScope parseILGlobals.typ_Bool }
    | INT8
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_SByte }
+       { noMethodSpecScope parseILGlobals.typ_SByte }
    | INT16              
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int16 }
+       { noMethodSpecScope parseILGlobals.typ_Int16 }
    | INT32              
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int32 }
+       { noMethodSpecScope parseILGlobals.typ_Int32 }
    | INT64              
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int64 }
+       { noMethodSpecScope parseILGlobals.typ_Int64 }
    | FLOAT32            
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Single }
+       { noMethodSpecScope parseILGlobals.typ_Single }
    | FLOAT64            
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Double }
+       { noMethodSpecScope parseILGlobals.typ_Double }
    | UNSIGNED INT8      
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte }
+       { noMethodSpecScope parseILGlobals.typ_Byte }
    | UNSIGNED INT16     
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 }
+       { noMethodSpecScope parseILGlobals.typ_UInt16 }
    | UNSIGNED INT32     
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 }
+       { noMethodSpecScope parseILGlobals.typ_UInt32 }
    | UNSIGNED INT64     
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 }
+       { noMethodSpecScope parseILGlobals.typ_UInt64 }
    | UINT8      
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte }
+       { noMethodSpecScope parseILGlobals.typ_Byte }
    | UINT16     
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 }
+       { noMethodSpecScope parseILGlobals.typ_UInt16 }
    | UINT32     
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 }
+       { noMethodSpecScope parseILGlobals.typ_UInt32 }
    | UINT64     
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 }
+       { noMethodSpecScope parseILGlobals.typ_UInt64 }
    | NATIVE INT         
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_IntPtr }
+       { noMethodSpecScope parseILGlobals.typ_IntPtr }
    | NATIVE UNSIGNED INT  
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr }
+       { noMethodSpecScope parseILGlobals.typ_UIntPtr }
    | NATIVE UINT  
-       { noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr }
+       { noMethodSpecScope parseILGlobals.typ_UIntPtr }
 
    | BANG int32
        { noMethodSpecScope (ILType.TypeVar (uint16 ( $2)))  }

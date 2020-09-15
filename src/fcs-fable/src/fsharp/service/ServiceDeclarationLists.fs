@@ -23,6 +23,13 @@ open FSharp.Compiler.Range
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeOps
 
+[<AutoOpen>]
+module EnvMisc3 =
+    /// dataTipSpinWaitTime limits how long we block the UI thread while a tooltip pops up next to a selected item in an IntelliSense completion list.
+    /// This time appears to be somewhat amortized by the time it takes the VS completion UI to actually bring up the tooltip after selecting an item in the first place.
+    let dataTipSpinWaitTime = GetEnvInteger "FCS_ToolTipSpinWaitTime" 5000
+
+
 [<Sealed>]
 /// Represents one parameter for one method (or other item) in a group. 
 type FSharpMethodGroupItemParameter(name: string, canonicalTypeTextForSorting: string, display: layout, isOptional: bool) = 
@@ -475,6 +482,12 @@ module internal DescriptionListsImpl =
 [<Sealed>]
 type FSharpDeclarationListItem(name: string, nameInCode: string, fullName: string, glyph: FSharpGlyph, _info, accessibility: FSharpAccessibility option,
                                kind: CompletionItemKind, isOwnMember: bool, priority: int, isResolved: bool, namespaceToOpen: string option) =
+
+#if !FABLE_COMPILER
+    let mutable descriptionTextHolder: FSharpToolTipText<_> option = None
+    let mutable task = null
+#endif
+
     member __.Name = name
     member __.NameInCode = nameInCode
 
@@ -495,6 +508,36 @@ type FSharpDeclarationListItem(name: string, nameInCode: string, fullName: strin
         decl.StructuredDescriptionTextAsync
         |> Tooltips.Map Tooltips.ToFSharpToolTipText
 
+    member decl.StructuredDescriptionText = 
+      ErrorScope.Protect Range.range0 
+       (fun () -> 
+        match descriptionTextHolder with
+        | Some descriptionText -> descriptionText
+        | None ->
+            match _info with
+            | Choice1Of2 _ -> 
+                // The dataTipSpinWaitTime limits how long we block the UI thread while a tooltip pops up next to a selected item in an IntelliSense completion list.
+                // This time appears to be somewhat amortized by the time it takes the VS completion UI to actually bring up the tooltip after selecting an item in the first place.
+                if isNull task then
+                    // kick off the actual (non-cooperative) work
+                    task <- System.Threading.Tasks.Task.Factory.StartNew(fun() -> 
+                        let text = decl.StructuredDescriptionTextAsync |> Async.RunSynchronously
+                        descriptionTextHolder <- Some text) 
+
+                // The dataTipSpinWaitTime limits how long we block the UI thread while a tooltip pops up next to a selected item in an IntelliSense completion list.
+                // This time appears to be somewhat amortized by the time it takes the VS completion UI to actually bring up the tooltip after selecting an item in the first place.
+                task.Wait EnvMisc3.dataTipSpinWaitTime  |> ignore
+                match descriptionTextHolder with 
+                | Some text -> text
+                | None -> FSharpToolTipText [ FSharpStructuredToolTipElement.Single(wordL (tagText (FSComp.SR.loadingDescription())), FSharpXmlDoc.None) ]
+
+            | Choice2Of2 result -> 
+                result
+       )
+       (fun err -> FSharpToolTipText [FSharpStructuredToolTipElement.CompositionError err])
+
+    member decl.DescriptionText = decl.StructuredDescriptionText |> Tooltips.ToFSharpToolTipText
+#endif
     member __.Glyph = glyph 
     member __.Accessibility = accessibility
     member __.Kind = kind

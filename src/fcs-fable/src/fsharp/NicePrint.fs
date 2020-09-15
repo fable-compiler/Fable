@@ -669,7 +669,7 @@ module private PrintTypes =
             PrintIL.layoutILTypeRef denv tref ++ argsL
         | FSAttrib vref -> 
             // REVIEW: this is not trimming "Attribute" 
-            let _, _, _, rty, _ = GetTypeOfMemberInMemberForm denv.g vref
+            let _, _, rty, _ = GetTypeOfMemberInMemberForm denv.g vref
             let rty = GetFSharpViewOfReturnType denv.g rty
             let tcref = tcrefOfAppTy denv.g rty
             layoutTyconRef denv tcref ++ argsL
@@ -717,7 +717,7 @@ module private PrintTypes =
         PrintIL.layoutILType denv [] ty ++ argsL
 
     /// Layout '[<attribs>]' above another block 
-    and layoutAttribs denv isValue ty kind attrs restL = 
+    and layoutAttribs denv ty kind attrs restL = 
         
         if denv.showAttributes then
             // Don't display DllImport attributes in generated signatures
@@ -735,9 +735,8 @@ module private PrintTypes =
             | _ -> 
                 squareAngleL (sepListL (rightL (tagPunctuation ";")) (List.map (layoutAttrib denv) attrs)) @@ 
                 restL
-        elif not isValue &&
-             (isStructRecordOrUnionTyconTy denv.g ty || 
-              ((isUnionTy denv.g ty || isRecdTy denv.g ty) && HasFSharpAttribute denv.g denv.g.attrib_StructAttribute attrs)) then
+        elif isStructRecordOrUnionTyconTy denv.g ty || 
+            ((isUnionTy denv.g ty || isRecdTy denv.g ty) && HasFSharpAttribute denv.g denv.g.attrib_StructAttribute attrs) then
             squareAngleL (wordL (tagClass "Struct")) @@ restL
         else
             match kind with 
@@ -1346,7 +1345,7 @@ module private PrintTastMemberOrVals =
                 prettyTyparInst, resL
             | Some _ -> 
                 prettyLayoutOfMember denv typarInst v
-        prettyTyparInst, layoutAttribs denv true v.Type TyparKind.Type v.Attribs vL
+        prettyTyparInst, layoutAttribs denv v.Type TyparKind.Type v.Attribs vL
 
     let prettyLayoutOfValOrMemberNoInst denv v =
         prettyLayoutOfValOrMember denv emptyTyparInst v |> snd
@@ -1473,14 +1472,12 @@ module InfoMemberPrinting =
     let prettifyILMethInfo (amap: Import.ImportMap) m (minfo: MethInfo) typarInst ilMethInfo = 
         let (ILMethInfo(_, apparentTy, dty, mdef, _)) = ilMethInfo
         let (prettyTyparInst, prettyTys), _ = PrettyTypes.PrettifyInstAndTypes amap.g (typarInst, (apparentTy :: minfo.FormalMethodInst))
-        match prettyTys with
-        | prettyApparentTy :: prettyFormalMethInst ->
-            let prettyMethInfo = 
-                match dty with 
-                | None -> MethInfo.CreateILMeth (amap, m, prettyApparentTy, mdef)
-                | Some declaringTyconRef -> MethInfo.CreateILExtensionMeth(amap, m, prettyApparentTy, declaringTyconRef, minfo.ExtensionMemberPriorityOption, mdef)
-            prettyTyparInst, prettyMethInfo, prettyFormalMethInst
-        | _ -> failwith "prettifyILMethInfo - prettyTys empty"
+        let prettyApparentTy, prettyFormalMethInst = List.headAndTail prettyTys
+        let prettyMethInfo = 
+            match dty with 
+            | None -> MethInfo.CreateILMeth (amap, m, prettyApparentTy, mdef)
+            | Some declaringTyconRef -> MethInfo.CreateILExtensionMeth(amap, m, prettyApparentTy, declaringTyconRef, minfo.ExtensionMemberPriorityOption, mdef)
+        prettyTyparInst, prettyMethInfo, prettyFormalMethInst
 
     /// Format a method to a buffer using "standalone" display style. 
     /// For example, these are the formats used when printing signatures of methods that have not been overridden,
@@ -1953,7 +1950,7 @@ module private TastDefinitionPrinting =
               | Some a -> 
                   (lhsL ^^ WordL.equals) --- (layoutType { denv with shortTypeNames = false } a)
 
-      layoutAttribs denv false ty tycon.TypeOrMeasureKind tycon.Attribs reprL
+      layoutAttribs denv ty tycon.TypeOrMeasureKind tycon.Attribs reprL
 
     // Layout: exception definition
     let layoutExnDefn denv (exnc: Entity) =

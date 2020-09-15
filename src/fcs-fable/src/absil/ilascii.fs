@@ -7,6 +7,10 @@ open Internal.Utilities.Collections
 open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.AbstractIL.IL
 
+// set to the proper value at CompileOps.fs (BuildFrameworkTcImports)
+// Only relevant when compiling FSharp.Core.dll
+let mutable parseILGlobals = EcmaMscorlibILGlobals
+
 /// Table of parsing and pretty printing data for instructions.
 let noArgInstrs =
     lazy [

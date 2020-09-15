@@ -624,7 +624,7 @@ type FSharpLineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
                     | Some mx when rightp.Line > leftp.Line -> mx
                     | _ -> rightp.Column
                 let rightc = rightc - 1
-                struct (leftc, rightc)
+                leftc, rightc
 
             // Get the token & position - either from a stack or from the lexer
             try
@@ -632,7 +632,7 @@ type FSharpLineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
                 else
                   // Choose which lexer entry point to call and call it
                   let token = LexerStateEncoding.callLexCont lexcontInitial lexargs skip lexbuf
-                  let struct (leftc, rightc) = ColumnsOfCurrentToken()
+                  let leftc, rightc = ColumnsOfCurrentToken()
 
                   // Splits tokens like ">." into multiple tokens - this duplicates behavior from the 'lexfilter'
                   // which cannot be (easily) used from the language service. The rules here are not always valid,
@@ -1401,11 +1401,12 @@ module Lexer =
 #if FABLE_COMPILER
         ignore ct
 #endif
-        while not lexbuf.IsPastEndOfStream do
+        usingLexbufForParsing (lexbuf, filePath) (fun lexbuf -> 
+            while not lexbuf.IsPastEndOfStream do
 #if !FABLE_COMPILER
-            ct.ThrowIfCancellationRequested ()
+                ct.ThrowIfCancellationRequested ()
 #endif
-            onToken (getNextToken lexbuf) lexbuf.LexemeRange
+                onToken (getNextToken lexbuf) lexbuf.LexemeRange)
 
     let lex text filePath conditionalCompilationDefines flags supportsFeature lexCallback pathMap ct =
         let errorLogger = CompilationErrorLogger("Lexer", ErrorLogger.FSharpErrorSeverityOptions.Default)

@@ -51,7 +51,6 @@ type CombOp =
     | AppOp
     | CondOp  
     | ModuleValueOp of NamedTypeData * string * bool
-    | ModuleValueWOp of NamedTypeData * string * bool * string * int
     | LetRecOp  
     | LetRecCombOp  
     | LetOp  
@@ -81,7 +80,6 @@ type CombOp =
     | FieldGetOp of NamedTypeData * string
     | CtorCallOp of CtorData 
     | MethodCallOp of MethodData 
-    | MethodCallWOp of MethodData * MethodData * int
     | CoerceOp 
     | NewArrayOp
     | DelegateOp
@@ -98,6 +96,7 @@ type CombOp =
     | TypeTestOp 
     | TryFinallyOp
     | TryWithOp 
+
 
 /// Represents specifications of a subset of F# expressions 
 type ExprData =
@@ -124,11 +123,7 @@ let mkQuoteRaw40 (a) = QuoteRawExpr (a)
 
 let mkCond (x1, x2, x3)          = CombExpr(CondOp, [], [x1;x2;x3])  
 
-let mkModuleValueApp (tcref, nm, isProp, tyargs, args: ExprData list) = 
-    CombExpr(ModuleValueOp(tcref, nm, isProp), tyargs, args)
-
-let mkModuleValueWApp (tcref, nm, isProp, nmW, nWitnesses, tyargs, args: ExprData list) = 
-    CombExpr(ModuleValueWOp(tcref, nm, isProp, nmW, nWitnesses), tyargs, args)
+let mkModuleValueApp (tcref, nm, isProp, tyargs, args: ExprData list list) = CombExpr(ModuleValueOp(tcref, nm, isProp), tyargs, List.concat args)
 
 let mkTuple (ty, x)             = CombExpr(TupleMkOp, [ty], x)
 
@@ -225,8 +220,6 @@ let mkFieldSet (d1, d2, tyargs, args) = CombExpr(FieldSetOp(d1, d2), tyargs, arg
 let mkCtorCall   (d, tyargs, args) = CombExpr(CtorCallOp(d), tyargs, args)
 
 let mkMethodCall (d, tyargs, args) = CombExpr(MethodCallOp(d), tyargs, args)
-
-let mkMethodCallW (d1, d2, d3, tyargs, args) = CombExpr(MethodCallWOp(d1, d2, d3), tyargs, args)
 
 let mkAttributedExpression(e, attr) = AttrExpr(e, [attr])
 
@@ -465,18 +458,6 @@ let p_CombOp x st =
     | TryFinallyOp     -> p_byte 47 st
     | TryWithOp        -> p_byte 48 st
     | ExprSetOp        -> p_byte 49 st
-    | MethodCallWOp (a, b, c) ->
-        p_byte 50 st
-        p_MethodData a st
-        p_MethodData b st
-        p_int c st
-    | ModuleValueWOp (x, y, z, nmW, nWitnesses) -> 
-        p_byte 51 st
-        p_string nmW st
-        p_int nWitnesses st
-        p_NamedType x st 
-        p_string y st 
-        p_bool z st
 
 let rec p_expr x st =
     match x with 
@@ -495,7 +476,7 @@ type ModuleDefnData =
       IsProperty: bool }
 
 type MethodBaseData = 
-    | ModuleDefn of ModuleDefnData * (string * int) option
+    | ModuleDefn of ModuleDefnData
     | Method     of MethodData
     | Ctor       of CtorData
 
@@ -503,15 +484,8 @@ let pickle = pickle_obj p_expr
 
 let p_MethodBase x st = 
     match x with 
-    | ModuleDefn (md, None) -> 
+    | ModuleDefn md -> 
         p_byte 0 st
-        p_NamedType md.Module st
-        p_string md.Name st
-        p_bool md.IsProperty st
-    | ModuleDefn (md, Some (nmW, nWitnesses)) -> 
-        p_byte 3 st
-        p_string nmW st
-        p_int nWitnesses st
         p_NamedType md.Module st
         p_string md.Name st
         p_bool md.IsProperty st

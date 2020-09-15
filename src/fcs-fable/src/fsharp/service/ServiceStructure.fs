@@ -251,8 +251,7 @@ module Structure =
             | SynExpr.LetOrUseBang (_, _, _, pat, eLet, es, eBody, _) ->
                 [
                     yield eLet
-                    for (_,_,_,_,eAndBang,_) in es do 
-                        yield eAndBang
+                    yield! [ for (_,_,_,_,eAndBang,_) in es do yield eAndBang ]
                 ]
                 |> List.iter (fun e ->
                     // for `let!`, `use!` or `and!` the pattern begins at the end of the

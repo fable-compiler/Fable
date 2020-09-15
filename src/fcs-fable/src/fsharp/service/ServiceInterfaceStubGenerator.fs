@@ -10,7 +10,6 @@ open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.Range
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.SyntaxTreeOps
         
 #if !FX_NO_INDENTED_TEXT_WRITER
 [<AutoOpen>]
@@ -113,8 +112,8 @@ type InterfaceData =
             ty.Range
     member x.TypeParameters = 
         match x with
-        | InterfaceData.Interface(StripParenTypes ty, _)
-        | InterfaceData.ObjExpr(StripParenTypes ty, _) ->
+        | InterfaceData.Interface(ty, _)
+        | InterfaceData.ObjExpr(ty, _) ->
             let rec (|RationalConst|) = function
                 | SynRationalConst.Integer i ->
                     string i
@@ -159,8 +158,6 @@ type InterfaceData =
                     Some (sprintf "%s^%s" typeName power)
                 | SynType.MeasureDivide(TypeIdent numerator, TypeIdent denominator, _) ->
                     Some (sprintf "%s/%s" numerator denominator)
-                | SynType.Paren(TypeIdent typeName, _) ->
-                    Some typeName
                 | _ -> 
                     None
             match ty with
