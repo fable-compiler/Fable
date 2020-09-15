@@ -544,13 +544,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | [] ->
             return resolveTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
         | [witness] ->
-            sprintf "Replaced with witness %A" witness |> addWarning com ctx.InlinePath (makeRangeFrom fsExpr)
+            // sprintf "Replaced with witness %A" witness
+            // |> addWarning com ctx.InlinePath (makeRangeFrom fsExpr)
             let! args = transformExprList com ctx argExprs
             let! callee = transformExpr com ctx witness
             return Fable.CurriedApply(callee, args, typ, r)
         | _ ->
-            sprintf "Multiple witnesses found %A" ctx.Witnesses
-            |> addWarning com ctx.InlinePath r
+            // sprintf "Multiple witnesses found %A" ctx.Witnesses
+            // |> addWarning com ctx.InlinePath r
             return resolveTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->

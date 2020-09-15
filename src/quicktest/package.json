@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "main": "Quicktest.fs.js"
+}

@@ -3,9 +3,9 @@ open System
 
 let allTests =
   [|
-    Applicative.tests
+    // Applicative.tests
     Arithmetic.tests
-    Arrays.tests
+    // Arrays.tests
     Async.tests
     Chars.tests
     Comparison.tests
@@ -23,7 +23,7 @@ let allTests =
     HashSets.tests
     Import.tests
     JsInterop.tests
-    Lists.tests
+    // Lists.tests
     Maps.tests
     Misc.tests
     Observable.tests
@@ -34,7 +34,7 @@ let allTests =
     ResizeArrays.tests
     Result.tests
     SeqExpressions.tests
-    Seqs.tests
+    // Seqs.tests
     Sets.tests
     Strings.tests
     Sudoku.tests

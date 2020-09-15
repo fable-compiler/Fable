@@ -108,6 +108,7 @@ let run watchMode fsprojDirOrFilePath args =
                 | Error _ -> 1
 
 let clean args dir =
+    let mutable count = 0
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
     let ext =
         argValue "--extension" args
@@ -123,6 +124,7 @@ let clean args dir =
             if IO.File.Exists(file) then
                 IO.File.Delete(file)
                 Log.verbose(lazy ("Deleted " + file))
+                count <- count + 1
         )
 
         IO.Directory.GetDirectories(dir)
@@ -131,7 +133,7 @@ let clean args dir =
         |> Array.iter recClean
 
     recClean dir
-    Log.always("Clean completed!")
+    Log.always(sprintf "%i file%s cleaned!" count (if count = 1 then "" else "s"))
     0
 
 let (|SplitCommandArgs|) (xs: string list) =

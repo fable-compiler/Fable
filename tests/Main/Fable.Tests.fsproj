@@ -27,9 +27,9 @@
     <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
-    <Compile Include="ApplicativeTests.fs" />
+    <!-- <Compile Include="ApplicativeTests.fs" /> -->
     <Compile Include="ArithmeticTests.fs" />
-    <Compile Include="ArrayTests.fs" />
+    <!-- <Compile Include="ArrayTests.fs" /> -->
     <Compile Include="AsyncTests.fs" />
     <Compile Include="CharTests.fs" />
     <Compile Include="ComparisonTests.fs" />
@@ -45,7 +45,7 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />
-    <Compile Include="ListTests.fs" />
+    <!-- <Compile Include="ListTests.fs" /> -->
     <Compile Include="MapTests.fs" />
     <Compile Include="MiscTestsHelper.fs" />
     <Compile Include="MiscTests.fs" />
@@ -57,7 +57,7 @@
     <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="ResultTests.fs" />
     <Compile Include="SeqExpressionTests.fs" />
-    <Compile Include="SeqTests.fs" />
+    <!-- <Compile Include="SeqTests.fs" /> -->
     <Compile Include="SetTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="SudokuTest.fs" />
