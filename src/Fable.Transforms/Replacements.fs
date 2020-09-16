@@ -642,7 +642,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         match opName, args with
         | Operators.addition, [left; right] -> binOp BinaryPlus left right
         | Operators.subtraction, [left; right] -> binOp BinaryMinus left right
-        | Operators.multiply, [left; right] -> binOp BinaryMultiply left right
+        | (Operators.multiply | Operators.multiplyDynamic), [left; right] -> binOp BinaryMultiply left right
         | (Operators.division | Operators.divideByInt), [left; right] ->
             match argTypes with
             // Floor result of integer divisions (see #172)
@@ -2062,6 +2062,7 @@ let errorStrings = function
 
 let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
+    | "MultiplyDynamic", _
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | "GenericZero", _ -> getZero com ctx t |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some

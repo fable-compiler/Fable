@@ -22,11 +22,11 @@
             "type": "pwa-node"
         },
         {
-            "name": "Fable TCP server",
+            "name": "Fable.Cli",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/netcoreapp2.1/Fable.Cli.dll",
-            "args": ["start", "--port", "61225"],
+            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/netcoreapp3.1/fable.dll",
+            "args": ["watch", "src/quicktest", "--exclude", "Fable.Core"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
             "console": "internalConsole"

@@ -253,8 +253,8 @@ let test() =
     )
 
     runInDir "tests/Main" "dotnet run"
-    if envVarOrNone "APPVEYOR" |> Option.isSome then
-        testJs()
+    // if envVarOrNone "APPVEYOR" |> Option.isSome then
+    //     testJs()
 
 let coverage() =
     // report converter

@@ -107,6 +107,7 @@ module Operators =
     let [<Literal>] logicalNot = "op_LogicalNot"
     let [<Literal>] unaryNegation = "op_UnaryNegation"
     let [<Literal>] divideByInt = "DivideByInt"
+    let [<Literal>] multiplyDynamic = "MultiplyDynamic"
 
     let [<Literal>] equality = "op_Equality"
     let [<Literal>] inequality = "op_Inequality"

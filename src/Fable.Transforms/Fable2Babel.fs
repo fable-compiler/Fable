@@ -933,6 +933,7 @@ module Util =
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
+            // TODO: Add the tag name in a comment
             let values = (ofInt tag)::values |> List.toArray
             upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
 

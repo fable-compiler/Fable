@@ -90,88 +90,6 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         let tag = unionCaseTag tdef unionCase
         Fable.NewUnion(argExprs, tag, FsEnt tdef, genArgs) |> makeValue r
 
-let private resolveTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
-    let makeCallInfo traitName entityFullName argTypes genArgs: Fable.ReplaceCallInfo =
-        { SignatureArgTypes = argTypes
-          DeclaringEntityFullName = entityFullName
-          HasSpread = false
-          IsModuleValue = false
-          // We only need this for types with own entries in Fable AST
-          // (no interfaces, see below) so it's safe to set this to false
-          IsInterface = false
-          CompiledName = traitName
-          OverloadSuffix = lazy ""
-          GenericArgs =
-            // TODO: Check the source F# entity to get the actual gen param names?
-            match genArgs with
-            | [] -> []
-            | [genArg] -> ["T", genArg]
-            | genArgs -> genArgs |> List.mapi (fun i genArg -> "T" + string i, genArg)
-        }
-
-    let resolveMemberCall (entity: Fable.Entity) genArgs membCompiledName isInstance argTypes thisArg args =
-        let genParamNames = entity.GenericParameters |> List.map (fun x -> x.Name)
-        let genArgs = List.zip genParamNames genArgs
-        tryFindMember com entity (Map genArgs) membCompiledName isInstance argTypes
-        |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
-
-    let isInstance = flags.IsInstance
-    let argTypes = List.map (makeType ctx.GenericArgs) argTypes
-    let argExprs = List.map (fun e -> com.Transform(ctx, e)) argExprs
-    let thisArg, args, argTypes =
-        match argExprs, argTypes with
-        | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
-        | args, argTypes -> None, args, argTypes
-
-    sourceTypes |> Seq.tryPick (fun sourceType ->
-        let t = makeType ctx.GenericArgs sourceType
-        match t with
-        // Types with specific entry in Fable.AST
-        // TODO: Check other types like booleans or numbers?
-        | Fable.String ->
-            let info = makeCallInfo traitName Types.string argTypes []
-            Replacements.strings com ctx r typ info thisArg args
-        | Fable.Tuple genArgs ->
-            let info = makeCallInfo traitName (getTypeFullName false t) argTypes genArgs
-            Replacements.tuples com ctx r typ info thisArg args
-        | Fable.Option genArg ->
-            let info = makeCallInfo traitName Types.option argTypes [genArg]
-            Replacements.options com ctx r typ info thisArg args
-        | Fable.Array genArg ->
-            let info = makeCallInfo traitName Types.array argTypes [genArg]
-            Replacements.arrays com ctx r typ info thisArg args
-        | Fable.List genArg ->
-            let info = makeCallInfo traitName Types.list argTypes [genArg]
-            Replacements.lists com ctx r typ info thisArg args
-        // Declared types not in Fable AST
-        | Fable.DeclaredType(entity, genArgs) ->
-            // SRTP only works for records if there are no arguments
-            if isInstance && entity.IsFSharpRecord && List.isEmpty args && Option.isSome thisArg then
-                let fieldName = Naming.removeGetSetPrefix traitName
-                entity.FSharpFields |> Seq.tryPick (fun fi ->
-                    if fi.Name = fieldName then
-                        let kind = Fable.FieldKey(fi) |> Fable.ByKey
-                        Fable.Get(thisArg.Value, kind, typ, r) |> Some
-                    else None)
-                |> Option.orElseWith (fun () ->
-                    resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args)
-            else resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
-        | Fable.AnonymousRecordType(sortedFieldNames, genArgs)
-                when isInstance && List.isEmpty args && Option.isSome thisArg ->
-            let fieldName = Naming.removeGetSetPrefix traitName
-            Seq.zip sortedFieldNames genArgs
-            |> Seq.tryPick (fun (fi, fiType) ->
-                if fi = fieldName then
-                    let kind =
-                        FsField(fi, lazy fiType) :> Fable.Field
-                        |> Fable.FieldKey
-                        |> Fable.ByKey
-                    Fable.Get(thisArg.Value, kind, typ, r) |> Some
-                else None)
-        | _ -> None
-    ) |> Option.defaultWith (fun () ->
-        "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
-
 let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                 (declaringEntityName: string option) (sign: FSharpAbstractSignature) attributes =
     let declaringEntityName = defaultArg declaringEntityName ""
@@ -540,42 +458,64 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let r = makeRangeFrom fsExpr
         let typ = makeType ctx.GenericArgs fsExpr.Type
+        let! args = transformExprList com ctx argExprs
+
         match ctx.Witnesses with
-        | [] ->
-            return resolveTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
         | [witness] ->
-            // sprintf "Replaced with witness %A" witness
-            // |> addWarning com ctx.InlinePath (makeRangeFrom fsExpr)
-            let! args = transformExprList com ctx argExprs
+            // printfn "single witness for %s in context %A" traitName witness
             let! callee = transformExpr com ctx witness
             return Fable.CurriedApply(callee, args, typ, r)
-        | _ ->
-            // sprintf "Multiple witnesses found %A" ctx.Witnesses
-            // |> addWarning com ctx.InlinePath r
-            return resolveTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
+
+        | witnesses ->
+            // printfn "multiple witnesses for %s in context %A" traitName witnesses
+            let rec tryNestedLambda args = function
+                | BasicPatterns.Lambda(arg, body) -> tryNestedLambda (arg::args) body
+                | _ when List.isEmpty args -> None
+                | body -> Some(List.rev args, body)
+
+            let callee =
+                witnesses |> List.tryFind (fun e ->
+                    match tryNestedLambda [] e with
+                    | Some(lambdaArgs, _) when List.sameLength argTypes lambdaArgs ->
+                        argTypes = (lambdaArgs |> List.map (fun a -> a.FullType))
+                    | _ -> false)
+
+            match callee with
+            | Some callee ->
+                let! callee = transformExpr com ctx callee
+                return Fable.CurriedApply(callee, args, typ, r)
+            | None ->
+                return "Cannot resolve trait call: " + traitName
+                |> addErrorAndReturnNull com ctx.InlinePath r
 
     | BasicPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
-        let ctx =
-            match witnesses with
-            | [] -> ctx
-            | witnesses ->
-                witnesses |> List.choose (function
-                    | BasicPatterns.WitnessArg i ->
-                        // TODO: The index doesn't seem to be reliable, it's -1 all the time
-                        let i = if i < 0 then 0 else i
-                        match List.tryItem i ctx.Witnesses with
-                        | Some e -> Some e
-                        | None ->
-                            None
-                    | e -> Some e)
-                |> fun ws -> { ctx with Witnesses = ws }
-
         checkArgumentsPassedByRef com ctx args
+
+        let r = makeRangeFrom fsExpr
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx args
         let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
+
+        let ctx =
+            match witnesses with
+            | [] -> ctx
+            | witnesses ->
+                // printfn "passing witnesses to %s %A %A" memb.CompiledName witnesses ctx.Witnesses
+                witnesses |> List.map (function
+                    | BasicPatterns.WitnessArg i as w ->
+                        // TODO: The index doesn't seem to be reliable, it's -1 all the time
+                        let i = if i < 0 then 0 else i
+                        match List.tryItem i ctx.Witnesses with
+                        | Some e -> e
+                        | None ->
+                            // sprintf "Cannot find witness with index %i in context" i
+                            // |> addError com ctx.InlinePath r
+                            w
+                    | e -> e)
+                |> fun ws -> { ctx with Witnesses = ws }
+
+        return makeCallFrom com ctx r typ genArgs callee args memb
 
     | BasicPatterns.Application(applied, _genArgs, []) ->
         // TODO: Ask why application without arguments happen. So far I've seen it
@@ -597,7 +537,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let! args = transformExprList com ctx args
                 return Fable.CurriedApply(callee, args, typ, r)
         | None ->
-            return "Cannot resolve locally inlined value: " + var.DisplayName
+            return "Cannot resolve locally inlined lambda: " + var.DisplayName
             |> addErrorAndReturnNull com ctx.InlinePath r
 
     // When using Fable dynamic operator, we must untuple arguments
