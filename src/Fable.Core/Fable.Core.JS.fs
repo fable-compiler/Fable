@@ -306,8 +306,8 @@ module JS =
         abstract reduceRight: ('State -> 'T -> int -> 'State) * state:'State -> 'State
         abstract reduceRight: ('State -> 'T -> 'State) * state:'State -> 'State
         abstract reverse: unit -> TypedArray<'T>
-        abstract set: source:Array * ?offset:int -> TypedArray<'T>
-        abstract set: source:#TypedArray * ?offset:int -> TypedArray<'T>
+        abstract set: source:Array * ?offset:int -> unit
+        abstract set: source:#TypedArray * ?offset:int -> unit
         abstract slice: ?``begin``:int * ?``end``:int -> TypedArray<'T>
         abstract some: ('T -> int -> TypedArray<'T> -> bool) -> bool
         abstract some: ('T -> int -> bool) -> bool
