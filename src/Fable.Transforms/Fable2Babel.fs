@@ -955,7 +955,9 @@ module Util =
             members |> List.collect (fun memb ->
                 let info = memb.Info
                 let prop, computed = memberFromName memb.Name
-                if info.IsValue then
+                // Optimization: if body doesn't have side effects, avoid getter in object literal
+                // which bails out optimizations in V8. See
+                if info.IsValue || (info.IsGetter && not(canHaveSideEffects memb.Body)) then
                     [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) :> ObjectMember]
                 elif info.IsGetter then
                     [makeObjMethod ObjectGetter prop computed false memb.Args memb.Body]
