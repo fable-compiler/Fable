@@ -1,3 +1,7 @@
+### 3.1.6
+
+* Fixed TypedArray.set signature @Shmew
+
 ### 3.1.5
 
 * Fixed missing indexer in JS TypedArray.
