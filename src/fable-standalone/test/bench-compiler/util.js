@@ -7,17 +7,6 @@ export function escapeJsStringLiteral(str) {
   return JSON.stringify(str).slice(1, -1).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
 
-export function ensureDirExists(dir, cont) {
-  if (fs.existsSync(dir)) {
-    if (typeof cont === "function") { cont(); }
-  } else {
-    ensureDirExists(Path.dirname(dir), () => {
-      if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
-      if (typeof cont === "function") { cont(); }
-    });
-  }
-}
-
 export function getDirFiles(dir) {
   if (!fs.existsSync(dir)) return [];
   const files = fs.readdirSync(dir).map((subdir) => {
@@ -27,15 +16,13 @@ export function getDirFiles(dir) {
   return files.reduce((a, f) => a.concat(f), []);
 }
 
-export function serializeToJson(data) {
-  return JSON.stringify(data, (key, value) => {
-    if (value === Infinity) {
-      return "Infinity";
-    } else if (value === -Infinity) {
-      return "-Infinity";
-    } else if (value !== value) {
-      return "NaN";
-    }
-    return value;
-  });
+export function ensureDirExists(dir, cont) {
+  if (fs.existsSync(dir)) {
+    if (typeof cont === "function") { cont(); }
+  } else {
+    ensureDirExists(Path.dirname(dir), () => {
+      if (!fs.existsSync(dir)) { fs.mkdirSync(dir); }
+      if (typeof cont === "function") { cont(); }
+    });
+  }
 }

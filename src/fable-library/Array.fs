@@ -28,7 +28,7 @@ module Helpers =
     let inline concatImpl (array1: 'T[]) (arrays: 'T[] seq): 'T[] =
         jsNative
 
-    let inline fillImpl (array: 'T[]) (value: 'T) (start: int) (count: int): unit =
+    let inline fillImpl (array: 'T[]) (value: 'T) (start: int) (count: int): 'T[] =
         !!array?fill(value, start, start + count)
 
     let inline foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T[]): 'State =
@@ -124,7 +124,6 @@ let filter (predicate: 'T -> bool) (array: 'T[]) =
 // intentionally returns target instead of unit
 let fill (target: 'T[]) (targetIndex: int) (count: int) (value: 'T): 'T[] =
     fillImpl target value targetIndex count
-    target
 
 let getSubArray (array: 'T[]) (start: int) (count: int): 'T[] =
     subArrayImpl array start count

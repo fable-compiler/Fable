@@ -49,6 +49,7 @@ type IBabelResult =
 type IWriter =
     inherit System.IDisposable
     abstract EscapeJsStringLiteral: string -> string
+    abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
 
 type IFableManager =

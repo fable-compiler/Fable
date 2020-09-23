@@ -297,6 +297,7 @@ let init () =
                     { new BabelPrinter.Writer with
                         member _.Dispose() = writer.Dispose()
                         member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
+                        member _.MakeImportPath(path) = writer.MakeImportPath(path)
                         member _.Write(str) = writer.Write(str) }
 
                 let map = { new BabelPrinter.SourceMapGenerator with
