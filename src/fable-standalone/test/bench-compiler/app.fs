@@ -3,17 +3,47 @@ module Fable.Compiler.App
 open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
+let getMetadataDir(): string = "../../../fable-metadata/lib/"
+let getFableLibDir(): string = "../../../../build/fable-library"
+let getVersion(): string = ".next"
+let initFable (): Fable.Standalone.IFableManager = Fable.Standalone.Main.init ()
+
 let references = Fable.Standalone.Metadata.references_core
-let metadataPath = "../../../fable-metadata/lib/" // .NET BCL binaries
+let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)
 
-let getVersion() = ".next"
-let getFableLibDir() = "../../../../build/fable-library" // TODO: get from options
+let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+let isRelativePath (path: string) = path.StartsWith("./") || path.StartsWith("../")
+let isAbsolutePath (path: string) = path.StartsWith('/') || path.IndexOf(':') = 1
 
-type SourceWriter() =
+let getTargetRelPath importPath targetDir projDir outDir =
+    let relPath = getRelativePath projDir importPath |> trimPath
+    let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
+    let relPath = if relPath.StartsWith("..") then relPath else "./" + relPath
+    let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
+    relPath
+
+let getImportPath sourcePath targetPath projDir outDir importPath =
+    if System.String.IsNullOrEmpty(outDir) then
+        importPath
+    else
+        let sourceDir = Path.GetDirectoryName(sourcePath)
+        let targetDir = Path.GetDirectoryName(targetPath)
+        let importPath =
+            if isRelativePath importPath
+            then Path.Combine(sourceDir, importPath) |> normalizeFullPath
+            else importPath
+        if isAbsolutePath importPath then
+            if importPath.EndsWith(".fs.js")
+            then getTargetRelPath importPath targetDir projDir outDir
+            else getRelativePath targetDir importPath
+        else importPath
+
+type SourceWriter(sourcePath, targetPath, projDir, outDir) =
     let sb = System.Text.StringBuilder()
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
         member _.EscapeJsStringLiteral(str) = javaScriptStringEncode(str)
+        member _.MakeImportPath(path) = getImportPath sourcePath targetPath projDir outDir path
         member _.Dispose() = ()
     member __.Result = sb.ToString()
 
@@ -52,7 +82,7 @@ let parseFiles projectFileName outDir options =
     let readAllBytes dllName = findDllPath dllName |> readAllBytes
 
     // create checker
-    let fable = Fable.Standalone.Main.init ()
+    let fable = initFable ()
     let optimizeFlag = "--optimize" + (if options.optimize then "+" else "-")
     let otherOptions = otherOptions |> Array.append [| optimizeFlag |]
     let createChecker () = fable.CreateChecker(references, readAllBytes, otherOptions)
@@ -70,8 +100,7 @@ let parseFiles projectFileName outDir options =
     parseRes.Errors |> printErrors showWarnings
 
     // early stop for benchmarking
-    if options.benchmark then ()
-    else
+    if options.benchmark then () else
 
     // clear cache to lower memory usage
     if not options.watchMode then
@@ -81,16 +110,10 @@ let parseFiles projectFileName outDir options =
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
 
     // Fable (F# to JS)
-    // let fableLibraryDir = getFableLibDir() |> normalizeFullPath
-    let fableLibraryDir =
-        let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
-        Path.Combine(projDir, getFableLibDir()) |> normalizeFullPath
+    let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
+    let libDir = getFableLibDir() |> normalizeFullPath
     let parseFable (res, fileName) =
-        let fableLibraryDir = getRelativePath (Path.GetDirectoryName fileName) fableLibraryDir
-        fable.CompileToBabelAst(fableLibraryDir, res, fileName, typescript=options.typescript)
-
-    // let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-    // let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
+        fable.CompileToBabelAst(libDir, res, fileName, typescript=options.typescript)
 
     async {
         for fileName in fileNames do
@@ -99,14 +122,21 @@ let parseFiles projectFileName outDir options =
             printfn "File: %s, Fable time: %d ms" fileName ms2
             res.FableErrors |> printErrors showWarnings
 
-            // Print Babel AST (measure time?)
+            // print Babel AST as JavaScript/TypeScript
             let fileExt = if options.typescript then ".ts" else ".js"
-            // let filePath = getRelativePath projDir fileName |> trimPath |> Path.GetFileNameWithoutExtension
-            // let jsFilePath = Path.Combine(outDir, fileName + fileExt)
-            let jsFilePath = fileName + fileExt
-            let writer = new SourceWriter()
+            let outPath =
+                if System.String.IsNullOrEmpty(outDir) then
+                    fileName + fileExt
+                else
+                    let relPath = getRelativePath projDir fileName |> trimPath
+                    let relPath = Path.ChangeExtension(relPath, fileExt)
+                    Path.Combine(outDir, relPath)
+            let writer = new SourceWriter(fileName, outPath, projDir, outDir)
             do! fable.PrintBabelAst(res, writer)
-            writeAllText jsFilePath writer.Result
+
+            // write the result to file
+            ensureDirExists(Path.GetDirectoryName(outPath))
+            writeAllText outPath writer.Result
     } |> runAsync
 
 let run opts projectFileName outDir =
@@ -138,7 +168,7 @@ let parseArguments (argv: string[]) =
     | [| "--help" |], _ -> printfn "%s" usage
     | [| "--version" |], _ -> printfn "v%s" (getVersion())
     | _, [| projectFileName |] ->
-        let outDir = Path.Combine(Path.GetDirectoryName(projectFileName), "bin")
+        let outDir = ""
         run opts projectFileName outDir
     | _, [| projectFileName; outDir |] ->
         run opts projectFileName outDir

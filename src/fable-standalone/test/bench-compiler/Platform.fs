@@ -25,43 +25,6 @@ let measureTime (f: 'a -> 'b) x =
 let javaScriptStringEncode (str: string) =
     System.Web.HttpUtility.JavaScriptStringEncode(str)
 
-module Json =
-    open Newtonsoft.Json
-    open FSharp.Reflection
-    open System.Collections.Concurrent
-
-    let isErasedUnion (t: System.Type) =
-        t.Name = "FSharpOption`1" ||
-        FSharpType.IsUnion t &&
-            t.GetCustomAttributes true
-            |> Seq.exists (fun a -> (a.GetType ()).Name = "EraseAttribute")
-
-    let getErasedUnionValue (v: obj) =
-        match FSharpValue.GetUnionFields (v, v.GetType()) with
-        | _, [|v|] -> Some v
-        | _ -> None
-
-    type ErasedUnionConverter() =
-        inherit JsonConverter()
-        let typeCache = ConcurrentDictionary<System.Type, bool>()
-        override __.CanConvert t =
-            typeCache.GetOrAdd(t, isErasedUnion)
-        override __.ReadJson(_reader, _t, _v, _serializer) =
-            failwith "Not implemented"
-        override __.WriteJson(writer, v, serializer) =
-            match getErasedUnionValue v with
-            | Some v -> serializer.Serialize(writer, v)
-            | None -> writer.WriteNull()
-
-    let jsonSettings = JsonSerializerSettings(
-                        Converters = [| ErasedUnionConverter() |],
-                        ContractResolver = Serialization.CamelCasePropertyNamesContractResolver(),
-                        NullValueHandling = NullValueHandling.Ignore)
-
-    let serializeToJson (value: obj) = JsonConvert.SerializeObject(value, jsonSettings)
-
-let serializeToJson = Json.serializeToJson
-
 let ensureDirExists (path: string): unit =
     Directory.CreateDirectory(path) |> ignore
 
@@ -121,9 +84,8 @@ module JS =
         abstract sync: pattern: string * ?options: obj -> array<string>
 
     type IUtil =
-        abstract serializeToJson: data: obj -> string
-        abstract ensureDirExists: dir: string -> unit
         abstract getDirFiles: dir: string -> string[]
+        abstract ensureDirExists: dir: string -> unit
         abstract escapeJsStringLiteral: string -> string
 
     // type IPerformance =
@@ -156,7 +118,6 @@ let measureTime (f: 'a -> 'b) x =
 let javaScriptStringEncode (str: string) =
     JS.util.escapeJsStringLiteral(str)
 
-let serializeToJson = JS.util.serializeToJson
 let ensureDirExists = JS.util.ensureDirExists
 
 let normalizeFullPath (path: string) =

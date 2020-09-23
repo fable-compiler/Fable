@@ -13,6 +13,7 @@ type Printer =
     abstract PrintNewLine: unit -> unit
     abstract AddLocation: SourceLocation option -> unit
     abstract EscapeJsStringLiteral: string -> string
+    abstract MakeImportPath: string -> string
 
 module PrinterExtensions =
     type Printer with
@@ -1203,7 +1204,10 @@ type ImportDeclaration(specifiers, source) =
 
             if not(Array.isEmpty defaults && Array.isEmpty namespaces && Array.isEmpty members) then
                 printer.Print(" from ")
-            printer.Print(source)
+
+            printer.Print("\"")
+            printer.Print(printer.MakeImportPath(source.Value))
+            printer.Print("\"")
 
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
 /// The exported field refers to the name exported in the module.

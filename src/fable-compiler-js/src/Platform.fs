@@ -3,6 +3,7 @@ module Fable.Compiler.Platform
 open Fable.Core.JsInterop
 
 type CmdLineOptions = {
+    benchmark: bool
     optimize: bool
     sourceMaps: bool
     typescript: bool
@@ -33,13 +34,11 @@ module JS =
         abstract sync: pattern: string * ?options: obj -> array<string>
 
     type IUtil =
-        abstract getVersion: unit -> string
-        abstract ensureDirExists: dir: string -> unit
-        abstract copyFolder: from: string * dest: string -> unit
-        abstract transformAndSaveBabelAst: babelAst: obj * outPath: string * projDir: string * outDir: string * libDir: string * options: CmdLineOptions -> unit
-        abstract runCmdAndExitIfFails: cmd: string -> unit
         abstract getDirFiles: dir: string -> string[]
+        abstract ensureDirExists: dir: string -> unit
         abstract escapeJsStringLiteral: string -> string
+        abstract copyFolder: from: string * dest: string -> unit
+        abstract runCmdAndExitIfFails: cmd: string -> unit
 
     let fs: IFileSystem = importAll "fs"
     let os: IOperSystem = importAll "os"
@@ -61,7 +60,6 @@ let measureTime (f: 'a -> 'b) x =
 let javaScriptStringEncode (str: string) =
     JS.util.escapeJsStringLiteral(str)
 
-let getVersion = JS.util.getVersion
 let ensureDirExists = JS.util.ensureDirExists
 let copyFolder = JS.util.copyFolder
 let runCmdAndExitIfFails = JS.util.runCmdAndExitIfFails

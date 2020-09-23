@@ -11,6 +11,10 @@ export function getVersion() {
   return require("../package.json").version;
 }
 
+export function getFableLibDir() {
+  return Path.join(Path.dirname(require.resolve("fable-standalone")), "fable-library");
+}
+
 export function getDirFiles(dir) {
   if (!fs.existsSync(dir)) return [];
   const files = fs.readdirSync(dir).map((subdir) => {
@@ -29,19 +33,6 @@ export function ensureDirExists(dir, cont) {
       if (typeof cont === "function") { cont(); }
     });
   }
-}
-
-export function isRelativePath(path) {
-  return path.startsWith("./") || path.startsWith("../");
-}
-
-export function getRelPath(absPath, outPath, projDir, outDir) {
-  let relPath = Path.relative(projDir, absPath).replace(/\\/g, "/");
-  relPath = relPath.replace(/\.\.\//g, "").replace(/\.\//g, "").replace(/\:/g, "");
-  relPath = Path.relative(Path.dirname(outPath), Path.join(outDir, relPath));
-  relPath = relPath.replace(/\\/g, "/");
-  relPath = relPath.startsWith("..") ? relPath : "./" + relPath;
-  return relPath;
 }
 
 export function copyFolder(from, dest) {

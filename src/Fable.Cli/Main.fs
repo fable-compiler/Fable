@@ -16,8 +16,8 @@ type FileWriter(path: string) =
             stream.WriteAsync(str) |> Async.AwaitTask
         member _.EscapeJsStringLiteral(str) =
             Web.HttpUtility.JavaScriptStringEncode(str)
-        member _.Dispose() =
-            stream.Dispose()
+        member _.MakeImportPath(path) = path // TODO: support outDir
+        member _.Dispose() = stream.Dispose()
 
 type SingleShotObservable<'T>() =
     let mutable subscriber: IObserver<'T> option = None
