@@ -53,7 +53,28 @@ let testCaseAsync msg f =
                     printfn "%s" ex.StackTrace
         } |> Async.StartImmediate)
 
+let measureTime (f: unit -> unit) =
+    emitJsStatement f
+        """const startTime = process.hrtime();
+            $0();
+            const elapsed = process.hrtime(startTime);
+            console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);"""
+
 // Write here your unit test, you can later move it
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+type MyGetter =
+    abstract MyNumber: int
+
+measureTime <| (fun () ->
+    let myGetter = { new MyGetter with
+                        member _.MyNumber = 1 + 1 }
+
+    let mutable x = 0
+    for i = 0 to 1000000000 do
+        x <- myGetter.MyNumber
+
+    printfn "x = %i" x
+)

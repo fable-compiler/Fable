@@ -944,46 +944,96 @@ module Util =
         let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
         BlockStatement [|ReturnStatement(libCall com ctx None "Seq" "toIterator" [|enumerator|])|]
 
+    let extractBaseExprFromBaseCall com ctx baseCall =
+        let baseRef, args, hasSpread =
+            match baseCall with
+            | Fable.Emit({Args=(baseRef::args)},_,_) -> // "new $0($1...)"
+                baseRef, args, false
+            | Fable.Call(baseRef, info,_,_) ->
+                baseRef, info.Args, info.HasSpread
+            | _ ->
+                "Unexpected base call expression, please report"
+                |> addError com [] baseCall.Range
+                Fable.Value(Fable.UnitConstant, None), [], false
+
+        let baseExpr = transformAsExpr com ctx baseRef
+        let args = transformCallArgs com ctx hasSpread args
+        let baseCall = callSuperConstructor None args
+        baseExpr, baseCall
+
     let transformObjectExpr (com: IBabelCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression =
-        // TODO: refactor to simplify (DRY)
-        let makeObjMethod kind prop computed hasSpread args body =
+        let compileAsClass =
+            Option.isSome baseCall || members |> List.exists (fun m ->
+                // Optimization: Object literals with getters and setters are very slow in V8
+                // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
+                m.Info.IsSetter || (m.Info.IsGetter && canHaveSideEffects m.Body))
+
+        let makeMethod kind prop computed hasSpread args body =
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx Attached hasSpread args body
             ObjectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl) :> ObjectMember
-        let pojo =
+
+        let members =
             members |> List.collect (fun memb ->
                 let info = memb.Info
                 let prop, computed = memberFromName memb.Name
-                // Optimization: if body doesn't have side effects, avoid getter in object literal
-                // which bails out optimizations in V8. See
-                if info.IsValue || (info.IsGetter && not(canHaveSideEffects memb.Body)) then
+                // If compileAsClass is false, it means getters don't have side effects
+                // and can be compiled as object fields (see condition above)
+                if info.IsValue || (not compileAsClass && info.IsGetter) then
                     [ObjectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed) :> ObjectMember]
                 elif info.IsGetter then
-                    [makeObjMethod ObjectGetter prop computed false memb.Args memb.Body]
+                    [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
                 elif info.IsSetter then
-                    [makeObjMethod ObjectSetter prop computed false memb.Args memb.Body]
+                    [makeMethod ObjectSetter prop computed false memb.Args memb.Body]
                 elif info.IsEnumerator then
-                    let method = makeObjMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
+                    let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
                         let body = enumerator2iterator com ctx
                         ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) :> ObjectMember
                     [method; iterator]
                 elif memb.Name = "ToString" then
-                    let method = makeObjMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
+                    let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
                     let method2 =
                         let prop, computed = memberFromName "toString"
                         let body = callToString com ctx
                         ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) :> ObjectMember
                     [method; method2]
                 else
-                    [makeObjMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
-            ) |> List.toArray |> ObjectExpression
-        match baseCall with
-        | Some(TransformExpr com ctx baseCall) ->
-            libCall com ctx None "Util" "extend" [|baseCall; pojo|]
-        | None -> pojo :> Expression
+                    [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
+            )
+
+        if not compileAsClass then
+            ObjectExpression(List.toArray  members) :> Expression
+        else
+            let classMembers =
+                members |> List.choose (function
+                    | :? ObjectProperty as m ->
+                        ClassProperty(m.Key, m.Value, computed_=m.Computed) :> ClassMember |> Some
+                    | :? ObjectMethod as m ->
+                        let kind =
+                            match m.Kind with
+                            | "get" -> ClassGetter
+                            | "set" -> ClassSetter
+                            | _ -> ClassFunction
+                        ClassMethod(kind, m.Key, m.Params, m.Body, computed_=m.Computed,
+                            ?returnType=m.ReturnType, ?typeParameters=m.TypeParameters) :> ClassMember |> Some
+                    | _ -> None)
+
+            let baseExpr, classMembers =
+                baseCall
+                |> Option.map (extractBaseExprFromBaseCall com ctx)
+                |> Option.map (fun (baseExpr, baseCall) ->
+                    let consBody = BlockStatement [|ExpressionStatement baseCall :> Statement|]
+                    let cons = ClassMethod(ClassImplicitConstructor, Identifier "constructor", [||], consBody)
+                    Some baseExpr, (cons :> ClassMember)::classMembers
+                )
+                |> Option.defaultValue (None, classMembers)
+
+            let classBody = ClassBody(List.toArray classMembers)
+            let classExpr = ClassExpression(classBody, ?superClass=baseExpr) :> Expression
+            NewExpression(classExpr, [||]) :> Expression
 
     let transformCallArgs (com: IBabelCompiler) ctx hasSpread args =
         match args with
@@ -1954,28 +2004,14 @@ module Util =
             makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
 
         let baseExpr, consBody =
-            match classDecl.BaseCall with
-            | Some baseCall ->
-                match baseCall with
-                | Fable.Emit({Args=(baseRef::args)},_,_) -> // "new $0($1...)"
-                    Some(baseRef, args, false)
-                | Fable.Call(baseRef, info,_,_) ->
-                    Some(baseRef, info.Args, info.HasSpread)
-                | _ ->
-                    "Unexpected base call expression, please report"
-                    |> addError com [] baseCall.Range
-                    None
-            | None -> None
-            |> Option.map (fun (baseRef, args, hasSpread ) ->
-                let baseRef = transformAsExpr com ctx baseRef
-                let args = transformCallArgs com ctx hasSpread args
-                let baseCall = callSuperConstructor None args
+            classDecl.BaseCall
+            |> Option.map (extractBaseExprFromBaseCall com ctx)
+            |> Option.map (fun (baseExpr, baseCall) ->
                 let consBody =
                     consBody.Body
                     |> Array.append [|ExpressionStatement baseCall :> Statement|]
                     |> BlockStatement
-                Some(baseRef), consBody
-            )
+                Some baseExpr, consBody)
             |> Option.defaultValue (None, consBody)
 
         [

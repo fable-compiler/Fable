@@ -1,17 +1,5 @@
 // tslint:disable:ban-types
 
-// Object.assign flattens getters and setters
-// See https://stackoverflow.com/questions/37054596/js-es5-how-to-assign-objects-with-setters-and-getters
-export function extend(target: any, ...sources: any[]) {
-  for (const source of sources) {
-    for (const key of Object.keys(source)) {
-      const descr = Object.getOwnPropertyDescriptor(source, key);
-      if (descr) { Object.defineProperty(target, key, descr); }
-    }
-  }
-  return target;
-}
-
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,

@@ -229,7 +229,8 @@ type EmitExpression(value, args, ?loc) =
                     let segment = value.Substring(segmentStart, segmentLength)
                     let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
                     for i = 1 to subSegments.Length do
-                        printer.Print(subSegments.[i - 1])
+                        // Remove whitespace in front of the subsegment as indent will be automatically applied
+                        printer.Print(replace @"^\s*" (fun _ -> "") subSegments.[i - 1])
                         if i < subSegments.Length then
                             printer.PrintNewLine()
 
