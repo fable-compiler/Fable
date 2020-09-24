@@ -241,6 +241,11 @@ module Extensions =
     type NestedModule.AnotherClass with
         member x.Value2 = x.Value * 4
 
+    [<AbstractClass>]
+    type ObjectExprBase (x: int ref) as this =
+        do x := this.dup x.contents
+        abstract member dup: int -> int
+
 open Extensions
 
 
@@ -631,6 +636,12 @@ let tests =
                 member __.Bite() = 25
             }
         o.Taste(4., 6.) |> equal 28
+
+    testCase "Members are accessible in abstract class constructor inherited by object expr" <| fun () -> // See #2139
+        let x = ref 5
+        let obj = { new ObjectExprBase(x) with
+                        override _.dup x = x * x }
+        equal 25 x.contents
 
     testCase "Composition with recursive `this` works" <| fun () ->
         let mutable x = 0

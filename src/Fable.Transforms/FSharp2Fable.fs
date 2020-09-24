@@ -252,11 +252,10 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
             // but check the baseCall.DeclaringEntity name just in case
             | BasicPatterns.Call(None,baseCall,genArgs1,genArgs2,baseArgs) ->
                 match baseCall.DeclaringEntity with
-                | Some baseType when baseType.TryFullName <> Some Types.object ->
-                    let typ = makeType ctx.GenericArgs baseCallExpr.Type
-                    let! baseArgs = transformExprList com ctx baseArgs
-                    let genArgs = genArgs1 @ genArgs2 |> Seq.map (makeType ctx.GenericArgs)
-                    return makeCallFrom com ctx None typ genArgs None baseArgs baseCall |> Some
+                | Some baseEnt when baseEnt.TryFullName <> Some Types.object ->
+                    let r = makeRangeFrom baseCallExpr
+                    let genArgs = genArgs1 @ genArgs2
+                    return transformBaseConsCall com ctx r baseEnt baseCall genArgs baseArgs |> Some
                 | _ -> return None
             | _ -> return None
         }
