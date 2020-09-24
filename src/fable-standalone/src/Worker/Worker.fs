@@ -99,23 +99,22 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     | Some fable, CompileCode(fsharpCode, otherFSharpOptions) ->
         try
             // detect (and remove) the non-F# compiler options to avoid changing msg contract
-            let nonFSharpOptions = Map [
-                "--typedArrays", false
-                "--clampByteArrays", false
-                "typescript", false
+            let nonFSharpOptions = set [
+                "--typedArrays"
+                "--clampByteArrays"
+                "--typescript"
             ]
-            let nonFSharpOptions, otherFSharpOptions =
-                ((nonFSharpOptions, []), otherFSharpOptions) ||> Array.fold (fun (nonFcsOpts, fcsOpts) opt ->
-                    if Map.containsKey opt nonFcsOpts then Map.add opt true nonFcsOpts, fcsOpts
-                    else nonFcsOpts, opt::fcsOpts)
-                |> fun (nonFcsOpts, fcsOpts) -> nonFcsOpts, List.rev fcsOpts |> List.toArray
+            let fableOptions, otherFSharpOptions =
+                otherFSharpOptions |> Array.partition (fun x -> Set.contains x nonFSharpOptions)
+
             // Check if we need to recreate the FableState because otherFSharpOptions have changed
             let! fable = makeFableState (Initialized fable) otherFSharpOptions
-            let (parseResults, parsingTime) = measureTime (fun () -> fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
+            let (parseResults, parsingTime) = measureTime (fun () ->
+                fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
             let (res, fableTransformTime) = measureTime (fun () ->
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME,
-                                                typedArrays=Map.find "--typedArrays" nonFSharpOptions,
-                                                typescript=Map.find "--typescript" nonFSharpOptions)) ()
+                                                typedArrays = Array.contains "--typedArrays" fableOptions,
+                                                typescript = Array.contains "--typescript" fableOptions)) ()
             let (jsCode, babelTime, babelErrors) =
                 try
 //                    let code, t = measureTime fable.BabelAstCompiler res.BabelAst
