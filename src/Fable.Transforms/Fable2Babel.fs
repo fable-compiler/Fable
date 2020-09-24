@@ -768,7 +768,11 @@ module Util =
             match kind, args with
             | Attached, (thisArg::args) ->
                 let genTypeParams = Set.difference (getGenericTypeParams [thisArg.Type]) ctx.ScopedTypeParams
-                let body = Fable.Let([thisArg, Fable.IdentExpr { thisArg with Name = "this" }], body)
+                let body =
+                    if FableTransforms.isIdentUsed thisArg.Name body then
+                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
+                        Fable.Let([thisArg, thisKeyword], body)
+                    else body
                 None, genTypeParams, args, body
             | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
             | NonAttached funcName, _ -> Some funcName, Set.empty, args, body
@@ -1144,25 +1148,43 @@ module Util =
             | statements -> IfStatement(guardExpr, thenStmnt, BlockStatement statements, ?loc=r)
 
     let transformGet (com: IBabelCompiler) ctx range typ fableExpr (getKind: Fable.GetKind) =
-        let fableExpr =
-            match fableExpr with
-            // If we're accessing a virtual member with default implementation (see #701)
-            // from base class, we can use `super` in JS so we don't need the bound this arg
-            | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
-            | _ -> fableExpr
-        let expr = com.TransformAsExpr(ctx, fableExpr)
         match getKind with
-        | Fable.ByKey(Fable.ExprKey(TransformExpr com ctx prop)) -> getExpr range expr prop
-        | Fable.ByKey(Fable.FieldKey field) -> get range expr field.Name
-        | Fable.ListHead -> get range expr "head"
-        | Fable.ListTail -> get range expr "tail"
-        | Fable.TupleIndex index -> getExpr range expr (ofInt index)
+        | Fable.ByKey key ->
+            let fableExpr =
+                match fableExpr with
+                // If we're accessing a virtual member with default implementation (see #701)
+                // from base class, we can use `super` in JS so we don't need the bound this arg
+                | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
+                | _ -> fableExpr
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            match key with
+            | Fable.ExprKey(TransformExpr com ctx prop) -> getExpr range expr prop
+            | Fable.FieldKey field -> get range expr field.Name
+
+        | Fable.ListHead ->
+            get range (com.TransformAsExpr(ctx, fableExpr)) "head"
+
+        | Fable.ListTail ->
+            get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
+
+        | Fable.TupleIndex index ->
+            match fableExpr with
+            // TODO: Check the erased expressions don't have side effects?
+            | Fable.Value(Fable.NewTuple exprs, _) ->
+                com.TransformAsExpr(ctx, List.item index exprs)
+            | TransformExpr com ctx expr -> getExpr range expr (ofInt index)
+
         | Fable.OptionValue ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
             if mustWrapOption typ || com.Options.Typescript
             then libCall com ctx None "Option" "value" [|expr|]
             else expr
-        | Fable.UnionTag -> getUnionExprTag range expr
+
+        | Fable.UnionTag ->
+            com.TransformAsExpr(ctx, fableExpr) |> getUnionExprTag range
+
         | Fable.UnionField(idx, _) ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
             getExpr range (getExpr None expr (StringLiteral "fields")) (ofInt idx)
 
     let transformSet (com: IBabelCompiler) ctx range var (value: Fable.Expr) setKind =
@@ -1413,11 +1435,11 @@ module Util =
             // If the bound idents are not referenced in the target, remove them
             let targets =
                 targets |> List.map (fun (idents, expr) ->
-                    if idents |> List.exists (fun i ->
-                        expr |> FableTransforms.deepExists (function
-                            | Fable.IdentExpr i2 -> i2.Name = i.Name
-                            | _ -> false)) then idents, expr
-                    else [], expr)
+                    idents
+                    |> List.exists (fun i -> FableTransforms.isIdentUsed i.Name expr)
+                    |> function
+                        | true -> idents, expr
+                        | false -> [], expr)
             let hasAnyTargetWithMultiRefsBoundValues =
                 targetsWithMultiRefs |> List.exists (fun idx ->
                     targets.[idx] |> fst |> List.isEmpty |> not)

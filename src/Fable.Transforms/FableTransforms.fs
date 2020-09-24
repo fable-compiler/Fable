@@ -3,7 +3,6 @@ module Fable.Transforms.FableTransforms
 open Fable
 open Fable.AST.Fable
 
-// TODO: Use trampoline here?
 let visit f e =
     match e with
     | IdentExpr _ -> e
@@ -91,7 +90,6 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
     | Some e -> e
     | None -> visit (visitFromOutsideIn f) e
 
-// TODO: We should likely make this a property of Fable.Expr
 let getSubExpressions = function
     | IdentExpr _ -> []
     | TypeCast(e,_) -> [e]
@@ -160,6 +158,11 @@ let deepExists (f: Expr -> bool) expr =
         elif subExprs.Count > 0 then deepExistsInner subExprs
         else false
     ResizeArray [|expr|] |> deepExistsInner
+
+let isIdentUsed identName expr =
+    expr |> deepExists (function
+        | IdentExpr i -> i.Name = identName
+        | _ -> false)
 
 let replaceValues replacements expr =
     if Map.isEmpty replacements
@@ -250,12 +253,6 @@ module private Transforms =
                 | 4, Lambda(arg1, Lambda(arg2, Lambda(arg3, Lambda(arg4, body,_),_),_),_) ->
                     applyArgs [arg1; arg2; arg3; arg4] argExprs body
                 | _ -> e
-        | e -> e
-
-    /// Tuples created when pattern matching multiple elements can usually be erased
-    /// after the binding and lambda beta reduction
-    let tupleBetaReduction (_: Compiler) = function
-        | Get(Value(NewTuple exprs, _), TupleIndex index, _, _) -> List.item index exprs
         | e -> e
 
     let bindingBetaReduction (com: Compiler) e =
@@ -512,7 +509,6 @@ let optimizations =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
-      fun com e -> visitFromInsideOut (tupleBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
