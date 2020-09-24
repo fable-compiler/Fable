@@ -174,9 +174,9 @@ module PrinterExtensions =
             | :? Identifier
             | :? MemberExpression
             | :? CallExpression
-            // | :? NewExpression // Safe?
             | :? ThisExpression
-            | :? Super -> expr.Print(printer)
+            | :? Super
+            | :? ArrayExpression -> expr.Print(printer)
             | :? ObjectExpression ->
                 match objExpr with
                 | Some true -> printer.WithParens(expr)

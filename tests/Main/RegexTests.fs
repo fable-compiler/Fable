@@ -106,6 +106,12 @@ let tests =
         for g in m.Groups do count := !count + g.Value.Length
         equal 17 !count
 
+    testCase "Match.Groups iteration works II" <| fun () -> // See #2167
+        let m = Regex.Match("foo bar baz", @"(\w+) \w+ (\w+)")
+        let li = [for g in m.Groups -> g.Value]
+        let x = li |> List.skip 1 |> List.reduce (+)
+        equal "foobaz" x
+
     testCase "Match.Groups.Count works" <| fun _ ->
         let str = "For more information, see Chapter 3.4.5.1"
         let m = Regex.Match(str, "Chapter \d+(\.\d)*")

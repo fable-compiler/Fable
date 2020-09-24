@@ -438,11 +438,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! body = transformExpr com ctx body
         return Fable.Let([ident, value], body)
 
-    // TODO: Detect if it's ResizeArray and compile as FastIntegerForLoop?
-    | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->
-        let! value = transformExpr com ctx value
-        let! body = transformExpr com newContext body
-        return Replacements.iterate com (makeRangeFrom fsExpr) ident body value
+    // | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->
+    //     let! value = transformExpr com ctx value
+    //     let! body = transformExpr com newContext body
+    //     return Replacements.iterate com (makeRangeFrom fsExpr) ident body value
 
     // Flow control
     | BasicPatterns.FastIntegerForLoop(start, limit, body, isUp) ->
