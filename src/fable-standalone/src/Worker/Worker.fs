@@ -18,6 +18,7 @@ importScripts "bundle.min.js"
 let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = jsNative
 
 let getAssemblyReader(_getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
+let escapeJsStringLiteral (str: string): string = importMember "./util.js"
 
 let measureTime f arg =
     let before: float = self?performance?now()
@@ -41,6 +42,15 @@ type State =
     { Fable: FableState option
       Worker: ObservableWorker<WorkerRequest>
       CurrentResults: IParseResults option }
+
+type SourceWriter() =
+    let sb = System.Text.StringBuilder()
+    interface Fable.Standalone.IWriter with
+        member _.Write(str) = async { return sb.Append(str) |> ignore }
+        member _.EscapeJsStringLiteral(str) = escapeJsStringLiteral(str)
+        member _.MakeImportPath(path) = path
+        member _.Dispose() = ()
+    member __.Result = sb.ToString()
 
 let makeFableState (config: FableStateConfig) otherFSharpOptions =
     async {
@@ -115,22 +125,11 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                 fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME,
                                                 typedArrays = Array.contains "--typedArrays" fableOptions,
                                                 typescript = Array.contains "--typescript" fableOptions)) ()
-            let (jsCode, babelTime, babelErrors) =
-                try
-//                    let code, t = measureTime fable.BabelAstCompiler res.BabelAst
-                    let code = "" // TODO
-                    let t = 0.
-                    code, t, [||]
-                with ex ->
-                    let error =
-                        { FileName = FILE_NAME
-                          StartLineAlternate = 1
-                          StartColumn = 0
-                          EndLineAlternate = 1
-                          EndColumn = 0
-                          Message = "BABEL: " + ex.Message
-                          IsWarning = false }
-                    "", 0., [|error|]
+            // Print Babel AST
+            let writer = new SourceWriter()
+            do! fable.Manager.PrintBabelAst(res, writer)
+            let jsCode = writer.Result
+            let babelTime = 0.
 
             let stats : CompileStats =
                 { FCS_checker = fable.LoadTime
@@ -138,7 +137,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                   Fable_transform = fableTransformTime
                   Babel_generation = babelTime }
 
-            let errors = Array.concat [parseResults.Errors; res.FableErrors; babelErrors]
+            let errors = Array.concat [parseResults.Errors; res.FableErrors]
             CompilationFinished (jsCode, errors, stats) |> state.Worker.Post
         with er ->
             JS.console.error er
