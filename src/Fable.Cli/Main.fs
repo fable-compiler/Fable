@@ -85,6 +85,19 @@ module private Util =
                     failwithf "Fable.Core v%i.%i detected, expecting v%i.%i" actualMajor actualMinor expectedMajor expectedMinor
                 // else printfn "Fable.Core version matches"
 
+    let measureTime (f: unit -> 'a) =
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let res = f()
+        sw.Stop()
+        res, sw.ElapsedMilliseconds
+
+    let measureTimeAsync (f: unit -> Async<'a>) = async {
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let! res = f()
+        sw.Stop()
+        return res, sw.ElapsedMilliseconds
+    }
+
     let formatException file ex =
         let rec innerStack (ex: Exception) =
             if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
@@ -167,7 +180,8 @@ module private Util =
             let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir)
             do! BabelPrinter.run writer map babel
 
-            Log.always(sprintf "Compiled %s" com.CurrentFile)
+            Log.always("Compiled " + File.getRelativePath com.CurrentFile)
+
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
                          WatchDependencies = com.WatchDependencies |}
@@ -241,11 +255,13 @@ type ProjectParsed(project: Project,
 
         Log.always("Compiling " + Path.getRelativePath cliArgs.RootDir config.ProjectFile + "...")
 
-        let checkedProject =
+        let checkedProject, ms = measureTime <| fun () ->
             let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
             let sourceReader f = fileDic.[f].ReadSource()
             let filePaths = config.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
             checker.ParseAndCheckProject(config.ProjectFile, filePaths, sourceReader)
+
+        Log.always(sprintf "F# compilation finished in %ims" ms)
 
         // checkFableCoreVersion checkedProject
         let optimized = false // TODO: Pass through CompilerOptions
@@ -321,7 +337,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             | Some exclude -> filesToCompile |> Array.filter (fun x -> not(x.Contains(exclude))) // Use regex?
             | None -> filesToCompile
 
-    let! logs, watchDependencies =
+    let! (logs, watchDependencies), ms = measureTimeAsync <| fun () ->
         filesToCompile
         |> Array.map (fun file ->
             cracked.MakeCompiler(file, parsed.Project)
@@ -336,6 +352,8 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 | Error e ->
                     let log = Log.MakeError(e.Exception.Message, fileName=e.File, tag="EXCEPTION")
                     Array.append logs [|log|], deps))
+
+    Log.always(sprintf "Fable compilation finished in %ims" ms)
 
     // TODO: Print first info, then warning and finally errors
     for log in logs do

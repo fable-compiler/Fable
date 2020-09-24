@@ -230,9 +230,11 @@ type EmitExpression(value, args, ?loc) =
                     let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
                     for i = 1 to subSegments.Length do
                         // Remove whitespace in front of the subsegment as indent will be automatically applied
-                        printer.Print(replace @"^\s*" (fun _ -> "") subSegments.[i - 1])
-                        if i < subSegments.Length then
-                            printer.PrintNewLine()
+                        let subSegment = subSegments.[i - 1].TrimStart()
+                        if subSegment.Length > 0 then
+                            printer.Print(subSegment)
+                            if i < subSegments.Length then
+                                printer.PrintNewLine()
 
             // Macro transformations
             // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
