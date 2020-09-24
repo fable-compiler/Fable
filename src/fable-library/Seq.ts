@@ -48,7 +48,9 @@ export class Enumerator<T> implements IEnumerator<T>, IDisposable {
 }
 
 export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
-  return new Enumerator(o[Symbol.iterator]());
+  return typeof (o as any).GetEnumerator === "function"
+    ? (o as IEnumerable<T>).GetEnumerator()
+    : new Enumerator(o[Symbol.iterator]());
 }
 
 export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
@@ -82,6 +84,10 @@ function makeSeq<T>(f: () => Iterator<T>): Iterable<T> {
     toString: () => "seq [" + Array.from(seq).join("; ") + "]",
   };
   return seq;
+}
+
+function isArrayOrBufferView<T>(xs: Iterable<T>): xs is Array<T> {
+  return Array.isArray(xs) || ArrayBuffer.isView(xs);
 }
 
 export function ofArray<T>(xs: ArrayLike<T>) {
@@ -350,8 +356,8 @@ export function where<T>(f: (x: T) => boolean, xs: Iterable<T>) {
 }
 
 export function fold<T, ST>(f: (acc: ST, x: T, i?: number) => ST, acc: ST, xs: Iterable<T>) {
-  if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
-    return (xs as T[]).reduce(f, acc);
+  if (isArrayOrBufferView(xs)) {
+    return xs.reduce(f, acc);
   } else {
     let cur: IteratorResult<T>;
     for (let i = 0, iter = xs[Symbol.iterator](); ; i++) {
@@ -364,7 +370,7 @@ export function fold<T, ST>(f: (acc: ST, x: T, i?: number) => ST, acc: ST, xs: I
 }
 
 export function foldBack<T, ST>(f: (x: T, acc: ST, i?: number) => ST, xs: Iterable<T>, acc: ST) {
-  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T[] : Array.from(xs);
+  const arr = isArrayOrBufferView(xs) ? xs as T[] : Array.from(xs);
   for (let i = arr.length - 1; i >= 0; i--) {
     acc = f(arr[i], acc, i);
   }
@@ -390,8 +396,8 @@ export function fold2<T1, T2, ST>(
 
 export function foldBack2<T1, T2, ST>(
   f: (x: T1, y: T2, acc: ST, i?: number) => ST, xs: Iterable<T1>, ys: Iterable<T2>, acc: ST) {
-  const ar1: T1[] = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T1[] : Array.from(xs);
-  const ar2: T2[] = Array.isArray(ys) || ArrayBuffer.isView(ys) ? ys as T2[] : Array.from(ys);
+  const ar1: T1[] = isArrayOrBufferView(xs) ? xs as T1[] : Array.from(xs);
+  const ar2: T2[] = isArrayOrBufferView(ys) ? ys as T2[] : Array.from(ys);
   for (let i = ar1.length - 1; i >= 0; i--) {
     acc = f(ar1[i], ar2[i], acc, i);
   }
@@ -422,7 +428,7 @@ export function tryItem<T>(i: number, xs: Iterable<T>): Option<T> {
   if (i < 0) {
     return undefined;
   }
-  if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
+  if (isArrayOrBufferView(xs)) {
     return i < (xs as T[]).length ? some((xs as T[])[i]) : undefined;
   }
   for (let j = 0, iter = xs[Symbol.iterator](); ; j++) {
@@ -471,7 +477,7 @@ export function last<T>(xs: Iterable<T>): T {
 }
 
 export function length<T>(xs: Iterable<T>) {
-  return Array.isArray(xs) || ArrayBuffer.isView(xs)
+  return isArrayOrBufferView(xs)
     ? (xs as T[]).length
     : fold((acc, _x) => acc + 1, 0, xs);
 }
@@ -557,7 +563,7 @@ export function mapFold<T, ST, R>(
 export function mapFoldBack<T, ST, R>(
   f: (x: T, acc: ST) => [R, ST], xs: Iterable<T>, acc: ST,
   transform?: (r: Iterable<R>) => Iterable<R>): [Iterable<R>, ST] {
-  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T[] : Array.from(xs);
+  const arr = isArrayOrBufferView(xs) ? xs as T[] : Array.from(xs);
   const result: R[] = [];
   let r: R;
   for (let i = arr.length - 1; i >= 0; i--) {
@@ -627,7 +633,7 @@ export function readOnly<T>(xs: Iterable<T>) {
 }
 
 export function reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
-  if (Array.isArray(xs) || ArrayBuffer.isView(xs)) {
+  if (isArrayOrBufferView(xs)) {
     return (xs as T[]).reduce(f);
   }
   const iter = xs[Symbol.iterator]();
@@ -647,7 +653,7 @@ export function reduce<T>(f: (acc: T, x: T) => T, xs: Iterable<T>) {
 }
 
 export function reduceBack<T>(f: (acc: T, x: T, i?: number) => T, xs: Iterable<T>) {
-  const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? xs as T[] : Array.from(xs);
+  const ar = isArrayOrBufferView(xs) ? xs as T[] : Array.from(xs);
   if (ar.length === 0) {
     throw new Error("Seq was empty");
   }
@@ -663,7 +669,7 @@ export function replicate<T>(n: number, x: T) {
 }
 
 export function reverse<T>(xs: Iterable<T>) {
-  const ar = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
+  const ar = isArrayOrBufferView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
   return ofArray(ar.reverse());
 }
 
@@ -777,7 +783,7 @@ export function find<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) {
 }
 
 export function tryFindBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>, defaultValue?: T): Option<T> {
-  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
+  const arr = isArrayOrBufferView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
   return tryFind(f, arr.reverse(), defaultValue);
 }
 
@@ -803,7 +809,7 @@ export function findIndex<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>) 
 }
 
 export function tryFindIndexBack<T>(f: (x: T, i?: number) => boolean, xs: Iterable<T>): Option<number> {
-  const arr = Array.isArray(xs) || ArrayBuffer.isView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
+  const arr = isArrayOrBufferView(xs) ? (xs as T[]).slice(0) : Array.from(xs);
   for (let i = arr.length - 1; i >= 0; i--) {
     if (f(arr[i], i)) {
       return i;

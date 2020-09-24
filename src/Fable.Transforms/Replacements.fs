@@ -613,10 +613,6 @@ let toSeq t (e: Expr) =
     | String -> stringToCharArray t e
     | _ -> TypeCast(e, t)
 
-let iterate com r ident body (xs: Expr) =
-    let f = Delegate([ident], body, None)
-    Helper.LibCall(com, "Seq", "iterate", Unit, [f; toSeq xs.Type xs], ?loc=r)
-
 let (|ListSingleton|) x = [x]
 
 let (|CustomOp|_|) com ctx opName argTypes sourceTypes =
@@ -1479,6 +1475,9 @@ let implementedStringFunctions =
            "Substring"
         |]
 
+let getEnumerator com r t expr =
+    Helper.LibCall(com, "Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | ".ctor", _, fstArg::_ ->
@@ -1504,6 +1503,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
         let left = Helper.LibCall(com, "String", "compare", Number Int32, [x; y; kind])
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
+    | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
             addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
@@ -1593,9 +1593,6 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     // Rest of StringModule methods
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-
-let getEnumerator com r t expr =
-    Helper.LibCall(com, "Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
 let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let sort r returnType descending projection args genArg =
@@ -2254,6 +2251,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                    "Contains", "has"
                    "Remove",   "delete" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Add", Some c, [arg] ->
         Helper.LibCall(com, "Util", "addToSet", t, [arg; c], ?loc=r) |> Some
     | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
@@ -2589,6 +2587,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // MatchCollection & GroupCollection
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
+    | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
         Helper.LibCall(com, "RegExp", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2605,6 +2604,16 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "GetString", Some callee, (1 | 3) ->
         let meth = Naming.lowerFirst i.CompiledName
         Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | _ -> None
+
+let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg with
+    | Some callee ->
+        // Enumerators are mangled, use the fully qualified name
+        let isGenericCurrent = i.CompiledName = "get_Current" && i.DeclaringEntityFullName <> Types.ienumerator
+        let entityName = if isGenericCurrent then Types.ienumeratorGeneric else Types.ienumerator
+        let methName = entityName + "." + i.CompiledName
+        Helper.InstanceCall(callee, methName, t, args, ?loc=r) |> Some
     | _ -> None
 
 let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (_: Expr list) =
@@ -2900,6 +2909,12 @@ let private replacedModules =
     Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables
     "System.Collections.Generic.Dictionary`2.KeyCollection", enumerables
+    "System.Collections.Generic.Dictionary`2.Enumerator", enumerators
+    "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", enumerators
+    "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", enumerators
+    "System.Collections.Generic.List`1.Enumerator", enumerators
+    "System.Collections.Generic.HashSet`1.Enumerator", enumerators
+    "System.CharEnumerator", enumerators
     Types.resizeArray, resizeArrays
     "System.Collections.Generic.IList`1", resizeArrays
     "System.Collections.IList", resizeArrays
