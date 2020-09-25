@@ -33,6 +33,7 @@ Commands:
   clean             Clean generated JS files
 
 Arguments:
+  --outDir          Redirect compilation output files to a directory
   --define          Defines a symbol for use in conditional compilation
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
@@ -89,6 +90,7 @@ type Runner =
                 { ProjectFile = projFile
                   FableLibraryPath = argValue "--fable-library" args
                   RootDir = rootDir
+                  OutDir = argValue "--outDir" args
                   ForcePackages = hasFlag "--force-pkgs" args
                   Exclude = argValue "--exclude" args
                   Define = defines

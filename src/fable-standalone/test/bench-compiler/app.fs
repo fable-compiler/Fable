@@ -11,39 +11,40 @@ let initFable (): Fable.Standalone.IFableManager = Fable.Standalone.Main.init ()
 let references = Fable.Standalone.Metadata.references_core
 let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)
 
-let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
-let isRelativePath (path: string) = path.StartsWith("./") || path.StartsWith("../")
-let isAbsolutePath (path: string) = path.StartsWith('/') || path.IndexOf(':') = 1
+module Imports =
+    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+    let isRelativePath (path: string) = path.StartsWith("./") || path.StartsWith("../")
+    let isAbsolutePath (path: string) = path.StartsWith('/') || path.IndexOf(':') = 1
 
-let getTargetRelPath importPath targetDir projDir outDir =
-    let relPath = getRelativePath projDir importPath |> trimPath
-    let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
-    let relPath = if relPath.StartsWith("..") then relPath else "./" + relPath
-    let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
-    relPath
+    let getTargetRelPath importPath targetDir projDir outDir =
+        let relPath = getRelativePath projDir importPath |> trimPath
+        let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
+        let relPath = if relPath.StartsWith("..") then relPath else "./" + relPath
+        let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
+        relPath
 
-let getImportPath sourcePath targetPath projDir outDir importPath =
-    if System.String.IsNullOrEmpty(outDir) then
-        importPath
-    else
-        let sourceDir = Path.GetDirectoryName(sourcePath)
-        let targetDir = Path.GetDirectoryName(targetPath)
-        let importPath =
-            if isRelativePath importPath
-            then Path.Combine(sourceDir, importPath) |> normalizeFullPath
+    let getImportPath sourcePath targetPath projDir outDir importPath =
+        match outDir with
+        | None -> importPath
+        | Some outDir ->
+            let sourceDir = Path.GetDirectoryName(sourcePath)
+            let targetDir = Path.GetDirectoryName(targetPath)
+            let importPath =
+                if isRelativePath importPath
+                then Path.Combine(sourceDir, importPath) |> normalizeFullPath
+                else importPath
+            if isAbsolutePath importPath then
+                if importPath.EndsWith(".fs.js")
+                then getTargetRelPath importPath targetDir projDir outDir
+                else getRelativePath targetDir importPath
             else importPath
-        if isAbsolutePath importPath then
-            if importPath.EndsWith(".fs.js")
-            then getTargetRelPath importPath targetDir projDir outDir
-            else getRelativePath targetDir importPath
-        else importPath
 
 type SourceWriter(sourcePath, targetPath, projDir, outDir) =
     let sb = System.Text.StringBuilder()
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
         member _.EscapeJsStringLiteral(str) = javaScriptStringEncode(str)
-        member _.MakeImportPath(path) = getImportPath sourcePath targetPath projDir outDir path
+        member _.MakeImportPath(path) = Imports.getImportPath sourcePath targetPath projDir outDir path
         member _.Dispose() = ()
     member __.Result = sb.ToString()
 
@@ -125,10 +126,11 @@ let parseFiles projectFileName outDir options =
             // print Babel AST as JavaScript/TypeScript
             let fileExt = if options.typescript then ".ts" else ".js"
             let outPath =
-                if System.String.IsNullOrEmpty(outDir) then
+                match outDir with
+                | None ->
                     fileName + fileExt
-                else
-                    let relPath = getRelativePath projDir fileName |> trimPath
+                | Some outDir ->
+                    let relPath = getRelativePath projDir fileName |> Imports.trimPath
                     let relPath = Path.ChangeExtension(relPath, fileExt)
                     Path.Combine(outDir, relPath)
             let writer = new SourceWriter(fileName, outPath, projDir, outDir)
@@ -144,6 +146,7 @@ let run opts projectFileName outDir =
         opts |> Array.tryFindIndex ((=) "--run")
         |> Option.map (fun i ->
             // TODO: This only works if the project is an .fsx file
+            let outDir = Option.defaultValue "." outDir
             let scriptFile = Path.Combine(outDir, Path.GetFileNameWithoutExtension(projectFileName) + ".js")
             let runArgs = opts.[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
@@ -168,10 +171,9 @@ let parseArguments (argv: string[]) =
     | [| "--help" |], _ -> printfn "%s" usage
     | [| "--version" |], _ -> printfn "v%s" (getVersion())
     | _, [| projectFileName |] ->
-        let outDir = ""
-        run opts projectFileName outDir
+        run opts projectFileName None
     | _, [| projectFileName; outDir |] ->
-        run opts projectFileName outDir
+        run opts projectFileName (Some outDir)
     | _ -> printfn "%s" usage
 
 [<EntryPoint>]
