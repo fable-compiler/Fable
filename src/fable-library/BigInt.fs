@@ -2,15 +2,19 @@ module BigInt.Exports
 
 type bigint = BigInt.BigInteger
 
-let tryParse str =
+let tryParse str res =
     try
-        let res = bigint.Parse str
-        true, res
+        res := bigint.Parse str
+        true
     with _ ->
-        false, bigint.Zero
+        false
+
+let divRem x y (remainder: _ ref) =
+    let quotient, remainder' = bigint.DivRem(x, y)
+    remainder := remainder'
+    quotient
 
 let parse = bigint.Parse
-let divRem = bigint.DivRem
 let greatestCommonDivisor = bigint.GreatestCommonDivisor
 let pow = bigint.Pow
 let abs = bigint.Abs

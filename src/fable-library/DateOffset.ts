@@ -15,6 +15,7 @@
 
 import { create as createDate, dateOffsetToString, daysInMonth, offsetRegex, parseRaw } from "./Date.js";
 import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
+import { FSharpRef } from "./Types.js";
 import { compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export default function DateTimeOffset(value: number, offset?: number) {
@@ -66,11 +67,12 @@ export function parse(str: string): IDateTimeOffset {
   return DateTimeOffset(date.getTime(), offset);
 }
 
-export function tryParse(v: string, _refValue?: any): [boolean, IDateTimeOffset] {
+export function tryParse(v: string, defValue: FSharpRef<IDateTimeOffset>): boolean {
   try {
-    return [true, parse(v)];
+    defValue.contents = parse(v);
+    return true;
   } catch (_err) {
-    return [false, minValue()];
+    return false;
   }
 }
 

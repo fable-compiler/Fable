@@ -18,15 +18,6 @@ open Util
 let inline private transformExprList com ctx xs = trampolineListMap (transformExpr com ctx) xs
 let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
-// Fable doesn't support arguments passed by ref, see #1696
-let private checkArgumentsPassedByRef com ctx (args: FSharpExpr list) =
-    for arg in args do
-        match arg with
-        | BasicPatterns.AddressOf _ ->
-            "Arguments cannot be passed byref"
-            |> addWarning com ctx.InlinePath (makeRangeFrom arg)
-        | _ -> ()
-
 let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
     let baseEnt = FsEnt baseEnt
     let argTypes = lazy getArgTypes com baseCons
@@ -336,6 +327,83 @@ let rec private transformDecisionTargets (com: IFableCompiler) (ctx: Context) ac
 let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
   trampoline {
     match fsExpr with
+    // | ByrefArgToTuple (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
+    //     let! callee = transformExprOpt com ctx callee
+    //     let! args = transformExprList com ctx membArgs
+    //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+    //     let typ = makeType ctx.GenericArgs fsExpr.Type
+    //     return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
+
+    // | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr) ->
+    //     let ctx, ident = putArgInScope com ctx outArg
+    //     let! callee = transformExprOpt com ctx callee
+    //     let! args = transformExprList com ctx membArgs
+    //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+    //     let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
+    //     let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
+    //     let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
+    //     let tupleIdentExpr = Fable.IdentExpr tupleIdent
+    //     let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
+    //     let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
+    //     let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
+    //     let! thenExpr = transformExpr com ctx thenExpr
+    // | ByrefArgToTuple (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
+    //     let! callee = transformExprOpt com ctx callee
+    //     let! args = transformExprList com ctx membArgs
+    //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+    //     let typ = makeType ctx.GenericArgs fsExpr.Type
+    //     return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
+
+    // | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr) ->
+    //     let ctx, ident = putArgInScope com ctx outArg
+    //     let! callee = transformExprOpt com ctx callee
+    //     let! args = transformExprList com ctx membArgs
+    //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+    //     let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
+    //     let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
+    //     let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
+    //     let tupleIdentExpr = Fable.IdentExpr tupleIdent
+    //     let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
+    //     let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
+    //     let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
+    //     let! thenExpr = transformExpr com ctx thenExpr
+    //     let! elseExpr = transformExpr com ctx elseExpr
+    //     let ifThenElse = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
+    //     return Fable.Let([tupleIdent, tupleExpr], Fable.Let([ident, identExpr], ifThenElse))
+
+    // | ByrefArgToTupleOptimizedTree (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr, targetsExpr) ->
+    //     let ctx, ident = putArgInScope com ctx outArg
+    //     let! callee = transformExprOpt com ctx callee
+    //     let! args = transformExprList com ctx membArgs
+    //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+    //     let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
+    //     let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
+    //     let tupleIdentExpr = Fable.IdentExpr ident
+    //     let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
+    //     let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
+    //     let! thenExpr = transformExpr com ctx thenExpr
+    //     let! elseExpr = transformExpr com ctx elseExpr
+    //     let! targetsExpr = transformDecisionTargets com ctx [] targetsExpr
+    //     let ifThenElse = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
+    //     return Fable.Let([ident, tupleExpr], Fable.DecisionTree(ifThenElse, targetsExpr))
+
+    // | ByrefArgToTupleOptimizedLet (id1, id2, callee, memb, ownerGenArgs, membGenArgs, membArgs, restExpr) ->
+    //     let ctx, ident1 = putArgInScope com ctx id1
+    //     let ctx, ident2 = putArgInScope com ctx id2
+    //     let! callee = transformExprOpt com ctx callee
+    //     let! args = transformExprList com ctx membArgs
+    //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+    //     let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
+    //     let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
+    //     let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
+    //     let tupleIdentExpr = Fable.IdentExpr tupleIdent
+    //     let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
+    //     let id1Expr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
+    //     let id2Expr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
+    //     let! restExpr = transformExpr com ctx restExpr
+    //     let body = Fable.Let([ident1, id1Expr], Fable.Let([ident2, id2Expr], restExpr))
+    //     return Fable.Let([tupleIdent, tupleExpr], body)
+
     | OptimizedOperator(memb, comp, opName, argTypes, argExprs) ->
         let r, typ = makeRangeFrom fsExpr, makeType ctx.GenericArgs fsExpr.Type
         let argTypes = argTypes |> List.map (makeType ctx.GenericArgs)
@@ -348,6 +416,29 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return (match membOpt with
                 | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
                 | None -> failwithf "Cannot find member %s.%s" (entity.FullName) opName)
+
+    // | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->
+    //     let! value = transformExpr com ctx value
+    //     let! body = transformExpr com newContext body
+    //     return Replacements.iterate com (makeRangeFrom fsExpr) ident body value
+
+    | CallCreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
+        let! callee = transformExpr com ctx callee
+        let! args = transformExprList com ctx membArgs
+        let callee = get None Fable.Any callee eventName
+        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+        let typ = makeType ctx.GenericArgs fsExpr.Type
+        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs (Some callee) args memb
+
+    | BindCreateEvent (var, value, eventName, body) ->
+        let! value = transformExpr com ctx value
+        let value = get None Fable.Any value eventName
+        let ctx, ident = putBindingInScope com ctx var value
+        let! body = transformExpr com ctx body
+        return Fable.Let([ident, value], body)
+
+    | CapturedBaseConsCall com ctx transformBaseConsCall nextExpr ->
+        return! transformExpr com ctx nextExpr
 
     | BasicPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
@@ -366,84 +457,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! lambda = transformExpr com ctx lambda
         return lambda
 
-    | ByrefArgToTuple (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
-        let! callee = transformExprOpt com ctx callee
-        let! args = transformExprList com ctx membArgs
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-        let typ = makeType ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
-
-    | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr) ->
-        let ctx, ident = putArgInScope com ctx outArg
-        let! callee = transformExprOpt com ctx callee
-        let! args = transformExprList com ctx membArgs
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-        let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
-        let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
-        let tupleIdentExpr = Fable.IdentExpr tupleIdent
-        let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
-        let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
-        let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
-        let! thenExpr = transformExpr com ctx thenExpr
-        let! elseExpr = transformExpr com ctx elseExpr
-        let ifThenElse = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
-        return Fable.Let([tupleIdent, tupleExpr], Fable.Let([ident, identExpr], ifThenElse))
-
-    | ByrefArgToTupleOptimizedTree (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr, targetsExpr) ->
-        let ctx, ident = putArgInScope com ctx outArg
-        let! callee = transformExprOpt com ctx callee
-        let! args = transformExprList com ctx membArgs
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-        let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
-        let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        let tupleIdentExpr = Fable.IdentExpr ident
-        let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
-        let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
-        let! thenExpr = transformExpr com ctx thenExpr
-        let! elseExpr = transformExpr com ctx elseExpr
-        let! targetsExpr = transformDecisionTargets com ctx [] targetsExpr
-        let ifThenElse = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
-        return Fable.Let([ident, tupleExpr], Fable.DecisionTree(ifThenElse, targetsExpr))
-
-    | ByrefArgToTupleOptimizedLet (id1, id2, callee, memb, ownerGenArgs, membGenArgs, membArgs, restExpr) ->
-        let ctx, ident1 = putArgInScope com ctx id1
-        let ctx, ident2 = putArgInScope com ctx id2
-        let! callee = transformExprOpt com ctx callee
-        let! args = transformExprList com ctx membArgs
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-        let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
-        let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
-        let tupleIdentExpr = Fable.IdentExpr tupleIdent
-        let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
-        let id1Expr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
-        let id2Expr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
-        let! restExpr = transformExpr com ctx restExpr
-        let body = Fable.Let([ident1, id1Expr], Fable.Let([ident2, id2Expr], restExpr))
-        return Fable.Let([tupleIdent, tupleExpr], body)
-
-    | CallCreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
-        let! callee = transformExpr com ctx callee
-        let! args = transformExprList com ctx membArgs
-        let callee = get None Fable.Any callee eventName
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-        let typ = makeType ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs (Some callee) args memb
-
-    | BindCreateEvent (var, value, eventName, body) ->
-        let! value = transformExpr com ctx value
-        let value = get None Fable.Any value eventName
-        let ctx, ident = putBindingInScope com ctx var value
-        let! body = transformExpr com ctx body
-        return Fable.Let([ident, value], body)
-
-    // | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->
-    //     let! value = transformExpr com ctx value
-    //     let! body = transformExpr com newContext body
-    //     return Replacements.iterate com (makeRangeFrom fsExpr) ident body value
-
-    // Flow control
     | BasicPatterns.FastIntegerForLoop(start, limit, body, isUp) ->
         let r = makeRangeFrom fsExpr
         match body with
@@ -459,7 +472,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! bodyExpr = transformExpr com ctx bodyExpr
         return (guardExpr, bodyExpr) ||> makeWhileLoop (makeRangeFrom fsExpr)
 
-    // Values
     | BasicPatterns.Const(value, typ) ->
         let typ = makeType ctx.GenericArgs typ
         return Replacements.makeTypeConst com (makeRangeFrom fsExpr) typ value
@@ -507,7 +519,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! body = transformExpr com ctx expr
         return Fable.Let([ident, value], body)
 
-    // Assignments
     | BasicPatterns.Let((var, value), body) ->
         if isInline var then
             let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
@@ -530,17 +541,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! body = transformExpr com ctx body
         return Fable.Let(bindings, body)
 
-    // Applications
-    | CapturedBaseConsCall com ctx transformBaseConsCall nextExpr ->
-        return! transformExpr com ctx nextExpr
-
     // `argTypes2` is always empty
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
         let typ = makeType ctx.GenericArgs fsExpr.Type
         return transformTraitCall com ctx (makeRangeFrom fsExpr) typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
-        checkArgumentsPassedByRef com ctx args
         let! callee = transformExprOpt com ctx callee
         let! args = transformExprList com ctx args
         // TODO: Check answer to #868 in FSC repo
@@ -628,7 +634,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.TryWith (body, _, _, catchVar, catchBody) ->
         return makeTryCatch com ctx (makeRangeFrom fsExpr) body (Some (catchVar, catchBody)) None
 
-    // Lambdas
     | BasicPatterns.NewDelegate(delegateType, fsExpr) ->
         return! transformDelegate com ctx delegateType fsExpr
 
@@ -728,7 +733,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let valToSet = makeValueFrom com ctx r valToSet
             return Fable.Set(valToSet, None, valueExpr, r)
 
-    // Instantiation
     | BasicPatterns.NewArray(FableType com ctx elTyp, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
         return makeArray elTyp argExprs
@@ -785,7 +789,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return argExprs
         |> transformNewUnion com ctx (makeRangeFrom fsExpr) fsType unionCase
 
-    // Type test
     | BasicPatterns.TypeTest (FableType com ctx typ, expr) ->
         let! expr = transformExpr com ctx expr
         return Fable.Test(expr, Fable.TypeTest typ, makeRangeFrom fsExpr)
@@ -842,10 +845,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return "Quotes are not currently supported by Fable"
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
-    // TODO: Ask. I see this when accessing Result types (all structs?)
+    // This is used when passing arguments by reference,
+    // and also when accessing Result types (not sure why)
     | BasicPatterns.AddressOf(expr) ->
-        let! expr = transformExpr com ctx expr
-        return expr
+        return! transformExpr com ctx expr
+
+    | BasicPatterns.AddressSet _ ->
+        return "Mutating an argument passed by reference is not supported"
+        |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
     // | BasicPatterns.ILFieldSet _
     // | BasicPatterns.AddressSet _

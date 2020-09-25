@@ -180,7 +180,7 @@ module private Util =
             let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir)
             do! BabelPrinter.run writer map babel
 
-            Log.always("Compiled " + File.getRelativePath com.CurrentFile)
+            Log.always("Compiled " + Path.getRelativePath cliArgs.RootDir com.CurrentFile)
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -281,11 +281,28 @@ type ProjectParsed(project: Project,
         let proj = Project(config.ProjectOptions, implFilesMap, checkedProject.Errors)
         ProjectParsed(proj, checker)
 
+type TestInfo private (current, iterations, times: int64 list) =
+    new (?iterations) = TestInfo(0, defaultArg iterations 10, [])
+    member _.CurrentIteration: int = current
+    member _.TotalIterations: int = iterations
+    member _.AverageMilliseconds =
+        let total = List.sum times
+        total / int64(List.length times)
+    member _.MedianMilliseconds =
+        let times = List.sort times
+        let len = List.length times
+        List.item (len / 2 + len % 2) times
+    member this.NextIteration(spentMs) =
+        new TestInfo(this.CurrentIteration + 1,
+                     this.TotalIterations,
+                     spentMs::times)
+
 type State =
     { CliArgs: CliArgs
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
       Watcher: Watcher option
-      WatchDependencies: Map<string, string[]> }
+      WatchDependencies: Map<string, string[]>
+      TestInfo: TestInfo option }
 
 let rec startCompilation (changes: Set<string>) (state: State) = async {
     let cracked, parsed, filesToCompile =
@@ -330,7 +347,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     let filesToCompile =
         filesToCompile
-        |> Array.filter (fun x -> x.EndsWith(".fs"))
+        |> Array.filter (fun x -> x.EndsWith(".fs") || x.EndsWith(".fsx"))
         |> fun filesToCompile ->
             // TODO: Log skipped files in verbose mode
             match state.CliArgs.Exclude with
@@ -362,15 +379,33 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> ()
         | _ -> Log.always(formatLog log)
 
-    match state.Watcher with
-    | None ->
-        let hasError = logs |> Array.exists (fun log -> log.Severity = Severity.Error)
-        return if not hasError then Ok() else Error()
-    | Some watcher ->
+    match state.Watcher, state.TestInfo with
+    | Some watcher, _ ->
         Log.always("Watching...")
         let! changes = watcher.AwaitChanges()
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)
                          WatchDependencies = watchDependencies }
             |> startCompilation changes
+
+    | None, None ->
+        let hasError = logs |> Array.exists (fun log -> log.Severity = Severity.Error)
+        return if not hasError then Ok() else Error()
+
+    | None, Some info ->
+        let info = info.NextIteration(ms)
+        if info.CurrentIteration < info.TotalIterations then
+            return!
+                { state with ProjectCrackedAndParsed = Some(cracked, parsed)
+                             TestInfo = Some info }
+                |> startCompilation (set filesToCompile)
+        else
+            let log = sprintf "Completed %i iterations, average: %ims, median: %ims"
+                        info.TotalIterations
+                        info.AverageMilliseconds
+                        info.MedianMilliseconds
+            Log.always(log)
+            let perfLog = IO.Path.Combine(state.CliArgs.RootDir, "fable-perf-log.txt")
+            File.AppendAllText(perfLog, log + "\n")
+            return Ok()
 }

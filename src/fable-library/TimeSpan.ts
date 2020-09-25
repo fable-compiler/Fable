@@ -1,5 +1,6 @@
 // tslint:disable:max-line-length
 import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long.js";
+import { FSharpRef } from "./Types.js";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
@@ -172,10 +173,11 @@ export function parse(str: string) {
   throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
 }
 
-export function tryParse(v: string, _refValue?: any): [boolean, number] {
+export function tryParse(v: string, defValue: FSharpRef<number>): boolean {
   try {
-    return [true, parse(v)];
-  } catch (_err) {
-    return [false, 0];
+    defValue.contents = parse(v);
+    return true;
+  } catch {
+    return false;
   }
 }

@@ -1,5 +1,5 @@
 import { value as getOptionValue } from "./Option.js";
-import { anonRecord as makeAnonRecord, List } from "./Types.js";
+import { anonRecord as makeAnonRecord, FSharpRef, List } from "./Types.js";
 import { compareArraysWith, equalArraysWith, isArrayLike, isUnionLike } from "./Util.js";
 
 export type FieldInfo = [string, TypeInfo];
@@ -239,14 +239,13 @@ export function parseEnum(t: TypeInfo, str: string): number {
   return getEnumCase(t, isNaN(value) ? str : value)[1];
 }
 
-export function tryParseEnum(t: TypeInfo, str: string): [boolean, number] {
+export function tryParseEnum(t: TypeInfo, str: string, defValue: FSharpRef<number>): boolean {
   try {
-    const v = parseEnum(t, str);
-    return [true, v];
+    defValue.contents = parseEnum(t, str);
+    return true;
   } catch {
-    // supress error
+    return false;
   }
-  return [false, NaN];
 }
 
 export function getEnumName(t: TypeInfo, v: number): string {

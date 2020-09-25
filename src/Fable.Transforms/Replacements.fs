@@ -375,6 +375,18 @@ let createAtom com (value: Expr) =
     let typ = value.Type
     Helper.LibCall(com, "Util", "createAtom", typ, [value], [typ])
 
+let makeRefFromMutableValue com ctx (value: Expr) =
+    let t = value.Type
+    let getter = Delegate([], value, None)
+    let setter =
+        let v = makeUniqueIdent ctx Any "v"
+        Delegate([v], Set(value, None, IdentExpr v, None), None)
+    Helper.JsConstructorCall(makeImportLib com t "FSharpRef" "Types", t, [getter; setter])
+
+let turnLastArgIntoRef com ctx args =
+    let args, defValue = List.splitLast args
+    args @ [makeRefFromMutableValue com ctx defValue]
+
 let toChar (arg: Expr) =
     match arg.Type with
     | Char | String -> arg
@@ -1857,8 +1869,12 @@ let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     match i.CompiledName with
     | ".ctor" -> (genArg com ctx r 0 i.GenericArgs) |> makeMap com ctx r t "OfSeq" args |> Some
     | _ ->
+        let args, overloadSuffix =
+            if i.CompiledName = "TryGetValue" then
+                turnLastArgIntoRef com ctx args, ""
+            else args, i.OverloadSuffix.Value
         let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName i.OverloadSuffix.Value
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName overloadSuffix
         let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
         Helper.LibCall(com, "Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -1916,9 +1932,10 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | ("Parse" | "TryParse" as method), str::_ ->
+    | ("Parse" | "TryParse" as method), args ->
         let func = Naming.lowerFirst method
-        Helper.LibCall(com, "Boolean", func, t, [str], [str.Type], ?loc=r)
+        let args = if method = "TryParse" then turnLastArgIntoRef com ctx args else args
+        Helper.LibCall(com, "Boolean", func, t, args, i.SignatureArgTypes, ?loc=r)
         |> Some
     | _ -> None
 
@@ -1930,17 +1947,21 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             | x -> failwithf "Unexpected type in parse: %A" x
         let isFloatOrDecimal, numberModule, unsigned, bitsize =
             getParseParams kind
-        if isFloatOrDecimal then
-            Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t,
-                [str], [i.SignatureArgTypes.Head], ?loc=r) |> Some
-        else
-            Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t,
-                [str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize],
-                [i.SignatureArgTypes.Head; Number Int32; Boolean; Number Int32], ?loc=r) |> Some
+        let ref =
+            if meth = "TryParse" then
+                let _, ref = List.splitLast args
+                makeRefFromMutableValue com ctx ref |> Some
+            else None
+        let args =
+            if isFloatOrDecimal then str::(Option.toList ref)
+            else [str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize] @ (Option.toList ref)
+        Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc=r) |> Some
+
     let isFloat =
         match i.SignatureArgTypes.Head with
         | Number (Float32 | Float64) -> true
         | _ -> false
+
     match i.CompiledName, args with
     | "IsNaN", [_] when isFloat ->
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
@@ -2041,12 +2062,17 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | BigInt -> None
         | _ -> None
     | None, "DivRem" ->
-        let args = List.take 2 args // implementation takes 2 args, ignore the third arg
+        let args, remainder = List.splitLast args
+        let args = args @ [makeRefFromMutableValue com ctx remainder]
         Helper.LibCall(com, "BigInt", "divRem", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | None, meth when meth.StartsWith("get_") ->
         Helper.LibValue(com, "BigInt", meth, t) |> Some
     | callee, meth ->
-        let args = match callee with None -> args | Some c -> c::args
+        let args =
+            match callee, meth with
+            | None, "TryParse" -> turnLastArgIntoRef com ctx args
+            | None, _ -> args
+            | Some c, _ -> c::args
         Helper.LibCall(com, "BigInt", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 // Compile static strings to their constant values
@@ -2216,6 +2242,7 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | Some c, [arg] -> Helper.LibCall(com, "Util", "containsValue", t, [arg; c], ?loc=r) |> Some
         | _ -> None
     | "TryGetValue", _ ->
+        let args = turnLastArgIntoRef com ctx args
         Helper.LibCall(com, "Util", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Add", _ ->
         Helper.LibCall(com, "Util", "addToDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2305,7 +2332,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "Compare", [arg1; arg2] -> compare com ctx r arg1 arg2 |> Some
     | _ -> None
 
-let enums (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName, args with
     | Some this, "HasFlag", [arg] ->
         // x.HasFlags(y) => (int x) &&& (int y) <> 0
@@ -2319,6 +2346,7 @@ let enums (com: ICompiler) (_: Context) r t (i: CallInfo) (thisArg: Expr option)
                                         "GetNames", "getEnumNames"
                                         "GetValues", "getEnumValues"
                                         "GetUnderlyingType", "getEnumUnderlyingType"]) meth, args ->
+        let args = if meth = "tryParseEnum" then turnLastArgIntoRef com ctx args else args
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None
 
@@ -2459,6 +2487,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | _ -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        let args = if meth = "tryParse" then turnLastArgIntoRef com ctx args else args
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2485,6 +2514,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+        let args = if meth = "tryParse" then turnLastArgIntoRef com ctx args else args
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2687,8 +2717,8 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
     | "Parse"       ->
         match args with
         | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
-        | _-> Helper.LibCall(com, "Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
-    | "TryParse"    -> Helper.LibCall(com, "Guid", "validateGuid", t, [args.Head; makeBoolConst true], [args.Head.Type; Boolean]) |> Some
+        | _-> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
+    | "TryParse"    -> Helper.LibCall(com, "Guid", "tryParse", t, turnLastArgIntoRef com ctx args, i.SignatureArgTypes) |> Some
     | "ToByteArray" -> Helper.LibCall(com, "Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
     | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
     | "ToString" when (args.Length = 1) ->
@@ -2707,7 +2737,7 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
         | [] -> emptyGuid() |> Some
         | [ExprType (Array _)] -> Helper.LibCall(com, "Guid", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
         | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
-        | [ExprType String] -> Helper.LibCall(com, "Guid", "validateGuid", t, args, i.SignatureArgTypes) |> Some
+        | [ExprType String] -> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
     | _ -> None
 

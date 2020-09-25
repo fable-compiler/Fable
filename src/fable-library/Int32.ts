@@ -1,3 +1,5 @@
+import { FSharpRef } from "./Types";
+
 export type int8 = number;
 export type uint8 = number;
 export type int16 = number;
@@ -110,14 +112,13 @@ export function parse(str: string, style: number, unsigned: boolean, bitsize: nu
   throw new Error("Input string was not in a correct format.");
 }
 
-export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number): [boolean, number] {
+export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number, defValue: FSharpRef<number>): boolean {
   try {
-    const v = parse(str, style, unsigned, bitsize);
-    return [true, v];
+    defValue.contents = parse(str, style, unsigned, bitsize);
+    return true;
   } catch {
-    // supress error
+    return false;
   }
-  return [false, 0];
 }
 
 export function op_UnaryNegation_Int8(x: number) {

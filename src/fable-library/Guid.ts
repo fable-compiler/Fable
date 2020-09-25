@@ -1,4 +1,5 @@
 import { trim } from "./String.js";
+import { FSharpRef } from "./Types.js";
 
 // RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
 // const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -31,7 +32,7 @@ export function toString(str: string, format?: string, _provider?: any) {
 }
 
 /** Validates UUID as specified in RFC4122 (versions 1-5). */
-export function validateGuid(str: string, doNotThrow?: boolean): string | [boolean, string] {
+export function parse(str: string): string {
   function hyphenateGuid(str: string) {
     return str.replace(guidRegexNoHyphen, "$1-$2-$3-$4-$5");
   }
@@ -39,24 +40,25 @@ export function validateGuid(str: string, doNotThrow?: boolean): string | [boole
   const wsTrimAndLowered = str.trim().toLowerCase();
 
   if (guidRegex.test(wsTrimAndLowered)) {
-    const containersTrimmed = trim(wsTrimAndLowered, "{", "}", "(", ")");
-
-    return doNotThrow ? [true, containersTrimmed] : containersTrimmed;
+    return trim(wsTrimAndLowered, "{", "}", "(", ")");
   }
   else if (guidRegexNoHyphen.test(wsTrimAndLowered)) {
-    const hyphenatedGuid = hyphenateGuid(wsTrimAndLowered);
-
-    return doNotThrow ? [true, hyphenatedGuid] : hyphenatedGuid;
+    return hyphenateGuid(wsTrimAndLowered);
   }
   else if (guidRegexHex.test(wsTrimAndLowered)) {
-    const hyphenatedGuid = hyphenateGuid(wsTrimAndLowered.replace(/[\{\},]|0x/g, ''));
-
-    return doNotThrow ? [true, hyphenatedGuid] : hyphenatedGuid;
-  } else if (doNotThrow) {
-    return [false, "00000000-0000-0000-0000-000000000000"];
+    return hyphenateGuid(wsTrimAndLowered.replace(/[\{\},]|0x/g, ''));
   }
   else {
     throw new Error("Guid should contain 32 digits with 4 dashes: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+  }
+}
+
+export function tryParse(str: string, defValue: FSharpRef<string>): boolean {
+  try {
+    defValue.contents = parse(str);
+    return true;
+  } catch {
+    return false;
   }
 }
 

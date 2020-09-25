@@ -1,4 +1,5 @@
 import Decimal from "./lib/big.js";
+import { FSharpRef } from "./Types.js";
 
 export default Decimal;
 export type decimal = Decimal;
@@ -82,18 +83,19 @@ export function toString(x: Decimal) {
   return x.toString();
 }
 
-export function tryParse(str: string): [boolean, Decimal] {
+export function tryParse(str: string, defValue: FSharpRef<Decimal>): boolean {
   try {
-    return [true, new Decimal(str.trim())];
+    defValue.contents = new Decimal(str.trim());
+    return true;
   } catch {
-    return [false, get_Zero];
+    return false;
   }
 }
 
 export function parse(str: string): Decimal {
-  const [ok, value] = tryParse(str);
-  if (ok) {
-    return value;
+  const defValue = new FSharpRef(get_Zero);
+  if (tryParse(str, defValue)) {
+    return defValue.contents;
   } else {
     throw new Error("Input string was not in a correct format.");
   }

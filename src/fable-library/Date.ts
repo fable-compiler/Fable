@@ -9,6 +9,7 @@
  */
 
 import { fromValue, Long, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Long.js";
+import { FSharpRef } from "./Types.js";
 import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export const offsetRegex = /(?:Z|[+-](\d+):?([0-5]?\d)?)\s*$/;
@@ -233,11 +234,12 @@ export function parse(str: string, detectUTC = false): IDateTime {
   return DateTime(date.getTime(), kind);
 }
 
-export function tryParse(v: string, _refValue?: any): [boolean, IDateTime] {
+export function tryParse(v: string, defValue: FSharpRef<IDateTime>): boolean {
   try {
-    return [true, parse(v)];
+    defValue.contents = parse(v);
+    return true;
   } catch (_err) {
-    return [false, minValue()];
+    return false;
   }
 }
 
