@@ -1,5 +1,7 @@
 // tslint:disable:ban-types
 
+import { FSharpRef } from "./Types";
+
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
@@ -153,8 +155,12 @@ export function containsValue<K, V>(v: V, map: Map<K, V>) {
   return false;
 }
 
-export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: V | null): [boolean, V] {
-  return map.has(key) ? [true, map.get(key) as V] : [false, defaultValue as V];
+export function tryGetValue<K, V>(map: Map<K, V>, key: K, defaultValue: FSharpRef<V>): boolean {
+  if (map.has(key)) {
+    defaultValue.contents = map.get(key) as V;
+    return true;
+  }
+  return false;
 }
 
 export function addToSet<T>(v: T, set: Set<T>) {

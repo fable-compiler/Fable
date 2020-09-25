@@ -1,18 +1,21 @@
-export function tryParse(str: string): [boolean, number] {
+import { FSharpRef } from "./Types";
+
+export function tryParse(str: string, defValue: FSharpRef<number>): boolean {
   // TODO: test if value is valid and in range
   if (str != null && /\S/.test(str)) {
     const v = +str.replace("_", "");
     if (!Number.isNaN(v)) {
-      return [true, v];
+      defValue.contents = v;
+      return true;
     }
   }
-  return [false, 0];
+  return false;
 }
 
 export function parse(str: string): number {
-  const [ok, value] = tryParse(str);
-  if (ok) {
-    return value;
+  const defValue = new FSharpRef(0);
+  if (tryParse(str, defValue)) {
+    return defValue.contents;
   } else {
     throw new Error("Input string was not in a correct format.");
   }

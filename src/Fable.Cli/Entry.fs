@@ -45,7 +45,7 @@ Arguments:
 """
 
 type Runner =
-  static member Run(args: string list, rootDir: string, ?fsprojPath, ?watch) =
+  static member Run(args: string list, rootDir: string, ?fsprojPath, ?watch, ?testInfo) =
     let watch = defaultArg watch false
 
     fsprojPath
@@ -106,7 +106,8 @@ type Runner =
             { CliArgs = cliArgs
               ProjectCrackedAndParsed = None
               Watcher = watcher
-              WatchDependencies = Map.empty }
+              WatchDependencies = Map.empty
+              TestInfo = testInfo }
             |> startCompilation Set.empty
             |> Async.RunSynchronously
             |> function
@@ -162,6 +163,7 @@ let main argv =
         match commands with
         | ["clean"; dir] -> clean args dir
         | ["clean"] -> clean args rootDir
+        | ["test"; path] -> Runner.Run(args, rootDir, fsprojPath=path, testInfo=TestInfo())
         | ["watch"; path] -> Runner.Run(args, rootDir, fsprojPath=path, watch=true)
         | ["watch"] -> Runner.Run(args, rootDir, watch=true)
         | [path] -> Runner.Run(args, rootDir, fsprojPath=path)

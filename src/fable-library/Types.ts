@@ -282,9 +282,25 @@ export function anonRecord(o: any) {
 }
 
 export class FSharpRef<T> {
-  public contents: T;
-  constructor(contents: T | null) {
-    this.contents = contents as T;
+  private getter: () => T;
+  private setter: (v: T) => void;
+
+  get contents() {
+    return this.getter();
+  }
+
+  set contents(v) {
+    this.setter(v)
+  }
+
+  constructor(contentsOrGetter: T | (() => T), setter?: (v: T) => void) {
+    if (typeof setter === "function") {
+      this.getter = contentsOrGetter as () => T;
+      this.setter = setter
+    } else {
+      this.getter = () => contentsOrGetter as T;
+      this.setter = (v) => { contentsOrGetter = v };
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { isValid } from "./Int32.js";
 import * as LongLib from "./lib/long.js";
+import { FSharpRef } from "./Types.js";
 
 export default LongLib.Long;
 export type Long = LongLib.Long;
@@ -109,14 +110,13 @@ export function parse(str: string, style: number, unsigned: boolean, _bitsize: n
   throw new Error("Input string was not in a correct format.");
 }
 
-export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number) {
+export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number, defValue: FSharpRef<Long>) {
   try {
-    const v = parse(str, style, unsigned, bitsize);
-    return [true, v];
+    defValue.contents = parse(str, style, unsigned, bitsize);
+    return true;
   } catch {
-    // supress error
+    return false;
   }
-  return [false, LongLib.ZERO];
 }
 
 export function unixEpochMillisecondsToTicks(ms: number, offset: number) {

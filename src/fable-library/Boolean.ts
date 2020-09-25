@@ -1,18 +1,21 @@
-export function tryParse(str: string): [boolean, boolean] {
+import { FSharpRef } from "./Types"
+
+export function tryParse(str: string, defValue: FSharpRef<boolean>): boolean {
   if (str.match(/^\s*true\s*$/i)) {
-    return [true, true]
+    defValue.contents = true;
+    return true;
   } else if (str.match(/^\s*false\s*$/i)) {
-    return [true, false]
-  } else {
-    return [false, false]
+    defValue.contents = false;
+    return true;
   }
+  return false;
 }
 
 export function parse(str: string): boolean {
-  const [ok, value] = tryParse(str)
+  const defValue = new FSharpRef(false);
 
-  if (ok) {
-    return value
+  if (tryParse(str, defValue)) {
+    return defValue.contents;
   } else {
     throw new Error(`String '${str}' was not recognized as a valid Boolean.`)
   }
