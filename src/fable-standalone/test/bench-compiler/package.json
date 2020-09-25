@@ -18,7 +18,7 @@
     "build-test-native": "npm run native ../../../../../fable-test/fable-test.fsproj out-test",
     "build-tests-native": "npm run native ../../../../tests/Main/Fable.Tests.fsproj out-tests",
 
-    "rollup-bundle": "npm run rollup -- -i out-node/app.js -o dist/bundle.js --format esm",
+    "rollup-bundle": "npm run rollup -- out-node/app.js -o dist/bundle.js --format esm",
     "terser-bundle": "npm run terser -- dist/bundle.js -o dist/bundle.min.js --mangle --compress",
     "webpack-bundle": "npm run webpack -- -p --entry ./out-node/app.js --output ./dist/bundle.min.js --target node",
 

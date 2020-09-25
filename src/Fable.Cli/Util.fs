@@ -10,6 +10,7 @@ module Literals =
 type CliArgs =
     { ProjectFile: string
       RootDir: string
+      OutDir: string option
       FableLibraryPath: string option
       Define: string[]
       ForcePackages: bool
@@ -161,3 +162,37 @@ module File =
         use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
         use textReader = new StreamReader(fileStream)
         textReader.ReadToEnd()
+
+module Imports =
+    open Fable
+
+    let trimPath (path: string) = path.Replace("../", "").Replace("./", "").Replace(":", "")
+    let isRelativePath (path: string) = path.StartsWith("./") || path.StartsWith("../")
+    let isAbsolutePath (path: string) = path.StartsWith('/') || path.IndexOf(':') = 1
+
+    let getRelativePath (path: string) (pathTo: string) =
+        let relPath = Path.GetRelativePath(path, pathTo).Replace('\\', '/')
+        if relPath.StartsWith('.') then relPath else "./" + relPath
+
+    let getTargetRelPath importPath targetDir projDir outDir =
+        let relPath = getRelativePath projDir importPath |> trimPath
+        let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
+        let relPath = if relPath.StartsWith("..") then relPath else "./" + relPath
+        let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
+        relPath
+
+    let getImportPath sourcePath targetPath projDir outDir importPath =
+        match outDir with
+        | None -> importPath
+        | Some outDir ->
+            let sourceDir = Path.GetDirectoryName(sourcePath)
+            let targetDir = Path.GetDirectoryName(targetPath)
+            let importPath =
+                if isRelativePath importPath
+                then Path.Combine(sourceDir, importPath) |> Path.normalizeFullPath
+                else importPath
+            if isAbsolutePath importPath then
+                if importPath.EndsWith(".fs.js")
+                then getTargetRelPath importPath targetDir projDir outDir
+                else getRelativePath targetDir importPath
+            else importPath

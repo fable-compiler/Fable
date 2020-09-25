@@ -1,6 +1,7 @@
 module Fable.Cli.Agent
 
 open System
+open System.IO
 open FSharp.Compiler.SourceCodeServices
 
 open Fable
@@ -9,14 +10,15 @@ open Fable.Transforms
 open Fable.Transforms.State
 open ProjectCracker
 
-type FileWriter(path: string) =
-    let stream = new IO.StreamWriter(path)
+type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option) =
+    let stream = new StreamWriter(targetPath)
     interface BabelPrinter.Writer with
         member _.Write(str) =
             stream.WriteAsync(str) |> Async.AwaitTask
         member _.EscapeJsStringLiteral(str) =
             Web.HttpUtility.JavaScriptStringEncode(str)
-        member _.MakeImportPath(path) = path // TODO: support outDir
+        member _.MakeImportPath(path) =
+            Imports.getImportPath sourcePath targetPath projDir outDir path
         member _.Dispose() = stream.Dispose()
 
 type SingleShotObservable<'T>() =
@@ -34,14 +36,14 @@ type SingleShotObservable<'T>() =
 type Watcher(projDir: string) =
     let changes = ResizeArray()
     let observable = SingleShotObservable()
-    let watcher = new IO.FileSystemWatcher(projDir)
+    let watcher = new FileSystemWatcher(projDir)
     let timer = new Timers.Timer(500., AutoReset=false)
 
     do
         watcher.Filters.Add("*.fs")
         watcher.Filters.Add("*.fsproj")
         watcher.IncludeSubdirectories <- true
-        watcher.NotifyFilter <- IO.NotifyFilters.LastWrite
+        watcher.NotifyFilter <- NotifyFilters.LastWrite
         watcher.EnableRaisingEvents <- false
 
         timer.Elapsed.Add(fun _ ->
@@ -127,7 +129,7 @@ module private Util =
         | Some watchDependencies ->
             watchDependencies |> Array.exists (fun p -> Set.contains p dirtyFiles)
 
-    let compileFile (com: CompilerImpl) = async {
+    let compileFile (cliArgs: CliArgs) (com: CompilerImpl) = async {
         try
             let babel =
                 FSharp2Fable.Compiler.transformFile com
@@ -144,17 +146,34 @@ module private Util =
                 | "" when com.Options.Typescript -> ".ts"
                 | "" -> ".js"
                 | ext -> ext
-            let writer = new FileWriter(Path.replaceExtension newExtension com.CurrentFile)
 
+            let projDir =
+                cliArgs.ProjectFile |> Path.normalizeFullPath |> Path.GetDirectoryName
+            let outPath =
+                match cliArgs.OutDir with
+                | None ->
+                    Path.replaceExtension newExtension com.CurrentFile
+                | Some outDir ->
+                    let fileExt = if com.Options.Typescript then ".ts" else ".js"
+                    let relPath = Imports.getRelativePath projDir com.CurrentFile |> Imports.trimPath
+                    let relPath = Path.ChangeExtension(relPath, fileExt)
+                    Path.Combine(outDir, relPath)
+
+            // ensure directory exists
+            let dir = Path.GetDirectoryName outPath
+            if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
+
+            // write output to file
+            let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir)
             do! BabelPrinter.run writer map babel
 
             Log.always(sprintf "Compiled %s" com.CurrentFile)
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
                          WatchDependencies = com.WatchDependencies |}
-         with e ->
-             return Error {| File = com.CurrentFile
-                             Exception = e |}
+        with e ->
+            return Error {| File = com.CurrentFile
+                            Exception = e |}
     }
 
 open Util
@@ -306,7 +325,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         filesToCompile
         |> Array.map (fun file ->
             cracked.MakeCompiler(file, parsed.Project)
-            |> compileFile)
+            |> compileFile state.CliArgs)
         |> Async.Parallel
         |> Async.map (fun results ->
             ((logs, state.WatchDependencies), results) ||> Array.fold (fun (logs, deps) -> function

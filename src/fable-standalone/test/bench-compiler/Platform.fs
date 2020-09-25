@@ -33,8 +33,8 @@ let normalizeFullPath (path: string) =
     Path.GetFullPath(path).Replace('\\', '/')
 
 let getRelativePath (path: string) (pathTo: string) =
-    let path = if System.String.IsNullOrWhiteSpace path then "." else path
-    Path.GetRelativePath(path, pathTo).Replace('\\', '/')
+    let relPath = Path.GetRelativePath(path, pathTo).Replace('\\', '/')
+    if relPath.StartsWith('.') then relPath else "./" + relPath
 
 let getHomePath () =
     System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile)
@@ -124,7 +124,8 @@ let normalizeFullPath (path: string) =
     JS.path.resolve(path).Replace('\\', '/')
 
 let getRelativePath (path: string) (pathTo: string) =
-    JS.path.relative(path, pathTo).Replace('\\', '/')
+    let relPath = JS.path.relative(path, pathTo).Replace('\\', '/')
+    if relPath.StartsWith('.') then relPath else "./" + relPath
 
 let getHomePath () =
     JS.os.homedir()
