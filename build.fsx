@@ -127,9 +127,14 @@ let quicktest () =
     if pathExists "build/fable-library" |> not then
         buildLibrary()
 
+    // Nodemon will terminate if file doesn't exist
+    let quicktestJsPath = "src/quicktest/Quicktest.fs.js"
+    if pathExists quicktestJsPath |> not then
+        writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
+
     concurrently [|
         "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --force-pkgs"
-        "npx nodemon src/quicktest/Quicktest.fs.js"
+        "npx nodemon " + quicktestJsPath
     |]
 
 let compileFcs() =
