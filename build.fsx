@@ -29,7 +29,12 @@ type GhRealeases =
             err != null ? fail(err) : succeed(res)))""")>]
     abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
 
+type Chokidar =
+    abstract watch: path: string -> Chokidar
+    abstract on: event: string * (string -> unit) -> Chokidar
+
 let concurrently(commands: string[]): unit = importDefault "concurrently"
+let chokidar: Chokidar = importDefault "chokidar"
 
 let cleanDirs dirs =
     for dir in dirs do
@@ -93,6 +98,14 @@ let buildLibrary() =
         else
             moveJsFile projDir buildDir file
 
+let watchLibrary() =
+    let libDir = "src/fable-library"
+    printfn "Watching %s..." libDir
+    chokidar
+        .watch(libDir)
+        .on("change", fun _ -> buildLibrary())
+        |> ignore
+
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
     let buildDirTs = "build/fable-library-ts"
@@ -111,12 +124,13 @@ let buildLibraryTs() =
     runInDir buildDirTs ("npx tsc --outDir ../../" + buildDirJs)
 
 let quicktest () =
-    runFableWithArgs "src/quicktest" [
-        "--force-pkgs"
-        "--exclude Fable.Core"
-    ]
-    run "npx tsc src/quicktest/QuickTest.fs.js --allowJs -m commonJs --outDir build/quicktest"
-    run "node build/quicktest/src/quicktest/QuickTest.fs.js"
+    if pathExists "build/fable-library" |> not then
+        buildLibrary()
+
+    concurrently [|
+        "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --force-pkgs"
+        "npx nodemon src/quicktest/Quicktest.fs.js"
+    |]
 
 let compileFcs() =
     runFableWithArgs "src/fable-standalone/src" [
@@ -373,6 +387,7 @@ match argsLower with
 //     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
 //     |> List.singleton |> quicktest
 | ("fable-library"|"library")::_ -> buildLibrary()
+| ("watch-library")::_ -> watchLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
 | ("fable-standalone"|"standalone")::_ -> buildStandalone()

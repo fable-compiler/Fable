@@ -199,7 +199,7 @@ type ProjectCracked(sourceFiles: File array,
             }
 
         Log.verbose(lazy
-            let proj = File.getRelativePath msg.ProjectFile
+            let proj = Path.getRelativePath msg.RootDir msg.ProjectFile
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
@@ -212,7 +212,7 @@ type ProjectParsed(project: Project,
     member _.Project = project
     member _.Checker = checker
 
-    static member Init(config: ProjectCracked, ?checker) =
+    static member Init(cliArgs: CliArgs, config: ProjectCracked, ?checker) =
         let checker =
             match checker with
             | Some checker -> checker
@@ -220,7 +220,7 @@ type ProjectParsed(project: Project,
                 Log.always("Initializing F# compiler...")
                 InteractiveChecker.Create(config.ProjectOptions)
 
-        Log.always("Compiling " + File.getRelativePath config.ProjectFile + "...")
+        Log.always("Compiling " + Path.getRelativePath cliArgs.RootDir config.ProjectFile + "...")
 
         let checkedProject =
             let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
@@ -270,7 +270,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         if Set.contains file.NormalizedFullPath dirtyFiles then
                             File(file.NormalizedFullPath) // Clear the cached source hash
                         else file)
-                    let parsed = ProjectParsed.Init(cracked, parsed.Checker)
+                    let parsed = ProjectParsed.Init(state.CliArgs, cracked, parsed.Checker)
                     // TODO: We probably need to recompile errored files too even if they're not touched
                     let filesToCompile =
                         cracked.SourceFiles
@@ -282,7 +282,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     cracked, parsed, filesToCompile
         | None ->
             let cracked = ProjectCracked.Init(state.CliArgs)
-            let parsed = ProjectParsed.Init(cracked)
+            let parsed = ProjectParsed.Init(state.CliArgs, cracked)
             // TODO: If compiled file more recent than F# file already exists,
             // skip compilation if passing a --cache flag?
             let filesToCompile =

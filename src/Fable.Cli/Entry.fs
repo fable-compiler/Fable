@@ -39,12 +39,16 @@ Arguments:
   --exclude         Skip Fable compilation for files containing the pattern
   --typed-arrays    Compile numeric arrays to JS typed arrays
   --force-pkgs      Force a new copy of package sources into `.fable` folder
+  --cwd             Working directory
 
 """
 
-let run watchMode fsprojDirOrFilePath args =
-    fsprojDirOrFilePath
-    |> Option.defaultWith IO.Directory.GetCurrentDirectory
+type Runner =
+  static member Run(args: string list, rootDir: string, ?fsprojPath, ?watch) =
+    let watch = defaultArg watch false
+
+    fsprojPath
+    |> Option.defaultValue rootDir
     |> Path.normalizeFullPath
     |> fun path ->
         if IO.Directory.Exists(path) then
@@ -84,14 +88,14 @@ let run watchMode fsprojDirOrFilePath args =
             let cliArgs =
                 { ProjectFile = projFile
                   FableLibraryPath = argValue "--fable-library" args
-                  RootDir = IO.Directory.GetCurrentDirectory()
+                  RootDir = rootDir
                   ForcePackages = hasFlag "--force-pkgs" args
                   Exclude = argValue "--exclude" args
                   Define = defines
                   CompilerOptions = compilerOptions }
 
             let watcher =
-                if watchMode then
+                if watch then
                     IO.Path.GetDirectoryName(projFile)
                     |> Watcher
                     |> Some
@@ -140,6 +144,10 @@ let (|SplitCommandArgs|) (xs: string list) =
 [<EntryPoint>]
 let main argv =
     let argv = List.ofArray argv
+    let rootDir =
+        match argValue "--cwd" argv with
+        | Some rootDir -> IO.Path.GetFullPath(rootDir)
+        | None -> IO.Directory.GetCurrentDirectory()
 
     Log.always("Fable: F# to JS compiler " + Literals.VERSION)
     if hasFlag "--verbose" argv then
@@ -151,9 +159,9 @@ let main argv =
     | SplitCommandArgs(commands, args) ->
         match commands with
         | ["clean"; dir] -> clean args dir
-        | ["clean"] -> IO.Directory.GetCurrentDirectory() |> clean args
-        | ["watch"; path] -> run true (Some path) args
-        | ["watch"] -> run true None args
-        | [path] -> run false (Some path) args
-        | [] -> run false None args
+        | ["clean"] -> clean args rootDir
+        | ["watch"; path] -> Runner.Run(args, rootDir, fsprojPath=path, watch=true)
+        | ["watch"] -> Runner.Run(args, rootDir, watch=true)
+        | [path] -> Runner.Run(args, rootDir, fsprojPath=path)
+        | [] -> Runner.Run(args, rootDir)
         | _ -> printfn "Unexpected arguments. Use `fable --help` to see available options."; 1

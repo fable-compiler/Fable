@@ -161,6 +161,3 @@ module File =
         use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
         use textReader = new StreamReader(fileStream)
         textReader.ReadToEnd()
-
-    let getRelativePath path =
-        Fable.Path.getRelativePath (Directory.GetCurrentDirectory()) path

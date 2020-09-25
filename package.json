@@ -13,6 +13,7 @@
   "dependencies": {
     "@matthid/source-map-visualization": "^0.5.0",
     "@types/node": "^14.0.5",
+    "chokidar": "^3.4.2",
     "concurrently": "^5.1.0",
     "download-cli": "^1.1.1",
     "esm": "^3.2.25",
