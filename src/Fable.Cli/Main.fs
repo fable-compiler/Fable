@@ -1,4 +1,4 @@
-module Fable.Cli.Agent
+module Fable.Cli.Main
 
 open System
 open System.IO
@@ -41,9 +41,10 @@ type Watcher(projDir: string) =
 
     do
         watcher.Filters.Add("*.fs")
+        watcher.Filters.Add("*.fsx")
         watcher.Filters.Add("*.fsproj")
         watcher.IncludeSubdirectories <- true
-        watcher.NotifyFilter <- NotifyFilters.LastWrite
+        // watcher.NotifyFilter <- NotifyFilters.LastWrite
         watcher.EnableRaisingEvents <- false
 
         timer.Elapsed.Add(fun _ ->
@@ -58,6 +59,8 @@ type Watcher(projDir: string) =
             if not timer.Enabled then
                 timer.Start()
             changes.Add(ev.FullPath))
+
+    member _.Directory = projDir
 
     member _.AwaitChanges() =
         Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
@@ -236,7 +239,12 @@ type ProjectCracked(sourceFiles: File array,
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
-        let sourceFiles = getSourceFiles projectOptions |> Array.map File
+        let sourceFiles =
+            getSourceFiles projectOptions
+            |> Array.choose (fun file ->
+                // TODO: Warning/Error if some file doesn't exist
+                if File.Exists(file) then Some(File(file)) else None)
+
         ProjectCracked(sourceFiles, projectOptions, msg.CompilerOptions, fableLibraryDir)
 
 type ProjectParsed(project: Project,
@@ -310,6 +318,11 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         match state.ProjectCrackedAndParsed with
         // TODO: If changes contain project file, crack and parse the project again
         | Some(cracked, parsed) ->
+            let cracked =
+                if changes.Contains(state.CliArgs.ProjectFile) then
+                    ProjectCracked.Init(state.CliArgs)
+                else cracked
+
             cracked.SourceFiles
             |> Array.choose (fun file ->
                 let path = file.NormalizedFullPath
@@ -336,8 +349,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         | None ->
             let cracked = ProjectCracked.Init(state.CliArgs)
             let parsed = ProjectParsed.Init(state.CliArgs, cracked)
-            // TODO: If compiled file more recent than F# file already exists,
-            // skip compilation if passing a --cache flag?
             let filesToCompile =
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
@@ -348,7 +359,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     let filesToCompile =
         filesToCompile
-        |> Array.filter (fun x -> x.EndsWith(".fs") || x.EndsWith(".fsx"))
+        |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
         |> fun filesToCompile ->
             // TODO: Log skipped files in verbose mode
             match state.CliArgs.Exclude with
@@ -382,7 +393,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     match state.Watcher, state.TestInfo with
     | Some watcher, _ ->
-        Log.always("Watching...")
+        Log.always("Watching " + Path.getRelativePath state.CliArgs.RootDir watcher.Directory + "...")
         let! changes = watcher.AwaitChanges()
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

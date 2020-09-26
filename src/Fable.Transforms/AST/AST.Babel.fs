@@ -153,15 +153,15 @@ module PrinterExtensions =
                         printer.ComplexExpressionWithParens(r.Argument, objExpr=true)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
                 else
-                printer.Print("function ")
-                printer.PrintOptional(id)
-                printer.PrintOptional(typeParameters)
-                printer.Print("(")
-                printer.PrintCommaSeparatedArray(parameters)
-                printer.Print(")")
-                printer.PrintOptional(returnType)
-                printer.Print(" ")
-                printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
+                    printer.Print("function ")
+                    printer.PrintOptional(id)
+                    printer.PrintOptional(typeParameters)
+                    printer.Print("(")
+                    printer.PrintCommaSeparatedArray(parameters)
+                    printer.Print(")")
+                    printer.PrintOptional(returnType)
+                    printer.Print(" ")
+                    printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
         member printer.WithParens(expr: Expression) =
             printer.Print("(")
@@ -299,7 +299,7 @@ type EmitExpression(value, args, ?loc) =
                 let lastMatch = matches.[matches.Count - 1]
                 printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
             else
-                printer.Print(value)
+                printSegment printer value 0 value.Length
 
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
