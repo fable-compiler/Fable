@@ -1,7 +1,7 @@
 module Fable.Cli.Entry
 
 open System
-open Agent
+open Main
 open Fable
 
 let hasFlag flag (args: string list) =

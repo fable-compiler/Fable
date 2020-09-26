@@ -438,9 +438,6 @@ let getFullProjectOpts (opts: Options) =
             let pkgSources = pkgRefs |> List.collect getSourcesFromFsproj
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
             pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
-        for file in sourceFiles do
-            if file.EndsWith(".fs") && not(IO.File.Exists(file)) then
-                failwithf "File does not exist: %s" file
         let otherOptions =
             let dllRefs =
                 // We only keep dllRefs for the main project
