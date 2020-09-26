@@ -406,19 +406,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     //     let! body = transformExpr com newContext body
     //     return Replacements.iterate com (makeRangeFrom fsExpr) ident body value
 
-    // | OptimizedOperator(memb, comp, opName, argTypes, argExprs) ->
-    //     let r, typ = makeRangeFrom fsExpr, makeType ctx.GenericArgs fsExpr.Type
-    //     let argTypes = argTypes |> List.map (makeType ctx.GenericArgs)
-    //     let! args = transformExprList com ctx argExprs
-    //     let entity: Fable.Entity =
-    //         match comp with
-    //         | Some comp -> upcast FsEnt comp.DeclaringEntity.Value
-    //         | None -> upcast FsEnt memb.DeclaringEntity.Value
-    //     let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
-    //     return (match membOpt with
-    //             | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
-    //             | None -> failwithf "Cannot find member %s.%s" (entity.FullName) opName)
-
     // work-around for optimized "for x in list" (erases this sequential)
     // | BasicPatterns.Sequential (BasicPatterns.ValueSet (current, BasicPatterns.Value next1),
     //                             (BasicPatterns.ValueSet (next2, BasicPatterns.UnionCaseGet
@@ -428,6 +415,19 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     //             && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
     //     // replace with nothing
     //     return Fable.UnitConstant |> makeValue None
+
+    | OptimizedOperator com (memb, comp, opName, argTypes, argExprs) ->
+        let r, typ = makeRangeFrom fsExpr, makeType ctx.GenericArgs fsExpr.Type
+        let argTypes = argTypes |> List.map (makeType ctx.GenericArgs)
+        let! args = transformExprList com ctx argExprs
+        let entity: Fable.Entity =
+            match comp with
+            | Some comp -> upcast FsEnt comp.DeclaringEntity.Value
+            | None -> upcast FsEnt memb.DeclaringEntity.Value
+        let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
+        return (match membOpt with
+                | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
+                | None -> failwithf "Cannot find member %s.%s" (entity.FullName) opName)
 
     | BasicPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr

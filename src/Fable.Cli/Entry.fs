@@ -40,8 +40,8 @@ Arguments:
   --exclude         Skip Fable compilation for files containing the pattern
   --typed-arrays    Compile numeric arrays to JS typed arrays
   --force-pkgs      Force a new copy of package sources into `.fable` folder
+  --optimize        Use optimized AST from F# compiler (experimental)
   --cwd             Working directory
-
 """
 
 type Runner =
@@ -84,6 +84,7 @@ type Runner =
                                            typedArrays = hasFlag "--typed-arrays" args,
                                            ?fileExtension = argValue "--extension" args,
                                            debugMode = Array.contains "DEBUG" defines,
+                                           optimizeFSharpAst = hasFlag "--optimize" args,
                                            verbosity = verbosity)
 
             let cliArgs =

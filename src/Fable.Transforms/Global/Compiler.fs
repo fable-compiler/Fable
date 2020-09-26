@@ -11,6 +11,7 @@ type CompilerOptions =
       abstract ClampByteArrays: bool
       abstract Typescript: bool
       abstract DebugMode: bool
+      abstract OptimizeFSharpAst: bool
       abstract Verbosity: Verbosity
       abstract FileExtension: string
 
@@ -19,6 +20,7 @@ type CompilerOptionsHelper =
     static member Make(?typedArrays,
                        ?typescript,
                        ?debugMode,
+                       ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
                        ?clampByteArrays) =
@@ -26,6 +28,7 @@ type CompilerOptionsHelper =
               member _.TypedArrays = defaultArg typedArrays false
               member _.Typescript = defaultArg typescript false
               member _.DebugMode = defaultArg debugMode false
+              member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
               member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultFileExtension
               member _.ClampByteArrays = defaultArg clampByteArrays false }
