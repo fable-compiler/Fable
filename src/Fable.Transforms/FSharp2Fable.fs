@@ -429,21 +429,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     //     // replace with nothing
     //     return Fable.UnitConstant |> makeValue None
 
-    | CallCreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
-        let! callee = transformExpr com ctx callee
-        let! args = transformExprList com ctx membArgs
-        let callee = get None Fable.Any callee eventName
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-        let typ = makeType ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs (Some callee) args memb
-
-    | BindCreateEvent (var, value, eventName, body) ->
-        let! value = transformExpr com ctx value
-        let value = get None Fable.Any value eventName
-        let ctx, ident = putBindingInScope com ctx var value
-        let! body = transformExpr com ctx body
-        return Fable.Let([ident, value], body)
-
     | BasicPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
         let t = makeType ctx.GenericArgs targetType
@@ -524,14 +509,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Let([ident, value], body)
 
     | BasicPatterns.Let((var, value), body) ->
-        if isInline var then
-            let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
-            return! transformExpr com ctx body
-        else
+        match value with
+        | CreateEvent(value, eventName) ->
             let! value = transformExpr com ctx value
+            let value = get None Fable.Any value eventName
             let ctx, ident = putBindingInScope com ctx var value
             let! body = transformExpr com ctx body
             return Fable.Let([ident, value], body)
+
+        | value ->
+            if isInline var then
+                let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
+                return! transformExpr com ctx body
+            else
+                let! value = transformExpr com ctx value
+                let ctx, ident = putBindingInScope com ctx var value
+                let! body = transformExpr com ctx body
+                return Fable.Let([ident, value], body)
 
     | BasicPatterns.LetRec(recBindings, body) ->
         // First get a context containing all idents and use it compile the values
@@ -551,12 +545,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return transformTraitCall com ctx (makeRangeFrom fsExpr) typ sourceTypes traitName flags argTypes argExprs
 
     | BasicPatterns.Call(callee, memb, ownerGenArgs, membGenArgs, args) ->
-        let! callee = transformExprOpt com ctx callee
-        let! args = transformExprList com ctx args
-        // TODO: Check answer to #868 in FSC repo
-        let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-        let typ = makeType ctx.GenericArgs fsExpr.Type
-        return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
+        match callee with
+        | Some(CreateEvent(callee, eventName)) ->
+            let! callee = transformExpr com ctx callee
+            let! args = transformExprList com ctx args
+            let callee = get None Fable.Any callee eventName
+            let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+            let typ = makeType ctx.GenericArgs fsExpr.Type
+            return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs (Some callee) args memb
+
+        | callee ->
+            let! callee = transformExprOpt com ctx callee
+            let! args = transformExprList com ctx args
+            // TODO: Check answer to #868 in FSC repo
+            let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
+            let typ = makeType ctx.GenericArgs fsExpr.Type
+            return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
 
     | BasicPatterns.Application(applied, _genArgs, []) ->
         // TODO: Ask why application without arguments happen. So far I've seen it

@@ -595,16 +595,6 @@ module Patterns =
             Some (callee, eventName)
         | _ -> None
 
-    let (|CallCreateEvent|_|) = function
-        | Call(Some(CreateEvent(callee, eventName)), memb, typArgs, methTypArgs, args) ->
-            Some (callee, eventName, memb, typArgs, methTypArgs, args)
-        | _ -> None
-
-    let (|BindCreateEvent|_|) = function
-        | Let((var, CreateEvent(value, eventName)), body) ->
-            Some (var, value, eventName, body)
-        | _ -> None
-
     let (|ConstructorCall|_|) = function
         | NewObject(baseCall, genArgs, baseArgs) -> Some(baseCall, genArgs, baseArgs)
         | Call(None, baseCall, genArgs1, genArgs2, baseArgs) when baseCall.IsConstructor ->
