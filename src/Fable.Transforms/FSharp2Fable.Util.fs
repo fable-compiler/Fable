@@ -611,18 +611,6 @@ module Patterns =
             Some(baseCall, genArgs1 @ genArgs2, baseArgs)
         | _ -> None
 
-    let (|CapturedBaseConsCall|_|) com (ctx: Context) transformBaseCall = function
-        | Sequential(ConstructorCall(call, genArgs, args) as expr1, expr2)
-        // This pattern occurs in constructors that define a this value: `type C() as this`
-        // We're discarding the bound `this` value, it "shouldn't" be used in the base constructor arguments
-        | Sequential(Let(_, (ConstructorCall(call, genArgs, args) as expr1)), expr2) ->
-            match call.DeclaringEntity, ctx.CaptureBaseConsCall with
-            | Some baseEnt, Some(expectedBaseEnt, capture) when baseEnt = expectedBaseEnt ->
-                transformBaseCall com ctx (makeRangeFrom expr1) baseEnt call genArgs args |> capture
-                Some expr2
-            | _ -> None
-        | _ -> None
-
     let (|OptimizedOperator|_|) = function
         // work-around for optimized string operator (Operators.string)
         | Let((var, Call(None, memb, _, membArgTypes, membArgs)),
