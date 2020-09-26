@@ -35,13 +35,13 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
     | None ->
         if not baseCons.IsImplicitConstructor then
             "Only inheriting from primary constructors is supported"
-            |> addWarningAndReturnNull com [] r
-        else
-            match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
-            | Fable.Call(_, info, t, r) ->
-                let baseExpr = entityRef com baseEnt
-                Fable.Call(baseExpr, info, t, r)
-            | e -> e // Unexpected, throw error?
+            |> addWarning com [] r
+        match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
+        | Fable.Call(_, info, t, r) ->
+            let baseExpr = entityRef com baseEnt
+            Fable.Call(baseExpr, info, t, r)
+        // Other cases, like Emit will call directly the base expression
+        | e -> e
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType, unionCase with
@@ -347,12 +347,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     //     let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
     //     let guardExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
     //     let! thenExpr = transformExpr com ctx thenExpr
-    // | ByrefArgToTuple (callee, memb, ownerGenArgs, membGenArgs, membArgs) ->
-    //     let! callee = transformExprOpt com ctx callee
-    //     let! args = transformExprList com ctx membArgs
-    //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
-    //     let typ = makeType ctx.GenericArgs fsExpr.Type
-    //     return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
+    //     let! elseExpr = transformExpr com ctx elseExpr
+    //     let ifThenElse = Fable.IfThenElse(guardExpr, thenExpr, elseExpr, None)
+    //     return Fable.Let([tupleIdent, tupleExpr], Fable.Let([ident, identExpr], ifThenElse))
 
     // | ByrefArgToTupleOptimizedIf (outArg, callee, memb, ownerGenArgs, membGenArgs, membArgs, thenExpr, elseExpr) ->
     //     let ctx, ident = putArgInScope com ctx outArg
@@ -404,23 +401,33 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     //     let body = Fable.Let([ident1, id1Expr], Fable.Let([ident2, id2Expr], restExpr))
     //     return Fable.Let([tupleIdent, tupleExpr], body)
 
-    | OptimizedOperator(memb, comp, opName, argTypes, argExprs) ->
-        let r, typ = makeRangeFrom fsExpr, makeType ctx.GenericArgs fsExpr.Type
-        let argTypes = argTypes |> List.map (makeType ctx.GenericArgs)
-        let! args = transformExprList com ctx argExprs
-        let entity: Fable.Entity =
-            match comp with
-            | Some comp -> upcast FsEnt comp.DeclaringEntity.Value
-            | None -> upcast FsEnt memb.DeclaringEntity.Value
-        let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
-        return (match membOpt with
-                | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
-                | None -> failwithf "Cannot find member %s.%s" (entity.FullName) opName)
-
     // | ForOf (PutArgInScope com ctx (newContext, ident), value, body) ->
     //     let! value = transformExpr com ctx value
     //     let! body = transformExpr com newContext body
     //     return Replacements.iterate com (makeRangeFrom fsExpr) ident body value
+
+    // | OptimizedOperator(memb, comp, opName, argTypes, argExprs) ->
+    //     let r, typ = makeRangeFrom fsExpr, makeType ctx.GenericArgs fsExpr.Type
+    //     let argTypes = argTypes |> List.map (makeType ctx.GenericArgs)
+    //     let! args = transformExprList com ctx argExprs
+    //     let entity: Fable.Entity =
+    //         match comp with
+    //         | Some comp -> upcast FsEnt comp.DeclaringEntity.Value
+    //         | None -> upcast FsEnt memb.DeclaringEntity.Value
+    //     let membOpt = tryFindMember com entity ctx.GenericArgs opName false argTypes
+    //     return (match membOpt with
+    //             | Some memb -> makeCallFrom com ctx r typ argTypes None args memb
+    //             | None -> failwithf "Cannot find member %s.%s" (entity.FullName) opName)
+
+    // work-around for optimized "for x in list" (erases this sequential)
+    // | BasicPatterns.Sequential (BasicPatterns.ValueSet (current, BasicPatterns.Value next1),
+    //                             (BasicPatterns.ValueSet (next2, BasicPatterns.UnionCaseGet
+    //                                 (_value, typ, unionCase, field))))
+    //         when next1.FullName = "next" && next2.FullName = "next"
+    //             && current.FullName = "current" && (getFsTypeFullName typ) = Types.list
+    //             && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
+    //     // replace with nothing
+    //     return Fable.UnitConstant |> makeValue None
 
     | CallCreateEvent (callee, eventName, memb, ownerGenArgs, membGenArgs, membArgs) ->
         let! callee = transformExpr com ctx callee
@@ -436,9 +443,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let ctx, ident = putBindingInScope com ctx var value
         let! body = transformExpr com ctx body
         return Fable.Let([ident, value], body)
-
-    | CapturedBaseConsCall com ctx transformBaseConsCall nextExpr ->
-        return! transformExpr com ctx nextExpr
 
     | BasicPatterns.Coerce(targetType, inpExpr) ->
         let! (inpExpr: Fable.Expr) = transformExpr com ctx inpExpr
@@ -752,26 +756,30 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | _ -> return! transformObjExpr com ctx objType baseCall overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
-        // TODO: Check arguments passed byref here too?
         let! args = transformExprList com ctx args
         let genArgs = Seq.map (makeType ctx.GenericArgs) genArgs
         let typ = makeType ctx.GenericArgs fsExpr.Type
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs None args memb
 
-    // work-around for optimized "for x in list" (erases this sequential)
-    | BasicPatterns.Sequential (BasicPatterns.ValueSet (current, BasicPatterns.Value next1),
-                                (BasicPatterns.ValueSet (next2, BasicPatterns.UnionCaseGet
-                                    (_value, typ, unionCase, field))))
-            when next1.FullName = "next" && next2.FullName = "next"
-                && current.FullName = "current" && (getFsTypeFullName typ) = Types.list
-                && unionCase.Name = "op_ColonColon" && field.Name = "Tail" ->
-        // replace with nothing
-        return Fable.UnitConstant |> makeValue None
-
     | BasicPatterns.Sequential (first, second) ->
-        let! first = transformExpr com ctx first
-        let! second = transformExpr com ctx second
-        return Fable.Sequential [first; second]
+        let exprs =
+            match ctx.CaptureBaseConsCall with
+            | Some(baseEnt, captureBaseCall) ->
+                match first with
+                | ConstructorCall(call, genArgs, args)
+                // This pattern occurs in constructors that define a this value: `type C() as this`
+                // We're discarding the bound `this` value, it "shouldn't" be used in the base constructor arguments
+                | BasicPatterns.Let(_, (ConstructorCall(call, genArgs, args))) ->
+                    match call.DeclaringEntity with
+                    | Some ent when ent = baseEnt ->
+                        let r = makeRangeFrom first
+                        transformBaseConsCall com ctx r baseEnt call genArgs args |> captureBaseCall
+                        [second]
+                    | _ -> [first; second]
+                | _ -> [first; second]
+            | _ -> [first; second]
+        let! exprs = transformExprList com ctx exprs
+        return Fable.Sequential exprs
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs

@@ -282,7 +282,8 @@ type ProjectParsed(project: Project,
         ProjectParsed(proj, checker)
 
 type TestInfo private (current, iterations, times: int64 list) =
-    new (?iterations) = TestInfo(0, defaultArg iterations 10, [])
+    new (?iterations) = TestInfo(0, defaultArg iterations 50, [])
+    member _.LogFileName = "fable-perf-log.txt"
     member _.CurrentIteration: int = current
     member _.TotalIterations: int = iterations
     member _.AverageMilliseconds =
@@ -405,7 +406,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         info.AverageMilliseconds
                         info.MedianMilliseconds
             Log.always(log)
-            let perfLog = IO.Path.Combine(state.CliArgs.RootDir, "fable-perf-log.txt")
+            let perfLog = IO.Path.Combine(state.CliArgs.RootDir, info.LogFileName)
             File.AppendAllText(perfLog, log + "\n")
             return Ok()
 }
