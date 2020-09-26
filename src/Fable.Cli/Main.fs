@@ -264,11 +264,11 @@ type ProjectParsed(project: Project,
         Log.always(sprintf "F# compilation finished in %ims" ms)
 
         // checkFableCoreVersion checkedProject
-        let optimized = false // TODO: Pass through CompilerOptions
         let implFiles =
-            if not optimized
-            then checkedProject.AssemblyContents.ImplementationFiles
-            else checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+            if cliArgs.CompilerOptions.OptimizeFSharpAst then
+                checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
+            else
+                checkedProject.AssemblyContents.ImplementationFiles
 
         if List.isEmpty implFiles then
             Log.always "The list of files returned by F# compiler is empty"

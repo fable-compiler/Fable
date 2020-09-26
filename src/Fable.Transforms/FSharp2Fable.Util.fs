@@ -601,25 +601,28 @@ module Patterns =
             Some(baseCall, genArgs1 @ genArgs2, baseArgs)
         | _ -> None
 
-    let (|OptimizedOperator|_|) = function
-        // work-around for optimized string operator (Operators.string)
-        | Let((var, Call(None, memb, _, membArgTypes, membArgs)),
-                            DecisionTree(IfThenElse(_, _, IfThenElse
-                                                        (TypeTest(tt, Value vv), _, _)), _))
-                when var.FullName = "matchValue" && memb.FullName = "Microsoft.FSharp.Core.Operators.box"
-                    && vv.FullName = "matchValue" && (getFsTypeFullName tt) = "System.IFormattable" ->
-            Some(memb, None, "ToString", membArgTypes, membArgs)
-        // work-around for optimized hash operator (Operators.hash)
-        | Call(Some expr, memb, _, [], [Call(None, comp, [], [], [])])
-                when memb.FullName.EndsWith(".GetHashCode") &&
-                     comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityERComparer" ->
-            Some(memb, Some comp, "GenericHash", [expr.Type], [expr])
-        // work-around for optimized equality operator (Operators.(=))
-        | Call(Some e1, memb, _, [], [Coerce (t2, e2); Call(None, comp, [], [], [])])
-                when memb.FullName.EndsWith(".Equals") && t2.HasTypeDefinition && t2.TypeDefinition.CompiledName = "obj" &&
-                     comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityComparer" ->
-            Some(memb, Some comp, "GenericEquality", [e1.Type; e2.Type], [e1; e2])
-        | _ -> None
+    let (|OptimizedOperator|_|) (com: Compiler) fsExpr =
+        if com.Options.OptimizeFSharpAst then
+            match fsExpr with
+            // work-around for optimized string operator (Operators.string)
+            | Let((var, Call(None, memb, _, membArgTypes, membArgs)),
+                                DecisionTree(IfThenElse(_, _, IfThenElse
+                                                            (TypeTest(tt, Value vv), _, _)), _))
+                    when var.FullName = "matchValue" && memb.FullName = "Microsoft.FSharp.Core.Operators.box"
+                        && vv.FullName = "matchValue" && (getFsTypeFullName tt) = "System.IFormattable" ->
+                Some(memb, None, "ToString", membArgTypes, membArgs)
+            // work-around for optimized hash operator (Operators.hash)
+            | Call(Some expr, memb, _, [], [Call(None, comp, [], [], [])])
+                    when memb.FullName.EndsWith(".GetHashCode") &&
+                         comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityERComparer" ->
+                Some(memb, Some comp, "GenericHash", [expr.Type], [expr])
+            // work-around for optimized equality operator (Operators.(=))
+            | Call(Some e1, memb, _, [], [Coerce (t2, e2); Call(None, comp, [], [], [])])
+                    when memb.FullName.EndsWith(".Equals") && t2.HasTypeDefinition && t2.TypeDefinition.CompiledName = "obj" &&
+                         comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityComparer" ->
+                Some(memb, Some comp, "GenericEquality", [e1.Type; e2.Type], [e1; e2])
+            | _ -> None
+        else None
 
     let private numberTypes =
         dict [Types.int8, Int8
