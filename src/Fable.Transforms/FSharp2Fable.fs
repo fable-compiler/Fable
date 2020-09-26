@@ -499,25 +499,25 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         return Replacements.defaultof com ctx typ
 
-    // Capture variable generic type mapping
-    | BasicPatterns.Let((var, value), (BasicPatterns.Application(_body, genArgs, _args) as expr)) ->
-        let genArgs = Seq.map (makeType ctx.GenericArgs) genArgs
-        let ctx = { ctx with GenericArgs = matchGenericParamsFrom var genArgs |> Map }
-        let! value = transformExpr com ctx value
-        let ctx, ident = putBindingInScope com ctx var value
-        let! body = transformExpr com ctx expr
-        return Fable.Let([ident, value], body)
-
     | BasicPatterns.Let((var, value), body) ->
-        match value with
-        | CreateEvent(value, eventName) ->
+        match value, body with
+        | CreateEvent(value, eventName), _ ->
             let! value = transformExpr com ctx value
             let value = get None Fable.Any value eventName
             let ctx, ident = putBindingInScope com ctx var value
             let! body = transformExpr com ctx body
             return Fable.Let([ident, value], body)
 
-        | value ->
+        // Capture variable generic type mapping
+        | _, BasicPatterns.Application(_callee, genArgs, _args) ->
+            let genArgs = Seq.map (makeType ctx.GenericArgs) genArgs
+            let ctx = { ctx with GenericArgs = matchGenericParamsFrom var genArgs |> Map }
+            let! value = transformExpr com ctx value
+            let ctx, ident = putBindingInScope com ctx var value
+            let! body = transformExpr com ctx body
+            return Fable.Let([ident, value], body)
+
+        | value, body ->
             if isInline var then
                 let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }
                 return! transformExpr com ctx body
@@ -562,58 +562,59 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let typ = makeType ctx.GenericArgs fsExpr.Type
             return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs callee args memb
 
-    | BasicPatterns.Application(applied, _genArgs, []) ->
-        // TODO: Ask why application without arguments happen. So far I've seen it
+    | BasicPatterns.Application(applied, genArgs, args) ->
+        match applied, args with
+        // Why do application without arguments happen? So far I've seen it
         // to access None or struct values (like the Result type)
-        return! transformExpr com ctx applied
+        | _, [] -> return! transformExpr com ctx applied
 
-    // Application of locally inlined lambdas
-    | BasicPatterns.Application(BasicPatterns.Value var, genArgs, args) when isInline var ->
-        let r = makeRangeFrom fsExpr
-        match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
-        | Some (_,fsExpr) ->
-            let genArgs = Seq.map (makeType ctx.GenericArgs) genArgs
-            let resolvedCtx = { ctx with GenericArgs = matchGenericParamsFrom var genArgs |> Map }
-            let! callee = transformExpr com resolvedCtx fsExpr
-            match args with
-            | [] -> return callee
-            | args ->
-                let typ = makeType ctx.GenericArgs fsExpr.Type
-                let! args = transformExprList com ctx args
-                return Fable.CurriedApply(callee, args, typ, r)
-        | None ->
-            return "Cannot resolve locally inlined value: " + var.DisplayName
-            |> addErrorAndReturnNull com ctx.InlinePath r
+        // Application of locally inlined lambdas
+        | BasicPatterns.Value var, args when isInline var ->
+            let r = makeRangeFrom fsExpr
+            match ctx.ScopeInlineValues |> List.tryFind (fun (v,_) -> obj.Equals(v, var)) with
+            | Some (_,fsExpr) ->
+                let genArgs = Seq.map (makeType ctx.GenericArgs) genArgs
+                let resolvedCtx = { ctx with GenericArgs = matchGenericParamsFrom var genArgs |> Map }
+                let! callee = transformExpr com resolvedCtx fsExpr
+                match args with
+                | [] -> return callee
+                | args ->
+                    let typ = makeType ctx.GenericArgs fsExpr.Type
+                    let! args = transformExprList com ctx args
+                    return Fable.CurriedApply(callee, args, typ, r)
+            | None ->
+                return "Cannot resolve locally inlined value: " + var.DisplayName
+                |> addErrorAndReturnNull com ctx.InlinePath r
 
-    // When using Fable dynamic operator, we must untuple arguments
-    // Note F# compiler wraps the value in a closure if it detects it's a lambda
-    | BasicPatterns.Application(BasicPatterns.Let((_, BasicPatterns.Call(None,m,_,_,[e1; e2])),_), _genArgs, args)
-            when m.FullName = "Fable.Core.JsInterop.( ? )" ->
-        let! e1 = transformExpr com ctx e1
-        let! e2 = transformExpr com ctx e2
-        let e = Fable.Get(e1, Fable.ByKey(Fable.ExprKey e2), Fable.Any, e1.Range)
-        let! args = transformExprList com ctx args
-        let args = destructureTupleArgs args
-        let typ = makeType ctx.GenericArgs fsExpr.Type
-        // Convert this to emit so auto-uncurrying is applied
-        let emitInfo: Fable.EmitInfo =
-            { Macro = "$0($1...)"
-              Args = e::args
-              SignatureArgTypes = [] // TODO
-              IsJsStatement = false }
-        return Fable.Emit(emitInfo, typ, makeRangeFrom fsExpr)
+        // When using Fable dynamic operator, we must untuple arguments
+        // Note F# compiler wraps the value in a closure if it detects it's a lambda
+        | BasicPatterns.Let((_, BasicPatterns.Call(None,m,_,_,[e1; e2])),_), args
+                                when m.FullName = "Fable.Core.JsInterop.( ? )" ->
+            let! e1 = transformExpr com ctx e1
+            let! e2 = transformExpr com ctx e2
+            let e = Fable.Get(e1, Fable.ByKey(Fable.ExprKey e2), Fable.Any, e1.Range)
+            let! args = transformExprList com ctx args
+            let args = destructureTupleArgs args
+            let typ = makeType ctx.GenericArgs fsExpr.Type
+            // Convert this to emit so auto-uncurrying is applied
+            let emitInfo: Fable.EmitInfo =
+                { Macro = "$0($1...)"
+                  Args = e::args
+                  SignatureArgTypes = [] // TODO
+                  IsJsStatement = false }
+            return Fable.Emit(emitInfo, typ, makeRangeFrom fsExpr)
 
-    // Some instance members such as Option.get_IsSome are compiled as static members, and the F# compiler
-    // wraps calls with an application. But in Fable they will be replaced so the application is not needed
-    | BasicPatterns.Application(BasicPatterns.Call(Some _, memb, _, [], []) as call, _genArgs, [BasicPatterns.Const(null, _)])
-         when memb.IsInstanceMember && not memb.IsInstanceMemberInCompiledCode ->
-         return! transformExpr com ctx call
+        // Some instance members such as Option.get_IsSome are compiled as static members, and the F# compiler
+        // wraps calls with an application. But in Fable they will be replaced so the application is not needed
+        | BasicPatterns.Call(Some _, memb, _, [], []) as call, [BasicPatterns.Const(null, _)]
+                        when memb.IsInstanceMember && not memb.IsInstanceMemberInCompiledCode ->
+             return! transformExpr com ctx call
 
-    | BasicPatterns.Application(applied, _genArgs, args) ->
-        let! applied = transformExpr com ctx applied
-        let! args = transformExprList com ctx args
-        let typ = makeType ctx.GenericArgs fsExpr.Type
-        return Fable.CurriedApply(applied, args, typ, makeRangeFrom fsExpr)
+        | applied, args ->
+            let! applied = transformExpr com ctx applied
+            let! args = transformExprList com ctx args
+            let typ = makeType ctx.GenericArgs fsExpr.Type
+            return Fable.CurriedApply(applied, args, typ, makeRangeFrom fsExpr)
 
     | BasicPatterns.IfThenElse (guardExpr, thenExpr, elseExpr) ->
         let! guardExpr = transformExpr com ctx guardExpr
