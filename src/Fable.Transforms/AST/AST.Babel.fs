@@ -76,7 +76,7 @@ module PrinterExtensions =
 
         member printer.PrintOptional(node: #Node option) =
             match node with
-            | None-> ()
+            | None -> ()
             | Some node -> node.Print(printer)
 
         member printer.PrintArray(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
@@ -85,28 +85,32 @@ module PrinterExtensions =
                 if i < nodes.Length - 1 then
                     printSeparator printer
 
-        member printer.PrintCommaSeparatedArray(nodes: ExportSpecifier array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-
-        member printer.PrintCommaSeparatedArray(nodes: #ImportSpecifier array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-
-        member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-
         member printer.PrintCommaSeparatedArray(nodes: Expression array) =
             printer.PrintArray(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
 
+        member printer.PrintCommaSeparatedArray(nodes: #Node array) =
+            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
         // TODO: (super) type parameters, implements
-        member printer.PrintClass(id: Identifier option, superClass: Expression option, body: ClassBody, loc) =
+        member printer.PrintClass(id: Identifier option, superClass: Expression option,
+                superTypeParameters: TypeParameterInstantiation option,
+                typeParameters: TypeParameterDeclaration option,
+                implements: ClassImplements array option, body: ClassBody, loc) =
             printer.Print("class", ?loc=loc)
             printer.PrintOptional(" ", id)
+            printer.PrintOptional(typeParameters)
             printer.PrintOptional(" extends ", superClass)
+            printer.PrintOptional(superTypeParameters)
+            match implements with
+            | Some implements when not (Array.isEmpty implements) ->
+                printer.Print(" implements ")
+                printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+            | _ -> ()
             printer.Print(" ")
             printer.Print(body)
 
-        // TODO: type annotations
-        member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement, loc, ?isDeclaration, ?isArrow) =
+        member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement,
+                typeParameters: TypeParameterDeclaration option, returnType: TypeAnnotation option, loc, ?isDeclaration, ?isArrow) =
             let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
                 Array.zip passedArgs appliedAgs
                 |> Array.forall (function
@@ -138,9 +142,12 @@ module PrinterExtensions =
             | None ->
                 if isArrow then
                     // Remove parens if we only have one argument? (and no annotation)
+                    printer.PrintOptional(typeParameters)
                     printer.Print("(")
                     printer.PrintCommaSeparatedArray(parameters)
-                    printer.Print(") => ")
+                    printer.Print(")")
+                    printer.PrintOptional(returnType)
+                    printer.Print(" => ")
                     match body.Body with
                     | [|:? ReturnStatement as r |] ->
                         printer.ComplexExpressionWithParens(r.Argument, objExpr=true)
@@ -148,9 +155,12 @@ module PrinterExtensions =
                 else
                 printer.Print("function ")
                 printer.PrintOptional(id)
+                printer.PrintOptional(typeParameters)
                 printer.Print("(")
                 printer.PrintCommaSeparatedArray(parameters)
-                printer.Print(") ")
+                printer.Print(")")
+                printer.PrintOptional(returnType)
+                printer.Print(" ")
                 printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
         member printer.WithParens(expr: Expression) =
@@ -315,8 +325,10 @@ type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
     member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
     interface PatternExpression with
         member _.Print(printer) =
-            // TODO: optional, type annotation
             printer.Print(name, ?loc=loc)
+            if optional = Some true then
+                printer.Print("?")
+            printer.PrintOptional(typeAnnotation)
 
 // Literals
 type RegExpLiteral(pattern, flags_, ?loc) =
@@ -643,7 +655,7 @@ type FunctionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?lo
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     interface Declaration with
         member _.Print(printer) =
-            printer.PrintFunction(Some id, ``params``, body, loc, isDeclaration=true)
+            printer.PrintFunction(Some id, ``params``, body, typeParameters, returnType, loc, isDeclaration=true)
             printer.PrintNewLine()
 
 // Expressions
@@ -674,7 +686,7 @@ type ArrowFunctionExpression(``params``, body: BlockStatement, ?returnType, ?typ
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     interface Expression with
         member _.Print(printer) =
-            printer.PrintFunction(None, ``params``, body, loc, isArrow=true)
+            printer.PrintFunction(None, ``params``, body, typeParameters, returnType, loc, isArrow=true)
 
 type FunctionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
 //    let async = defaultArg async_ false
@@ -688,7 +700,7 @@ type FunctionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?lo
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     interface Expression with
         member _.Print(printer) =
-            printer.PrintFunction(id, ``params``, body, loc)
+            printer.PrintFunction(id, ``params``, body, typeParameters, returnType, loc)
 
 ///// e.g., x = do { var t = f(); t * t + 1 };
 ///// http://wiki.ecmascript.org/doku.php?id=strawman:do_expressions
@@ -730,7 +742,7 @@ type ArrayExpression(elements, ?loc) =
     interface Expression with
         member _.Print(printer) =
             printer.Print("[", ?loc=loc)
-            printer.PrintArray(elements, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
+            printer.PrintCommaSeparatedArray(elements)
             printer.Print("]")
 
 type ObjectMember = inherit Node
@@ -787,10 +799,12 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typePa
             else
                 key.Print(printer)
 
-            // TODO: type annotations
+            printer.PrintOptional(typeParameters)
             printer.Print("(")
             printer.PrintCommaSeparatedArray(``params``)
-            printer.Print(") ")
+            printer.Print(")")
+            printer.PrintOptional(returnType)
+            printer.Print(" ")
 
             printer.Print(body)
 
@@ -855,7 +869,7 @@ type CallExpression(callee, arguments, ?loc) =
             printer.AddLocation(loc)
             printer.ComplexExpressionWithParens(callee)
             printer.Print("(")
-            printer.PrintArray(arguments, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
+            printer.PrintCommaSeparatedArray(arguments)
             printer.Print(")")
 
 type NewExpression(callee, arguments, ?typeArguments, ?loc) =
@@ -1014,8 +1028,8 @@ type RestElement(argument, ?typeAnnotation, ?loc) =
     interface Pattern with
         member _.Print(printer) =
             printer.Print("...", ?loc=loc)
-            // TODO: Type annotation
             argument.Print(printer)
+            printer.PrintOptional(typeAnnotation)
 
 // Classes
 type ClassMember = inherit Node
@@ -1062,10 +1076,12 @@ type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstr
             else
                 key.Print(printer)
 
-            // TODO: type annotations
+            printer.PrintOptional(typeParameters)
             printer.Print("(")
             printer.PrintCommaSeparatedArray(``params``)
-            printer.Print(") ")
+            printer.Print(")")
+            printer.PrintOptional(returnType)
+            printer.Print(" ")
 
             printer.Print(body)
 
@@ -1093,7 +1109,7 @@ type ClassProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotat
                 printer.Print(key)
             if optional = Some true then
                 printer.Print("?")
-            // TODO: Type annotation
+            printer.PrintOptional(typeAnnotation)
             printer.PrintOptional(": ", value)
 
 type ClassImplements(id, ?typeParameters, ?loc) =
@@ -1102,19 +1118,15 @@ type ClassImplements(id, ?typeParameters, ?loc) =
     interface Expression with
         member _.Print(printer) =
             printer.Print(" implements ", ?loc=loc)
-            // TODO: Type parameters
             printer.Print(id)
+            printer.PrintOptional(typeParameters)
 
 type ClassBody(body, ?loc) =
     member _.Body: ClassMember array = body
     interface Node with
         member _.Print(printer) =
             printer.AddLocation(loc)
-            printer.PrintBlock(body, (fun p x -> p.Print(x)), (fun printer ->
-                if printer.Column > 0 then
-                    printer.Print(";")
-                    printer.PrintNewLine()
-            ))
+            printer.PrintBlock(body, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
 
 type ClassDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
     member _.Body: ClassBody = body
@@ -1125,7 +1137,7 @@ type ClassDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParamet
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     interface Declaration with
         member _.Print(printer) =
-            printer.PrintClass(id, superClass, body, loc)
+            printer.PrintClass(id, superClass, superTypeParameters, typeParameters, implements, body, loc)
 
 /// Anonymous class: e.g., var myClass = class { }
 type ClassExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
@@ -1137,7 +1149,7 @@ type ClassExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParamete
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     interface Expression with
         member _.Print(printer) =
-            printer.PrintClass(id, superClass, body, loc)
+            printer.PrintClass(id, superClass, superTypeParameters, typeParameters, implements, body, loc)
 
 // type MetaProperty(meta, property, ?loc) =
 //     interface Expression with
@@ -1275,61 +1287,86 @@ type TypeAnnotationInfo = inherit Node
 type TypeAnnotation(typeAnnotation) =
     member _.TypeAnnotation: TypeAnnotationInfo = typeAnnotation
     interface Node with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print(": ")
+            printer.Print(typeAnnotation)
 
 type TypeParameter(name, ?bound, ?``default``) =
     member _.Name: string = name
     member _.Bound: TypeAnnotation option = bound
     member _.Default: TypeAnnotationInfo option = ``default``
     interface Node with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print(name)
+            // printer.PrintOptional(bound)
+            // printer.PrintOptional(``default``)
 
 type TypeParameterDeclaration(``params``) =
     member _.Params: TypeParameter array = ``params``
     interface Node with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("<")
+            printer.PrintCommaSeparatedArray(``params``)
+            printer.Print(">")
 
 type TypeParameterInstantiation(``params``) =
     member _.Params: TypeAnnotationInfo array = ``params``
     interface Node with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("<")
+            printer.PrintCommaSeparatedArray(``params``)
+            printer.Print(">")
 
 type StringTypeAnnotation() =
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("string")
 
 type NumberTypeAnnotation() =
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("number")
 
 type BooleanTypeAnnotation() =
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("boolean")
 
 type AnyTypeAnnotation() =
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("any")
 
 type VoidTypeAnnotation() =
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("void")
 
 type TupleTypeAnnotation(types) =
-    interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
     member _.Types: TypeAnnotationInfo array = types
+    interface TypeAnnotationInfo with
+        member _.Print(printer) =
+            printer.Print("[")
+            printer.PrintCommaSeparatedArray(types)
+            printer.Print("]")
 
 type UnionTypeAnnotation(types) =
-    interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
     member _.Types: TypeAnnotationInfo array = types
+    interface TypeAnnotationInfo with
+        member _.Print(printer) =
+            printer.PrintArray(types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
 
 type FunctionTypeParam(name, typeInfo, ?optional) =
     member _.Name: Identifier = name
     member _.TypeAnnotation: TypeAnnotationInfo = typeInfo
     member _.Optional: bool option = optional
     interface Node with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print(name)
+            if optional = Some true then
+                printer.Print("?")
+            printer.Print(": ")
+            printer.Print(typeInfo)
 
 type FunctionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest) =
     member _.Params: FunctionTypeParam array = ``params``
@@ -1337,21 +1374,32 @@ type FunctionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest) =
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     member _.Rest: FunctionTypeParam option = rest
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.PrintOptional(typeParameters)
+            printer.Print("(")
+            printer.PrintCommaSeparatedArray(``params``)
+            if Option.isSome rest then
+                printer.Print("...")
+                printer.Print(rest.Value)
+            printer.Print(") => ")
+            printer.Print(returnType)
 
 type NullableTypeAnnotation(``type``) =
     member _.TypeAnnotation: TypeAnnotationInfo = ``type``
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print(``type``)
 
 type GenericTypeAnnotation(id, ?typeParameters) =
     member _.Id: Identifier = id
     member _.TypeParameters: TypeParameterInstantiation option = typeParameters
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print(id)
+            printer.PrintOptional(typeParameters)
 
-type ObjectTypeProperty(key, value, ?computed, ?kind, ?``static``, ?optional, ?proto, ?method) =
-    let computed = defaultArg computed false
+type ObjectTypeProperty(key, value, ?computed_, ?kind, ?``static``, ?optional, ?proto, ?method) =
+    let computed = defaultArg computed_ false
     member _.Key: Expression = key
     member _.Value: TypeAnnotationInfo = value
     member _.Kind: string option = kind
@@ -1361,7 +1409,22 @@ type ObjectTypeProperty(key, value, ?computed, ?kind, ?``static``, ?optional, ?p
     member _.Proto: bool option = proto
     member _.Method: bool option = method
     interface Node with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            if ``static`` = Some true then
+                printer.Print("static ")
+            if Option.isSome kind then
+                printer.Print(kind.Value + " ")
+            if computed then
+                printer.Print("[")
+                printer.Print(key)
+                printer.Print("]")
+            else
+                printer.Print(key)
+            if optional = Some true then
+                printer.Print("?")
+            // TODO: proto, method
+            printer.Print(": ")
+            printer.Print(value)
 
 type ObjectTypeIndexer(key, value, ?id, ?``static``) =
     member _.Id: Identifier option = id
@@ -1397,13 +1460,26 @@ type ObjectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlo
     member _.InternalSlots: ObjectTypeInternalSlot array = internalSlots
     member _.Exact: bool = exact
     interface TypeAnnotationInfo with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("{")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+            printer.PrintArray(properties, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintArray(indexers, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintArray(callProperties, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintArray(internalSlots, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintNewLine()
+            printer.PopIndentation()
+            printer.Print("}")
+            printer.PrintNewLine()
 
 type InterfaceExtends(id, ?typeParameters) =
     member _.Id: Identifier = id
     member _.TypeParameters: TypeParameterInstantiation option = typeParameters
     interface Node with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print(id)
+            printer.PrintOptional(typeParameters)
 
 type InterfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_) = // ?mixins_,
     let extends = defaultArg extends_ [||]
@@ -1416,4 +1492,15 @@ type InterfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_) = 
 //    member _.Mixins: InterfaceExtends array = mixins
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
     interface Declaration with
-        member _.Print(_) = failwith "not implemented"
+        member _.Print(printer) =
+            printer.Print("interface ")
+            printer.Print(id)
+            printer.PrintOptional(typeParameters)
+            if not (Array.isEmpty extends) then
+                printer.Print(" extends ")
+                printer.PrintArray(extends, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+            if not (Array.isEmpty implements) then
+                printer.Print(" implements ")
+                printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+            printer.Print(" ")
+            printer.Print(body)
