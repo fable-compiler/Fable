@@ -108,6 +108,7 @@ type Runner =
               ProjectCrackedAndParsed = None
               Watcher = watcher
               WatchDependencies = Map.empty
+              ErroredFiles = Set.empty
               TestInfo = testInfo }
             |> startCompilation Set.empty
             |> Async.RunSynchronously
