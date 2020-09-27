@@ -159,9 +159,13 @@ module Async =
 module File =
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
     let readAllTextNonBlocking (path: string) =
-        use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-        use textReader = new StreamReader(fileStream)
-        textReader.ReadToEnd()
+        if File.Exists(path) then
+            use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use textReader = new StreamReader(fileStream)
+            textReader.ReadToEnd()
+        else
+            Log.always("File does not exist: " + path)
+            ""
 
 module Imports =
     open Fable

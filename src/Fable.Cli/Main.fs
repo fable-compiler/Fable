@@ -24,8 +24,11 @@ type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir:
 type SingleShotObservable<'T>() =
     let mutable subscriber: IObserver<'T> option = None
     member _.Trigger(value) =
-        subscriber |> Option.iter (fun w -> w.OnNext(value))
-        subscriber <- None
+        match subscriber with
+        | None -> ()
+        | Some w ->
+            subscriber <- None
+            w.OnNext(value)
 
     interface IObservable<'T> with
         member _.Subscribe(listener) =
@@ -54,20 +57,25 @@ type Watcher(projDir: string) =
             |> observable.Trigger
             changes.Clear())
 
-        watcher.Changed.Add(fun ev ->
-            // TODO: Reset timer for every change?
+        let onChange _changeType fullPath =
             if not timer.Enabled then
                 timer.Start()
-            changes.Add(ev.FullPath))
+            changes.Add(fullPath)
+
+        watcher.Changed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
+        watcher.Created.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
+        watcher.Deleted.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
+        watcher.Renamed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
 
     member _.Directory = projDir
 
     member _.AwaitChanges() =
         Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
-            watcher.EnableRaisingEvents <- true
             observable.Add(fun changes ->
                 watcher.EnableRaisingEvents <- false
-                onSuccess changes))
+                onSuccess changes)
+            watcher.EnableRaisingEvents <- true
+        )
 
 module private Util =
     let getSourceFiles (opts: FSharpProjectOptions) =
@@ -239,12 +247,7 @@ type ProjectCracked(sourceFiles: File array,
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
-        let sourceFiles =
-            getSourceFiles projectOptions
-            |> Array.choose (fun file ->
-                // TODO: Warning/Error if some file doesn't exist
-                if File.Exists(file) then Some(File(file)) else None)
-
+        let sourceFiles = getSourceFiles projectOptions |> Array.map File
         ProjectCracked(sourceFiles, projectOptions, msg.CompilerOptions, fableLibraryDir)
 
 type ProjectParsed(project: Project,
@@ -316,10 +319,11 @@ type State =
 let rec startCompilation (changes: Set<string>) (state: State) = async {
     let cracked, parsed, filesToCompile =
         match state.ProjectCrackedAndParsed with
-        // TODO: If changes contain project file, crack and parse the project again
         | Some(cracked, parsed) ->
             let cracked =
-                if changes.Contains(state.CliArgs.ProjectFile) then
+                if changes.Contains(state.CliArgs.ProjectFile)
+                    // For performance reasons, don't crack .fsx scripts for every change
+                    && not(state.CliArgs.ProjectFile.EndsWith(".fsx")) then
                     ProjectCracked.Init(state.CliArgs)
                 else cracked
 
@@ -393,7 +397,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     match state.Watcher, state.TestInfo with
     | Some watcher, _ ->
-        Log.always("Watching " + Path.getRelativePath state.CliArgs.RootDir watcher.Directory + "...")
+        Log.always("Watching " + Path.getRelativePath state.CliArgs.RootDir watcher.Directory)
         let! changes = watcher.AwaitChanges()
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

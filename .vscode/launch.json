@@ -13,7 +13,7 @@
                 "10000"
             ],
             "internalConsoleOptions": "openOnSessionStart",
-            "name": "Mocha Tests",
+            "name": "Run Mocha tests",
             "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
             "request": "launch",
             "skipFiles": [
@@ -22,70 +22,19 @@
             "type": "pwa-node"
         },
         {
-            "name": "Fable TCP server",
+            "name": "Run Fable.Cli",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/netcoreapp2.1/Fable.Cli.dll",
-            "args": ["start", "--port", "61225"],
-            "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        },
-
-        {
-            "type": "node",
-            "name": "fable-splitter",
-            "program": "${workspaceFolder}/src/fable-splitter/dist/cli.js",
-            "request": "launch",
-            "args": ["-c", "tests/splitter.config.js"],
-            "cwd": "${workspaceRoot}",
-            "stopOnEntry": true
-        },
-        {
-            "name": ".NET Core Launch (console)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp3.1/Fable.Cli.dll",
-            "args": ["start","--port", "61225"],
-            "cwd": "${workspaceRoot}",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp3.1/fable.dll",
+            "args": ["watch", "--exclude", "Fable.Core"],
+            "cwd": "${workspaceRoot}/src/quicktest",
             "stopAtEntry": false,
             "console": "internalConsole",
         },
         {
-            "name": ".NET Core Attach",
-            "type": "coreclr",
-            "request": "attach",
-            "processId": "${command:pickProcess}"
-        },
-        {
-            "type": "node",
-            "request": "attach",
-            "name": "Attach to Node",
-            "port": 9229
-        },
-        {
             "type": "node",
             "request": "launch",
-            "name": "Launch Quicktest.js",
-            "program": "${workspaceRoot}/src/quicktest/bin/QuickTest.js",
-            "args": ["--help"],
-            "cwd": "${workspaceRoot}/src/quicktest",
-            "sourceMaps": false,
-            "stopOnEntry": true
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Bundler",
-            "program": "${workspaceRoot}/node_modules/.bin/rollup", "args": ["-c"],
-            // "program": "${workspaceRoot}/node_modules/.bin/webpack",
-            "cwd": "${workspaceRoot}/src/tools",
-            "stopOnEntry": true
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "bench-compile (Node)",
+            "name": "Run bench-compiler (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--typescript"],
@@ -94,7 +43,7 @@
         {
             "type": "coreclr",
             "request": "launch",
-            "name": "bench-compile (.NET)",
+            "name": "Run bench-compiler (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp3.1/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test"],
@@ -102,10 +51,9 @@
         },
         {
             // src/fable-compiler-js/ tests/Main/Fable.Tests.fsproj build/tests-js
-
             "type": "node",
             "request": "launch",
-            "name": "transform tests to JS",
+            "name": "Run compiler-js",
             "program": "${workspaceRoot}/build/fable-compiler-js/src/fable-compiler-js/dist/app.js",
             "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "build/tests-js"],
             "stopOnEntry": true
@@ -113,32 +61,8 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Run test (Node)",
+            "name": "Run standalone test",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-test/src/test.js"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Run Mocha Tests",
-            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-            "args": [
-                "--no-timeouts",
-                "--colors",
-                "-r", "esm",
-                // "${workspaceFolder}/src/fable-standalone/test/bench-compiler/out-tests"
-                "${workspaceFolder}/tests/Main"
-            ],
-            "internalConsoleOptions": "openOnSessionStart"
-        },
-        {
-            "name": "Run Tests (.NET)",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/tests/Main/bin/Debug/netcoreapp2.0/Fable.Tests.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/tests/Main",
-            "stopAtEntry": false,
-            "console": "internalConsole"
         },
     ]
 }
