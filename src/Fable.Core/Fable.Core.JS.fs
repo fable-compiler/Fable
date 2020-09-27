@@ -312,7 +312,7 @@ module JS =
         abstract some: ('T -> int -> TypedArray<'T> -> bool) -> bool
         abstract some: ('T -> int -> bool) -> bool
         abstract some: ('T -> bool) -> bool
-        abstract sort: ?sortFunction:('T -> 'T -> int) -> bool
+        abstract sort: ?sortFunction:('T -> 'T -> int) -> TypedArray<'T>
         abstract subarray: ?``begin``:int * ?``end``:int -> TypedArray<'T>
         abstract values: unit -> obj
 
