@@ -112,7 +112,11 @@ let parseFiles projectFileName outDir options =
 
     // Fable (F# to JS)
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
-    let libDir = getFableLibDir() |> normalizeFullPath
+    let libDir =
+        if options.typescript && projectFileName.EndsWith("Fable.Library.fsproj") && Option.isSome outDir
+        then outDir.Value
+        else getFableLibDir()
+        |> normalizeFullPath
     let parseFable (res, fileName) =
         fable.CompileToBabelAst(libDir, res, fileName, typescript=options.typescript)
 

@@ -10,7 +10,7 @@
 
     "build-node": "node dist/bundle.js bench-compiler.fsproj out-node2",
     "benchmark": "node dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
-    "benchmark2": "node ./out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
+    "benchmark2": "node out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
 
     "compile-native": "dotnet publish -c Release -r win-x64",
     "native": "cd . && \"bin/Release/netcoreapp2.1/win-x64/native/bench-compiler\"",
@@ -22,7 +22,9 @@
     "terser-bundle": "npm run terser -- dist/bundle.js -o dist/bundle.min.js --mangle --compress",
     "webpack-bundle": "npm run webpack -- -p --entry ./out-node/app.js --output ./dist/bundle.min.js --target node",
 
-    "prebuild-lib-dotnet-ts": "git clean -fdx",
+    "prebuild-lib-dotnet": "git clean -fdx",
+    "build-lib-dotnet": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib",
+    "prebuild-lib-dotnet-ts": "git clean -fdx && mkdir out-lib && cp -R ../../../fable-library/*.ts out-lib",
     "build-lib-dotnet-ts": "dotnet run -c Release ../../../fable-library/Fable.Library.fsproj out-lib --typescript",
     "tsc-lib-init": "npm run tsc -- --init --target es2020 --module es2020 --allowJs",
     "tsc-lib": "npm run tsc -- -p ./out-lib --outDir ./out-lib-js",

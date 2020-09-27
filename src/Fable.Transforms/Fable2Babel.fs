@@ -356,11 +356,8 @@ module Annotation =
             Util.getInterfaceExtends com ctx ent
             |> Seq.toArray
             |> function [||] -> None | e -> Some e
-        // Type declaration merging only works well with class declarations, not class expressions,
-        // but Babel does not allow duplicate declarations (interface and class with the same name)
-        // so we're adding a prefix to the interface name, which will be removed after transpiling.
-        let prefix = "$INTERFACE_DECL_PREFIX$_"
-        let id = Identifier(prefix + entName)
+        // Type declaration merging only works well with class declarations, not class expressions
+        let id = Identifier(entName)
         let body = ObjectTypeAnnotation([| yield! attached |])
         let typeParamDecl = genTypeParams |> makeTypeParamDecl
         InterfaceDeclaration(id, body, ?extends_=extends, ?typeParameters=typeParamDecl)
@@ -724,7 +721,7 @@ module Util =
         VariableDeclaration(var, value, kind)
 
     let restElement (var: Identifier) =
-        RestElement(var, ?typeAnnotation=var.TypeAnnotation) :> Pattern
+        RestElement(var) :> Pattern
 
     let callSuperConstructor r (args: Expression list) =
         CallExpression(Super(), List.toArray args, ?loc=r) :> Expression
@@ -1669,9 +1666,7 @@ module Util =
                 let args, body =
                     let tcArgs =
                         tc.Args
-                        |> List.zip args
-                        |> List.map (fun (arg, tcArg) ->
-                            Identifier(tcArg, ?typeAnnotation=arg.TypeAnnotation))
+                        |> List.map (fun arg -> Identifier(arg))
                     let varDecls =
                         tcArgs
                         |> List.map (fun arg -> Some (arg :> Expression))
@@ -1834,14 +1829,10 @@ module Util =
     let getEntityFieldsAsProps (com: IBabelCompiler) ctx (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let id =
-                if Naming.hasIdentForbiddenChars field.Name
-                then StringLiteral(field.Name) :> Expression
-                else Identifier(field.Name) :> Expression
-            let ta =
-                typeAnnotation com ctx field.FieldType
-            let isStaticOpt = if field.IsStatic then Some true else None
-            ObjectTypeProperty(id, ta, ?``static``=isStaticOpt))
+            let id, computed = memberFromName field.Name
+            let ta = typeAnnotation com ctx field.FieldType
+            let isStatic = if field.IsStatic then Some true else None
+            ObjectTypeProperty(id, ta, computed_=computed, ?``static``=isStatic))
         |> Seq.toArray
 
     let getEntityFieldsAsIdents com (ent: Fable.Entity) =
