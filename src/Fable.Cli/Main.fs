@@ -314,6 +314,7 @@ type State =
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
       Watcher: Watcher option
       WatchDependencies: Map<string, string[]>
+      ErroredFiles: Set<string>
       TestInfo: TestInfo option }
 
 let rec startCompilation (changes: Set<string>) (state: State) = async {
@@ -358,17 +359,17 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 |> Array.map (fun f -> f.NormalizedFullPath)
             cracked, parsed, filesToCompile
 
-    // TODO: Fail already if F# compilation gives error?
-    let logs = getFSharpErrorLogs parsed.Project
-
     let filesToCompile =
         filesToCompile
         |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+        |> Array.append (Set.toArray state.ErroredFiles)
+        |> Array.distinct
         |> fun filesToCompile ->
-            // TODO: Log skipped files in verbose mode
             match state.CliArgs.Exclude with
             | Some exclude -> filesToCompile |> Array.filter (fun x -> not(x.Contains(exclude))) // Use regex?
             | None -> filesToCompile
+
+    let logs = getFSharpErrorLogs parsed.Project
 
     let! (logs, watchDependencies), ms = measureTimeAsync <| fun () ->
         filesToCompile
@@ -388,24 +389,44 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     Log.always(sprintf "Fable compilation finished in %ims" ms)
 
-    // TODO: Print first info, then warning and finally errors
-    for log in logs do
+    logs
+    |> Array.filter (fun x -> x.Severity = Severity.Info)
+    |> Array.iter (formatLog >> Log.always)
+
+    logs
+    |> Array.filter (fun log ->
         match log.Severity, log.FileName with
         // Ignore warnings from packages in `.fable` folder
-        | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> ()
-        | _ -> Log.always(formatLog log)
+        | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> false
+        | Severity.Warning, _ -> true
+        | _ -> false)
+    |> Array.iter (formatLog >> Log.always)
+
+    let newErrors =
+        logs
+        |> Array.filter (fun x -> x.Severity = Severity.Error)
+        |> Array.fold (fun errors log ->
+            Log.always(formatLog log)
+            match log.FileName with
+            | Some file -> Set.add file errors
+            | None -> errors) Set.empty
 
     match state.Watcher, state.TestInfo with
     | Some watcher, _ ->
+        let oldErrors =
+            state.ErroredFiles
+            |> Set.filter (fun file -> not(Array.contains file filesToCompile))
+
         Log.always("Watching " + Path.getRelativePath state.CliArgs.RootDir watcher.Directory)
         let! changes = watcher.AwaitChanges()
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)
-                         WatchDependencies = watchDependencies }
+                         WatchDependencies = watchDependencies
+                         ErroredFiles = Set.union oldErrors newErrors }
             |> startCompilation changes
 
     | None, None ->
-        let hasError = logs |> Array.exists (fun log -> log.Severity = Severity.Error)
+        let hasError = not(Set.isEmpty newErrors)
         return if not hasError then Ok() else Error()
 
     | None, Some info ->
