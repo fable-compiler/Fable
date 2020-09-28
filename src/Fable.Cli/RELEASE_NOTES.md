@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-alpha-004
+
+* Improve CLI and other fixes
+
 ### 3.0.0-nagareyama-alpha-003
 
 * Fix: Add names with $reflection suffix to root scope
