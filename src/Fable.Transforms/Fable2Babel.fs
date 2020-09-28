@@ -347,21 +347,6 @@ module Annotation =
         GenericTypeAnnotation(Identifier name, ?typeParameters=typeParamInst) :> TypeAnnotationInfo
         |> TypeAnnotation |> Some
 
-    let makeInterfaceDecl (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) (baseExpr: Expression option) =
-        let genTypeParams = getEntityGenParams ent
-        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
-        let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
-        let attached = Util.getEntityExplicitInterfaceMembers com ctx ent
-        let extends =
-            Util.getInterfaceExtends com ctx ent
-            |> Seq.toArray
-            |> function [||] -> None | e -> Some e
-        // Type declaration merging only works well with class declarations, not class expressions
-        let id = Identifier(entName)
-        let body = ObjectTypeAnnotation([| yield! attached |])
-        let typeParamDecl = genTypeParams |> makeTypeParamDecl
-        InterfaceDeclaration(id, body, ?extends_=extends, ?typeParameters=typeParamDecl)
-
     let typeAnnotation com ctx typ: TypeAnnotationInfo =
         match typ with
         | Fable.MetaType -> upcast AnyTypeAnnotation()
@@ -1214,7 +1199,7 @@ module Util =
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if isJsStatement ctx false value then
-            let var = typedIdent com ctx var
+            let var = ident var
             let decl = VariableDeclaration(var) :> Statement
             let body = com.TransformAsStatements(ctx, Some(Assign var), value)
             Array.append [|decl|] body
@@ -1645,7 +1630,7 @@ module Util =
         let tailcallChance =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
-        let args = discardUnitArg args |> List.map (typedIdent com ctx)
+        let args = discardUnitArg args
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
         let ctx =
@@ -1663,21 +1648,21 @@ module Util =
             match isTailCallOptimized, tailcallChance with
             | true, Some tc ->
                 // Replace args, see NamedTailCallOpportunity constructor
-                let args, body =
-                    let tcArgs =
-                        tc.Args
-                        |> List.map (fun arg -> Identifier(arg))
-                    let varDecls =
-                        tcArgs
-                        |> List.map (fun arg -> Some (arg :> Expression))
-                        |> List.zip args
-                        |> multiVarDeclaration Const
-                    tcArgs, BlockStatement(Array.append [|varDecls|] body.Body)
+                let args' =
+                    List.zip args tc.Args
+                    |> List.map (fun (id, tcArg) ->
+                        makeTypedIdent id.Type tcArg |> typedIdent com ctx)
+                let varDecls =
+                    List.zip args tc.Args
+                    |> List.map (fun (id, tcArg) ->
+                        id |> typedIdent com ctx, Some (Identifier(tcArg) :> Expression))
+                    |> multiVarDeclaration Const
+                let body = BlockStatement(Array.append [|varDecls|] body.Body)
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = BlockStatement(Array.append body.Body [|BreakStatement()|])
-                args, LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
+                args', LabeledStatement(Identifier tc.Label, WhileStatement(BooleanLiteral true, body))
                 :> Statement |> Array.singleton |> BlockStatement
-            | _ -> args, body
+            | _ -> args |> List.map (typedIdent com ctx), body
         let body =
             if declaredVars.Count = 0 then body
             else
@@ -1719,121 +1704,26 @@ module Util =
         else
             None
 
-    let getInterfaceExtends com ctx (ent: Fable.Entity) =
+    let getClassImplements com ctx (ent: Fable.Entity) =
         let mkNative genArgs typeName =
             let id = Identifier(typeName)
             let typeParamInst = makeGenTypeParamInst com ctx genArgs
-            InterfaceExtends(id, ?typeParameters=typeParamInst) |> Some
+            ClassImplements(id, ?typeParameters=typeParamInst) |> Some
         let mkImport genArgs moduleName typeName =
             let id = makeImportTypeId com ctx moduleName typeName
             let typeParamInst = makeGenTypeParamInst com ctx genArgs
-            InterfaceExtends(id, ?typeParameters=typeParamInst) |> Some
-
-        // let isIEquatable = FSharp2Fable.Util.hasInterface Types.iequatable ent
-        // let isIComparable = FSharp2Fable.Util.hasInterface Types.icomparable ent
-
+            ClassImplements(id, ?typeParameters=typeParamInst) |> Some
         ent.AllInterfaces |> Seq.choose (fun ifc ->
             match ifc.Definition.FullName with
-            | Types.ienumerableGeneric ->
-                mkImport ifc.GenericArgs "Seq" "IEnumerable"
-            | Types.ienumeratorGeneric ->
-                mkImport ifc.GenericArgs "Seq" "IEnumerator"
-            | Types.iequatable ->
-                mkImport [Fable.Any] "Util" "IEquatable"
-            | Types.icomparable ->
-                mkImport [Fable.Any] "Util" "IComparable"
-            // | Types.iequatableGeneric when not isIEquatable ->
-            //     mkImport ifc.GenericArgs "Util" "IEquatable"
-            // | Types.icomparableGeneric when not isIComparable ->
-            //     mkImport ifc.GenericArgs "Util" "IComparable"
-            | Types.comparer ->
-                mkImport ifc.GenericArgs "Util" "IComparer"
-            // this is not needed, as it's already included in every object
-            // | Types.equalityComparer ->
-            //     mkImport ifc.GenericArgs "Util" "IEqualityComparer"
-            | Types.idisposable ->
-                mkImport [] "Util" "IDisposable"
-            | Types.icollectionGeneric ->
-                mkImport ifc.GenericArgs "Util" "ICollection"
-            | "Fable.Collections.IMutableSet`1" ->
-                mkImport ifc.GenericArgs "Util" "IMutableSet"
-            | "Fable.Collections.IMutableMap`2" ->
-                mkImport ifc.GenericArgs "Util" "IMutableMap"
-            // TODO: add other interfaces
+            | "Fable.Collections.IMutableSet`1" -> mkNative ifc.GenericArgs "Set"
+            | "Fable.Collections.IMutableMap`2" -> mkNative ifc.GenericArgs "Map"
             | _ -> None
         )
 
-    // must match the above list (with the exception of IEqualityComparer)
-    let alreadyDeclaredInterfaces =
-        set [
-            Types.ienumerableGeneric
-            Types.ienumeratorGeneric
-            Types.iequatable
-            Types.icomparable
-            // Types.iequatableGeneric
-            // Types.icomparableGeneric
-            Types.comparer
-            Types.equalityComparer
-            Types.idisposable
-            Types.icollectionGeneric
-            "Fable.Collections.IMutableSet`1"
-            "Fable.Collections.IMutableMap`2"
-            ]
-
-    let isOtherInterfaceMember (memb: Fable.MemberFunctionOrValue) =
-        let isInterface, fullName =
-            if memb.IsExplicitInterfaceImplementation then
-                true, memb.CompiledName.Replace("-",".")
-            else
-                let ent = memb.ApparentEnclosingEntity
-                ent.IsInterface, memb.FullName
-        let lastDot = fullName.LastIndexOf(".")
-        let entName = if lastDot < 0 then fullName else fullName.Substring(0, lastDot)
-        isInterface && not (alreadyDeclaredInterfaces.Contains entName)
-
-    let getEntityExplicitInterfaceMembers com ctx (ent: Fable.Entity) =
-        ent.MembersFunctionsAndValues
-        |> Seq.filter isOtherInterfaceMember
-        |> Seq.map (fun memb ->
-            let args =
-                List.concat memb.CurriedParameterGroups
-                |> List.mapi (fun i p ->
-                    let name =
-                        defaultArg p.Name ("arg" + (string i))
-                        |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
-                    name, p.Type
-                )
-            let argTypes = args |> List.map snd
-            let retType = memb.ReturnParameter.Type
-            let genTypeParams = getGenericTypeParams (argTypes @ [retType])
-            let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
-            let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
-            let funcArgs =
-                args
-                |> Seq.map (fun (name, typ) ->
-                    let typeInfo = typeAnnotation com ctx typ
-                    FunctionTypeParam(Identifier(name), typeInfo)
-                ) |> Seq.toArray
-            let returnType = retType |> typeAnnotation com ctx
-            let typeParamDecl = makeTypeParamDecl newTypeParams
-            let funcTypeInfo =
-                FunctionTypeAnnotation(funcArgs, returnType, ?typeParameters=typeParamDecl)
-                :> TypeAnnotationInfo
-            // TODO!!! This should be the compiled name if the interface is not mangled
-            let name = memb.DisplayName
-            let membId = Identifier(name)
-            ObjectTypeProperty(membId, funcTypeInfo)
-        )
-        |> Seq.toArray
-
-    let getEntityFieldsAsProps (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        ent.FSharpFields
-        |> Seq.map (fun field ->
-            let id, computed = memberFromName field.Name
-            let ta = typeAnnotation com ctx field.FieldType
-            let isStatic = if field.IsStatic then Some true else None
-            ObjectTypeProperty(id, ta, computed_=computed, ?``static``=isStatic))
-        |> Seq.toArray
+    let getUnionFieldsAsIdents (com: IBabelCompiler) ctx (ent: Fable.Entity) =
+        let tagId = makeTypedIdent (Fable.Number Int32) "tag"
+        let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
+        [| tagId; fieldsId |]
 
     let getEntityFieldsAsIdents com (ent: Fable.Entity) =
         ent.FSharpFields
@@ -1844,9 +1734,30 @@ module Util =
             id)
         |> Seq.toArray
 
+    let getEntityFieldsAsProps (com: IBabelCompiler) ctx (ent: Fable.Entity) =
+        if (ent.IsFSharpUnion) then
+            getUnionFieldsAsIdents com ctx ent
+            |> Array.map (fun id ->
+                let prop = ident id
+                let ta = typeAnnotation com ctx id.Type
+                ObjectTypeProperty(prop, ta))
+        else
+            ent.FSharpFields
+            |> Seq.map (fun field ->
+                let prop, computed = memberFromName field.Name
+                let ta = typeAnnotation com ctx field.FieldType
+                let isStatic = if field.IsStatic then Some true else None
+                ObjectTypeProperty(prop, ta, computed_=computed, ?``static``=isStatic))
+            |> Seq.toArray
+
     let declareClassType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) classMembers =
         let consId = Identifier "constructor"
         let typeParamDecl = makeEntityTypeParamDecl com ctx ent
+        let implements =
+            if com.Options.Typescript then
+                let implements = Util.getClassImplements com ctx ent |> Seq.toArray
+                if Array.isEmpty implements then None else Some implements
+            else None
         let consBody =
             if ent.IsFSharpExceptionDeclaration then
                 let super = callSuperConstructor None [] |> ExpressionStatement :> Statement
@@ -1862,13 +1773,13 @@ module Util =
             else Array.empty
         let classMembers = Array.append [| classCons |] classMembers
         let classBody = ClassBody([| yield! classFields; yield! classMembers |])
-        let classExpr = ClassExpression(classBody, ?superClass=baseExpr, ?typeParameters=typeParamDecl)
+        let classExpr = ClassExpression(classBody, ?superClass=baseExpr, ?typeParameters=typeParamDecl, ?implements=implements)
         classExpr |> declareModuleMember ent.IsPublic entName false
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration =
-            let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent |> typedIdent com ctx)
+            let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent |> ident)
             let body = transformReflectionInfo com ctx None ent (Array.map (fun x -> x :> _) genArgs)
             let returnType =
                 if com.Options.Typescript then
@@ -1878,12 +1789,7 @@ module Util =
             let args = genArgs |> Array.map (fun x -> x :> Pattern)
             makeFunctionExpression None (args, body, returnType, None)
             |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
-        if com.Options.Typescript then
-            let interfaceDecl = makeInterfaceDecl com ctx ent entName baseExpr
-            let interfaceDeclaration = ExportNamedDeclaration(interfaceDecl) :> ModuleDeclaration
-            [interfaceDeclaration; typeDeclaration; reflectionDeclaration]
-        else
-            [typeDeclaration; reflectionDeclaration]
+        [typeDeclaration; reflectionDeclaration]
 
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
         let args, body, returnType, typeParamDecl =
@@ -1930,14 +1836,12 @@ module Util =
         |]
 
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-
-        let tagId = makeTypedIdent (Fable.Number Int32) "tag"
-        let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
+        let fieldIds = getUnionFieldsAsIdents com ctx ent
         let args =
-            [| typedIdent com ctx tagId :> Pattern
-               typedIdent com ctx fieldsId |> restElement |]
+            [| typedIdent com ctx fieldIds.[0] :> Pattern
+               typedIdent com ctx fieldIds.[1] |> restElement |]
         let body =
-            [| tagId; fieldsId |]
+            fieldIds
             |> Array.map (fun id ->
                 let left = get None thisExpr id.Name
                 let right =

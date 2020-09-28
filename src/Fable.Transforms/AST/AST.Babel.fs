@@ -1112,12 +1112,11 @@ type ClassProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotat
             printer.PrintOptional(typeAnnotation)
             printer.PrintOptional(": ", value)
 
-type ClassImplements(id, ?typeParameters, ?loc) =
+type ClassImplements(id, ?typeParameters) =
     member _.Id: Identifier = id
     member _.TypeParameters: TypeParameterInstantiation option = typeParameters
     interface Expression with
         member _.Print(printer) =
-            printer.Print(" implements ", ?loc=loc)
             printer.Print(id)
             printer.PrintOptional(typeParameters)
 

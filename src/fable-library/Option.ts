@@ -68,13 +68,13 @@ export function value<T>(x: Option<T>) {
   }
 }
 
-export function ofNullable<T>(x: T|null): Option<T> {
+export function ofNullable<T>(x: T | null): Option<T> {
   // This will fail with unit probably, an alternative would be:
   // return x === null ? undefined : (x === undefined ? new Some(x) : x);
   return x == null ? undefined : x;
 }
 
-export function toNullable<T>(x: Option<T>): T|null {
+export function toNullable<T>(x: Option<T>): T | null {
   return x == null ? null : value(x);
 }
 
