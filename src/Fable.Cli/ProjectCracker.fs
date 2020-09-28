@@ -245,12 +245,12 @@ let fullCrack (opts: Options): CrackedFsproj =
     let dllRefs = Dictionary(StringComparer.OrdinalIgnoreCase)
 
     // Try restoring project
-    Process.runCmd Log.always
-        (IO.Path.GetDirectoryName projFile)
-        "dotnet" ["restore"; IO.Path.GetFileName projFile]
+    let projDir = IO.Path.GetDirectoryName projFile
+    let projName = IO.Path.GetFileName projFile
+    Process.runSync projDir "dotnet" ["restore"; projName]
     |> ignore
 
-    Log.always("Parsing " + Path.getRelativePath opts.rootDir projFile + "...")
+    Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
 
@@ -367,9 +367,25 @@ let isDirectoryEmpty dir =
 
 let createFableDir rootDir =
     let fableDir = IO.Path.Combine(rootDir, Naming.fableHiddenDir)
-    if isDirectoryEmpty fableDir then
+    let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
+
+    let isEmptyOrOutdated =
+        if isDirectoryEmpty fableDir then true
+        else
+            let isOutdated =
+                try
+                    let version = IO.File.ReadAllText(compilerInfo)
+                    version <> Literals.VERSION
+                with _ -> true
+            if isOutdated then
+                IO.Directory.Delete(fableDir, true)
+            isOutdated
+
+    if isEmptyOrOutdated then
         IO.Directory.CreateDirectory(fableDir) |> ignore
+        IO.File.WriteAllText(compilerInfo, Literals.VERSION)
         IO.File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")
+
     fableDir
 
 let copyDirIfDoesNotExist (opts: Options) (source: string) (target: string) =

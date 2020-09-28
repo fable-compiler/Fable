@@ -763,7 +763,7 @@ type ObjectProperty(key, value, ?computed_) = // ?shorthand_,
             else
                 printer.Print(key)
             printer.Print(": ")
-            value.Print(printer)
+            printer.SequenceExpressionWithParens(value)
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 

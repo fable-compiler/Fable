@@ -97,13 +97,13 @@ module private Util =
                 // else printfn "Fable.Core version matches"
 
     let measureTime (f: unit -> 'a) =
-        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let sw = Diagnostics.Stopwatch.StartNew()
         let res = f()
         sw.Stop()
         res, sw.ElapsedMilliseconds
 
     let measureTimeAsync (f: unit -> Async<'a>) = async {
-        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let sw = Diagnostics.Stopwatch.StartNew()
         let! res = f()
         sw.Stop()
         return res, sw.ElapsedMilliseconds
@@ -191,7 +191,7 @@ module private Util =
             let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir)
             do! BabelPrinter.run writer map babel
 
-            Log.always("Compiled " + Path.getRelativePath cliArgs.RootDir com.CurrentFile)
+            Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -243,7 +243,7 @@ type ProjectCracked(sourceFiles: File array,
             }
 
         Log.verbose(lazy
-            let proj = Path.getRelativePath msg.RootDir msg.ProjectFile
+            let proj = File.getRelativePathFromCwd msg.ProjectFile
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
@@ -264,7 +264,7 @@ type ProjectParsed(project: Project,
                 Log.always("Initializing F# compiler...")
                 InteractiveChecker.Create(config.ProjectOptions)
 
-        Log.always("Compiling " + Path.getRelativePath cliArgs.RootDir config.ProjectFile + "...")
+        Log.always("Compiling " + File.getRelativePathFromCwd config.ProjectFile + "...")
 
         let checkedProject, ms = measureTime <| fun () ->
             let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
@@ -342,7 +342,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                             File(file.NormalizedFullPath) // Clear the cached source hash
                         else file)
                     let parsed = ProjectParsed.Init(state.CliArgs, cracked, parsed.Checker)
-                    // TODO: We probably need to recompile errored files too even if they're not touched
                     let filesToCompile =
                         cracked.SourceFiles
                         |> Array.choose (fun file ->
@@ -357,6 +356,15 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             let filesToCompile =
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
+                // Skip files that have a more recent JS version
+                |> fun files ->
+                    if Option.isSome state.CliArgs.OutDir then files
+                    else
+                        files |> Array.skipWhile (fun file ->
+                            try
+                                let jsFile = Path.replaceExtension state.CliArgs.CompilerOptions.FileExtension file
+                                File.Exists(jsFile) && File.GetLastWriteTime(jsFile) > File.GetLastWriteTime(file)
+                            with _ -> false)
             cracked, parsed, filesToCompile
 
     let filesToCompile =
@@ -411,13 +419,21 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             | Some file -> Set.add file errors
             | None -> errors) Set.empty
 
+    let state =
+        match state.CliArgs.RunArgs with
+        | Some runArgs ->
+            Process.fireAndForget state.CliArgs.RootDir runArgs.ExeFile runArgs.Args
+            if runArgs.IsWatch then state
+            else { state with CliArgs = { state.CliArgs with RunArgs = None } }
+        | None -> state
+
     match state.Watcher, state.TestInfo with
     | Some watcher, _ ->
         let oldErrors =
             state.ErroredFiles
             |> Set.filter (fun file -> not(Array.contains file filesToCompile))
 
-        Log.always("Watching " + Path.getRelativePath state.CliArgs.RootDir watcher.Directory)
+        Log.always("Watching " + File.getRelativePathFromCwd watcher.Directory)
         let! changes = watcher.AwaitChanges()
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

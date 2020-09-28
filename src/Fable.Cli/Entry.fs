@@ -33,19 +33,21 @@ Commands:
   clean             Clean generated JS files
 
 Arguments:
+  --cwd             Working directory
   --outDir          Redirect compilation output files to a directory
   --define          Defines a symbol for use in conditional compilation
+  --run             The command after the argument will be executed after compilation
+  --runWatch        Like run, but will execute after each watch compilation
+  --typedArrays     Compile numeric arrays to JS typed arrays
+  --forcePkgs       Force a new copy of package sources into `.fable` folder
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
   --exclude         Skip Fable compilation for files containing the pattern
-  --typed-arrays    Compile numeric arrays to JS typed arrays
-  --force-pkgs      Force a new copy of package sources into `.fable` folder
   --optimize        Use optimized AST from F# compiler (experimental)
-  --cwd             Working directory
 """
 
 type Runner =
-  static member Run(args: string list, rootDir: string, ?fsprojPath, ?watch, ?testInfo) =
+  static member Run(args: string list, rootDir: string, runArgs: RunArgs option, ?fsprojPath, ?watch, ?testInfo) =
     let watch = defaultArg watch false
 
     fsprojPath
@@ -75,13 +77,16 @@ type Runner =
 
             let defines =
                 argValues "--define" args
-                |> List.append ["FABLE_COMPILER"]
+                |> List.append [
+                    "FABLE_COMPILER"
+                    if watch then "DEBUG"
+                ]
                 |> List.distinct
                 |> List.toArray
 
             let compilerOptions =
                 CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
-                                           typedArrays = hasFlag "--typed-arrays" args,
+                                       typedArrays = hasFlag "--typedArrays" args,
                                            ?fileExtension = argValue "--extension" args,
                                            debugMode = Array.contains "DEBUG" defines,
                                            optimizeFSharpAst = hasFlag "--optimize" args,
@@ -89,12 +94,13 @@ type Runner =
 
             let cliArgs =
                 { ProjectFile = projFile
-                  FableLibraryPath = argValue "--fable-library" args
+                  FableLibraryPath = argValue "--fableLib" args
                   RootDir = rootDir
                   OutDir = argValue "--outDir" args
-                  ForcePackages = hasFlag "--force-pkgs" args
+                  ForcePackages = hasFlag "--forcePkgs" args
                   Exclude = argValue "--exclude" args
                   Define = defines
+                  RunArgs = runArgs
                   CompilerOptions = compilerOptions }
 
             let watcher =
@@ -123,6 +129,11 @@ let clean args dir =
         |> Option.defaultValue CompilerOptionsHelper.DefaultFileExtension
 
     let rec recClean dir =
+        IO.Directory.GetDirectories(dir)
+        |> Array.iter (fun subdir ->
+            if IO.Path.GetDirectoryName(subdir) = Naming.fableHiddenDir then
+                IO.Directory.Delete(subdir, true))
+
         IO.Directory.GetFiles(dir)
         |> Array.choose (fun file ->
             if file.EndsWith(".fs") then Some(file.[.. (file.Length - 4)])
@@ -131,8 +142,7 @@ let clean args dir =
             let file = filename + ext
             if IO.File.Exists(file) then
                 IO.File.Delete(file)
-                Log.verbose(lazy ("Deleted " + file))
-        )
+                Log.verbose(lazy ("Deleted " + file)))
 
         IO.Directory.GetDirectories(dir)
         |> Array.filter (fun subdir ->
@@ -148,7 +158,15 @@ let (|SplitCommandArgs|) (xs: string list) =
 
 [<EntryPoint>]
 let main argv =
-    let argv = List.ofArray argv
+    let argv, runArgs =
+        argv
+        |> List.ofArray
+        |> List.splitWhile (fun a -> not(a.StartsWith("--run")))
+        |> function
+            | argv, flag::exeFile::runArgs ->
+                argv, Some(RunArgs(exeFile, runArgs, watch=(flag = "--runWatch")))
+            | argv, _ -> argv, None
+
     let rootDir =
         match argValue "--cwd" argv with
         | Some rootDir -> IO.Path.GetFullPath(rootDir)
@@ -165,9 +183,9 @@ let main argv =
         match commands with
         | ["clean"; dir] -> clean args dir
         | ["clean"] -> clean args rootDir
-        | ["test"; path] -> Runner.Run(args, rootDir, fsprojPath=path, testInfo=TestInfo())
-        | ["watch"; path] -> Runner.Run(args, rootDir, fsprojPath=path, watch=true)
-        | ["watch"] -> Runner.Run(args, rootDir, watch=true)
-        | [path] -> Runner.Run(args, rootDir, fsprojPath=path)
-        | [] -> Runner.Run(args, rootDir)
+        | ["test"; path] -> Runner.Run(args, rootDir, runArgs, fsprojPath=path, testInfo=TestInfo())
+        | ["watch"; path] -> Runner.Run(args, rootDir, runArgs, fsprojPath=path, watch=true)
+        | ["watch"] -> Runner.Run(args, rootDir, runArgs, watch=true)
+        | [path] -> Runner.Run(args, rootDir, runArgs, fsprojPath=path)
+        | [] -> Runner.Run(args, rootDir, runArgs)
         | _ -> printfn "Unexpected arguments. Use `fable --help` to see available options."; 1

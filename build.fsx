@@ -76,7 +76,7 @@ let buildLibrary() =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--fable-library " + buildDir
+        "--fableLib " + buildDir
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
     ]
@@ -116,7 +116,7 @@ let buildLibraryTs() =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
-        "--fable-library " + buildDirTs
+        "--fableLib " + buildDirTs
         "--typescript"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
@@ -136,7 +136,7 @@ let quicktest () =
         writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
 
     concurrently [|
-        "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --force-pkgs"
+        "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs"
         "npx nodemon " + quicktestJsPath
     |]
 
@@ -156,9 +156,9 @@ let buildStandalone() =
     // build standalone bundle
     runFableWithArgs projectDir [
         "--outDir " + buildDir + "/bundle"
-        "--fable-library " + libraryDir
-        "--force-pkgs"
-        "--typed-arrays"
+        "--fableLib " + libraryDir
+        "--forcePkgs"
+        "--typedArrays"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"
@@ -173,8 +173,8 @@ let buildStandalone() =
     // build standalone worker
     runFableWithArgs (projectDir + "/Worker") [
         "--outDir " + buildDir + "/worker"
-        "--fable-library " + libraryDir
-        "--force-pkgs"
+        "--fableLib " + libraryDir
+        "--forcePkgs"
     ]
 
     // make standalone bundle dist
@@ -227,8 +227,8 @@ let buildCompilerJs() =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--fable-library " + libraryDir
-        "--force-pkgs"
+        "--fableLib " + libraryDir
+        "--forcePkgs"
         "--exclude Fable.Core"
     ]
 
@@ -275,8 +275,8 @@ let test() =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--fable-library " + libraryDir
-        "--force-pkgs"
+        "--fableLib " + libraryDir
+        "--forcePkgs"
         "--exclude Fable.Core"
     ]
 

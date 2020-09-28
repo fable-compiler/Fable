@@ -7,6 +7,11 @@ module Literals =
     let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-003"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
+type RunArgs(exeFile: string, args: string list, ?watch: bool) =
+    member _.ExeFile = exeFile
+    member _.Args = args
+    member _.IsWatch = defaultArg watch false
+
 type CliArgs =
     { ProjectFile: string
       RootDir: string
@@ -15,6 +20,7 @@ type CliArgs =
       Define: string[]
       ForcePackages: bool
       Exclude: string option
+      RunArgs: RunArgs option
       CompilerOptions: Fable.CompilerOptions }
 
 type private TypeInThisAssembly = class end
@@ -36,50 +42,42 @@ module Log =
             && not(String.IsNullOrEmpty(msg)) then
 //            lock writerLock <| fun () ->
                 Console.Out.WriteLine(msg)
-                Console.Out.Flush()
+                // Console.Out.Flush()
 
     let verbose (msg: Lazy<string>) =
         if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
 
+module File =
+    /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
+    let readAllTextNonBlocking (path: string) =
+        if File.Exists(path) then
+            use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use textReader = new StreamReader(fileStream)
+            textReader.ReadToEnd()
+        else
+            Log.always("File does not exist: " + path)
+            ""
+
+    let getRelativePathFromCwd (path: string) =
+        Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
+
 [<RequireQualifiedAccess>]
 module Process =
     open System.Diagnostics
+    open System.Runtime.InteropServices
 
-    type Options(?envVars, ?redirectOutput) =
-        member val EnvVars = defaultArg envVars Map.empty<string,string>
-        member val RedirectOuput = defaultArg redirectOutput false
-
-    let isWindows =
-        #if NETFX
-        true
-        #else
-        System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform
-            (System.Runtime.InteropServices.OSPlatform.Windows)
-        #endif
-
-    let start workingDir fileName args (opts: Options) =
-        let fileName, args =
-            if isWindows
-            then "cmd", ("/C \"" + fileName + "\" " + args)
-            else fileName, args
-        let p = new Process()
-        p.StartInfo.FileName <- fileName
-        p.StartInfo.Arguments <- args
-        p.StartInfo.WorkingDirectory <- workingDir
-        p.StartInfo.RedirectStandardOutput <- opts.RedirectOuput
-        #if NETFX
-        p.StartInfo.UseShellExecute <- false
-        #endif
-        opts.EnvVars |> Map.iter (fun k v ->
-            p.StartInfo.Environment.[k] <- v)
-        p.Start() |> ignore
-        p
+    let isWindows() =
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let private runProcess (workingDir: string) (exePath: string) (args: string) =
-        let logOut = System.Collections.Concurrent.ConcurrentQueue<string>()
-        let logErr = System.Collections.Concurrent.ConcurrentQueue<string>()
+    let private startProcess workingDir exePath args =
+        let args = String.concat " " args
+        let exePath, args =
+            if isWindows() then "cmd", ("/C \"" + exePath + "\" " + args)
+            else exePath, args
+
+        Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)
 
         let psi = ProcessStartInfo()
         psi.FileName <- exePath
@@ -90,38 +88,28 @@ module Process =
         psi.CreateNoWindow <- true
         psi.UseShellExecute <- false
 
-        use p = new Process()
-        p.StartInfo <- psi
+        let p = Process.Start(psi)
+        p.OutputDataReceived.Add(fun ea -> Log.always(ea.Data))
+        p.ErrorDataReceived.Add(fun ea -> Log.always(ea.Data))
+        p.BeginOutputReadLine()
+        p.BeginErrorReadLine()
+        p
 
-        p.OutputDataReceived.Add(fun ea -> logOut.Enqueue (ea.Data))
-        p.ErrorDataReceived.Add(fun ea -> logErr.Enqueue (ea.Data))
+    let fireAndForget (workingDir: string) (exePath: string) (args: string list) =
+        try
+            startProcess workingDir exePath args |> ignore
+        with ex ->
+            Log.always("Cannot run: " + ex.Message)
 
-        let exitCode =
-            try
-                p.Start() |> ignore
-                p.BeginOutputReadLine()
-                p.BeginErrorReadLine()
-                p.WaitForExit()
-                p.ExitCode
-            with ex ->
-                logErr.Enqueue ("Cannot run: " + ex.Message)
-                -1
-
-        exitCode, logOut.ToArray(), logErr.ToArray()
-
-    // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
-    let runCmd log workingDir exePath args =
-        log (workingDir + "> " + exePath + " " + (args |> String.concat " "))
-
-        let exitCode, logOut, logErr =
-            String.concat " " args
-            |> runProcess workingDir exePath
-
-        Array.append logOut logErr
-        |> String.concat "\n"
-        |> log
-
-        exitCode
+    let runSync (workingDir: string) (exePath: string) (args: string list) =
+        try
+            let p = startProcess workingDir exePath args
+            p.WaitForExit()
+            p.ExitCode
+        with ex ->
+            Log.always("Cannot run: " + ex.Message)
+            Log.always(ex.StackTrace)
+            -1
 
 [<RequireQualifiedAccess>]
 module Async =
@@ -155,17 +143,6 @@ module Async =
         | Some x -> return x
         | None -> return! f ()
     }
-
-module File =
-    /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-    let readAllTextNonBlocking (path: string) =
-        if File.Exists(path) then
-            use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-            use textReader = new StreamReader(fileStream)
-            textReader.ReadToEnd()
-        else
-            Log.always("File does not exist: " + path)
-            ""
 
 module Imports =
     open Fable
