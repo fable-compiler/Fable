@@ -97,13 +97,13 @@ module private Util =
                 // else printfn "Fable.Core version matches"
 
     let measureTime (f: unit -> 'a) =
-        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let sw = Diagnostics.Stopwatch.StartNew()
         let res = f()
         sw.Stop()
         res, sw.ElapsedMilliseconds
 
     let measureTimeAsync (f: unit -> Async<'a>) = async {
-        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let sw = Diagnostics.Stopwatch.StartNew()
         let! res = f()
         sw.Stop()
         return res, sw.ElapsedMilliseconds
@@ -342,7 +342,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                             File(file.NormalizedFullPath) // Clear the cached source hash
                         else file)
                     let parsed = ProjectParsed.Init(state.CliArgs, cracked, parsed.Checker)
-                    // TODO: We probably need to recompile errored files too even if they're not touched
                     let filesToCompile =
                         cracked.SourceFiles
                         |> Array.choose (fun file ->
@@ -357,6 +356,15 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             let filesToCompile =
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
+                // Skip files that have a more recent JS version
+                |> fun files ->
+                    if Option.isSome state.CliArgs.OutDir then files
+                    else
+                        files |> Array.skipWhile (fun file ->
+                            try
+                                let jsFile = Path.replaceExtension state.CliArgs.CompilerOptions.FileExtension file
+                                File.Exists(jsFile) && File.GetLastWriteTime(jsFile) > File.GetLastWriteTime(file)
+                            with _ -> false)
             cracked, parsed, filesToCompile
 
     let filesToCompile =
@@ -410,6 +418,14 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             match log.FileName with
             | Some file -> Set.add file errors
             | None -> errors) Set.empty
+
+    let state =
+        match state.CliArgs.RunArgs with
+        | Some runArgs ->
+            Process.fireAndForget state.CliArgs.RootDir runArgs.ExeFile runArgs.Args
+            if runArgs.IsWatch then state
+            else { state with CliArgs = { state.CliArgs with RunArgs = None } }
+        | None -> state
 
     match state.Watcher, state.TestInfo with
     | Some watcher, _ ->
