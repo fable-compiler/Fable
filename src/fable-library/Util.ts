@@ -56,29 +56,29 @@ export interface ICollection<T> {
   Remove(item: T): boolean;
 }
 
-export interface IMutableMap<K, V> {
-  readonly size: number;
-  clear(): void;
-  delete(key: K): boolean;
-  get(key: K): V | undefined;
-  has(key: K): boolean;
-  set(key: K, value: V): this;
-  keys(): Iterable<K>;
-  values(): Iterable<V>;
-  entries(): Iterable<[K, V]>;
-}
+// export interface IMutableMap<K, V> {
+//   readonly size: number;
+//   clear(): void;
+//   delete(key: K): boolean;
+//   get(key: K): V | undefined;
+//   has(key: K): boolean;
+//   set(key: K, value: V): this;
+//   keys(): IterableIterator<K>;
+//   values(): IterableIterator<V>;
+//   entries(): IterableIterator<[K, V]>;
+// }
 
-export interface IMutableSet<T> {
-  readonly size: number;
-  add(value: T): this;
-  add_(value: T): boolean;
-  clear(): void;
-  delete(value: T): boolean;
-  has(value: T): boolean;
-  keys(): Iterable<T>;
-  values(): Iterable<T>;
-  entries(): Iterable<[T, T]>;
-}
+// export interface IMutableSet<T> {
+//   readonly size: number;
+//   add(value: T): this;
+//   add_(value: T): boolean;
+//   clear(): void;
+//   delete(value: T): boolean;
+//   has(value: T): boolean;
+//   keys(): IterableIterator<T>;
+//   values(): IterableIterator<T>;
+//   entries(): IterableIterator<[T, T]>;
+// }
 
 export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
   return x != null && typeof x === "object" && Symbol.iterator in x;
@@ -522,7 +522,7 @@ function changeCase(str: string, caseRule: number) {
 
 export function createObj(fields: Iterable<[string, any]>) {
   const obj: any = {};
-  for (let kv of fields) {
+  for (const kv of fields) {
     obj[kv[0]] = kv[1];
   }
   return obj;
@@ -530,7 +530,7 @@ export function createObj(fields: Iterable<[string, any]>) {
 
 export function createObjDebug(fields: Iterable<[string, any]>) {
   const obj: any = {};
-  for (let kv of fields) {
+  for (const kv of fields) {
     if (kv[0] in obj) {
       console.error(new Error(`Property ${kv[0]} is duplicated`));
     }
@@ -547,11 +547,11 @@ export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None, i
     throw new Error("Cannot infer key and value of " + String(kvPair));
   }
   function assign(key: string, caseRule: number, value: any) {
-      key = changeCase(key, caseRule);
-      if (isDebug && key in obj) {
-        console.warn(`Key ${key} is overwritten when creating JS object`);
-      }
-      obj[key] = value;
+    key = changeCase(key, caseRule);
+    if (isDebug && key in obj) {
+      console.warn(`Key ${key} is overwritten when creating JS object`);
+    }
+    obj[key] = value;
   }
 
   for (let kvPair of fields) {

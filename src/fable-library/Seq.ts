@@ -86,7 +86,7 @@ function makeSeq<T>(f: () => Iterator<T>): Iterable<T> {
   return seq;
 }
 
-function isArrayOrBufferView<T>(xs: Iterable<T>): xs is Array<T> {
+function isArrayOrBufferView<T>(xs: Iterable<T>): xs is T[] {
   return Array.isArray(xs) || ArrayBuffer.isView(xs);
 }
 
