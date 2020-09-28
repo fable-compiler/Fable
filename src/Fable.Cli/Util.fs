@@ -48,6 +48,20 @@ module Log =
         if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
 
+module File =
+    /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
+    let readAllTextNonBlocking (path: string) =
+        if File.Exists(path) then
+            use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use textReader = new StreamReader(fileStream)
+            textReader.ReadToEnd()
+        else
+            Log.always("File does not exist: " + path)
+            ""
+
+    let getRelativePathFromCwd (path: string) =
+        Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
+
 [<RequireQualifiedAccess>]
 module Process =
     open System.Diagnostics
@@ -63,9 +77,7 @@ module Process =
             if isWindows() then "cmd", ("/C \"" + exePath + "\" " + args)
             else exePath, args
 
-        Log.always(
-            let workingDir = Fable.Path.getRelativeFileOrDirPath true (Directory.GetCurrentDirectory()) true workingDir
-            workingDir + "> " + exePath + " " + args)
+        Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)
 
         let psi = ProcessStartInfo()
         psi.FileName <- exePath
@@ -131,17 +143,6 @@ module Async =
         | Some x -> return x
         | None -> return! f ()
     }
-
-module File =
-    /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
-    let readAllTextNonBlocking (path: string) =
-        if File.Exists(path) then
-            use fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-            use textReader = new StreamReader(fileStream)
-            textReader.ReadToEnd()
-        else
-            Log.always("File does not exist: " + path)
-            ""
 
 module Imports =
     open Fable

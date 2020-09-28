@@ -191,7 +191,7 @@ module private Util =
             let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir)
             do! BabelPrinter.run writer map babel
 
-            Log.always("Compiled " + Path.getRelativePath cliArgs.RootDir com.CurrentFile)
+            Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -243,7 +243,7 @@ type ProjectCracked(sourceFiles: File array,
             }
 
         Log.verbose(lazy
-            let proj = Path.getRelativePath msg.RootDir msg.ProjectFile
+            let proj = File.getRelativePathFromCwd msg.ProjectFile
             let opts = projectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
@@ -264,7 +264,7 @@ type ProjectParsed(project: Project,
                 Log.always("Initializing F# compiler...")
                 InteractiveChecker.Create(config.ProjectOptions)
 
-        Log.always("Compiling " + Path.getRelativePath cliArgs.RootDir config.ProjectFile + "...")
+        Log.always("Compiling " + File.getRelativePathFromCwd config.ProjectFile + "...")
 
         let checkedProject, ms = measureTime <| fun () ->
             let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
@@ -433,7 +433,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             state.ErroredFiles
             |> Set.filter (fun file -> not(Array.contains file filesToCompile))
 
-        Log.always("Watching " + Path.getRelativePath state.CliArgs.RootDir watcher.Directory)
+        Log.always("Watching " + File.getRelativePathFromCwd watcher.Directory)
         let! changes = watcher.AwaitChanges()
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

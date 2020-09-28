@@ -33,15 +33,17 @@ Commands:
   clean             Clean generated JS files
 
 Arguments:
+  --cwd             Working directory
   --outDir          Redirect compilation output files to a directory
   --define          Defines a symbol for use in conditional compilation
+  --run             The command after the argument will be executed after compilation
+  --runWatch        Like run, but will execute after each watch compilation
+  --typedArrays     Compile numeric arrays to JS typed arrays
+  --forcePkgs       Force a new copy of package sources into `.fable` folder
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
   --exclude         Skip Fable compilation for files containing the pattern
-  --typed-arrays    Compile numeric arrays to JS typed arrays
-  --force-pkgs      Force a new copy of package sources into `.fable` folder
   --optimize        Use optimized AST from F# compiler (experimental)
-  --cwd             Working directory
 """
 
 type Runner =
@@ -84,7 +86,7 @@ type Runner =
 
             let compilerOptions =
                 CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
-                                           typedArrays = hasFlag "--typed-arrays" args,
+                                       typedArrays = hasFlag "--typedArrays" args,
                                            ?fileExtension = argValue "--extension" args,
                                            debugMode = Array.contains "DEBUG" defines,
                                            optimizeFSharpAst = hasFlag "--optimize" args,
@@ -92,10 +94,10 @@ type Runner =
 
             let cliArgs =
                 { ProjectFile = projFile
-                  FableLibraryPath = argValue "--fable-library" args
+                  FableLibraryPath = argValue "--fableLib" args
                   RootDir = rootDir
                   OutDir = argValue "--outDir" args
-                  ForcePackages = hasFlag "--force-pkgs" args
+                  ForcePackages = hasFlag "--forcePkgs" args
                   Exclude = argValue "--exclude" args
                   Define = defines
                   RunArgs = runArgs
@@ -162,7 +164,7 @@ let main argv =
         |> List.splitWhile (fun a -> not(a.StartsWith("--run")))
         |> function
             | argv, flag::exeFile::runArgs ->
-                argv, Some(RunArgs(exeFile, runArgs, watch=(flag = "--run-watch")))
+                argv, Some(RunArgs(exeFile, runArgs, watch=(flag = "--runWatch")))
             | argv, _ -> argv, None
 
     let rootDir =

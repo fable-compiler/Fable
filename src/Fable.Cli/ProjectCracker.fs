@@ -250,7 +250,7 @@ let fullCrack (opts: Options): CrackedFsproj =
     Process.runSync projDir "dotnet" ["restore"; projName]
     |> ignore
 
-    Log.always("Parsing " + Path.getRelativePath opts.rootDir projFile + "...")
+    Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
 
