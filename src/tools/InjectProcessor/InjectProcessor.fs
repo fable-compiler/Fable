@@ -11,7 +11,7 @@ let typeAliases =
     Map [
         "System.Collections.Generic.IComparer`1", "comparer"
         "System.Collections.Generic.IEqualityComparer`1", "equalityComparer"
-        "Array.IArrayCons`1", "arrayCons"
+        "Array.Cons`1", "arrayCons"
     ]
 
 let parse (checker: FSharpChecker) projFile =

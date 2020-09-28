@@ -175,7 +175,7 @@ type ValueKind =
     | EnumConstant of Expr * Entity
     | NewOption of value: Expr option * Type
     | NewArray of Expr list * Type
-    | NewArrayAlloc of Expr * Type
+    | NewArrayFrom of Expr * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
     | NewTuple of Expr list
     | NewRecord of Expr list * Entity * genArgs: Type list
@@ -196,7 +196,7 @@ type ValueKind =
         | EnumConstant (_, ent) -> Enum ent
         | NewOption (_, t) -> Option t
         | NewArray (_, t) -> Array t
-        | NewArrayAlloc (_, t) -> Array t
+        | NewArrayFrom (_, t) -> Array t
         | NewList (_, t) -> List t
         | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
         | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)

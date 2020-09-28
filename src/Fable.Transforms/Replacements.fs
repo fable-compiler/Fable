@@ -583,38 +583,17 @@ let round com (args: Expr list) =
         rounded::args.Tail
     | _ -> args
 
-let arrayCons (com: ICompiler) genArg =
-    match genArg with
-    | Number numberKind when com.Options.TypedArrays ->
-        getTypedArrayName com numberKind |> makeIdentExpr
-    | _ -> makeIdentExpr "Array"
-
 let toList com returnType expr =
     Helper.LibCall(com, "List", "ofSeq", returnType, [expr])
 
-let toArray (com: ICompiler) returnType expr =
-    // match expr, returnType with
-    // | _, Array(Number numberKind) when com.Options.typedArrays ->
-    //     Helper.GlobalCall(getTypedArrayName com numberKind, returnType, [expr], memb="from")
-    // | _ -> Helper.GlobalCall("Array", returnType, [expr], memb="from")
-
-    // Calling the JS global methods (Array.from) directly creates problems with lambda optimization
-    // because passing these functions as values in JS (e.g. `foo(Array.from)`) doesn't work
-    let args =
-        match returnType with
-        | Array genArg
+let toArray r t expr =
+    let t =
+        match t with
+        | Array t
         // This is used also by Seq.cache, which returns `'T seq` instead of `'T array`
-        | DeclaredType(_, [genArg]) -> [expr; arrayCons com genArg]
-        | _ -> [expr]
-    Helper.LibCall(com, "Array", "ofSeq", returnType, args)
-
-let listToArray com r t (li: Expr) =
-    match li with
-    | Value(ListLiteral(exprs, t),_) ->
-        NewArray(exprs, t) |> makeValue r
-    | _ ->
-        let args = match t with Array genArg -> [li; arrayCons com genArg] | _ -> [li]
-        Helper.LibCall(com, "Array", "ofList", t, args, ?loc=r)
+        | DeclaredType(_, [t]) -> t
+        | t -> t
+    Value(NewArrayFrom(expr, t), r)
 
 let stringToCharArray t e =
     Helper.InstanceCall(e, "split", t, [makeStrConst ""])
@@ -938,32 +917,37 @@ let makePojoFromLambda com arg =
     |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", Any, [arg]))
 
 let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
-    let (|GenericArg|_|) genArgs genArgIndex =
-        List.tryItem genArgIndex genArgs
-
-    let buildArg = function
-        | (Types.comparer, GenericArg genArgs (_,genArg)) ->
-            makeComparer com ctx genArg |> Some
-        | (Types.equalityComparer, GenericArg genArgs (_,genArg)) ->
-            makeEqualityComparer com ctx genArg |> Some
-        | (Types.arrayCons, GenericArg genArgs (_,genArg)) ->
-            arrayCons com genArg |> Some
-        | (Types.adder, GenericArg genArgs (_,genArg)) ->
-            makeGenericAdder com ctx genArg |> Some
-        | (Types.averager, GenericArg genArgs (_,genArg)) ->
-            makeGenericAverager com ctx genArg |> Some
-        | (_, genArgIndex) ->
+    let injectArgInner args (injectType, injectGenArgIndex) =
+        let fail () =
             sprintf "Cannot inject arg to %s.%s (genArgs %A - expected index %i)"
-                moduleName methName (List.map fst genArgs) genArgIndex
+                moduleName methName (List.map fst genArgs) injectGenArgIndex
             |> addError com ctx.InlinePath r
-            None
+            args
+
+        match List.tryItem injectGenArgIndex genArgs with
+        | None -> fail()
+        | Some (_,genArg) ->
+            match injectType with
+            | Types.comparer ->
+                args @ [makeComparer com ctx genArg]
+            | Types.equalityComparer ->
+                args @ [makeEqualityComparer com ctx genArg]
+            | Types.arrayCons ->
+                match genArg with
+                | Number numberKind when com.Options.TypedArrays ->
+                    args @ [getTypedArrayName com numberKind |> makeIdentExpr]
+                | _ -> args
+            | Types.adder ->
+                args @ [makeGenericAdder com ctx genArg]
+            | Types.averager ->
+                args @ [makeGenericAverager com ctx genArg]
+            | _ -> fail()
 
     Map.tryFind moduleName ReplacementsInject.fableReplacementsModules
     |> Option.bind (Map.tryFind methName)
-    |> Option.map (List.choose buildArg)
     |> function
         | None -> args
-        | Some injections -> args @ injections
+        | Some injectInfo -> injectArgInner args injectInfo
 
 let tryEntityRef (com: Fable.Compiler) (ent: Entity) =
     match ent.FullName with
@@ -1152,10 +1136,6 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
         | "createObj", _ ->
-            let args =
-                match args with
-                | [Value(ListLiteral(args,t),r)] -> [NewArray(args, t) |> makeValue r]
-                | _ -> args
             let m = if com.Options.DebugMode then "createObjDebug" else "createObj"
             Helper.LibCall(com, "Util", m, Any, args) |> Some
          | "keyValueList", [caseRule; keyValueList] ->
@@ -1627,11 +1607,11 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
 
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
-    | ("Cache" | "ToArray"), [arg] -> toArray com t arg |> Some
+    | ("Cache" | "ToArray"), [arg] -> toArray r t arg |> Some
     | "OfList", [arg] -> toSeq t arg |> Some
     | "ToList", _ -> Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("ChunkBySize" | "Permute" | "SplitInto") as meth, [arg1; arg2] ->
-        let arg2 = toArray com (Array Any) arg2
+        let arg2 = toArray r (Array Any) arg2
         let result = Helper.LibCall(com, "Array", Naming.lowerFirst meth, Any, [arg1; arg2])
         Helper.LibCall(com, "Seq", "ofArray", t, [result]) |> Some
     // For Using we need to cast the argument to IDisposable
@@ -1701,7 +1681,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         let opt = Helper.LibCall(com, "Seq", "tryFindBack", t, [arg; ar; defaultof com ctx t], ?loc=r)
         Helper.LibCall(com, "Option", "value", t, [opt], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
-        Helper.LibCall(com, "Seq", "filter", t, [arg; ar], ?loc=r) |> toArray com t |> Some
+        Helper.LibCall(com, "Seq", "filter", t, [arg; ar], ?loc=r) |> toArray r t |> Some
     | "AddRange", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "GetRange", Some ar, [idx; cnt] ->
@@ -1767,8 +1747,8 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | _ -> None
 
 let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
-    let inline newArray size t =
-        Value(NewArrayAlloc(size, t), None)
+    let newArray size t =
+        Value(NewArrayFrom(size, t), None)
     let createArray size value =
         match t, value with
         | Array(Number _ as t2), None when com.Options.TypedArrays -> newArray size t2
@@ -1780,8 +1760,8 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
                |> addErrorAndReturnNull com ctx.InlinePath r
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
-    | "OfSeq", [arg] -> toArray com t arg |> Some
-    | "OfList", [arg] -> listToArray com r t arg |> Some
+    | "OfSeq", [arg] -> toArray r t arg |> Some
+    | "OfList", [arg] -> toArray r t arg |> Some
     | "ToList", _ -> Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Length" | "Count"), [arg] -> get r t arg "length" |> Some
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
@@ -1796,7 +1776,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
     | "AllPairs", args ->
         let allPairs = Helper.LibCall(com, "Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
-        toArray com t allPairs |> Some
+        toArray r t allPairs |> Some
     | "TryExactlyOne", args ->
         tryCoreOp com r t "Array" "exactlyOne" args |> Some
     | "SortInPlace", args ->
@@ -1840,7 +1820,7 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some
-    | "ToArray", [x] -> listToArray com r t x |> Some
+    | "ToArray", [x] -> toArray r t x |> Some
     | "AllPairs", args ->
         let allPairs = Helper.LibCall(com, "Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
         toList com t allPairs |> Some
@@ -2377,7 +2357,7 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
         let expr = Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r)
         if com.Options.TypedArrays then expr |> Some
-        else toArray com t expr |> Some // convert to dynamic array
+        else toArray r t expr |> Some // convert to dynamic array
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
         Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2630,7 +2610,7 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let meth = Naming.lowerFirst i.CompiledName
         let expr = Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r)
         if com.Options.TypedArrays then expr |> Some
-        else toArray com t expr |> Some // convert to dynamic array
+        else toArray r t expr |> Some // convert to dynamic array
     | "GetString", Some callee, (1 | 3) ->
         let meth = Naming.lowerFirst i.CompiledName
         Helper.InstanceCall(callee, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some

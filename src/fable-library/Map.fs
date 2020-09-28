@@ -391,8 +391,8 @@ module MapTree =
                 | _ -> (m.Key, m.Value) :: acc
         loop m []
 
-    let toArray m =
-        m |> toList |> FSharp.Collections.Array.ofList
+    let toArray (m: MapTree<'Key, 'Value>): ('Key * 'Value)[] =
+        m |> toList |> Array.ofList
 
     let ofList comparer l =
         List.fold (fun acc (k, v) -> add comparer k v acc) empty l

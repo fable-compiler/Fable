@@ -665,25 +665,32 @@ module Util =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
         |> ArrayExpression :> Expression
 
-    let makeTypedArray (com: IBabelCompiler) ctx typ (args: Fable.Expr list) =
-        match typ with
+    let makeTypedArray (com: IBabelCompiler) ctx t (args: Fable.Expr list) =
+        match t with
         | Fable.Number kind when com.Options.TypedArrays ->
             let jsName = getTypedArrayName com kind
-            let args =
-                [| List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) args
-                   |> ArrayExpression :> Expression |]
+            let args = [|makeArray com ctx args|]
             NewExpression(Identifier jsName, args) :> Expression
-        | _ ->
-            makeArray com ctx args
+        | _ -> makeArray com ctx args
 
-    let makeTypedAllocatedArray (com: IBabelCompiler) ctx typ (TransformExpr com ctx size) =
-        match typ with
-        | Fable.Number kind when com.Options.TypedArrays ->
-            let jsName = getTypedArrayName com kind
-            let args = [|size|]
-            NewExpression(Identifier jsName, [|size|]) :> Expression
+    let makeTypedAllocatedFrom (com: IBabelCompiler) ctx typ (fableExpr: Fable.Expr) =
+        let getArrayCons t =
+            match t with
+            | Fable.Number kind when com.Options.TypedArrays ->
+                getTypedArrayName com kind |> Identifier
+            | _ -> Identifier "Array"
+
+        match fableExpr with
+        | ExprType(Fable.Number _) ->
+            let cons = getArrayCons typ
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            NewExpression(cons, [|expr|]) :> Expression
+        | MaybeCasted(Replacements.ArrayOrListLiteral(exprs, _)) ->
+            makeTypedArray com ctx typ exprs
         | _ ->
-            upcast NewExpression(Identifier "Array", [|size|])
+            let cons = getArrayCons typ
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            CallExpression(get None cons "from", [|expr|]) :> Expression
 
     let makeStringArray strings =
         strings
@@ -893,7 +900,7 @@ module Util =
         | Fable.NumberConstant (x,_) -> upcast NumericLiteral(x, ?loc=r)
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
-        | Fable.NewArrayAlloc (size, typ) -> makeTypedAllocatedArray com ctx typ size
+        | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
         | Fable.NewTuple vals -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Replacements.ListLiteral(exprs, t) ->
