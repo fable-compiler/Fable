@@ -8,12 +8,24 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
 
-let [<Emit("Array")>] DynamicArrayCons<'T> : IArrayCons<'T> = jsNative
+type Cons<'T> = interface end
 
 module Helpers =
+    [<Emit("Array.from($0)")>]
+    let arrayFrom (xs: 'T seq): 'T[] = jsNative
 
-    let inline newDynamicArrayImpl (len: int): 'T[] =
-        DynamicArrayCons.Create(len)
+    [<Emit("new Array($0)")>]
+    let allocateArray (len: int): 'T[] = jsNative
+
+    [<Emit("new $0.constructor($1)")>]
+    let allocateArrayFrom (xs: 'T[]) (len: int): 'T[] = jsNative
+
+    [<Emit("new ($0 || Array)($1)")>]
+    let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] = jsNative
+
+    // In some functions the constructor for typed arrays will be passed as last argument
+    [<Emit("new (arguments[arguments.length - 1] || Array)($1)")>]
+    let allocateArrayFromLastArg (len: int): 'T[] = jsNative
 
     let inline isDynamicArrayImpl arr =
         JS.Constructors.Array.isArray arr
@@ -104,14 +116,17 @@ open Helpers
 let private indexNotFound() =
     failwith "An index satisfying the predicate was not found in the collection."
 
+let private differentLengths() =
+    failwith "Arrays had different lengths"
+
 // Pay attention when benchmarking to append and filter functions below
 // if implementing via native JS array .concat() and .filter() do not fall behind due to js-native transitions.
 
 // Don't use native JS Array.prototype.concat as it doesn't work with typed arrays
-let append (array1: 'T[]) (array2: 'T[]) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
+let append (array1: 'T[]) (array2: 'T[]): 'T[] =
     let len1 = array1.Length
     let len2 = array2.Length
-    let newArray = cons.Create(len1 + len2)
+    let newArray = allocateArrayFrom array1 (len1 + len2)
     for i = 0 to len1 - 1 do
         newArray.[i] <- array1.[i]
     for i = 0 to len2 - 1 do
@@ -136,66 +151,66 @@ let tryLast (array: 'T[]) =
     if array.Length = 0 then None
     else Some array.[array.Length-1]
 
-let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
+let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[] =
     let len = source.Length
-    let target = cons.Create(len)
+    let target = allocateArrayFromCons cons len
     for i = 0 to (len - 1) do
         target.[i] <- f i source.[i]
     target
 
-let map (f: 'T -> 'U) (source: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
+let map (f: 'T -> 'U) (source: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[] =
     let len = source.Length
-    let target = cons.Create(len)
+    let target = allocateArrayFromCons cons len
     for i = 0 to (len - 1) do
         target.[i] <- f source.[i]
     target
 
-let mapIndexed2 (f: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
+let mapIndexed2 (f: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: Cons<'U>): 'U[] =
     if source1.Length <> source2.Length then failwith "Arrays had different lengths"
-    let result = cons.Create(source1.Length)
+    let result = allocateArrayFromCons cons source1.Length
     for i = 0 to source1.Length - 1 do
         result.[i] <- f i source1.[i] source2.[i]
     result
 
-let map2 (f: 'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
+let map2 (f: 'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: Cons<'U>): 'U[] =
     if source1.Length <> source2.Length then failwith "Arrays had different lengths"
-    let result = cons.Create(source1.Length)
+    let result = allocateArrayFromCons cons source1.Length
     for i = 0 to source1.Length - 1 do
         result.[i] <- f source1.[i] source2.[i]
     result
 
-let mapIndexed3 (f: int->'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
+let mapIndexed3 (f: int->'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) ([<Inject>] cons: Cons<'U>): 'U[] =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then failwith "Arrays had different lengths"
-    let result = cons.Create(source1.Length)
+    let result = allocateArrayFromCons cons source1.Length
     for i = 0 to source1.Length - 1 do
         result.[i] <- f i source1.[i] source2.[i] source3.[i]
     result
 
-let map3 (f: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
+let map3 (f: 'T1->'T2->'T3->'U) (source1: 'T1[]) (source2: 'T2[]) (source3: 'T3[]) ([<Inject>] cons: Cons<'U>): 'U[] =
     if source1.Length <> source2.Length || source2.Length <> source3.Length then failwith "Arrays had different lengths"
-    let result = cons.Create(source1.Length)
+    let result = allocateArrayFromCons cons source1.Length
     for i = 0 to source1.Length - 1 do
         result.[i] <- f source1.[i] source2.[i] source3.[i]
     result
 
-let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) state (array: 'T[]) ([<Inject>] cons: IArrayCons<'Result>) =
+let mapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> 'Result * 'State) state (array: 'T[]) ([<Inject>] cons: Cons<'Result>) =
     match array.Length with
     | 0 -> [| |], state
     | len ->
         let mutable acc = state
-        let res = cons.Create len
+        let res = allocateArrayFromCons cons  len
         for i = 0 to array.Length-1 do
             let h,s = mapping acc array.[i]
             res.[i] <- h
             acc <- s
         res, acc
 
-let mapFoldBack<'T, 'State, 'Result> (mapping: 'T -> 'State -> 'Result * 'State) (array: 'T[]) state ([<Inject>] cons: IArrayCons<'Result>) =
+let mapFoldBack<'T, 'State, 'Result> (mapping: 'T -> 'State -> 'Result * 'State) (array: 'T[]) state ([<Inject>] cons: Cons<'Result>) =
     match array.Length with
     | 0 -> [| |], state
     | len ->
         let mutable acc = state
-        let res = cons.Create len
+        let res = allocateArrayFromCons cons  len
         for i = array.Length-1 downto 0 do
             let h,s = mapping array.[i] acc
             res.[i] <- h
@@ -204,7 +219,7 @@ let mapFoldBack<'T, 'State, 'Result> (mapping: 'T -> 'State -> 'Result * 'State)
 
 let indexed (source: 'T[]) =
     let len = source.Length
-    let target = newDynamicArrayImpl len
+    let target = allocateArray len
     for i = 0 to (len - 1) do
         target.[i] <- i, source.[i]
     target
@@ -213,31 +228,31 @@ let truncate (count: int) (array: 'T[]): 'T[] =
     let count = max 0 count
     subArrayImpl array 0 count
 
-let concat (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[] =
+let concat (arrays: 'T[] seq) ([<Inject>] cons: Cons<'T>): 'T[] =
     let arrays =
         if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
-        else DynamicArrayCons.FromSequence arrays
+        else arrayFrom arrays
     match arrays.Length with
-    | 0 -> cons.Create 0
+    | 0 -> allocateArrayFromCons cons  0
     | 1 -> arrays.[0]
     | _ ->
         let mutable totalIdx = 0
         let mutable totalLength = 0
         for arr in arrays do
             totalLength <- totalLength + arr.Length
-        let result = cons.Create totalLength
+        let result = allocateArrayFromCons cons  totalLength
         for arr in arrays do
             for j = 0 to (arr.Length - 1) do
                 result.[totalIdx] <- arr.[j]
                 totalIdx <- totalIdx + 1
         result
 
-let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>): 'U[] =
-    let mapped = map mapping array DynamicArrayCons
+let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[] =
+    let mapped = map mapping array Unchecked.defaultof<_>
     concat mapped cons
     // collectImpl mapping array // flatMap not widely available yet
 
-let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
+let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * int)[] =
     let dict = Dictionary<'Key, int>(eq)
     let keys: 'Key[] = [||]
     for value in array do
@@ -249,7 +264,7 @@ let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComp
             dict.[key] <- 1
             pushImpl keys key |> ignore
     let result =
-        map (fun key -> key, dict.[key]) keys DynamicArrayCons
+        map (fun key -> key, dict.[key]) keys Unchecked.defaultof<_>
     result
 
 let distinctBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
@@ -277,7 +292,7 @@ let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComp
         let cached = HashSet(itemsToExclude, eq)
         array |> filterImpl cached.Add
 
-let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) ([<Inject>] eq: IEqualityComparer<'Key>) =
+let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T[])[] =
     let dict = Dictionary<'Key, ResizeArray<'T>>(eq)
     let keys: 'Key[] = [||]
     for v in array do
@@ -289,21 +304,19 @@ let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] cons: IArrayCons<
             dict.Add(key, ResizeArray [|v|])
             pushImpl keys key |> ignore
     let result =
-        map (fun key -> key, cons.FromSequence dict.[key]) keys DynamicArrayCons
+        map (fun key -> key, arrayFrom dict.[key]) keys Unchecked.defaultof<_>
     result
 
-let inline private emptyImpl (cons: IArrayCons<'T>) = cons.Create(0)
+let empty cons = allocateArrayFromCons cons 0
 
-let empty cons = emptyImpl cons
-
-let singleton value ([<Inject>] cons: IArrayCons<'T>) =
-    let ar = cons.Create 1
+let singleton value ([<Inject>] cons: Cons<'T>) =
+    let ar = allocateArrayFromCons cons 1
     ar.[0] <- value
     ar
 
-let initialize count initializer ([<Inject>] cons: IArrayCons<'T>) =
+let initialize count initializer ([<Inject>] cons: Cons<'T>) =
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
-    let result = cons.Create count
+    let result = allocateArrayFromCons cons count
     for i = 0 to count - 1 do
         result.[i] <- initializer i
     result
@@ -312,31 +325,31 @@ let pairwise (array: 'T[]) =
     if array.Length < 2 then [||]
     else
         let count = array.Length - 1
-        let result = newDynamicArrayImpl count
+        let result = allocateArray count
         for i = 0 to count - 1 do
             result.[i] <- array.[i], array.[i+1]
         result
 
-let replicate count initial ([<Inject>] cons: IArrayCons<'T>) =
+let replicate count initial ([<Inject>] cons: Cons<'T>) =
     // Shorthand version: = initialize count (fun _ -> initial)
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
-    let result: 'T array = cons.Create count
+    let result: 'T array = allocateArrayFromCons cons count
     for i = 0 to result.Length-1 do
         result.[i] <- initial
     result
 
-let copy (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let copy (array: 'T[]) =
     // if isTypedArrayImpl array then
-    //     let res = cons.Create array.Length
+    //     let res = allocateArrayFrom array  array.Length
     //     for i = 0 to array.Length-1 do
     //         res.[i] <- array.[i]
     //     res
     // else
     copyImpl array
 
-let reverse (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let reverse (array: 'T[]) =
     // if isTypedArrayImpl array then
-    //     let res = cons.Create array.Length
+    //     let res = allocateArrayFrom array  array.Length
     //     let mutable j = array.Length-1
     //     for i = 0 to array.Length-1 do
     //         res.[j] <- array.[i]
@@ -345,51 +358,51 @@ let reverse (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
     // else
     copyImpl array |> reverseImpl
 
-let scan<'T, 'State> folder (state: 'State) (array: 'T[]) ([<Inject>] cons: IArrayCons<'State>) =
-    let res = cons.Create (array.Length + 1)
+let scan<'T, 'State> folder (state: 'State) (array: 'T[]) ([<Inject>] cons: Cons<'State>) =
+    let res = allocateArrayFromCons cons (array.Length + 1)
     res.[0] <- state
     for i = 0 to array.Length - 1 do
         res.[i + 1] <- folder res.[i] array.[i]
     res
 
-let scanBack<'T, 'State> folder (array: 'T[]) (state: 'State) ([<Inject>] cons: IArrayCons<'State>) =
-    let res = cons.Create(array.Length + 1)
+let scanBack<'T, 'State> folder (array: 'T[]) (state: 'State) ([<Inject>] cons: Cons<'State>) =
+    let res = allocateArrayFromCons cons (array.Length + 1)
     res.[array.Length] <- state
     for i = array.Length - 1 downto 0 do
         res.[i] <- folder array.[i] res.[i + 1]
     res
 
-let skip count (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let skip count (array: 'T[]) =
     if count > array.Length then invalidArg "count" "count is greater than array length"
     if count = array.Length then
-        emptyImpl cons
+        allocateArrayFrom array 0
     else
         let count = if count < 0 then 0 else count
         skipImpl array count
 
-let skipWhile predicate (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let skipWhile predicate (array: 'T[]) =
     let mutable count = 0
     while count < array.Length && predicate array.[count] do
         count <- count + 1
     if count = array.Length then
-        emptyImpl cons
+        allocateArrayFrom array 0
     else
         skipImpl array count
 
-let take count (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let take count (array: 'T[]) =
     if count < 0 then invalidArg "count" LanguagePrimitives.ErrorStrings.InputMustBeNonNegativeString
     if count > array.Length then invalidArg "count" "count is greater than array length"
     if count = 0 then
-        emptyImpl cons
+        allocateArrayFrom array 0
     else
         subArrayImpl array 0 count
 
-let takeWhile predicate (array: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let takeWhile predicate (array: 'T[]) =
     let mutable count = 0
     while count < array.Length && predicate array.[count] do
         count <- count + 1
     if count = 0 then
-        emptyImpl cons
+        allocateArrayFrom array 0
     else
         subArrayImpl array 0 count
 
@@ -426,10 +439,10 @@ let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
     for i = sourceIndex to sourceIndex + count - 1 do
         target.[i + diff] <- source.[i]
 
-let partition (f: 'T -> bool) (source: 'T[]) ([<Inject>] cons: IArrayCons<'T>) =
+let partition (f: 'T -> bool) (source: 'T[]) =
     let len = source.Length
-    let res1 = cons.Create len
-    let res2 = cons.Create len
+    let res1 = allocateArrayFrom source len
+    let res2 = allocateArrayFrom source len
     let mutable iTrue = 0
     let mutable iFalse = 0
     for i = 0 to len - 1 do
@@ -512,7 +525,7 @@ let tryFindIndexBack predicate (array: _[]) =
         else loop (i - 1)
     loop (array.Length - 1)
 
-let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: IArrayCons<'U>) =
+let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: Cons<'U>) =
     let f x = chooser x |> Option.isSome
     let g x = chooser x |> Option.get
     let arr = filterImpl f array
@@ -545,12 +558,12 @@ let iterateIndexed action (array: 'T[]) =
         action i array.[i]
 
 let iterate2 action (array1: 'T[]) (array2: 'T[]) =
-    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
+    if array1.Length <> array2.Length then differentLengths()
     for i = 0 to array1.Length - 1 do
         action array1.[i] array2.[i]
 
 let iterateIndexed2 action (array1: 'T[]) (array2: 'T[]) =
-    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
+    if array1.Length <> array2.Length then differentLengths()
     for i = 0 to array1.Length - 1 do
         action i array1.[i] array2.[i]
 
@@ -571,7 +584,7 @@ let forAll predicate (array: 'T[]) =
 let permute f (array: 'T[]) =
     let size = array.Length
     let res = copyImpl array
-    let checkFlags = DynamicArrayCons.Create(size)
+    let checkFlags = allocateArray size
     iterateIndexed (fun i x ->
         let j = f i
         if j < 0 || j >= size then
@@ -630,11 +643,11 @@ let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State)
     loop state
     res
 
-// TODO: We should pass ArrayCons<'T> here (and unzip3) but 'a and 'b may differ
+// TODO: We should pass Cons<'T> here (and unzip3) but 'a and 'b may differ
 let unzip (array: _[]) =
     let len = array.Length
-    let res1 = newDynamicArrayImpl len
-    let res2 = newDynamicArrayImpl len
+    let res1 = allocateArray len
+    let res2 = allocateArray len
     iterateIndexed (fun i (item1, item2) ->
         res1.[i] <- item1
         res2.[i] <- item2
@@ -643,9 +656,9 @@ let unzip (array: _[]) =
 
 let unzip3 (array: _[]) =
     let len = array.Length
-    let res1 = newDynamicArrayImpl len
-    let res2 = newDynamicArrayImpl len
-    let res3 = newDynamicArrayImpl len
+    let res1 = allocateArray len
+    let res2 = allocateArray len
+    let res3 = allocateArray len
     iterateIndexed (fun i (item1, item2, item3) ->
         res1.[i] <- item1
         res2.[i] <- item2
@@ -655,16 +668,16 @@ let unzip3 (array: _[]) =
 
 let zip (array1: 'T[]) (array2: 'U[]) =
     // Shorthand version: map2 (fun x y -> x, y) array1 array2
-    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
-    let result = newDynamicArrayImpl array1.Length
+    if array1.Length <> array2.Length then differentLengths()
+    let result = allocateArray array1.Length
     for i = 0 to array1.Length - 1 do
         result.[i] <- array1.[i], array2.[i]
     result
 
 let zip3 (array1: 'T[]) (array2: 'U[]) (array3: 'U[]) =
     // Shorthand version: map3 (fun x y z -> x, y, z) array1 array2 array3
-    if array1.Length <> array2.Length || array2.Length <> array3.Length then failwith "Arrays had different lengths"
-    let result = newDynamicArrayImpl array1.Length
+    if array1.Length <> array2.Length || array2.Length <> array3.Length then differentLengths()
+    let result = allocateArray array1.Length
     for i = 0 to array1.Length - 1 do
         result.[i] <- array1.[i], array2.[i], array3.[i]
     result
@@ -759,7 +772,7 @@ let fold2<'T1, 'T2, 'State> folder (state: 'State) (array1: 'T1[]) (array2: 'T2[
 
 let foldBackIndexed2<'T1, 'T2, 'State> folder (array1: 'T1[]) (array2: 'T2[]) (state: 'State) =
     let mutable acc = state
-    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
+    if array1.Length <> array2.Length then differentLengths()
     let size = array1.Length
     for i = 1 to size do
         acc <- folder (i-1) array1.[size - i] array2.[size - i] acc
@@ -797,7 +810,7 @@ let rec existsOffset2 predicate (array1: _[]) (array2: _[]) index =
     else predicate array1.[index] array2.[index] || existsOffset2 predicate array1 array2 (index+1)
 
 let rec exists2 predicate (array1: _[]) (array2: _[]) =
-    if array1.Length <> array2.Length then failwith "Arrays had different lengths"
+    if array1.Length <> array2.Length then differentLengths()
     existsOffset2 predicate array1 array2 0
 
 let sum (array: 'T[]) ([<Inject>] adder: IGenericAdder<'T>): 'T =
@@ -840,19 +853,12 @@ let averageBy (projection: 'T -> 'T2) (array: 'T[]) ([<Inject>] averager: IGener
         total <- averager.Add(total, projection array.[i])
     averager.DivideByInt(total, array.Length)
 
-let ofSeq (source: 'T seq) ([<Inject>] cons: IArrayCons<'T>) =
-    cons.FromSequence(source)
-
-let ofList (source: 'T list) ([<Inject>] cons: IArrayCons<'T>) =
-    cons.FromSequence(source)
-
 // let toList (source: 'T[]) = List.ofArray (see Replacements)
 
-// TODO: Pass array constructor here too?
 let windowed (windowSize: int) (source: 'T[]): 'T[][] =
     if windowSize <= 0 then
         failwith "windowSize must be positive"
-    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> newDynamicArrayImpl
+    let res = FSharp.Core.Operators.max 0 (source.Length - windowSize) |> allocateArray
     for i = windowSize to source.Length do
         res.[i - windowSize] <- source.[i-windowSize..i-1]
     res
@@ -874,20 +880,21 @@ let splitInto (chunks: int) (array: 'T[]): 'T[][] =
             pushImpl result slice |> ignore
         result
 
-let transpose (arrays: 'T[] seq) ([<Inject>] cons: IArrayCons<'T>): 'T[][] =
+let transpose (arrays: 'T[] seq): 'T[][] =
     let arrays =
         if isDynamicArrayImpl arrays then arrays :?> 'T[][] // avoid extra copy
-        else DynamicArrayCons.FromSequence arrays
+        else arrayFrom arrays
     let len = arrays.Length
     match len with
-    | 0 -> newDynamicArrayImpl 0
+    | 0 -> allocateArray 0
     | _ ->
-        let lenInner = arrays.[0].Length
+        let firstArray = arrays.[0]
+        let lenInner = firstArray.Length
         if arrays |> forAll (fun a -> a.Length = lenInner) |> not then
-            failwith "Arrays had different lengths"
-        let result: 'T[][] = newDynamicArrayImpl lenInner
+            differentLengths()
+        let result: 'T[][] = allocateArray lenInner
         for i in 0..lenInner-1 do
-            result.[i] <- cons.Create len
+            result.[i] <- allocateArrayFrom firstArray len
             for j in 0..len-1 do
                 result.[i].[j] <- arrays.[j].[i]
         result

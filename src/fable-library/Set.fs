@@ -636,9 +636,8 @@ let ofArray (arr: 'T array) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
 
 let toList (s: Set<'T>) = SetTree.toList s.Tree
 
-let toArray (s: Set<'T>) ([<Inject>] cons: IArrayCons<'T>) =
-    let n = (count s)
-    let res = cons.Create n
+let toArray (s: Set<'T>) =
+    let res = JsInterop.emitJsExpr (count s) "new Array($0)"
     SetTree.copyToArray s.Tree res 0
     res
 

@@ -20,7 +20,7 @@ let visit f e =
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> makeValue r
         | NewTuple exprs -> NewTuple(List.map f exprs) |> makeValue r
         | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r
-        | NewArrayAlloc(e, t) -> NewArrayAlloc(f e, t) |> makeValue r
+        | NewArrayFrom(e, t) -> NewArrayFrom(f e, t) |> makeValue r
         | NewList(ht, t) ->
             let ht = ht |> Option.map (fun (h,t) -> f h, f t)
             NewList(ht, t) |> makeValue r
@@ -104,7 +104,7 @@ let getSubExpressions = function
         | NewOption(e, _) -> Option.toList e
         | NewTuple exprs -> exprs
         | NewArray(exprs, _) -> exprs
-        | NewArrayAlloc(e, _) -> [e]
+        | NewArrayFrom(e, _) -> [e]
         | NewList(ht, _) ->
             match ht with Some(h,t) -> [h;t] | None -> []
         | NewRecord(exprs, _, _) -> exprs
