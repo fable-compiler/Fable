@@ -6,7 +6,9 @@
     "configurations": [
         {
             "args": [
-                "${workspaceFolder}/build/tests/tests/Main",
+                "${workspaceFolder}/build/tests",
+                "-r",
+                "esm",
                 "--reporter",
                 "dot",
                 "--timeout",

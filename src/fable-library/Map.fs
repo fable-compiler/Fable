@@ -3,8 +3,6 @@
 module Map
 
 open System.Collections.Generic
-open Fable.Collections
-open Fable.Core
 
 [<NoEquality; NoComparison>]
 [<AllowNullLiteral>]
@@ -136,30 +134,26 @@ module MapTree =
                 elif c = 0 then MapTree(k,v)
                 else            MapTreeNode (k,v,m,empty,2) :> MapTree<'Key, 'Value>
 
-    let rec tryGetValue (comparer: IComparer<'Key>) k (v: ref<'Value>) (m: MapTree<'Key, 'Value>) =
-        if isEmpty m then false
+    let rec tryGetValue (comparer: IComparer<'Key>) k (m: MapTree<'Key, 'Value>) =
+        if isEmpty m then false, Unchecked.defaultof<'Value>
         else
             let c = comparer.Compare(k, m.Key)
-            if c = 0 then v := m.Value; true
+            if c = 0 then true, m.Value
             else
                 match m with
                 | :? MapTreeNode<'Key, 'Value> as mn ->
-                    tryGetValue comparer k v (if c < 0 then mn.Left else mn.Right)
-                | _ -> false
+                    tryGetValue comparer k (if c < 0 then mn.Left else mn.Right)
+                | _ -> false, Unchecked.defaultof<'Value>
 
     let find (comparer: IComparer<'Key>) k (m: MapTree<'Key, 'Value>) =
-        let mutable v = Unchecked.defaultof<'Value>
-        if tryGetValue comparer k (ref v) m then
-            v
-        else
-            raise (KeyNotFoundException())
+        match tryGetValue comparer k m with
+        | true, v -> v
+        | false, _ -> raise (KeyNotFoundException())
 
     let tryFind (comparer: IComparer<'Key>) k (m: MapTree<'Key, 'Value>) =
-        let mutable v = Unchecked.defaultof<'Value>
-        if tryGetValue comparer k (ref v) m then
-            Some v
-        else
-            None
+        match tryGetValue comparer k m with
+        | true, v -> Some v
+        | false, _ -> None
 
     let partition1 (comparer: IComparer<'Key>) (f: OptimizedClosures.FSharpFunc<_, _, _>) k v (acc1, acc2) =
         if f.Invoke (k, v) then (add comparer k v acc1, acc2) else (acc1, add comparer k v acc2)
@@ -398,7 +392,7 @@ module MapTree =
         loop m []
 
     let toArray m =
-        m |> toList |> Array.ofList
+        m |> toList |> FSharp.Collections.Array.ofList
 
     let ofList comparer l =
         List.fold (fun acc (k, v) -> add comparer k v acc) empty l
@@ -502,7 +496,8 @@ module MapTree =
             else None)
 
 [<Sealed>]
-[<CompiledName("FSharpMap"); Replaces("Microsoft.FSharp.Collections.FSharpMap`2")>]
+[<CompiledName("FSharpMap")>]
+[<Fable.Core.Replaces("Microsoft.FSharp.Collections.FSharpMap`2")>]
 type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key, 'Value>) =
 
     // [<System.NonSerialized>]
@@ -631,9 +626,11 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member m.Remove key =
         new Map<'Key, 'Value>(comparer, MapTree.remove comparer key tree)
 
-    [<OverloadSuffix("")>]
+    [<Fable.Core.OverloadSuffix("")>]
     member __.TryGetValue(key: 'Key, value: 'Value ref) =
-        MapTree.tryGetValue comparer key value tree
+        match MapTree.tryGetValue comparer key tree with
+        | true, v -> value := v; true
+        | false, _ -> false
 
     member m.TryFind key =
 // #if TRACE_SETS_AND_MAPS
@@ -695,7 +692,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
             | _ ->
                 invalidArg "obj" "not comparable"
 
-    interface IMutableMap<'Key,'Value> with
+    interface Fable.Collections.IMutableMap<'Key,'Value> with
         member this.size = this.Count
         member __.clear() = failwith "Map cannot be mutated"
         member __.delete(_) = failwith "Map cannot be mutated"
@@ -793,7 +790,7 @@ let containsKey key (table: Map<_, _>) =
     table.ContainsKey key
 
 // [<CompiledName("Iterate")>]
-let iter action (table: Map<_, _>) =
+let iterate action (table: Map<_, _>) =
     table.Iterate action
 
 // [<CompiledName("TryPick")>]
@@ -819,7 +816,7 @@ let partition predicate (table: Map<_, _>) =
     table.Partition predicate
 
 // [<CompiledName("ForAll")>]
-let forall predicate (table: Map<_, _>) =
+let forAll predicate (table: Map<_, _>) =
     table.ForAll predicate
 
 // [<CompiledName("Map")>]
@@ -870,6 +867,34 @@ let toArray (table: Map<_, _>) =
 // [<CompiledName("Empty")>]
 let empty<'Key, 'Value  when 'Key : comparison> =
     Map<'Key, 'Value>.Empty
+
+let createMutable (source: KeyValuePair<'Key, 'Value> seq) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'Key>) =
+    let map = Fable.Collections.MutableMap(source, comparer)
+    map :> Fable.Collections.IMutableMap<_,_>
+
+let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'Key>): ('Key * 'T seq) seq =
+    let dict: Fable.Collections.IMutableMap<_,ResizeArray<'T>> = createMutable Seq.empty comparer
+
+    // Build the groupings
+    for v in xs do
+        let key = projection v
+        if dict.has(key) then dict.get(key).Add(v)
+        else dict.set(key, ResizeArray [v]) |> ignore
+
+    // Mapping shouldn't be necessary because KeyValuePair compiles
+    // as a tuple, but let's do it just in case the implementation changes
+    dict |> Seq.map (fun kv -> kv.Key, upcast kv.Value)
+
+let countBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'Key>): ('Key * int) seq =
+    let dict = createMutable Seq.empty comparer
+
+    for value in xs do
+        let key = projection value
+        if dict.has(key) then dict.set(key, dict.get(key) + 1)
+        else dict.set(key, 1)
+        |> ignore
+
+    dict |> Seq.map (fun kv -> kv.Key, kv.Value)
 
 // [<CompiledName("Count")>]
 let count (table: Map<_, _>) =
