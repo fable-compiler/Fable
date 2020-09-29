@@ -1,5 +1,5 @@
 import { value as getOptionValue } from "./Option.js";
-import { anonRecord as makeAnonRecord, FSharpRef, List } from "./Types.js";
+import { FSharpRef, List } from "./Types.js";
 import { compareArraysWith, equalArraysWith, isArrayLike, isUnionLike } from "./Util.js";
 
 export type FieldInfo = [string, TypeInfo];
@@ -362,10 +362,10 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
   }
   return t.construct != null
     ? new t.construct(...values)
-    : makeAnonRecord(fields.reduce((obj, [key, _t], i) => {
+    : fields.reduce((obj, [key, _t], i) => {
       obj[key] = values[i];
       return obj;
-    }, {} as any));
+    }, {} as any);
 }
 
 export function makeTuple(values: any[], _t: TypeInfo): any {
