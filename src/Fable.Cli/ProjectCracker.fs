@@ -16,6 +16,7 @@ type Options = {
     forcePkgs: bool
     rootDir: string
     projFile: string
+    optimize: bool
 }
 
 let isSystemPackage (pkgName: string) =
@@ -459,9 +460,11 @@ let getFullProjectOpts (opts: Options) =
                 // We only keep dllRefs for the main project
                 mainProj.DllReferences
                 |> List.mapToArray (fun r -> "-r:" + r)
+            let optimize = [| "--optimize" + (if opts.optimize then "+" else "-") |]
             let otherOpts = mainProj.OtherCompilerOptions |> Array.ofList
             [ getBasicCompilerArgs opts.define
               otherOpts
+              optimize
               dllRefs ]
             |> Array.concat
         makeProjectOptions opts.projFile sourceFiles otherOptions

@@ -34,7 +34,7 @@ Commands:
 
 Arguments:
   --cwd             Working directory
-  --outDir          Redirect compilation output files to a directory
+  --outDir          Redirect compilation output to a directory
   --define          Defines a symbol for use in conditional compilation
   --run             The command after the argument will be executed after compilation
   --runWatch        Like run, but will execute after each watch compilation
@@ -43,7 +43,8 @@ Arguments:
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
   --exclude         Skip Fable compilation for files containing the pattern
-  --optimize        Use optimized AST from F# compiler (experimental)
+  --optimize        Compile with optimized F# AST (experimental)
+  --typescript      Compile to TypeScript (experimental)
 """
 
 type Runner =
@@ -86,7 +87,7 @@ type Runner =
 
             let compilerOptions =
                 CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
-                                       typedArrays = hasFlag "--typedArrays" args,
+                                           typedArrays = hasFlag "--typedArrays" args,
                                            ?fileExtension = argValue "--extension" args,
                                            debugMode = Array.contains "DEBUG" defines,
                                            optimizeFSharpAst = hasFlag "--optimize" args,

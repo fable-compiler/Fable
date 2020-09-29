@@ -79,7 +79,7 @@ let runAsync computation =
             printfn "%s" e.StackTrace
     } |> Async.StartImmediate
 
-let parseFiles projectFileName outDir options =
+let parseFiles projectFileName options =
     // parse project
     let (dllRefs, fileNames, otherOptions) = parseProject projectFileName
     let sources = fileNames |> Array.map readAllText
@@ -114,8 +114,8 @@ let parseFiles projectFileName outDir options =
     if options.benchmark then () else
 
     // clear cache to lower memory usage
-    if not options.watchMode then
-        fable.ClearParseCaches(checker)
+    // if not options.watch then
+    fable.ClearParseCaches(checker)
 
     // exclude signature files
     let fileNames = fileNames |> Array.filter (fun x -> not (x.EndsWith(".fsi")))
@@ -128,6 +128,12 @@ let parseFiles projectFileName outDir options =
 
     async {
         for fileName in fileNames do
+
+            // print F# AST
+            if options.printAst then
+                let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
+                printfn "%s Typed AST: %s" fileName fsAstStr
+
             // transform F# AST to Babel AST
             let res, ms2 = measureTime parseFable (parseRes, fileName)
             printfn "File: %s, Fable time: %d ms" fileName ms2
@@ -136,20 +142,28 @@ let parseFiles projectFileName outDir options =
             // print Babel AST as JavaScript/TypeScript
             let fileExt = if options.typescript then ".ts" else ".js"
             let outPath =
-                match outDir with
+                match options.outDir with
                 | None ->
                     fileName + fileExt
                 | Some outDir ->
                     let relPath = getRelativePath projDir fileName |> Imports.trimPath
                     let relPath = Path.ChangeExtension(relPath, fileExt)
                     Path.Combine(outDir, relPath)
-            let writer = new SourceWriter(fileName, outPath, projDir, outDir)
+            let writer = new SourceWriter(fileName, outPath, projDir, options.outDir)
             do! fable.PrintBabelAst(res, writer)
 
             // write the result to file
             ensureDirExists(Path.GetDirectoryName(outPath))
             writeAllText outPath writer.Result
     } |> runAsync
+
+let hasFlag flag (args: string[]) =
+    Array.contains flag args
+
+let argValue key (args: string[]) =
+    args
+    |> Array.pairwise
+    |> Array.tryPick (fun (k, v) -> if k = key then Some v else None)
 
 let run opts projectFileName outDir =
     let commandToRun =
@@ -161,25 +175,37 @@ let run opts projectFileName outDir =
             let runArgs = opts.[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
-        benchmark = opts |> Array.contains "--benchmark"
-        optimize = opts |> Array.contains "--optimize-fcs"
-        sourceMaps = opts |> Array.contains "--sourceMaps"
-        typescript = opts |> Array.contains "--typescript"
-        watchMode = opts |> Array.contains "--watch"
+        outDir = opts |> argValue "--outDir" |> Option.orElse outDir
+        // fableDir = opts |> argValue "--fableDir"
+        benchmark = opts |> hasFlag "--benchmark"
+        optimize = opts |> hasFlag "--optimize"
+        // sourceMaps = opts |> hasFlag "--sourceMaps"
+        typescript = opts |> hasFlag "--typescript"
+        printAst = opts |> hasFlag "--printAst"
+        // watch = opts |> hasFlag "--watch"
     }
-    parseFiles projectFileName outDir options
+    parseFiles projectFileName options
     commandToRun |> Option.iter runCmdAndExitIfFails
 
 let parseArguments (argv: string[]) =
-    // TODO: more sophisticated argument parsing
-    let usage = "Usage: fable <PROJECT_PATH> <OUT_DIR> [--options]"
+    let usage = """Usage: fable <F#_PROJECT_PATH> [OUT_DIR] [--options]
+
+Options:
+  --help            Show help
+  --version         Print version
+  --outDir          Redirect compilation output to a directory
+  --optimize        Compile with optimized F# AST (experimental)
+  --typescript      Compile to TypeScript (experimental)
+  --run             Execute the script after compilation
+"""
+
     let args, opts =
         match argv |> Array.tryFindIndex (fun s -> s.StartsWith("--")) with
         | None -> argv, [||]
-        | Some i -> argv.[..i-1], argv.[i..]
+        | Some i -> Array.splitAt i argv
     match opts, args with
-    | [| "--help" |], _ -> printfn "%s" usage
-    | [| "--version" |], _ -> printfn "v%s" (getVersion())
+    | _, _ when argv |> hasFlag "--help" -> printfn "%s" usage
+    | _, _ when argv |> hasFlag "--version" -> printfn "v%s" (getVersion())
     | _, [| projectFileName |] ->
         run opts projectFileName None
     | _, [| projectFileName; outDir |] ->

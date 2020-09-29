@@ -241,6 +241,7 @@ type ProjectCracked(sourceFiles: File array,
                 forcePkgs = msg.ForcePackages
                 rootDir = msg.RootDir
                 projFile = msg.ProjectFile
+                optimize = msg.CompilerOptions.OptimizeFSharpAst
             }
 
         Log.verbose(lazy
