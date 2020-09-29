@@ -276,11 +276,6 @@ export function recordCompareTo(self: any, other: any) {
 //   }
 // }
 
-export function anonRecord(o: any) {
-  // return Object.assign(Object.create(Record.prototype), o);
-  return o;
-}
-
 export class FSharpRef<T> {
   private getter: () => T;
   private setter: (v: T) => void;

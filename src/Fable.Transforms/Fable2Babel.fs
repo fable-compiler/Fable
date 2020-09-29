@@ -916,8 +916,6 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values
             |> makeJsObject
-            |> Array.singleton
-            |> libCall com ctx r "Types" "anonRecord"
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let consRef = jsConstructor com ctx ent
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
