@@ -21,28 +21,30 @@ type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir:
             Imports.getImportPath sourcePath targetPath projDir outDir path
         member _.Dispose() = stream.Dispose()
 
-type SingleShotObservable<'T>() =
-    let mutable subscriber: IObserver<'T> option = None
-    member _.Trigger(value) =
-        match subscriber with
-        | None -> ()
-        | Some w ->
-            subscriber <- None
-            w.OnNext(value)
+type Watcher() =
+    static member AwaitChanges(filesToWatch: string list) =
+        let commonBaseDir =
+            filesToWatch
+            |> List.map (IO.Path.GetDirectoryName)
+            |> List.distinct
+            |> List.sortBy (fun f -> f.Length)
+            |> function
+                | [] -> failwith "Empty list passed to watcher"
+                | [dir] -> dir
+                | dir::restDirs ->
+                    let rec getCommonDir (dir: string) =
+                        if restDirs |> List.forall (fun d -> d.StartsWith(dir)) then dir
+                        else
+                            match IO.Path.GetDirectoryName(dir) with
+                            | null -> failwith "No common base dir"
+                            | dir -> getCommonDir dir
+                    getCommonDir dir
 
-    interface IObservable<'T> with
-        member _.Subscribe(listener) =
-            subscriber <- Some listener
-            { new IDisposable with
-                member _.Dispose() = () }
+        let changes = ResizeArray()
+        let watcher = new FileSystemWatcher(commonBaseDir)
+        let timer = new Timers.Timer(200., AutoReset=false)
+        Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
 
-type Watcher(projDir: string) =
-    let changes = ResizeArray()
-    let observable = SingleShotObservable()
-    let watcher = new FileSystemWatcher(projDir)
-    let timer = new Timers.Timer(500., AutoReset=false)
-
-    do
         watcher.Filters.Add("*.fs")
         watcher.Filters.Add("*.fsx")
         watcher.Filters.Add("*.fsproj")
@@ -50,30 +52,29 @@ type Watcher(projDir: string) =
         // watcher.NotifyFilter <- NotifyFilters.LastWrite
         watcher.EnableRaisingEvents <- false
 
-        timer.Elapsed.Add(fun _ ->
-            changes
-            |> Seq.map Path.normalizeFullPath
-            |> set
-            |> observable.Trigger
-            changes.Clear())
-
+        let filePaths = set filesToWatch
         let onChange _changeType fullPath =
-            if not timer.Enabled then
+            let fullPath = Path.normalizePath fullPath
+            if Set.contains fullPath filePaths then
+                changes.Add(fullPath)
+                if timer.Enabled then
+                    timer.Stop()
                 timer.Start()
-            changes.Add(fullPath)
 
         watcher.Changed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
         watcher.Created.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
         watcher.Deleted.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
         watcher.Renamed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
 
-    member _.Directory = projDir
-
-    member _.AwaitChanges() =
         Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
-            observable.Add(fun changes ->
+            timer.Elapsed.Add(fun _ ->
                 watcher.EnableRaisingEvents <- false
-                onSuccess changes)
+                watcher.Dispose()
+                timer.Dispose()
+
+                changes
+                |> set
+                |> onSuccess)
             watcher.EnableRaisingEvents <- true
         )
 
@@ -172,7 +173,7 @@ module private Util =
                 | ext -> ext
 
             let projDir =
-                cliArgs.ProjectFile |> Path.normalizeFullPath |> Path.GetDirectoryName
+                cliArgs.ProjectFile |> Path.normalizeFullPath |> IO.Path.GetDirectoryName
             let outPath =
                 match cliArgs.OutDir with
                 | None ->
@@ -180,11 +181,11 @@ module private Util =
                 | Some outDir ->
                     let fileExt = if com.Options.Typescript then ".ts" else ".js"
                     let relPath = Imports.getRelativePath projDir com.CurrentFile |> Imports.trimPath
-                    let relPath = Path.ChangeExtension(relPath, fileExt)
-                    Path.Combine(outDir, relPath)
+                    let relPath = IO.Path.ChangeExtension(relPath, fileExt)
+                    IO.Path.Combine(outDir, relPath)
 
             // ensure directory exists
-            let dir = Path.GetDirectoryName outPath
+            let dir = IO.Path.GetDirectoryName outPath
             if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
 
             // write output to file
@@ -312,7 +313,6 @@ type TestInfo private (current, iterations, times: int64 list) =
 type State =
     { CliArgs: CliArgs
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
-      Watcher: Watcher option
       WatchDependencies: Map<string, string[]>
       ErroredFiles: Set<string>
       TestInfo: TestInfo option }
@@ -427,25 +427,30 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             else { state with CliArgs = { state.CliArgs with RunArgs = None } }
         | None -> state
 
-    match state.Watcher, state.TestInfo with
-    | Some watcher, _ ->
+    match state.CliArgs.WatchMode, state.TestInfo with
+    | true, _ ->
         let oldErrors =
             state.ErroredFiles
             |> Set.filter (fun file -> not(Array.contains file filesToCompile))
 
-        Log.always("Watching " + File.getRelativePathFromCwd watcher.Directory)
-        let! changes = watcher.AwaitChanges()
+        let! changes = Watcher.AwaitChanges [
+            cracked.ProjectFile
+            yield! cracked.SourceFiles |> Seq.choose (fun f ->
+                let path = f.NormalizedFullPath
+                if Naming.isInFableHiddenDir(path) then None
+                else Some path)
+        ]
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)
                          WatchDependencies = watchDependencies
                          ErroredFiles = Set.union oldErrors newErrors }
             |> startCompilation changes
 
-    | None, None ->
+    | false, None ->
         let hasError = not(Set.isEmpty newErrors)
         return if not hasError then Ok() else Error()
 
-    | None, Some info ->
+    | false, Some info ->
         let info = info.NextIteration(ms)
         if info.CurrentIteration < info.TotalIterations then
             return!

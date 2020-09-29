@@ -97,22 +97,15 @@ type Runner =
                   FableLibraryPath = argValue "--fableLib" args
                   RootDir = rootDir
                   OutDir = argValue "--outDir" args
+                  WatchMode = watch
                   ForcePackages = hasFlag "--forcePkgs" args
                   Exclude = argValue "--exclude" args
                   Define = defines
                   RunArgs = runArgs
                   CompilerOptions = compilerOptions }
 
-            let watcher =
-                if watch then
-                    IO.Path.GetDirectoryName(projFile)
-                    |> Watcher
-                    |> Some
-                else None
-
             { CliArgs = cliArgs
               ProjectCrackedAndParsed = None
-              Watcher = watcher
               WatchDependencies = Map.empty
               ErroredFiles = Set.empty
               TestInfo = testInfo }

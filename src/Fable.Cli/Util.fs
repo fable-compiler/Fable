@@ -19,6 +19,7 @@ type CliArgs =
       FableLibraryPath: string option
       Define: string[]
       ForcePackages: bool
+      WatchMode: bool
       Exclude: string option
       RunArgs: RunArgs option
       CompilerOptions: Fable.CompilerOptions }
