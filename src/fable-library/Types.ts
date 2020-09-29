@@ -1,4 +1,4 @@
-import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, isSameType, isStringable, numberHash, structuralHash } from "./Util.js";
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, sameConstructor, isStringable, numberHash, structuralHash } from "./Util.js";
 
 export function objectToString(self: any) {
   if (isStringable(self)) {
@@ -125,7 +125,7 @@ export function unionEquals(self: any, other: any) {
     return true;
   } else if (isEquatable(self)) { // && !(self instanceof Union)) {
     return self.Equals(other);
-  } else if (!isSameType(self, other)) {
+  } else if (!sameConstructor(self, other)) {
     return false;
   } else if (self.tag === other.tag) {
     return equalArrays(self.fields, other.fields);
@@ -139,7 +139,7 @@ export function unionCompareTo(self: any, other: any) {
     return 0;
   } else if (isComparable(self)) { // && !(self instanceof Union)) {
     return self.CompareTo(other);
-  } else if (!isSameType(self, other)) {
+  } else if (!sameConstructor(self, other)) {
     return -1;
   } else if (self.tag === other.tag) {
     return compareArrays(self.fields, other.fields);
@@ -217,7 +217,7 @@ export function recordEquals(self: any, other: any) {
     return true;
   } else if (isEquatable(self)) { // && !(self instanceof Record)) {
     return self.Equals(other);
-  } else if (!isSameType(self, other)) {
+  } else if (!sameConstructor(self, other)) {
     return false;
   } else {
     const thisNames = Object.keys(self);
@@ -235,7 +235,7 @@ export function recordCompareTo(self: any, other: any) {
     return 0;
   } else if (isComparable(self)) { // && !(self instanceof Record)) {
     return self.CompareTo(other);
-  } else if (!isSameType(self, other)) {
+  } else if (!sameConstructor(self, other)) {
     return -1;
   } else {
     const thisNames = Object.keys(self);

@@ -112,8 +112,8 @@ export function isStringable<T>(x: T | IStringable): x is IStringable {
   return x != null && typeof (x as IStringable).ToString === "function";
 }
 
-export function isSameType(x: any, y: any) {
-  return y != null && Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
+export function sameConstructor(x: any, y: any) {
+  return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
 export function isUnionLike(x: any) {
@@ -387,7 +387,7 @@ export function equals<T>(x: T, y: T): boolean {
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
-    return equalObjects(x, y);
+    return sameConstructor(x, y) && equalObjects(x, y);
   }
 }
 
@@ -461,12 +461,12 @@ export function compare<T>(x: T, y: T): number {
     return x < y ? -1 : 1;
   } else if (isComparable(x)) {
     return x.CompareTo(y);
-  } else if (isArrayLike(x) && isArrayLike(y)) {
-    return compareArrays(x, y);
-  } else if (x instanceof Date && y instanceof Date) {
-    return compareDates(x, y);
+  } else if (isArrayLike(x)) {
+    return isArrayLike(y) ? compareArrays(x, y) : -1;
+  } else if (x instanceof Date) {
+    return y instanceof Date ? compareDates(x, y) : -1;
   } else {
-    return compareObjects(x, y);
+    return sameConstructor(x, y) ? compareObjects(x, y) : -1;
   }
 }
 
