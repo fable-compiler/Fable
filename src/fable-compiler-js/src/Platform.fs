@@ -3,11 +3,14 @@ module Fable.Compiler.Platform
 open Fable.Core.JsInterop
 
 type CmdLineOptions = {
+    outDir: string option
+    // fableDir: string option
     benchmark: bool
     optimize: bool
-    sourceMaps: bool
+    // sourceMaps: bool
     typescript: bool
-    watchMode: bool
+    printAst: bool
+    // watch: bool
 }
 
 module JS =

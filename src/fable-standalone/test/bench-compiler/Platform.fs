@@ -1,11 +1,14 @@
 module Fable.Compiler.Platform
 
 type CmdLineOptions = {
+    outDir: string option
+    // fableDir: string option
     benchmark: bool
     optimize: bool
-    sourceMaps: bool
+    // sourceMaps: bool
     typescript: bool
-    watchMode: bool
+    printAst: bool
+    // watch: bool
 }
 
 #if DOTNET_FILE_SYSTEM && !FABLE_COMPILER
