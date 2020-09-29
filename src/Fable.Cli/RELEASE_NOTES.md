@@ -1,3 +1,9 @@
+### 3.0.0-nagareyama-alpha-005
+
+* Fix watcher
+* Use latest implementation of FSharpMap and FSharpSet
+* Fix generic equality
+
 ### 3.0.0-nagareyama-alpha-004
 
 * Improve CLI and other fixes
