@@ -1,3 +1,7 @@
+### 3.0.0-alpha
+
+* Nagareyama
+
 ### 1.3.1
 
 * Improve globbing support (by @ncave)

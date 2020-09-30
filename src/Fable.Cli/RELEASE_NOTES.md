@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-alpha-006
+
+* Fix running process
+
 ### 3.0.0-nagareyama-alpha-005
 
 * Fix watcher
