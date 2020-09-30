@@ -122,12 +122,8 @@ let clean args dir =
         argValue "--extension" args
         |> Option.defaultValue CompilerOptionsHelper.DefaultFileExtension
 
+    let mutable fileCount = 0
     let rec recClean dir =
-        IO.Directory.GetDirectories(dir)
-        |> Array.iter (fun subdir ->
-            if IO.Path.GetDirectoryName(subdir) = Naming.fableHiddenDir then
-                IO.Directory.Delete(subdir, true))
-
         IO.Directory.GetFiles(dir)
         |> Array.choose (fun file ->
             if file.EndsWith(".fs") then Some(file.[.. (file.Length - 4)])
@@ -136,15 +132,20 @@ let clean args dir =
             let file = filename + ext
             if IO.File.Exists(file) then
                 IO.File.Delete(file)
+                fileCount <- fileCount + 1
                 Log.verbose(lazy ("Deleted " + file)))
 
         IO.Directory.GetDirectories(dir)
         |> Array.filter (fun subdir ->
             ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
-        |> Array.iter recClean
+        |> Array.iter (fun subdir ->
+            if IO.Path.GetFileName(subdir) = Naming.fableHiddenDir then
+                IO.Directory.Delete(subdir, true)
+                Log.always("Deleted " + File.getRelativePathFromCwd subdir)
+            else recClean subdir)
 
     recClean dir
-    Log.always("Clean completed!")
+    Log.always("Clean completed! Files deleted: " + string fileCount)
     0
 
 let (|SplitCommandArgs|) (xs: string list) =

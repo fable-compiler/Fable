@@ -420,13 +420,19 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             | Some file -> Set.add file errors
             | None -> errors) Set.empty
 
-    let state =
-        match state.CliArgs.RunArgs with
-        | Some runArgs ->
+    let hasError = not(Set.isEmpty newErrors)
+    let hasError, state =
+        match hasError, state.CliArgs.RunArgs, state.CliArgs.WatchMode with
+        // Only run process if there are no errors
+        | true, _, _ -> true, state
+        | false, None, _ -> false, state
+        | false, Some runArgs, true ->
             Process.fireAndForget state.CliArgs.RootDir runArgs.ExeFile runArgs.Args
-            if runArgs.IsWatch then state
-            else { state with CliArgs = { state.CliArgs with RunArgs = None } }
-        | None -> state
+            if runArgs.IsWatch then false, state
+            else false, { state with CliArgs = { state.CliArgs with RunArgs = None } }
+        | false, Some runArgs, false ->
+            let exitCode = Process.runSync state.CliArgs.RootDir runArgs.ExeFile runArgs.Args
+            exitCode <> 0, state
 
     match state.CliArgs.WatchMode, state.TestInfo with
     | true, _ ->
@@ -448,7 +454,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             |> startCompilation changes
 
     | false, None ->
-        let hasError = not(Set.isEmpty newErrors)
         return if not hasError then Ok() else Error()
 
     | false, Some info ->
