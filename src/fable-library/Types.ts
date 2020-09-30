@@ -1,12 +1,4 @@
-import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, sameConstructor, isStringable, numberHash, structuralHash } from "./Util.js";
-
-export function objectToString(self: any) {
-  if (isStringable(self)) {
-    return self.ToString();
-  } else {
-    return Object.getPrototypeOf(self).constructor.name;
-  }
-}
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, sameConstructor, numberHash, structuralHash } from "./Util.js";
 
 // export class SystemObject implements IEquatable<any> {
 
@@ -92,19 +84,6 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 }
 
-export function unionToString(self: any) {
-  const name = self.cases()[self.tag];
-  if (isStringable(self)) {
-    return self.ToString();
-  } else if (self.fields.length === 0) {
-    return name;
-  } else if (self.fields.length === 1) {
-    return name + " " + String(self.fields[0]);
-  } else {
-    return name + " (" + self.fields.map((x: any) => String(x)).join(",") + ")";
-  }
-}
-
 export function unionToJson(self: any) {
   const name = self.cases()[self.tag];
   return self.fields.length === 0 ? name : [name].concat(self.fields);
@@ -185,14 +164,6 @@ export function unionCompareTo(self: any, other: any) {
 //     return unionCompareTo(this, other);
 //   }
 // }
-
-export function recordToString(self: any) {
-  if (isStringable(self)) {
-    return self.ToString();
-  } else {
-    return "{" + Object.entries(self).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
-  }
-}
 
 export function recordToJson(self: any, getFieldNames?: (arg: any) => any) {
   const o: any = {};

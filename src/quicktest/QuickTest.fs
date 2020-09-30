@@ -67,18 +67,32 @@ let measureTime (f: unit -> unit) = emitJsStatement f """
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
 
-type MyGetter =
-    abstract Foo: int
-    abstract MyNumber: int
+let areEqual (x: obj) (y: obj) =
+    x = y
 
-measureTime <| (fun () ->
-    let myGetter = { new MyGetter with
-                        member _.Foo = 1
-                        member this.MyNumber = this.Foo + 1 }
+type MyUnion1 = Foo of int * int | Bar of float | Baz
+type MyUnion2 = Foo of int * int
+    with override _.ToString() = "ffff"
 
-    let mutable x = 0
-    for i = 0 to 1000000000 do
-        x <- x + myGetter.MyNumber
+type MyRecord1 = { Foo: int; Bar: string }
+type MyRecord2 = { Foo: int; Bar: string }
 
-    printfn "x = %i" x
-)
+testCase "Two unions of different type with same shape are not equal" <| fun () ->
+    areEqual (MyUnion1.Foo(1,2)) (MyUnion2.Foo(1,2)) |> equal false
+    areEqual (MyUnion1.Foo(1,2)) (MyUnion1.Foo(1,2)) |> equal true
+
+testCase "Two records of different type with same shape are not equal" <| fun () ->
+    areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord2.Foo = 2; Bar = "oh" } |> equal false
+    areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord1.Foo = 2; Bar = "oh" } |> equal true
+
+testCase "Union to string" <| fun () ->
+    MyUnion1.Foo(1,2) |> string |> equal "Foo (1,2)"
+    MyUnion1.Bar 4.5 |> string |> equal "Bar 4.5"
+    MyUnion1.Baz |> string |> equal "Baz"
+    MyUnion1.Foo(1,2) |> sprintf "%A" |> equal "Foo (1,2)"
+    MyUnion1.Bar 4.5 |> sprintf "%A" |> equal "Bar 4.5"
+    MyUnion1.Baz |> sprintf "%A" |> equal "Baz"
+
+// testCase "Record to string" <| fun () ->
+//     { MyRecord1.Foo = 2; Bar = "oh" } |> string |> equal "{Foo = 2; Bar = oh}"
+//     { MyRecord1.Foo = 2; Bar = "oh" } |> sprintf "%A" |> equal "{Foo = 2; Bar = oh}"

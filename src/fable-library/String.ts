@@ -2,11 +2,16 @@ import { toString as dateToString } from "./Date.js";
 import Decimal from "./Decimal.js";
 import Long, * as _Long from "./Long.js";
 import { escape } from "./RegExp.js";
+import { isUnionLike } from "./Util.js";
+
+type Numeric = number | Long | Decimal;
+
+export interface IStringable {
+  ToString(): string;
+}
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
-
-type Numeric = number | Long | Decimal;
 
 // These are used for formatting and only take longs and decimals into account (no bigint)
 function isNumeric(x: any) {
@@ -219,6 +224,8 @@ function formatOnce(str2: string, rep: any) {
           rep = String(rep);
           break;
       }
+    } else {
+      rep = toString(rep);
     }
     padLength = parseInt(padLength, 10);
     if (!isNaN(padLength)) {
@@ -309,13 +316,60 @@ export function format(str: string, ...args: any[]) {
       }
     } else if (rep instanceof Date) {
       rep = dateToString(rep, pattern || format);
+    } else {
+      rep = toString(rep)
     }
     padLength = parseInt((padLength || " ").substring(1), 10);
     if (!isNaN(padLength)) {
-      rep = padLeft(String(rep), Math.abs(padLength), " ", padLength < 0);
+      rep = padLeft(rep, Math.abs(padLength), " ", padLength < 0);
     }
     return rep;
   });
+}
+
+export function isStringable<T>(x: T | IStringable): x is IStringable {
+  return x != null && typeof (x as IStringable).ToString === "function";
+}
+
+function unionToStringPrivate(self: any): string {
+  const name = self.cases()[self.tag];
+  if (self.fields.length === 0) {
+    return name;
+  } else if (self.fields.length === 1) {
+    return name + " " + String(self.fields[0]);
+  } else {
+    return name + " (" + self.fields.map((x: any) => String(x)).join(",") + ")";
+  }
+}
+
+export function unionToString(self: any) {
+  return isStringable(self) ? self.ToString() : unionToStringPrivate(self);
+}
+
+export function recordToStringPrivate(self: any): string {
+  return "{" + Object.entries(self).map(([k, v]) => k + " = " + toString(v)).join(";\n ") + "}";
+}
+
+export function recordToString(self: any): string {
+  return isStringable(self) ? self.ToString() : recordToStringPrivate(self);
+}
+
+export function objectToString(self: any): string {
+  return isStringable(self) ? self.ToString() : Object.getPrototypeOf(self).constructor.name;
+}
+
+export function toString(x: any): string {
+  if (x == null || typeof x !== "object") {
+    return String(x);
+  } else if (isStringable(x)) {
+    return x.ToString();
+  } else if (isUnionLike(x)) {
+    return unionToStringPrivate(x);
+  } else {
+    // TODO: Defaulting to recordToString until we have a way to tell
+    // records and other objects apart in runtime
+    return recordToStringPrivate(x);
+  }
 }
 
 export function endsWith(str: string, search: string) {

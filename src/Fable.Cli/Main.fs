@@ -318,6 +318,14 @@ type State =
       ErroredFiles: Set<string>
       TestInfo: TestInfo option }
 
+let filterFiles (exclude: string option) (files: string[]) =
+    files
+    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+    |> fun filesToCompile ->
+        match exclude with
+        | Some exclude -> filesToCompile |> Array.filter (fun x -> not(x.Contains(exclude))) // Use regex?
+        | None -> filesToCompile
+
 let rec startCompilation (changes: Set<string>) (state: State) = async {
     let cracked, parsed, filesToCompile =
         match state.ProjectCrackedAndParsed with
@@ -370,13 +378,9 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     let filesToCompile =
         filesToCompile
-        |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
+        |> filterFiles state.CliArgs.Exclude
         |> Array.append (Set.toArray state.ErroredFiles)
         |> Array.distinct
-        |> fun filesToCompile ->
-            match state.CliArgs.Exclude with
-            | Some exclude -> filesToCompile |> Array.filter (fun x -> not(x.Contains(exclude))) // Use regex?
-            | None -> filesToCompile
 
     let logs = getFSharpErrorLogs parsed.Project
 
@@ -442,10 +446,12 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
         let! changes = Watcher.AwaitChanges [
             cracked.ProjectFile
-            yield! cracked.SourceFiles |> Seq.choose (fun f ->
-                let path = f.NormalizedFullPath
-                if Naming.isInFableHiddenDir(path) then None
-                else Some path)
+            yield! cracked.SourceFiles
+                |> Array.choose (fun f ->
+                    let path = f.NormalizedFullPath
+                    if Naming.isInFableHiddenDir(path) then None
+                    else Some path)
+                |> filterFiles state.CliArgs.Exclude
         ]
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

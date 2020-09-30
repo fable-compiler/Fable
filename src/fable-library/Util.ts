@@ -33,10 +33,6 @@ export interface IDisposable {
   Dispose(): void;
 }
 
-export interface IStringable {
-  ToString(): void;
-}
-
 export interface IComparer<T> {
   Compare(x: T, y: T): number;
 }
@@ -108,16 +104,12 @@ export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
   return x != null && typeof (x as IDisposable).Dispose === "function";
 }
 
-export function isStringable<T>(x: T | IStringable): x is IStringable {
-  return x != null && typeof (x as IStringable).ToString === "function";
-}
-
 export function sameConstructor(x: any, y: any) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
 export function isUnionLike(x: any) {
-  return x != null && x.tag != null && x.fields != null && typeof x.cases === "function";
+  return typeof x != null && typeof x.tag === "number" && Array.isArray(x.fields) && typeof x.cases === "function";
 }
 
 export class Comparer<T> implements IComparer<T> {
