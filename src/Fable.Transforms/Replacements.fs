@@ -223,8 +223,6 @@ let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
     namesAndReplacements |> List.tryPick (fun (name2, replacement) ->
         if name2 = name then Some replacement else None)
 
-let inline (|ExprType|) (e: Expr) = e.Type
-
 let (|OrDefault|) (def:'T) = function
     | Some v -> v
     | None -> def
