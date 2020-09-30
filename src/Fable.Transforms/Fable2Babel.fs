@@ -1124,20 +1124,19 @@ module Util =
         [|TryStatement(transformBlock com ctx returnStrategy body,
             ?handler=handler, ?finalizer=finalizer, ?loc=r) :> Statement|]
 
-    // Even if IfStatement doesn't enforce it, compile both branches as blocks
-    // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-    let rec transformIfStatement (com: IBabelCompiler) ctx r ret (guardExpr: Expression) thenStmnt elseStmnt =
-        let thenStmnt = transformBlock com ctx ret thenStmnt
-        match elseStmnt: Fable.Expr with
-        | Fable.IfThenElse(TransformExpr com ctx guardExpr', thenStmnt', elseStmnt', r2) ->
-            let elseStmnt = transformIfStatement com ctx r2 ret guardExpr' thenStmnt' elseStmnt'
-            IfStatement(guardExpr, thenStmnt, elseStmnt, ?loc=r)
-        | expr ->
-            match com.TransformAsStatements(ctx, ret, expr) with
-            | [||] -> IfStatement(guardExpr, thenStmnt, ?loc=r)
-            | [|:? ExpressionStatement as e|] when (e.Expression :? NullLiteral) ->
-                IfStatement(guardExpr, thenStmnt, ?loc=r)
-            | statements -> IfStatement(guardExpr, thenStmnt, BlockStatement statements, ?loc=r)
+    let rec transformIfStatement (com: IBabelCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
+        match com.TransformAsExpr(ctx, guardExpr) with
+        | :? BooleanLiteral as b when b.Value ->
+            com.TransformAsStatements(ctx, ret, thenStmnt)
+        | :? BooleanLiteral as b when not b.Value ->
+            com.TransformAsStatements(ctx, ret, elseStmnt)
+        | guardExpr ->
+            let thenStmnt = transformBlock com ctx ret thenStmnt
+            match com.TransformAsStatements(ctx, ret, elseStmnt) with
+            | [||] -> IfStatement(guardExpr, thenStmnt, ?loc=r) :> Statement
+            | [|elseStmnt|] -> IfStatement(guardExpr, thenStmnt, elseStmnt, ?loc=r) :> Statement
+            | statements -> IfStatement(guardExpr, thenStmnt, BlockStatement statements, ?loc=r) :> Statement
+            |> Array.singleton
 
     let transformGet (com: IBabelCompiler) ctx range typ fableExpr (getKind: Fable.GetKind) =
         match getKind with
@@ -1584,8 +1583,6 @@ module Util =
                 | Some(Fable.FieldKey fi) -> get None expr fi.Name |> Assign
             com.TransformAsStatements(ctx, Some ret, value)
 
-        // Even if IfStatement doesn't enforce it, compile both branches as blocks
-        // to prevent conflicts (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
             let asStatement =
                 match returnStrategy with
@@ -1596,10 +1593,7 @@ module Util =
                     Option.isSome ctx.TailCallOpportunity
                     || (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
             if asStatement then
-                match com.TransformAsExpr(ctx, guardExpr) with
-                // In some situations (like some type tests) the condition may be always true
-                | :? BooleanLiteral as e when e.Value -> com.TransformAsStatements(ctx, returnStrategy, thenExpr)
-                | guardExpr -> [|transformIfStatement com ctx r returnStrategy guardExpr thenExpr elseExpr :> Statement|]
+                transformIfStatement com ctx r returnStrategy guardExpr thenExpr elseExpr
             else
                 let guardExpr' = transformAsExpr com ctx guardExpr
                 let thenExpr' = transformAsExpr com ctx thenExpr

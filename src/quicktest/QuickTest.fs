@@ -82,3 +82,19 @@ measureTime <| (fun () ->
 
     printfn "x = %i" x
 )
+
+let test (exn: exn) =
+    match exn with
+    | :? System.NotSupportedException  -> ()
+    | :? System.SystemException -> ()
+    | Failure _ -> raise exn
+    | _ -> ()
+
+let test2 () =
+    printfn "foo"
+    if 3 > 2 then
+        "foo"
+    elif false then
+        "bar"
+    else
+        "baz"
