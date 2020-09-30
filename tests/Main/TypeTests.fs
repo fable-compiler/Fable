@@ -391,6 +391,16 @@ type MixedThese(x: int) =
                 member _.Value = y
                 member this2.Add() = this1.Value + this2.Value }
 
+let areEqual (x: obj) (y: obj) =
+    x = y
+
+type MyUnion1 = Foo of int * int | Bar of float | Baz
+type MyUnion2 = Foo of int * int
+    with override _.ToString() = "ffff"
+
+type MyRecord1 = { Foo: int; Bar: string }
+type MyRecord2 = { Foo: int; Bar: string }
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
@@ -858,4 +868,12 @@ let tests =
 
     testCase "Multiple `this` references work in nested attached members" <| fun _ ->
         (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5
+
+    testCase "Two unions of different type with same shape are not equal" <| fun () ->
+        areEqual (MyUnion1.Foo(1,2)) (MyUnion2.Foo(1,2)) |> equal false
+        areEqual (MyUnion1.Foo(1,2)) (MyUnion1.Foo(1,2)) |> equal true
+
+    testCase "Two records of different type with same shape are not equal" <| fun () ->
+        areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord2.Foo = 2; Bar = "oh" } |> equal false
+        areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord1.Foo = 2; Bar = "oh" } |> equal true
   ]

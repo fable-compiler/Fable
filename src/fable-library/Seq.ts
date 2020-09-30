@@ -79,11 +79,9 @@ function __failIfNone<T>(res: Option<T>) {
 }
 
 function makeSeq<T>(f: () => Iterator<T>): Iterable<T> {
-  const seq = {
+  return {
     [Symbol.iterator]: f,
-    toString: () => "seq [" + Array.from(seq).join("; ") + "]",
   };
-  return seq;
 }
 
 function isArrayOrBufferView<T>(xs: Iterable<T>): xs is T[] {

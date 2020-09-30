@@ -53,10 +53,10 @@ let testCaseAsync msg f =
                     printfn "%s" ex.StackTrace
         } |> Async.StartImmediate)
 
-let measureTime (f: unit -> unit) = emitJsStatement f """
+let measureTime (f: unit -> unit) = emitJsStatement () """
     //js
     const startTime = process.hrtime();
-    $0();
+    f();
     const elapsed = process.hrtime(startTime);
     console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);
     //!js
@@ -66,33 +66,3 @@ let measureTime (f: unit -> unit) = emitJsStatement f """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-let areEqual (x: obj) (y: obj) =
-    x = y
-
-type MyUnion1 = Foo of int * int | Bar of float | Baz
-type MyUnion2 = Foo of int * int
-    with override _.ToString() = "ffff"
-
-type MyRecord1 = { Foo: int; Bar: string }
-type MyRecord2 = { Foo: int; Bar: string }
-
-testCase "Two unions of different type with same shape are not equal" <| fun () ->
-    areEqual (MyUnion1.Foo(1,2)) (MyUnion2.Foo(1,2)) |> equal false
-    areEqual (MyUnion1.Foo(1,2)) (MyUnion1.Foo(1,2)) |> equal true
-
-testCase "Two records of different type with same shape are not equal" <| fun () ->
-    areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord2.Foo = 2; Bar = "oh" } |> equal false
-    areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord1.Foo = 2; Bar = "oh" } |> equal true
-
-testCase "Union to string" <| fun () ->
-    MyUnion1.Foo(1,2) |> string |> equal "Foo (1,2)"
-    MyUnion1.Bar 4.5 |> string |> equal "Bar 4.5"
-    MyUnion1.Baz |> string |> equal "Baz"
-    MyUnion1.Foo(1,2) |> sprintf "%A" |> equal "Foo (1,2)"
-    MyUnion1.Bar 4.5 |> sprintf "%A" |> equal "Bar 4.5"
-    MyUnion1.Baz |> sprintf "%A" |> equal "Baz"
-
-// testCase "Record to string" <| fun () ->
-//     { MyRecord1.Foo = 2; Bar = "oh" } |> string |> equal "{Foo = 2; Bar = oh}"
-//     { MyRecord1.Foo = 2; Bar = "oh" } |> sprintf "%A" |> equal "{Foo = 2; Bar = oh}"

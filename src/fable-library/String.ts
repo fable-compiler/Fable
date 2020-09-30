@@ -2,7 +2,7 @@ import { toString as dateToString } from "./Date.js";
 import Decimal from "./Decimal.js";
 import Long, * as _Long from "./Long.js";
 import { escape } from "./RegExp.js";
-import { isUnionLike } from "./Util.js";
+import { isIterable, isUnionLike } from "./Util.js";
 
 type Numeric = number | Long | Decimal;
 
@@ -321,7 +321,7 @@ export function format(str: string, ...args: any[]) {
     }
     padLength = parseInt((padLength || " ").substring(1), 10);
     if (!isNaN(padLength)) {
-      rep = padLeft(rep, Math.abs(padLength), " ", padLength < 0);
+      rep = padLeft(String(rep), Math.abs(padLength), " ", padLength < 0);
     }
     return rep;
   });
@@ -335,10 +335,18 @@ function unionToStringPrivate(self: any): string {
   const name = self.cases()[self.tag];
   if (self.fields.length === 0) {
     return name;
-  } else if (self.fields.length === 1) {
-    return name + " " + String(self.fields[0]);
   } else {
-    return name + " (" + self.fields.map((x: any) => String(x)).join(",") + ")";
+    let fields = "";
+    let withParens = true;
+    if (self.fields.length === 1) {
+      const field = toString(self.fields[0]);
+      withParens = field.indexOf(" ") >= 0;
+      fields = field;
+    }
+    else {
+      fields = self.fields.map((x: any) => toString(x)).join(", ");
+    }
+    return name + (withParens ? " (" : " ") + fields + (withParens ? ")" : "");
   }
 }
 
@@ -346,8 +354,10 @@ export function unionToString(self: any) {
   return isStringable(self) ? self.ToString() : unionToStringPrivate(self);
 }
 
-export function recordToStringPrivate(self: any): string {
-  return "{" + Object.entries(self).map(([k, v]) => k + " = " + toString(v)).join(";\n ") + "}";
+export function recordToStringPrivate(self: any, callStack=0): string {
+  return callStack > 10
+    ? Object.getPrototypeOf(self).constructor.name
+    : "{" + Object.entries(self).map(([k, v]) => k + " = " + toString(v, callStack)).join(";\n ") + "}";
 }
 
 export function recordToString(self: any): string {
@@ -358,17 +368,36 @@ export function objectToString(self: any): string {
   return isStringable(self) ? self.ToString() : Object.getPrototypeOf(self).constructor.name;
 }
 
-export function toString(x: any): string {
+export function seqToString<T>(self: Iterable<T>): string {
+  let count = 0;
+  let str = "[";
+  for (let x of self) {
+    if (count === 0) {
+      str += toString(x);
+    } else if (count === 100) {
+      str += "; ...";
+      break;
+    } else {
+      str += "; " + toString(x);
+    }
+    count++;
+  }
+  return str + "]";
+}
+
+export function toString(x: any, callStack=-1): string {
   if (x == null || typeof x !== "object") {
     return String(x);
   } else if (isStringable(x)) {
     return x.ToString();
+  } else if (isIterable(x)) {
+    return seqToString(x);
   } else if (isUnionLike(x)) {
     return unionToStringPrivate(x);
   } else {
     // TODO: Defaulting to recordToString until we have a way to tell
     // records and other objects apart in runtime
-    return recordToStringPrivate(x);
+    return recordToStringPrivate(x, callStack + 1);
   }
 }
 

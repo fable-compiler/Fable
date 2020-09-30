@@ -410,8 +410,11 @@ let toString com (ctx: Context) r (args: Expr list) =
             let methodName =
                 if ent.IsFSharpUnion then "unionToString"
                 elif ent.IsFSharpRecord then "recordToString"
+                elif ent.FullName = Types.ienumerableGeneric then "seqToString"
                 else "objectToString"
             Helper.LibCall(com, "String", methodName, String, [head], ?loc=r)
+        | Array _ | List _ ->
+            Helper.LibCall(com, "String", "seqToString", String, [head], ?loc=r)
         | _ -> Helper.LibCall(com, "String", "toString", String, [head], ?loc=r)
 
 let getParseParams (kind: NumberExtKind) =

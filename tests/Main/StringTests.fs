@@ -12,7 +12,7 @@ let LINE_SEPARATOR = "\u2028"
 let [<Literal>] aLiteral = "foo"
 let notALiteral = "foo"
 
-type MyUnion = Bar of int * int | Foo1 of string | Foo2 of string*string | Foo3 | Foo4 of MyUnion
+type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
 
 type Test(i: int) =
       override __.ToString() = string(i + i)
@@ -20,6 +20,14 @@ type Test(i: int) =
 let spr fmt =
     let fmt = Printf.StringFormat<_>(fmt)
     sprintf fmt
+
+let containsInOrder (substrings: string list) (str: string) =
+    let mutable lastIndex = -1
+    substrings |> List.forall (fun s ->
+      let i = str.IndexOf(s)
+      let success = i >= 0 && i > lastIndex
+      lastIndex <- i
+      success)
 
 let tests =
   testList "Strings" [
@@ -159,34 +167,19 @@ let tests =
             same "%% %%"
             same "%% % % %%"
 
-      // TODO
-      // testCase "Unions with sprintf %A" <| fun () ->
-      //     Bar(1,5) |> sprintf "%A" |> equal "Bar (1,5)"
-      //     #if FABLE_COMPILER
-      //     Foo1 "ja" |> sprintf "%A" |> equal "Foo1 (\"ja\")"
-      //     Foo4 Foo3 |> sprintf "%A" |> equal "Foo4 (Foo3)"
-      //     Foo4(Foo1 "boo") |> sprintf "%A" |> equal "Foo4 (Foo1 (\"boo\"))"
-      //     #else
-      //     Foo1 "ja" |> sprintf "%A" |> equal "Foo1 \"ja\""
-      //     Foo4 Foo3 |> sprintf "%A" |> equal "Foo4 Foo3"
-      //     Foo4(Foo1 "boo") |> sprintf "%A" |> equal "Foo4 (Foo1 \"boo\")"
-      //     #endif
-      //     Foo3 |> sprintf "%A" |> equal "Foo3"
-      //     Foo4(Foo2("foo","bar")) |> sprintf "%A" |> equal "Foo4 (Foo2 (\"foo\",\"bar\"))"
+      testCase "Unions with sprintf %A" <| fun () ->
+            Bar(1,5) |> sprintf "%A" |> equal "Bar (1, 5)"
+            Foo1 4.5 |> sprintf "%A" |> equal "Foo1 4.5"
+            Foo4 Foo3 |> sprintf "%A" |> equal "Foo4 Foo3"
+            Foo4(Foo1 4.5) |> sprintf "%A" |> equal "Foo4 (Foo1 4.5)"
+            Foo3 |> sprintf "%A" |> equal "Foo3"
 
-      // testCase "Unions with string operator" <| fun () ->
-      //     Bar(1,5) |> string |> equal "Bar (1,5)"
-      //     #if FABLE_COMPILER
-      //     Foo1 "ja" |> string |> equal "Foo1 (\"ja\")"
-      //     Foo4 Foo3 |> string |> equal "Foo4 (Foo3)"
-      //     Foo4(Foo1 "boo") |>string |> equal "Foo4 (Foo1 (\"boo\"))"
-      //     #else
-      //     Foo1 "ja" |> string |> equal "Foo1 \"ja\""
-      //     Foo4 Foo3 |> string |> equal "Foo4 Foo3"
-      //     Foo4(Foo1 "boo") |>string |> equal "Foo4 (Foo1 \"boo\")"
-      //     #endif
-      //     Foo3 |> string |> equal "Foo3"
-      //     Foo4(Foo2("foo","bar")) |> string |> equal "Foo4 (Foo2 (\"foo\",\"bar\"))"
+      testCase "Unions with string operator" <| fun () ->
+            Bar(1,5) |> string |> equal "Bar (1, 5)"
+            Foo1 4.5 |> string |> equal "Foo1 4.5"
+            Foo4 Foo3 |> string |> equal "Foo4 Foo3"
+            Foo4(Foo1 4.5) |>string |> equal "Foo4 (Foo1 4.5)"
+            Foo3 |> string |> equal "Foo3"
 
       testCase "sprintf \"%O\" with overloaded string works" <| fun () ->
             let o = Test(5)
@@ -213,7 +206,7 @@ let tests =
 
       testCase "sprintf \"%A\" with sequences works" <| fun () ->
             let xs = seq { "Hi"; "Hello"; "Hola" }
-            (sprintf "%A" xs).Replace("\"", "") |> equal "seq [Hi; Hello; Hola]"
+            sprintf "%A" xs |> containsInOrder ["Hi"; "Hello"; "Hola"] |> equal true
 
       testCase "Storing result of Seq.tail and printing the result several times works. Related to #1996" <| fun () ->
             let tweets = seq { "Hi"; "Hello"; "Hola" }
@@ -222,10 +215,8 @@ let tests =
             let a = sprintf "%A" (tweetsTailR)
             let b = sprintf "%A" (tweetsTailR)
 
-            let expected = "seq [Hello; Hola]"
-
-            equal expected (a.Replace("\"", ""))
-            equal expected (b.Replace("\"", ""))
+            containsInOrder ["Hello"; "Hola"] a |> equal true
+            containsInOrder ["Hello"; "Hola"] b |> equal true
 
       testCase "sprintf \"%X\" works" <| fun () ->
             //These should all be the Native JS Versions (except int64 / uint64)
