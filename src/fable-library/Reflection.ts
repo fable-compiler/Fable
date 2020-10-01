@@ -1,6 +1,5 @@
-import { value as getOptionValue } from "./Option.js";
-import { FSharpRef, List } from "./Types.js";
-import { compareArraysWith, equalArraysWith, isArrayLike, isUnionLike } from "./Util.js";
+import { FSharpRef } from "./Types.js";
+import { compareArraysWith, equalArraysWith, isUnionLike } from "./Util.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -416,51 +415,4 @@ export function getCaseName(x: any): string {
 export function getCaseFields(x: any): any[] {
   assertUnion(x);
   return x.fields;
-}
-
-type TypeTester =
-  | "any"
-  | "unknown"
-  | "undefined"
-  | "function"
-  | "boolean"
-  | "number"
-  | "string"
-  | ["tuple", TypeTester[]]
-  | ["array", TypeTester | undefined]
-  | ["list", TypeTester]
-  | ["option", TypeTester]
-  | FunctionConstructor
-
-export function typeTest(x: any, typeTester: TypeTester): boolean {
-  if (typeof typeTester === "string") {
-    if (typeTester === "any") {
-      return true;
-    } else if (typeTester === "unknown") {
-      return false;
-    } else {
-      return typeof x === typeTester;
-    }
-  } else if (Array.isArray(typeTester)) {
-    switch (typeTester[0]) {
-      case "tuple":
-        return Array.isArray(x)
-          && x.length === typeTester[1].length
-          && x.every((x, i) => typeTest(x, typeTester[1][i]));
-      case "array":
-        return isArrayLike(x)
-          && (x.length === 0
-            || typeTester[1] == null
-            || typeTest(x[0], typeTester[1]));
-      case "list":
-        return x instanceof List
-          && (x.tail == null || typeTest(x.head, typeTester[1]));
-      case "option":
-        return x == null || typeTest(getOptionValue(x), typeTester[1]);
-      default:
-        return false
-    }
-  } else {
-    return x instanceof typeTester;
-  }
 }

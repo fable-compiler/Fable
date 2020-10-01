@@ -247,61 +247,66 @@ module Reflection =
     let private ofString s = StringLiteral s :> Expression
     let private ofArray babelExprs = ArrayExpression(List.toArray babelExprs) :> Expression
 
-    let rec private toTypeTester com ctx r = function
-        | Fable.Regex -> Identifier "RegExp" :> Expression
-        | Fable.MetaType -> libValue com ctx "Reflection" "TypeInfo"
-        | Fable.LambdaType _ | Fable.DelegateType _ -> ofString "function"
-        | Fable.AnonymousRecordType _ -> ofString "unknown" // Recognize shape? (it's possible in F#)
-        | Fable.Any -> ofString "any"
-        | Fable.Unit -> ofString "undefined"
-        | Fable.Boolean -> ofString "boolean"
-        | Fable.Char
-        | Fable.String -> ofString "string"
-        | Fable.Number _ -> ofString "number"
-        | Fable.Enum _ -> ofString "number"
-        | Fable.Option t -> ofArray [ofString "option"; toTypeTester com ctx r t]
-        | Fable.Array t -> ofArray [ofString "array"; toTypeTester com ctx r t]
-        | Fable.List t -> ofArray [ofString "list"; toTypeTester com ctx r t]
-        | Fable.Tuple genArgs ->
-            let genArgs = List.map (toTypeTester com ctx r) genArgs
-            ofArray [ofString "tuple"; ofArray genArgs]
-        | Fable.GenericParam name ->
-            sprintf "Cannot resolve generic param %s for type testing, evals to true" name |> addWarning com [] r
-            ofString "any"
-        | Fable.DeclaredType(ent, _) when ent.IsInterface ->
-            "Cannot type test interfaces, evals to false" |> addWarning com [] r
-            ofString "unknown"
-        | Fable.DeclaredType(ent, genArgs) ->
-            match tryJsConstructor com ctx ent with
-            | Some cons ->
-                if not(List.isEmpty genArgs) then
-                    "Generic args are ignored in type testing" |> addWarning com [] r
-                cons
-            | None ->
-                sprintf "Cannot type test %s, evals to false" ent.FullName |> addWarning com [] r
-                ofString "unknown"
+    let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type): Expression =
+        let warnAndEvalToFalse msg =
+            "Cannot type test (evals to false): " + msg
+            |> addWarning com [] range
+            BooleanLiteral false :> Expression
 
-    let transformTypeTest (com: IBabelCompiler) ctx range (expr': Fable.Expr) (typ: Fable.Type): Expression =
-        let (|EntityFullName|) (e: Fable.Entity) = e.FullName
+        let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx expr): Expression =
+            let typeof = UnaryExpression(UnaryTypeof, expr)
+            upcast BinaryExpression(BinaryEqualStrict, typeof, StringLiteral primitiveType, ?loc=range)
 
-        let expr = com.TransformAsExpr(ctx, expr')
+        let jsInstanceof consExpr (Util.TransformExpr com ctx expr): Expression =
+            upcast BinaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
+
         match typ with
-        // Special cases
-        | Fable.DeclaredType(EntityFullName Types.idisposable, _) ->
-            match expr' with
-            | MaybeCasted(ExprType(Fable.DeclaredType(ent2, _))) when FSharp2Fable.Util.hasInterface Types.idisposable ent2 ->
-                upcast BooleanLiteral true
-            | _ -> libCall com ctx None "Util" "isDisposable" [|expr|]
-        | Fable.DeclaredType(EntityFullName Types.ienumerable, _) ->
-            libCall com ctx None "Util" "isIterable" [|expr|]
-        | Fable.DeclaredType(EntityFullName Types.array, _) -> // Untyped array
-            libCall com ctx None "Util" "isArrayLike" [|expr|]
-        | Fable.DeclaredType(EntityFullName Types.exception_, _) ->
-            libCall com ctx None "Types" "isException" [|expr|]
-        | _ ->
-            let typeTester = toTypeTester com ctx range typ
-            libCall com ctx range "Reflection" "typeTest" [|expr; typeTester|]
-
+        | Fable.Any -> upcast BooleanLiteral true
+        | Fable.Unit -> upcast BinaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
+        | Fable.Boolean -> jsTypeof "boolean" expr
+        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
+        | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
+        | Fable.Regex -> jsInstanceof (Identifier "RegExp") expr
+        | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
+        | Fable.Array _ | Fable.Tuple _ ->
+            libCall com ctx None "Util" "isArrayLike" [|com.TransformAsExpr(ctx, expr)|]
+        | Fable.List _ ->
+            jsInstanceof (libValue com ctx "Types" "List") expr
+        | Fable.AnonymousRecordType _ ->
+            warnAndEvalToFalse "anonymous records"
+        | Fable.MetaType ->
+            jsInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
+        | Fable.Option _ -> warnAndEvalToFalse "options" // TODO
+        | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters"
+        | Fable.DeclaredType (ent, genArgs) ->
+            match ent.FullName with
+            | Types.idisposable ->
+                match expr with
+                | MaybeCasted(ExprType(Fable.DeclaredType (ent2, _)))
+                        when FSharp2Fable.Util.hasInterface Types.idisposable ent2 ->
+                    upcast BooleanLiteral true
+                | _ -> libCall com ctx None "Util" "isDisposable" [|com.TransformAsExpr(ctx, expr)|]
+            | Types.ienumerable ->
+                [|com.TransformAsExpr(ctx, expr)|]
+                |> libCall com ctx None "Util" "isIterable"
+            | Types.array ->
+                [|com.TransformAsExpr(ctx, expr)|]
+                |> libCall com ctx None "Util" "isArrayLike"
+            | Types.exception_ ->
+                [|com.TransformAsExpr(ctx, expr)|]
+                |> libCall com ctx None "Types" "isException"
+            | _ when ent.IsInterface ->
+                warnAndEvalToFalse "interfaces"
+            | _ ->
+                match tryJsConstructor com ctx ent with
+                | Some cons ->
+                    // TODO: Emit warning only once per file?
+                    if not(List.isEmpty genArgs) then
+                        "Generic args are ignored in type testing"
+                        |> addWarning com [] range
+                    jsInstanceof cons expr
+                | None ->
+                    warnAndEvalToFalse ent.FullName
 
 // TODO: I'm trying to tell apart the code to generate annotations, but it's not a very clear distinction
 // as there are many dependencies from/to the Util module below
@@ -1119,20 +1124,19 @@ module Util =
         [|TryStatement(transformBlock com ctx returnStrategy body,
             ?handler=handler, ?finalizer=finalizer, ?loc=r) :> Statement|]
 
-    // Even if IfStatement doesn't enforce it, compile both branches as blocks
-    // to prevent conflict (e.g. `then` doesn't become a block while `else` does)
-    let rec transformIfStatement (com: IBabelCompiler) ctx r ret (guardExpr: Expression) thenStmnt elseStmnt =
-        let thenStmnt = transformBlock com ctx ret thenStmnt
-        match elseStmnt: Fable.Expr with
-        | Fable.IfThenElse(TransformExpr com ctx guardExpr', thenStmnt', elseStmnt', r2) ->
-            let elseStmnt = transformIfStatement com ctx r2 ret guardExpr' thenStmnt' elseStmnt'
-            IfStatement(guardExpr, thenStmnt, elseStmnt, ?loc=r)
-        | expr ->
-            match com.TransformAsStatements(ctx, ret, expr) with
-            | [||] -> IfStatement(guardExpr, thenStmnt, ?loc=r)
-            | [|:? ExpressionStatement as e|] when (e.Expression :? NullLiteral) ->
-                IfStatement(guardExpr, thenStmnt, ?loc=r)
-            | statements -> IfStatement(guardExpr, thenStmnt, BlockStatement statements, ?loc=r)
+    let rec transformIfStatement (com: IBabelCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
+        match com.TransformAsExpr(ctx, guardExpr) with
+        | :? BooleanLiteral as b when b.Value ->
+            com.TransformAsStatements(ctx, ret, thenStmnt)
+        | :? BooleanLiteral as b when not b.Value ->
+            com.TransformAsStatements(ctx, ret, elseStmnt)
+        | guardExpr ->
+            let thenStmnt = transformBlock com ctx ret thenStmnt
+            match com.TransformAsStatements(ctx, ret, elseStmnt) with
+            | [||] -> IfStatement(guardExpr, thenStmnt, ?loc=r) :> Statement
+            | [|elseStmnt|] -> IfStatement(guardExpr, thenStmnt, elseStmnt, ?loc=r) :> Statement
+            | statements -> IfStatement(guardExpr, thenStmnt, BlockStatement statements, ?loc=r) :> Statement
+            |> Array.singleton
 
     let transformGet (com: IBabelCompiler) ctx range typ fableExpr (getKind: Fable.GetKind) =
         match getKind with
@@ -1579,8 +1583,6 @@ module Util =
                 | Some(Fable.FieldKey fi) -> get None expr fi.Name |> Assign
             com.TransformAsStatements(ctx, Some ret, value)
 
-        // Even if IfStatement doesn't enforce it, compile both branches as blocks
-        // to prevent conflicts (e.g. `then` doesn't become a block while `else` does)
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
             let asStatement =
                 match returnStrategy with
@@ -1591,10 +1593,7 @@ module Util =
                     Option.isSome ctx.TailCallOpportunity
                     || (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
             if asStatement then
-                match com.TransformAsExpr(ctx, guardExpr) with
-                // In some situations (like some type tests) the condition may be always true
-                | :? BooleanLiteral as e when e.Value -> com.TransformAsStatements(ctx, returnStrategy, thenExpr)
-                | guardExpr -> [|transformIfStatement com ctx r returnStrategy guardExpr thenExpr elseExpr :> Statement|]
+                transformIfStatement com ctx r returnStrategy guardExpr thenExpr elseExpr
             else
                 let guardExpr' = transformAsExpr com ctx guardExpr
                 let thenExpr' = transformAsExpr com ctx thenExpr

@@ -2,6 +2,8 @@ module BigInt.Exports
 
 type bigint = BigInt.BigInteger
 
+let isBigInt (x: obj) = x :? bigint
+
 let tryParse str res =
     try
         res := bigint.Parse str

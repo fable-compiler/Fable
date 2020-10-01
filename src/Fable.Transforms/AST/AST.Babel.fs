@@ -482,22 +482,23 @@ type IfStatement(test, consequent, ?alternate, ?loc) =
     interface Statement with
         member _.Print(printer) =
             printer.AddLocation(loc)
-            match test, alternate with
-            | :? BooleanLiteral as b, _ when b.Value ->
-                printer.PrintProductiveStatements(consequent.Body)
-            | :? BooleanLiteral as b, Some(:? BlockStatement as alternate) when not b.Value ->
-                printer.PrintProductiveStatements(alternate.Body)
-            | _ ->
-                printer.Print("if (", ?loc=loc)
-                test.Print(printer)
-                printer.Print(") ")
-                printer.Print(consequent)
-                // TODO: Remove else clauses if they become empty after removing null statements (see PrintBlock)
-                printer.PrintOptional((if printer.Column > 0 then " else " else "else "), alternate)
-                // If the consequent/alternate is a block
-                // a new line should already be printed
-                if printer.Column > 0 then
-                    printer.PrintNewLine()
+            printer.Print("if (", ?loc=loc)
+            test.Print(printer)
+            printer.Print(") ")
+            printer.Print(consequent)
+            match alternate with
+            | None -> ()
+            | Some alternate ->
+                if printer.Column > 0 then printer.Print(" ")
+                printer.Print("else ")
+                match alternate with
+                | :? IfStatement
+                // TODO: Get productive statements and skip else if they're empty
+                | :? BlockStatement -> printer.Print(alternate)
+                // Make sure alternate is always printed as block
+                | _ -> printer.PrintBlock([|alternate|])
+            if printer.Column > 0 then
+                printer.PrintNewLine()
 
 /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
 type SwitchCase(consequent, ?test, ?loc) =
@@ -849,6 +850,7 @@ type ConditionalExpression(test, consequent, alternate, ?loc) =
         member _.Print(printer) =
             printer.AddLocation(loc)
             match test with
+            // TODO: Move this optimization to Fable2Babel as with IfStatement?
             | :? BooleanLiteral as b ->
                 if b.Value then printer.Print(consequent)
                 else printer.Print(alternate)

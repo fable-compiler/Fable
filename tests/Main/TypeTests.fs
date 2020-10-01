@@ -454,8 +454,7 @@ let tests =
             | :? bool -> "boolean"
             | :? unit -> "unit"
             | :? System.Text.RegularExpressions.Regex -> "RegExp"
-            | :? (int[]) -> "int array"
-            | :? (string[]) -> "string array"
+            | :? (int[]) | :? (string[]) -> "Array"
             | _ -> "unknown"
         "A" :> obj |> test |> equal "string"
         3. :> obj |> test |> equal "number"
@@ -464,8 +463,8 @@ let tests =
         // Workaround to make sure Fable is passing the argument
         let a = () :> obj in test a |> equal "unit"
         System.Text.RegularExpressions.Regex(".") :> obj |> test |> equal "RegExp"
-        [|"A"|] :> obj |> test |> equal "string array"
-        [|1;2|] :> obj |> test |> equal "int array"
+        [|"A"|] :> obj |> test |> equal "Array"
+        [|1;2|] :> obj |> test |> equal "Array"
 
     testCase "Type test with Date" <| fun () ->
         let isDate (x: obj) =
