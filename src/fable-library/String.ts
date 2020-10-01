@@ -354,10 +354,10 @@ export function unionToString(self: any) {
   return isStringable(self) ? self.ToString() : unionToStringPrivate(self);
 }
 
-export function recordToStringPrivate(self: any, callStack=0): string {
+function recordToStringPrivate(self: any, callStack=0): string {
   return callStack > 10
     ? Object.getPrototypeOf(self).constructor.name
-    : "{" + Object.entries(self).map(([k, v]) => k + " = " + toString(v, callStack)).join(";\n ") + "}";
+    : "{ " + Object.entries(self).map(([k, v]) => k + " = " + toString(v, callStack)).join("\n  ") + " }";
 }
 
 export function recordToString(self: any): string {
@@ -395,8 +395,8 @@ export function toString(x: any, callStack=-1): string {
   } else if (isUnionLike(x)) {
     return unionToStringPrivate(x);
   } else {
-    // TODO: Defaulting to recordToString until we have a way to tell
-    // records and other objects apart in runtime
+    // TODO: Defaulting to recordToString until we have a way
+    // to tell records apart from other objects in runtime
     return recordToStringPrivate(x, callStack + 1);
   }
 }

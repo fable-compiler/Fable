@@ -58,17 +58,17 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
     };
   }
 
-  public toJSON() {
-    return Array.from(this);
-  }
+  // public toJSON() {
+  //   return Array.from(this);
+  // }
 
-  public toString() {
-    return this.ToString();
-  }
+  // public toString() {
+  //   return this.ToString();
+  // }
 
-  public ToString() {
-    return "[" + Array.from(this).join("; ") + "]";
-  }
+  // public ToString() {
+  //   return "[" + Array.from(this).join("; ") + "]";
+  // }
 
   public GetHashCode() {
     const hashes = Array.from(this).map(structuralHash);

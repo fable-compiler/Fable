@@ -109,7 +109,7 @@ export function sameConstructor(x: any, y: any) {
 }
 
 export function isUnionLike(x: any) {
-  return typeof x != null && typeof x.tag === "number" && Array.isArray(x.fields) && typeof x.cases === "function";
+  return x != null && typeof x.tag === "number" && Array.isArray(x.fields) && typeof x.cases === "function";
 }
 
 export class Comparer<T> implements IComparer<T> {
