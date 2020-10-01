@@ -407,13 +407,15 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Number Int32 -> Helper.LibCall(com, "Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
         | DeclaredType(ent, _) ->
-            let moduleName, methodName =
-                if ent.IsFSharpUnion then "Types", "unionToString"
-                elif ent.IsFSharpRecord then "Types", "recordToString"
-                elif ent.IsValueType then "Types", "objectToString"
-                else "Types", "objectToString"
-            Helper.LibCall(com, moduleName, methodName, String, [head], ?loc=r)
-        | _ -> Helper.GlobalCall("String", String, [head])
+            let methodName =
+                if ent.IsFSharpUnion then "unionToString"
+                elif ent.IsFSharpRecord then "recordToString"
+                elif ent.FullName = Types.ienumerableGeneric then "seqToString"
+                else "objectToString"
+            Helper.LibCall(com, "String", methodName, String, [head], ?loc=r)
+        | Array _ | List _ ->
+            Helper.LibCall(com, "String", "seqToString", String, [head], ?loc=r)
+        | _ -> Helper.LibCall(com, "String", "toString", String, [head], ?loc=r)
 
 let getParseParams (kind: NumberExtKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
