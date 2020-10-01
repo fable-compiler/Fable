@@ -1,12 +1,4 @@
-import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, sameConstructor, isStringable, numberHash, structuralHash } from "./Util.js";
-
-export function objectToString(self: any) {
-  if (isStringable(self)) {
-    return self.ToString();
-  } else {
-    return Object.getPrototypeOf(self).constructor.name;
-  }
-}
+import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, isComparable, isEquatable, isHashable, sameConstructor, numberHash, structuralHash } from "./Util.js";
 
 // export class SystemObject implements IEquatable<any> {
 
@@ -66,17 +58,17 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
     };
   }
 
-  public toJSON() {
-    return Array.from(this);
-  }
+  // public toJSON() {
+  //   return Array.from(this);
+  // }
 
-  public toString() {
-    return this.ToString();
-  }
+  // public toString() {
+  //   return this.ToString();
+  // }
 
-  public ToString() {
-    return "[" + Array.from(this).join("; ") + "]";
-  }
+  // public ToString() {
+  //   return "[" + Array.from(this).join("; ") + "]";
+  // }
 
   public GetHashCode() {
     const hashes = Array.from(this).map(structuralHash);
@@ -89,19 +81,6 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
 
   public CompareTo(other: List<T>): number {
     return compareList(this, other);
-  }
-}
-
-export function unionToString(self: any) {
-  const name = self.cases()[self.tag];
-  if (isStringable(self)) {
-    return self.ToString();
-  } else if (self.fields.length === 0) {
-    return name;
-  } else if (self.fields.length === 1) {
-    return name + " " + String(self.fields[0]);
-  } else {
-    return name + " (" + self.fields.map((x: any) => String(x)).join(",") + ")";
   }
 }
 
@@ -185,14 +164,6 @@ export function unionCompareTo(self: any, other: any) {
 //     return unionCompareTo(this, other);
 //   }
 // }
-
-export function recordToString(self: any) {
-  if (isStringable(self)) {
-    return self.ToString();
-  } else {
-    return "{" + Object.entries(self).map(([k, v]) => k + " = " + String(v)).join(";\n ") + "}";
-  }
-}
 
 export function recordToJson(self: any, getFieldNames?: (arg: any) => any) {
   const o: any = {};
