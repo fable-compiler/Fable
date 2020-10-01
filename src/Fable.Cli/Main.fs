@@ -318,7 +318,7 @@ type State =
       ErroredFiles: Set<string>
       TestInfo: TestInfo option }
 
-let filterFiles (exclude: string option) (files: string[]) =
+let excludeFilesAndSignatures (exclude: string option) (files: string[]) =
     files
     |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
     |> fun filesToCompile ->
@@ -378,7 +378,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     let filesToCompile =
         filesToCompile
-        |> filterFiles state.CliArgs.Exclude
+        |> excludeFilesAndSignatures state.CliArgs.Exclude
         |> Array.append (Set.toArray state.ErroredFiles)
         |> Array.distinct
 
@@ -426,17 +426,32 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     let hasError = not(Set.isEmpty newErrors)
     let hasError, state =
-        match hasError, state.CliArgs.RunArgs, state.CliArgs.WatchMode with
+        match hasError, state.CliArgs.RunArgs with
         // Only run process if there are no errors
-        | true, _, _ -> true, state
-        | false, None, _ -> false, state
-        | false, Some runArgs, true ->
-            Process.fireAndForget state.CliArgs.RootDir runArgs.ExeFile runArgs.Args
-            if runArgs.IsWatch then false, state
-            else false, { state with CliArgs = { state.CliArgs with RunArgs = None } }
-        | false, Some runArgs, false ->
-            let exitCode = Process.runSync state.CliArgs.RootDir runArgs.ExeFile runArgs.Args
-            exitCode <> 0, state
+        | true, _ -> true, state
+        | false, None -> false, state
+        | false, Some runArgs ->
+            let workingDir = state.CliArgs.RootDir
+            let args =
+                match runArgs.Args with
+                | [Naming.placeholder] ->
+                    let lastFilePath =
+                        cracked.SourceFiles
+                        |> Array.last
+                        // Fable's getRelativePath version ensures there's always
+                        // a period . in front of the path
+                        |> fun f -> Path.getRelativeFileOrDirPath
+                                        true workingDir false f.NormalizedFullPath
+                        |> Path.replaceExtension state.CliArgs.CompilerOptions.FileExtension
+                    ["--eval"; "\"require('esm')(module)('" + lastFilePath + "')\""; lastFilePath]
+                | args -> args
+            if state.CliArgs.WatchMode then
+                Process.fireAndForget workingDir runArgs.ExeFile args
+                if runArgs.IsWatch then false, state
+                else false, { state with CliArgs = { state.CliArgs with RunArgs = None } }
+            else
+                let exitCode = Process.runSync workingDir runArgs.ExeFile args
+                exitCode <> 0, state
 
     match state.CliArgs.WatchMode, state.TestInfo with
     | true, _ ->
@@ -451,7 +466,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     let path = f.NormalizedFullPath
                     if Naming.isInFableHiddenDir(path) then None
                     else Some path)
-                |> filterFiles state.CliArgs.Exclude
+                |> excludeFilesAndSignatures state.CliArgs.Exclude
         ]
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

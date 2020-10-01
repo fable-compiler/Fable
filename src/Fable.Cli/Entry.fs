@@ -158,9 +158,12 @@ let main argv =
         |> List.ofArray
         |> List.splitWhile (fun a -> not(a.StartsWith("--run")))
         |> function
-            | argv, flag::exeFile::runArgs ->
-                argv, Some(RunArgs(exeFile, runArgs, watch=(flag = "--runWatch")))
-            | argv, _ -> argv, None
+            | argv, flag::runArgs ->
+                let watch = flag = "--runWatch"
+                match runArgs with
+                | exeFile::runArgs -> argv, Some(RunArgs(exeFile, runArgs, watch))
+                | [] -> argv, Some(RunArgs("node", [Naming.placeholder], watch))
+            | argv, [] -> argv, None
 
     let rootDir =
         match argValue "--cwd" argv with
@@ -168,6 +171,7 @@ let main argv =
         | None -> IO.Directory.GetCurrentDirectory()
 
     Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+    Log.always("Thanks to the contributor! @" + Contributors.getRandom())
     if hasFlag "--verbose" argv then
         Log.makeVerbose()
 
