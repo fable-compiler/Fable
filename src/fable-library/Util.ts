@@ -1,6 +1,6 @@
 // tslint:disable:ban-types
 
-import { FSharpRef } from "./Types";
+import { FSharpRef } from "./Types.js";
 
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {

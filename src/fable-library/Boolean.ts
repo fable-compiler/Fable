@@ -1,4 +1,4 @@
-import { FSharpRef } from "./Types"
+import { FSharpRef } from "./Types.js"
 
 export function tryParse(str: string, defValue: FSharpRef<boolean>): boolean {
   if (str.match(/^\s*true\s*$/i)) {

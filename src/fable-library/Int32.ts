@@ -1,4 +1,4 @@
-import { FSharpRef } from "./Types";
+import { FSharpRef } from "./Types.js";
 
 export type int8 = number;
 export type uint8 = number;
