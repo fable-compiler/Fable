@@ -1,3 +1,10 @@
+### 3.0.0-nagareyama-alpha-007
+
+* --runScript option
+* Fix uncurrying of Emit calls
+* Fix type testing performance
+* Fix union/record string formattin
+
 ### 3.0.0-nagareyama-alpha-006
 
 * Fix running process
