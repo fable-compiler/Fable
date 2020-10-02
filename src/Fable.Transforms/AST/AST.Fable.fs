@@ -226,7 +226,6 @@ type ReplaceCallInfo =
 type EmitInfo =
     { Macro: string
       Args: Expr list
-      /// Unused at the moment
       SignatureArgTypes: Type list
       IsJsStatement: bool }
 

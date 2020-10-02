@@ -1229,29 +1229,38 @@ module Util =
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
-    let (|Emitted|_|) com r typ thisArg args hasSpread (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Emitted|_|) com r typ (callInfo: Fable.CallInfo option) (memb: FSharpMemberOrFunctionOrValue) =
         let (|SplitLast|_|) = function
             | [] -> None
             | xs -> List.splitLast xs |> Some
 
+        let hasSpread, thisArg, args, argTypes =
+            match callInfo with
+            | Some i -> i.HasSpread, i.ThisArg, i.Args, i.SignatureArgTypes
+            | None -> false, None, [], []
+
         memb.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Naming.StartsWith Atts.emit _ as attFullName) ->
-                let args =
+                let args, argTypes =
                     match hasSpread, args with
-                    | _, [Fable.Value(Fable.UnitConstant, _)] -> []
-                    | true, SplitLast(args, Fable.Value(Fable.NewArray(args2, _),_)) -> args @ args2
+                    | _, [Fable.Value(Fable.UnitConstant, _)] -> [], []
+                    | true, SplitLast(args, Fable.Value(Fable.NewArray(args2, _),_)) ->
+                        args @ args2, argTypes
                     | true, _ ->
-                        "Don't pass an array to ParamArray for methods tha emit JS"
+                        "Don't pass an array to ParamArray for methods emitting JS"
                         |> addErrorAndReturnNull com [] r
-                        |> List.singleton
-                    | _ -> args
-                let args = (Option.toList thisArg) @ args
-                let args =
+                        |> List.singleton, []
+                    | _ -> args, argTypes
+                let args, argTypes =
+                    match thisArg with
+                    | Some thisArg -> thisArg::args, thisArg.Type::argTypes
+                    | None -> args, argTypes
+                let args, argTypes =
                     // Allow combination of Import and Emit attributes
                     match tryGlobalOrImportedMember com Fable.Any memb with
-                    | Some importExpr -> importExpr::args
-                    | None -> args
+                    | Some importExpr -> importExpr::args, importExpr.Type::argTypes
+                    | None -> args, argTypes
                 let isStatement = tryAttributeConsArg att 1 false tryBoolean
                 let macro = tryAttributeConsArg att 0  "" tryString
                 let macro =
@@ -1264,7 +1273,7 @@ module Util =
                 let i: Fable.EmitInfo = {
                     Macro = macro
                     Args = args
-                    SignatureArgTypes = [] // TODO
+                    SignatureArgTypes = argTypes
                     IsJsStatement = isStatement
                 }
                 Fable.Emit(i, typ, r) |> Some
@@ -1384,7 +1393,7 @@ module Util =
 
     let makeCallWithArgInfo com ctx r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
-        | Emitted com r typ callInfo.ThisArg callInfo.Args callInfo.HasSpread emitted, _ -> emitted
+        | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ genArgs callInfo replaced -> replaced
         | Inlined com ctx r genArgs callee callInfo.Args expr, _ -> expr
@@ -1428,7 +1437,7 @@ module Util =
                 sprintf "Value %s is replaced with unit constant" v.DisplayName
                 |> addWarning com ctx.InlinePath r
             Fable.Value(Fable.UnitConstant, r)
-        | Emitted com r typ None [] false emitted, _ -> emitted
+        | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
         | _ -> memberRefTyped com ctx r typ v
