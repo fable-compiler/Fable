@@ -31,10 +31,11 @@
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
-    <PackageReference Include="FSharp.Core" Version="4.7.2" />
+    <!-- <PackageReference Include="FSharp.Core" Version="4.7.2" /> -->
   </ItemGroup>
 </Project>
