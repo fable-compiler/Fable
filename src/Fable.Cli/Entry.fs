@@ -49,25 +49,27 @@ Arguments:
 """
 
 type Runner =
-  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath, ?watch, ?testInfo) =
+  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
     let watch = defaultArg watch false
 
-    fsprojPath
-    |> Option.defaultValue rootDir
-    |> Path.normalizeFullPath
-    |> fun path ->
-        if IO.Directory.Exists(path) then
-            IO.Directory.EnumerateFileSystemEntries(path)
-            |> Seq.filter (fun file -> file.EndsWith(".fsproj"))
-            |> Seq.toList
-            |> function
-                | [] -> Error("Cannot find .fsproj in dir: " + path)
-                | [fsproj] -> Ok fsproj
-                | _ -> Error("Found multiple .fsproj in dir: " + path)
-        elif not(IO.File.Exists(path)) then
-            Error("File does not exist: " + path)
-        else
-            Ok path
+    let fsprojPath =
+        match fsprojPath with
+        | None -> rootDir
+        | Some p when IO.Path.IsPathRooted(p) -> p
+        | Some p -> IO.Path.Combine(rootDir, p)
+
+    if IO.Directory.Exists(fsprojPath) then
+        IO.Directory.EnumerateFileSystemEntries(fsprojPath)
+        |> Seq.filter (fun file -> file.EndsWith(".fsproj"))
+        |> Seq.toList
+        |> function
+            | [] -> Error("Cannot find .fsproj in dir: " + fsprojPath)
+            | [fsproj] -> Ok fsproj
+            | _ -> Error("Found multiple .fsproj in dir: " + fsprojPath)
+    elif not(IO.File.Exists(fsprojPath)) then
+        Error("File does not exist: " + fsprojPath)
+    else
+        Ok fsprojPath
     |> Result.bind (fun projFile ->
         let verbosity =
             if hasFlag "--verbose" args then
@@ -93,7 +95,7 @@ type Runner =
                                        verbosity = verbosity)
 
         let cliArgs =
-            { ProjectFile = projFile
+            { ProjectFile = Path.normalizeFullPath projFile
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
               OutDir = argValue "--outDir" args

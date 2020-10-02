@@ -154,6 +154,17 @@ module private Util =
         | Some watchDependencies ->
             watchDependencies |> Array.exists (fun p -> Set.contains p dirtyFiles)
 
+    let getOutJsPath (cliArgs: CliArgs) file =
+        match cliArgs.OutDir with
+        | None ->
+            Path.replaceExtension cliArgs.CompilerOptions.FileExtension file
+        | Some outDir ->
+            let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+            let fileExt = if cliArgs.CompilerOptions.Typescript then ".ts" else ".js"
+            let relPath = Imports.getRelativePath projDir file |> Imports.trimPath
+            let relPath = IO.Path.ChangeExtension(relPath, fileExt)
+            IO.Path.Combine(outDir, relPath)
+
     let compileFile (cliArgs: CliArgs) (com: CompilerImpl) = async {
         try
             let babel =
@@ -166,29 +177,14 @@ module private Util =
             let map = { new BabelPrinter.SourceMapGenerator with
                             member _.AddMapping(_,_,_,_,_) = () }
 
-            let newExtension =
-                match com.Options.FileExtension with
-                | "" when com.Options.Typescript -> ".ts"
-                | "" -> ".js"
-                | ext -> ext
-
-            let projDir =
-                cliArgs.ProjectFile |> Path.normalizeFullPath |> IO.Path.GetDirectoryName
-            let outPath =
-                match cliArgs.OutDir with
-                | None ->
-                    Path.replaceExtension newExtension com.CurrentFile
-                | Some outDir ->
-                    let fileExt = if com.Options.Typescript then ".ts" else ".js"
-                    let relPath = Imports.getRelativePath projDir com.CurrentFile |> Imports.trimPath
-                    let relPath = IO.Path.ChangeExtension(relPath, fileExt)
-                    IO.Path.Combine(outDir, relPath)
+            let outPath = getOutJsPath cliArgs com.CurrentFile
 
             // ensure directory exists
             let dir = IO.Path.GetDirectoryName outPath
             if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
 
             // write output to file
+            let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
             let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir)
             do! BabelPrinter.run writer map babel
 
@@ -220,21 +216,25 @@ type File(normalizedFullPath: string) =
 type ProjectCracked(sourceFiles: File array,
                     fsharpProjOptions: FSharpProjectOptions,
                     fableCompilerOptions: CompilerOptions,
-                    fableLibraryDir: string) =
+                    fableLibDir: string,
+                    ?fableLibReset: bool) =
 
     member _.ProjectFile = fsharpProjOptions.ProjectFileName
     member _.ProjectOptions = fsharpProjOptions
     member _.SourceFiles = sourceFiles
 
+    /// Indicates if the .fable dir has been created or reset because of new compiler version
+    member _.FableLibReset = defaultArg fableLibReset true
+
     member _.MakeCompiler(currentFile, project) =
-        let fableLibraryDir = Path.getRelativePath currentFile fableLibraryDir
-        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibraryDir)
+        let fableLibDir = Path.getRelativePath currentFile fableLibDir
+        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir)
 
     member _.MapSourceFiles(f) =
-        ProjectCracked(Array.map f sourceFiles, fsharpProjOptions, fableCompilerOptions, fableLibraryDir)
+        ProjectCracked(Array.map f sourceFiles, fsharpProjOptions, fableCompilerOptions, fableLibDir)
 
     static member Init(msg: CliArgs) =
-        let projectOptions, fableLibraryDir =
+        let res =
             getFullProjectOpts {
                 fableLib = msg.FableLibraryPath
                 define = msg.Define
@@ -246,11 +246,11 @@ type ProjectCracked(sourceFiles: File array,
 
         Log.verbose(lazy
             let proj = File.getRelativePathFromCwd msg.ProjectFile
-            let opts = projectOptions.OtherOptions |> String.concat "\n   "
+            let opts = res.ProjectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
-        let sourceFiles = getSourceFiles projectOptions |> Array.map File
-        ProjectCracked(sourceFiles, projectOptions, msg.CompilerOptions, fableLibraryDir)
+        let sourceFiles = getSourceFiles res.ProjectOptions |> Array.map File
+        ProjectCracked(sourceFiles, res.ProjectOptions, msg.CompilerOptions, res.FableLibDir, res.FableLibReset)
 
 type ProjectParsed(project: Project,
                    checker: InteractiveChecker) =
@@ -365,11 +365,11 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 |> Array.map (fun f -> f.NormalizedFullPath)
                 // Skip files that have a more recent JS version
                 |> fun files ->
-                    if Option.isSome state.CliArgs.OutDir then files
+                    if cracked.FableLibReset then files
                     else
                         files |> Array.skipWhile (fun file ->
                             try
-                                let jsFile = Path.replaceExtension state.CliArgs.CompilerOptions.FileExtension file
+                                let jsFile = getOutJsPath state.CliArgs file
                                 File.Exists(jsFile) && File.GetLastWriteTime(jsFile) > File.GetLastWriteTime(file)
                             with _ -> false)
             cracked, parsed, filesToCompile
