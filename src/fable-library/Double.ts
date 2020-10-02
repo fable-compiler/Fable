@@ -1,4 +1,4 @@
-import { FSharpRef } from "./Types";
+import { FSharpRef } from "./Types.js";
 
 export function tryParse(str: string, defValue: FSharpRef<number>): boolean {
   // TODO: test if value is valid and in range
