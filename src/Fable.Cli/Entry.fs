@@ -38,6 +38,7 @@ Arguments:
   --define          Defines a symbol for use in conditional compilation
   --run             The command after the argument will be executed after compilation
   --runWatch        Like run, but will execute after each watch compilation
+  --runScript       Runs the generated script for last file with node (requires "esm" npm package)
   --typedArrays     Compile numeric arrays to JS typed arrays
   --forcePkgs       Force a new copy of package sources into `.fable` folder
   --extension       Extension for generated JS files (default .fs.js)
@@ -48,7 +49,7 @@ Arguments:
 """
 
 type Runner =
-  static member Run(args: string list, rootDir: string, runArgs: RunArgs option, ?fsprojPath, ?watch, ?testInfo) =
+  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath, ?watch, ?testInfo) =
     let watch = defaultArg watch false
 
     fsprojPath
@@ -67,54 +68,50 @@ type Runner =
             Error("File does not exist: " + path)
         else
             Ok path
-    |> function
-        | Error msg -> printfn "%s" msg; 1
-        | Ok projFile ->
-            let verbosity =
-                if hasFlag "--verbose" args then
-                    Log.makeVerbose()
-                    Verbosity.Verbose
-                else Verbosity.Normal
+    |> Result.bind (fun projFile ->
+        let verbosity =
+            if hasFlag "--verbose" args then
+                Log.makeVerbose()
+                Verbosity.Verbose
+            else Verbosity.Normal
 
-            let defines =
-                argValues "--define" args
-                |> List.append [
-                    "FABLE_COMPILER"
-                    if watch then "DEBUG"
-                ]
-                |> List.distinct
-                |> List.toArray
+        let defines =
+            argValues "--define" args
+            |> List.append [
+                "FABLE_COMPILER"
+                if watch then "DEBUG"
+            ]
+            |> List.distinct
+            |> List.toArray
 
-            let compilerOptions =
-                CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
-                                           typedArrays = hasFlag "--typedArrays" args,
-                                           ?fileExtension = argValue "--extension" args,
-                                           debugMode = Array.contains "DEBUG" defines,
-                                           optimizeFSharpAst = hasFlag "--optimize" args,
-                                           verbosity = verbosity)
+        let compilerOptions =
+            CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
+                                       typedArrays = hasFlag "--typedArrays" args,
+                                       ?fileExtension = argValue "--extension" args,
+                                       debugMode = Array.contains "DEBUG" defines,
+                                       optimizeFSharpAst = hasFlag "--optimize" args,
+                                       verbosity = verbosity)
 
-            let cliArgs =
-                { ProjectFile = projFile
-                  FableLibraryPath = argValue "--fableLib" args
-                  RootDir = rootDir
-                  OutDir = argValue "--outDir" args
-                  WatchMode = watch
-                  ForcePackages = hasFlag "--forcePkgs" args
-                  Exclude = argValue "--exclude" args
-                  Define = defines
-                  RunArgs = runArgs
-                  CompilerOptions = compilerOptions }
+        let cliArgs =
+            { ProjectFile = projFile
+              FableLibraryPath = argValue "--fableLib" args
+              RootDir = rootDir
+              OutDir = argValue "--outDir" args
+              WatchMode = watch
+              ForcePackages = hasFlag "--forcePkgs" args
+              Exclude = argValue "--exclude" args
+              Define = defines
+              RunProcess = runProc
+              CompilerOptions = compilerOptions }
 
-            { CliArgs = cliArgs
-              ProjectCrackedAndParsed = None
-              WatchDependencies = Map.empty
-              ErroredFiles = Set.empty
-              TestInfo = testInfo }
-            |> startCompilation Set.empty
-            |> Async.RunSynchronously
-            |> function
-                | Ok _ -> 0
-                | Error _ -> 1
+        { CliArgs = cliArgs
+          ProjectCrackedAndParsed = None
+          WatchDependencies = Map.empty
+          ErroredFiles = Set.empty
+          TestInfo = testInfo }
+        |> startCompilation Set.empty
+        |> Async.RunSynchronously)
+
 
 let clean args dir =
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
@@ -146,45 +143,63 @@ let clean args dir =
 
     recClean dir
     Log.always("Clean completed! Files deleted: " + string fileCount)
-    0
 
-let (|SplitCommandArgs|) (xs: string list) =
-    xs |> List.splitWhile (fun x -> x.StartsWith("-") |> not)
+type ResultBuilder() =
+    member _.Bind(v,f) = Result.bind f v
+    member _.Return v = Ok v
+    member _.ReturnFrom v = v
+
+let result = ResultBuilder()
 
 [<EntryPoint>]
 let main argv =
-    let argv, runArgs =
-        argv
-        |> List.ofArray
-        |> List.splitWhile (fun a -> not(a.StartsWith("--run")))
-        |> function
-            | argv, flag::runArgs ->
-                let watch = flag = "--runWatch"
-                match runArgs with
-                | exeFile::runArgs -> argv, Some(RunArgs(exeFile, runArgs, watch))
-                | [] -> argv, Some(RunArgs("node", [Naming.placeholder], watch))
-            | argv, [] -> argv, None
+    result {
+        let! argv, runProc =
+            argv
+            |> List.ofArray
+            |> List.splitWhile (fun a -> not(a.StartsWith("--run")))
+            |> function
+                | argv, flag::runArgs ->
+                    match flag, runArgs with
+                    | "--run", [] -> Error "Missing command after --run"
+                    | "--runWatch", [] -> Error "Missing command after --runWatch"
+                    | "--run", exeFile::args -> Ok(false, exeFile, args)
+                    | "--runWatch", exeFile::args -> Ok(true, exeFile, args)
+                    | "--runScript", args -> Ok(true, Naming.placeholder, args)
+                    | _ -> Error ""
+                    |> Result.map (fun (watch, exeFile, args) ->
+                        argv, Some(RunProcess(exeFile, args, watch)))
+                | argv, [] -> Ok(argv, None)
 
-    let rootDir =
-        match argValue "--cwd" argv with
-        | Some rootDir -> IO.Path.GetFullPath(rootDir)
-        | None -> IO.Directory.GetCurrentDirectory()
+        let rootDir =
+            match argValue "--cwd" argv with
+            | Some rootDir -> IO.Path.GetFullPath(rootDir)
+            | None -> IO.Directory.GetCurrentDirectory()
 
-    Log.always("Fable: F# to JS compiler " + Literals.VERSION)
-    Log.always("Thanks to the contributor! @" + Contributors.getRandom())
-    if hasFlag "--verbose" argv then
-        Log.makeVerbose()
+        do
+            Log.always("Fable: F# to JS compiler " + Literals.VERSION)
+            Log.always("Thanks to the contributor! @" + Contributors.getRandom())
+            if hasFlag "--verbose" argv then
+                Log.makeVerbose()
 
-    match argv with
-    | ("help"|"--help"|"-h")::_ -> printHelp(); 0
-    | ("--version")::_ -> printfn "%s" Literals.VERSION; 0
-    | SplitCommandArgs(commands, args) ->
-        match commands with
-        | ["clean"; dir] -> clean args dir
-        | ["clean"] -> clean args rootDir
-        | ["test"; path] -> Runner.Run(args, rootDir, runArgs, fsprojPath=path, testInfo=TestInfo())
-        | ["watch"; path] -> Runner.Run(args, rootDir, runArgs, fsprojPath=path, watch=true)
-        | ["watch"] -> Runner.Run(args, rootDir, runArgs, watch=true)
-        | [path] -> Runner.Run(args, rootDir, runArgs, fsprojPath=path)
-        | [] -> Runner.Run(args, rootDir, runArgs)
-        | _ -> printfn "Unexpected arguments. Use `fable --help` to see available options."; 1
+        match argv with
+        | ("help"|"--help"|"-h")::_ -> return printHelp()
+        | ("--version")::_ -> return Log.always Literals.VERSION
+        | argv ->
+            let commands, args =
+                argv |> List.splitWhile (fun x ->
+                    x.StartsWith("-") |> not)
+
+            match commands with
+            | ["clean"; dir] -> return clean args dir
+            | ["clean"] -> return clean args rootDir
+            | ["test"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, testInfo=TestInfo())
+            | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
+            | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
+            | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path)
+            | [] -> return! Runner.Run(args, rootDir, runProc)
+            | _ -> return Log.always "Unexpected arguments. Use `fable --help` to see available options."
+    }
+    |> function
+        | Ok _ -> 0
+        | Error msg -> Log.always msg; 1

@@ -44,6 +44,8 @@ type IBabelCompiler =
     abstract TransformImport: Context * selector:string * path:string -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
 
+    abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
+
 // TODO: All things that depend on the library should be moved to Replacements
 // to become independent of the specific implementation
 module Lib =
@@ -300,10 +302,8 @@ module Reflection =
             | _ ->
                 match tryJsConstructor com ctx ent with
                 | Some cons ->
-                    // TODO: Emit warning only once per file?
                     if not(List.isEmpty genArgs) then
-                        "Generic args are ignored in type testing"
-                        |> addWarning com [] range
+                        com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
                     jsInstanceof cons expr
                 | None ->
                     warnAndEvalToFalse ent.FullName
@@ -2033,9 +2033,14 @@ module Compiler =
     open Util
 
     type BabelCompiler (com: Compiler) =
+        let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string,Import>()
 
         interface IBabelCompiler with
+            member _.WarnOnlyOnce(msg, ?range) =
+                if onlyOnceWarnings.Add(msg) then
+                    addWarning com [] range msg
+
             member _.GetImportExpr(ctx, selector, path) =
                 let cachedName = path + "::" + selector
                 match imports.TryGetValue(cachedName) with

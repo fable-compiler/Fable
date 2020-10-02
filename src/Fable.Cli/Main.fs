@@ -307,9 +307,7 @@ type TestInfo private (current, iterations, times: int64 list) =
         let len = List.length times
         List.item (len / 2 + len % 2) times
     member this.NextIteration(spentMs) =
-        new TestInfo(this.CurrentIteration + 1,
-                     this.TotalIterations,
-                     spentMs::times)
+        TestInfo(this.CurrentIteration + 1, this.TotalIterations, spentMs::times)
 
 type State =
     { CliArgs: CliArgs
@@ -424,34 +422,42 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             | Some file -> Set.add file errors
             | None -> errors) Set.empty
 
-    let hasError = not(Set.isEmpty newErrors)
-    let hasError, state =
-        match hasError, state.CliArgs.RunArgs with
+    let errorMsg =
+        if Set.isEmpty newErrors then None
+        else Some "Compilation failed"
+
+    let errorMsg, state =
+        match errorMsg, state.CliArgs.RunProcess with
         // Only run process if there are no errors
-        | true, _ -> true, state
-        | false, None -> false, state
-        | false, Some runArgs ->
+        | Some e, _ -> Some e, state
+        | None, None -> None, state
+        | None, Some runProc ->
             let workingDir = state.CliArgs.RootDir
-            let args =
-                match runArgs.Args with
-                | [Naming.placeholder] ->
+            let exeFile, args =
+                match runProc.ExeFile with
+                | Naming.placeholder ->
                     let lastFilePath =
                         cracked.SourceFiles
                         |> Array.last
                         // Fable's getRelativePath version ensures there's always
-                        // a period . in front of the path
+                        // a period in front of the path: ./
                         |> fun f -> Path.getRelativeFileOrDirPath
                                         true workingDir false f.NormalizedFullPath
                         |> Path.replaceExtension state.CliArgs.CompilerOptions.FileExtension
-                    ["--eval"; "\"require('esm')(module)('" + lastFilePath + "')\""; lastFilePath]
-                | args -> args
+                    // Pass also the file name as argument, as when calling the script directly
+                    "node", ["--eval"; "\"require('esm')(module)('" + lastFilePath + "')\""; lastFilePath] @ runProc.Args
+                | exeFile -> exeFile, runProc.Args
             if state.CliArgs.WatchMode then
-                Process.fireAndForget workingDir runArgs.ExeFile args
-                if runArgs.IsWatch then false, state
-                else false, { state with CliArgs = { state.CliArgs with RunArgs = None } }
+                runProc.RunningProcess |> Option.iter (fun p -> p.Kill())
+                let runProc =
+                    match runProc.IsWatch, Process.tryStart workingDir exeFile args with
+                    | false, _ -> None
+                    | true, None -> Some runProc
+                    | true, Some p -> runProc.WithRunningProcess(p) |> Some
+                None, { state with CliArgs = { state.CliArgs with RunProcess = runProc } }
             else
-                let exitCode = Process.runSync workingDir runArgs.ExeFile args
-                exitCode <> 0, state
+                let exitCode = Process.runSync workingDir exeFile args
+                (if exitCode = 0 then None else Some "Run process failed"), state
 
     match state.CliArgs.WatchMode, state.TestInfo with
     | true, _ ->
@@ -475,7 +481,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             |> startCompilation changes
 
     | false, None ->
-        return if not hasError then Ok() else Error()
+        return match errorMsg with Some e -> Error e | None -> Ok()
 
     | false, Some info ->
         let info = info.NextIteration(ms)

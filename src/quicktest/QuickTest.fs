@@ -82,4 +82,3 @@ let test2 () =
         "bar"
     else
         "baz"
-

@@ -7,10 +7,12 @@ module Literals =
     let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-006"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
-type RunArgs(exeFile: string, args: string list, ?watch: bool) =
+type RunProcess(exeFile: string, args: string list, ?watch: bool, ?runningProcess: System.Diagnostics.Process) =
     member _.ExeFile = exeFile
     member _.Args = args
     member _.IsWatch = defaultArg watch false
+    member _.RunningProcess = runningProcess
+    member this.WithRunningProcess(p) = RunProcess(this.ExeFile, this.Args, watch=this.IsWatch, runningProcess=p)
 
 type CliArgs =
     { ProjectFile: string
@@ -21,7 +23,7 @@ type CliArgs =
       ForcePackages: bool
       WatchMode: bool
       Exclude: string option
-      RunArgs: RunArgs option
+      RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
 
 type private TypeInThisAssembly = class end
@@ -96,11 +98,12 @@ module Process =
         p.BeginErrorReadLine()
         p
 
-    let fireAndForget (workingDir: string) (exePath: string) (args: string list) =
+    let tryStart (workingDir: string) (exePath: string) (args: string list) =
         try
-            startProcess workingDir exePath args |> ignore
+            startProcess workingDir exePath args |> Some
         with ex ->
             Log.always("Cannot run: " + ex.Message)
+            None
 
     let runSync (workingDir: string) (exePath: string) (args: string list) =
         try

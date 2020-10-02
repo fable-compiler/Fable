@@ -135,10 +135,7 @@ let quicktest () =
     if pathExists quicktestJsPath |> not then
         writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
 
-    concurrently [|
-        "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs"
-        "npx nodemon " + quicktestJsPath
-    |]
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
 let buildStandalone() =
     let projectDir = "src/fable-standalone/src"
