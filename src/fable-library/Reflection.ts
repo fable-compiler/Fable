@@ -1,5 +1,5 @@
-import { FSharpRef } from "./Types.js";
-import { compareArraysWith, equalArraysWith, isUnionLike } from "./Util.js";
+import { FSharpRef, Record, Union } from "./Types.js";
+import { compareArraysWith, equalArraysWith } from "./Util.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -297,11 +297,11 @@ export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
 }
 
 export function isUnion(t: any): boolean {
-  return t instanceof TypeInfo ? t.cases != null : isUnionLike(t);
+  return t instanceof TypeInfo ? t.cases != null : t instanceof Union;
 }
 
 export function isRecord(t: any): boolean {
-  return t instanceof TypeInfo ? t.fields != null : typeof t === "object" && !isUnionLike(t); // TODO: better test
+  return t instanceof TypeInfo ? t.fields != null : t instanceof Record;
 }
 
 export function isTuple(t: TypeInfo): boolean {
@@ -397,7 +397,7 @@ export function getValue(propertyInfo: PropertyInfo, v: any): any {
 // Fable.Core.Reflection
 
 function assertUnion(x: any) {
-  if (!isUnionLike(x)) {
+  if (!(x instanceof Union)) {
     throw new Error(`Value is not an F# union type`);
   }
 }

@@ -325,6 +325,7 @@ let excludeFilesAndSignatures (exclude: string option) (files: string[]) =
         | None -> filesToCompile
 
 let rec startCompilation (changes: Set<string>) (state: State) = async {
+    // TODO: Use Result here to fail more gracefully if FCS crashes
     let cracked, parsed, filesToCompile =
         match state.ProjectCrackedAndParsed with
         | Some(cracked, parsed) ->

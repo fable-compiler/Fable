@@ -1,6 +1,5 @@
 // tslint:disable:ban-types
-
-import { FSharpRef } from "./Types.js";
+import { FSharpRef, Union } from "./Types.js";
 
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
@@ -104,12 +103,8 @@ export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
   return x != null && typeof (x as IDisposable).Dispose === "function";
 }
 
-export function sameConstructor(x: any, y: any) {
+export function sameConstructor<T>(x: T, y: T) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
-}
-
-export function isUnionLike(x: any) {
-  return x != null && typeof x.tag === "number" && Array.isArray(x.fields) && typeof x.cases === "function";
 }
 
 export class Comparer<T> implements IComparer<T> {
@@ -331,6 +326,10 @@ export function structuralHash<T>(x: T): number {
   }
 }
 
+export function hashSafe(x: IHashable) {
+  return x == null ? 0 : x.GetHashCode();
+}
+
 export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {
   if (x == null) { return y == null; }
   if (y == null) { return false; }
@@ -345,9 +344,7 @@ export function equalArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): boolean {
   return equalArraysWith(x, y, equals);
 }
 
-export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
-  if (x == null) { return y == null; }
-  if (y == null) { return false; }
+function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean {
   const xKeys = Object.keys(x);
   const yKeys = Object.keys(y);
   if (xKeys.length !== yKeys.length) {
@@ -361,6 +358,10 @@ export function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): 
     }
   }
   return true;
+}
+
+export function equalsSafe<T>(x: IEquatable<T>, y: T) {
+  return x == null ? y == null : x.Equals(y);
 }
 
 export function equals<T>(x: T, y: T): boolean {
@@ -379,7 +380,7 @@ export function equals<T>(x: T, y: T): boolean {
   } else if (x instanceof Date) {
     return (y instanceof Date) && compareDates(x, y) === 0;
   } else {
-    return sameConstructor(x, y) && equalObjects(x, y);
+    return Object.getPrototypeOf(x).constructor === Object && equalObjects(x, y);
   }
 }
 
@@ -420,9 +421,7 @@ export function compareArrays<T>(x: ArrayLike<T>, y: ArrayLike<T>): number {
   return compareArraysWith(x, y, compare);
 }
 
-export function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): number {
-  if (x == null) { return y == null ? 0 : 1; }
-  if (y == null) { return -1; }
+function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): number {
   const xKeys = Object.keys(x);
   const yKeys = Object.keys(y);
   if (xKeys.length !== yKeys.length) {
@@ -442,6 +441,10 @@ export function compareObjects(x: { [k: string]: any }, y: { [k: string]: any })
   return 0;
 }
 
+export function compareSafe<T>(x: IEquatable<T>, y: T) {
+  return x == null ? y == null : x.Equals(y);
+}
+
 export function compare<T>(x: T, y: T): number {
   if (x === y) {
     return 0;
@@ -458,7 +461,7 @@ export function compare<T>(x: T, y: T): number {
   } else if (x instanceof Date) {
     return y instanceof Date ? compareDates(x, y) : -1;
   } else {
-    return sameConstructor(x, y) ? compareObjects(x, y) : -1;
+    return Object.getPrototypeOf(x).constructor === Object ? compareObjects(x, y) : -1;
   }
 }
 
@@ -552,7 +555,7 @@ export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None, i
       fail(kvPair);
     }
     // Deflate unions and use the defined case rule
-    if (isUnionLike(kvPair)) {
+    if (kvPair instanceof Union) {
       const name = kvPair.cases()[kvPair.tag];
       kvPair = kvPair.fields.length === 0 ? name : [name].concat(kvPair.fields);
       caseRule = definedCaseRule;
