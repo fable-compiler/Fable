@@ -404,16 +404,12 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Number Int16 -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number Int32 -> Helper.LibCall(com, "Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
-        | DeclaredType(ent, _) ->
-            let methodName =
-                if ent.IsFSharpUnion then "unionToString"
-                elif ent.IsFSharpRecord then "recordToString"
-                elif ent.FullName = Types.ienumerableGeneric then "seqToString"
-                else "objectToString"
-            Helper.LibCall(com, "String", methodName, String, [head], ?loc=r)
         | Array _ | List _ ->
-            Helper.LibCall(com, "String", "seqToString", String, [head], ?loc=r)
-        | _ -> Helper.LibCall(com, "String", "toString", String, [head], ?loc=r)
+            Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
+        // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
+        //     Helper.InstanceCall(head, "ToString", String, [], ?loc=r)
+        // | DeclaredType(ent, _) ->
+        | _ -> Helper.LibCall(com, "Types", "toString", String, [head], ?loc=r)
 
 let getParseParams (kind: NumberExtKind) =
     let isFloatOrDecimal, numberModule, unsigned, bitsize =
@@ -695,9 +691,7 @@ let isCompatibleWithJsComparison = function
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 
 let getEntityHashMethod (ent: Entity) =
-    if ent.IsFSharpUnion then "Types", "unionGetHashCode"
-    elif ent.IsFSharpRecord then "Types", "recordGetHashCode"
-    elif ent.IsValueType then "Types", "recordGetHashCode"
+    if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then "Util", "hashSafe"
     else "Util", "identityHash"
 
 let identityHashMethod = function
@@ -736,13 +730,11 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
+    | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
+        // Helper.InstanceCall(left, "Equals", Boolean, [right], ?loc=r)
+        Helper.LibCall(com, "Util", "equalsSafe", Boolean, [left; right], ?loc=r) |> is equal
     | DeclaredType(ent, _) ->
-        let moduleName, methodName =
-            if ent.IsFSharpUnion then "Types", "unionEquals"
-            elif ent.IsFSharpRecord then "Types", "recordEquals"
-            elif ent.IsValueType then "Types", "recordEquals"
-            else "Util", "equals"
-        Helper.LibCall(com, moduleName, methodName, Boolean, [left; right], ?loc=r) |> is equal
+        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
@@ -765,13 +757,11 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Date", "compare", Number Int32, [left; right], ?loc=r)
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number Int32, [left; right], ?loc=r)
+    | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
+        // Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareSafe", Number Int32, [left; right], ?loc=r)
     | DeclaredType(ent, _) ->
-        let moduleName, methodName =
-            if ent.IsFSharpUnion then "Types", "unionCompareTo"
-            elif ent.IsFSharpRecord then "Types", "recordCompareTo"
-            elif ent.IsValueType then "Types", "recordCompareTo"
-            else "Util", "compare"
-        Helper.LibCall(com, moduleName, methodName, Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "compareWith", Number Int32, [f; left; right], ?loc=r)

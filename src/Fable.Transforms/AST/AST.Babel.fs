@@ -210,8 +210,11 @@ type Node =
     abstract Print: Printer -> unit
 
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
-type Expression = inherit Node
-type Pattern = inherit Node
+type Expression =
+    inherit Node
+type Pattern =
+    inherit Node
+    abstract Name: string
 type PatternExpression =
     inherit Pattern
     inherit Expression
@@ -324,6 +327,7 @@ type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
     member _.Optional: bool option = optional
     member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
     interface PatternExpression with
+        member _.Name = name
         member _.Print(printer) =
             printer.Print(name, ?loc=loc)
             if optional = Some true then
@@ -817,6 +821,10 @@ type MemberExpression(object, property, ?computed_, ?loc) =
     member _.Property: Expression = property
     member _.Computed: bool = computed
     interface PatternExpression with
+        member _.Name =
+            match property with
+            | :? Identifier as i -> i.Name
+            | _ -> ""
         member _.Print(printer) =
             printer.AddLocation(loc)
             match object with
@@ -1028,6 +1036,7 @@ type RestElement(argument, ?typeAnnotation, ?loc) =
     member _.Argument: Pattern = argument
     member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
     interface Pattern with
+        member _.Name = argument.Name
         member _.Print(printer) =
             printer.Print("...", ?loc=loc)
             argument.Print(printer)

@@ -720,8 +720,14 @@ module Util =
     let restElement (var: Identifier) =
         RestElement(var) :> Pattern
 
-    let callSuperConstructor r (args: Expression list) =
-        CallExpression(Super(), List.toArray args, ?loc=r) :> Expression
+    let callSuper (args: Expression list) =
+        CallExpression(Super(), List.toArray args) :> Expression
+
+    let callSuperAsStatement (args: Expression list) =
+        ExpressionStatement(callSuper args) :> Statement
+
+    let makeClassConstructor args body =
+        ClassMethod(ClassImplicitConstructor, Identifier "constructor", args, body) :> ClassMember
 
     let callFunction r funcExpr (args: Expression list) =
         CallExpression(funcExpr, List.toArray args, ?loc=r) :> Expression
@@ -954,8 +960,7 @@ module Util =
 
         let baseExpr = transformAsExpr com ctx baseRef
         let args = transformCallArgs com ctx hasSpread args
-        let baseCall = callSuperConstructor None args
-        baseExpr, baseCall
+        baseExpr, args
 
     let transformObjectExpr (com: IBabelCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression =
         let compileAsClass =
@@ -1020,10 +1025,10 @@ module Util =
             let baseExpr, classMembers =
                 baseCall
                 |> Option.map (extractBaseExprFromBaseCall com ctx)
-                |> Option.map (fun (baseExpr, baseCall) ->
-                    let consBody = BlockStatement [|ExpressionStatement baseCall :> Statement|]
-                    let cons = ClassMethod(ClassImplicitConstructor, Identifier "constructor", [||], consBody)
-                    Some baseExpr, (cons :> ClassMember)::classMembers
+                |> Option.map (fun (baseExpr, baseArgs) ->
+                    let consBody = BlockStatement [|callSuperAsStatement baseArgs|]
+                    let cons = makeClassConstructor [||]  consBody
+                    Some baseExpr, cons::classMembers
                 )
                 |> Option.defaultValue (None, classMembers)
 
@@ -1755,19 +1760,13 @@ module Util =
             |> Seq.toArray
 
     let declareClassType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) classMembers =
-        let consId = Identifier "constructor"
         let typeParamDecl = makeEntityTypeParamDecl com ctx ent
         let implements =
             if com.Options.Typescript then
                 let implements = Util.getClassImplements com ctx ent |> Seq.toArray
                 if Array.isEmpty implements then None else Some implements
             else None
-        let consBody =
-            if ent.IsFSharpExceptionDeclaration then
-                let super = callSuperConstructor None [] |> ExpressionStatement :> Statement
-                BlockStatement (Array.append [|super|] consBody.Body)
-            else consBody
-        let classCons = ClassMethod(ClassImplicitConstructor, consId, consArgs, consBody) :> ClassMember
+        let classCons = makeClassConstructor consArgs consBody
         let classFields =
             if com.Options.Typescript then
                 getEntityFieldsAsProps com ctx ent
@@ -1845,16 +1844,17 @@ module Util =
             [| typedIdent com ctx fieldIds.[0] :> Pattern
                typedIdent com ctx fieldIds.[1] |> restElement |]
         let body =
-            fieldIds
-            |> Array.map (fun id ->
-                let left = get None thisExpr id.Name
-                let right =
-                    match id.Type with
-                    | Fable.Number _ ->
-                        BinaryExpression(BinaryOrBitwise, ident id, NumericLiteral(0.)) :> Expression
-                    | _ -> ident id :> Expression
-                assign None left right |> ExpressionStatement :> Statement)
-            |> BlockStatement
+            BlockStatement [|
+                yield callSuperAsStatement []
+                yield! fieldIds |> Array.map (fun id ->
+                    let left = get None thisExpr id.Name
+                    let right =
+                        match id.Type with
+                        | Fable.Number _ ->
+                            BinaryExpression(BinaryOrBitwise, ident id, NumericLiteral(0.)) :> Expression
+                        | _ -> ident id :> Expression
+                    assign None left right |> ExpressionStatement :> Statement)
+            |]
 
         let cases =
             let body =
@@ -1867,25 +1867,29 @@ module Util =
                 |> BlockStatement
             ClassMethod(ClassFunction, Identifier "cases", [||], body) :> ClassMember
 
-        Array.append [|cases|] classMembers
-        |> declareType com ctx ent entName args body None
+        declareType com ctx ent entName args body
+            (libValue com ctx "Types" "Union" |> Some)
+            (Array.append [|cases|] classMembers)
 
     let transformClassWithCompilerGeneratedConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getEntityFieldsAsIdents com ent
         let args = fieldIds |> Array.map ident
-        let body =
-            ent.FSharpFields
-            |> Seq.mapi (fun i field ->
-                let left = get None thisExpr field.Name
-                let right = wrapIntExpression field.FieldType args.[i]
-                assign None left right |> ExpressionStatement :> Statement)
-            |> Seq.toArray |> BlockStatement
         let baseExpr =
             if ent.IsFSharpExceptionDeclaration
             then libValue com ctx "Types" "FSharpException" |> Some
-            // elif ent.IsFSharpRecord || ent.IsValueType
-            // then libValue com ctx "Types" "Record" |> Some
+            elif ent.IsFSharpRecord || ent.IsValueType
+            then libValue com ctx "Types" "Record" |> Some
             else None
+        let body =
+            BlockStatement [|
+                if Option.isSome baseExpr then
+                    yield callSuperAsStatement []
+                yield! ent.FSharpFields |> Seq.mapi (fun i field ->
+                    let left = get None thisExpr field.Name
+                    let right = wrapIntExpression field.FieldType args.[i]
+                    assign None left right |> ExpressionStatement :> Statement)
+                |> Seq.toArray
+            |]
         let typedPattern x = typedIdent com ctx x :> Pattern
         let args = fieldIds |> Array.map typedPattern
         declareType com ctx ent entName args body baseExpr classMembers
@@ -1905,32 +1909,21 @@ module Util =
             else
                 returnType, typeParamDecl
 
-        let typedPattern x = typedIdent com ctx x :> Pattern
-        let argIdents, argExprs: Pattern list * Expression list =
-            match cons.Args with
-            | [] -> [], []
-            | [unitArg] when unitArg.Type = Fable.Unit -> [], []
-            | args when cons.Info.HasSpread ->
-                let args = List.rev args
-                (restElement(typedIdent com ctx args.Head)) :: (List.map typedPattern args.Tail) |> List.rev,
-                (SpreadElement(ident args.Head) :> Expression) :: (List.map identAsExpr args.Tail) |> List.rev
-            | args ->
-                args |> List.map typedPattern,
-                args |> List.map identAsExpr
-
-        let consArgs = List.toArray argIdents
-
         let exposedCons =
-            let exposedConsBody = NewExpression(classIdent, List.toArray argExprs)
+            let argExprs = consArgs |> Array.map (fun p -> Identifier(p.Name) :> Expression)
+            let exposedConsBody = NewExpression(classIdent, argExprs)
             makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
 
         let baseExpr, consBody =
             classDecl.BaseCall
             |> Option.map (extractBaseExprFromBaseCall com ctx)
-            |> Option.map (fun (baseExpr, baseCall) ->
+            |> Option.orElseWith (fun () ->
+                if classDecl.Entity.IsValueType then Some(libValue com ctx "Types" "Record", [])
+                else None)
+            |> Option.map (fun (baseExpr, baseArgs) ->
                 let consBody =
                     consBody.Body
-                    |> Array.append [|ExpressionStatement baseCall :> Statement|]
+                    |> Array.append [|callSuperAsStatement baseArgs|]
                     |> BlockStatement
                 Some baseExpr, consBody)
             |> Option.defaultValue (None, consBody)
