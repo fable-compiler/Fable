@@ -1,3 +1,10 @@
+### 3.0.0-nagareyama-alpha-008
+
+* Use latest FCS @ncave
+* Disable file caching when compiler version changes
+* Add back base class for Union/Record
+* Fix calls to static members of imported classes
+
 ### 3.0.0-nagareyama-alpha-007
 
 * --runScript option
