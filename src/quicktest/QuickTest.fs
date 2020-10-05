@@ -67,6 +67,8 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
 
+// TODO: Test for calls to static members of imported classes
+
 let test (exn: exn) =
     match exn with
     | :? System.NotSupportedException  -> ()

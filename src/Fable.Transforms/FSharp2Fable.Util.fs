@@ -1304,13 +1304,13 @@ module Util =
                 emitJsExpr r typ (classExpr::callInfo.Args) "new $0($1...)" |> Some
 
             | Some moduleOrClassExpr, None ->
-                // Set the field as mutable just in case, so it's not displaced by beta reduction
-                let fieldGet = makeFieldKey (getMemberDisplayName memb) true Fable.Any
                 if isModuleValueForCalls e memb then
+                    // Set the field as mutable just in case, so it's not displaced by beta reduction
+                    let fieldGet = makeFieldKey (getMemberDisplayName memb) true Fable.Any
                     Fable.Get(moduleOrClassExpr, Fable.ByKey fieldGet, typ, r) |> Some
                 else
-                    Fable.Get(moduleOrClassExpr, Fable.ByKey fieldGet, Fable.Any, None)
-                    |> makeCall r typ callInfo |> Some
+                    let callInfo = { callInfo with ThisArg = Some moduleOrClassExpr }
+                    callInstanceMember com r typ callInfo e memb |> Some
 
             | None, _ -> None
         | _ -> None
