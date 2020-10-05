@@ -80,23 +80,23 @@ export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
 }
 
 export function isArrayLike<T>(x: T | ArrayLike<T>): x is ArrayLike<T> {
-  return x != null && (Array.isArray(x) || ArrayBuffer.isView(x));
+  return Array.isArray(x) || ArrayBuffer.isView(x);
 }
 
-export function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
-  return x != null && typeof (x as IComparer<T>).Compare === "function";
+function isComparer<T>(x: T | IComparer<T>): x is IComparer<T> {
+  return typeof (x as IComparer<T>).Compare === "function";
 }
 
-export function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
-  return x != null && typeof (x as IComparable<T>).CompareTo === "function";
+function isComparable<T>(x: T | IComparable<T>): x is IComparable<T> {
+  return typeof (x as IComparable<T>).CompareTo === "function";
 }
 
-export function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
-  return x != null && typeof (x as IEquatable<T>).Equals === "function";
+function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
+  return typeof (x as IEquatable<T>).Equals === "function";
 }
 
-export function isHashable<T>(x: T | IHashable): x is IHashable {
-  return x != null && typeof (x as IHashable).GetHashCode === "function";
+function isHashable<T>(x: T | IHashable): x is IHashable {
+  return typeof (x as IHashable).GetHashCode === "function";
 }
 
 export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
@@ -291,7 +291,9 @@ export function physicalHash<T>(x: T): number {
 }
 
 export function identityHash<T>(x: T): number {
-  if (isHashable(x)) {
+  if (x == null) {
+    return 0;
+  } else if (isHashable(x)) {
     return x.GetHashCode();
   } else {
     return physicalHash(x);
@@ -319,6 +321,12 @@ export function structuralHash<T>(x: T): number {
           hashes[i] = structuralHash(x[i]);
         }
         return combineHashCodes(hashes);
+      } else if (x instanceof Date) {
+        return x.getTime();
+      } else if (Object.getPrototypeOf(x).constructor === Object) {
+        // TODO: check call-stack to prevernt cyclic objects?
+        const hashes = Object.values(self).map((v) => structuralHash(v));
+        return combineHashCodes(hashes);
       } else {
         return stringHash(String(x));
       }
@@ -326,8 +334,8 @@ export function structuralHash<T>(x: T): number {
   }
 }
 
-export function hashSafe(x: IHashable) {
-  return x == null ? 0 : x.GetHashCode();
+export function hashSafe(x: IHashable | null | undefined): number {
+  return x?.GetHashCode() ?? 0;
 }
 
 export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {
@@ -360,8 +368,8 @@ function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean
   return true;
 }
 
-export function equalsSafe<T>(x: IEquatable<T>, y: T) {
-  return x == null ? y == null : x.Equals(y);
+export function equalsSafe<T>(x: IEquatable<T> | null | undefined, y: T): boolean {
+  return x?.Equals(y) ?? y == null;
 }
 
 export function equals<T>(x: T, y: T): boolean {
@@ -441,8 +449,8 @@ function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): numbe
   return 0;
 }
 
-export function compareSafe<T>(x: IEquatable<T>, y: T) {
-  return x == null ? y == null : x.Equals(y);
+export function compareSafe<T>(x: IComparable<T> | null | undefined, y: T): number {
+  return x?.CompareTo(y) ?? (y == null ? 0 : -1);
 }
 
 export function compare<T>(x: T, y: T): number {
