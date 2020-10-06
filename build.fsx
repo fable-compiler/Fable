@@ -283,6 +283,40 @@ let test() =
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJs()
 
+let testRepos() =
+    let repos = [
+        "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama"
+    ]
+
+    // Make sure we don't install a cached version
+    let removeCachedPackage() =
+        run "rm -rf ~/.nuget/packages/fable"
+        // run "dotnet nuget locals all --clear"
+
+    let fableVersionRange = "3.0.0-nagareyama-*"
+    let testDir = "temp"
+    let pkgDir = "pkg"
+    cleanDirs [testDir]
+    makeDirRecursive testDir
+
+    removeCachedPackage()
+    run (sprintf "dotnet pack src/Fable.Cli/ -c Release -o %s" (testDir </> pkgDir))
+
+    for repo in repos do
+        let url, branch = let i = repo.LastIndexOf(":") in repo.[..i-1], repo.[i+1..]
+        let name = url.[url.LastIndexOf("/") + 1..]
+        runInDir testDir (sprintf "git clone %s %s" url name)
+        let repoDir = testDir </> name
+        runInDir repoDir ("git checkout " + branch)
+        runInDir repoDir "dotnet tool uninstall fable"
+        runInDir repoDir (sprintf "dotnet tool install fable --version \"%s\" --add-source %s"
+                            fableVersionRange (".." </> pkgDir))
+        runInDir repoDir "dotnet tool restore"
+        runInDir repoDir "npm install" // yarn
+        runInDir repoDir "npm test"
+
+    removeCachedPackage()
+
 let coverage() =
     // report converter
     // https://github.com/danielpalme/ReportGenerator
@@ -410,6 +444,7 @@ match argsLower with
     publishPackages []
     githubRelease ()
 | "sync-fcs-repo"::_ -> syncFcsRepo()
+| "test-repos"::_ -> testRepos()
 | _ ->
     printfn "Please pass a target name"
 
