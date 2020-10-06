@@ -434,6 +434,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         | None, None -> None, state
         | None, Some runProc ->
             let workingDir = state.CliArgs.RootDir
+
             let exeFile, args =
                 match runProc.ExeFile with
                 | Naming.placeholder ->
@@ -447,7 +448,12 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         |> Path.replaceExtension state.CliArgs.CompilerOptions.FileExtension
                     // Pass also the file name as argument, as when calling the script directly
                     "node", ["--eval"; "\"require('esm')(module)('" + lastFilePath + "')\""; lastFilePath] @ runProc.Args
-                | exeFile -> exeFile, runProc.Args
+                | exeFile ->
+                    let nodeModulesBin = IO.Path.Join(workingDir, "node_modules", ".bin", exeFile)
+                    // let nodeModulesBin = if Process.isWindows() then nodeModulesBin + ".cmd" else nodeModulesBin
+                    if File.Exists(nodeModulesBin) then nodeModulesBin, runProc.Args
+                    else exeFile, runProc.Args
+
             if state.CliArgs.WatchMode then
                 runProc.RunningProcess |> Option.iter (fun p -> p.Kill())
                 let runProc =
