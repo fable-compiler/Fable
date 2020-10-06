@@ -73,6 +73,10 @@ module Process =
     let isWindows() =
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 
+    let addToPath (dir: string) =
+        let currentPath = System.Environment.GetEnvironmentVariable("PATH")
+        Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
+
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
     let private startProcess workingDir exePath args =
         let args = String.concat " " args
@@ -83,6 +87,8 @@ module Process =
         Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)
 
         let psi = ProcessStartInfo()
+        // for envVar in envVars do
+        //     psi.EnvironmentVariables.[envVar.Key] <- envVar.Value
         psi.FileName <- exePath
         psi.WorkingDirectory <- workingDir
         psi.RedirectStandardOutput <- true
