@@ -37,8 +37,13 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
             "Only inheriting from primary constructors is supported"
             |> addWarning com [] r
         match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
-        | Fable.Call(_, info, t, r) ->
-            let baseExpr = entityRef com baseEnt
+        | Fable.Call(baseExpr, info, t, r) ->
+            let baseExpr =
+                match baseExpr with
+                | Fable.Import(i,_,_) when not i.IsCompilerGenerated -> baseExpr
+                // The baseExpr will be the exposed constructor function,
+                // replace with a direct reference to the entity
+                | _ -> entityRef com baseEnt
             Fable.Call(baseExpr, info, t, r)
         // Other cases, like Emit will call directly the base expression
         | e -> e
@@ -596,13 +601,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let! args = transformExprList com ctx args
             let args = destructureTupleArgs args
             let typ = makeType ctx.GenericArgs fsExpr.Type
+            let r = makeRangeFrom fsExpr
             // Convert this to emit so auto-uncurrying is applied
-            let emitInfo: Fable.EmitInfo =
-                { Macro = "$0($1...)"
-                  Args = e::args
-                  SignatureArgTypes = [] // TODO
-                  IsJsStatement = false }
-            return Fable.Emit(emitInfo, typ, makeRangeFrom fsExpr)
+            return emitJsExpr r typ (e::args) "$0($1...)"
 
         // Some instance members such as Option.get_IsSome are compiled as static members, and the F# compiler
         // wraps calls with an application. But in Fable they will be replaced so the application is not needed
