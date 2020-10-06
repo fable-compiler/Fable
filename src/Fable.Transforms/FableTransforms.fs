@@ -45,7 +45,10 @@ let visit f e =
                                Args = List.map f info.Args }
         Call(f callee, info, t, r)
     | Emit(info, t, r) ->
-        Emit({ info with Args = List.map f info.Args }, t, r)
+        let callInfo =
+            { info.CallInfo with ThisArg = Option.map f info.CallInfo.ThisArg
+                                 Args = List.map f info.CallInfo.Args }
+        Emit({ info with CallInfo = callInfo }, t, r)
     | Operation(kind, t, r) ->
         match kind with
         | Unary(operator, operand) ->
@@ -119,7 +122,7 @@ let getSubExpressions = function
         match baseCall with Some b -> b::members | None -> members
     | CurriedApply(callee, args, _, _) -> callee::args
     | Call(e1, info, _, _) -> e1 :: (Option.toList info.ThisArg) @ info.Args
-    | Emit(info, _, _) -> info.Args
+    | Emit(info, _, _) -> (Option.toList info.CallInfo.ThisArg) @ info.CallInfo.Args
     | Operation(kind, _, _) ->
         match kind with
         | Unary(_, operand) -> [operand]
@@ -458,10 +461,10 @@ module private Transforms =
             | NestedLambdaType(argTypes, _) ->
                 CurriedApply(callee, uncurryArgs com false argTypes args, t, r)
             | _ -> e
-        | Emit(info, t, r) ->
-            let autoUncurrying = List.isEmpty info.SignatureArgTypes
-            let args = uncurryArgs com autoUncurrying info.SignatureArgTypes info.Args
-            Emit({ info with Args = args }, t, r)
+        | Emit({ CallInfo = callInfo } as emitInfo, t, r) ->
+            let autoUncurrying = List.isEmpty callInfo.SignatureArgTypes
+            let args = uncurryArgs com autoUncurrying callInfo.SignatureArgTypes callInfo.Args
+            Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
             let args = uncurryConsArgs args ent.FSharpFields

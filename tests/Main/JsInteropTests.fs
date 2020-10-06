@@ -84,6 +84,8 @@ type TextStyle =
     abstract FontFamily : string option with get, set
     [<Emit("{{$1?\"foo\":\"bar\"}}")>]
     abstract FontSize : bool -> string
+    [<Emit("$1 + [].concat($2...).reduce((x, y) => x + y)")>]
+    abstract Sum: f: float * [<ParamArray>] ints: int[] -> float
 
 type InnerRecord = {
     Float: float
@@ -370,6 +372,10 @@ let tests =
         let style = createEmpty<TextStyle>
         style.FontSize(true) |> equal "foo"
         style.FontSize(false) |> equal "bar"
+
+    testCase "Emit wors with ParamArray" <| fun () ->
+        let style = createEmpty<TextStyle>
+        style.Sum(1.5, 2, 3, 4) |> equal 10.5
 
     testCase "nameof works" <| fun () ->
         let record = { String = ""; Int = 0; InnerRecord = { Float = 5.0 } }

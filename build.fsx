@@ -137,7 +137,9 @@ let quicktest () =
 
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
-let buildStandalone() =
+let buildStandalone(minify: bool) =
+    printfn "Building standalone%s..." (if minify then "" else " (no minification)")
+
     let projectDir = "src/fable-standalone/src"
     let libraryDir = "build/fable-library"
     let buildDir = "build/fable-standalone"
@@ -175,8 +177,10 @@ let buildStandalone() =
     ]
 
     // make standalone bundle dist
-    run (sprintf "npx rollup %s/bundle/Main.js -o %s/bundle.js --format umd --name __FABLE_STANDALONE__" buildDir buildDir)
-    run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
+    let rollupTarget = if minify then buildDir </> "bundle.js" else distDir </> "bundle.min.js"
+    run (sprintf "npx rollup %s/bundle/Main.js -o %s --format umd --name __FABLE_STANDALONE__" buildDir rollupTarget)
+    if minify then
+        run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
 
     // make standalone worker dist
     run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
@@ -210,14 +214,14 @@ let buildStandalone() =
     //     (if comMajor > staMajor || comMinor > staMinor then compilerVersion
     //      else sprintf "%i.%i.%i%s" staMajor staMinor (staPatch + 1) comPrerelease)
 
-let buildCompilerJs() =
+let buildCompilerJs(minify: bool) =
     let projectDir = "src/fable-compiler-js/src"
     let libraryDir = "build/fable-library"
     let buildDir = "build/fable-compiler-js"
     let distDir = "src/fable-compiler-js/dist"
 
     if not (pathExists "build/fable-standalone") then
-        buildStandalone()
+        buildStandalone(minify)
 
     cleanDirs [buildDir; distDir]
     makeDirRecursive distDir
@@ -229,20 +233,22 @@ let buildCompilerJs() =
         "--exclude Fable.Core"
     ]
 
-    run (sprintf "npx rollup %s/app.js -o %s/app.js --format umd --name Fable" buildDir distDir)
-    run (sprintf "npx terser %s/app.js -o %s/app.min.js --mangle --compress" distDir distDir)
+    let rollupTarget = if minify then distDir </> "app.js" else distDir </> "app.min.js"
+    run (sprintf "npx rollup %s/app.js -o %s --format umd --name Fable" buildDir rollupTarget)
+    if minify then
+        run (sprintf "npx terser %s/app.js -o %s/app.min.js --mangle --compress" distDir distDir)
 
     // Copy fable-library
     copyDirRecursive ("build/fable-library") (distDir </> "fable-library")
     // Copy fable-metadata
     copyDirRecursive ("src/fable-metadata/lib") (distDir </> "fable-metadata")
 
-let testJs() =
+let testJs(minify) =
     let fableDir = "src/fable-compiler-js"
     let buildDir = "build/tests-js"
 
     if not (pathExists "build/fable-compiler-js") then
-        buildCompilerJs()
+        buildCompilerJs(minify)
 
     cleanDirs [buildDir]
 
@@ -281,7 +287,7 @@ let test() =
 
     runInDir projectDir "dotnet run"
     if envVarOrNone "APPVEYOR" |> Option.isSome then
-        testJs()
+        testJs(true)
 
 let testRepos() =
     let repos = [
@@ -407,7 +413,7 @@ let packages =
         updateVersionInCliUtil()
         buildLibrary())
      "Fable.Core", doNothing
-     "fable-compiler-js", buildCompilerJs
+     "fable-compiler-js", fun () -> buildCompilerJs true
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
      "fable-standalone", downloadStandalone
@@ -424,9 +430,12 @@ let publishPackages restArgs =
         else
             pushNpm ("src" </> pkg) buildAction
 
+let minify<'T> =
+    argsLower |> List.contains "--no-minify" |> not
+
 match argsLower with
 | "test"::_ -> test()
-| "test-js"::_ -> testJs()
+| "test-js"::_ -> testJs(minify)
 | "coverage"::_ -> coverage()
 | "quicktest"::_ -> quicktest()
 // | "check-sourcemaps"::_ ->
@@ -436,8 +445,8 @@ match argsLower with
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
-| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs()
-| ("fable-standalone"|"standalone")::_ -> buildStandalone()
+| ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
+| ("fable-standalone"|"standalone")::_ -> buildStandalone(minify)
 | "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->

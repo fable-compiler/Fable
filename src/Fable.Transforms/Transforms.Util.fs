@@ -415,17 +415,24 @@ module AST =
           HasSpread = false
           IsJsConstructor = false }
 
+    let emitJs r t args isStatement macro =
+        let callInfo =
+            { ThisArg = None
+              Args = args
+              SignatureArgTypes = []
+              HasSpread = false
+              IsJsConstructor = false }
+        let emitInfo =
+            { Macro = macro
+              IsJsStatement = isStatement
+              CallInfo = callInfo }
+        Emit(emitInfo, t, r)
+
     let emitJsExpr r t args macro =
-        Emit({ Macro = macro
-               Args = args
-               SignatureArgTypes = [] // TODO
-               IsJsStatement = false }, t, r)
+        emitJs r t args false macro
 
     let emitJsStatement r t args macro =
-        Emit({ Macro = macro
-               Args = args
-               SignatureArgTypes = [] // TODO
-               IsJsStatement = true }, t, r)
+        emitJs r t args true macro
 
     let makeThrow r t err =
         emitJsStatement r t [err] "throw $0"

@@ -225,9 +225,8 @@ type ReplaceCallInfo =
 
 type EmitInfo =
     { Macro: string
-      Args: Expr list
-      SignatureArgTypes: Type list
-      IsJsStatement: bool }
+      IsJsStatement: bool
+      CallInfo: CallInfo }
 
 type ImportInfo =
     { Selector: Expr
@@ -282,7 +281,7 @@ type Expr =
 
     // JS related: imports and statements
     | Import of ImportInfo * Type * SourceLocation option
-    | Emit of EmitInfo * typ: Type * range: SourceLocation option
+    | Emit of EmitInfo * Type * SourceLocation option
 
     // Pattern matching
     | DecisionTree of Expr * targets: (Ident list * Expr) list

@@ -12,8 +12,9 @@ type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
 type Helper =
-    static member JsConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?loc: SourceLocation) =
-        emitJsExpr loc returnType (consExpr::args) "new $0($1...)"
+    static member JsConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?loc: SourceLocation) =
+        let info = defaultArg argTypes [] |> makeCallInfo None args
+        Call(consExpr, { info with IsJsConstructor = true }, returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
@@ -379,7 +380,7 @@ let makeRefFromMutableValue com ctx (value: Expr) =
     let setter =
         let v = makeUniqueIdent ctx Any "v"
         Delegate([v], Set(value, None, IdentExpr v, None), None)
-    Helper.JsConstructorCall(makeImportLib com t "FSharpRef" "Types", t, [getter; setter])
+    Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
 
 let turnLastArgIntoRef com ctx args =
     let args, defValue = List.splitLast args
@@ -1116,12 +1117,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | Fable.Value(Fable.StringConstant macro,_) ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
-                let info: Fable.EmitInfo =
-                    { Macro = macro
-                      Args = args
-                      SignatureArgTypes = []
-                      IsJsStatement = isStatement }
-                Emit(info, t, r) |> Some
+                emitJs r t args isStatement macro |> Some
             | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
@@ -1153,7 +1149,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let getReference r t expr = get r t expr "contents"
 let setReference r expr value = Set(expr, Some(ExprKey(makeStrConst "contents")), value, r)
-let newReference com r t value = Helper.JsConstructorCall(makeImportLib com t "FSharpRef" "Types", t, [value], ?loc=r)
+let newReference com r t value = Helper.LibCall(com, "Types", "FSharpRef", t, [value], isJsConstructor=true, ?loc=r)
 
 let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
