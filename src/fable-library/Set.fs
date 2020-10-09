@@ -548,7 +548,7 @@ module SetTree =
 
 [<Sealed>]
 [<CompiledName("FSharpSet")>]
-[<Fable.Core.Replaces("Microsoft.FSharp.Collections.FSharpSet`1")>]
+[<Fable.Core.NoOverloadSuffix>]
 // [<CompiledName("FSharpSet`1")>]
 // [<DebuggerTypeProxy(typedefof<SetDebugView<_>>)>]
 // [<DebuggerDisplay("Count = {Count}")>]
@@ -653,7 +653,6 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     member s.ForAll f =
         SetTree.forall f s.Tree
 
-    [<Fable.Core.OverloadSuffix("")>]
     [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates")>]
     static member (-) (set1: Set<'T>, set2: Set<'T>) =
         if SetTree.isEmpty set1.Tree then set1 (* 0 - B = 0 *)
@@ -661,7 +660,6 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
             if SetTree.isEmpty set2.Tree then set1 (* A - 0 = A *)
             else Set(set1.Comparer, SetTree.diff set1.Comparer set1.Tree set2.Tree)
 
-    [<Fable.Core.OverloadSuffix("")>]
     [<System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2225:OperatorOverloadsHaveNamedAlternates")>]
     static member (+) (set1: Set<'T>, set2: Set<'T>) =
 // #if TRACE_SETS_AND_MAPS
@@ -682,7 +680,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     // static member Union(sets:seq<Set<'T>>) : Set<'T>  =
     //     Seq.fold (fun s1 s2 -> s1 + s2) Set<'T>.Empty sets
 
-    static member Intersection(sets:seq<Set<'T>>) : Set<'T>  =
+    static member IntersectionMany(sets:seq<Set<'T>>) : Set<'T>  =
         Seq.reduce (fun s1 s2 -> Set.Intersection(s1, s2)) sets
 
     static member Equality(a: Set<'T>, b: Set<'T>) =
@@ -809,7 +807,7 @@ let unionMany (sets: seq<Set<'T>>) ([<Fable.Core.Inject>] comparer: IComparer<'T
 let intersect (set1: Set<'T>) (set2: Set<'T>)  = Set<'T>.Intersection(set1, set2)
 
 // [<CompiledName("IntersectMany")>]
-let intersectMany (sets: seq<Set<'T>>)  = Set.Intersection sets
+let intersectMany (sets: seq<Set<'T>>)  = Set.IntersectionMany sets
 
 // [<CompiledName("Iterate")>]
 let iterate action (set: Set<'T>)  = set.Iterate action

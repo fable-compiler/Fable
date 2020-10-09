@@ -17,7 +17,7 @@ type IMutableMap<'Key, 'Value> =
     abstract values: unit -> 'Value seq
 
 [<Sealed>]
-[<CompiledName("Dictionary"); Fable.Core.Replaces("System.Collections.Generic.Dictionary`2")>]
+[<CompiledName("Dictionary")>]
 type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Value> seq, comparer: IEqualityComparer<'Key>) as this =
 
     // Compiles to JS Map of key hashes pointing to dynamic arrays of KeyValuePair<'Key, 'Value>.

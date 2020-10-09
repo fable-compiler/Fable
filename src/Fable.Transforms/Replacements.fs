@@ -1822,7 +1822,7 @@ let sets (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     | ".ctor" -> (genArg com ctx r 0 i.GenericArgs) |> makeSet com ctx r t "OfSeq" args |> Some
     | _ ->
         let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName i.OverloadSuffix.Value
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpSet" isStatic i.CompiledName ""
         let args = injectArg com ctx r "Set" mangledName i.GenericArgs args
         Helper.LibCall(com, "Set", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
@@ -1835,12 +1835,11 @@ let maps (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
     match i.CompiledName with
     | ".ctor" -> (genArg com ctx r 0 i.GenericArgs) |> makeMap com ctx r t "OfSeq" args |> Some
     | _ ->
-        let args, overloadSuffix =
-            if i.CompiledName = "TryGetValue" then
-                turnLastArgIntoRef com ctx args, ""
-            else args, i.OverloadSuffix.Value
+        let args =
+            if i.CompiledName = "TryGetValue" then turnLastArgIntoRef com ctx args
+            else args
         let isStatic = Option.isNone thisArg
-        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName overloadSuffix
+        let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" isStatic i.CompiledName ""
         let args = injectArg com ctx r "Map" mangledName i.GenericArgs args
         Helper.LibCall(com, "Map", mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
 
