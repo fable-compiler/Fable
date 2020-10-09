@@ -86,12 +86,7 @@ type InjectAttribute() =
 
 /// Intended for replacement types in Fable.Library
 [<AttributeUsage(AttributeTargets.Class)>]
-type ReplacesAttribute(replacedTypeFullName: string) =
-    inherit Attribute()
-
-/// Intended for replacement types in Fable.Library
-[<AttributeUsage(AttributeTargets.Method)>]
-type OverloadSuffixAttribute(value: string) =
+type NoOverloadSuffixAttribute() =
     inherit Attribute()
 
 /// Can be used in an optional argument decorated with Inject attribute

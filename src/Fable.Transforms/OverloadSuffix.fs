@@ -1,5 +1,5 @@
 [<RequireQualifiedAccess>]
-module Fable.Transforms.OverloadSuffix
+module rec Fable.Transforms.OverloadSuffix
 
 open Fable
 open System.Collections.Generic
@@ -9,8 +9,7 @@ type ParamTypes = FSharpType list
 
 [<RequireQualifiedAccess>]
 module private Atts =
-    let [<Literal>] replaces = "Fable.Core.ReplacesAttribute" // typeof<Fable.Core.ReplacesAttribute>.FullName
-    let [<Literal>] overloadSuffix = "Fable.Core.OverloadSuffixAttribute" // typeof<Fable.Core.OverloadSuffixAttribute>.FullName
+    let [<Literal>] noOverloadSuffix = "Fable.Core.NoOverloadSuffixAttribute" // typeof<Fable.Core.OverloadSuffixAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module private Types =
@@ -45,7 +44,7 @@ let private hashToString (i: int) =
 
 // Not perfect but hopefully covers most of the cases
 // Using only common constrains from https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/generics/constraints
-let rec private getGenericParamConstrainsHash genParams (p: FSharpGenericParameter) =
+let private getGenericParamConstrainsHash genParams (p: FSharpGenericParameter) =
     let getConstrainHash (c: FSharpGenericParameterConstraint) =
         if c.IsCoercesToConstraint then
             ":>" + getTypeFastFullName genParams c.CoercesToTarget
@@ -70,7 +69,7 @@ let rec private getGenericParamConstrainsHash genParams (p: FSharpGenericParamet
     p.Constraints |> Seq.map getConstrainHash |> String.concat ","
 
 // Attention: we need to keep this similar to FSharp2Fable.TypeHelpers.makeType
-and private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
+let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
     let t = nonAbbreviatedType t
     if t.IsGenericParameter then
         match genParams.TryGetValue(t.GenericParameter.Name) with
@@ -90,16 +89,11 @@ and private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType) =
         let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat ","
         if tdef.IsArrayType
         then genArgs + "[]"
-        elif tdef.IsByRef // Ignore byref
-        then genArgs
+        // elif tdef.IsByRef // Ignore byref
+        // then genArgs
         else
-            match tryFindAttributeArgs Atts.replaces tdef.Attributes with
-            | Some [:? string as replacedTypeFullName] ->
-                let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
-                replacedTypeFullName + genArgs
-            | _ ->
-                let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
-                tdef.FullName + genArgs
+            let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
+            tdef.FullName + genArgs
     else Types.object
 
 // From https://stackoverflow.com/a/37449594
@@ -117,9 +111,11 @@ let private stringHash (s: string) =
         h <- (h * 33) ^^^ (int s.[i])
     h
 
-let private getHashPrivate (atts: IList<FSharpAttribute>) (paramTypes: ParamTypes) genParams =
-    match tryFindAttributeArgs Atts.overloadSuffix atts with
-    | Some [:? string as overloadSuffix] -> overloadSuffix
+let private getHashPrivate (entAtts: IList<FSharpAttribute>) (paramTypes: ParamTypes) genParams =
+    // TODO: This is only useful when compiling fable-library,
+    // use conditional compilation?
+    match tryFindAttributeArgs Atts.noOverloadSuffix entAtts with
+    | Some _ -> ""
     | _ ->
         paramTypes
         |> List.map (getTypeFastFullName genParams >> stringHash)
@@ -148,7 +144,7 @@ let getHash (entity: FSharpEntity) (m: FSharpMemberOrFunctionOrValue) =
                 entity.GenericParameters
                 |> Seq.mapi (fun i p -> p.Name, string i)
                 |> dict
-            getHashPrivate m.Attributes paramTypes genParams
+            getHashPrivate entity.Attributes paramTypes genParams
 
 let getAbstractSignatureHash (entity: FSharpEntity) (m: FSharpAbstractSignature) =
     // Members with curried params cannot be overloaded in F#
@@ -163,7 +159,7 @@ let getAbstractSignatureHash (entity: FSharpEntity) (m: FSharpAbstractSignature)
                 entity.GenericParameters
                 |> Seq.mapi (fun i p -> p.Name, string i)
                 |> dict
-            getHashPrivate [||] paramTypes genParams
+            getHashPrivate entity.Attributes paramTypes genParams
 
 /// Used for extension members
 let getExtensionHash (m: FSharpMemberOrFunctionOrValue) =
@@ -175,4 +171,4 @@ let getExtensionHash (m: FSharpMemberOrFunctionOrValue) =
         else
             // Type resolution in extension member seems to be different
             // and doesn't take generics into account
-            dict [] |> getHashPrivate m.Attributes paramTypes
+            dict [] |> getHashPrivate [||] paramTypes

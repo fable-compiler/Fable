@@ -497,7 +497,7 @@ module MapTree =
 
 [<Sealed>]
 [<CompiledName("FSharpMap")>]
-[<Fable.Core.Replaces("Microsoft.FSharp.Collections.FSharpMap`2")>]
+[<Fable.Core.NoOverloadSuffix>]
 type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key, 'Value>) =
 
     // [<System.NonSerialized>]
@@ -543,10 +543,6 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     static member Create(ie : IEnumerable<_>) : Map<'Key, 'Value> =
         let comparer = LanguagePrimitives.FastGenericComparer<'Key>
         new Map<_, _>(comparer, MapTree.ofSeq comparer ie)
-
-    new (elements : seq<_>) =
-        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-        new Map<_, _>(comparer, MapTree.ofSeq comparer elements)
 
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal m.Comparer = comparer
@@ -626,7 +622,6 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member m.Remove key =
         new Map<'Key, 'Value>(comparer, MapTree.remove comparer key tree)
 
-    [<Fable.Core.OverloadSuffix("")>]
     member __.TryGetValue(key: 'Key, value: 'Value ref) =
         match MapTree.tryGetValue comparer key tree with
         | true, v -> value := v; true
