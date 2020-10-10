@@ -71,6 +71,14 @@ module List =
         let mutable i = -1
         xs |> List.collect (fun x -> i <- i + 1; f i x)
 
+    let chooseToArray (f: 'a -> 'b option) (xs: 'a list) =
+        let ar = ResizeArray()
+        for x in xs do
+            match f x with
+            | None -> ()
+            | Some x -> ar.Add(x)
+        ar.ToArray()
+
     let mapToArray (f: 'a -> 'b) (xs: 'a list) =
         let ar: 'b[] = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f x)

@@ -42,10 +42,19 @@ type Project(projectOptions: FSharpProjectOptions,
 //    if List.isEmpty implFiles then
 //        Log.always "The list of files returned by F# compiler is empty"
 
+    let rec withNestedEntities (e: FSharpEntity) =
+        seq  {
+            yield e
+            if e.IsFSharpModule then
+                for sub in e.NestedEntities do
+                    yield! withNestedEntities sub
+        }
+
     let entities =
         checkResults.ProjectContext.GetReferencedAssemblies()
         |> Seq.collect (fun a -> a.Contents.Entities)
         |> Seq.append (checkResults.AssemblySignature.Entities)
+        |> Seq.collect withNestedEntities
         |> Seq.choose (fun e ->
             match e.IsFSharpAbbreviation, e.TryFullName with
             | false, Some name -> KeyValuePair(name, FSharp2Fable.FsEnt e :> Fable.Entity) |> Some
@@ -58,6 +67,7 @@ type Project(projectOptions: FSharpProjectOptions,
     let rootModules =
         implFiles |> Seq.map (fun kv ->
             kv.Key, FSharp2Fable.Compiler.getRootModuleFullName kv.Value) |> dict
+
     member _.ImplementationFiles = implFiles
     member _.RootModules = rootModules
     member _.Entities = entities
@@ -120,18 +130,22 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                         findEntity fullName e.NestedEntities
                     | _ -> None)
 
+            let rec findParent fullName (trimmed: string) =
+                let i = trimmed.LastIndexOf(".")
+                if i > 0 then
+                    let trimmed = trimmed.[..i-1]
+                    if project.Entities.ContainsKey(trimmed) then project.Entities.[trimmed]
+                    else findParent fullName trimmed
+                else
+                    failwithf "Cannot find parent of %s" fullName
+
             project.Entities.GetOrAdd(fullName, fun _ ->
-                project.Entities
-                |> Seq.tryPick(fun kv ->
-                    if fullName.StartsWith(kv.Key + ".") then
-                        match kv.Value with
-                        | :? FSharp2Fable.FsEnt as e -> findEntity fullName e.FSharpEntity.NestedEntities
-                        | _ -> None
-                    else None)
+                match findParent fullName fullName with
+                | :? FSharp2Fable.FsEnt as e -> findEntity fullName e.FSharpEntity.NestedEntities
+                | _ -> None
                 |> function
                     | Some e -> FSharp2Fable.FsEnt e :> Fable.Entity
-                    | None -> failwithf "Cannot find entity %s" fullName
-            )
+                    | None -> failwithf "Cannot find entity %s" fullName)
 
         member this.GetEntitySourcePath(fullName) =
             project.EntitySourcePaths.GetOrAdd(fullName, fun _ ->

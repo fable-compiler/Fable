@@ -277,7 +277,7 @@ type ProjectParsed(project: Project,
         Log.always(sprintf "F# compilation finished in %ims" ms)
 
         // checkFableCoreVersion checkedProject
-        let proj = Project(config.ProjectOptions, checkedProject)
+        let proj = Project(config.ProjectOptions, checkedProject, optimize=cliArgs.CompilerOptions.OptimizeFSharpAst)
         ProjectParsed(proj, checker)
 
 type TestInfo private (current, iterations, times: int64 list) =

@@ -607,7 +607,7 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
         | DeclaredType(ent,_) ->
             let ent = com.GetEntity(ent)
-            FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName true argTypes
+            FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
         | _ -> None)
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
@@ -738,9 +738,9 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | DeclaredType(ent, _) ->
         let ent = com.GetEntity(ent)
         if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then
-            Helper.LibCall(com, "Util", "equalsSafe", Number Int32, [left; right], ?loc=r)
+            Helper.LibCall(com, "Util", "equalsSafe", Boolean, [left; right], ?loc=r) |> is equal
         else
-            Helper.LibCall(com, "Util", "equals", Number Int32, [left; right], ?loc=r)
+            Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal

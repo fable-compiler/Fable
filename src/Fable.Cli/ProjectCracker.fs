@@ -456,10 +456,23 @@ let getFullProjectOpts (opts: Options) =
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
             pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
         let otherOptions =
+            let coreRefs = HashSet Fable.Standalone.Metadata.references_core
+            let ignoredRefs = HashSet [
+               "WindowsBase"
+               "Microsoft.Win32.Primitives"
+               "Microsoft.VisualBasic"
+               "Microsoft.VisualBasic.Core"
+               "Microsoft.CSharp"
+            ]
             let dllRefs =
                 // We only keep dllRefs for the main project
                 mainProj.DllReferences
-                |> List.mapToArray (fun r -> "-r:" + r)
+                // Remove unneeded System dll references
+                |> List.chooseToArray (fun r ->
+                    let name = getDllName r
+                    if ignoredRefs.Contains(name) ||
+                       (name.StartsWith("System.") && not(coreRefs.Contains(name))) then None
+                    else Some("-r:" + r))
             let optimize = [| "--optimize" + (if opts.optimize then "+" else "-") |]
             let otherOpts = mainProj.OtherCompilerOptions |> Array.ofList
             [ getBasicCompilerArgs opts.define
