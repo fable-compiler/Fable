@@ -3,7 +3,7 @@ import { IEquatable, IComparable, combineHashCodes, compare, compareArrays, equa
 export function seqToString<T>(self: Iterable<T>): string {
   let count = 0;
   let str = "[";
-  for (let x of self) {
+  for (const x of self) {
     if (count === 0) {
       str += toString(x);
     } else if (count === 100) {
@@ -17,7 +17,7 @@ export function seqToString<T>(self: Iterable<T>): string {
   return str + "]";
 }
 
-export function toString(x: any, callStack=0): string {
+export function toString(x: any, callStack = 0): string {
   if (x != null && typeof x === "object") {
     if (typeof x.ToString === "function") {
       return x.ToString();
@@ -34,7 +34,7 @@ export function toString(x: any, callStack=0): string {
   return String(x);
 }
 
-function compareList<T>(self: List<T>, other: List<T>): number{
+function compareList<T>(self: List<T>, other: List<T>): number {
   if (self === other) {
     return 0;
   } else {

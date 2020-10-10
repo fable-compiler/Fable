@@ -1127,7 +1127,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
          | "keyValueList", [caseRule; keyValueList] ->
             let args = [keyValueList; caseRule]
             let args = if com.Options.DebugMode then args @ [makeBoolConst true] else args
-            Helper.LibCall(com, "Util", "keyValueList", Any, args) |> Some
+            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
@@ -2204,15 +2204,15 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | "ContainsValue", _ ->
         match thisArg, args with
-        | Some c, [arg] -> Helper.LibCall(com, "Util", "containsValue", t, [arg; c], ?loc=r) |> Some
+        | Some c, [arg] -> Helper.LibCall(com, "MapUtil", "containsValue", t, [arg; c], ?loc=r) |> Some
         | _ -> None
     | "TryGetValue", _ ->
         let args = turnLastArgIntoRef com ctx args
-        Helper.LibCall(com, "Util", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "MapUtil", "tryGetValue", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "Add", _ ->
-        Helper.LibCall(com, "Util", "addToDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "MapUtil", "addToDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | "get_Item", _ ->
-        Helper.LibCall(com, "Util", "getItemFromDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        Helper.LibCall(com, "MapUtil", "getItemFromDict", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
     | ReplaceName ["set_Item",     "set"
                    "get_Keys",     "keys"
                    "get_Values",   "values"
@@ -2245,7 +2245,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Add", Some c, [arg] ->
-        Helper.LibCall(com, "Util", "addToSet", t, [arg; c], ?loc=r) |> Some
+        Helper.LibCall(com, "MapUtil", "addToSet", t, [arg; c], ?loc=r) |> Some
     | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" |
         "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
         let meth = Naming.lowerFirst meth
