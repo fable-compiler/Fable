@@ -41,6 +41,7 @@ type Severity =
 
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
+open Fable.AST
 
 type InlineExpr =
     { Args: FSharpMemberOrFunctionOrValue list
@@ -53,7 +54,9 @@ type Compiler =
     abstract Options: CompilerOptions
     abstract ImplementationFiles: IDictionary<string, FSharpImplementationFileContents>
     abstract GetRootModule: string -> string
+    abstract GetEntity: entityFullName: string -> Fable.Entity
+    abstract GetEntitySourcePath: entityFullName: string -> string
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
     abstract AddWatchDependency: file: string -> unit
-    abstract AddLog: msg:string * severity: Severity * ?range:SourceLocation
+    abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
                         * ?fileName:string * ?tag: string -> unit

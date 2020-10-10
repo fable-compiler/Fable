@@ -336,7 +336,7 @@ module Publish =
                 sprintf "Already version %s, no need to publish" releaseVersion |> print
             not sameVersion
 
-    let pushNuget (projFile: string) buildAction =
+    let pushNuget (projFile: string) props buildAction =
         let checkPkgVersion = function
             | Regex NUGET_PACKAGE_VERSION [_;_;pkgVersion;_] -> Some pkgVersion
             | _ -> None
@@ -358,7 +358,13 @@ module Publish =
             try
                 let tempDir = fullPath(projDir </> "temp")
                 removeDirRecursive tempDir
-                runList ["dotnet pack"; projDir; sprintf "-c Release -o %s" tempDir]
+                runList [
+                    "dotnet pack"
+                    projDir
+                    yield! props |> List.map (fun (k,v) -> "-p:" + k + "=" + v)
+                    "-c Release -o"
+                    tempDir
+                ]
                 let nupkg =
                     dirFiles tempDir
                     |> Seq.tryPick (fun path ->
@@ -399,8 +405,8 @@ module Publish =
 
 let doNothing () = ()
 
-let pushNuget projFile buildAction =
-    Publish.pushNuget projFile buildAction
+let pushNuget projFile props buildAction =
+    Publish.pushNuget projFile props buildAction
 
 let pushNpm projDir buildAction =
     Publish.pushNpm projDir buildAction

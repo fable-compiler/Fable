@@ -93,7 +93,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType
         // then genArgs
         else
             let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
-            tdef.FullName + genArgs
+            defaultArg tdef.TryFullName tdef.LogicalName + genArgs
     else Types.object
 
 // From https://stackoverflow.com/a/37449594

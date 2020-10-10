@@ -14,7 +14,7 @@
     <PackAsTool>true</PackAsTool>
     <Description>F# to JS compiler</Description>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(Pack)' == 'true'">
     <Content Include="..\..\build\fable-library\**\*.js" PackagePath="fable-library\" />
   </ItemGroup>
   <ItemGroup>

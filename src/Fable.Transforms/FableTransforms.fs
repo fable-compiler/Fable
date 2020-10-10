@@ -467,14 +467,14 @@ module private Transforms =
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
-            let args = uncurryConsArgs args ent.FSharpFields
+            let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs), r) ->
             // TODO: Use field types instead of auto-uncurrying?
             let args = uncurryArgs com true [] args
             Value(NewAnonymousRecord(args, fieldNames, genArgs), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->
-            let uci = ent.UnionCases.[tag]
+            let uci = com.GetEntity(ent).UnionCases.[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
         | Set(e, Some(FieldKey fi), value, r) ->

@@ -84,7 +84,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     | DiscriminatedUnion(tdef, genArgs) ->
         let genArgs = makeGenArgs ctx.GenericArgs genArgs
         let tag = unionCaseTag tdef unionCase
-        Fable.NewUnion(argExprs, tag, FsEnt tdef, genArgs) |> makeValue r
+        Fable.NewUnion(argExprs, tag, FsEnt.FullName tdef, genArgs) |> makeValue r
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
     let makeCallInfo traitName entityFullName argTypes genArgs: Fable.ReplaceCallInfo =
@@ -96,7 +96,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
           // (no interfaces, see below) so it's safe to set this to false
           IsInterface = false
           CompiledName = traitName
-          OverloadSuffix = lazy ""
+          OverloadSuffix = ""
           GenericArgs =
             // TODO: Check the source F# entity to get the actual gen param names?
             match genArgs with
@@ -141,6 +141,7 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
             Replacements.lists com ctx r typ info thisArg args
         // Declared types not in Fable AST
         | Fable.DeclaredType(entity, genArgs) ->
+            let entity = com.GetEntity(entity)
             // SRTP only works for records if there are no arguments
             if isInstance && entity.IsFSharpRecord && List.isEmpty args && Option.isSome thisArg then
                 let fieldName = Naming.removeGetSetPrefix traitName
@@ -790,7 +791,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
         let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
-        return Fable.NewRecord(argExprs, FsEnt fsType.TypeDefinition, genArgs) |> makeValue (makeRangeFrom fsExpr)
+        return Fable.NewRecord(argExprs, FsEnt.FullName fsType.TypeDefinition, genArgs) |> makeValue (makeRangeFrom fsExpr)
 
     | BasicPatterns.NewAnonRecord(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
@@ -1070,23 +1071,24 @@ let private addUsedRootName com name (usedRootNames: Set<string>) =
     Set.add name usedRootNames
 
 // In case this is a recursive module, do a first pass to get all entity and member names
-let rec private getUsedRootNames com (usedNames: Set<string>) decls =
+let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls =
     (usedNames, decls) ||> List.fold (fun usedNames decl ->
         match decl with
-        | Entity(ent, []) ->
-            let ent = FsEnt(ent) :> Fable.Entity
-            if ent.IsInterface || ent.IsFSharpAbbreviation
-                || isErasedOrStringEnumEntity ent
-                || isGlobalOrImportedEntity ent then
-                usedNames
-            else
-                let entName = getEntityDeclarationName com ent
-                addUsedRootName com entName usedNames
-                // Fable will inject an extra declaration for reflection,
-                // so add also the name with the reflection suffix
-                |> addUsedRootName com (entName + Naming.reflectionSuffix)
-        | Entity(_, sub) ->
-            getUsedRootNames com usedNames sub
+        | Entity(ent, sub) ->
+            match sub with
+            | [] when ent.IsInterface || ent.IsFSharpAbbreviation || ent.IsNamespace -> usedNames
+            | [] ->
+                let ent = com.GetEntity(FsEnt.FullName ent)
+                if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
+                    usedNames
+                else
+                    let entName = getEntityDeclarationName com ent.FullName
+                    addUsedRootName com entName usedNames
+                    // Fable will inject an extra declaration for reflection,
+                    // so add also the name with the reflection suffix
+                    |> addUsedRootName com (entName + Naming.reflectionSuffix)
+            | sub ->
+                getUsedRootNames com usedNames sub
         | MemberOrFunctionOrValue(memb,_,_) ->
             if memb.IsOverrideOrExplicitInterfaceImplementation then usedNames
             else
@@ -1097,21 +1099,23 @@ let rec private getUsedRootNames com (usedNames: Set<string>) decls =
 let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
     fsDecls |> List.collect (fun fsDecl ->
         match fsDecl with
-        | Entity(ent, []) ->
-            let fableEnt = FsEnt(ent) :> Fable.Entity
-            if ent.IsInterface || ent.IsFSharpAbbreviation
-                || isErasedOrStringEnumEntity fableEnt
-                || isGlobalOrImportedEntity fableEnt then
-                []
-            else
-                [Fable.ClassDeclaration
-                    { Name = getEntityDeclarationName com fableEnt
-                      Entity = fableEnt
-                      Constructor = None
-                      BaseCall = None
-                      AttachedMembers = [] }]
-        | Entity(_, sub) ->
-            transformDeclarations com ctx sub
+        | Entity(ent, sub) ->
+            match sub with
+            | [] when ent.IsInterface || ent.IsFSharpAbbreviation || ent.IsNamespace -> []
+            | [] ->
+                let entFullName = FsEnt.FullName ent
+                let ent = (com :> Compiler).GetEntity(entFullName)
+                if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
+                    []
+                else
+                    [Fable.ClassDeclaration
+                        { Name = getEntityDeclarationName com entFullName
+                          Entity = entFullName
+                          Constructor = None
+                          BaseCall = None
+                          AttachedMembers = [] }]
+            | sub ->
+                transformDeclarations com ctx sub
         | MemberOrFunctionOrValue(meth, args, body) ->
             transformMemberDecl com ctx meth args body
         | InitAction fe ->
@@ -1135,7 +1139,7 @@ let private getRootModuleAndDecls decls =
 let private tryGetMemberArgsAndBody (com: Compiler) fileName entityFullName memberUniqueName =
     let rec tryGetMemberArgsAndBodyInner (entityFullName: string) (memberUniqueName: string) = function
         | Entity (e, decls) ->
-            let entityFullName2 = getEntityFullName e
+            let entityFullName2 = FsEnt.FullName e
             if entityFullName.StartsWith(entityFullName2)
             then List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName) decls
             else None
@@ -1206,8 +1210,8 @@ type FableCompiler(com: Compiler) =
             | Some ent ->
                 // The entity name is not included in the member unique name
                 // for type extensions, see #1667
-                let entFullName = getEntityFullName ent
-                let fileName = FsMemberFunctionOrValue.SourcePath memb
+                let entFullName = FsEnt.FullName ent
+                let fileName = com.GetEntitySourcePath(entFullName)
                 com.AddWatchDependency(fileName)
 
                 com.GetOrAddInlineExpr(membUniqueName, fun () ->
@@ -1229,19 +1233,18 @@ type FableCompiler(com: Compiler) =
         member _.LibraryDir = com.LibraryDir
         member _.CurrentFile = com.CurrentFile
         member _.ImplementationFiles = com.ImplementationFiles
-        member _.GetRootModule(fileName) =
-            com.GetRootModule(fileName)
-        member _.GetOrAddInlineExpr(fullName, generate) =
-            com.GetOrAddInlineExpr(fullName, generate)
-        member _.AddWatchDependency(fileName) =
-            com.AddWatchDependency(fileName)
+        member _.GetRootModule(fileName) = com.GetRootModule(fileName)
+        member _.GetEntity(fullName) = com.GetEntity(fullName)
+        member _.GetEntitySourcePath(fullName) = com.GetEntitySourcePath(fullName)
+        member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
+        member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
 let getRootModuleFullName (file: FSharpImplementationFileContents) =
     let rootEnt, _ = getRootModuleAndDecls file.Declarations
     match rootEnt with
-    | Some rootEnt -> getEntityFullName rootEnt
+    | Some rootEnt -> FsEnt.FullName rootEnt
     | None -> ""
 
 let transformFile (com: Compiler) =
@@ -1251,15 +1254,15 @@ let transformFile (com: Compiler) =
         | false, _ ->
             let projFiles = com.ImplementationFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
             failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
-    let fcom = FableCompiler(com)
-    let rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
+    let _rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
     let usedRootNames = getUsedRootNames com Set.empty rootDecls
-    let ctx = Context.Create(rootEnt, usedRootNames)
+    let ctx = Context.Create(usedRootNames)
+    let com = FableCompiler(com)
     let rootDecls =
-        transformDeclarations fcom ctx rootDecls
+        transformDeclarations com ctx rootDecls
         |> List.map (function
             | Fable.ClassDeclaration decl as classDecl ->
-                fcom.TryGetAttachedMembers(decl.Entity.FullName)
+                com.TryGetAttachedMembers(decl.Entity)
                 |> Option.map (fun members ->
                     { decl with Constructor = members.Cons
                                 BaseCall = members.BaseCall
