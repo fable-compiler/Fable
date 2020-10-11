@@ -2,6 +2,7 @@ module Fable.Transforms.BabelPrinter
 
 open System
 open Fable
+open Fable.AST
 open Fable.AST.Babel
 
 type SourceMapGenerator =

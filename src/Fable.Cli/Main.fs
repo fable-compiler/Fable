@@ -277,21 +277,7 @@ type ProjectParsed(project: Project,
         Log.always(sprintf "F# compilation finished in %ims" ms)
 
         // checkFableCoreVersion checkedProject
-        let implFiles =
-            if cliArgs.CompilerOptions.OptimizeFSharpAst then
-                checkedProject.GetOptimizedAssemblyContents().ImplementationFiles
-            else
-                checkedProject.AssemblyContents.ImplementationFiles
-
-        if List.isEmpty implFiles then
-            Log.always "The list of files returned by F# compiler is empty"
-
-        let implFilesMap =
-            implFiles
-            |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file)
-            |> dict
-
-        let proj = Project(config.ProjectOptions, implFilesMap, checkedProject.Errors)
+        let proj = Project(config.ProjectOptions, checkedProject, optimize=cliArgs.CompilerOptions.OptimizeFSharpAst)
         ProjectParsed(proj, checker)
 
 type TestInfo private (current, iterations, times: int64 list) =

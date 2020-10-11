@@ -305,7 +305,7 @@ let testRepos() =
     makeDirRecursive testDir
 
     removeCachedPackage()
-    run (sprintf "dotnet pack src/Fable.Cli/ -c Release -o %s" (testDir </> pkgDir))
+    run (sprintf "dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o %s" (testDir </> pkgDir))
 
     for repo in repos do
         let url, branch = let i = repo.LastIndexOf(":") in repo.[..i-1], repo.[i+1..]
@@ -425,7 +425,7 @@ let publishPackages restArgs =
         | None -> packages
     for (pkg, buildAction) in packages do
         if System.Char.IsUpper pkg.[0] then
-            pushNuget ("src" </> pkg </> pkg + ".fsproj") buildAction
+            pushNuget ("src" </> pkg </> pkg + ".fsproj") ["Pack", "true"] buildAction
         else
             pushNpm ("src" </> pkg) buildAction
 

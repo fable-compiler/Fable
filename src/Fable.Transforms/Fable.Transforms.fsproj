@@ -5,12 +5,12 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Global/Fable.Core.fs" />
-    <Compile Include="Global/Prelude.fs" />
-    <Compile Include="Global/Compiler.fs" />
     <Compile Include="AST/AST.Common.fs" />
     <Compile Include="AST/AST.Fable.fs" />
     <Compile Include="AST/AST.Babel.fs" />
+    <Compile Include="Global/Fable.Core.fs" />
+    <Compile Include="Global/Prelude.fs" />
+    <Compile Include="Global/Compiler.fs" />
     <Compile Include="MonadicTrampoline.fs" />
     <Compile Include="Transforms.Util.fs" />
     <Compile Include="OverloadSuffix.fs" />

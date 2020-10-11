@@ -120,14 +120,8 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
 let makeProject (projectOptions: FSharpProjectOptions) (projectResults: FSharpCheckProjectResults) =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
-    let optimized = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
-    let implFiles =
-        (if optimized
-        then projectResults.GetOptimizedAssemblyContents()
-        else projectResults.AssemblyContents).ImplementationFiles
-    let implFilesMap =
-        implFiles |> Seq.map (fun file -> Fable.Path.normalizePathAndEnsureFsExtension file.FileName, file) |> dict
-    Project(projectOptions, implFilesMap, projectResults.Errors)
+    let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
+    Project(projectOptions, projectResults, optimize=optimize)
 
 let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source otherFSharpOptions =
     let parseResults, checkResults, projectResults =
@@ -272,7 +266,7 @@ let init () =
                 |> Fable2Babel.Compiler.transformFile com
             let errors =
                 com.Logs |> Array.map (fun log ->
-                    let r = defaultArg log.Range Fable.SourceLocation.Empty
+                    let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
                     { FileName = fileName
                       StartLineAlternate = r.start.line
                       StartColumn = r.start.column

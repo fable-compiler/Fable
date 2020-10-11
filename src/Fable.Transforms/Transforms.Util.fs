@@ -162,6 +162,7 @@ module Extensions =
 [<AutoOpen>]
 module Log =
     open Fable
+    open Fable.AST
 
     type InlinePath = {
         ToFile: string
@@ -498,8 +499,6 @@ module AST =
 
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
-        let entEquals (ent1: Entity) gen1 (ent2: Entity) gen2 =
-            ent1.FullName = ent2.FullName && listEquals (typeEquals strict) gen1 gen2
         match typ1, typ2 with
         | Any, Any
         | Unit, Unit
@@ -508,7 +507,7 @@ module AST =
         | String, String
         | Regex, Regex -> true
         | Number kind1, Number kind2 -> kind1 = kind2
-        | Enum ent1, Enum ent2 -> entEquals ent1 [] ent2 []
+        | Enum ent1, Enum ent2 -> ent1 = ent2
         | Option t1, Option t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -518,14 +517,13 @@ module AST =
         | DelegateType(as1, t1), DelegateType(as2, t2) ->
             listEquals (typeEquals strict) as1 as2 && typeEquals strict t1 t2
         | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
-            ent1.FullName = ent2.FullName && listEquals (typeEquals strict) gen1 gen2
+            ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _ | _, GenericParam _ when not strict -> true
         | GenericParam name1, GenericParam name2 -> name1 = name2
         | _ -> false
 
     let rec getTypeFullName prettify t =
-        let getEntityFullName (ent: Entity) gen =
-            let fullname = ent.FullName
+        let getEntityFullName (fullname: EntityRef) gen =
             if List.isEmpty gen then fullname
             else
                 let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")

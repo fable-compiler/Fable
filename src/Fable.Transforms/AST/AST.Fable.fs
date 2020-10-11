@@ -1,44 +1,12 @@
 namespace rec Fable.AST.Fable
 
-open Fable
 open Fable.AST
-open System
+
+type EntityRef = string
 
 type DeclaredType =
-    abstract Definition: Entity
+    abstract Definition: EntityRef
     abstract GenericArgs: Type list
-
-type Type =
-    | MetaType
-    | Any
-    | Unit
-    | Boolean
-    | Char
-    | String
-    | Regex
-    | Number of NumberKind
-    | Enum of Entity
-    | Option of genericArg: Type
-    | Tuple of genericArgs: Type list
-    | Array of genericArg: Type
-    | List of genericArg: Type
-    | LambdaType of Type * returnType: Type
-    | DelegateType of Type list * returnType: Type
-    | GenericParam of name: string
-    | DeclaredType of Entity * genericArgs: Type list
-    | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
-
-    member this.Generics =
-        match this with
-        | Option gen
-        | Array gen
-        | List gen -> [ gen ]
-        | LambdaType(argType, returnType) -> [ argType; returnType ]
-        | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
-        | Tuple gen -> gen
-        | DeclaredType (_, gen) -> gen
-        | AnonymousRecordType (_, gen) -> gen
-        | _ -> []
 
 type Attribute =
     abstract FullName: string
@@ -83,14 +51,12 @@ type MemberFunctionOrValue =
     abstract CurriedParameterGroups: Parameter list list
     abstract ReturnParameter: Parameter
     abstract IsExplicitInterfaceImplementation: bool
-    abstract ApparentEnclosingEntity: Entity
+    abstract ApparentEnclosingEntity: EntityRef
 
 // TODO: Add FableDeclarationName to be able to get a reference to the entity
 type Entity =
     abstract DisplayName: string
     abstract FullName: string
-    abstract SourcePath: string
-    abstract AssemblyPath: string option
     abstract Attributes: Attribute seq
     abstract BaseDeclaration: DeclaredType option
     abstract AllInterfaces: DeclaredType seq
@@ -99,12 +65,44 @@ type Entity =
     abstract FSharpFields: Field list
     abstract UnionCases: UnionCase list
     abstract IsPublic: bool
-    abstract IsFSharpAbbreviation: bool
     abstract IsFSharpUnion: bool
     abstract IsFSharpRecord: bool
     abstract IsValueType: bool
     abstract IsFSharpExceptionDeclaration: bool
     abstract IsInterface: bool
+    abstract IsFromDllReference: bool
+
+type Type =
+    | MetaType
+    | Any
+    | Unit
+    | Boolean
+    | Char
+    | String
+    | Regex
+    | Number of NumberKind
+    | Enum of EntityRef
+    | Option of genericArg: Type
+    | Tuple of genericArgs: Type list
+    | Array of genericArg: Type
+    | List of genericArg: Type
+    | LambdaType of Type * returnType: Type
+    | DelegateType of Type list * returnType: Type
+    | GenericParam of name: string
+    | DeclaredType of EntityRef * genericArgs: Type list
+    | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
+
+    member this.Generics =
+        match this with
+        | Option gen
+        | Array gen
+        | List gen -> [ gen ]
+        | LambdaType(argType, returnType) -> [ argType; returnType ]
+        | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
+        | Tuple gen -> gen
+        | DeclaredType (_, gen) -> gen
+        | AnonymousRecordType (_, gen) -> gen
+        | _ -> []
 
 type ActionDecl = {
     Body: Expr
@@ -121,7 +119,7 @@ type MemberDecl = {
 
 type ClassDecl = {
     Name: string
-    Entity: Entity
+    Entity: EntityRef
     Constructor: MemberDecl option
     BaseCall: Expr option
     AttachedMembers: MemberDecl list
@@ -172,15 +170,15 @@ type ValueKind =
     | StringConstant of string
     | NumberConstant of float * NumberKind
     | RegexConstant of source: string * flags: RegexFlag list
-    | EnumConstant of Expr * Entity
+    | EnumConstant of Expr * EntityRef
     | NewOption of value: Expr option * Type
     | NewArray of Expr list * Type
     | NewArrayFrom of Expr * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
     | NewTuple of Expr list
-    | NewRecord of Expr list * Entity * genArgs: Type list
+    | NewRecord of Expr list * EntityRef * genArgs: Type list
     | NewAnonymousRecord of Expr list * fieldNames: string [] * genArgs: Type list
-    | NewUnion of Expr list * tag: int * Entity * genArgs: Type list
+    | NewUnion of Expr list * tag: int * EntityRef * genArgs: Type list
     member this.Type =
         match this with
         | ThisValue t
@@ -214,7 +212,7 @@ type CallInfo =
 
 type ReplaceCallInfo =
     { CompiledName: string
-      OverloadSuffix: Lazy<string>
+      OverloadSuffix: string
       /// See ArgInfo.SignatureArgTypes
       SignatureArgTypes: Type list
       HasSpread: bool

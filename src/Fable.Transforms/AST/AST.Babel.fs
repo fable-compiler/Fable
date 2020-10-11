@@ -1,6 +1,5 @@
 namespace rec Fable.AST.Babel
 
-open Fable
 open Fable.AST
 open PrinterExtensions
 

@@ -1,28 +1,5 @@
 namespace Fable
 
-/// Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
-type Position =
-    { line: int; column: int; }
-    static member Empty = { line = 1; column = 0 }
-
-type SourceLocation =
-    { start: Position
-      ``end``: Position
-      /// We added the display name here because it seemed to be used by Babel source map generation
-      identifierName: string option }
-    static member (+)(r1, r2) =
-        { start = r1.start
-          ``end`` = r2.start
-          identifierName = None }
-    static member Empty =
-        { start = Position.Empty
-          ``end`` = Position.Empty
-          identifierName = None }
-    override x.ToString() =
-        sprintf "(L%i,%i-L%i,%i)"
-            x.start.line x.start.column
-            x.``end``.line x.``end``.column
-
 [<RequireQualifiedAccess>]
 module Tuple =
     let make2 x y = x, y
@@ -93,6 +70,14 @@ module List =
     let collecti (f: int -> 'a -> 'b list) (xs: 'a list) =
         let mutable i = -1
         xs |> List.collect (fun x -> i <- i + 1; f i x)
+
+    let chooseToArray (f: 'a -> 'b option) (xs: 'a list) =
+        let ar = ResizeArray()
+        for x in xs do
+            match f x with
+            | None -> ()
+            | Some x -> ar.Add(x)
+        ar.ToArray()
 
     let mapToArray (f: 'a -> 'b) (xs: 'a list) =
         let ar: 'b[] = List.length xs |> Array.zeroCreate

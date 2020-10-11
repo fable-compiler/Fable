@@ -58,7 +58,7 @@ module Helpers =
                 |> Option.defaultValue t
             | t -> t)
 
-    let objValue (k, v): Fable.MemberDecl =
+    let objValue (k, v): MemberDecl =
         {
             Name = k
             Args = []
@@ -71,7 +71,7 @@ module Helpers =
         ObjectExpr(List.map objValue kvs, t, None)
 
     let objExpr kvs =
-        typedObjExpr Fable.Any kvs
+        typedObjExpr Any kvs
 
     let add left right =
         Operation(Binary(BinaryPlus, left, right), left.Type, None)
@@ -144,8 +144,8 @@ let (|BuiltinDefinition|_|) = function
     | (Naming.StartsWith Types.choiceNonGeneric _) -> Some(FSharpChoice [])
     | _ -> None
 
-let (|BuiltinEntity|_|) (ent: Entity, genArgs) =
-    match ent.FullName, genArgs with
+let (|BuiltinEntity|_|) (ent: string, genArgs) =
+    match ent, genArgs with
     | BuiltinDefinition(FSharpSet _), [t] -> Some(FSharpSet(t))
     | BuiltinDefinition(FSharpMap _), [k;v] -> Some(FSharpMap(k,v))
     | BuiltinDefinition(BclHashSet _), [t] -> Some(BclHashSet(t))
@@ -230,7 +230,7 @@ let (|OrDefault|) (def:'T) = function
 
 let (|EntFullName|_|) (typ: Type) =
     match typ with
-    | DeclaredType(ent, _) -> Some ent.FullName
+    | DeclaredType(ent, _) -> Some ent
     | _ -> None
 
 let (|ListLiteral|_|) e =
@@ -249,7 +249,7 @@ let (|ArrayOrListLiteral|_|) = function
 
 let (|IDictionary|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
-        match ent.FullName with
+        match ent with
         | Types.idictionary -> IDictionary
         | Types.equalityComparer -> IEqualityComparer
         | _ -> Other
@@ -257,7 +257,7 @@ let (|IDictionary|IEqualityComparer|Other|) = function
 
 let (|IEnumerable|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
-        match ent.FullName with
+        match ent with
         | Types.ienumerableGeneric -> IEnumerable
         | Types.equalityComparer -> IEqualityComparer
         | _ -> Other
@@ -603,11 +603,11 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
-let (|CustomOp|_|) com ctx opName argTypes sourceTypes =
-    let tryFindMember com (ctx: Context) (ent: Entity) opName argTypes =
-        FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
+let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
-        | DeclaredType(ent,_) -> tryFindMember com ctx ent opName argTypes
+        | DeclaredType(ent,_) ->
+            let ent = com.GetEntity(ent)
+            FSharp2Fable.TypeHelpers.tryFindMember com ent ctx.GenericArgs opName false argTypes
         | _ -> None)
 
 let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argTypes genArgs =
@@ -695,25 +695,29 @@ let getEntityHashMethod (ent: Entity) =
     if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then "Util", "hashSafe"
     else "Util", "identityHash"
 
-let identityHashMethod = function
+let identityHashMethod (com: ICompiler) = function
     | Boolean | Char | String | Number _ | Enum _ | Option _ | Tuple _ | List _
     | Builtin (BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
     | Builtin (BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
     | Builtin (FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
         "Util", "structuralHash"
-    | DeclaredType(ent, _) -> getEntityHashMethod ent
+    | DeclaredType(ent, _) -> com.GetEntity(ent) |> getEntityHashMethod
     | _ -> "Util", "identityHash"
 
-let structuralHashMethod = function
-    | DeclaredType(ent, _) -> getEntityHashMethod ent
+
+let structuralHashMethod (com: ICompiler) = function
+    | DeclaredType(ent, _) ->
+        let ent = com.GetEntity(ent)
+        if not ent.IsInterface then getEntityHashMethod ent
+        else "Util", "structuralHash"
     | _ -> "Util", "structuralHash"
 
 let identityHash com r (arg: Expr) =
-    let moduleName, methodName = identityHashMethod arg.Type
+    let moduleName, methodName = identityHashMethod com arg.Type
     Helper.LibCall(com, moduleName, methodName, Number Int32, [arg], ?loc=r)
 
 let structuralHash com r (arg: Expr) =
-    let moduleName, methodName = structuralHashMethod arg.Type
+    let moduleName, methodName = structuralHashMethod com arg.Type
     Helper.LibCall(com, moduleName, methodName, Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
@@ -731,11 +735,12 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
-        // Helper.InstanceCall(left, "Equals", Boolean, [right], ?loc=r)
-        Helper.LibCall(com, "Util", "equalsSafe", Boolean, [left; right], ?loc=r) |> is equal
     | DeclaredType(ent, _) ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+        let ent = com.GetEntity(ent)
+        if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then
+            Helper.LibCall(com, "Util", "equalsSafe", Boolean, [left; right], ?loc=r) |> is equal
+        else
+            Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
@@ -758,11 +763,12 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Date", "compare", Number Int32, [left; right], ?loc=r)
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number Int32, [left; right], ?loc=r)
-    | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
-        // Helper.InstanceCall(left, "CompareTo", Number Int32, [right], ?loc=r)
-        Helper.LibCall(com, "Util", "compareSafe", Number Int32, [left; right], ?loc=r)
     | DeclaredType(ent, _) ->
-        Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
+        let ent = com.GetEntity(ent)
+        if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then
+            Helper.LibCall(com, "Util", "compareSafe", Number Int32, [left; right], ?loc=r)
+        else
+            Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "compareWith", Number Int32, [f; left; right], ?loc=r)
@@ -799,7 +805,7 @@ let makeEqualityComparer (com: ICompiler) ctx typArg =
     let y = makeUniqueIdent ctx typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
     let f = Delegate([x; y], body, None)
-    let moduleName, methodName = structuralHashMethod typArg
+    let moduleName, methodName = structuralHashMethod com typArg
     objExpr ["Equals", f
              "GetHashCode", makeImportLib com Any methodName moduleName]
 
@@ -940,8 +946,8 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | None -> args
         | Some injectInfo -> injectArgInner args injectInfo
 
-let tryEntityRef (com: Fable.Compiler) (ent: Entity) =
-    match ent.FullName with
+let tryEntityRef (com: Compiler) entFullName =
+    match entFullName with
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
     | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
@@ -963,8 +969,8 @@ let tryEntityRef (com: Fable.Compiler) (ent: Entity) =
     | Types.exception_ -> makeIdentExpr "Error" |> Some
     | _ -> None
 
-let tryJsConstructor com ent =
-    if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
+let tryJsConstructor com (ent: Entity) =
+    if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent.FullName
     else FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent |> Some
 
 let jsConstructor com ent =
@@ -985,7 +991,7 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let defaultof com ctx (t: Type) =
+let defaultof (com: ICompiler) ctx (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
@@ -996,11 +1002,13 @@ let defaultof com ctx (t: Type) =
     | Builtin BclBigInt
     | Builtin BclDecimal -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid()
-    | DeclaredType(ent,_) when ent.IsValueType ->
-        match tryJsConstructor com ent with
-        | Some e -> Helper.JsConstructorCall(e, t, [])
-        // TODO: This usually happens with BCL types, raise error or warning?
-        | None -> Null t |> makeValue None
+    | DeclaredType(ent,_)  ->
+        let ent = com.GetEntity(ent)
+        // TODO: For BCL types we cannot access the constructor, raise error or warning?
+        if ent.IsValueType then tryJsConstructor com ent
+        else None
+        |> Option.map (fun e -> Helper.JsConstructorCall(e, t, []))
+        |> Option.defaultWith (fun () -> Null t |> makeValue None)
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
@@ -1096,13 +1104,16 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_BangBang", [arg] ->
             match arg, i.GenericArgs with
             | NewAnonymousRecord(_, exprs, fieldNames, _, _),
-              [_; (_,DeclaredType(ent, []))] when ent.IsInterface ->
-                FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com exprs fieldNames ent
-                |> function
-                    | Error errMsg ->
-                        addWarning com ctx.InlinePath r errMsg
-                        Some arg
-                    | Ok () -> Some arg
+              [_; (_,DeclaredType(ent, []))] ->
+                let ent = com.GetEntity(ent)
+                if ent.IsInterface then
+                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com exprs fieldNames ent
+                    |> function
+                        | Error errMsg ->
+                            addWarning com ctx.InlinePath r errMsg
+                            Some arg
+                        | Ok () -> Some arg
+                else Some arg
             | _ -> Some arg
         | "op_Dynamic", [left; memb] ->
             getExpr r t left memb |> Some
@@ -1114,7 +1125,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> emitJsExpr r t (callee::args) |> Some
         | Naming.StartsWith "emitJs" rest, [args; macro] ->
             match macro with
-            | Fable.Value(Fable.StringConstant macro,_) ->
+            | Value(StringConstant macro,_) ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emitJs r t args isStatement macro |> Some
@@ -1135,7 +1146,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             makePojoFromLambda com arg |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType(ent, _) -> jsConstructor com ent |> Some
+            | DeclaredType(ent, _) -> com.GetEntity(ent) |> jsConstructor com |> Some
             | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
@@ -1163,7 +1174,7 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
     let moduleName = i.DeclaringEntityFullName.Substring(0, pos).Replace("Microsoft.", "")
     let entityName = i.DeclaringEntityFullName.Substring(pos + 1) |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
     let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
-    let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix.Value
+    let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
     moduleName, mangledName
 
 let bclType (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1185,14 +1196,6 @@ let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
         | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
-
-let precompiledLib r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) (entityName, importPath) =
-    let mangledName = getPrecompiledLibMangledName entityName i.CompiledName i.OverloadSuffix.Value (Option.isNone thisArg)
-    if i.IsModuleValue
-    then makeImportCompilerGenerated t mangledName importPath
-    else
-        let argInfo = { makeCallInfo thisArg args i.SignatureArgTypes with HasSpread = i.HasSpread }
-        makeImportCompilerGenerated Any mangledName importPath |> makeCall r t argInfo
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1586,7 +1589,7 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
             let comparison =
                 let comparison = compare com ctx None (identExpr x) (identExpr y)
                 if descending
-                then makeUnOp None (Fable.Number Int32) comparison UnaryMinus
+                then makeUnOp None (Number Int32) comparison UnaryMinus
                 else comparison
             Delegate([x; y], comparison, None)
         Helper.LibCall(com, "Seq", "sortWith", returnType, compareFn::args, ?loc=r) |> Some
@@ -1691,7 +1694,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Sort", Some ar, [] ->
         let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
         Helper.InstanceCall(ar, "sort", t, [compareFn], ?loc=r) |> Some
-    | "Sort", Some ar, [ExprType(Fable.DelegateType _)] ->
+    | "Sort", Some ar, [ExprType(DelegateType _)] ->
         Helper.InstanceCall(ar, "sort", t, args, ?loc=r) |> Some
     | "ToArray", Some ar, [] ->
         Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
@@ -2135,6 +2138,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "CreateInstance", None, _ ->
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
+            let ent = com.GetEntity(ent)
             Helper.JsConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
@@ -2400,12 +2404,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | [] -> Helper.LibCall(com, moduleName, "minValue", t, [], [], ?loc=r) |> Some
         | ExprType(Builtin BclInt64)::_ ->
             Helper.LibCall(com, moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
+        | ExprType(DeclaredType(e,[]))::_ when e = Types.datetime ->
             Helper.LibCall(com, "DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             let last = List.last args
             match args.Length, last.Type with
-            | 7, Enum ent when ent.FullName = "System.DateTimeKind" ->
+            | 7, Enum ent when ent = "System.DateTimeKind" ->
                 let args = (List.take 6 args) @ [makeIntConst 0; last]
                 let argTypes = (List.take 6 i.SignatureArgTypes) @ [Number Int32; last.Type]
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc=r) |> Some
@@ -2864,7 +2868,7 @@ let tryField com returnTyp ownerTyp fieldName =
     | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, coreModFor BclDateTimeOffset, Naming.lowerFirst fieldName, returnTyp, []) |> Some
     | DeclaredType(ent, genArgs), fieldName ->
-        match ent.FullName with
+        match ent with
         | "System.BitConverter" ->
             Helper.LibCall(com, "BitConverter", Naming.lowerFirst fieldName, returnTyp, []) |> Some
         | _ -> None
