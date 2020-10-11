@@ -15,7 +15,7 @@ type Dictionary<'TKey, 'TValue> with
         if x.ContainsKey(key)
         then let v = updateFactory key x.[key] in x.[key] <- v; v
         else let v = valueFactory(key) in x.Add(key, v); v
-    static member From<'TKey, 'TValue when 'TKey : equality>(kvs: KeyValuePair<'TKey, 'TValue> seq) =
+    static member From<'K, 'V when 'K : equality>(kvs: KeyValuePair<'K, 'V> seq) =
         let d = Dictionary()
         for kv in kvs do
             d.Add(kv.Key, kv.Value)
@@ -42,6 +42,10 @@ type Project(projectOptions: FSharpProjectOptions,
 //    if List.isEmpty implFiles then
 //        Log.always "The list of files returned by F# compiler is empty"
 
+    let rootModules =
+        implFiles |> Seq.map (fun kv ->
+            kv.Key, FSharp2Fable.Compiler.getRootModule kv.Value) |> dict
+
     let rec withNestedEntities (e: FSharpEntity) =
         seq  {
             yield e
@@ -53,7 +57,8 @@ type Project(projectOptions: FSharpProjectOptions,
     let entities =
         checkResults.ProjectContext.GetReferencedAssemblies()
         |> Seq.collect (fun a -> a.Contents.Entities)
-        |> Seq.append (checkResults.AssemblySignature.Entities)
+        |> Seq.append (Seq.collect FSharp2Fable.Compiler.getRootFSharpEntities
+                        checkResults.AssemblyContents.ImplementationFiles)
         |> Seq.collect withNestedEntities
         |> Seq.choose (fun e ->
             match e.IsFSharpAbbreviation, e.TryFullName with
@@ -64,9 +69,6 @@ type Project(projectOptions: FSharpProjectOptions,
 
     let entitySourcePaths = ConcurrentDictionary<string, string>()
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
-    let rootModules =
-        implFiles |> Seq.map (fun kv ->
-            kv.Key, FSharp2Fable.Compiler.getRootModuleFullName kv.Value) |> dict
 
     member _.ImplementationFiles = implFiles
     member _.RootModules = rootModules

@@ -1125,16 +1125,28 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                 { Body = e
                   UsedNames = set ctx.UseNamesInDeclarationScope }])
 
-let private getRootModuleAndDecls decls =
-    let rec getRootModuleAndDeclsInner outerEnt decls =
-        match decls with
-        | [Entity (ent, decls)]
-                when ent.IsFSharpModule || ent.IsNamespace ->
-            getRootModuleAndDeclsInner (Some ent) decls
-        | CommonNamespace(ent, decls) ->
-            getRootModuleAndDeclsInner (Some ent) decls
-        | decls -> outerEnt, decls
-    getRootModuleAndDeclsInner None decls
+let getRootFSharpEntities (file: FSharpImplementationFileContents) =
+    let rec getRootFSharpEntitiesInner decl = seq {
+        match decl with
+        | Entity (ent, nested) ->
+            if ent.IsNamespace then
+                for d in nested do
+                    yield! getRootFSharpEntitiesInner d
+            else ent
+        | _ -> ()
+    }
+    file.Declarations |> Seq.collect getRootFSharpEntitiesInner
+
+let getRootModule (file: FSharpImplementationFileContents) =
+    let rec getRootModuleInner outerEnt decls =
+        match decls, outerEnt with
+        | [Entity (ent, decls)], _ when ent.IsFSharpModule || ent.IsNamespace ->
+            getRootModuleInner (Some ent) decls
+        | CommonNamespace(ent, decls), _ ->
+            getRootModuleInner (Some ent) decls
+        | _, Some e -> FsEnt.FullName e
+        | _, None -> ""
+    getRootModuleInner None file.Declarations
 
 let private tryGetMemberArgsAndBody (com: Compiler) fileName entityFullName memberUniqueName =
     let rec tryGetMemberArgsAndBodyInner (entityFullName: string) (memberUniqueName: string) = function
@@ -1241,12 +1253,6 @@ type FableCompiler(com: Compiler) =
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
-let getRootModuleFullName (file: FSharpImplementationFileContents) =
-    let rootEnt, _ = getRootModuleAndDecls file.Declarations
-    match rootEnt with
-    | Some rootEnt -> FsEnt.FullName rootEnt
-    | None -> ""
-
 let transformFile (com: Compiler) =
     let file =
         match com.ImplementationFiles.TryGetValue(com.CurrentFile) with
@@ -1254,12 +1260,11 @@ let transformFile (com: Compiler) =
         | false, _ ->
             let projFiles = com.ImplementationFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
             failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
-    let _rootEnt, rootDecls = getRootModuleAndDecls file.Declarations
-    let usedRootNames = getUsedRootNames com Set.empty rootDecls
+    let usedRootNames = getUsedRootNames com Set.empty file.Declarations
     let ctx = Context.Create(usedRootNames)
     let com = FableCompiler(com)
     let rootDecls =
-        transformDeclarations com ctx rootDecls
+        transformDeclarations com ctx file.Declarations
         |> List.map (function
             | Fable.ClassDeclaration decl as classDecl ->
                 com.TryGetAttachedMembers(decl.Entity)

@@ -87,7 +87,7 @@ module Reflection =
                 (ArrayExpression [|StringLiteral fi.Name; typeInfo|] :> Expression))
             |> Seq.toArray
         let fields = ArrowFunctionExpression([||], ArrayExpression fields) :> Expression
-        [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx fullname; fields|]
+        [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; fields|]
         |> libReflectionCall com ctx None "record"
 
     let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -106,7 +106,7 @@ module Reflection =
                 |> ArrayExpression :> Expression
             ) |> Seq.toArray
         let cases = ArrowFunctionExpression([||], ArrayExpression cases) :> Expression
-        [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx fullname; cases|]
+        [|fullnameExpr; upcast ArrayExpression generics; jsConstructor com ctx ent; cases|]
         |> libReflectionCall com ctx None "union"
 
     let transformTypeInfo (com: IBabelCompiler) ctx r (genMap: Map<string, Expression>) t: Expression =
@@ -219,8 +219,7 @@ module Reflection =
                 if ent.IsInterface
                     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
                     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                    // TODO: Get reflection info from types in precompiled libs
-                    || FSharp2Fable.Util.isReplacementCandidate ent.FullName then
+                    || FSharp2Fable.Util.isReplacementCandidate ent then
                     genericEntity ent.FullName generics
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
@@ -239,7 +238,7 @@ module Reflection =
                 match generics with
                 | [||] -> yield Util.undefined None
                 | generics -> yield ArrayExpression generics :> _
-                match tryJsConstructor com ctx ent.FullName with
+                match tryJsConstructor com ctx ent with
                 | Some cons -> yield cons
                 | None -> ()
             |]
@@ -296,16 +295,18 @@ module Reflection =
             | Types.exception_ ->
                 [|com.TransformAsExpr(ctx, expr)|]
                 |> libCall com ctx None "Types" "isException"
-            | _ when com.GetEntity(ent).IsInterface ->
-                warnAndEvalToFalse "interfaces"
             | _ ->
-                match tryJsConstructor com ctx ent with
-                | Some cons ->
-                    if not(List.isEmpty genArgs) then
-                        com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
-                    jsInstanceof cons expr
-                | None ->
-                    warnAndEvalToFalse ent
+                let ent = com.GetEntity(ent)
+                if ent.IsInterface then
+                    warnAndEvalToFalse "interfaces"
+                else
+                    match tryJsConstructor com ctx ent with
+                    | Some cons ->
+                        if not(List.isEmpty genArgs) then
+                            com.WarnOnlyOnce("Generic args are ignored in type testing", ?range=range)
+                        jsInstanceof cons expr
+                    | None ->
+                        warnAndEvalToFalse ent.FullName
 
 // TODO: I'm trying to tell apart the code to generate annotations, but it's not a very clear distinction
 // as there are many dependencies from/to the Util module below
@@ -476,23 +477,25 @@ module Annotation =
             makeUnionTypeAnnotation com ctx genArgs
         | entName when entName.StartsWith(Types.choiceNonGeneric) ->
             makeUnionTypeAnnotation com ctx genArgs
-        | _ when com.GetEntity(ent).IsInterface ->
-            upcast AnyTypeAnnotation() // TODO:
         | _ ->
-            match Lib.tryJsConstructor com ctx ent with
-            | Some entRef ->
-                match entRef with
-                | :? StringLiteral as str ->
-                    match str.Value with
-                    | "number" -> upcast NumberTypeAnnotation()
-                    | "boolean" -> upcast BooleanTypeAnnotation()
-                    | "string" -> upcast StringTypeAnnotation()
+            let ent = com.GetEntity(ent)
+            if ent.IsInterface then
+                upcast AnyTypeAnnotation() // TODO:
+            else
+                match Lib.tryJsConstructor com ctx ent with
+                | Some entRef ->
+                    match entRef with
+                    | :? StringLiteral as str ->
+                        match str.Value with
+                        | "number" -> upcast NumberTypeAnnotation()
+                        | "boolean" -> upcast BooleanTypeAnnotation()
+                        | "string" -> upcast StringTypeAnnotation()
+                        | _ -> upcast AnyTypeAnnotation()
+                    | :? Identifier as id ->
+                        makeGenericTypeAnnotation com ctx genArgs id
+                    // TODO: Resolve references to types in nested modules
                     | _ -> upcast AnyTypeAnnotation()
-                | :? Identifier as id ->
-                    makeGenericTypeAnnotation com ctx genArgs id
-                // TODO: Resolve references to types in nested modules
-                | _ -> upcast AnyTypeAnnotation()
-            | None -> upcast AnyTypeAnnotation()
+                | None -> upcast AnyTypeAnnotation()
 
     let makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs =
          upcast AnyTypeAnnotation() // TODO:
@@ -916,7 +919,7 @@ module Util =
             com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, genArgs) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-            let consRef = jsConstructor com ctx ent
+            let consRef = com.GetEntity(ent) |> jsConstructor com ctx
             let typeParamInst =
                 if com.Options.Typescript && (ent = Types.reference)
                 then makeGenTypeParamInst com ctx genArgs
@@ -927,7 +930,7 @@ module Util =
             Array.zip fieldNames values
             |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
-            let consRef = jsConstructor com ctx ent
+            let consRef = com.GetEntity(ent) |> jsConstructor com ctx
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let typeParamInst =
                 if com.Options.Typescript

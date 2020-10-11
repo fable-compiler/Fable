@@ -1,7 +1,6 @@
 namespace rec Fable.AST.Fable
 
 open Fable.AST
-open System
 
 type EntityRef = string
 
@@ -71,6 +70,7 @@ type Entity =
     abstract IsValueType: bool
     abstract IsFSharpExceptionDeclaration: bool
     abstract IsInterface: bool
+    abstract IsFromDllReference: bool
 
 type Type =
     | MetaType

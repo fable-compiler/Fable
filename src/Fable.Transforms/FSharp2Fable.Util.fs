@@ -105,6 +105,9 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
 type FsEnt(ent: FSharpEntity) =
     member _.FSharpEntity = ent
 
+    static member IsFromDllReference (ent: FSharpEntity) =
+        Option.isSome ent.Assembly.FileName
+
     static member IsPublic (ent: FSharpEntity) =
         not ent.Accessibility.IsPrivate
 
@@ -115,10 +118,8 @@ type FsEnt(ent: FSharpEntity) =
                 FsEnt.FullName t.TypeDefinition
             else ent.LogicalName
         elif ent.IsArrayType then
-            "Array"
-        else
-        // When ent.IsNamespace FullName doesn't work.
-        if ent.IsNamespace then
+            "System.Array"
+        elif ent.IsNamespace then
             match ent.Namespace with
             | Some ns -> ns + "." + ent.CompiledName
             | None -> ent.CompiledName
@@ -163,6 +164,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.UnionCases =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
+        member _.IsFromDllReference = FsEnt.IsFromDllReference ent
         member _.IsPublic = FsEnt.IsPublic ent
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord
@@ -1071,10 +1073,18 @@ module Util =
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
             | _ -> false)
 
-    let isReplacementCandidate (entFullName: string) =
-        entFullName.StartsWith("System.")
-        || entFullName.StartsWith("Microsoft.FSharp.")
-        || entFullName.StartsWith("Fable.Core.")
+    let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
+        if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
+        // When compiling Fable itself, Fable.Core entities will be part of the code base,
+        // but still need to be replaced
+        else entFullName.StartsWith("Fable.Core.")
+
+    let isReplacementCandidate (ent: Fable.Entity) =
+        isReplacementCandidatePrivate ent.IsFromDllReference ent.FullName
+
+    let isReplacementCandidateFrom (ent: FSharpEntity) =
+        let isFromDllRef = FsEnt.IsFromDllReference ent
+        isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: Compiler) (ent: Fable.Entity) suffix =
@@ -1098,8 +1108,7 @@ module Util =
         entityRefWithSuffix com ent ""
 
     /// First checks if the entity is global or imported
-    let entityRefMaybeGlobalOrImported (com: Compiler) entFullName =
-        let ent = com.GetEntity(entFullName)
+    let entityRefMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
         match tryGlobalOrImportedEntity com ent with
         | Some importedEntity -> importedEntity
         | None -> entityRef com ent
@@ -1204,7 +1213,7 @@ module Util =
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
         match entity with
-        | Some ent when isReplacementCandidate(FsEnt.FullName ent) ->
+        | Some ent when isReplacementCandidateFrom ent ->
             let info: Fable.ReplaceCallInfo =
               { SignatureArgTypes = callInfo.SignatureArgTypes
                 DeclaringEntityFullName = ent.FullName

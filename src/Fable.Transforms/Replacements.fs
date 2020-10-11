@@ -58,7 +58,7 @@ module Helpers =
                 |> Option.defaultValue t
             | t -> t)
 
-    let objValue (k, v): Fable.MemberDecl =
+    let objValue (k, v): MemberDecl =
         {
             Name = k
             Args = []
@@ -71,7 +71,7 @@ module Helpers =
         ObjectExpr(List.map objValue kvs, t, None)
 
     let objExpr kvs =
-        typedObjExpr Fable.Any kvs
+        typedObjExpr Any kvs
 
     let add left right =
         Operation(Binary(BinaryPlus, left, right), left.Type, None)
@@ -946,7 +946,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
         | None -> args
         | Some injectInfo -> injectArgInner args injectInfo
 
-let tryEntityRef (com: Fable.Compiler) entFullName =
+let tryEntityRef (com: Compiler) entFullName =
     match entFullName with
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
@@ -969,15 +969,15 @@ let tryEntityRef (com: Fable.Compiler) entFullName =
     | Types.exception_ -> makeIdentExpr "Error" |> Some
     | _ -> None
 
-let tryJsConstructor com ent =
-    if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent
+let tryJsConstructor com (ent: Entity) =
+    if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent.FullName
     else FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent |> Some
 
 let jsConstructor com ent =
     match tryJsConstructor com ent with
     | Some e -> e
     | None ->
-        ent
+        ent.FullName
         |> sprintf "Cannot find %s constructor"
         |> addErrorAndReturnNull com [] None
 
@@ -1002,11 +1002,13 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     | Builtin BclBigInt
     | Builtin BclDecimal -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid()
-    | DeclaredType(ent,_) when com.GetEntity(ent).IsValueType ->
-        match tryJsConstructor com ent with
-        | Some e -> Helper.JsConstructorCall(e, t, [])
-        // TODO: This usually happens with BCL types, raise error or warning?
-        | None -> Null t |> makeValue None
+    | DeclaredType(ent,_)  ->
+        let ent = com.GetEntity(ent)
+        // TODO: For BCL types we cannot access the constructor, raise error or warning?
+        if ent.IsValueType then tryJsConstructor com ent
+        else None
+        |> Option.map (fun e -> Helper.JsConstructorCall(e, t, []))
+        |> Option.defaultWith (fun () -> Null t |> makeValue None)
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
@@ -1123,7 +1125,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> emitJsExpr r t (callee::args) |> Some
         | Naming.StartsWith "emitJs" rest, [args; macro] ->
             match macro with
-            | Fable.Value(Fable.StringConstant macro,_) ->
+            | Value(StringConstant macro,_) ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emitJs r t args isStatement macro |> Some
@@ -1144,7 +1146,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             makePojoFromLambda com arg |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
-            | DeclaredType(ent, _) -> jsConstructor com ent |> Some
+            | DeclaredType(ent, _) -> com.GetEntity(ent) |> jsConstructor com |> Some
             | _ -> "Only declared types define a function constructor in JS"
                    |> addError com ctx.InlinePath r; None
         | "createEmpty", _ ->
@@ -1587,7 +1589,7 @@ let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Exp
             let comparison =
                 let comparison = compare com ctx None (identExpr x) (identExpr y)
                 if descending
-                then makeUnOp None (Fable.Number Int32) comparison UnaryMinus
+                then makeUnOp None (Number Int32) comparison UnaryMinus
                 else comparison
             Delegate([x; y], comparison, None)
         Helper.LibCall(com, "Seq", "sortWith", returnType, compareFn::args, ?loc=r) |> Some
@@ -1692,7 +1694,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Sort", Some ar, [] ->
         let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
         Helper.InstanceCall(ar, "sort", t, [compareFn], ?loc=r) |> Some
-    | "Sort", Some ar, [ExprType(Fable.DelegateType _)] ->
+    | "Sort", Some ar, [ExprType(DelegateType _)] ->
         Helper.InstanceCall(ar, "sort", t, args, ?loc=r) |> Some
     | "ToArray", Some ar, [] ->
         Helper.InstanceCall(ar, "slice", t, args, ?loc=r) |> Some
@@ -2136,6 +2138,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "CreateInstance", None, _ ->
         match genArg com ctx r 0 i.GenericArgs with
         | DeclaredType(ent, _) ->
+            let ent = com.GetEntity(ent)
             Helper.JsConstructorCall(jsConstructor com ent, t, [], ?loc=r) |> Some
         | t -> sprintf "Cannot create instance of type unresolved at compile time: %A" t
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
