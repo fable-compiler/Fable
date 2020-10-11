@@ -1,3 +1,8 @@
+### 3.0.0-nagareyama-alpha-009
+
+* Detect if command after `--run` is in `node_modules/.bin` dir
+* Set typedArrays=true as default again
+
 ### 3.0.0-nagareyama-alpha-008
 
 * Use latest FCS @ncave
