@@ -157,7 +157,6 @@ let buildStandalone(minify: bool) =
         "--outDir " + buildDir + "/bundle"
         "--fableLib " + libraryDir
         "--forcePkgs"
-        "--typedArrays"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"

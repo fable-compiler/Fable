@@ -39,7 +39,7 @@ Arguments:
   --run             The command after the argument will be executed after compilation
   --runWatch        Like run, but will execute after each watch compilation
   --runScript       Runs the generated script for last file with node (requires "esm" npm package)
-  --typedArrays     Compile numeric arrays to JS typed arrays
+  --noTypedArrays   Don't compile numeric arrays as JS typed arrays
   --forcePkgs       Force a new copy of package sources into `.fable` folder
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
@@ -88,7 +88,7 @@ type Runner =
 
         let compilerOptions =
             CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
-                                       typedArrays = hasFlag "--typedArrays" args,
+                                       typedArrays = not(hasFlag "--noTypedArrays" args),
                                        ?fileExtension = argValue "--extension" args,
                                        debugMode = Array.contains "DEBUG" defines,
                                        optimizeFSharpAst = hasFlag "--optimize" args,

@@ -62,8 +62,7 @@ let tests =
     testCase "Passing an array to ParamArrayAttribute from another function works" <| fun () ->
         add [|5;-7|] |> equal -2
 
-#if FABLE_COMPILER
-#if FABLE_TYPED_ARRAYS
+#if FABLE_COMPILER && FABLE_TYPED_ARRAYS
     testCase "Typed Arrays work" <| fun () ->
         let xs = [| 1; 2; 3; |]
         let ys = [| 1.; 2.; 3.; |]
@@ -84,16 +83,10 @@ let tests =
         let ar = Util2.Helper2.CreateArray()
         ar.[0] <- ar.[0] + 255uy
         equal 4uy ar.[0]
-#endif
 
-    testCase "Mapping from Typed to Dynamic Arrays works" <| fun () ->
-        let xs = [| 1; 2; 3; |] |> Array.map string
-        xs |> jsConstructorIs "Array" |> equal true
-        xs |> String.concat "" |> equal "123"
-
-    testCase "Mapping from Dynamic to Dynamic Arrays works" <| fun () ->
+    testCase "Mapping from Dynamic to Typed Arrays works" <| fun () ->
         let xs = [| "1"; "2"; "3"; |] |> Array.map int
-        xs |> jsConstructorIs "Array" |> equal true
+        xs |> jsConstructorIs "Int32Array" |> equal true
         xs |> Array.sum |> equal 6
 #endif
 
