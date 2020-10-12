@@ -47,6 +47,9 @@ const _exports = {
         foo() {
             return this.bar() + this.value;
         }
+        static fuzzyMultiply(x, i) {
+            return x * (i - 1);
+        }
     }
 };
 

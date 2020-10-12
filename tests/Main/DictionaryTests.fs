@@ -242,4 +242,13 @@ let tests =
         dic.Values.Count
         |> equal 2
 
+    testCase "Dictionary with type as key works" <| fun _ -> // See #2202
+        let cache = Dictionary<Type, int>()
+        cache.Add(typeof<int>, 1)
+        cache.Add(typeof<string>, 2)
+        cache.Add(typeof<int64>, 3)
+        equal 3 cache.Count
+        equal cache.[typeof<int>] 1
+        equal cache.[typeof<string>] 2
+        equal cache.[typeof<int64>] 3
   ]

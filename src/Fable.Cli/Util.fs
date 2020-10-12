@@ -65,6 +65,22 @@ module File =
     let getRelativePathFromCwd (path: string) =
         Path.GetRelativePath(Directory.GetCurrentDirectory(), path)
 
+    let rec tryFindPackageJsonDir dir =
+        if File.Exists(Path.Combine(dir, "package.json")) then Some dir
+        else
+            let parent = Directory.GetParent(dir)
+            if isNull parent then None
+            else tryFindPackageJsonDir parent.FullName
+
+    let tryNodeModulesBin workingDir exeFile =
+        tryFindPackageJsonDir workingDir
+        |> Option.bind (fun pkgJsonDir ->
+            let nodeModulesBin = Path.Join(pkgJsonDir, "node_modules", ".bin", exeFile)
+            // let nodeModulesBin = if Process.isWindows() then nodeModulesBin + ".cmd" else nodeModulesBin
+            if File.Exists(nodeModulesBin) then Some nodeModulesBin
+            else None)
+
+
 [<RequireQualifiedAccess>]
 module Process =
     open System.Diagnostics

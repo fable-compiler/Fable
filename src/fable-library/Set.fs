@@ -456,7 +456,8 @@ module SetTree =
 
     /// Set comparison.  Note this can be expensive.
     let rec compareStacks (comparer: IComparer<'T>) (l1:SetTree<'T> list) (l2:SetTree<'T> list) : int =
-        let cont() =
+        // This must be inlined to activate tail call recursion in Fable
+        let inline cont() =
             match l1, l2 with
             | (x1 :: t1), _ when not (isEmpty x1) ->
                 match x1 with
@@ -726,13 +727,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     override this.Equals that =
         match that with
         | :? Set<'T> as that ->
-            use e1 = (this :> seq<_>).GetEnumerator()
-            use e2 = (that :> seq<_>).GetEnumerator()
-            let rec loop () =
-                let m1 = e1.MoveNext()
-                let m2 = e2.MoveNext()
-                (m1 = m2) && (not m1 || ((e1.Current = e2.Current) && loop()))
-            loop()
+            SetTree.compare this.Comparer this.Tree that.Tree = 0
         | _ -> false
 
     interface System.IComparable with

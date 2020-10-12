@@ -1070,13 +1070,21 @@ let private addUsedRootName com name (usedRootNames: Set<string>) =
         |> addError com [] None
     Set.add name usedRootNames
 
+// Entities that are not output to JS
+let private isIgnoredLeafEntity (ent: FSharpEntity) =
+    ent.IsInterface
+    || ent.IsEnum
+    || ent.IsMeasure
+    || ent.IsFSharpAbbreviation
+    || ent.IsNamespace // Ignore empty namespaces
+
 // In case this is a recursive module, do a first pass to get all entity and member names
 let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls =
     (usedNames, decls) ||> List.fold (fun usedNames decl ->
         match decl with
         | Entity(ent, sub) ->
             match sub with
-            | [] when ent.IsInterface || ent.IsFSharpAbbreviation || ent.IsNamespace -> usedNames
+            | [] when isIgnoredLeafEntity ent -> usedNames
             | [] ->
                 let ent = com.GetEntity(FsEnt.FullName ent)
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
@@ -1101,7 +1109,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
         match fsDecl with
         | Entity(ent, sub) ->
             match sub with
-            | [] when ent.IsInterface || ent.IsFSharpAbbreviation || ent.IsNamespace -> []
+            | [] when isIgnoredLeafEntity ent -> []
             | [] ->
                 let entFullName = FsEnt.FullName ent
                 let ent = (com :> Compiler).GetEntity(entFullName)
