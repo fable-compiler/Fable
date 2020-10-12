@@ -146,7 +146,6 @@ module private Util =
 
             Log.Make(severity, msg, fileName=er.FileName, range=range, tag="FSHARP")
         )
-        |> Array.distinct // Sometimes errors are duplicated
 
     let hasWatchDependency (path: string) (dirtyFiles: Set<string>) watchDependencies =
         match Map.tryFind path watchDependencies with
@@ -233,24 +232,23 @@ type ProjectCracked(sourceFiles: File array,
     member _.MapSourceFiles(f) =
         ProjectCracked(Array.map f sourceFiles, fsharpProjOptions, fableCompilerOptions, fableLibDir)
 
-    static member Init(msg: CliArgs) =
+    static member Init(cliArgs: CliArgs) =
         let res =
             getFullProjectOpts {
-                fableLib = msg.FableLibraryPath
-                define = msg.Define
-                forcePkgs = msg.ForcePackages
-                rootDir = msg.RootDir
-                projFile = msg.ProjectFile
-                optimize = msg.CompilerOptions.OptimizeFSharpAst
+                fableLib = cliArgs.FableLibraryPath
+                define = cliArgs.Define
+                forcePkgs = cliArgs.ForcePackages
+                projFile = cliArgs.ProjectFile
+                optimize = cliArgs.CompilerOptions.OptimizeFSharpAst
             }
 
         Log.verbose(lazy
-            let proj = File.getRelativePathFromCwd msg.ProjectFile
+            let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
             let opts = res.ProjectOptions.OtherOptions |> String.concat "\n   "
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
         let sourceFiles = getSourceFiles res.ProjectOptions |> Array.map File
-        ProjectCracked(sourceFiles, res.ProjectOptions, msg.CompilerOptions, res.FableLibDir, res.FableLibReset)
+        ProjectCracked(sourceFiles, res.ProjectOptions, cliArgs.CompilerOptions, res.FableLibDir, res.FableLibReset)
 
 type ProjectParsed(project: Project,
                    checker: InteractiveChecker) =
@@ -386,6 +384,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     Array.append logs [|log|], deps))
 
     Log.always(sprintf "Fable compilation finished in %ims" ms)
+    let logs = Array.distinct logs // Sometimes errors are duplicated
 
     logs
     |> Array.filter (fun x -> x.Severity = Severity.Info)
@@ -435,10 +434,8 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     // Pass also the file name as argument, as when calling the script directly
                     "node", ["--eval"; "\"require('esm')(module)('" + lastFilePath + "')\""; lastFilePath] @ runProc.Args
                 | exeFile ->
-                    let nodeModulesBin = IO.Path.Join(workingDir, "node_modules", ".bin", exeFile)
-                    // let nodeModulesBin = if Process.isWindows() then nodeModulesBin + ".cmd" else nodeModulesBin
-                    if File.Exists(nodeModulesBin) then nodeModulesBin, runProc.Args
-                    else exeFile, runProc.Args
+                    File.tryNodeModulesBin workingDir exeFile
+                    |> Option.defaultValue exeFile, runProc.Args
 
             if state.CliArgs.WatchMode then
                 runProc.RunningProcess |> Option.iter (fun p -> p.Kill())

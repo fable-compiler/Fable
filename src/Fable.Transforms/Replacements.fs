@@ -704,8 +704,8 @@ let identityHashMethod (com: ICompiler) = function
     | DeclaredType(ent, _) -> com.GetEntity(ent) |> getEntityHashMethod
     | _ -> "Util", "identityHash"
 
-
 let structuralHashMethod (com: ICompiler) = function
+    | MetaType -> "Reflection", "getHashCode"
     | DeclaredType(ent, _) ->
         let ent = com.GetEntity(ent)
         if not ent.IsInterface then getEntityHashMethod ent
@@ -774,8 +774,6 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Array", "compareWith", Number Int32, [f; left; right], ?loc=r)
     | List _ ->
         Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
-    | MetaType ->
-        Helper.LibCall(com, "Reflection", "compare", Number Int32, [left; right], ?loc=r)
     | Tuple _ ->
         Helper.LibCall(com, "Util", "compareArrays", Number Int32, [left; right], ?loc=r)
     | _ ->

@@ -1,5 +1,5 @@
 import { FSharpRef, Record, Union } from "./Types.js";
-import { compareArraysWith, equalArraysWith } from "./Util.js";
+import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
@@ -17,7 +17,7 @@ export class CaseInfo {
 
 export type EnumCase = [string, number];
 
-export class TypeInfo {
+export class TypeInfo implements IEquatable<TypeInfo> {
   constructor(
     public fullname: string,
     public generics?: TypeInfo[],
@@ -32,16 +32,22 @@ export class TypeInfo {
   public ToString() {
     return fullName(this);
   }
+  public GetHashCode() {
+    return getHashCode(this);
+  }
   public Equals(other: TypeInfo) {
     return equals(this, other);
-  }
-  public CompareTo(other: TypeInfo) {
-    return compare(this, other);
   }
 }
 
 export function getGenerics(t: TypeInfo): TypeInfo[] {
   return t.generics != null ? t.generics : [];
+}
+
+export function getHashCode(t: TypeInfo) {
+  const fullnameHash = stringHash(t.fullname);
+  const genHashes: number[] = getGenerics(t).map(getHashCode);
+  return combineHashCodes([fullnameHash, ...genHashes]);
 }
 
 export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
@@ -53,16 +59,6 @@ export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
   } else {
     return t1.fullname === t2.fullname
       && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);
-  }
-}
-
-// System.Type is not comparable in .NET, but let's implement this
-// in case users want to create a dictionary with types as keys
-export function compare(t1: TypeInfo, t2: TypeInfo): number {
-  if (t1.fullname !== t2.fullname) {
-    return t1.fullname < t2.fullname ? -1 : 1;
-  } else {
-    return compareArraysWith(getGenerics(t1), getGenerics(t2), compare);
   }
 }
 

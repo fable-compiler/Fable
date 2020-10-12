@@ -729,6 +729,7 @@ module TypeHelpers =
             | Types.char -> Fable.Char
             | Types.string -> Fable.String
             | Types.regex -> Fable.Regex
+            | Types.type_ -> Fable.MetaType
             | Types.valueOption
             | Types.option -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Option
             | Types.resizeArray -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array

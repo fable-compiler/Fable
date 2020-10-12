@@ -15,16 +15,13 @@ export interface IDateTimeOffset extends Date {
   offset?: number;
 }
 
-export interface IComparable<T> {
+export interface IComparable<T> extends IEquatable<T> {
   CompareTo(x: T): number;
 }
 
 export interface IEquatable<T> {
-  Equals(x: T): boolean;
-}
-
-export interface IHashable {
   GetHashCode(): number;
+  Equals(x: T): boolean;
 }
 
 export interface IDisposable {
@@ -94,8 +91,8 @@ function isEquatable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
   return typeof (x as IEquatable<T>).Equals === "function";
 }
 
-function isHashable<T>(x: T | IHashable): x is IHashable {
-  return typeof (x as IHashable).GetHashCode === "function";
+function isHashable<T>(x: T | IEquatable<T>): x is IEquatable<T> {
+  return typeof (x as IEquatable<T>).GetHashCode === "function";
 }
 
 export function isDisposable<T>(x: T | IDisposable): x is IDisposable {
@@ -307,7 +304,7 @@ export function structuralHash<T>(x: T): number {
   }
 }
 
-export function hashSafe(x: IHashable | null | undefined): number {
+export function hashSafe<T>(x: IEquatable<T> | undefined): number {
   return x?.GetHashCode() ?? 0;
 }
 
@@ -341,7 +338,7 @@ function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean
   return true;
 }
 
-export function equalsSafe<T>(x: IEquatable<T> | null | undefined, y: T): boolean {
+export function equalsSafe<T>(x: IEquatable<T> | undefined, y: T): boolean {
   return x?.Equals(y) ?? y == null;
 }
 
@@ -422,7 +419,7 @@ function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): numbe
   return 0;
 }
 
-export function compareSafe<T>(x: IComparable<T> | null | undefined, y: T): number {
+export function compareSafe<T>(x: IComparable<T> | undefined, y: T): number {
   return x?.CompareTo(y) ?? (y == null ? 0 : -1);
 }
 

@@ -35,6 +35,7 @@ let square: int -> int = JsInterop.importMember "./js/1foo.js"
 type MyJsClass(x: int) =
     member this.foo(): int = jsNative
     abstract bar: unit -> int
+    static member fuzzyMultiply(x: int, i: int): int = jsNative
 
 type MyFSharpClass() =
     inherit MyJsClass(3)
@@ -56,6 +57,9 @@ let tests =
     testCase "Can inherit imported abstract classes" <| fun () ->
         let x = MyFSharpClass()
         x.foo() |> equal 7
+
+    testCase "Static members of imported classes work" <| fun () ->
+        MyJsClass.fuzzyMultiply(5, 4) |> equal 15
     #endif
 
     testCase "Import with relative paths from project subdirectory works" <| fun () ->

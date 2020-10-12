@@ -14,7 +14,6 @@ type Options = {
     fableLib: string option
     define: string[]
     forcePkgs: bool
-    rootDir: string
     projFile: string
     optimize: bool
 }
@@ -366,12 +365,12 @@ let retryGetCrackedProjects opts =
 let isDirectoryEmpty dir =
     not(IO.Directory.Exists(dir)) || IO.Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
-let createFableDir rootDir =
-    let fableDir = IO.Path.Combine(rootDir, Naming.fableHiddenDir)
+let createFableDir (opts: Options) =
+    let fableDir = IO.Path.Combine(IO.Path.GetDirectoryName(opts.projFile), Naming.fableHiddenDir)
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
 
     let isEmptyOrOutdated =
-        if isDirectoryEmpty fableDir then true
+        if opts.forcePkgs || isDirectoryEmpty fableDir then true
         else
             let isOutdated =
                 try
@@ -390,7 +389,7 @@ let createFableDir rootDir =
     isEmptyOrOutdated, fableDir
 
 let copyDirIfDoesNotExist (opts: Options) (source: string) (target: string) =
-    if opts.forcePkgs || isDirectoryEmpty target then
+    if isDirectoryEmpty target then
         IO.Directory.CreateDirectory(target) |> ignore
         if IO.Directory.Exists source |> not then
             failwith ("Source directory is missing: " + source)
@@ -402,7 +401,7 @@ let copyDirIfDoesNotExist (opts: Options) (source: string) (target: string) =
             IO.File.Copy(newPath, newPath.Replace(source, target), true)
 
 let copyFableLibraryAndPackageSources (opts: Options) (pkgs: FablePackage list) =
-    let fableLibReset, fableLibDir = createFableDir opts.rootDir
+    let fableLibReset, fableLibDir = createFableDir opts
 
     let fableLibraryPath =
         match opts.fableLib with
