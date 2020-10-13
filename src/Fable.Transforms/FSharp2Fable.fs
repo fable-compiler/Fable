@@ -84,7 +84,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     | DiscriminatedUnion(tdef, genArgs) ->
         let genArgs = makeGenArgs ctx.GenericArgs genArgs
         let tag = unionCaseTag tdef unionCase
-        Fable.NewUnion(argExprs, tag, FsEnt.FullName tdef, genArgs) |> makeValue r
+        Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: FSharpExpr list) =
     let makeCallInfo traitName entityFullName argTypes genArgs: Fable.ReplaceCallInfo =
@@ -791,7 +791,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
         let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
-        return Fable.NewRecord(argExprs, FsEnt.FullName fsType.TypeDefinition, genArgs) |> makeValue (makeRangeFrom fsExpr)
+        return Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs) |> makeValue (makeRangeFrom fsExpr)
 
     | BasicPatterns.NewAnonRecord(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
@@ -1086,11 +1086,12 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
             match sub with
             | [] when isIgnoredLeafEntity ent -> usedNames
             | [] ->
-                let ent = com.GetEntity(FsEnt.FullName ent)
+                let entRef = FsEnt.Ref ent
+                let ent = com.GetEntity(entRef)
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     usedNames
                 else
-                    let entName = getEntityDeclarationName com ent.FullName
+                    let entName = getEntityDeclarationName com entRef
                     addUsedRootName com entName usedNames
                     // Fable will inject an extra declaration for reflection,
                     // so add also the name with the reflection suffix
@@ -1111,7 +1112,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
             match sub with
             | [] when isIgnoredLeafEntity ent -> []
             | [] ->
-                let entFullName = FsEnt.FullName ent
+                let entFullName = FsEnt.Ref ent
                 let ent = (com :> Compiler).GetEntity(entFullName)
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     []
@@ -1228,19 +1229,19 @@ type FableCompiler(com: Compiler) =
             match memb.DeclaringEntity with
             | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)
             | Some ent ->
-                // The entity name is not included in the member unique name
-                // for type extensions, see #1667
-                let entFullName = FsEnt.FullName ent
-                let fileName = com.GetEntitySourcePath(entFullName)
-                com.AddWatchDependency(fileName)
-
-                com.GetOrAddInlineExpr(membUniqueName, fun () ->
-                    match tryGetMemberArgsAndBody com fileName entFullName membUniqueName with
-                    | Some(args, body) ->
-                        { Args = List.concat args
-                          Body = body
-                          FileName = fileName }
-                    | None -> failwith ("Cannot find inline member. Please report: " + membUniqueName))
+                // The entity name is not included in the member unique name for type extensions, see #1667
+                let entRef = FsEnt.Ref ent
+                match entRef.SourcePath with
+                | None -> failwith ("Cannot access source path of %s" + entRef.QualifiedName)
+                | Some fileName ->
+                    com.AddWatchDependency(fileName)
+                    com.GetOrAddInlineExpr(membUniqueName, fun () ->
+                        match tryGetMemberArgsAndBody com fileName entRef.FullName membUniqueName with
+                        | Some(args, body) ->
+                            { Args = List.concat args
+                              Body = body
+                              FileName = fileName }
+                        | None -> failwith ("Cannot find inline member. Please report: " + membUniqueName))
 
         member _.TryGetImplementationFile (fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
@@ -1255,7 +1256,6 @@ type FableCompiler(com: Compiler) =
         member _.ImplementationFiles = com.ImplementationFiles
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.GetEntity(fullName) = com.GetEntity(fullName)
-        member _.GetEntitySourcePath(fullName) = com.GetEntitySourcePath(fullName)
         member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
         member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
         member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
@@ -1275,7 +1275,7 @@ let transformFile (com: Compiler) =
         transformDeclarations com ctx file.Declarations
         |> List.map (function
             | Fable.ClassDeclaration decl as classDecl ->
-                com.TryGetAttachedMembers(decl.Entity)
+                com.TryGetAttachedMembers(decl.Entity.FullName)
                 |> Option.map (fun members ->
                     { decl with Constructor = members.Cons
                                 BaseCall = members.BaseCall

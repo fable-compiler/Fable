@@ -29,6 +29,11 @@ type ConcurrentDictionary<'TKey, 'TValue> with
         ConcurrentDictionary(kvs)
 #endif
 
+let private entityRefToString (r: Fable.EntityRef) =
+    match r.SourcePath with
+    | Some x -> x + "::" + r.QualifiedName
+    | None -> r.QualifiedName
+
 type Project(projectOptions: FSharpProjectOptions,
              checkResults: FSharpCheckProjectResults,
              ?optimize: bool) =
@@ -46,34 +51,41 @@ type Project(projectOptions: FSharpProjectOptions,
         implFiles |> Seq.map (fun kv ->
             kv.Key, FSharp2Fable.Compiler.getRootModule kv.Value) |> dict
 
-    let rec withNestedEntities (e: FSharpEntity) =
-        seq  {
-            yield e
-            if e.IsFSharpModule then
-                for sub in e.NestedEntities do
-                    yield! withNestedEntities sub
-        }
+    let rec withNestedEntities useSourcePath (e: FSharpEntity) =
+        if e.IsFSharpAbbreviation then Seq.empty
+        else
+            seq  {
+                let sourcePath = if useSourcePath then Some(FSharp2Fable.FsEnt.SourcePath e) else None
+                yield ({ QualifiedName = FSharp2Fable.FsEnt.QualifiedName e
+                         SourcePath = sourcePath }: Fable.EntityRef), e
+                if e.IsFSharpModule then
+                    for sub in e.NestedEntities do
+                        yield! withNestedEntities useSourcePath sub
+            }
 
     let entities =
-        checkResults.ProjectContext.GetReferencedAssemblies()
-        |> Seq.collect (fun a -> a.Contents.Entities)
-        |> Seq.append (Seq.collect FSharp2Fable.Compiler.getRootFSharpEntities
-                        checkResults.AssemblyContents.ImplementationFiles)
-        |> Seq.collect withNestedEntities
-        |> Seq.choose (fun e ->
-            match e.IsFSharpAbbreviation, e.TryFullName with
-            | false, Some name -> KeyValuePair(name, FSharp2Fable.FsEnt e :> Fable.Entity) |> Some
-            | _ -> None)
-        |> Seq.distinctBy (fun kv -> kv.Key)
-        |> ConcurrentDictionary<string, Fable.Entity>.From
+        let dllEntities =
+            checkResults.ProjectContext.GetReferencedAssemblies()
+            |> Seq.collect (fun a ->
+                a.Contents.Entities
+                |> Seq.collect (withNestedEntities false))
 
-    let entitySourcePaths = ConcurrentDictionary<string, string>()
+        let projEntities =
+            checkResults.AssemblyContents.ImplementationFiles
+            |> Seq.collect (fun file ->
+                FSharp2Fable.Compiler.getRootFSharpEntities file
+                |> Seq.collect (withNestedEntities true))
+
+        Seq.append dllEntities projEntities
+        |> Seq.map (fun (r, e) ->
+            KeyValuePair(entityRefToString r, FSharp2Fable.FsEnt e :> Fable.Entity))
+        |> ConcurrentDictionary.From
+
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
 
     member _.ImplementationFiles = implFiles
     member _.RootModules = rootModules
     member _.Entities = entities
-    member _.EntitySourcePaths = entitySourcePaths
     member _.InlineExprs = inlineExprs
     member _.Errors = checkResults.Errors
     member _.ProjectOptions = projectOptions
@@ -122,7 +134,16 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
                 "" // failwith msg
 
-        member _.GetEntity(fullName) =
+        member _.GetEntity(entityRef) =
+            let rec findParent fullName (trimmed: string) =
+                let i = trimmed.LastIndexOf("+")
+                if i > 0 then
+                    let trimmed = trimmed.[..i-1]
+                    if project.Entities.ContainsKey(trimmed) then project.Entities.[trimmed]
+                    else findParent fullName trimmed
+                else
+                    failwithf "Cannot find parent of %s" fullName
+
             let rec findEntity fullName (entities: FSharpEntity seq) =
                 entities
                 |> Seq.tryPick(fun e ->
@@ -132,15 +153,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                         findEntity fullName e.NestedEntities
                     | _ -> None)
 
-            let rec findParent fullName (trimmed: string) =
-                let i = trimmed.LastIndexOf(".")
-                if i > 0 then
-                    let trimmed = trimmed.[..i-1]
-                    if project.Entities.ContainsKey(trimmed) then project.Entities.[trimmed]
-                    else findParent fullName trimmed
-                else
-                    failwithf "Cannot find parent of %s" fullName
-
+            let fullName = entityRefToString entityRef
             project.Entities.GetOrAdd(fullName, fun _ ->
                 match findParent fullName fullName with
                 | :? FSharp2Fable.FsEnt as e -> findEntity fullName e.FSharpEntity.NestedEntities
@@ -148,15 +161,6 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
                 |> function
                     | Some e -> FSharp2Fable.FsEnt e :> Fable.Entity
                     | None -> failwithf "Cannot find entity %s" fullName)
-
-        member this.GetEntitySourcePath(fullName) =
-            project.EntitySourcePaths.GetOrAdd(fullName, fun _ ->
-                let ent = (this :> Compiler).GetEntity(fullName)
-                match ent with
-                | :? FSharp2Fable.FsEnt as e ->
-                    e.FSharpEntity.DeclarationLocation.FileName
-                    |> Path.normalizePathAndEnsureFsExtension
-                | _ -> failwithf "Cannot get source path for %s" ent.FullName)
 
         member _.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())

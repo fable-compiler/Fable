@@ -523,7 +523,8 @@ module AST =
         | _ -> false
 
     let rec getTypeFullName prettify t =
-        let getEntityFullName (fullname: EntityRef) gen =
+        let getEntityFullName (entRef: EntityRef) gen =
+            let fullname = entRef.FullName
             if List.isEmpty gen then fullname
             else
                 let gen = (List.map (getTypeFullName prettify) gen |> String.concat ",")

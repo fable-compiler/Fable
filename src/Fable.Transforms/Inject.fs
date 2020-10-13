@@ -27,7 +27,7 @@ let (|GeneratedInterface|_|) com ctx r t =
     match t with
     | Fable.DeclaredType(typDef,[t]) ->
         // TODO: Unify with Replacements.injectArg?
-        match typDef with
+        match typDef.FullName with
         | Types.typeResolver ->
             let fn = Fable.Value(Fable.TypeInfo t, r) |> makeDelegate []
             Replacements.Helpers.objExpr ["ResolveType", fn] |> Some
