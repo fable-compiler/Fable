@@ -1,3 +1,9 @@
+### 3.0.0-nagareyama-alpha-010
+
+* Fix #2202: Using System.Type as Dictionary key @Zaid-Ajaj
+* Fix #2203: Comparing large sets @Zaid-Ajaj
+* Keep only entity refs in Fable AST
+
 ### 3.0.0-nagareyama-alpha-009
 
 * Detect if command after `--run` is in `node_modules/.bin` dir
