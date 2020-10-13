@@ -24,11 +24,9 @@ type CompilerOptionsHelper =
                        ?verbosity,
                        ?fileExtension,
                        ?clampByteArrays) =
-        let typescript = defaultArg typescript false
         { new CompilerOptions with
-              member _.Typescript = typescript
-              // TODO: Typed arrays are temporarily disabled for typescript output
-              member _.TypedArrays = if typescript then false else defaultArg typedArrays true
+              member _.Typescript = defaultArg typescript false
+              member _.TypedArrays = defaultArg typedArrays true
               member _.DebugMode = defaultArg debugMode false
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal

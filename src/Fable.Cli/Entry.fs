@@ -4,15 +4,25 @@ open System
 open Main
 open Fable
 
-let hasFlag flag (args: string list) =
-    List.contains flag args
-
 let argValue key (args: string list) =
     args
     |> List.windowed 2
     |> List.tryPick (function
-        | [key2; value] when key = key2 -> Some value
+        | [key2; value] when key = key2 && not(value.StartsWith("-")) -> Some value
         | _ -> None)
+
+let tryFlag flag (args: string list) =
+    match argValue flag args with
+    | Some flag ->
+        match Boolean.TryParse(flag) with
+        | true, flag -> Some flag
+        | false, _ -> None
+    // Flags can be activated without an explicit value
+    | None when List.contains flag args -> Some true
+    | None -> None
+
+let flagEnabled flag (args: string list) =
+    tryFlag flag args |> Option.defaultValue false
 
 let argValues key (args: string list) =
     args
@@ -30,7 +40,7 @@ Commands:
   -h|--help         Show help
   --version         Print version
   watch             Run Fable in watch mode
-  clean             Clean generated JS files
+  clean             Remove .fable folders and files with specified extension (default .fs.js)
 
 Arguments:
   --cwd             Working directory
@@ -39,7 +49,7 @@ Arguments:
   --run             The command after the argument will be executed after compilation
   --runWatch        Like run, but will execute after each watch compilation
   --runScript       Runs the generated script for last file with node (requires "esm" npm package)
-  --noTypedArrays   Don't compile numeric arrays as JS typed arrays
+  --typedArrays     Compile numeric arrays as JS typed arrays (default true)
   --forcePkgs       Force a new copy of package sources into `.fable` folder
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
@@ -70,9 +80,20 @@ type Runner =
         Error("File does not exist: " + fsprojPath)
     else
         Ok fsprojPath
+
+    // TODO: Remove this check when typed arrays are compatible with typescript
     |> Result.bind (fun projFile ->
+        let typescript = flagEnabled "--typescript" args
+        let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
+        if typescript && typedArrays then
+            Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
+        else
+            Ok(projFile, typescript, typedArrays)
+    )
+
+    |> Result.bind (fun (projFile, typescript, typedArrays) ->
         let verbosity =
-            if hasFlag "--verbose" args then
+            if flagEnabled "--verbose" args then
                 Log.makeVerbose()
                 Verbosity.Verbose
             else Verbosity.Normal
@@ -87,11 +108,11 @@ type Runner =
             |> List.toArray
 
         let compilerOptions =
-            CompilerOptionsHelper.Make(typescript = hasFlag "--typescript" args,
-                                       typedArrays = not(hasFlag "--noTypedArrays" args),
+            CompilerOptionsHelper.Make(typescript = typescript,
+                                       typedArrays = typedArrays,
                                        ?fileExtension = argValue "--extension" args,
                                        debugMode = Array.contains "DEBUG" defines,
-                                       optimizeFSharpAst = hasFlag "--optimize" args,
+                                       optimizeFSharpAst = flagEnabled "--optimize" args,
                                        verbosity = verbosity)
 
         let cliArgs =
@@ -100,7 +121,7 @@ type Runner =
               RootDir = rootDir
               OutDir = argValue "--outDir" args
               WatchMode = watch
-              ForcePackages = hasFlag "--forcePkgs" args
+              ForcePackages = flagEnabled "--forcePkgs" args
               Exclude = argValue "--exclude" args
               Define = defines
               RunProcess = runProc
@@ -123,16 +144,11 @@ let clean args dir =
 
     let mutable fileCount = 0
     let rec recClean dir =
-        IO.Directory.GetFiles(dir)
-        |> Array.choose (fun file ->
-            if file.EndsWith(".fs") then Some(file.[.. (file.Length - 4)])
-            else None)
-        |> Array.iter (fun filename ->
-            let file = filename + ext
-            if IO.File.Exists(file) then
-                IO.File.Delete(file)
-                fileCount <- fileCount + 1
-                Log.verbose(lazy ("Deleted " + file)))
+        IO.Directory.GetFiles(dir, "*" + ext)
+        |> Array.iter (fun file ->
+            IO.File.Delete(file)
+            fileCount <- fileCount + 1
+            Log.verbose(lazy ("Deleted " + file)))
 
         IO.Directory.GetDirectories(dir)
         |> Array.filter (fun subdir ->
@@ -181,7 +197,7 @@ let main argv =
         do
             Log.always("Fable: F# to JS compiler " + Literals.VERSION)
             Log.always("Thanks to the contributor! @" + Contributors.getRandom())
-            if hasFlag "--verbose" argv then
+            if flagEnabled "--verbose" argv then
                 Log.makeVerbose()
 
         match argv with
