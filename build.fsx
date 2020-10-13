@@ -409,10 +409,10 @@ let syncFcsRepo() =
     runInDir FCS_REPO_LOCAL "git pull"
     cheatWithDotnetSdkVersion (FCS_REPO_LOCAL </> "fcs") (fun () ->
         runBashOrCmd (FCS_REPO_LOCAL </> "fcs") "build" "")
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Core.dll")  "../fable/lib/fcs/"
-    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/fcs/Release/netstandard2.0/FSharp.Core.xml")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Compiler.Service.dll")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Compiler.Service.xml")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll")  "../fable/lib/fcs/"
+    copyFile (FCS_REPO_LOCAL </> "artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.xml")  "../fable/lib/fcs/"
 
     // fcs-fable
     runInDir FCS_REPO_LOCAL ("git checkout " + FCS_REPO_FABLE_BRANCH)
