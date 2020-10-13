@@ -75,8 +75,8 @@ module Helpers =
     let inline subArrayImpl (array: 'T[]) (start: int) (count: int): 'T[] =
         !!array?slice(start, start + count)
 
-    let inline indexOfImpl (array: 'T[]) (item: 'T): int =
-        !!array?indexOf(item)
+    let inline indexOfImpl (array: 'T[]) (item: 'T) (start: int): int =
+        !!array?indexOf(item, start)
 
     let inline findImpl (predicate: 'T -> bool) (array: 'T[]): 'T option =
         !!array?find(predicate)
@@ -416,7 +416,7 @@ let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
 
 let removeInPlace (item: 'T) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    let i = indexOfImpl array item
+    let i = indexOfImpl array item 0
     if i > -1 then
         spliceImpl array i 1 |> ignore
         true
@@ -438,6 +438,11 @@ let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
     let diff = targetIndex - sourceIndex
     for i = sourceIndex to sourceIndex + count - 1 do
         target.[i + diff] <- source.[i]
+
+let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) =
+    let start = defaultArg start 0
+    let i = indexOfImpl array item start
+    if count.IsSome && i >= start + count.Value then -1 else i
 
 let partition (f: 'T -> bool) (source: 'T[]) =
     let len = source.Length

@@ -77,8 +77,6 @@ val optionL               : ('a -> Layout) -> 'a option -> Layout
 
 val listL                 : ('a -> Layout) -> 'a list   -> Layout
 
-val squashTo              : int -> Layout -> Layout
-
 val showL                 : Layout -> string
 
 #if !FABLE_COMPILER

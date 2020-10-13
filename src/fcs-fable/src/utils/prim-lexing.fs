@@ -56,7 +56,12 @@ type StringText(str: string) =
     member __.String = str
 
     override __.GetHashCode() = str.GetHashCode()
-    override __.Equals(obj: obj) = str.Equals(obj)
+    override __.Equals(obj: obj) = 
+        match obj with
+        | :? StringText as other -> other.String.Equals(str)
+        | :? string as other -> other.Equals(str)
+        | _ -> false        
+    override __.ToString() = str
 
     interface ISourceText with
 
@@ -207,13 +212,11 @@ namespace Internal.Utilities.Text.Lexing
         let mutable startPos = Position.Empty
         let mutable endPos = Position.Empty
 
-        // Throw away all the input besides the lexeme
+        // Throw away all the input besides the lexeme, which is placed at start of buffer
         let discardInput () = 
-            let keep = Array.sub buffer bufferScanStart bufferScanLength
-            let nkeep = keep.Length 
-            Array.blit keep 0 buffer 0 nkeep
+            Array.blit buffer bufferScanStart buffer 0 bufferScanLength
             bufferScanStart <- 0
-            bufferMaxScanLength <- nkeep
+            bufferMaxScanLength <- bufferScanLength
 
         member lexbuf.EndOfScan () : int =
             //Printf.eprintf "endOfScan, lexBuffer.lexemeLength = %d\n" lexBuffer.lexemeLength;
@@ -234,9 +237,11 @@ namespace Internal.Utilities.Text.Lexing
            with get() = endPos
            and  set b =  endPos <- b
 
-        member lexbuf.Lexeme         = Array.sub buffer bufferScanStart lexemeLength
-        member lexbuf.LexemeChar(n)  = buffer.[n+bufferScanStart]
-
+#if !FABLE_COMPILER
+        member lexbuf.LexemeView         = System.ReadOnlySpan<'Char>(buffer, bufferScanStart, lexemeLength)
+#endif
+        member lexbuf.LexemeChar n   = buffer.[n+bufferScanStart]
+        member lexbuf.LexemeContains (c:'Char) =  array.IndexOf(buffer, c, bufferScanStart, lexemeLength) >= 0
         member lexbuf.BufferLocalStore = (context :> IDictionary<_,_>)
         member lexbuf.LexemeLength        with get() : int = lexemeLength    and set v = lexemeLength <- v
         member lexbuf.Buffer              with get() : 'Char[] = buffer              and set v = buffer <- v
@@ -245,6 +250,12 @@ namespace Internal.Utilities.Text.Lexing
         member lexbuf.BufferScanStart     with get() : int = bufferScanStart     and set v = bufferScanStart <- v
         member lexbuf.BufferAcceptAction  with get() = bufferAcceptAction  and set v = bufferAcceptAction <- v
         member lexbuf.RefillBuffer () = filler lexbuf
+
+#if FABLE_COMPILER
+        static member LexemeSliceToString (lexbuf: LexBuffer<LexBufferChar>, start, length) =
+            let chars = Array.init length (fun i -> lexbuf.LexemeChar (start + i) |> char)
+            new System.String(chars)
+#endif
 
         static member LexemeString (lexbuf: LexBuffer<LexBufferChar>) =
 #if FABLE_COMPILER
@@ -357,7 +368,7 @@ namespace Internal.Utilities.Text.Lexing
         let numUnicodeCategories = 30 
         let numLowUnicodeChars = 128 
         let numSpecificUnicodeChars = (trans.[0].Length - 1 - numLowUnicodeChars - numUnicodeCategories)/2
-        let lookupUnicodeCharacters state inp =
+        let lookupUnicodeCharacters state (inp: uint16) =
             let inpAsInt = int inp
             // Is it a fast ASCII character?
             if inpAsInt < numLowUnicodeChars then 
@@ -372,11 +383,7 @@ namespace Internal.Utilities.Text.Lexing
                         // ways
                         let baseForUnicodeCategories = numLowUnicodeChars+numSpecificUnicodeChars*2
                         let unicodeCategory = 
-#if FABLE_COMPILER
                             System.Char.GetUnicodeCategory(char inp)
-#else
-                            System.Char.GetUnicodeCategory(inp)
-#endif
                         //System.Console.WriteLine("inp = {0}, unicodeCategory = {1}", [| box inp; box unicodeCategory |]);
                         int trans.[state].[baseForUnicodeCategories + int32 unicodeCategory]
                     else 

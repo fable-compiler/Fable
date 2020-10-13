@@ -16,9 +16,10 @@ open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.Internal.Library  
 open FSharp.Compiler.AccessibilityLogic
-open FSharp.Compiler.CompileOps
-open FSharp.Compiler.CompileOptions
-open FSharp.Compiler.CompilerGlobalState
+open FSharp.Compiler.CompilerConfig
+open FSharp.Compiler.CompilerDiagnostics
+open FSharp.Compiler.CompilerImports
+open FSharp.Compiler.CompilerOptions
 open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.Features
 open FSharp.Compiler.Layout
@@ -26,9 +27,11 @@ open FSharp.Compiler.Lexhelp
 open FSharp.Compiler.Lib
 open FSharp.Compiler.PrettyNaming
 open FSharp.Compiler.Parser
+open FSharp.Compiler.ParseAndCheckInputs
 open FSharp.Compiler.ParseHelpers
+open FSharp.Compiler.OptimizeInputs
 open FSharp.Compiler.Range
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.ScriptClosure
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TcGlobals 
@@ -155,8 +158,8 @@ type internal TypeCheckInfo
     let getToolTipTextCache = AgedLookup<CompilationThreadToken, int*int*string, FSharpToolTipText<Layout>>(getToolTipTextSize,areSimilar=(fun (x,y) -> x = y))
     
     let amap = tcImports.GetImportMap()
-    let infoReader = new InfoReader(g,amap)
-    let ncenv = new NameResolver(g,amap,infoReader,NameResolution.FakeInstantiationGenerator)
+    let infoReader = InfoReader(g,amap)
+    let ncenv = NameResolver(g,amap,infoReader,NameResolution.FakeInstantiationGenerator)
     let cenv = SymbolEnv(g, thisCcu, Some ccuSigForFile, tcImports, amap, infoReader)
     
     /// Find the most precise naming environment for the given line and column
@@ -237,7 +240,8 @@ type internal TypeCheckInfo
                 NameResResult.TypecheckStaleAndTextChanged // typecheck is stale, wait for second-chance IntelliSense to bring up right result
             else
                 NameResResult.Members (items, denv, m) 
-        else NameResResult.Empty
+        else 
+            NameResResult.Empty
 
     let GetCapturedNameResolutions (endOfNamesPos: pos) resolveOverloads =
         let filter (endPos: pos) items =
@@ -282,7 +286,7 @@ type internal TypeCheckInfo
         // then the expression typings get confused (thinking 'varA:int'), so we use name resolution even for usual values.
         
         | CNR(Item.Value(vref), occurence, denv, nenv, ad, m)::_, Some _ ->
-            if (occurence = ItemOccurence.Binding || occurence = ItemOccurence.Pattern) then 
+            if occurence = ItemOccurence.Binding || occurence = ItemOccurence.Pattern then 
               // Return empty list to stop further lookup - for value declarations
               NameResResult.Cancel(denv, m)
             else 
@@ -525,19 +529,25 @@ type internal TypeCheckInfo
     /// This also checks that there are some remaining results 
     /// exactMatchResidueOpt = Some _ -- means that we are looking for exact matches
     let FilterRelevantItemsBy (getItem: 'a -> Item) (exactMatchResidueOpt : _ option) check (items: 'a list, denv, m) =
-            
         // can throw if type is in located in non-resolved CCU: i.e. bigint if reference to System.Numerics is absent
-        let safeCheck item = try check item with _ -> false
+        let inline safeCheck item = try check item with _ -> false
                                                 
         // Are we looking for items with precisely the given name?
-        if not (isNil items) && exactMatchResidueOpt.IsSome then
-            let items = items |> FilterDeclItemsByResidue getItem exactMatchResidueOpt.Value |> List.filter safeCheck 
-            if not (isNil items) then Some(items, denv, m) else None        
-        else 
+        if isNil items then 
             // When (items = []) we must returns Some([],..) and not None
             // because this value is used if we want to stop further processing (e.g. let x.$ = ...)
-            let items = items |> List.filter safeCheck
-            Some(items, denv, m) 
+            Some(items, denv, m)
+        else
+            match exactMatchResidueOpt with
+            | Some exactMatchResidue ->
+                let items = 
+                    items 
+                    |> FilterDeclItemsByResidue getItem exactMatchResidue 
+                    |> List.filter safeCheck 
+                if not (isNil items) then Some(items, denv, m) else None
+            | _ ->
+                let items = items |> List.filter safeCheck
+                Some(items, denv, m) 
 
     /// Post-filter items to make sure they have precisely the right name
     /// This also checks that there are some remaining results 
@@ -848,14 +858,14 @@ type internal TypeCheckInfo
                          | _ when IsAttribute infoReader cItem.Item -> true
                          | _ -> false), denv, m)
             
-            | Some(CompletionContext.OpenDeclaration) ->
+            | Some(CompletionContext.OpenDeclaration isOpenType) ->
                 GetDeclaredItems (parseResultsOpt, lineStr, origLongIdentOpt, colAtEndOfNamesAndResidue, residueOpt, lastDotPos, line, loc, filterCtors, resolveOverloads, hasTextChangedSinceLastTypecheck, false, getAllSymbols)
                 |> Option.map (fun (items, denv, m) ->
                     items 
                     |> List.filter (fun x ->
                         match x.Item with
                         | Item.ModuleOrNamespaces _ -> true
-                        | Item.Types (_, tcrefs) when tcrefs |> List.exists (fun ty -> isAppTy g ty && isStaticClass g (tcrefOfAppTy g ty)) -> true
+                        | Item.Types _ when isOpenType -> true
                         | _ -> false), denv, m)
             
             // Completion at '(x: ...)"
@@ -1046,9 +1056,8 @@ type internal TypeCheckInfo
                 | None -> []
                 | Some(loadClosure) -> 
                     loadClosure.References
-                        |> List.map snd
-                        |> List.concat 
-                        |> List.filter(fun ar->isPosMatch(pos, ar.originalReference))
+                    |> List.collect snd
+                    |> List.filter(fun ar -> isPosMatch(pos, ar.originalReference))
 
             match matches with 
             | resolved::_ // Take the first seen
@@ -1056,7 +1065,21 @@ type internal TypeCheckInfo
                 let tip = wordL (TaggedTextOps.tagStringLiteral((resolved.prepareToolTip ()).TrimEnd([|'\n'|])))
                 FSharpStructuredToolTipText.FSharpToolTipText [FSharpStructuredToolTipElement.Single(tip, FSharpXmlDoc.None)]
 
-            | [] -> FSharpStructuredToolTipText.FSharpToolTipText []
+            | [] -> 
+                let matches =
+                    match loadClosure with
+                    | None -> None
+                    | Some(loadClosure) -> 
+                        loadClosure.PackageReferences
+                        |> Array.tryFind (fun (m, _) -> Range.rangeContainsPos m pos)
+                match matches with 
+                | None -> FSharpStructuredToolTipText.FSharpToolTipText []
+                | Some (_, lines) -> 
+                    let lines = lines |> List.filter (fun line -> not (line.StartsWith("//")) && not (String.IsNullOrEmpty line))
+                    FSharpStructuredToolTipText.FSharpToolTipText 
+                       [ for line in lines -> 
+                            let tip = wordL (TaggedTextOps.tagStringLiteral line)
+                            FSharpStructuredToolTipElement.Single(tip, FSharpXmlDoc.None)]
                                     
         ErrorScope.Protect Range.range0 
             dataTipOfReferences
@@ -1436,11 +1459,11 @@ module internal ParseAndCheckFile =
     let getLightSyntaxStatus fileName options =
         let lower = String.lowercase fileName
         let lightOnByDefault = List.exists (Filename.checkSuffix lower) FSharpLightSyntaxFileSuffixes
-        let lightSyntaxStatus = if lightOnByDefault then (options.LightSyntax <> Some false) else (options.LightSyntax = Some true)
-        LightSyntaxStatus(lightSyntaxStatus, true)
+        let lightStatus = if lightOnByDefault then (options.LightSyntax <> Some false) else (options.LightSyntax = Some true)
+        LightSyntaxStatus(lightStatus, true)
 
     let createLexerFunction fileName options lexbuf (errHandler: ErrorHandler) =
-        let lightSyntaxStatus = getLightSyntaxStatus fileName options
+        let lightStatus = getLightSyntaxStatus fileName options
 
         // If we're editing a script then we define INTERACTIVE otherwise COMPILED.
         // Since this parsing for intellisense we always define EDITING.
@@ -1451,10 +1474,10 @@ module internal ParseAndCheckFile =
         
         // When analyzing files using ParseOneFile, i.e. for the use of editing clients, we do not apply line directives.
         // TODO(pathmap): expose PathMap on the service API, and thread it through here
-        let lexargs = mkLexargs(fileName, defines, lightSyntaxStatus, lexResourceManager, [], errHandler.ErrorLogger, PathMap.empty)
+        let lexargs = mkLexargs(defines, lightStatus, lexResourceManager, [], errHandler.ErrorLogger, PathMap.empty)
         let lexargs = { lexargs with applyLineDirectives = false }
 
-        let tokenizer = LexFilter.LexFilter(lightSyntaxStatus, options.CompilingFsLib, Lexer.token lexargs true, lexbuf)
+        let tokenizer = LexFilter.LexFilter(lightStatus, options.CompilingFsLib, Lexer.token lexargs true, lexbuf)
         tokenizer.Lexer
 
     // Public callers are unable to answer LanguageVersion feature support questions.
@@ -1484,8 +1507,13 @@ module internal ParseAndCheckFile =
                 match t1, t2 with
                 | (LPAREN, RPAREN)
                 | (LPAREN, RPAREN_IS_HERE)
-                | (LBRACE, RBRACE)
-                | (LBRACE, RBRACE_IS_HERE)
+                | (LBRACE _, RBRACE _)
+                | (LBRACE_BAR, BAR_RBRACE)
+                | (LBRACE _, RBRACE_IS_HERE)
+                | (INTERP_STRING_BEGIN_PART _, INTERP_STRING_END _)
+                | (INTERP_STRING_BEGIN_PART _, INTERP_STRING_PART _)
+                | (INTERP_STRING_PART _, INTERP_STRING_PART _)
+                | (INTERP_STRING_PART _, INTERP_STRING_END _)
                 | (SIG, END)
                 | (STRUCT, END)
                 | (LBRACK_BAR, BAR_RBRACK)
@@ -1494,13 +1522,49 @@ module internal ParseAndCheckFile =
                 | (BEGIN, END) -> true
                 | (LQUOTE q1, RQUOTE q2) -> q1 = q2
                 | _ -> false
+
             let rec matchBraces stack =
                 match lexfun lexbuf, stack with
-                | tok2, ((tok1, m1) :: stack') when parenTokensBalance tok1 tok2 ->
-                    matchingBraces.Add(m1, lexbuf.LexemeRange)
-                    matchBraces stack'
-                | ((LPAREN | LBRACE | LBRACK | LBRACK_BAR | LQUOTE _ | LBRACK_LESS) as tok), _ ->
+                | tok2, ((tok1, m1) :: stackAfterMatch) when parenTokensBalance tok1 tok2 ->
+                    let m2 = lexbuf.LexemeRange
+
+                    // For INTERP_STRING_PART and INTERP_STRING_END grab the one character
+                    // range that corresponds to the "}" at the start of the token
+                    let m2Start =
+                        match tok2 with 
+                        | INTERP_STRING_PART _
+                        | INTERP_STRING_END _ -> 
+                           Range.mkFileIndexRange m2.FileIndex m2.Start (mkPos m2.Start.Line (m2.Start.Column+1))
+                        | _ -> m2
+
+                    matchingBraces.Add(m1, m2Start)
+
+                    // INTERP_STRING_PART corresponds to both "} ... {" i.e. both the completion
+                    // of a match and the start of a potential new one.
+                    let stackAfterMatch = 
+                        match tok2 with 
+                        | INTERP_STRING_PART _ -> 
+                           let m2End = Range.mkFileIndexRange m2.FileIndex (mkPos m2.End.Line (max (m2.End.Column-1) 0)) m2.End
+                           (tok2, m2End) :: stackAfterMatch
+                        | _ -> stackAfterMatch
+
+                    matchBraces stackAfterMatch
+
+                | ((LPAREN | LBRACE _ | LBRACK | LBRACE_BAR | LBRACK_BAR | LQUOTE _ | LBRACK_LESS) as tok), _ ->
                      matchBraces ((tok, lexbuf.LexemeRange) :: stack)
+
+                // INTERP_STRING_BEGIN_PART corresponds to $"... {" at the start of an interpolated string
+                //
+                // INTERP_STRING_PART corresponds to "} ... {" in the middle of an interpolated string (in
+                //   this case it msut not have matched something on the stack, e.g. an incomplete '[' in the
+                //   interpolation expression)
+                //
+                // Either way we start a new potential match at the last character
+                | ((INTERP_STRING_BEGIN_PART _ | INTERP_STRING_PART _) as tok), _ ->
+                     let m = lexbuf.LexemeRange
+                     let m2 = Range.mkFileIndexRange m.FileIndex (mkPos m.End.Line (max (m.End.Column-1) 0)) m.End
+                     matchBraces ((tok, m2) :: stack)
+
                 | (EOF _ | LEX_FAILURE _), _ -> ()
                 | _ -> matchBraces stack
             matchBraces [])
@@ -1517,7 +1581,7 @@ module internal ParseAndCheckFile =
                 let lexfun = createLexerFunction fileName options lexbuf errHandler
                 let isLastCompiland =
                     fileName.Equals(options.LastFileName, StringComparison.CurrentCultureIgnoreCase) ||
-                    CompileOps.IsScript(fileName)
+                    ParseAndCheckInputs.IsScript(fileName)
                 let isExe = options.IsExe
                 try Some (ParseInput(lexfun, errHandler.ErrorLogger, lexbuf, None, fileName, (isLastCompiland, isExe)))
                 with e ->
@@ -1563,28 +1627,31 @@ module internal ParseAndCheckFile =
             //  Join the sets and report errors. 
             //  It is by-design that these messages are only present in the language service. A true build would report the errors at their
             //  spots in the individual source files.
-            for (fileOfHashLoad, rangesOfHashLoad) in hashLoadsInFile do
-                for (file, errorGroupedByFileName) in hashLoadBackgroundDiagnosticsGroupedByFileName do
+            for fileOfHashLoad, rangesOfHashLoad in hashLoadsInFile do
+                for file, errorGroupedByFileName in hashLoadBackgroundDiagnosticsGroupedByFileName do
                     if sameFile file fileOfHashLoad then
                         for rangeOfHashLoad in rangesOfHashLoad do // Handle the case of two #loads of the same file
                             let diagnostics = errorGroupedByFileName |> Array.map(fun (_,(pe,f)) -> pe.Exception,f) // Strip the build phase here. It will be replaced, in total, with TypeCheck
-                            let errors = [ for (err,sev) in diagnostics do if sev = FSharpErrorSeverity.Error then yield err ]
-                            let warnings = [ for (err,sev) in diagnostics do if sev = FSharpErrorSeverity.Warning then yield err ]
+                            let errors = [ for err, sev in diagnostics do if sev = FSharpErrorSeverity.Error then yield err ]
+                            let warnings = [ for err, sev in diagnostics do if sev = FSharpErrorSeverity.Warning then yield err ]
                                     
                             let message = HashLoadedSourceHasIssues(warnings,errors,rangeOfHashLoad)
-                            if errors=[] then warning(message)
-                            else errorR(message)
+                            if isNil errors then 
+                                warning message
+                            else 
+                                errorR message
             
             // Replay other background errors.
-            for (phasedError,sev) in otherBackgroundDiagnostics do
+            for phasedError, sev in otherBackgroundDiagnostics do
                 if sev = FSharpErrorSeverity.Warning then 
                     warning phasedError.Exception 
-                else errorR phasedError.Exception
+                else 
+                    errorR phasedError.Exception
             
         | None -> 
             // For non-scripts, check for disallow #r and #load.
-            ApplyMetaCommandsFromInputToTcConfig (tcConfig, parsedMainInput,Path.GetDirectoryName mainInputFileName) |> ignore
-#endif //!FABLE_COMPILER
+            ApplyMetaCommandsFromInputToTcConfig (tcConfig, parsedMainInput, Path.GetDirectoryName mainInputFileName, tcImports.DependencyProvider) |> ignore
+#endif
                     
     // Type check a single file against an initial context, gleaning both errors and intellisense information.
     let CheckOneFile
@@ -1636,7 +1703,7 @@ module internal ParseAndCheckFile =
         errHandler.ErrorSeverityOptions <- tcConfig.errorSeverityOptions
             
         // Play background errors and warnings for this file.
-        for (err,sev) in backgroundDiagnostics do
+        for err, sev in backgroundDiagnostics do
             diagnosticSink (err, (sev = FSharpErrorSeverity.Error))
             
 #if !FABLE_COMPILER
@@ -1785,7 +1852,7 @@ type FSharpCheckFileResults
     member __.HasFullTypeCheckInfo = details.IsSome
     
 #if !FABLE_COMPILER
-    member info.TryGetCurrentTcImports () =
+    member __.TryGetCurrentTcImports () =
         match builderX with
         | Some builder -> builder.TryGetCurrentTcImports ()
         | _ -> None
@@ -1952,7 +2019,10 @@ type FSharpCheckFileResults
         scopeOptX 
         |> Option.map (fun scope -> 
             let cenv = scope.SymbolEnv
-            scope.OpenDeclarations |> Array.map (fun x -> FSharpOpenDeclaration(x.LongId, x.Range, (x.Modules |> List.map (fun x -> FSharpEntity(cenv, x))), x.AppliedScope, x.IsOwnNamespace)))
+            scope.OpenDeclarations |> Array.map (fun x -> 
+                let modules = x.Modules |> List.map (fun x -> FSharpEntity(cenv, x))
+                let types = x.Types |> List.map (fun x -> FSharpType(cenv, x))
+                FSharpOpenDeclaration(x.Target, x.Range, modules, types, x.AppliedScope, x.IsOwnNamespace)))
         |> Option.defaultValue [| |]
 
     override __.ToString() = "FSharpCheckFileResults(" + filename + ")"
@@ -2051,7 +2121,7 @@ type FSharpCheckProjectResults
           keepAssemblyContents: bool, 
           errors: FSharpErrorInfo[], 
           details:(TcGlobals * TcImports * CcuThunk * ModuleOrNamespaceType * TcSymbolUses list *
-                   TopAttribs option * CompileOps.IRawFSharpAssemblyData option * ILAssemblyRef *
+                   TopAttribs option * IRawFSharpAssemblyData option * ILAssemblyRef *
                    AccessorDomain * TypedImplFile list option * string[]) option) =
 
     let getDetails() = 
@@ -2105,7 +2175,7 @@ type FSharpCheckProjectResults
         let mimpls =
             match optimizedImpls with
             | TypedAssemblyAfterOptimization files ->
-                files |> List.map fst
+                files |> List.map (fun implFile -> implFile.ImplFile)
 
         FSharpAssemblyContents(tcGlobals, thisCcu, Some ccuSig, tcImports, mimpls)
 
@@ -2115,8 +2185,8 @@ type FSharpCheckProjectResults
 
         tcSymbolUses
         |> Seq.collect (fun r -> r.GetUsesOfSymbol symbol.Item)
-        |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurence, symbolUse.Range) 
-        |> Seq.filter (fun symbolUse -> symbolUse.ItemOccurence <> ItemOccurence.RelatedText) 
+        |> Seq.filter (fun symbolUse -> symbolUse.ItemOccurence <> ItemOccurence.RelatedText)
+        |> Seq.distinctBy (fun symbolUse -> symbolUse.ItemOccurence, symbolUse.Range)
         |> Seq.map (fun symbolUse -> FSharpSymbolUse(tcGlobals, symbolUse.DisplayEnv, symbol, symbolUse.ItemOccurence, symbolUse.Range)) 
         |> Seq.toArray
         |> async.Return
@@ -2127,18 +2197,18 @@ type FSharpCheckProjectResults
         let cenv = SymbolEnv(tcGlobals, thisCcu, Some ccuSig, tcImports)
 
         [| for r in tcSymbolUses do
-             for symbolUseChunk in r.AllUsesOfSymbols do
+            for symbolUseChunk in r.AllUsesOfSymbols do
                 for symbolUse in symbolUseChunk do
-                if symbolUse.ItemOccurence <> ItemOccurence.RelatedText then
-                  let symbol = FSharpSymbol.Create(cenv, symbolUse.Item)
-                  yield FSharpSymbolUse(tcGlobals, symbolUse.DisplayEnv, symbol, symbolUse.ItemOccurence, symbolUse.Range) |]
+                    if symbolUse.ItemOccurence <> ItemOccurence.RelatedText then
+                      let symbol = FSharpSymbol.Create(cenv, symbolUse.Item)
+                      yield FSharpSymbolUse(tcGlobals, symbolUse.DisplayEnv, symbol, symbolUse.ItemOccurence, symbolUse.Range) |]
         |> async.Return
 
     member __.ProjectContext = 
         let (tcGlobals, tcImports, thisCcu, _ccuSig, _tcSymbolUses, _topAttribs, _tcAssemblyData, _ilAssemRef, ad, _tcAssemblyExpr, _dependencyFiles) = getDetails()
         let assemblies = 
-            [ for x in tcImports.GetImportedAssemblies() do
-                yield FSharpAssembly(tcGlobals, tcImports, x.FSharpViewOfMetadata) ]
+            tcImports.GetImportedAssemblies()
+            |> List.map (fun x -> FSharpAssembly(tcGlobals, tcImports, x.FSharpViewOfMetadata))
         FSharpProjectContext(thisCcu, assemblies, ad) 
 
     member __.RawFSharpAssemblyData = 
@@ -2160,8 +2230,8 @@ type FSharpCheckProjectResults
 type FsiInteractiveChecker(legacyReferenceResolver, 
                            reactorOps: IReactorOperations,
                            tcConfig: TcConfig,
-                           tcGlobals,
-                           tcImports,
+                           tcGlobals: TcGlobals,
+                           tcImports: TcImports,
                            tcState) =
 
     let keepAssemblyContents = false
@@ -2182,8 +2252,8 @@ type FsiInteractiveChecker(legacyReferenceResolver,
             let assumeDotNetFramework = tcConfig.primaryAssembly = PrimaryAssembly.Mscorlib
 
             let applyCompilerOptions tcConfigB  = 
-                let fsiCompilerOptions = CompileOptions.GetCoreFsiCompilerOptions tcConfigB 
-                CompileOptions.ParseCompilerOptions (ignore, fsiCompilerOptions, [ ])
+                let fsiCompilerOptions = CompilerOptions.GetCoreFsiCompilerOptions tcConfigB 
+                CompilerOptions.ParseCompilerOptions (ignore, fsiCompilerOptions, [ ])
 
             let loadClosure =
                 LoadClosure.ComputeClosureOfScriptText(ctok, legacyReferenceResolver, defaultFSharpBinariesDir,
@@ -2191,7 +2261,9 @@ type FsiInteractiveChecker(legacyReferenceResolver,
                     tcConfig.useSimpleResolution, tcConfig.useFsiAuxLib,
                     tcConfig.useSdkRefs, new Lexhelp.LexResourceManager(),
                     applyCompilerOptions, assumeDotNetFramework,
-                    tryGetMetadataSnapshot=(fun _ -> None), reduceMemoryUsage=reduceMemoryUsage)
+                    tryGetMetadataSnapshot=(fun _ -> None),
+                    reduceMemoryUsage=reduceMemoryUsage,
+                    dependencyProvider=tcImports.DependencyProvider)
 
             let! tcErrors, tcFileInfo =  
                 ParseAndCheckFile.CheckOneFile
@@ -2203,7 +2275,7 @@ type FsiInteractiveChecker(legacyReferenceResolver,
             return
                 match tcFileInfo with 
                 | Result.Ok tcFileInfo ->
-                    let errors = [|  yield! parseErrors; yield! tcErrors |]
+                    let errors = Array.append parseErrors tcErrors
                     let typeCheckResults = FSharpCheckFileResults (filename, errors, Some tcFileInfo, dependencyFiles, None, reactorOps, false)   
                     let projectResults = 
                         FSharpCheckProjectResults (filename, Some tcConfig,

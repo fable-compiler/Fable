@@ -61,7 +61,7 @@ type CallerArg<'T> =
     
 /// Represents the information about an argument in the method being called
 type CalledArg = 
-    { Position: (int * int)
+    { Position: struct (int * int)
       IsParamArray : bool
       OptArgInfo : OptionalArgInfo
       CallerInfo : CallerInfo
@@ -125,12 +125,13 @@ type CallerArgs<'T> =
         Named: CallerNamedArg<'T> list list 
     }
     static member Empty : CallerArgs<'T> = { Unnamed = []; Named = [] }
-    member x.CallerArgCounts = (List.length x.Unnamed, List.length x.Named)
+    member x.CallerArgCounts = List.length x.Unnamed, List.length x.Named
     member x.CurriedCallerArgs = List.zip x.Unnamed x.Named
     member x.ArgumentNamesAndTypes =
-      [ (x.Unnamed |> List.map (List.map (fun i -> None, i.CallerArgumentType))) |> List.concat
-        (x.Named |> List.map (List.map (fun i -> Some i.Name, i.CallerArg.CallerArgumentType))) |> List.concat ]
-      |> List.concat
+        let unnamed = x.Unnamed |> List.collect (List.map (fun i -> None, i.CallerArgumentType))
+        let named = x.Named |> List.collect (List.map (fun i -> Some i.Name, i.CallerArg.CallerArgumentType))
+        unnamed @ named
+
 //-------------------------------------------------------------------------
 // Callsite conversions
 //------------------------------------------------------------------------- 
@@ -190,11 +191,13 @@ let AdjustCalledArgTypeForOptionals (g: TcGlobals) enforceNullableOptionalsKnown
             calledArgTy
     else
         match calledArg.OptArgInfo with 
-        | NotOptional ->
+        // CSharpMethod(x = arg), non-optional C#-style argument, may have type Nullable<ty>. 
+        | NotOptional when not (g.langVersion.SupportsFeature LanguageFeature.NullableOptionalInterop) ->
             calledArgTy
 
-        // CSharpMethod(x = arg), optional C#-style argument, may have type Nullable<ty>. 
         // The arg should have type ty. However for backwards compat, we also allow arg to have type Nullable<ty>
+        | NotOptional 
+        // CSharpMethod(x = arg), optional C#-style argument, may have type Nullable<ty>. 
         | CallerSide _ ->
             if isNullableTy g calledArgTy && g.langVersion.SupportsFeature LanguageFeature.NullableOptionalInterop then 
                 // If inference has worked out it's a nullable then use this
@@ -209,8 +212,7 @@ let AdjustCalledArgTypeForOptionals (g: TcGlobals) enforceNullableOptionalsKnown
                 // If at the beginning of inference then use a type variable
                 else 
                     let compgenId = mkSynId range0 unassignedTyparName
-                    let NewInferenceType () = mkTyparTy (Construct.NewTypar (TyparKind.Type, TyparRigidity.Flexible, Typar(compgenId, NoStaticReq, true), false, TyparDynamicReq.No, [], false, false))
-                    NewInferenceType()
+                    mkTyparTy (Construct.NewTypar (TyparKind.Type, TyparRigidity.Flexible, Typar(compgenId, NoStaticReq, true), false, TyparDynamicReq.No, [], false, false))
             else
                 calledArgTy
 
@@ -303,7 +305,7 @@ let MakeCalledArgs amap m (minfo: MethInfo) minst =
     // Mark up the arguments with their position, so we can sort them back into order later 
     let paramDatas = minfo.GetParamDatas(amap, m, minst)
     paramDatas |> List.mapiSquared (fun i j (ParamData(isParamArrayArg, isInArg, isOutArg, optArgInfo, callerInfoFlags, nmOpt, reflArgInfo, typeOfCalledArg))  -> 
-      { Position=(i,j)
+      { Position=struct(i,j)
         IsParamArray=isParamArrayArg
         OptArgInfo=optArgInfo
         CallerInfo = callerInfoFlags
@@ -456,10 +458,10 @@ type CalledMeth<'T>
                               | _ -> 
                                   Choice2Of2(arg))
 
-            let names = namedCallerArgs |> List.map (fun (CallerNamedArg(nm, _)) -> nm.idText) 
-
-            if (List.noRepeats String.order names).Length <> namedCallerArgs.Length then
-                errorR(Error(FSComp.SR.typrelNamedArgumentHasBeenAssignedMoreThenOnce(), m))
+            let names = System.Collections.Generic.HashSet<_>() 
+            for CallerNamedArg(nm, _) in namedCallerArgs do 
+                if not (names.Add nm.idText) then
+                    errorR(Error(FSComp.SR.typrelNamedArgumentHasBeenAssignedMoreThenOnce nm.idText, m))
                 
             let argSet = { UnnamedCalledArgs=unnamedCalledArgs; UnnamedCallerArgs=unnamedCallerArgs; ParamArrayCalledArgOpt=paramArrayCalledArgOpt; ParamArrayCallerArgs=paramArrayCallerArgs; AssignedNamedArgs=assignedNamedArgs }
 
@@ -617,7 +619,7 @@ type ArgumentAnalysis =
 let InferLambdaArgsForLambdaPropagation origRhsExpr = 
     let rec loop e = 
         match e with 
-        | SynExpr.Lambda (_, _, _, rest, _) -> 1 + loop rest
+        | SynExpr.Lambda (_, _, _, rest, _, _) -> 1 + loop rest
         | SynExpr.MatchLambda _ -> 1
         | _ -> 0
     loop origRhsExpr
@@ -848,10 +850,11 @@ let MakeMethInfoCall amap m minfo minst args =
 let TryImportProvidedMethodBaseAsLibraryIntrinsic (amap: Import.ImportMap, m: range, mbase: Tainted<ProvidedMethodBase>) = 
     let methodName = mbase.PUntaint((fun x -> x.Name), m)
     let declaringType = Import.ImportProvidedType amap m (mbase.PApply((fun x -> x.DeclaringType), m))
-    if isAppTy amap.g declaringType then 
-        let declaringEntity = tcrefOfAppTy amap.g declaringType
+    match tryTcrefOfAppTy amap.g declaringType with
+    | ValueSome declaringEntity ->
         if not declaringEntity.IsLocalRef && ccuEq declaringEntity.nlr.Ccu amap.g.fslibCcu then
-            match amap.g.knownIntrinsics.TryGetValue ((declaringEntity.LogicalName, methodName)) with 
+            let n = mbase.PUntaint((fun x -> x.GetParameters().Length), m)
+            match amap.g.knownIntrinsics.TryGetValue ((declaringEntity.LogicalName, None, methodName, n)) with 
             | true, vref -> Some vref
             | _ -> 
             match amap.g.knownFSharpCoreModules.TryGetValue declaringEntity.LogicalName with
@@ -861,7 +864,7 @@ let TryImportProvidedMethodBaseAsLibraryIntrinsic (amap: Import.ImportMap, m: ra
             | _ -> None
         else
             None
-    else
+    | _ ->
         None
 #endif
         
@@ -1148,21 +1151,49 @@ let GetDefaultExpressionForOptionalArg tcFieldInit g (calledArg: CalledArg) eCal
     let callerArg = CallerArg(calledArgTy, mMethExpr, false, expr)
     preBinder, { NamedArgIdOpt = None; CalledArg = calledArg; CallerArg = callerArg }
 
+let MakeNullableExprIfNeeded (infoReader: InfoReader) calledArgTy callerArgTy callerArgExpr m =
+    let g = infoReader.g
+    let amap = infoReader.amap
+    if isNullableTy g callerArgTy then 
+        callerArgExpr
+    else
+        let calledNonOptTy = destNullableTy g calledArgTy 
+        let minfo = GetIntrinsicConstructorInfosOfType infoReader m calledArgTy |> List.head
+        let callerArgExprCoerced = mkCoerceIfNeeded g calledNonOptTy callerArgTy callerArgExpr
+        MakeMethInfoCall amap m minfo [] [callerArgExprCoerced]
+
 // Adjust all the optional arguments, filling in values for defaults, 
 let AdjustCallerArgForOptional tcFieldInit eCallerMemberName (infoReader: InfoReader) (assignedArg: AssignedCalledArg<_>) =
     let g = infoReader.g
-    let amap = infoReader.amap
     let callerArg = assignedArg.CallerArg
     let (CallerArg(callerArgTy, m, isOptCallerArg, callerArgExpr)) = callerArg
     let calledArg = assignedArg.CalledArg
-    match calledArg.OptArgInfo with 
-    | NotOptional -> 
+    let calledArgTy = calledArg.CalledArgumentType
+    match calledArg.OptArgInfo with
+    | NotOptional when not (g.langVersion.SupportsFeature LanguageFeature.NullableOptionalInterop) ->
         if isOptCallerArg then errorR(Error(FSComp.SR.tcFormalArgumentIsNotOptional(), m))
         assignedArg
-    | _ -> 
+
+    // For non-nullable, non-optional arguments no conversion is needed.
+    // We return precisely the assignedArg.  This also covers the case where there
+    // can be a lingering permitted type mismatch between caller argument and called argument, 
+    // specifically caller can by `byref` and called `outref`.  No coercion is inserted in the
+    // expression tree in this case. 
+    | NotOptional when not (isNullableTy g calledArgTy) -> 
+        if isOptCallerArg then errorR(Error(FSComp.SR.tcFormalArgumentIsNotOptional(), m))
+        assignedArg
+
+    | _ ->
+
         let callerArgExpr2 = 
             match calledArg.OptArgInfo with 
-            | NotOptional -> failwith "unreachable"
+            | NotOptional ->
+                //  T --> Nullable<T> widening at callsites
+                if isOptCallerArg then errorR(Error(FSComp.SR.tcFormalArgumentIsNotOptional(), m))
+                if isNullableTy g calledArgTy then 
+                    MakeNullableExprIfNeeded infoReader calledArgTy callerArgTy callerArgExpr m
+                else
+                    failwith "unreachable" // see case above
             
             | CallerSide dfltVal -> 
                 let calledArgTy = calledArg.CalledArgumentType
@@ -1184,15 +1215,9 @@ let AdjustCallerArgForOptional tcFieldInit eCallerMemberName (infoReader: InfoRe
                 else
                     if isNullableTy g calledArgTy  then 
                         // CSharpMethod(x=b) when 'x' has nullable type
-                        if isNullableTy g callerArgTy then 
-                            // CSharpMethod(x=b) when both 'x' and 'b' have nullable type --> CSharpMethod(x=b)
-                            callerArgExpr
-                        else
-                            // CSharpMethod(x=b) when 'x' has nullable type and 'b' does not --> CSharpMethod(x=Nullable(b))
-                            let calledNonOptTy = destNullableTy g calledArgTy 
-                            let minfo = GetIntrinsicConstructorInfosOfType infoReader m calledArgTy |> List.head
-                            let callerArgExprCoerced = mkCoerceIfNeeded g calledNonOptTy callerArgTy callerArgExpr
-                            MakeMethInfoCall amap m minfo [] [callerArgExprCoerced]
+                        // CSharpMethod(x=b) when both 'x' and 'b' have nullable type --> CSharpMethod(x=b)
+                        // CSharpMethod(x=b) when 'x' has nullable type and 'b' does not --> CSharpMethod(x=Nullable(b))
+                        MakeNullableExprIfNeeded infoReader calledArgTy callerArgTy callerArgExpr m
                     else 
                         // CSharpMethod(x=b) --> CSharpMethod(?x=b)
                         callerArgExpr
@@ -1203,7 +1228,6 @@ let AdjustCallerArgForOptional tcFieldInit eCallerMemberName (infoReader: InfoRe
                     callerArgExpr 
                 else                            
                     // CSharpMethod(x=b) when CSharpMethod(A) --> CSharpMethod(?x=Some(b :> A))
-                    let calledArgTy = assignedArg.CalledArg.CalledArgumentType
                     if isOptionTy g calledArgTy then 
                         let calledNonOptTy = destOptionTy g calledArgTy 
                         let callerArgExprCoerced = mkCoerceIfNeeded g calledNonOptTy callerArgTy callerArgExpr
@@ -1685,7 +1709,7 @@ module ProvidedMethodCalls =
             |> Array.map (fun pty -> eraseSystemType (amap, m, pty))
         let paramVars = 
             erasedParamTys
-            |> Array.mapi (fun i erasedParamTy -> erasedParamTy.PApply((fun ty -> ProvidedVar.Fresh("arg" + i.ToString(), ty)), m))
+            |> Array.mapi (fun i erasedParamTy -> erasedParamTy.PApply((fun ty -> ty.AsProvidedVar("arg" + i.ToString())), m))
 
 
         // encode "this" as the first ParameterExpression, if applicable
@@ -1693,7 +1717,7 @@ module ProvidedMethodCalls =
             match objArgs with
             | [objArg] -> 
                 let erasedThisTy = eraseSystemType (amap, m, mi.PApply((fun mi -> mi.DeclaringType), m))
-                let thisVar = erasedThisTy.PApply((fun ty -> ProvidedVar.Fresh("this", ty)), m)
+                let thisVar = erasedThisTy.PApply((fun ty -> ty.AsProvidedVar("this")), m)
                 Some objArg, Array.append [| thisVar |] paramVars
             | [] -> None, paramVars
             | _ -> failwith "multiple objArgs?"
@@ -1728,8 +1752,8 @@ let ILFieldStaticChecks g amap infoReader ad m (finfo : ILFieldInfo) =
 
     // Static IL interfaces fields are not supported in lower F# versions.
     if isInterfaceTy g finfo.ApparentEnclosingType then    
-        tryLanguageFeatureRuntimeErrorRecover infoReader LanguageFeature.DefaultInterfaceMemberConsumption m
-        tryLanguageFeatureErrorRecover g.langVersion LanguageFeature.DefaultInterfaceMemberConsumption m
+        checkLanguageFeatureRuntimeErrorRecover infoReader LanguageFeature.DefaultInterfaceMemberConsumption m
+        checkLanguageFeatureErrorRecover g.langVersion LanguageFeature.DefaultInterfaceMemberConsumption m
 
     CheckILFieldAttributes g finfo m
 
@@ -1821,19 +1845,22 @@ let GenWitnessExpr amap g m (traitInfo: TraitConstraintInfo) argExprs =
             | FSAnonRecdFieldSln(anonInfo, tinst, i) -> 
                 Choice3Of5  (anonInfo, tinst, i)
 
+            | ClosedExprSln expr -> 
+                Choice4Of5 expr
+
             | BuiltInSln -> 
                 Choice5Of5 ()
 
-            | ClosedExprSln expr -> 
-                Choice4Of5 expr
     match sln with
     | Choice1Of5(minfo, methArgTys) -> 
         let argExprs = 
-            // FIX for #421894 - typechecker assumes that coercion can be applied for the trait calls arguments but codegen doesn't emit coercion operations
+            // FIX for #421894 - typechecker assumes that coercion can be applied for the trait
+            // calls arguments but codegen doesn't emit coercion operations
             // result - generation of non-verifiable code
             // fix - apply coercion for the arguments (excluding 'receiver' argument in instance calls)
 
-            // flatten list of argument types (looks like trait calls with curried arguments are not supported so we can just convert argument list in straightforward way)
+            // flatten list of argument types (looks like trait calls with curried arguments are not supported so
+            // we can just convert argument list in straight-forward way)
             let argTypes =
                 minfo.GetParamTypes(amap, m, methArgTys) 
                 |> List.concat 
@@ -1851,16 +1878,18 @@ let GenWitnessExpr amap g m (traitInfo: TraitConstraintInfo) argExprs =
 
         // Fix bug 1281: If we resolve to an instance method on a struct and we haven't yet taken 
         // the address of the object then go do that 
-        if minfo.IsStruct && minfo.IsInstance && (match argExprs with [] -> false | h :: _ -> not (isByrefTy g (tyOfExpr g h))) then 
-            let h, t = List.headAndTail argExprs
-            let wrap, h', _readonly, _writeonly = mkExprAddrOfExpr g true false PossiblyMutates h None m 
-            Some (wrap (Expr.Op (TOp.TraitCall (traitInfo), [], (h' :: t), m)))
+        if minfo.IsStruct && minfo.IsInstance then 
+            match argExprs with
+            | h :: t when not (isByrefTy g (tyOfExpr g h)) ->
+                let wrap, h', _readonly, _writeonly = mkExprAddrOfExpr g true false PossiblyMutates h None m 
+                Some (wrap (Expr.Op (TOp.TraitCall traitInfo, [], (h' :: t), m)))
+            | _ ->
+                Some (MakeMethInfoCall amap m minfo methArgTys argExprs)
         else        
-            Some (MakeMethInfoCall amap m minfo methArgTys argExprs )
+            Some (MakeMethInfoCall amap m minfo methArgTys argExprs)
 
     | Choice2Of5 (tinst, rfref, isSet) -> 
         match isSet, rfref.RecdField.IsStatic, argExprs.Length with 
-
         // static setter
         | true, true, 1 -> 
             Some (mkStaticRecdFieldSet (rfref, tinst, argExprs.[0], m))
@@ -1878,14 +1907,15 @@ let GenWitnessExpr amap g m (traitInfo: TraitConstraintInfo) argExprs =
 
         // static getter
         | false, true, 0 -> 
-                Some (mkStaticRecdFieldGet (rfref, tinst, m))
+            Some (mkStaticRecdFieldGet (rfref, tinst, m))
 
         // instance getter
         | false, false, 1 -> 
-                if rfref.Tycon.IsStructOrEnumTycon && isByrefTy g (tyOfExpr g argExprs.[0]) then 
-                    Some (mkRecdFieldGetViaExprAddr (argExprs.[0], rfref, tinst, m))
-                else 
-                    Some (mkRecdFieldGet g (argExprs.[0], rfref, tinst, m))
+            if rfref.Tycon.IsStructOrEnumTycon && isByrefTy g (tyOfExpr g argExprs.[0]) then 
+                Some (mkRecdFieldGetViaExprAddr (argExprs.[0], rfref, tinst, m))
+            else 
+                Some (mkRecdFieldGet g (argExprs.[0], rfref, tinst, m))
+
         | _ -> None 
 
     | Choice3Of5 (anonInfo, tinst, i) -> 
@@ -1895,8 +1925,34 @@ let GenWitnessExpr amap g m (traitInfo: TraitConstraintInfo) argExprs =
         else 
             Some (mkAnonRecdFieldGet g (anonInfo, argExprs.[0], tinst, i, m))
 
-    | Choice4Of5 expr ->
+    | Choice4Of5 expr -> 
         Some (MakeApplicationAndBetaReduce g (expr, tyOfExpr g expr, [], argExprs, m))
 
-    | Choice5Of5 () ->
-        None
+    | Choice5Of5 () -> 
+        match traitInfo.Solution with 
+        | None -> None // the trait has been generalized
+        | Some _-> 
+        // For these operators, the witness is just a call to the coresponding FSharp.Core operator
+        match g.TryMakeOperatorAsBuiltInWitnessInfo isStringTy isArrayTy traitInfo argExprs with
+        | Some (info, tyargs, actualArgExprs) -> 
+            tryMkCallCoreFunctionAsBuiltInWitness g info tyargs actualArgExprs m
+        | None -> 
+            // For all other built-in operators, the witness is a call to the coresponding BuiltInWitnesses operator
+            // These are called as F# methods not F# functions
+            tryMkCallBuiltInWitness g traitInfo argExprs m
+        
+/// Generate a lambda expression for the given solved trait.
+let GenWitnessExprLambda amap g m (traitInfo: TraitConstraintInfo) =
+    let witnessInfo = traitInfo.TraitKey
+    let argtysl = GenWitnessArgTys g witnessInfo
+    let vse = argtysl |> List.mapiSquared (fun i j ty -> mkCompGenLocal m ("arg" + string i + "_" + string j) ty) 
+    let vsl = List.mapSquared fst vse
+    match GenWitnessExpr amap g m traitInfo (List.concat (List.mapSquared snd vse)) with 
+    | Some expr -> 
+        Choice2Of2 (mkMemberLambdas m [] None None vsl (expr, tyOfExpr g expr))
+    | None -> 
+        Choice1Of2 traitInfo
+
+/// Generate the arguments passed for a set of (solved) traits in non-generic code
+let GenWitnessArgs amap g m (traitInfos: TraitConstraintInfo list) =
+    [ for traitInfo in traitInfos -> GenWitnessExprLambda amap g m traitInfo ]

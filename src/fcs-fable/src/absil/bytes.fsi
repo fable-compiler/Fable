@@ -5,6 +5,7 @@ namespace FSharp.Compiler.AbstractIL.Internal
 
 #if !FABLE_COMPILER
 open System.IO
+open System.IO.MemoryMappedFiles
 #endif
 open Internal.Utilities
 open FSharp.Compiler.AbstractIL 
@@ -26,6 +27,7 @@ module internal Bytes =
     val stringAsUnicodeNullTerminated: string -> byte[]
     val stringAsUtf8NullTerminated: string -> byte[]
 
+/// A view over bytes.
 /// May be backed by managed or unmanaged memory, or memory mapped file.
 [<AbstractClass>]
 type internal ByteMemory =
@@ -92,15 +94,27 @@ type internal ReadOnlyByteMemory =
 
 #if !FABLE_COMPILER
     member AsStream: unit -> Stream
+
+[<AutoOpen>]
+module internal MemoryMappedFileExtensions =
+
+    type MemoryMappedFile with
+
+        /// Create a memory mapped file based on the given ByteMemory's contents.
+        /// If the given ByteMemory's length is zero or a memory mapped file is not supported, the result will be None.
+        static member TryFromByteMemory : bytes: ReadOnlyByteMemory -> MemoryMappedFile option
 #endif
 
-type ByteMemory with
+type internal ByteMemory with
 
     member AsReadOnly: unit -> ReadOnlyByteMemory
 
 #if !FABLE_COMPILER
-    /// Create another ByteMemory object that has a backing memory mapped file based on another ByteMemory's contents.
-    static member CreateMemoryMappedFile: ReadOnlyByteMemory -> ByteMemory
+    /// Empty byte memory.
+    static member Empty: ByteMemory
+
+    /// Create a ByteMemory object that has a backing memory mapped file.
+    static member FromMemoryMappedFile: MemoryMappedFile -> ByteMemory
 
     /// Creates a ByteMemory object that has a backing memory mapped file from a file on-disk.
     static member FromFile: path: string * FileAccess * ?canShadowCopy: bool -> ByteMemory
@@ -147,3 +161,24 @@ type internal ByteStream =
     member CloneAndSeek : int -> ByteStream
     member Skip : int -> unit
 #endif
+
+#if !FABLE_COMPILER
+
+[<Sealed>]
+type internal ByteStorage =
+
+    member GetByteMemory : unit -> ReadOnlyByteMemory
+
+    /// Creates a ByteStorage whose backing bytes are the given ByteMemory. Does not make a copy.
+    static member FromByteMemory : ReadOnlyByteMemory -> ByteStorage
+
+    /// Creates a ByteStorage whose backing bytes are the given byte array. Does not make a copy.
+    static member FromByteArray : byte [] -> ByteStorage
+
+    /// Creates a ByteStorage that has a copy of the given ByteMemory.
+    static member FromByteMemoryAndCopy : ReadOnlyByteMemory * useBackingMemoryMappedFile: bool -> ByteStorage
+
+    /// Creates a ByteStorage that has a copy of the given byte array.
+    static member FromByteArrayAndCopy : byte [] * useBackingMemoryMappedFile: bool -> ByteStorage
+
+#endif //!FABLE_COMPILER

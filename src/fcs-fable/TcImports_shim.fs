@@ -1,9 +1,10 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-// Open up the compiler as an incremental service for parsing,
-// type checking and intellisense-like environment-reporting.
-
 namespace FSharp.Compiler.SourceCodeServices
+
+// open System
+// open System.Collections.Concurrent
+// open System.IO
 
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL
@@ -12,18 +13,27 @@ open FSharp.Compiler.AbstractIL.ILBinaryReader
 open FSharp.Compiler.AbstractIL.Internal
 open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.AbstractIL.Internal.Utils
-open FSharp.Compiler.CompileOps
-open FSharp.Compiler.CompileOptions
+open FSharp.Compiler.CompilerConfig
+open FSharp.Compiler.CompilerDiagnostics
 open FSharp.Compiler.CompilerGlobalState
+open FSharp.Compiler.CompilerImports
+open FSharp.Compiler.CompilerOptions
+// open FSharp.Compiler.Driver
 open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.Lib
+open FSharp.Compiler.NameResolution
+open FSharp.Compiler.ParseAndCheckInputs
 open FSharp.Compiler.Range
+open FSharp.Compiler.ScriptClosure
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Text
+open FSharp.Compiler.TypeChecker
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TypedTreePickle
+
+// open Microsoft.DotNet.DependencyManager
 
 open Internal.Utilities
 open Internal.Utilities.Collections
@@ -63,7 +73,7 @@ module TcImports =
                     tryGetMetadataSnapshot = (fun _ -> None) }
 
             let reader = ILBinaryReader.OpenILModuleReaderFromBytes fileName bytes opts
-            reader.ILModuleDef //reader.ILAssemblyRefs
+            reader.ILModuleDef //, reader.ILAssemblyRefs
 
         let GetSignatureData (fileName:string, ilScopeRef, ilModule:ILModuleDef option, bytes: ReadOnlyByteMemory) =
             unpickleObjWithDanglingCcus fileName ilScopeRef ilModule unpickleCcuInfo bytes
@@ -94,17 +104,17 @@ module TcImports =
         let memoize_sig = new MemoizationTable<_,_> (LoadSigData, keyComparer=HashIdentity.Structural)
         let memoize_opt = new MemoizationTable<_,_> (LoadOptData, keyComparer=HashIdentity.Structural)
 
-        let GetCustomAttributesOfIlModule (ilModule: ILModuleDef) = 
+        let GetCustomAttributesOfILModule (ilModule: ILModuleDef) = 
             (match ilModule.Manifest with Some m -> m.CustomAttrs | None -> ilModule.CustomAttrs).AsList 
 
         let GetAutoOpenAttributes ilg ilModule = 
-            ilModule |> GetCustomAttributesOfIlModule |> List.choose (TryFindAutoOpenAttr ilg)
+            ilModule |> GetCustomAttributesOfILModule |> List.choose (TryFindAutoOpenAttr ilg)
 
         let GetInternalsVisibleToAttributes ilg ilModule = 
-            ilModule |> GetCustomAttributesOfIlModule |> List.choose (TryFindInternalsVisibleToAttr ilg)
+            ilModule |> GetCustomAttributesOfILModule |> List.choose (TryFindInternalsVisibleToAttr ilg)
 
         let HasAnyFSharpSignatureDataAttribute ilModule = 
-            let attrs = GetCustomAttributesOfIlModule ilModule
+            let attrs = GetCustomAttributesOfILModule ilModule
             List.exists IsSignatureDataVersionAttr attrs
 
         let mkCcuInfo ilg ilScopeRef ilModule ccu : ImportedAssembly =

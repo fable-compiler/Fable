@@ -23,7 +23,7 @@ type LanguageFeature =
     | RelaxWhitespace
     | NameOf
     | ImplicitYield
-    | OpenStaticClasses
+    | OpenTypeDeclaration
     | DotlessFloat32Literal
     | PackageManagement
     | FromEndSlicing
@@ -31,6 +31,10 @@ type LanguageFeature =
     | AndBang
     | NullableOptionalInterop
     | DefaultInterfaceMemberConsumption
+    | WitnessPassing
+    | InterfacesWithMultipleGenericInstantiation
+    | StringInterpolation
+    | OverloadsForCustomOperations
 
 /// LanguageVersion management
 type LanguageVersion (specifiedVersionAsString) =
@@ -45,7 +49,7 @@ type LanguageVersion (specifiedVersionAsString) =
     static let latestMajorVersion = languageVersion47   // Language version when latestmajor specified
 
     static let validOptions = [| "preview"; "default"; "latest"; "latestmajor" |]
-    static let languageVersions = set [| languageVersion46; languageVersion47 (*; languageVersion50 *) |]
+    static let languageVersions = set [| languageVersion46; languageVersion47 ; languageVersion50 |]
 
     static let features =
         dict [
@@ -57,16 +61,20 @@ type LanguageVersion (specifiedVersionAsString) =
 
             // F# 5.0
             LanguageFeature.FixedIndexSlice3d4d, languageVersion50
-            LanguageFeature.FromEndSlicing, languageVersion50
             LanguageFeature.DotlessFloat32Literal, languageVersion50
+            LanguageFeature.AndBang, languageVersion50
+            LanguageFeature.NullableOptionalInterop, languageVersion50
+            LanguageFeature.DefaultInterfaceMemberConsumption, languageVersion50
 
             // F# preview
-            LanguageFeature.NameOf, previewVersion
-            LanguageFeature.OpenStaticClasses, previewVersion
+            LanguageFeature.FromEndSlicing, previewVersion
+            LanguageFeature.OpenTypeDeclaration, previewVersion
             LanguageFeature.PackageManagement, previewVersion
-            LanguageFeature.AndBang, previewVersion
-            LanguageFeature.NullableOptionalInterop, previewVersion
-            LanguageFeature.DefaultInterfaceMemberConsumption, previewVersion
+            LanguageFeature.WitnessPassing, previewVersion
+            LanguageFeature.InterfacesWithMultipleGenericInstantiation, previewVersion
+            LanguageFeature.NameOf, previewVersion
+            LanguageFeature.StringInterpolation, previewVersion
+            LanguageFeature.OverloadsForCustomOperations, previewVersion
         ]
 
     let specified =
@@ -78,7 +86,7 @@ type LanguageVersion (specifiedVersionAsString) =
         | "latestmajor" -> latestMajorVersion
         | "4.6" -> languageVersion46
         | "4.7" -> languageVersion47
-(*      | "5.0" -> languageVersion50    *)
+        | "5.0" -> languageVersion50
         | _ -> 0m
 
     let versionToString v =
@@ -127,7 +135,7 @@ type LanguageVersion (specifiedVersionAsString) =
         | LanguageFeature.RelaxWhitespace -> FSComp.SR.featureRelaxWhitespace()
         | LanguageFeature.NameOf -> FSComp.SR.featureNameOf()
         | LanguageFeature.ImplicitYield -> FSComp.SR.featureImplicitYield()
-        | LanguageFeature.OpenStaticClasses -> FSComp.SR.featureOpenStaticClasses()
+        | LanguageFeature.OpenTypeDeclaration -> FSComp.SR.featureOpenTypeDeclaration()
         | LanguageFeature.DotlessFloat32Literal -> FSComp.SR.featureDotlessFloat32Literal()
         | LanguageFeature.PackageManagement -> FSComp.SR.featurePackageManagement()
         | LanguageFeature.FromEndSlicing -> FSComp.SR.featureFromEndSlicing()
@@ -135,6 +143,10 @@ type LanguageVersion (specifiedVersionAsString) =
         | LanguageFeature.AndBang -> FSComp.SR.featureAndBang()
         | LanguageFeature.NullableOptionalInterop -> FSComp.SR.featureNullableOptionalInterop()
         | LanguageFeature.DefaultInterfaceMemberConsumption -> FSComp.SR.featureDefaultInterfaceMemberConsumption()
+        | LanguageFeature.WitnessPassing -> FSComp.SR.featureWitnessPassing()
+        | LanguageFeature.InterfacesWithMultipleGenericInstantiation -> FSComp.SR.featureInterfacesWithMultipleGenericInstantiation()
+        | LanguageFeature.StringInterpolation -> FSComp.SR.featureStringInterpolation()
+        | LanguageFeature.OverloadsForCustomOperations -> FSComp.SR.featureOverloadsForCustomOperations()
 
     /// Get a version string associated with the given feature.
     member _.GetFeatureVersionString feature =

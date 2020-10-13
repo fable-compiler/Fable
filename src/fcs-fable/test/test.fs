@@ -5,7 +5,7 @@ open FSharp.Compiler.SourceCodeServices
 open Fable.Compiler.Platform
 
 let references = Metadata.references_core
-let metadataPath = "/Projects/Fable/src/fable-metadata/lib/" // .NET BCL binaries
+let metadataPath = "../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 [<EntryPoint>]
 let main _argv =

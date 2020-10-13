@@ -52,7 +52,11 @@ module QuickParse =
             FSharp.Compiler.Parser.tagOfToken (FSharp.Compiler.Parser.token.IDENT tokenText)
         else tokenTag
 
-    let rec isValidStrippedName (name:string) idx = 
+#if FABLE_COMPILER
+    let rec isValidStrippedName (name: string) idx = 
+#else
+    let rec isValidStrippedName (name: ReadOnlySpan<char>) idx = 
+#endif
         if idx = name.Length then false
         elif IsIdentifierPartCharacter name.[idx] then true
         else isValidStrippedName name (idx + 1)
@@ -65,8 +69,13 @@ module QuickParse =
 
       // Strip the surrounding bars (e.g. from "|xyz|_|") to get "xyz"
       match name.StartsWithOrdinal("|"), name.EndsWithOrdinal("|_|"), name.EndsWithOrdinal("|") with
+#if FABLE_COMPILER
       | true, true, _ when name.Length > 4 -> isValidStrippedName (name.Substring(1, name.Length - 4)) 0
       | true, _, true when name.Length > 2 -> isValidStrippedName (name.Substring(1, name.Length - 2)) 0
+#else
+      | true, true, _ when name.Length > 4 -> isValidStrippedName (name.AsSpan(1, name.Length - 4)) 0
+      | true, _, true when name.Length > 2 -> isValidStrippedName (name.AsSpan(1, name.Length - 2)) 0
+#endif
       | _ -> false
     
     let GetCompleteIdentifierIslandImpl (lineStr: string) (index: int) : (string * int * bool) option =

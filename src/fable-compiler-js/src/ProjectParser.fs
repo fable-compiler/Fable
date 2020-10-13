@@ -196,6 +196,8 @@ let parseProjectFile projectFilePath =
     let projectXml = projectXml.Replace("$(MSBuildProjectDirectory)", ".")
     let sourceRoot = projectXml |> getXmlTagContentsFirstOrDefault "FSharpSourcesRoot" ""
     let projectXml = projectXml.Replace("$(FSharpSourcesRoot)", sourceRoot.Replace('\\', '/'))
+    let yaccOutput = projectXml |> getXmlTagContentsFirstOrDefault "FsYaccOutputFolder" ""
+    let projectXml = projectXml.Replace("$(FsYaccOutputFolder)", yaccOutput.Replace('\\', '/'))
 
     // get source files
     let sourceFiles =

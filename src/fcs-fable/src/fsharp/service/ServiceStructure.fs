@@ -251,7 +251,8 @@ module Structure =
             | SynExpr.LetOrUseBang (_, _, _, pat, eLet, es, eBody, _) ->
                 [
                     yield eLet
-                    yield! [ for (_,_,_,_,eAndBang,_) in es do yield eAndBang ]
+                    for (_,_,_,_,eAndBang,_) in es do 
+                        yield eAndBang
                 ]
                 |> List.iter (fun e ->
                     // for `let!`, `use!` or `and!` the pattern begins at the end of the
@@ -375,7 +376,7 @@ module Structure =
             | SynExpr.While (_, _, e, r) ->
                 rcheck Scope.While Collapse.Below r r
                 parseExpr e
-            | SynExpr.Lambda (_, _, pats, e, r) ->
+            | SynExpr.Lambda (_, _, pats, e, _, r) ->
                 match pats with
                 | SynSimplePats.SimplePats (_, pr)
                 | SynSimplePats.Typed (_, _, pr) ->

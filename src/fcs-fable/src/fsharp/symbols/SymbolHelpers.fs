@@ -16,7 +16,7 @@ open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.AbstractIL.Diagnostics 
 
 open FSharp.Compiler.AccessibilityLogic
-open FSharp.Compiler.CompileOps
+open FSharp.Compiler.CompilerDiagnostics
 open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.InfoReader
 open FSharp.Compiler.Infos
@@ -26,7 +26,6 @@ open FSharp.Compiler.Lib
 open FSharp.Compiler.NameResolution
 open FSharp.Compiler.PrettyNaming
 open FSharp.Compiler.Range
-open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeBasics
 open FSharp.Compiler.TypedTreeOps
@@ -227,7 +226,7 @@ type public Layout = Internal.Utilities.StructuredFormat.Layout
 [<RequireQualifiedAccess>]
 type FSharpXmlDoc =
     | None
-    | Text of string
+    | Text of unprocessedLines: string[] * elaboratedXmlLines: string[]
     | XmlDocFileSignature of (*File and Signature*) string * string
 
 /// A single data tip display element
@@ -543,7 +542,7 @@ module internal SymbolHelpers =
                     ap + sep + vref.TopValDeclaringEntity.CompiledName
                 else
                     ap
-            v.XmlDocSig <- XmlDocSigOfVal g path v
+            v.XmlDocSig <- XmlDocSigOfVal g false path v
         Some (ccuFileName, v.XmlDocSig)                
 
     let GetXmlDocSigOfRecdFieldInfo (rfinfo: RecdFieldInfo) = 
@@ -596,7 +595,7 @@ module internal SymbolHelpers =
             let ccuFileName = vref.nlr.Ccu.FileName
             let v = vref.Deref
             if v.XmlDocSig = "" && v.HasDeclaringEntity then
-                v.XmlDocSig <- XmlDocSigOfVal g vref.TopValDeclaringEntity.CompiledRepresentationForNamedType.Name v
+                v.XmlDocSig <- XmlDocSigOfVal g false vref.TopValDeclaringEntity.CompiledRepresentationForNamedType.Name v
             Some (ccuFileName, v.XmlDocSig)
         else 
             None
@@ -665,20 +664,10 @@ module internal SymbolHelpers =
 
     /// Produce an XmlComment with a signature or raw text, given the F# comment and the item
     let GetXmlCommentForItemAux (xmlDoc: XmlDoc option) (infoReader: InfoReader) m d = 
-        let result = 
-            match xmlDoc with 
-            | None | Some (XmlDoc [| |]) -> ""
-            | Some (XmlDoc l) -> 
-                bufs (fun os -> 
-                    bprintf os "\n"
-                    l |> Array.iter (fun (s: string) -> 
-                        // Note: this code runs for local/within-project xmldoc tooltips, but not for cross-project or .XML
-                        bprintf os "\n%s" s))
-
-        if String.IsNullOrEmpty result then 
-            GetXmlDocHelpSigOfItemForLookup infoReader m d
-        else
-            FSharpXmlDoc.Text result
+        match xmlDoc with 
+        | Some xmlDoc when not xmlDoc.IsEmpty  -> 
+            FSharpXmlDoc.Text (xmlDoc.UnprocessedLines, xmlDoc.GetElaboratedXmlLines())
+        | _ -> GetXmlDocHelpSigOfItemForLookup infoReader m d
 
     let mutable ToolTipFault  = None
     
@@ -866,11 +855,13 @@ module internal SymbolHelpers =
                           member x.GetHashCode item = hash item.Stamp  }
 
     /// Remove all duplicate items
-    let RemoveDuplicateItems g (items: ItemWithInst list) = 
+    let RemoveDuplicateItems g (items: ItemWithInst list) =     
+        if isNil items then items else
         items |> IPartialEqualityComparer.partialDistinctBy (IPartialEqualityComparer.On (fun item -> item.Item) (ItemDisplayPartialEquality g))
 
     /// Remove all duplicate items
-    let RemoveDuplicateCompletionItems g items = 
+    let RemoveDuplicateCompletionItems g items =     
+        if isNil items then items else
         items |> IPartialEqualityComparer.partialDistinctBy (CompletionItemDisplayPartialEquality g) 
 
     let IsExplicitlySuppressed (g: TcGlobals) (item: Item) = 
@@ -895,12 +886,12 @@ module internal SymbolHelpers =
             | _ -> false)
 
     /// Filter types that are explicitly suppressed from the IntelliSense (such as uppercase "FSharpList", "Option", etc.)
-    let RemoveExplicitlySuppressed (g: TcGlobals) (items: ItemWithInst list) = 
-      items |> List.filter (fun item -> not (IsExplicitlySuppressed g item.Item))
+    let RemoveExplicitlySuppressed (g: TcGlobals) (items: ItemWithInst list) =
+        items |> List.filter (fun item -> not (IsExplicitlySuppressed g item.Item))
 
     /// Filter types that are explicitly suppressed from the IntelliSense (such as uppercase "FSharpList", "Option", etc.)
     let RemoveExplicitlySuppressedCompletionItems (g: TcGlobals) (items: CompletionItem list) = 
-      items |> List.filter (fun item -> not (IsExplicitlySuppressed g item.Item))
+        items |> List.filter (fun item -> not (IsExplicitlySuppressed g item.Item))
 
     let SimplerDisplayEnv denv = 
         { denv with suppressInlineKeyword=true

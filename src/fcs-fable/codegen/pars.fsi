@@ -2,17 +2,17 @@
 module internal FSharp.Compiler.Parser
 open FSharp.Compiler
 type token = 
-  | HASH_IF of (range * string * ParseHelpers.LexerWhitespaceContinuation)
-  | HASH_ELSE of (range * string * ParseHelpers.LexerWhitespaceContinuation)
-  | HASH_ENDIF of (range * string * ParseHelpers.LexerWhitespaceContinuation)
-  | COMMENT of (ParseHelpers.LexerWhitespaceContinuation)
-  | WHITESPACE of (ParseHelpers.LexerWhitespaceContinuation)
-  | HASH_LINE of (ParseHelpers.LexerWhitespaceContinuation)
-  | HASH_LIGHT of (ParseHelpers.LexerWhitespaceContinuation)
-  | INACTIVECODE of (ParseHelpers.LexerWhitespaceContinuation)
-  | LINE_COMMENT of (ParseHelpers.LexerWhitespaceContinuation)
-  | STRING_TEXT of (ParseHelpers.LexerWhitespaceContinuation)
-  | EOF of (ParseHelpers.LexerWhitespaceContinuation)
+  | HASH_IF of (range * string * ParseHelpers.LexerContinuation)
+  | HASH_ELSE of (range * string * ParseHelpers.LexerContinuation)
+  | HASH_ENDIF of (range * string * ParseHelpers.LexerContinuation)
+  | COMMENT of (ParseHelpers.LexerContinuation)
+  | WHITESPACE of (ParseHelpers.LexerContinuation)
+  | HASH_LINE of (ParseHelpers.LexerContinuation)
+  | HASH_LIGHT of (ParseHelpers.LexerContinuation)
+  | INACTIVECODE of (ParseHelpers.LexerContinuation)
+  | LINE_COMMENT of (ParseHelpers.LexerContinuation)
+  | STRING_TEXT of (ParseHelpers.LexerContinuation)
+  | EOF of (ParseHelpers.LexerContinuation)
   | LEX_FAILURE of (string)
   | ODUMMY of (token)
   | FIXED
@@ -62,7 +62,6 @@ type token =
   | SIG
   | BAR
   | RBRACK
-  | RBRACE
   | RBRACE_COMING_SOON
   | RBRACE_IS_HERE
   | MINUS
@@ -77,7 +76,6 @@ type token =
   | LBRACK_BAR
   | LBRACE_BAR
   | LBRACK_LESS
-  | LBRACE
   | QMARK
   | QMARK_QMARK
   | DOT
@@ -174,12 +172,12 @@ type token =
   | CHAR of (char)
   | IEEE64 of (double)
   | IEEE32 of (single)
-  | NATIVEINT of (int64)
   | UNATIVEINT of (uint64)
   | UINT64 of (uint64)
   | UINT32 of (uint32)
   | UINT16 of (uint16)
   | UINT8 of (byte)
+  | NATIVEINT of (int64 * bool)
   | INT64 of (int64 * bool)
   | INT32 of (int32 * bool)
   | INT32_DOT_DOT of (int32 * bool)
@@ -197,8 +195,14 @@ type token =
   | INFIX_STAR_STAR_OP of (string)
   | IDENT of (string)
   | KEYWORD_STRING of (string)
-  | STRING of (string)
-  | BYTEARRAY of (byte[])
+  | LBRACE of (ParseHelpers.LexerContinuation)
+  | RBRACE of (ParseHelpers.LexerContinuation)
+  | INTERP_STRING_END of (string * ParseHelpers.LexerContinuation)
+  | INTERP_STRING_PART of (string * ParseHelpers.LexerContinuation)
+  | INTERP_STRING_BEGIN_PART of (string * ParseHelpers.LexerContinuation)
+  | INTERP_STRING_BEGIN_END of (string * ParseHelpers.LexerContinuation)
+  | STRING of (string * ParseHelpers.LexerContinuation)
+  | BYTEARRAY of (byte[] * ParseHelpers.LexerContinuation)
 type tokenId = 
     | TOKEN_HASH_IF
     | TOKEN_HASH_ELSE
@@ -260,7 +264,6 @@ type tokenId =
     | TOKEN_SIG
     | TOKEN_BAR
     | TOKEN_RBRACK
-    | TOKEN_RBRACE
     | TOKEN_RBRACE_COMING_SOON
     | TOKEN_RBRACE_IS_HERE
     | TOKEN_MINUS
@@ -275,7 +278,6 @@ type tokenId =
     | TOKEN_LBRACK_BAR
     | TOKEN_LBRACE_BAR
     | TOKEN_LBRACK_LESS
-    | TOKEN_LBRACE
     | TOKEN_QMARK
     | TOKEN_QMARK_QMARK
     | TOKEN_DOT
@@ -372,12 +374,12 @@ type tokenId =
     | TOKEN_CHAR
     | TOKEN_IEEE64
     | TOKEN_IEEE32
-    | TOKEN_NATIVEINT
     | TOKEN_UNATIVEINT
     | TOKEN_UINT64
     | TOKEN_UINT32
     | TOKEN_UINT16
     | TOKEN_UINT8
+    | TOKEN_NATIVEINT
     | TOKEN_INT64
     | TOKEN_INT32
     | TOKEN_INT32_DOT_DOT
@@ -395,6 +397,12 @@ type tokenId =
     | TOKEN_INFIX_STAR_STAR_OP
     | TOKEN_IDENT
     | TOKEN_KEYWORD_STRING
+    | TOKEN_LBRACE
+    | TOKEN_RBRACE
+    | TOKEN_INTERP_STRING_END
+    | TOKEN_INTERP_STRING_PART
+    | TOKEN_INTERP_STRING_BEGIN_PART
+    | TOKEN_INTERP_STRING_BEGIN_END
     | TOKEN_STRING
     | TOKEN_BYTEARRAY
     | TOKEN_end_of_input
@@ -457,6 +465,7 @@ type nonTerminalId =
     | NONTERM_moduleDefns
     | NONTERM_moduleDefnOrDirective
     | NONTERM_moduleDefn
+    | NONTERM_openDecl
     | NONTERM_namedModuleAbbrevBlock
     | NONTERM_namedModuleDefnBlock
     | NONTERM_wrappedNamedModuleDefn
@@ -540,7 +549,6 @@ type nonTerminalId =
     | NONTERM_exconCore
     | NONTERM_exconIntro
     | NONTERM_exconRepr
-    | NONTERM_openDecl
     | NONTERM_defnBindings
     | NONTERM_doBinding
     | NONTERM_hardwhiteLetBindings
@@ -698,6 +706,7 @@ type nonTerminalId =
     | NONTERM_identOrOp
     | NONTERM_pathOp
     | NONTERM_nameop
+    | NONTERM_identExpr
     | NONTERM_topSeparator
     | NONTERM_topSeparators
     | NONTERM_opt_topSeparators
@@ -718,6 +727,9 @@ type nonTerminalId =
     | NONTERM_sigOrBegin
     | NONTERM_colonOrEquals
     | NONTERM_stringOrKeywordString
+    | NONTERM_interpolatedStringFill
+    | NONTERM_interpolatedStringParts
+    | NONTERM_interpolatedString
     | NONTERM_opt_HIGH_PRECEDENCE_APP
     | NONTERM_opt_HIGH_PRECEDENCE_TYAPP
     | NONTERM_typeKeyword

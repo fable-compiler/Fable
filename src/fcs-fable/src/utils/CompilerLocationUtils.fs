@@ -15,15 +15,9 @@ open Microsoft.FSharp.Core
 module internal FSharpEnvironment =
 
     /// The F# version reported in the banner
-#if LOCALIZATION_FSBUILD
-    let FSharpBannerVersion = FSBuild.SR.fSharpBannerVersion(FSharp.BuildProperties.fsProductVersion, FSharp.BuildProperties.fsLanguageVersion)
-#else
-#if LOCALIZATION_FSCOMP
-    let FSharpBannerVersion = FSComp.SR.fSharpBannerVersion(FSharp.BuildProperties.fsProductVersion, FSharp.BuildProperties.fsLanguageVersion)
-#else
-    let FSharpBannerVersion = sprintf "%s for F# %s" (FSharp.BuildProperties.fsProductVersion) (FSharp.BuildProperties.fsLanguageVersion)
-#endif
-#endif
+    let FSharpBannerVersion = UtilsStrings.SR.fSharpBannerVersion(FSharp.BuildProperties.fsProductVersion, FSharp.BuildProperties.fsLanguageVersion)
+
+    let FSharpProductName = UtilsStrings.SR.buildProductName(FSharpBannerVersion)
 
     let versionOf<'t> =
         typeof<'t>.Assembly.GetName().Version.ToString()
@@ -189,6 +183,10 @@ module internal FSharpEnvironment =
         // Check for an app.config setting to redirect the default compiler location
         // Like fsharp-compiler-location
         try
+            // We let you set FSHARP_COMPILER_BIN. I've rarely seen this used and its not documented in the install instructions.
+            match Environment.GetEnvironmentVariable("FSHARP_COMPILER_BIN") with
+            | result when not (String.IsNullOrWhiteSpace result) -> Some result
+            |_->
             // FSharp.Compiler support setting an appKey for compiler location. I've never seen this used.
             let result = tryAppConfig "fsharp-compiler-location"
             match result with
@@ -201,11 +199,6 @@ module internal FSharpEnvironment =
             match probePoint with 
             | Some p when safeExists (Path.Combine(p,"FSharp.Core.dll")) -> Some p 
             | _ ->
-                // We let you set FSHARP_COMPILER_BIN. I've rarely seen this used and its not documented in the install instructions.
-                let result = Environment.GetEnvironmentVariable("FSHARP_COMPILER_BIN")
-                if not (String.IsNullOrEmpty(result)) then
-                    Some result
-                else
                     // For the prototype compiler, we can just use the current domain
                     tryCurrentDomain()
         with e -> None
@@ -298,7 +291,7 @@ module internal FSharpEnvironment =
             try
                 Some (Assembly.UnsafeLoadFrom designTimeAssemblyPath)
             with e ->
-                raiseError e
+                raiseError (Some designTimeAssemblyPath) e
 
         let rec searchParentDirChain path assemblyName =
             seq {
@@ -345,7 +338,7 @@ module internal FSharpEnvironment =
                     let name = AssemblyName designTimeAssemblyName
                     Some (Assembly.Load (name))
                 with e ->
-                    raiseError e
+                    raiseError None e
 
     let getCompilerToolsDesignTimeAssemblyPaths compilerToolPaths = 
         searchToolPaths None compilerToolPaths

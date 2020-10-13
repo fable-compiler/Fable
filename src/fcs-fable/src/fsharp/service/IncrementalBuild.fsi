@@ -7,14 +7,21 @@ open System
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.Internal.Library
-open FSharp.Compiler.CompileOps
+open FSharp.Compiler.CompilerConfig
+open FSharp.Compiler.CompilerImports
 open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.NameResolution
+open FSharp.Compiler.ParseAndCheckInputs
 open FSharp.Compiler.Range
+open FSharp.Compiler.ScriptClosure
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.TypedTree
+
+#if !FABLE_COMPILER
+open Microsoft.DotNet.DependencyManager
+#endif
 
 #if FABLE_COMPILER
 // stub
@@ -182,12 +189,35 @@ type internal IncrementalBuilder =
       /// Get the logical time stamp that is associated with the output of the project if it were gully built immediately
       member GetLogicalTimeStampForProject: TimeStampCache * CompilationThreadToken -> DateTime
 
+      /// Does the given file exist in the builder's pipeline?
+      member ContainsFile: filename: string -> bool
+
       /// Await the untyped parse results for a particular slot in the vector of parse results.
       ///
       /// This may be a marginally long-running operation (parses are relatively quick, only one file needs to be parsed)
-      member GetParseResultsForFile : CompilationThreadToken * filename:string -> Cancellable<ParsedInput option * Range.range * string * (PhasedDiagnostic * FSharpErrorSeverity)[]>
+      member GetParseResultsForFile: CompilationThreadToken * filename:string -> Cancellable<ParsedInput option * Range.range * string * (PhasedDiagnostic * FSharpErrorSeverity)[]>
 
-      static member TryCreateBackgroundBuilderForProjectOptions : CompilationThreadToken * ReferenceResolver.Resolver * defaultFSharpBinariesDir: string * FrameworkImportsCache * scriptClosureOptions:LoadClosure option * sourceFiles:string list * commandLineArgs:string list * projectReferences: IProjectReference list * projectDirectory:string * useScriptResolutionRules:bool * keepAssemblyContents: bool * keepAllBackgroundResolutions: bool * maxTimeShareMilliseconds: int64 * tryGetMetadataSnapshot: ILBinaryReader.ILReaderTryGetMetadataSnapshot * suggestNamesForErrors: bool * keepAllBackgroundSymbolUses: bool * enableBackgroundItemKeyStoreAndSemanticClassification: bool -> Cancellable<IncrementalBuilder option * FSharpErrorInfo[]>
+      /// Create the incremental builder
+      static member TryCreateIncrementalBuilderForProjectOptions:
+          CompilationThreadToken *
+          ReferenceResolver.Resolver *
+          defaultFSharpBinariesDir: string * 
+          FrameworkImportsCache *
+          scriptClosureOptions:LoadClosure option *
+          sourceFiles:string list *
+          commandLineArgs:string list *
+          projectReferences: IProjectReference list *
+          projectDirectory:string *
+          useScriptResolutionRules:bool *
+          keepAssemblyContents: bool *
+          keepAllBackgroundResolutions: bool *
+          maxTimeShareMilliseconds: int64 *
+          tryGetMetadataSnapshot: ILBinaryReader.ILReaderTryGetMetadataSnapshot *
+          suggestNamesForErrors: bool *
+          keepAllBackgroundSymbolUses: bool *
+          enableBackgroundItemKeyStoreAndSemanticClassification: bool *
+          dependencyProvider: DependencyProvider option
+             -> Cancellable<IncrementalBuilder option * FSharpErrorInfo[]>
 
 /// Generalized Incremental Builder. This is exposed only for unit testing purposes.
 module internal IncrementalBuild =
