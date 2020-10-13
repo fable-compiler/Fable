@@ -24,7 +24,9 @@ type TcEnv =
 val CreateInitialTcEnv : TcGlobals * ImportMap * range * assemblyName: string * (CcuThunk * string list * string list) list -> TcEnv 
 val AddCcuToTcEnv      : TcGlobals * ImportMap * range * TcEnv * assemblyName: string * ccu: CcuThunk * autoOpens: string list * internalsVisibleToAttributes: string list -> TcEnv 
 val AddLocalRootModuleOrNamespace : NameResolution.TcResultsSink -> TcGlobals -> ImportMap -> range -> TcEnv -> ModuleOrNamespaceType -> TcEnv
-val TcOpenDecl         : NameResolution.TcResultsSink  -> TcGlobals -> ImportMap -> range -> range -> TcEnv -> LongIdent -> TcEnv 
+val AddLocalVal : NameResolution.TcResultsSink -> scopem: range -> v: Val -> TcEnv -> TcEnv
+val AddLocalSubModule : TcGlobals -> ImportMap -> range -> TcEnv -> ModuleOrNamespace -> TcEnv
+val TcOpenModuleOrNamespaceDecl: NameResolution.TcResultsSink  -> TcGlobals -> ImportMap -> range -> TcEnv -> (LongIdent * range) -> TcEnv 
 
 type TopAttribs =
     { mainMethodAttrs : Attribs;

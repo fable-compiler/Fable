@@ -2,8 +2,8 @@
 
 namespace FSharp.Compiler.SourceCodeServices
 
-open System
 open System.Text.RegularExpressions
+open FSharp.Compiler
 open FSharp.Compiler.AbstractIL.Internal.Library
 
 /// Patterns over FSharpSymbol and derivatives.
@@ -42,14 +42,11 @@ module Symbol =
                     res)))
             |> Option.isSome
 
-    let isOperator (name: string) =
-        name.StartsWithOrdinal("( ") && name.EndsWithOrdinal(" )") && name.Length > 4
-            && name.Substring (2, name.Length - 4) 
-                |> String.forall (fun c -> c <> ' ' && not (Char.IsLetter c))
+    let isOperator (name: string) = PrettyNaming.IsOperatorName name
 
 #if FABLE_COMPILER
     let isUnnamedUnionCaseField (field: FSharpField) =
-        (field.Name.StartsWith "Item") && not (field.Name.Substring(4) |> String.exists (fun c -> not (Char.IsDigit c)))
+        (field.Name.StartsWith "Item") && not (field.Name.Substring(4) |> String.exists (fun c -> not (System.Char.IsDigit c)))
 #else
     let UnnamedUnionFieldRegex = Regex("^Item(\d+)?$", RegexOptions.Compiled)
     

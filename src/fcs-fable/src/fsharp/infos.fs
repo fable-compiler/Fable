@@ -41,13 +41,18 @@ let CanImportILType scoref amap m ilty =
 
 /// Indicates if an F# type is the type associated with an F# exception declaration
 let isExnDeclTy g ty =
-    isAppTy g ty && (tcrefOfAppTy g ty).IsExceptionDecl
+    match tryTcrefOfAppTy g ty with
+    | ValueSome tcref -> tcref.IsExceptionDecl
+    | _ -> false
 
 /// Get the base type of a type, taking into account type instantiations. Return None if the
 /// type has no base type.
 let GetSuperTypeOfType g amap m ty =
 #if !NO_EXTENSIONTYPING
-    let ty = (if isAppTy g ty && (tcrefOfAppTy g ty).IsProvided then stripTyEqns g ty else stripTyEqnsAndMeasureEqns g ty)
+    let ty =
+        match tryTcrefOfAppTy g ty with
+        | ValueSome tcref when tcref.IsProvided -> stripTyEqns g ty 
+        | _ -> stripTyEqnsAndMeasureEqns g ty
 #else
     let ty = stripTyEqnsAndMeasureEqns g ty
 #endif
@@ -76,12 +81,14 @@ let GetSuperTypeOfType g amap m ty =
         elif isRefTy g ty && not (isObjTy g ty) then
             Some g.obj_ty
         elif isStructTupleTy g ty then
-            Some g.obj_ty
+            Some g.system_Value_ty
         elif isFSharpStructOrEnumTy g ty then
             if isFSharpEnumTy g ty then
                 Some g.system_Enum_ty
             else
                 Some g.system_Value_ty
+        elif isStructAnonRecdTy g ty then
+            Some g.system_Value_ty
         elif isAnonRecdTy g ty then
             Some g.obj_ty
         elif isRecdTy g ty || isUnionTy g ty then
@@ -107,10 +114,11 @@ let rec GetImmediateInterfacesOfType skipUnref g amap m ty =
                 [ match tcref.TypeReprInfo with
                   | TMeasureableRepr reprTy ->
                        for ity in GetImmediateInterfacesOfType skipUnref g amap m reprTy do
-                          if isAppTy g ity then
-                              let itcref = tcrefOfAppTy g ity
+                          match tryTcrefOfAppTy g ity with
+                          | ValueNone -> ()
+                          | ValueSome itcref ->
                               if not (tyconRefEq g itcref g.system_GenericIComparable_tcref) &&
-                                 not (tyconRefEq g itcref g.system_GenericIEquatable_tcref)  then
+                                 not (tyconRefEq g itcref g.system_GenericIEquatable_tcref) then
                                    yield ity
                   | _ -> ()
                   yield mkAppTy g.system_GenericIComparable_tcref [ty]
@@ -140,12 +148,22 @@ let rec GetImmediateInterfacesOfType skipUnref g amap m ty =
                     tcref.ImmediateInterfaceTypesOfFSharpTycon |> List.map (instType (mkInstForAppTy g ty))
         | _ -> []
 
+    
+    // NOTE: Anonymous record types are not directly considered to implement IComparable,
+    // IComparable<T> or IEquatable<T>. This is because whether they support these interfaces depend on their
+    // consitutent types, which may not yet be known in type inference.
+    //
+    // NOTE: Tuples could in theory always support IComparable etc. because this
+    // is in the .NET metadata for System.Tuple etc.  However from the F# perspective tuple types don't
+    // always support the 'comparable' and 'equality' constraints (again, it depends on their constitutent types).
+
     // .NET array types are considered to implement IList<T>
     let itys =
         if isArray1DTy g ty then
             mkSystemCollectionsGenericIListTy g (destArrayTy g ty) :: itys
         else
             itys
+
     itys
 
 [<RequireQualifiedAccess>]
@@ -157,7 +175,10 @@ type AllowMultiIntfInstantiations = Yes | No
 let private FoldHierarchyOfTypeAux followInterfaces allowMultiIntfInst skipUnref visitor g amap m ty acc =
     let rec loop ndeep ty ((visitedTycon, visited: TyconRefMultiMap<_>, acc) as state) =
 
-        let seenThisTycon = isAppTy g ty && Set.contains (tcrefOfAppTy g ty).Stamp visitedTycon
+        let seenThisTycon = 
+            match tryTcrefOfAppTy g ty with
+            | ValueSome tcref -> Set.contains tcref.Stamp visitedTycon
+            | _ -> false
 
         // Do not visit the same type twice. Could only be doing this if we've seen this tycon
         if seenThisTycon && List.exists (typeEquiv g ty) (visited.Find (tcrefOfAppTy g ty)) then state else
@@ -166,11 +187,11 @@ let private FoldHierarchyOfTypeAux followInterfaces allowMultiIntfInst skipUnref
         if seenThisTycon && allowMultiIntfInst = AllowMultiIntfInstantiations.No then state else
 
         let state =
-            if isAppTy g ty then
-                let tcref = tcrefOfAppTy g ty
+            match tryTcrefOfAppTy g ty with
+            | ValueSome tcref ->
                 let visitedTycon = Set.add tcref.Stamp visitedTycon
                 visitedTycon, visited.Add (tcref, ty), acc
-            else
+            | _ ->
                 state
 
         if ndeep > 100 then (errorR(Error((FSComp.SR.recursiveClassHierarchy (showType ty)), m)); (visitedTycon, visited, acc)) else
@@ -257,14 +278,18 @@ let AllInterfacesOfType g amap m allowMultiIntfInst ty =
 
 /// Check if two types have the same nominal head type
 let HaveSameHeadType g ty1 ty2 =
-    isAppTy g ty1 && isAppTy g ty2 &&
-    tyconRefEq g (tcrefOfAppTy g ty1) (tcrefOfAppTy g ty2)
+    match tryTcrefOfAppTy g ty1 with
+    | ValueSome tcref1 ->
+        match tryTcrefOfAppTy g ty2 with
+        | ValueSome tcref2 -> tyconRefEq g tcref1 tcref2
+        | _ -> false
+    | _ -> false
 
 /// Check if a type has a particular head type
 let HasHeadType g tcref ty2 =
-        isAppTy g ty2 &&
-        tyconRefEq g tcref (tcrefOfAppTy g ty2)
-
+    match tryTcrefOfAppTy g ty2 with
+    | ValueSome tcref2 -> tyconRefEq g tcref tcref2
+    | ValueNone -> false
 
 /// Check if a type exists somewhere in the hierarchy which has the same head type as the given type (note, the given type need not have a head type at all)
 let ExistsSameHeadTypeInHierarchy g amap m typeToSearchFrom typeToLookFor =
@@ -439,7 +464,7 @@ let MakeSlotSig (nm, ty, ctps, mtps, paraml, retTy) = copySlotSig (TSlotSig(nm, 
 ///    - the return type of the method
 ///    - the actual type arguments of the enclosing type.
 let private AnalyzeTypeOfMemberVal isCSharpExt g (ty, vref: ValRef) =
-    let memberAllTypars, _, retTy, _ = GetTypeOfMemberInMemberForm g vref
+    let memberAllTypars, _, _, retTy, _ = GetTypeOfMemberInMemberForm g vref
     if isCSharpExt || vref.IsExtensionMember then
         [], memberAllTypars, retTy, []
     else
@@ -449,13 +474,15 @@ let private AnalyzeTypeOfMemberVal isCSharpExt g (ty, vref: ValRef) =
 
 /// Get the object type for a member value which is an extension method  (C#-style or F#-style)
 let private GetObjTypeOfInstanceExtensionMethod g (vref: ValRef) =
-    let _, curriedArgInfos, _, _ = GetTopValTypeInCompiledForm g vref.ValReprInfo.Value vref.Type vref.Range
+    let numEnclosingTypars = CountEnclosingTyparsOfActualParentOfVal vref.Deref
+    let _, _, curriedArgInfos, _, _ = GetTopValTypeInCompiledForm g vref.ValReprInfo.Value numEnclosingTypars vref.Type vref.Range
     curriedArgInfos.Head.Head |> fst
 
-/// Get the object type for a member value which is a C#-style extension method
+/// Get the object type for a member value, which might be a C#-style extension method
 let private GetArgInfosOfMember isCSharpExt g (vref: ValRef) =
     if isCSharpExt then
-        let _, curriedArgInfos, _, _ = GetTopValTypeInCompiledForm g vref.ValReprInfo.Value vref.Type vref.Range
+        let numEnclosingTypars = CountEnclosingTyparsOfActualParentOfVal vref.Deref
+        let _, _, curriedArgInfos, _, _ = GetTopValTypeInCompiledForm g vref.ValReprInfo.Value numEnclosingTypars vref.Type vref.Range
         [ curriedArgInfos.Head.Tail ]
     else
         ArgInfosOfMember  g vref
@@ -1037,7 +1064,8 @@ type MethInfo =
         | DefaultStructCtor _ -> XmlDoc.Empty
 #if !NO_EXTENSIONTYPING
         | ProvidedMeth(_, mi, _, m)->
-            XmlDoc (mi.PUntaint((fun mix -> (mix :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(mi.TypeProvider.PUntaintNoFailure id)), m))
+            let lines = mi.PUntaint((fun mix -> (mix :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(mi.TypeProvider.PUntaintNoFailure id)), m)
+            XmlDoc (lines, m)
 #endif
 
     /// Try to get an arbitrary F# ValRef associated with the member. This is to determine if the member is virtual, amongst other things.
@@ -1511,7 +1539,8 @@ type MethInfo =
             | ValInRecScope false -> error(Error((FSComp.SR.InvalidRecursiveReferenceToAbstractSlot()), m))
             | _ -> ()
 
-            let allTyparsFromMethod, _, retTy, _ = GetTypeOfMemberInMemberForm g vref
+            let allTyparsFromMethod, _, _, retTy, _ = GetTypeOfMemberInMemberForm g vref
+
             // A slot signature is w.r.t. the type variables of the type it is associated with.
             // So we have to rename from the member type variables to the type variables of the type.
             let formalEnclosingTypars = x.ApparentEnclosingTyconRef.Typars m
@@ -2134,7 +2163,8 @@ type PropInfo =
         | FSProp(_, _, None, None) -> failwith "unreachable"
 #if !NO_EXTENSIONTYPING
         | ProvidedProp(_, pi, m) ->
-            XmlDoc (pi.PUntaint((fun pix -> (pix :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(pi.TypeProvider.PUntaintNoFailure id)), m))
+            let lines = pi.PUntaint((fun pix -> (pix :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(pi.TypeProvider.PUntaintNoFailure id)), m)
+            XmlDoc (lines, m)
 #endif
 
     /// Get the TcGlobals associated with the object
@@ -2388,7 +2418,8 @@ type EventInfo =
         | FSEvent (_, p, _, _) -> p.XmlDoc
 #if !NO_EXTENSIONTYPING
         | ProvidedEvent (_, ei, m) ->
-            XmlDoc (ei.PUntaint((fun eix -> (eix :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(ei.TypeProvider.PUntaintNoFailure id)), m))
+            let lines = ei.PUntaint((fun eix -> (eix :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(ei.TypeProvider.PUntaintNoFailure id)), m)
+            XmlDoc (lines, m)
 #endif
 
     /// Get the logical name of the event.

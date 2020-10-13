@@ -148,7 +148,9 @@ let tooltipToString (el: FSharpToolTipElement<string>): string[] =
            | Some x -> yield x + ": " + data.MainDescription
            | None -> yield data.MainDescription
            match data.XmlDoc with
-           | FSharpXmlDoc.Text doc -> yield doc
+           | FSharpXmlDoc.Text (unprocessedLines, elaboratedXmlLines) ->
+                yield! unprocessedLines
+                yield! elaboratedXmlLines
            | _ -> ()
            yield! data.TypeMapping
            match data.Remarks with

@@ -745,7 +745,9 @@ type Entity =
     member x.XmlDoc = 
 #if !NO_EXTENSIONTYPING
         match x.TypeReprInfo with
-        | TProvidedTypeExtensionPoint info -> XmlDoc (info.ProvidedType.PUntaintNoFailure(fun st -> (st :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(info.ProvidedType.TypeProvider.PUntaintNoFailure id)))
+        | TProvidedTypeExtensionPoint info ->
+            let lines = info.ProvidedType.PUntaintNoFailure(fun st -> (st :> IProvidedCustomAttributeProvider).GetXmlDocAttributes(info.ProvidedType.TypeProvider.PUntaintNoFailure id))
+            XmlDoc (lines, x.DefinitionRange)
         | _ -> 
 #endif
         match x.entity_opt_data with
@@ -1912,9 +1914,9 @@ type ModuleOrNamespaceType(kind: ModuleOrNamespaceKind, vals: QueueList<Val>, en
     /// Get a table of types defined within this module, namespace or type. The 
     /// table is indexed by both name and generic arity. This means that for generic 
     /// types "List`1", the entry (List, 1) will be present.
-    member mtyp.TypesByDemangledNameAndArity m = 
+    member mtyp.TypesByDemangledNameAndArity = 
         cacheOptRef tyconsByDemangledNameAndArityCache (fun () -> 
-           LayeredMap.Empty.AddAndMarkAsCollapsible( mtyp.TypeAndExceptionDefinitions |> List.map (fun (tc: Tycon) -> Construct.KeyTyconByDemangledNameAndArity tc.LogicalName (tc.Typars m) tc) |> List.toArray))
+           LayeredMap.Empty.AddAndMarkAsCollapsible( mtyp.TypeAndExceptionDefinitions |> List.map (fun (tc: Tycon) -> Construct.KeyTyconByDecodedName tc.LogicalName tc) |> List.toArray))
 
     /// Get a table of types defined within this module, namespace or type. The 
     /// table is indexed by both name and, for generic types, also by mangled name.
@@ -2141,7 +2143,7 @@ type Typar =
     member x.SetAttribs attribs = 
         match attribs, x.typar_opt_data with
         | [], None -> ()
-        | [], Some { typar_il_name = None; typar_xmldoc = XmlDoc [||]; typar_constraints = [] } ->
+        | [], Some { typar_il_name = None; typar_xmldoc = doc; typar_constraints = [] } when doc.IsEmpty ->
             x.typar_opt_data <- None
         | _, Some optData -> optData.typar_attribs <- attribs
         | _ -> x.typar_opt_data <- Some { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = []; typar_attribs = attribs }
@@ -2171,7 +2173,7 @@ type Typar =
     member x.SetConstraints cs =
         match cs, x.typar_opt_data with
         | [], None -> ()
-        | [], Some { typar_il_name = None; typar_xmldoc = XmlDoc [||]; typar_attribs = [] } ->
+        | [], Some { typar_il_name = None; typar_xmldoc = doc; typar_attribs = [] } when doc.IsEmpty ->
             x.typar_opt_data <- None
         | _, Some optData -> optData.typar_constraints <- cs
         | _ -> x.typar_opt_data <- Some { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = cs; typar_attribs = [] }
@@ -2296,7 +2298,33 @@ type TyparConstraint =
     
     override x.ToString() = sprintf "%+A" x 
     
-/// Represents the specification of a member constraint that must be solved 
+#if FABLE_COMPILER
+[<CustomEquality; CustomComparison; StructuredFormatDisplay("{DebugText}")>]
+#else
+[<NoEquality; NoComparison; StructuredFormatDisplay("{DebugText}")>]
+#endif
+type TraitWitnessInfo = 
+    | TraitWitnessInfo of TTypes * string * MemberFlags * TTypes * TType option
+    
+    /// Get the member name associated with the member constraint.
+    member x.MemberName = (let (TraitWitnessInfo(_, b, _, _, _)) = x in b)
+
+    /// Get the return type recorded in the member constraint.
+    member x.ReturnType = (let (TraitWitnessInfo(_, _, _, _, ty)) = x in ty)
+
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member x.DebugText = x.ToString()
+
+    override x.ToString() = "TTrait(" + x.MemberName + ")"
+    
+#if FABLE_COMPILER
+    override x.GetHashCode() = hash x.MemberName
+    override x.Equals(_y: obj) = false // not used
+    interface System.IComparable with
+        member x.CompareTo(_y: obj) = -1 // not used
+#endif
+
+/// The specification of a member constraint that must be solved 
 [<NoEquality; NoComparison; StructuredFormatDisplay("{DebugText}")>]
 type TraitConstraintInfo = 
 
@@ -2304,10 +2332,17 @@ type TraitConstraintInfo =
     /// to store the inferred solution of the constraint.
     | TTrait of tys: TTypes * memberName: string * _memFlags: MemberFlags * argTys: TTypes * returnTy: TType option * solution: TraitConstraintSln option ref 
 
+    /// Get the key associated with the member constraint.
+    member x.TraitKey = (let (TTrait(a, b, c, d, e, _)) = x in TraitWitnessInfo(a, b, c, d, e))
+
     /// Get the member name associated with the member constraint.
     member x.MemberName = (let (TTrait(_, nm, _, _, _, _)) = x in nm)
 
-    /// Get the argument types required of a member in order to solve the constraint
+    /// Get the member flags associated with the member constraint.
+    member x.MemberFlags = (let (TTrait(_, _, flags, _, _, _)) = x in flags)
+
+    /// Get the argument types recorded in the member constraint. This includes the object instance type for
+    /// instance members.
     member x.ArgumentTypes = (let (TTrait(_, _, _, argtys, _, _)) = x in argtys)
 
     /// Get the return type recorded in the member constraint.
@@ -4346,6 +4381,9 @@ type ValReprInfo =
             | (_ :: _ :: h) :: t -> loop t (acc + h.Length + 2) 
         loop args 0
 
+    member x.ArgNames =
+        Some [ for argtys in x.ArgInfos do for arginfo in argtys do match arginfo.Name with None -> () | Some nm -> nm.idText ]
+
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member x.DebugText = x.ToString()
 
@@ -4501,11 +4539,31 @@ type Expr =
     // MUTABILITY: this use of mutability is awkward and perhaps should be removed
     | Quote of
         quotedExpr: Expr *
-        quotationInfo: (ILTypeRef list * TTypes * Exprs * ExprData) option ref *
+        quotationInfo: ((ILTypeRef list * TTypes * Exprs * ExprData) * (ILTypeRef list * TTypes * Exprs * ExprData)) option ref *
         isFromQueryExpression: bool *
         range: range *
         quotedType: TType  
     
+    /// Used in quotation generation to indicate a witness argument, spliced into a quotation literal.
+    ///
+    /// For example:
+    ///
+    ///     let inline f x = <@ sin x @>
+    ///
+    /// needs to pass a witness argument to `sin x`, captured from the surrounding context, for the witness-passing
+    /// version of the code.  Thus the QuotationTranslation and IlxGen makes the generated code as follows:
+    ///
+    ///  f(x) { return Deserialize(<@ sin _spliceHole @>, [| x |]) }
+    ///
+    ///  f$W(witnessForSin, x) { return Deserialize(<@ sin$W _spliceHole1 _spliceHole2 @>, [| WitnessArg(witnessForSin), x |]) }
+    ///
+    /// where _spliceHole1 will be the location of the witness argument in the quotation data, and 
+    /// witnessArg is the lambda for the witness
+    /// 
+    | WitnessArg of
+        traitInfo: TraitConstraintInfo *
+        range: range
+
     /// Indicates a free choice of typars that arises due to 
     /// minimization of polymorphism at let-rec bindings. These are 
     /// resolved to a concrete instantiation on subsequent rewrites. 
@@ -4542,6 +4600,7 @@ type Expr =
         | StaticOptimization (_, _, _, _) -> "StaticOptimization(..)"
         | Op (op, _, args, _) -> "Op(" + op.ToString() + ", " + String.concat ", " (args |> List.map (fun e -> e.ToDebugString(depth))) + ")"
         | Quote _ -> "Quote(..)"
+        | WitnessArg _  -> "WitnessArg(..)"
         | TyChoose _ -> "TyChoose(..)"
         | Link e -> "Link(" + e.Value.ToDebugString(depth) + ")"
 
@@ -4932,8 +4991,19 @@ type TypedImplFile =
 
 /// Represents a complete typechecked assembly, made up of multiple implementation files.
 [<NoEquality; NoComparison; StructuredFormatDisplay("{DebugText}")>]
+type TypedImplFileAfterOptimization = 
+    { ImplFile: TypedImplFile 
+      OptimizeDuringCodeGen: (bool -> Expr -> Expr) }
+
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member x.DebugText = x.ToString()
+
+    override x.ToString() = "TypedImplFileAfterOptimization(...)"
+
+/// Represents a complete typechecked assembly, made up of multiple implementation files.
+[<NoEquality; NoComparison; StructuredFormatDisplay("{DebugText}")>]
 type TypedAssemblyAfterOptimization = 
-    | TypedAssemblyAfterOptimization of (TypedImplFile * (* optimizeDuringCodeGen: *) (Expr -> Expr)) list
+    | TypedAssemblyAfterOptimization of TypedImplFileAfterOptimization list
 
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member x.DebugText = x.ToString()
@@ -5021,28 +5091,21 @@ type CcuReference = string // ILAssemblyRef
 /// reference that has not had an appropriate fixup applied.  
 [<NoEquality; NoComparison; RequireQualifiedAccess; StructuredFormatDisplay("{DebugText}")>]
 type CcuThunk = 
-
     {
+      /// ccu.target is null when a reference is missing in the transitive closure of static references that
+      /// may potentially be required for the metadata of referenced DLLs.
       mutable target: CcuData
-
-      /// ccu.orphanfixup is true when a reference is missing in the transitive closure of static references that
-      /// may potentially be required for the metadata of referenced DLLs. It is set to true if the "loader"
-      /// used in the F# metadata-deserializer or the .NET metadata reader returns a failing value (e.g. None).
-      /// Note: When used from Visual Studio, the loader will not automatically chase down transitively referenced DLLs - they
-      /// must be in the explicit references in the project.
-      mutable orphanfixup: bool
-
       name: CcuReference
     }
 
     /// Dereference the asssembly reference 
     member ccu.Deref = 
-        if isNull (ccu.target :> obj) || ccu.orphanfixup then 
+        if isNull (ccu.target :> obj) then 
             raise(UnresolvedReferenceNoRange ccu.name)
         ccu.target
    
     /// Indicates if this assembly reference is unresolved
-    member ccu.IsUnresolvedReference = isNull (ccu.target :> obj) || ccu.orphanfixup
+    member ccu.IsUnresolvedReference = isNull (ccu.target :> obj)
 
     /// Ensure the ccu is derefable in advance. Supply a path to attach to any resulting error message.
     member ccu.EnsureDerefable(requiringPath: string[]) = 
@@ -5104,13 +5167,11 @@ type CcuThunk =
     /// Create a CCU with the given name and contents
     static member Create(nm, x) = 
         { target = x 
-          orphanfixup = false
           name = nm }
 
     /// Create a CCU with the given name but where the contents have not yet been specified
     static member CreateDelayed nm = 
         { target = Unchecked.defaultof<_> 
-          orphanfixup = false
           name = nm }
 
     /// Fixup a CCU to have the given contents
@@ -5128,13 +5189,7 @@ type CcuThunk =
             match box avail.target with
             | null -> error(Failure("internal error: ccu thunk '"+avail.name+"' not fixed up!"))
             | _ -> avail.target
-        
-    /// Fixup a CCU to record it as "orphaned", i.e. not available
-    member x.FixupOrphaned() = 
-        match box x.target with
-        | null -> x.orphanfixup<-true
-        | _ -> errorR(Failure("internal error: FixupOrphaned: the ccu thunk for assembly "+x.AssemblyName+" not delayed!"))
-            
+
     /// Try to resolve a path into the CCU by referencing the .NET/CLI type forwarder table of the CCU
     member ccu.TryForward(nlpath: string[], item: string) : EntityRef option = 
         ccu.EnsureDerefable nlpath
@@ -5269,9 +5324,9 @@ type Construct() =
 
     static let taccessPublic = TAccess [] 
     
-    /// Key a Tycon or TyconRef by demangled name and arity
-    static member KeyTyconByDemangledNameAndArity<'T> (nm: string) (typars: Typar list) (x: 'T) : KeyValuePair<NameArityPair, 'T> = 
-        KeyValuePair(NameArityPair(DemangleGenericTypeName nm, typars.Length), x)
+    /// Key a Tycon or TyconRef by decoded name
+    static member KeyTyconByDecodedName<'T> (nm: string) (x: 'T) : KeyValuePair<NameArityPair, 'T> = 
+        KeyValuePair(DecodeGenericTypeName nm, x)
 
     /// Key a Tycon or TyconRef by both mangled and demangled name.
     /// Generic types can be accessed either by 'List' or 'List`1'.
@@ -5380,7 +5435,7 @@ type Construct() =
 #endif
 
     /// Create a new entity node for a module or namespace
-    static member NewModuleOrNamespace cpath access (id: Ident) xml attribs mtype = 
+    static member NewModuleOrNamespace cpath access (id: Ident) (xml: XmlDoc) attribs mtype = 
         let stamp = newStamp() 
         // Put the module suffix on if needed 
         Tycon.New "mspec"
@@ -5398,7 +5453,7 @@ type Construct() =
             entity_il_repr_cache = newCache()
             entity_opt_data =
                 match xml, access with
-                | XmlDoc [||], TAccess [] -> None
+                | doc, TAccess [] when doc.IsEmpty -> None
                 | _ -> Some { Entity.NewEmptyEntityOptData() with
                                  entity_xmldoc = xml
                                  entity_tycon_repr_accessibility = access
@@ -5451,7 +5506,7 @@ type Construct() =
           OtherRangeOpt = None } 
 
     /// Create a new TAST Entity node for an F# exception definition
-    static member NewExn cpath (id: Ident) access repr attribs doc = 
+    static member NewExn cpath (id: Ident) access repr attribs (doc: XmlDoc) = 
         Tycon.New "exnc"
           { entity_stamp=newStamp()
             entity_attribs=attribs
@@ -5467,7 +5522,7 @@ type Construct() =
             entity_il_repr_cache= newCache()
             entity_opt_data =
                 match doc, access, repr with
-                | XmlDoc [||], TAccess [], TExnNone -> None
+                | doc, TAccess [], TExnNone when doc.IsEmpty -> None
                 | _ -> Some { Entity.NewEmptyEntityOptData() with entity_xmldoc = doc; entity_accessibility = access; entity_tycon_repr_accessibility = access; entity_exn_info = repr } } 
 
     /// Create a new TAST RecdField node for an F# class, struct or record field
@@ -5489,7 +5544,7 @@ type Construct() =
 
     
     /// Create a new type definition node
-    static member NewTycon (cpath, nm, m, access, reprAccess, kind, typars, docOption, usesPrefixDisplay, preEstablishedHasDefaultCtor, hasSelfReferentialCtor, mtyp) =
+    static member NewTycon (cpath, nm, m, access, reprAccess, kind, typars, doc: XmlDoc, usesPrefixDisplay, preEstablishedHasDefaultCtor, hasSelfReferentialCtor, mtyp) =
         let stamp = newStamp() 
         Tycon.New "tycon"
           { entity_stamp=stamp
@@ -5505,9 +5560,9 @@ type Construct() =
             entity_cpath = cpath
             entity_il_repr_cache = newCache()
             entity_opt_data =
-                match kind, docOption, reprAccess, access with
-                | TyparKind.Type, XmlDoc [||], TAccess [], TAccess [] -> None
-                | _ -> Some { Entity.NewEmptyEntityOptData() with entity_kind = kind; entity_xmldoc = docOption; entity_tycon_repr_accessibility = reprAccess; entity_accessibility=access } } 
+                match kind, doc, reprAccess, access with
+                | TyparKind.Type, doc, TAccess [], TAccess [] when doc.IsEmpty -> None
+                | _ -> Some { Entity.NewEmptyEntityOptData() with entity_kind = kind; entity_xmldoc = doc; entity_tycon_repr_accessibility = reprAccess; entity_accessibility=access } } 
 
     /// Create a new type definition node for a .NET type definition
     static member NewILTycon nlpath (nm, m) tps (scoref: ILScopeRef, enc, tdef: ILTypeDef) mtyp =
@@ -5520,7 +5575,7 @@ type Construct() =
     /// Create a new Val node
     static member NewVal 
            (logicalName: string, m: range, compiledName, ty, isMutable, isCompGen, arity, access,
-            recValInfo, specialRepr, baseOrThis, attribs, inlineInfo, doc, isModuleOrMemberBinding,
+            recValInfo, specialRepr, baseOrThis, attribs, inlineInfo, doc: XmlDoc, isModuleOrMemberBinding,
             isExtensionMember, isIncrClassSpecialMember, isTyFunc, allowTypeInst, isGeneratedEventVal,
             konst, actualParent) : Val =
 
@@ -5533,7 +5588,7 @@ type Construct() =
             val_type = ty
             val_opt_data =
                 match compiledName, arity, konst, access, doc, specialRepr, actualParent, attribs with
-                | None, None, None, TAccess [], XmlDoc [||], None, ParentNone, [] -> None
+                | None, None, None, TAccess [], doc, None, ParentNone, [] when doc.IsEmpty -> None
                 | _ -> 
                     Some { Val.NewEmptyValOptData() with
                              val_compiled_name = (match compiledName with Some v when v <> logicalName -> compiledName | _ -> None)

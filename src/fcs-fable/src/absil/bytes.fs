@@ -206,7 +206,6 @@ type SafeUnmanagedMemoryStream =
         base.Dispose disposing
         x.holder <- null // Null out so it can be collected.
 
-[<Sealed>]
 type RawByteMemory(addr: nativeptr<byte>, length: int, holder: obj) =
     inherit ByteMemory ()
 
@@ -332,28 +331,51 @@ type ReadOnlyByteMemory(bytes: ByteMemory) =
 
 #if !FABLE_COMPILER
     member _.AsStream() = bytes.AsReadOnlyStream()
+
+    member _.Underlying = bytes
+
+[<AutoOpen>]
+module MemoryMappedFileExtensions =
+
+    type MemoryMappedFile with
+
+        static member TryFromByteMemory(bytes: ReadOnlyByteMemory) =
+            let length = int64 bytes.Length
+            if length = 0L then
+                None
+            else
+                if Utils.runningOnMono
+                then
+                    // mono's MemoryMappedFile implementation throws with null `mapName`, so we use byte arrays instead: https://github.com/mono/mono/issues/1024
+                    None
+                else
+                    // Try to create a memory mapped file and copy the contents of the given bytes to it.
+                    // If this fails, then we clean up and return None.
+                    try
+                        let mmf = MemoryMappedFile.CreateNew(null, length, MemoryMappedFileAccess.ReadWrite, MemoryMappedFileOptions.None, HandleInheritability.None)
+                        try
+                            use stream = mmf.CreateViewStream(0L, length, MemoryMappedFileAccess.ReadWrite)
+                            bytes.CopyTo stream
+                            Some mmf
+                        with
+                        | _ ->
+                            mmf.Dispose()
+                            None
+                    with
+                    | _ ->
+                        None
 #endif
 
 type ByteMemory with
 
     member x.AsReadOnly() = ReadOnlyByteMemory x
 
-#if !FABLE_COMPILER
-    static member CreateMemoryMappedFile(bytes: ReadOnlyByteMemory) =
-        if Utils.runningOnMono
-        then
-            // mono's MemoryMappedFile implementation throws with null `mapName`, so we use byte arrays instead: https://github.com/mono/mono/issues/10245
-            ByteArrayMemory.FromArray (bytes.ToArray()) :> ByteMemory
-        else
-            let length = int64 bytes.Length
-            let mmf =
-                let mmf = MemoryMappedFile.CreateNew(null, length, MemoryMappedFileAccess.ReadWrite, MemoryMappedFileOptions.None, HandleInheritability.None)
-                use stream = mmf.CreateViewStream(0L, length, MemoryMappedFileAccess.ReadWrite)
-                bytes.CopyTo stream
-                mmf
+    static member Empty = ByteArrayMemory([||], 0, 0) :> ByteMemory
 
-            let accessor = mmf.CreateViewAccessor(0L, length, MemoryMappedFileAccess.ReadWrite)
-            RawByteMemory.FromUnsafePointer(accessor.SafeMemoryMappedViewHandle.DangerousGetHandle(), int length, (mmf, accessor))
+#if !FABLE_COMPILER
+    static member FromMemoryMappedFile(mmf: MemoryMappedFile) =
+        let accessor = mmf.CreateViewAccessor()
+        RawByteMemory.FromUnsafePointer(accessor.SafeMemoryMappedViewHandle.DangerousGetHandle(), int accessor.Capacity, (mmf, accessor))
 
     static member FromFile(path, access, ?canShadowCopy: bool) =
         let canShadowCopy = defaultArg canShadowCopy false
@@ -414,8 +436,11 @@ type ByteMemory with
     static member FromArray(bytes, offset, length) =
         ByteArrayMemory(bytes, offset, length) :> ByteMemory
 
-    static member FromArray bytes =
-        ByteArrayMemory.FromArray(bytes, 0, bytes.Length)
+    static member FromArray (bytes: byte[]) =
+        if bytes.Length = 0 then
+            ByteMemory.Empty
+        else
+            ByteArrayMemory.FromArray(bytes, 0, bytes.Length)
 
 type internal ByteStream = 
     { bytes: ReadOnlyByteMemory
@@ -525,4 +550,45 @@ type internal ByteBuffer =
         { bbArray=Bytes.zeroCreate sz 
           bbCurrent = 0 }
 
+#if !FABLE_COMPILER
 
+[<Sealed>]
+type ByteStorage(getByteMemory: unit -> ReadOnlyByteMemory) =
+
+    let mutable cached = Unchecked.defaultof<WeakReference<ByteMemory>>
+
+    let getAndCache () =
+        let byteMemory = getByteMemory ()
+        cached <- WeakReference<ByteMemory>(byteMemory.Underlying)
+        byteMemory
+
+    member _.GetByteMemory() =
+        match cached with
+        | null -> getAndCache ()
+        | _ ->
+            match cached.TryGetTarget() with
+            | true, byteMemory -> byteMemory.AsReadOnly()
+            | _ -> getAndCache ()
+
+    static member FromByteArray(bytes: byte []) =
+        ByteStorage.FromByteMemory(ByteMemory.FromArray(bytes).AsReadOnly())
+
+    static member FromByteMemory(bytes: ReadOnlyByteMemory) =
+        ByteStorage(fun () -> bytes)
+
+    static member FromByteMemoryAndCopy(bytes: ReadOnlyByteMemory, useBackingMemoryMappedFile: bool) =
+        if useBackingMemoryMappedFile then
+            match MemoryMappedFile.TryFromByteMemory(bytes) with
+            | Some mmf ->
+                ByteStorage(fun () -> ByteMemory.FromMemoryMappedFile(mmf).AsReadOnly())
+            | _ ->
+                let copiedBytes = ByteMemory.FromArray(bytes.ToArray()).AsReadOnly()
+                ByteStorage.FromByteMemory(copiedBytes)
+        else
+            let copiedBytes = ByteMemory.FromArray(bytes.ToArray()).AsReadOnly()
+            ByteStorage.FromByteMemory(copiedBytes)
+
+    static member FromByteArrayAndCopy(bytes: byte [], useBackingMemoryMappedFile: bool) =
+        ByteStorage.FromByteMemoryAndCopy(ByteMemory.FromArray(bytes).AsReadOnly(), useBackingMemoryMappedFile)
+
+#endif //!FABLE_COMPILER

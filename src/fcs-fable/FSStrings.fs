@@ -39,7 +39,7 @@ let resources =
         "Type constraint mismatch. The type \n    '{0}'    \nis not compatible with type\n    '{1}'    {2}\n"
       );
       ( "UpperCaseIdentifierInPattern",
-        "Uppercase variable identifiers should not generally be used in patterns, and may indicate a misspelt pattern name."
+        "Uppercase variable identifiers should not generally be used in patterns, and may indicate a missing open declaration or a misspelt pattern name."
       );
       ( "NotUpperCaseConstructor",
         "Discriminated union cases and exception labels must be uppercase identifiers"
@@ -325,6 +325,18 @@ let resources =
       );
       ( "Parser.TOKEN.FIXED",
         "keyword 'fixed'"
+      );
+      ( "Parser.TOKEN.INTERP.STRING.BEGIN.END",
+        "interpolated string"
+      );
+      ( "Parser.TOKEN.INTERP.STRING.BEGIN.PART",
+        "interpolated string (first part)"
+      );
+      ( "Parser.TOKEN.INTERP.STRING.PART",
+        "interpolated string (part)"
+      );
+      ( "Parser.TOKEN.INTERP.STRING.END",
+        "interpolated string (final part)"
       );
       ( "Parser.TOKEN.CONSTRAINT",
         "keyword 'constraint'"

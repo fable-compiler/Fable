@@ -13,18 +13,25 @@ open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.ILBinaryReader
 open FSharp.Compiler.AbstractIL.Internal.Library 
+open FSharp.Compiler.CompilerConfig
+open FSharp.Compiler.CompilerDiagnostics
 open FSharp.Compiler.CompilerGlobalState
-open FSharp.Compiler.CompileOps
-open FSharp.Compiler.CompileOptions
+open FSharp.Compiler.CompilerImports
+open FSharp.Compiler.CompilerOptions
 open FSharp.Compiler.ErrorLogger
-open FSharp.Compiler.Lib
 open FSharp.Compiler.NameResolution
+open FSharp.Compiler.ParseAndCheckInputs
 open FSharp.Compiler.Range
+open FSharp.Compiler.ScriptClosure
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.TypeChecker
 open FSharp.Compiler.TypedTree 
 open FSharp.Compiler.TypedTreeOps
+
+#if !FABLE_COMPILER
+open Microsoft.DotNet.DependencyManager
+#endif
 
 open Internal.Utilities.Collections
 
@@ -1237,9 +1244,12 @@ type RawFSharpAssemblyDataBackedByLanguageService (tcConfig, tcGlobals, tcState:
 
 /// Manages an incremental build graph for the build of a single F# project
 type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInputs, nonFrameworkResolutions, unresolvedReferences, tcConfig: TcConfig, projectDirectory, outfile, 
-                        assemblyName, niceNameGen: NiceNameGenerator, lexResourceManager, 
-                        sourceFiles, loadClosureOpt: LoadClosure option, 
-                        keepAssemblyContents, keepAllBackgroundResolutions, maxTimeShareMilliseconds, keepAllBackgroundSymbolUses, enableBackgroundItemKeyStoreAndSemanticClassification) =
+        assemblyName, niceNameGen: NiceNameGenerator, lexResourceManager, 
+        sourceFiles, loadClosureOpt: LoadClosure option, 
+        keepAssemblyContents, keepAllBackgroundResolutions,
+        maxTimeShareMilliseconds, keepAllBackgroundSymbolUses,
+        enableBackgroundItemKeyStoreAndSemanticClassification,
+        dependencyProviderOpt: DependencyProvider option) =
 
     let tcConfigP = TcConfigProvider.Constant tcConfig
     let fileParsed = new Event<string>()
@@ -1275,6 +1285,13 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
         [| yield! basicDependencies
            for (_, f, _) in sourceFiles do
                 yield f |]
+
+    // For scripts, the dependency provider is already available.
+    // For projects create a fresh one for the project.
+    let dependencyProvider = 
+        match dependencyProviderOpt with 
+        | None -> new DependencyProvider()
+        | Some dependencyProvider -> dependencyProvider
 
     //----------------------------------------------------
     // START OF BUILD TASK FUNCTIONS 
@@ -1326,7 +1343,7 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
         let! tcImports = 
           cancellable {
             try
-                let! tcImports = TcImports.BuildNonFrameworkTcImports(ctok, tcConfigP, tcGlobals, frameworkTcImports, nonFrameworkResolutions, unresolvedReferences)  
+                let! tcImports = TcImports.BuildNonFrameworkTcImports(ctok, tcConfigP, tcGlobals, frameworkTcImports, nonFrameworkResolutions, unresolvedReferences, dependencyProvider)  
 #if !NO_EXTENSIONTYPING
                 tcImports.GetCcusExcludingBase() |> Seq.iter (fun ccu -> 
                     // When a CCU reports an invalidation, merge them together and just report a 
@@ -1400,12 +1417,13 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
                 eventually {
                     beforeFileChecked.Trigger filename
 
-                    ApplyMetaCommandsFromInputToTcConfig (tcConfig, input, Path.GetDirectoryName filename) |> ignore
+                    ApplyMetaCommandsFromInputToTcConfig (tcConfig, input, Path.GetDirectoryName filename, tcAcc.tcImports.DependencyProvider) |> ignore
                     let sink = TcResultsSinkImpl(tcAcc.tcGlobals)
                     let hadParseErrors = not (Array.isEmpty parseErrors)
 
                     let input, moduleNamesDict = DeduplicateParsedInputModuleName tcAcc.tcModuleNamesDict input
 
+                    Logger.LogBlockMessageStart filename LogCompilerFunctionId.IncrementalBuild_TypeCheck
                     let! (tcEnvAtEndOfFile, topAttribs, implFile, ccuSigForFile), tcState = 
                         TypeCheckOneInputEventually 
                             ((fun () -> hadParseErrors || errorLogger.ErrorCount > 0), 
@@ -1414,6 +1432,7 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
                              None, 
                              TcResultsSink.WithSink sink, 
                              tcAcc.tcState, input)
+                    Logger.LogBlockMessageStop filename LogCompilerFunctionId.IncrementalBuild_TypeCheck
                         
                     /// Only keep the typed interface files when doing a "full" build for fsc.exe, otherwise just throw them away
                     let implFile = if keepAssemblyContents then implFile else None
@@ -1424,6 +1443,7 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
                     // Build symbol keys
                     let itemKeyStore, semanticClassification =
                         if enableBackgroundItemKeyStoreAndSemanticClassification then
+                            Logger.LogBlockMessageStart filename LogCompilerFunctionId.IncrementalBuild_CreateItemKeyStoreAndSemanticClassification
                             let sResolutions = sink.GetResolutions()
                             let builder = ItemKeyStoreBuilder()
                             let preventDuplicates = HashSet({ new IEqualityComparer<struct(pos * pos)> with 
@@ -1435,7 +1455,9 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
                                 if preventDuplicates.Add struct(r.Start, r.End) then
                                     builder.Write(cnr.Range, cnr.Item))
 
-                            builder.TryBuildAndReset(), sResolutions.GetSemanticClassification(tcAcc.tcGlobals, tcAcc.tcImports.GetImportMap(), sink.GetFormatSpecifierLocations(), None)
+                            let res = builder.TryBuildAndReset(), sResolutions.GetSemanticClassification(tcAcc.tcGlobals, tcAcc.tcImports.GetImportMap(), sink.GetFormatSpecifierLocations(), None)
+                            Logger.LogBlockMessageStop filename LogCompilerFunctionId.IncrementalBuild_CreateItemKeyStoreAndSemanticClassification
+                            res
                         else
                             None, [||]
                     
@@ -1705,7 +1727,7 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
         let t2 = MaxTimeStampInDependencies cache ctok stampedReferencedAssembliesNode 
         max t1 t2
         
-    member __.GetSlotOfFileName(filename: string) =
+    member __.TryGetSlotOfFileName(filename: string) =
         // Get the slot of the given file and force it to build.
         let CompareFileNames (_, f2, _) = 
             let result = 
@@ -1713,6 +1735,11 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
                 || String.Compare(FileSystem.GetFullPathShim filename, FileSystem.GetFullPathShim f2, StringComparison.CurrentCultureIgnoreCase)=0
             result
         match TryGetSlotByInput(fileNamesNode, partialBuild, CompareFileNames) with
+        | Some slot -> Some slot
+        | None -> None
+        
+    member this.GetSlotOfFileName(filename: string) =
+        match this.TryGetSlotOfFileName(filename) with
         | Some slot -> slot
         | None -> failwith (sprintf "The file '%s' was not part of the project. Did you call InvalidateConfiguration when the list of files in the project changed?" filename)
         
@@ -1721,6 +1748,9 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
         match partialBuild.Results.TryFind(expr.Id) with
         | Some (VectorResult vr) -> vr.Size
         | _ -> failwith "Failed to find sizes"
+
+    member this.ContainsFile(filename: string) =
+        (this.TryGetSlotOfFileName filename).IsSome
       
     member builder.GetParseResultsForFile (ctok: CompilationThreadToken, filename) =
       cancellable {
@@ -1744,7 +1774,7 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
 
     /// CreateIncrementalBuilder (for background type checking). Note that fsc.fs also
     /// creates an incremental builder used by the command line compiler.
-    static member TryCreateBackgroundBuilderForProjectOptions
+    static member TryCreateIncrementalBuilderForProjectOptions
                       (ctok, legacyReferenceResolver, defaultFSharpBinariesDir,
                        frameworkTcImportsCache: FrameworkImportsCache,
                        loadClosureOpt: LoadClosure option,
@@ -1753,7 +1783,11 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
                        projectReferences, projectDirectory,
                        useScriptResolutionRules, keepAssemblyContents,
                        keepAllBackgroundResolutions, maxTimeShareMilliseconds,
-                       tryGetMetadataSnapshot, suggestNamesForErrors, keepAllBackgroundSymbolUses, enableBackgroundItemKeyStoreAndSemanticClassification) =
+                       tryGetMetadataSnapshot, suggestNamesForErrors,
+                       keepAllBackgroundSymbolUses,
+                       enableBackgroundItemKeyStoreAndSemanticClassification,
+                       dependencyProviderOpt) =
+
       let useSimpleResolutionSwitch = "--simpleresolution"
 
       cancellable {
@@ -1868,14 +1902,16 @@ type IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInput
                     yield Choice2Of2 pr, (fun (cache: TimeStampCache) ctok -> cache.GetProjectReferenceTimeStamp (pr, ctok)) ]
             
             let builder = 
-                new IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInputs, nonFrameworkResolutions, unresolvedReferences, 
-                                        tcConfig, projectDirectory, outfile, assemblyName, niceNameGen, 
-                                        resourceManager, sourceFilesNew, loadClosureOpt, 
-                                        keepAssemblyContents=keepAssemblyContents, 
-                                        keepAllBackgroundResolutions=keepAllBackgroundResolutions, 
-                                        maxTimeShareMilliseconds=maxTimeShareMilliseconds,
-                                        keepAllBackgroundSymbolUses=keepAllBackgroundSymbolUses,
-                                        enableBackgroundItemKeyStoreAndSemanticClassification=enableBackgroundItemKeyStoreAndSemanticClassification)
+                new IncrementalBuilder(tcGlobals, frameworkTcImports, nonFrameworkAssemblyInputs,
+                    nonFrameworkResolutions, unresolvedReferences, 
+                    tcConfig, projectDirectory, outfile, assemblyName, niceNameGen, 
+                    resourceManager, sourceFilesNew, loadClosureOpt, 
+                    keepAssemblyContents, 
+                    keepAllBackgroundResolutions, 
+                    maxTimeShareMilliseconds,
+                    keepAllBackgroundSymbolUses,
+                    enableBackgroundItemKeyStoreAndSemanticClassification,
+                    dependencyProviderOpt)
             return Some builder
           with e -> 
             errorRecoveryNoRange e

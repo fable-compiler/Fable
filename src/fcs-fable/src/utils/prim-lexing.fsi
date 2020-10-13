@@ -102,12 +102,28 @@ type internal LexBuffer<'Char> =
     /// The end position for the lexeme.
     member EndPos: Position with get,set
 
-    /// The matched string.
-    member Lexeme: 'Char []
+#if !FABLE_COMPILER
+    /// The currently matched text as a Span, it is only valid until the lexer is advanced
+    member LexemeView: System.ReadOnlySpan<'Char>
+#endif
+    
+    /// Get single character of matched string
+    member LexemeChar: int -> 'Char
+
+    /// Determine if Lexeme contains a specific character
+    member LexemeContains: 'Char -> bool
+
+#if FABLE_COMPILER
+    /// The length of the lexeme.
+    member LexemeLength: int with get, set
+
+    /// Fast helper to turn the matched characters into a string, avoiding an intermediate array.
+    static member LexemeSliceToString: LexBuffer<LexBufferChar> * int * int -> string
+#endif
 
     /// Fast helper to turn the matched characters into a string, avoiding an intermediate array.
     static member LexemeString : LexBuffer<LexBufferChar> -> string
-
+    
     /// Dynamically typed, non-lexically scoped parameter table.
     member BufferLocalStore : IDictionary<string,obj>
 

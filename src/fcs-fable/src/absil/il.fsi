@@ -100,7 +100,7 @@ type ILScopeRef =
     /// A reference to the type in the current module
     | Local 
     /// A reference to a type in a module in the same assembly
-    | Module of ILModuleRef   
+    | Module of ILModuleRef
     /// A reference to a type in another assembly
     | Assembly of ILAssemblyRef
     /// A reference to a type in the primary assembly
@@ -1409,11 +1409,16 @@ type ILResourceAccess =
     | Public 
     | Private 
 
-[<RequireQualifiedAccess>]
+[<RequireQualifiedAccess;NoEquality;NoComparison>]
 type ILResourceLocation = 
     internal
     /// Represents a manifest resource that can be read or written to a PE file
-    | Local of ReadOnlyByteMemory
+
+#if FABLE_COMPILER
+    | Local of ByteMemory
+#else
+    | Local of ByteStorage
+#endif
 
     /// Represents a manifest resource in an associated file
     | File of ILModuleRef * int32
@@ -1616,6 +1621,7 @@ type ILGlobals =
 val mkILGlobals: primaryScopeRef: ILScopeRef * assembliesThatForwardToPrimaryAssembly: ILAssemblyRef list -> ILGlobals
 
 val EcmaMscorlibILGlobals: ILGlobals
+val PrimaryAssemblyILGlobals: ILGlobals
 
 /// When writing a binary the fake "toplevel" type definition (called <Module>)
 /// must come first. This function puts it first, and creates it in the returned 

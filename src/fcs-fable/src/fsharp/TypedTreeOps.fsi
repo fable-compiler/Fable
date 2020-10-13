@@ -18,6 +18,7 @@ open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.XmlDoc
+open System.Collections.Immutable
 
 type Erasure = EraseAll | EraseMeasures | EraseNone
 
@@ -714,6 +715,8 @@ type UncurriedArgInfos = (TType * ArgReprInfo) list
 
 type CurriedArgInfos = UncurriedArgInfos list
 
+type TraitWitnessInfos = TraitWitnessInfo list
+
 val destTopForallTy : TcGlobals -> ValReprInfo -> TType -> Typars * TType 
 
 val GetTopTauTypeInFSharpForm     : TcGlobals -> ArgReprInfo list list -> TType -> range -> CurriedArgInfos * TType
@@ -724,7 +727,7 @@ val IsCompiledAsStaticProperty    : TcGlobals -> Val -> bool
 
 val IsCompiledAsStaticPropertyWithField : TcGlobals -> Val -> bool
 
-val GetTopValTypeInCompiledForm   : TcGlobals -> ValReprInfo -> TType -> range -> Typars * CurriedArgInfos * TType option * ArgReprInfo
+val GetTopValTypeInCompiledForm   : TcGlobals -> ValReprInfo -> int -> TType -> range -> Typars * TraitWitnessInfos * CurriedArgInfos * TType option * ArgReprInfo
 
 val GetFSharpViewOfReturnType     : TcGlobals -> TType option -> TType
 
@@ -799,6 +802,12 @@ val freeInModuleTy: ModuleOrNamespaceType -> FreeTyvars
 
 val isDimensionless : TcGlobals -> TType -> bool
 
+//---------------------------------------------------------------------------
+// TType modifications and comparisons
+//---------------------------------------------------------------------------
+
+val stripMeasuresFromTType : TcGlobals -> TType -> TType
+
 //-------------------------------------------------------------------------
 // Equivalence of types (up to substitution of type variables in the left-hand type)
 //------------------------------------------------------------------------- 
@@ -819,6 +828,10 @@ type TypeEquivEnv =
 val traitsAEquivAux           : Erasure -> TcGlobals -> TypeEquivEnv -> TraitConstraintInfo  -> TraitConstraintInfo  -> bool
 
 val traitsAEquiv              :            TcGlobals -> TypeEquivEnv -> TraitConstraintInfo  -> TraitConstraintInfo  -> bool
+
+val traitKeysAEquivAux        : Erasure -> TcGlobals -> TypeEquivEnv -> TraitWitnessInfo  -> TraitWitnessInfo  -> bool
+
+val traitKeysAEquiv           :            TcGlobals -> TypeEquivEnv -> TraitWitnessInfo  -> TraitWitnessInfo  -> bool
 
 val typarConstraintsAEquivAux : Erasure -> TcGlobals -> TypeEquivEnv -> TyparConstraint      -> TyparConstraint      -> bool
 
@@ -875,11 +888,11 @@ val normalizeMeasure : TcGlobals -> Measure -> Measure
 
 val GetTypeOfMemberInFSharpForm : TcGlobals -> ValRef -> Typars * CurriedArgInfos * TType * ArgReprInfo
 
-val GetTypeOfMemberInMemberForm : TcGlobals -> ValRef -> Typars * CurriedArgInfos * TType option * ArgReprInfo
+val GetTypeOfMemberInMemberForm : TcGlobals -> ValRef -> Typars * TraitWitnessInfos * CurriedArgInfos * TType option * ArgReprInfo
 
-val GetTypeOfIntrinsicMemberInCompiledForm : TcGlobals -> ValRef -> Typars * CurriedArgInfos * TType option * ArgReprInfo
+val GetTypeOfIntrinsicMemberInCompiledForm : TcGlobals -> ValRef -> Typars * TraitWitnessInfos * CurriedArgInfos * TType option * ArgReprInfo
 
-val GetMemberTypeInMemberForm : TcGlobals -> MemberFlags -> ValReprInfo -> TType -> range -> Typars * CurriedArgInfos * TType option * ArgReprInfo
+val GetMemberTypeInMemberForm : TcGlobals -> MemberFlags -> ValReprInfo -> int -> TType -> range -> Typars * TraitWitnessInfos * CurriedArgInfos * TType option * ArgReprInfo
 
 /// Returns (parentTypars,memberParentTypars,memberMethodTypars,memberToParentInst,tinst)
 val PartitionValTyparsForApparentEnclosingType : TcGlobals -> Val -> (Typars * Typars * Typars * TyparInst * TType list) option
@@ -889,6 +902,9 @@ val PartitionValTypars : TcGlobals -> Val -> (Typars * Typars * Typars * TyparIn
 
 /// Returns (parentTypars,memberParentTypars,memberMethodTypars,memberToParentInst,tinst)
 val PartitionValRefTypars : TcGlobals -> ValRef -> (Typars * Typars * Typars * TyparInst * TType list) option
+
+/// Count the number of type parameters on the enclosing type
+val CountEnclosingTyparsOfActualParentOfVal: Val -> int
 
 val ReturnTypeOfPropertyVal : TcGlobals -> Val -> TType
 
@@ -1004,6 +1020,8 @@ val ticksAndArgCountTextOfTyconRef : TyconRef -> string
 
 /// A unique qualified name for each type definition, used to qualify the names of interface implementation methods
 val qualifiedMangledNameOfTyconRef : TyconRef -> string -> string
+
+val qualifiedInterfaceImplementationName : TcGlobals -> TType -> string -> string
 
 val trimPathByDisplayEnv : DisplayEnv -> string list -> string
 
@@ -1522,6 +1540,18 @@ val normalizeEnumTy : TcGlobals -> TType -> TType
 /// Determine if a type is a struct type
 val isStructTy                   : TcGlobals -> TType -> bool
 
+/// Determine if a type is a variable type with the ': struct' constraint.
+///
+/// Note, isStructTy does not include type parameters with the ': struct' constraint
+/// This predicate is used to detect those type parameters.
+val isNonNullableStructTyparTy : TcGlobals -> TType -> bool
+
+/// Determine if a type is a variable type with the ': not struct' constraint.
+///
+/// Note, isRefTy does not include type parameters with the ': not struct' constraint
+/// This predicate is used to detect those type parameters.
+val isReferenceTyparTy : TcGlobals -> TType -> bool
+
 /// Determine if a type is an unmanaged type
 val isUnmanagedTy                : TcGlobals -> TType -> bool
 
@@ -1773,7 +1803,7 @@ val mkInvalidCastExnNewobj: TcGlobals -> ILInstr
 // Construct calls to some intrinsic functions
 //------------------------------------------------------------------------- 
 
-val mkCallNewFormat              : TcGlobals -> range -> TType -> TType -> TType -> TType -> TType -> Expr -> Expr
+val mkCallNewFormat: TcGlobals -> range -> TType -> TType -> TType -> TType -> TType -> formatStringExpr: Expr -> Expr
 
 val mkCallUnbox       : TcGlobals -> range -> TType -> Expr -> Expr
 
@@ -1861,6 +1891,8 @@ val mkCallDivisionOperator                   : TcGlobals -> range -> TType -> Ex
 
 val mkCallModulusOperator                    : TcGlobals -> range -> TType -> Expr -> Expr -> Expr
 
+val mkCallDefaultOf                          : TcGlobals -> range -> TType -> Expr
+
 val mkCallBitwiseAndOperator                 : TcGlobals -> range -> TType -> Expr -> Expr -> Expr
 
 val mkCallBitwiseOrOperator                  : TcGlobals -> range -> TType -> Expr -> Expr -> Expr
@@ -1943,6 +1975,8 @@ val mkCallCastQuotation      : TcGlobals -> range -> TType -> Expr -> Expr
 
 val mkCallLiftValueWithName          : TcGlobals -> range -> TType -> string -> Expr -> Expr
 
+val mkCallLiftValue: TcGlobals -> range -> TType -> Expr -> Expr
+
 val mkCallLiftValueWithDefn          : TcGlobals -> range -> TType -> Expr -> Expr
 
 val mkCallSeqCollect         : TcGlobals -> range -> TType  -> TType -> Expr -> Expr -> Expr
@@ -1968,6 +2002,9 @@ val mkCallSeqMap             : TcGlobals -> range -> TType  -> TType -> Expr -> 
 val mkCallSeqSingleton       : TcGlobals -> range -> TType  -> Expr -> Expr
 
 val mkCallSeqEmpty           : TcGlobals -> range -> TType  -> Expr
+
+/// Make a call to the 'isprintf' function for string interpolation
+val mkCall_sprintf: g: TcGlobals -> m: range -> funcTy: TType -> fmtExpr: Expr -> fillExprs: Expr list -> Expr
 
 val mkILAsmCeq                   : TcGlobals -> range -> Expr -> Expr -> Expr
 
@@ -1996,6 +2033,12 @@ val mkStaticCall_String_Concat3 : TcGlobals -> range -> Expr -> Expr -> Expr -> 
 val mkStaticCall_String_Concat4 : TcGlobals -> range -> Expr -> Expr -> Expr -> Expr -> Expr
 
 val mkStaticCall_String_Concat_Array : TcGlobals -> range -> Expr -> Expr
+
+/// Use a witness in BuiltInWitnesses
+val tryMkCallBuiltInWitness : TcGlobals -> TraitConstraintInfo -> Expr list -> range -> Expr option
+
+/// Use an operator as a witness 
+val tryMkCallCoreFunctionAsBuiltInWitness : TcGlobals -> IntrinsicValRef -> TType list -> Expr list -> range -> Expr option
 
 //-------------------------------------------------------------------------
 // operations primarily associated with the optimization to fix
@@ -2168,7 +2211,7 @@ val buildAccessPath : CompilationPath option -> string
 
 val XmlDocArgsEnc : TcGlobals -> Typars * Typars -> TType list -> string
 
-val XmlDocSigOfVal : TcGlobals -> string -> Val -> string
+val XmlDocSigOfVal : TcGlobals -> full: bool ->  string -> Val -> string
 
 val XmlDocSigOfUnionCase : (string list -> string)
 
@@ -2191,7 +2234,7 @@ type StaticOptimizationAnswer =
     | No = -1y
     | Unknown = 0y
 
-val DecideStaticOptimizations : TcGlobals -> StaticOptimization list -> StaticOptimizationAnswer
+val DecideStaticOptimizations : TcGlobals -> StaticOptimization list -> haveWitnesses: bool -> StaticOptimizationAnswer
 
 val mkStaticOptimizationExpr     : TcGlobals -> StaticOptimization list * Expr * Expr * range -> Expr
 
@@ -2259,7 +2302,11 @@ val (|EnumExpr|_|) : TcGlobals -> Expr -> Expr option
 val (|TypeOfExpr|_|) : TcGlobals -> Expr -> TType option
 
 val (|TypeDefOfExpr|_|) : TcGlobals -> Expr -> TType option
+
+val isNameOfValRef: TcGlobals -> ValRef -> bool
+
 val (|NameOfExpr|_|) : TcGlobals -> Expr -> TType option
+
 val (|SeqExpr|_|) : TcGlobals -> Expr -> unit option
 
 val EvalLiteralExprOrAttribArg: TcGlobals -> Expr -> Expr
@@ -2323,10 +2370,30 @@ val isThreadOrContextStatic: TcGlobals -> Attrib list -> bool
 
 val mkUnitDelayLambda: TcGlobals -> range -> Expr -> Expr
 
+val GenWitnessArgTys: TcGlobals -> TraitWitnessInfo -> TType list list
+
+val GenWitnessTys: TcGlobals -> TraitWitnessInfos -> TType list
+
+val GenWitnessTy: TcGlobals -> TraitWitnessInfo -> TType 
+
+val GetTraitConstraintInfosOfTypars: TcGlobals -> Typars -> TraitConstraintInfo list
+
+val GetTraitWitnessInfosOfTypars: TcGlobals -> numParentTypars: int -> typars: Typars -> TraitWitnessInfos
+
+/// An immutable mappping from witnesses to some data.
+///
+/// Note: this uses an immutable HashMap/Dictionary with an IEqualityComparer that captures TcGlobals, see EmptyTraitWitnessInfoHashMap
+#if FABLE_COMPILER
+type TraitWitnessInfoHashMap<'T> = Internal.Utilities.Collections.Tagged.Map<TraitWitnessInfo, 'T>
+#else
+type TraitWitnessInfoHashMap<'T> = ImmutableDictionary<TraitWitnessInfo, 'T>
+#endif
+
+/// Create an empty immutable mapping from witnesses to some data
+val EmptyTraitWitnessInfoHashMap: TcGlobals -> TraitWitnessInfoHashMap<'T>
+
 /// Match expressions that are an application of a particular F# function value
 val (|ValApp|_|) : TcGlobals -> ValRef -> Expr -> (TypeInst * Exprs * range) option
-
-val isStaticClass: g: TcGlobals -> tcref: TyconRef -> bool
 
 val CombineCcuContentFragments: range -> ModuleOrNamespaceType list -> ModuleOrNamespaceType
 

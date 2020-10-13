@@ -6,6 +6,7 @@
 module internal FSharp.Compiler.Optimizer
 
 open Internal.Utilities
+open Internal.Utilities.StructuredFormat
 
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL.Diagnostics
@@ -135,16 +136,33 @@ type ValInfos(entries) =
                    t.Add (vref.Deref, (vref, x))
               t)
 
-    // The compiler ValRef's into fslib stored in env.fs break certain invariants that hold elsewhere, 
+    // The compiler's ValRef's in TcGlobals.fs that refer to things in FSharp.Core break certain invariants that hold elsewhere, 
     // because they dereference to point to Val's from signatures rather than Val's from implementations.
-    // Thus a backup alternative resolution technique is needed for these.
+    // Thus a backup alternative resolution technique is needed for these when processing the FSharp.Core implementation files
+    // holding these items. This resolution must be able to distinguish between overloaded methods, so we use
+    // XmlDocSigOfVal as a cheap hack to get a unique item of data for a value.
     let valInfosForFslib = 
-        lazy (
-            let dict = Dictionary<_, _>()
+        LazyWithContext<_, TcGlobals>.Create ((fun g -> 
+            let dict = 
+                Dictionary<(ValRef * ValLinkageFullKey), (ValRef * ValInfo)>
+                    (HashIdentity.FromFunctions
+                         (fun (_: ValRef, k: ValLinkageFullKey) -> hash k.PartialKey)
+                         (fun (v1, k1) (v2, k2) -> 
+                             k1.PartialKey = k2.PartialKey && 
+                             // dismbiguate overloads, somewhat low-perf but only use for a handful of overloads in FSharp.Core
+                             match k1.TypeForLinkage, k2.TypeForLinkage with
+                             | Some _, Some _ -> 
+                                 let sig1 = XmlDocSigOfVal g true "" v1.Deref 
+                                 let sig2 = XmlDocSigOfVal g true "" v2.Deref
+                                 (sig1 = sig2) 
+                             | None, None -> true
+                             | _ -> false))
             for (vref, _x) as p in entries do 
-                let vkey = vref.Deref.GetLinkagePartialKey()
+                let vkey = (vref, vref.Deref.GetLinkageFullKey())
+                if dict.ContainsKey vkey then 
+                    failwithf "dictionary already contains key %A" vkey
                 dict.Add(vkey, p) |> ignore
-            dict)
+            dict), id)
 
     member x.Entries = valInfoTable.Force().Values
 
@@ -154,7 +172,8 @@ type ValInfos(entries) =
 
     member x.TryFind (v: ValRef) = valInfoTable.Force().TryFind v.Deref
 
-    member x.TryFindForFslib (v: ValRef) = valInfosForFslib.Force().TryGetValue(v.Deref.GetLinkagePartialKey())
+    member x.TryFindForFslib (g, vref: ValRef) =
+        valInfosForFslib.Force(g).TryGetValue((vref, vref.Deref.GetLinkageFullKey()))
 
 type ModuleInfo = 
     { ValInfos: ValInfos
@@ -394,7 +413,7 @@ type IncrementalOptimizationEnv =
       dontSplitVars: ValMap<unit>
 
       /// Disable method splitting in loops
-      inLoop: bool
+      disableMethodSplitting: bool
 
       /// The Val for the function binding being generated, if any. 
       functionVal: (Val * ValReprInfo) option
@@ -412,7 +431,7 @@ type IncrementalOptimizationEnv =
           typarInfos = []
           functionVal = None 
           dontSplitVars = ValMap.Empty
-          inLoop = false
+          disableMethodSplitting = false
           localExternalVals = LayeredMap.Empty 
           globalModuleInfos = LayeredMap.Empty }
 
@@ -626,7 +645,7 @@ let GetInfoForNonLocalVal cenv env (vref: ValRef) =
                   //dprintn ("\n\n*** Optimization info for value "+n+" from module "+(full_name_of_nlpath smv)+" not found, module contains values: "+String.concat ", " (NameMap.domainL structInfo.ValInfos))  
                   //System.Diagnostics.Debug.Assert(false, sprintf "Break for module %s, value %s" (full_name_of_nlpath smv) n)
                   if cenv.g.compilingFslib then 
-                      match structInfo.ValInfos.TryFindForFslib vref with 
+                      match structInfo.ValInfos.TryFindForFslib (cenv.g, vref) with 
                       | true, ninfo -> snd ninfo
                       | _ -> UnknownValInfo
                   else
@@ -1236,18 +1255,18 @@ let RemapOptimizationInfo g tmenv =
 /// Hide information when a value is no longer visible
 let AbstractAndRemapModulInfo msg g m (repackage, hidden) info =
     let mrpi = mkRepackageRemapping repackage
-#if DEBUG
-    if verboseOptimizationInfo then dprintf "%s - %a - Optimization data prior to trim: \n%s\n" msg outputRange m (Layout.showL (Layout.squashTo 192 (moduleInfoL g info)))
+#if DEBUG && !FABLE_COMPILER
+    if verboseOptimizationInfo then dprintf "%s - %a - Optimization data prior to trim: \n%s\n" msg outputRange m (Layout.showL (Display.squashTo 192 (moduleInfoL g info)))
 #else
     ignore (msg, m)
 #endif
     let info = info |> AbstractLazyModulInfoByHiding false hidden
-#if DEBUG
-    if verboseOptimizationInfo then dprintf "%s - %a - Optimization data after trim:\n%s\n" msg outputRange m (Layout.showL (Layout.squashTo 192 (moduleInfoL g info)))
+#if DEBUG && !FABLE_COMPILER
+    if verboseOptimizationInfo then dprintf "%s - %a - Optimization data after trim:\n%s\n" msg outputRange m (Layout.showL (Display.squashTo 192 (moduleInfoL g info)))
 #endif
     let info = info |> RemapOptimizationInfo g mrpi
-#if DEBUG
-    if verboseOptimizationInfo then dprintf "%s - %a - Optimization data after remap:\n%s\n" msg outputRange m (Layout.showL (Layout.squashTo 192 (moduleInfoL g info)))
+#if DEBUG && !FABLE_COMPILER
+    if verboseOptimizationInfo then dprintf "%s - %a - Optimization data after remap:\n%s\n" msg outputRange m (Layout.showL (Display.squashTo 192 (moduleInfoL g info)))
 #endif
     info
 
@@ -1883,8 +1902,12 @@ let rec OptimizeExpr cenv (env: IncrementalOptimizationEnv) expr =
         OptimizeVal cenv env expr (v, m)
 
     | Expr.Quote (ast, splices, isFromQueryExpression, m, ty) -> 
-          let splices = ref (splices.Value |> Option.map (map3Of4 (List.map (OptimizeExpr cenv env >> fst))))
-          Expr.Quote (ast, splices, isFromQueryExpression, m, ty), 
+          let doData data = map3Of4 (List.map (OptimizeExpr cenv env >> fst)) data
+          let splices =
+              match splices.Value with
+              | Some (data1, data2opt) -> Some (doData data1, doData data2opt)
+              | None -> None
+          Expr.Quote (ast, ref splices, isFromQueryExpression, m, ty), 
           { TotalSize = 10
             FunctionSize = 1
             HasEffect = false  
@@ -1935,6 +1958,14 @@ let rec OptimizeExpr cenv (env: IncrementalOptimizationEnv) expr =
     | Expr.Link _eref -> 
         assert ("unexpected reclink" = "")
         failwith "Unexpected reclink"
+
+    | Expr.WitnessArg _ ->
+        expr, 
+        { TotalSize = 10
+          FunctionSize = 1
+          HasEffect = false  
+          MightMakeCriticalTailcall=false
+          Info=UnknownValue }
 
 /// Optimize/analyze an object expression
 and OptimizeObjectExpr cenv env (ty, baseValOpt, basecall, overrides, iimpls, m) =
@@ -1992,9 +2023,12 @@ and MakeOptimizedSystemStringConcatCall cenv env m args =
           when IsILMethodRefSystemStringConcat mref ->
             optimizeArgs args accArgs
 
+// String constant folding requires a bit more work as we cannot quadratically concat strings at compile time.
+#if STRING_CONSTANT_FOLDING
         // Optimize string constants, e.g. "1" + "2" will turn into "12"
         | Expr.Const (Const.String str1, _, _), Expr.Const (Const.String str2, _, _) :: accArgs ->
             mkString cenv.g m (str1 + str2) :: accArgs
+#endif
 
         | arg, _ -> arg :: accArgs
 
@@ -2059,10 +2093,10 @@ and OptimizeExprOp cenv env (op, tyargs, args, m) =
 
     // Handle these as special cases since mutables are allowed inside their bodies 
     | TOp.While (spWhile, marker), _, [Expr.Lambda (_, _, _, [_], e1, _, _);Expr.Lambda (_, _, _, [_], e2, _, _)] ->
-        OptimizeWhileLoop cenv { env with inLoop=true } (spWhile, marker, e1, e2, m) 
+        OptimizeWhileLoop cenv { env with disableMethodSplitting=true } (spWhile, marker, e1, e2, m) 
 
     | TOp.For (spStart, dir), _, [Expr.Lambda (_, _, _, [_], e1, _, _);Expr.Lambda (_, _, _, [_], e2, _, _);Expr.Lambda (_, _, _, [v], e3, _, _)] -> 
-        OptimizeFastIntegerForLoop cenv { env with inLoop=true } (spStart, v, e1, dir, e2, e3, m) 
+        OptimizeFastIntegerForLoop cenv { env with disableMethodSplitting=true } (spStart, v, e1, dir, e2, e3, m) 
 
     | TOp.TryFinally (spTry, spFinally), [resty], [Expr.Lambda (_, _, _, [_], e1, _, _); Expr.Lambda (_, _, _, [_], e2, _, _)] -> 
         OptimizeTryFinally cenv env (spTry, spFinally, e1, e2, m, resty)
@@ -2429,7 +2463,7 @@ and OptimizeWhileLoop cenv env (spWhile, marker, e1, e2, m) =
 and OptimizeTraitCall cenv env (traitInfo, args, m) =
 
     // Resolve the static overloading early (during the compulsory rewrite phase) so we can inline. 
-    match ConstraintSolver.CodegenWitnessThatTypeSupportsTraitConstraint cenv.TcVal cenv.g cenv.amap m traitInfo args with
+    match ConstraintSolver.CodegenWitnessForTraitConstraint cenv.TcVal cenv.g cenv.amap m traitInfo args with
 
     | OkResult (_, Some expr) -> OptimizeExpr cenv env expr
 
@@ -2924,7 +2958,6 @@ and OptimizeLambdas (vspec: Val option) cenv env topValInfo e ety =
         let env = Option.foldBack (BindInternalValToUnknown cenv) baseValOpt env
         let env = BindTypeVarsToUnknown tps env
         let env = List.foldBack (BindInternalValsToUnknown cenv) vsl env
-        let env = BindInternalValsToUnknown cenv (Option.toList baseValOpt) env
         let bodyR, bodyinfo = OptimizeExpr cenv env body
         let exprR = mkMemberLambdas m tps ctorThisValOpt baseValOpt vsl (bodyR, bodyty)
         let arities = vsl.Length
@@ -2970,7 +3003,6 @@ and OptimizeLambdas (vspec: Val option) cenv env topValInfo e ety =
                   let expr2 = mkMemberLambdas m tps ctorThisValOpt None vsl (bodyR, bodyty)
                   CurriedLambdaValue (lambdaId, arities, bsize, expr2, ety) 
                   
-
         let estimatedSize = 
             match vspec with
             | Some v when v.IsCompiledAsTopLevel -> methodDefnTotalSize
@@ -3018,11 +3050,9 @@ and OptimizeExprThenConsiderSplit cenv env e =
 /// Decide whether to List.unzip a sub-expression into a new method
 and ComputeSplitToMethodCondition flag threshold cenv env (e: Expr, einfo) = 
     flag &&
-    // REVIEW: The method splitting optimization is completely disabled if we are not taking tailcalls.
-    // REVIEW: This should only apply to methods that actually make self-tailcalls (tested further below).
-    // Old comment "don't mess with taking guaranteed tailcalls if used with --no-tailcalls!" 
+    // NOTE: The method splitting optimization is completely disabled if we are not taking tailcalls.
     cenv.emitTailcalls &&
-    not env.inLoop &&
+    not env.disableMethodSplitting &&
     einfo.FunctionSize >= threshold &&
 
      // We can only split an expression out as a method if certain conditions are met. 
@@ -3047,7 +3077,7 @@ and ComputeSplitToMethodCondition flag threshold cenv env (e: Expr, einfo) =
 
 and ConsiderSplitToMethod flag threshold cenv env (e, einfo) = 
     if ComputeSplitToMethodCondition flag threshold cenv env (e, einfo) then
-        let m = (e.Range)
+        let m = e.Range
         let uv, _ue = mkCompGenLocal m "unitVar" cenv.g.unit_ty
         let ty = tyOfExpr cenv.g e
         let nm = 
@@ -3451,8 +3481,13 @@ let OptimizeImplFile (settings, ccu, tcGlobals, tcVal, importMap, optEnv, isIncr
           localInternalVals=Dictionary<Stamp, ValInfo>(10000)
           emitTailcalls=emitTailcalls
           casApplied=new Dictionary<Stamp, bool>() }
-    let (optEnvNew, _, _, _ as results) = OptimizeImplFileInternal cenv optEnv isIncrementalFragment hidden mimpls  
-    let optimizeDuringCodeGen expr = OptimizeExpr cenv optEnvNew expr |> fst
+
+    let (env, _, _, _ as results) = OptimizeImplFileInternal cenv optEnv isIncrementalFragment hidden mimpls  
+
+    let optimizeDuringCodeGen disableMethodSplitting expr =
+        let env = { env with disableMethodSplitting = env.disableMethodSplitting || disableMethodSplitting }
+        OptimizeExpr cenv env expr |> fst
+
     results, optimizeDuringCodeGen
 
 
