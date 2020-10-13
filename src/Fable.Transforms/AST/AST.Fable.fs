@@ -2,7 +2,15 @@ namespace rec Fable.AST.Fable
 
 open Fable.AST
 
-type EntityRef = string
+type EntityRef =
+    { QualifiedName: string
+      SourcePath: string option }
+    member this.FullName =
+        let fullName =
+            match this.QualifiedName.IndexOf(",") with
+            | i when i > 0 -> this.QualifiedName.[..i-1]
+            | _ -> this.QualifiedName
+        fullName.Replace("+", ".")
 
 type DeclaredType =
     abstract Definition: EntityRef
@@ -53,8 +61,8 @@ type MemberFunctionOrValue =
     abstract IsExplicitInterfaceImplementation: bool
     abstract ApparentEnclosingEntity: EntityRef
 
-// TODO: Add FableDeclarationName to be able to get a reference to the entity
 type Entity =
+    abstract Ref: EntityRef
     abstract DisplayName: string
     abstract FullName: string
     abstract Attributes: Attribute seq
@@ -70,7 +78,6 @@ type Entity =
     abstract IsValueType: bool
     abstract IsFSharpExceptionDeclaration: bool
     abstract IsInterface: bool
-    abstract IsFromDllReference: bool
 
 type Type =
     | MetaType

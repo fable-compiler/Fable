@@ -159,7 +159,7 @@ let (|BuiltinEntity|_|) (ent: string, genArgs) =
 
 let (|Builtin|_|) = function
     | DeclaredType(ent, genArgs) ->
-        match ent, genArgs with
+        match ent.FullName, genArgs with
         | BuiltinEntity x -> Some x
         | _ -> None
     | _ -> None
@@ -230,7 +230,7 @@ let (|OrDefault|) (def:'T) = function
 
 let (|EntFullName|_|) (typ: Type) =
     match typ with
-    | DeclaredType(ent, _) -> Some ent
+    | DeclaredType(ent, _) -> Some ent.FullName
     | _ -> None
 
 let (|ListLiteral|_|) e =
@@ -249,7 +249,7 @@ let (|ArrayOrListLiteral|_|) = function
 
 let (|IDictionary|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
-        match ent with
+        match ent.FullName with
         | Types.idictionary -> IDictionary
         | Types.equalityComparer -> IEqualityComparer
         | _ -> Other
@@ -257,7 +257,7 @@ let (|IDictionary|IEqualityComparer|Other|) = function
 
 let (|IEnumerable|IEqualityComparer|Other|) = function
     | DeclaredType(ent,_) ->
-        match ent with
+        match ent.FullName with
         | Types.ienumerableGeneric -> IEnumerable
         | Types.equalityComparer -> IEqualityComparer
         | _ -> Other
@@ -2402,12 +2402,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | [] -> Helper.LibCall(com, moduleName, "minValue", t, [], [], ?loc=r) |> Some
         | ExprType(Builtin BclInt64)::_ ->
             Helper.LibCall(com, moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-        | ExprType(DeclaredType(e,[]))::_ when e = Types.datetime ->
+        | ExprType(DeclaredType(e,[]))::_ when e.FullName = Types.datetime ->
             Helper.LibCall(com, "DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ ->
             let last = List.last args
             match args.Length, last.Type with
-            | 7, Enum ent when ent = "System.DateTimeKind" ->
+            | 7, Enum ent when ent.FullName = "System.DateTimeKind" ->
                 let args = (List.take 6 args) @ [makeIntConst 0; last]
                 let argTypes = (List.take 6 i.SignatureArgTypes) @ [Number Int32; last.Type]
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc=r) |> Some
@@ -2866,7 +2866,7 @@ let tryField com returnTyp ownerTyp fieldName =
     | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, coreModFor BclDateTimeOffset, Naming.lowerFirst fieldName, returnTyp, []) |> Some
     | DeclaredType(ent, genArgs), fieldName ->
-        match ent with
+        match ent.FullName with
         | "System.BitConverter" ->
             Helper.LibCall(com, "BitConverter", Naming.lowerFirst fieldName, returnTyp, []) |> Some
         | _ -> None

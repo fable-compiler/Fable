@@ -69,7 +69,7 @@ type FsParam(p: FSharpParameter) =
 
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
-        member _.Definition = FsEnt.FullName ent
+        member _.Definition = FsEnt.Ref ent
         member _.GenericArgs = genArgs |> Seq.mapToList (TypeHelpers.makeType Map.empty)
 
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
@@ -100,37 +100,66 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
             |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
         member _.ReturnParameter = upcast FsParam(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
-        member _.ApparentEnclosingEntity = FsEnt.FullName m.ApparentEnclosingEntity
+        member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
 
 type FsEnt(ent: FSharpEntity) =
+    static let rec nonAbbreviatedDefinition (ent: FSharpEntity) =
+        if ent.IsFSharpAbbreviation then
+            let t = ent.AbbreviatedType
+            if t.HasTypeDefinition then nonAbbreviatedDefinition t.TypeDefinition
+            else ent
+        else ent
+
+    static let tryArrayFullName (ent: FSharpEntity) =
+        if ent.IsArrayType then
+            let rank =
+                match ent.ArrayRank with
+                | rank when rank > 1 -> "`" + string rank
+                | _ -> ""
+            Some("System.Array" + rank)
+        else None
+
     member _.FSharpEntity = ent
 
-    static member IsFromDllReference (ent: FSharpEntity) =
-        Option.isSome ent.Assembly.FileName
+    static member SourcePath (ent: FSharpEntity) =
+        ent.DeclarationLocation.FileName
+        |> Path.normalizePathAndEnsureFsExtension
 
     static member IsPublic (ent: FSharpEntity) =
         not ent.Accessibility.IsPrivate
 
-    static member FullName (ent: FSharpEntity) =
-        if ent.IsFSharpAbbreviation then
-            let t = ent.AbbreviatedType
-            if t.HasTypeDefinition then
-                FsEnt.FullName t.TypeDefinition
-            else ent.LogicalName
-        elif ent.IsArrayType then
-            "System.Array"
-        elif ent.IsNamespace then
+    static member QualifiedName (ent: FSharpEntity): string =
+        let ent = nonAbbreviatedDefinition ent
+        match tryArrayFullName ent with
+        | Some fullName -> fullName
+        | None ->
+            try ent.QualifiedName
+            with _ -> ent.LogicalName
+
+    static member FullName (ent: FSharpEntity): string =
+        let ent = nonAbbreviatedDefinition ent
+        match tryArrayFullName ent with
+        | Some fullName -> fullName
+        | None when ent.IsNamespace ->
             match ent.Namespace with
             | Some ns -> ns + "." + ent.CompiledName
             | None -> ent.CompiledName
-        else
+        | None ->
             match ent.TryFullName with
             | Some n -> n
             | None -> ent.LogicalName
 
-    interface Fable.Entity with
-        member _.DisplayName = ent.DisplayName
+    static member Ref (ent: FSharpEntity): Fable.EntityRef =
+        let sourcePath =
+            if Option.isSome ent.Assembly.FileName
+            then None
+            else Some(FsEnt.SourcePath ent)
+        { QualifiedName = FsEnt.QualifiedName ent
+          SourcePath = sourcePath }
 
+    interface Fable.Entity with
+        member _.Ref = FsEnt.Ref ent
+        member _.DisplayName = ent.DisplayName
         member _.FullName = FsEnt.FullName ent
 
         member _.BaseDeclaration =
@@ -164,7 +193,6 @@ type FsEnt(ent: FSharpEntity) =
         member _.UnionCases =
             ent.UnionCases |> Seq.mapToList (fun x -> FsUnionCase(x) :> Fable.UnionCase)
 
-        member _.IsFromDllReference = FsEnt.IsFromDllReference ent
         member _.IsPublic = FsEnt.IsPublic ent
         member _.IsFSharpUnion = ent.IsFSharpUnion
         member _.IsFSharpRecord = ent.IsFSharpRecord
@@ -259,14 +287,14 @@ module Helpers =
         else (nonAbbreviatedType t).GenericArguments
 
     let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.EntityRef) =
-        match ent with
-        | fullName when not trimRootModule -> fullName
-        | fullName ->
-            let sourcePath = com.GetEntitySourcePath(ent)
+        let fullName = ent.FullName
+        match trimRootModule, ent.SourcePath with
+        | true, Some sourcePath ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
+        | _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
         if name = ".ctor" then "$ctor"
@@ -280,12 +308,12 @@ module Helpers =
     let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
             let overloadSuffix = OverloadSuffix.getExtensionHash memb
-            let entName = FsEnt.FullName memb.ApparentEnclosingEntity |> getEntityMangledName com false
+            let entName = FsEnt.Ref memb.ApparentEnclosingEntity |> getEntityMangledName com false
             entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
         else
             match memb.DeclaringEntity with
             | Some ent ->
-                let entFullName = FsEnt.FullName ent
+                let entFullName = FsEnt.Ref ent
                 if ent.IsFSharpModule then
                     match getEntityMangledName com trimRootModule entFullName with
                     | "" -> memb.CompiledName, Naming.NoMemberPart
@@ -719,7 +747,7 @@ module TypeHelpers =
         elif tdef.IsDelegate then
             makeTypeFromDelegate ctxTypeArgs genArgs tdef
         elif tdef.IsEnum then
-            Fable.Enum(FsEnt.FullName tdef)
+            Fable.Enum(FsEnt.Ref tdef)
         else
             match FsEnt.FullName tdef with
             // Fable "primitives"
@@ -739,7 +767,7 @@ module TypeHelpers =
             | _ when hasAttribute Atts.stringEnum tdef.Attributes -> Fable.String
             | _ when hasAttribute Atts.erase tdef.Attributes -> Fable.Any
             // Rest of declared types
-            | _ -> Fable.DeclaredType(FsEnt.FullName tdef, makeGenArgs ctxTypeArgs genArgs)
+            | _ -> Fable.DeclaredType(FsEnt.Ref tdef, makeGenArgs ctxTypeArgs genArgs)
 
     let rec makeType (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -1039,7 +1067,10 @@ module Util =
                 else selector
             let path =
                 match Path.isRelativePath path, memb.DeclaringEntity with
-                | true, Some e -> FsEnt.FullName e |> com.GetEntitySourcePath |> fixImportedRelativePath com path
+                | true, Some e ->
+                    FsEnt.Ref(e).SourcePath
+                    |> Option.map (fixImportedRelativePath com path)
+                    |> Option.defaultValue path
                 | _ -> path
             makeImportUserGenerated None typ (makeStrConst selector) (makeStrConst path) |> Some
         | _ -> None
@@ -1056,8 +1087,9 @@ module Util =
                 else selector
             let path =
                 if Path.isRelativePath path then
-                    com.GetEntitySourcePath(ent.FullName)
-                    |> fixImportedRelativePath com path
+                    ent.Ref.SourcePath
+                    |> Option.map (fixImportedRelativePath com path)
+                    |> Option.defaultValue path
                 else path
             makeImportUserGenerated None Fable.Any (makeStrConst selector) (makeStrConst path) |> Some
         | _ -> None
@@ -1081,10 +1113,11 @@ module Util =
         else entFullName.StartsWith("Fable.Core.")
 
     let isReplacementCandidate (ent: Fable.Entity) =
-        isReplacementCandidatePrivate ent.IsFromDllReference ent.FullName
+        let isFromDllRef = Option.isNone ent.Ref.SourcePath
+        isReplacementCandidatePrivate isFromDllRef ent.FullName
 
     let isReplacementCandidateFrom (ent: FSharpEntity) =
-        let isFromDllRef = FsEnt.IsFromDllReference ent
+        let isFromDllRef = Option.isSome ent.Assembly.FileName
         isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
@@ -1092,12 +1125,11 @@ module Util =
         let error msg =
             sprintf "%s: %s" msg ent.FullName
             |> addErrorAndReturnNull com [] None
-        if ent.IsInterface then
-            error "Cannot reference an interface"
-        else
-            let entFullName = ent.FullName
-            let file = com.GetEntitySourcePath(entFullName)
-            let entityName = getEntityDeclarationName com entFullName + suffix
+        match ent.IsInterface, ent.Ref.SourcePath with
+        | true, _ -> error "Cannot reference an interface"
+        | _, None -> error "Cannot reference entity from .dll reference"
+        | _, Some file ->
+            let entityName = getEntityDeclarationName com ent.Ref + suffix
             if file = com.CurrentFile then
                 makeIdentExpr entityName
             elif ent.IsPublic then
@@ -1118,11 +1150,11 @@ module Util =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
-            match memb.DeclaringEntity with
-            | Some ent -> FsEnt.FullName ent |> com.GetEntitySourcePath
+            memb.DeclaringEntity
+            |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            | None -> com.CurrentFile
+            |> Option.defaultValue com.CurrentFile
         if file = com.CurrentFile then
             { makeTypedIdent typ memberName with Range = r }
             |> Fable.IdentExpr
@@ -1376,7 +1408,7 @@ module Util =
             |> snd
 
     let hasInterface interfaceFullname (ent: Fable.Entity) =
-        ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Definition = interfaceFullname)
+        ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Definition.FullName = interfaceFullname)
 
     let makeCallWithArgInfo com ctx r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with

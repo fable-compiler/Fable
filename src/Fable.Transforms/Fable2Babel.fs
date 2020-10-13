@@ -123,7 +123,7 @@ module Reflection =
         let genericTypeInfo name genArgs =
             let resolved = resolveGenerics genArgs
             libReflectionCall com ctx None name resolved
-        let genericEntity (fullname: Fable.EntityRef) generics =
+        let genericEntity (fullname: string) generics =
             let fullnameExpr = StringLiteral fullname :> Expression
             let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
             libReflectionCall com ctx None "class" args
@@ -139,8 +139,8 @@ module Reflection =
         | Fable.Boolean -> primitiveTypeInfo "bool"
         | Fable.Char    -> primitiveTypeInfo "char"
         | Fable.String  -> primitiveTypeInfo "string"
-        | Fable.Enum fullName ->
-            let ent = com.GetEntity(fullName)
+        | Fable.Enum entRef ->
+            let ent = com.GetEntity(entRef)
             let mutable numberKind = Int32
             let cases =
                 ent.FSharpFields |> Seq.choose (fun fi ->
@@ -156,7 +156,7 @@ module Reflection =
                         ArrayExpression [|StringLiteral name; NumericLiteral value|] :> Expression |> Some)
                 |> Seq.toArray
                 |> ArrayExpression
-            [|StringLiteral fullName :> Expression; numberInfo numberKind; cases :> _|]
+            [|StringLiteral entRef.FullName :> Expression; numberInfo numberKind; cases :> _|]
             |> libReflectionCall com ctx None "enum"
         | Fable.Number kind ->
             numberInfo kind
@@ -175,8 +175,9 @@ module Reflection =
             Array.zip fieldNames genArgs
             |> Array.map (fun (k, t) -> ArrayExpression [|StringLiteral k; t|] :> Expression)
             |> libReflectionCall com ctx None "anonRecord"
-        | Fable.DeclaredType(ent, generics) ->
-            match ent, generics with
+        | Fable.DeclaredType(entRef, generics) ->
+            let fullName = entRef.FullName
+            match fullName, generics with
             | Replacements.BuiltinEntity kind ->
                 match kind with
                 | Replacements.BclGuid
@@ -187,33 +188,33 @@ module Reflection =
                 | Replacements.BclInt64
                 | Replacements.BclUInt64
                 | Replacements.BclDecimal
-                | Replacements.BclBigInt -> genericEntity ent [||]
+                | Replacements.BclBigInt -> genericEntity fullName [||]
                 | Replacements.BclHashSet gen
                 | Replacements.FSharpSet gen ->
-                    genericEntity ent [|transformTypeInfo com ctx r genMap gen|]
+                    genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
                 | Replacements.BclDictionary(key, value)
                 | Replacements.BclKeyValuePair(key, value)
                 | Replacements.FSharpMap(key, value) ->
-                    genericEntity ent [|
+                    genericEntity fullName [|
                         transformTypeInfo com ctx r genMap key
                         transformTypeInfo com ctx r genMap value
                     |]
                 | Replacements.FSharpResult(ok, err) ->
-                    let ent = com.GetEntity(ent)
+                    let ent = com.GetEntity(entRef)
                     transformUnionReflectionInfo com ctx r ent [|
                         transformTypeInfo com ctx r genMap ok
                         transformTypeInfo com ctx r genMap err
                     |]
                 | Replacements.FSharpChoice gen ->
-                    let ent = com.GetEntity(ent)
+                    let ent = com.GetEntity(entRef)
                     let gen = List.map (transformTypeInfo com ctx r genMap) gen
                     List.toArray gen |> transformUnionReflectionInfo com ctx r ent
                 | Replacements.FSharpReference gen ->
-                    let ent = com.GetEntity(ent)
+                    let ent = com.GetEntity(entRef)
                     [|transformTypeInfo com ctx r genMap gen|]
                     |> transformRecordReflectionInfo com ctx r ent
             | _ ->
-                let ent = com.GetEntity(ent)
+                let ent = com.GetEntity(entRef)
                 let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                 /// Check if the entity is actually declared in JS code
                 if ent.IsInterface
@@ -279,7 +280,7 @@ module Reflection =
         | Fable.Option _ -> warnAndEvalToFalse "options" // TODO
         | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters"
         | Fable.DeclaredType (ent, genArgs) ->
-            match ent with
+            match ent.FullName with
             | Types.idisposable ->
                 match expr with
                 | MaybeCasted(ExprType(Fable.DeclaredType (ent2, _)))
@@ -469,8 +470,8 @@ module Annotation =
         FunctionTypeAnnotation(funcTypeParams, returnType, ?typeParameters=typeParamDecl)
         :> TypeAnnotationInfo
 
-    let makeEntityTypeAnnotation com ctx ent genArgs =
-        match ent with
+    let makeEntityTypeAnnotation com ctx (ent: Fable.EntityRef) genArgs =
+        match ent.FullName with
         | Types.ienumerableGeneric ->
             makeNativeTypeAnnotation com ctx genArgs "Iterable"
         | Types.result ->
@@ -870,7 +871,7 @@ module Util =
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
         | Fable.DeclaredType(ent,[_]) ->
-            match ent, e with
+            match ent.FullName, e with
             | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
             | _ -> com.TransformAsExpr(ctx, e)
@@ -921,7 +922,7 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = com.GetEntity(ent) |> jsConstructor com ctx
             let typeParamInst =
-                if com.Options.Typescript && (ent = Types.reference)
+                if com.Options.Typescript && (ent.FullName = Types.reference)
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
@@ -1727,7 +1728,7 @@ module Util =
             let typeParamInst = makeGenTypeParamInst com ctx genArgs
             ClassImplements(id, ?typeParameters=typeParamInst) |> Some
         ent.AllInterfaces |> Seq.choose (fun ifc ->
-            match ifc.Definition with
+            match ifc.Definition.FullName with
             | "Fable.Collections.IMutableSet`1" -> mkNative ifc.GenericArgs "Set"
             | "Fable.Collections.IMutableMap`2" -> mkNative ifc.GenericArgs "Map"
             | _ -> None
@@ -2077,7 +2078,6 @@ module Compiler =
             member _.CurrentFile = com.CurrentFile
             member _.ImplementationFiles = com.ImplementationFiles
             member _.GetEntity(fullName) = com.GetEntity(fullName)
-            member _.GetEntitySourcePath(fullName) = com.GetEntitySourcePath(fullName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
             member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
