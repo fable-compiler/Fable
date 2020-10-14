@@ -1059,6 +1059,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | "Fable.Core.Reflection", meth ->
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
+    | "Fable.Core.Compiler", meth ->
+        match meth with
+        | "debugMode" -> makeBoolConst com.Options.DebugMode |> Some
+        | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
+        | _ -> None
     | "Fable.Core.JsInterop", _ ->
         match i.CompiledName, args with
         | "importDynamic", _ ->
@@ -2819,9 +2824,9 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_FullName" | "get_Namespace"
         | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition"
-        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" ->
+        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
-            Helper.LibCall(com, "Reflection", meth, t, [thisArg], ?loc=r) |> Some
+            Helper.LibCall(com, "Reflection", meth, t, thisArg::args, ?loc=r) |> Some
         | _ -> None
     | None, None -> None
 

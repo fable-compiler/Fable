@@ -22,6 +22,7 @@ export class TypeInfo implements IEquatable<TypeInfo> {
     public fullname: string,
     public generics?: TypeInfo[],
     public construct?: Constructor,
+    public parent?: TypeInfo,
     public fields?: () => FieldInfo[],
     public cases?: () => CaseInfo[],
     public enumCases?: EnumCase[]) {
@@ -65,8 +66,9 @@ export function equals(t1: TypeInfo, t2: TypeInfo): boolean {
 export function class_type(
   fullname: string,
   generics?: TypeInfo[],
-  construct?: Constructor): TypeInfo {
-  return new TypeInfo(fullname, generics, construct);
+  construct?: Constructor,
+  parent?: TypeInfo): TypeInfo {
+  return new TypeInfo(fullname, generics, construct, parent);
 }
 
 export function record_type(
@@ -74,11 +76,11 @@ export function record_type(
   generics: TypeInfo[],
   construct: Constructor,
   fields: () => FieldInfo[]): TypeInfo {
-  return new TypeInfo(fullname, generics, construct, fields);
+  return new TypeInfo(fullname, generics, construct, undefined, fields);
 }
 
 export function anonRecord_type(...fields: FieldInfo[]): TypeInfo {
-  return new TypeInfo("", undefined, undefined, () => fields);
+  return new TypeInfo("", undefined, undefined, undefined, () => fields);
 }
 
 export function union_type(
@@ -86,7 +88,7 @@ export function union_type(
   generics: TypeInfo[],
   construct: Constructor,
   cases: () => FieldInfo[][]): TypeInfo {
-  const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, () => {
+  const t: TypeInfo = new TypeInfo(fullname, generics, construct, undefined, undefined, () => {
     const caseNames = construct.prototype.cases() as string[];
     return cases().map((fields, i) => new CaseInfo(t, i, caseNames[i], fields))
   });
@@ -118,7 +120,7 @@ export function array_type(generic: TypeInfo): TypeInfo {
 }
 
 export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases: EnumCase[]): TypeInfo {
-  return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, enumCases);
+  return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, undefined, enumCases);
 }
 
 export const obj_type: TypeInfo = new TypeInfo("System.Object");
@@ -175,6 +177,10 @@ export function isGenericType(t: TypeInfo) {
 
 export function isEnum(t: TypeInfo) {
   return t.enumCases != null && t.enumCases.length > 0;
+}
+
+export function isSubclassOf(t1: TypeInfo, t2: TypeInfo) {
+  return t1.parent?.Equals(t2) ?? false;
 }
 
 /**
@@ -372,6 +378,7 @@ export function makeGenericType(t: TypeInfo, generics: TypeInfo[]): TypeInfo {
     t.fullname,
     generics,
     t.construct,
+    t.parent,
     t.fields,
     t.cases);
 }

@@ -33,3 +33,7 @@ module Reflection =
     let getCaseTag (x: obj): int = jsNative
     let getCaseName (x: obj): string = jsNative
     let getCaseFields (x: obj): obj[] = jsNative
+
+module Compiler =
+    let debugMode: bool = jsNative
+    let typedArrays: bool = jsNative

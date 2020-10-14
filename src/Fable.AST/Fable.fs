@@ -13,12 +13,12 @@ type EntityRef =
         fullName.Replace("+", ".")
 
 type DeclaredType =
-    abstract Definition: EntityRef
+    abstract Entity: EntityRef
     abstract GenericArgs: Type list
 
 type Attribute =
-    abstract FullName: string
-    abstract ConstructorArguments: obj list
+    abstract Entity: EntityRef
+    abstract ConstructorArgs: obj list
 
 type Field =
     abstract Name: string
@@ -66,7 +66,7 @@ type Entity =
     abstract DisplayName: string
     abstract FullName: string
     abstract Attributes: Attribute seq
-    abstract BaseDeclaration: DeclaredType option
+    abstract BaseType: DeclaredType option
     abstract AllInterfaces: DeclaredType seq
     abstract GenericParameters: GenericParam list
     abstract MembersFunctionsAndValues: MemberFunctionOrValue seq

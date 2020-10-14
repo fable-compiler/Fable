@@ -57,9 +57,6 @@ type EmitAttribute(macro: string, isStatement: bool) =
 type EmitMethodAttribute(methodName: string) =
     inherit Attribute()
 
-type TestAttribute(r: System.Text.RegularExpressions.Regex) =
-    inherit Attribute()
-
 /// Same as `Emit("new $0($1...)")`
 type EmitConstructorAttribute() =
     inherit Attribute()

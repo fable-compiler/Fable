@@ -34,9 +34,65 @@ let private entityRefToString (r: Fable.EntityRef) =
     | Some x -> x + "::" + r.QualifiedName
     | None -> r.QualifiedName
 
+type Package =
+    { Id: string
+      Version: string
+      FsprojPath: string
+      DllPath: string
+      SourcePaths: string list
+      Dependencies: Set<string> }
+
+type PluginRef =
+    { DllPath: string
+      TypeFullName: string }
+
 type Project(projectOptions: FSharpProjectOptions,
              checkResults: FSharpCheckProjectResults,
+             ?packages: Package list,
+             ?getPlugin: PluginRef -> System.Type,
              ?optimize: bool) =
+
+    let packages = defaultArg packages []
+    let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
+    let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
+    let plugins = Dictionary<Fable.EntityRef, System.Type>()
+
+    let registerPlugins (atts: IList<FSharpAttribute>) =
+        for att in atts do
+            try
+                match att.AttributeType.TryFullName with
+                | Some "Fable.RegisterPluginAttribute" ->
+                    let t = snd att.ConstructorArguments.[0] :?> FSharpType
+                    match FSharp2Fable.Helpers.tryDefinition t with
+                    | Some(pluginEntity, Some fullName) ->
+                        let dllPath =
+                            match pluginEntity.Assembly.FileName with
+                            | Some dllPath -> dllPath
+                            | None ->
+                                let sourcePath = FSharp2Fable.FsEnt.SourcePath pluginEntity
+                                let pkg =
+                                    packages
+                                    |> List.tryFind (fun pkg ->
+                                        pkg.SourcePaths |> List.contains sourcePath)
+                                    |> Option.defaultWith (fun () -> failwithf "Cannot find dll path for plugin %s" fullName)
+                                pkg.DllPath
+                        let plugin = getPlugin { DllPath = dllPath; TypeFullName = fullName }
+                        plugins.Add(FSharp2Fable.FsEnt.Ref pluginEntity, plugin)
+                    | _ -> ()
+                | _ -> ()
+            with _ -> ()
+
+    let rec withNestedEntities useSourcePath (e: FSharpEntity) =
+        if e.IsFSharpAbbreviation then Seq.empty
+        else
+            seq  {
+                let sourcePath = if useSourcePath then Some(FSharp2Fable.FsEnt.SourcePath e) else None
+                yield ({ QualifiedName = FSharp2Fable.FsEnt.QualifiedName e
+                         SourcePath = sourcePath }: Fable.EntityRef), e
+                if e.IsFSharpModule then
+                    for sub in e.NestedEntities do
+                        yield! withNestedEntities useSourcePath sub
+            }
 
     let implFiles =
         (if defaultArg optimize false then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
@@ -51,24 +107,15 @@ type Project(projectOptions: FSharpProjectOptions,
         implFiles |> Seq.map (fun kv ->
             kv.Key, FSharp2Fable.Compiler.getRootModule kv.Value) |> dict
 
-    let rec withNestedEntities useSourcePath (e: FSharpEntity) =
-        if e.IsFSharpAbbreviation then Seq.empty
-        else
-            seq  {
-                let sourcePath = if useSourcePath then Some(FSharp2Fable.FsEnt.SourcePath e) else None
-                yield ({ QualifiedName = FSharp2Fable.FsEnt.QualifiedName e
-                         SourcePath = sourcePath }: Fable.EntityRef), e
-                if e.IsFSharpModule then
-                    for sub in e.NestedEntities do
-                        yield! withNestedEntities useSourcePath sub
-            }
-
     let entities =
         let dllEntities =
             checkResults.ProjectContext.GetReferencedAssemblies()
             |> Seq.collect (fun a ->
+                registerPlugins a.Contents.Attributes
                 a.Contents.Entities
                 |> Seq.collect (withNestedEntities false))
+
+        registerPlugins checkResults.AssemblySignature.Attributes
 
         let projEntities =
             checkResults.AssemblyContents.ImplementationFiles
@@ -81,8 +128,17 @@ type Project(projectOptions: FSharpProjectOptions,
             KeyValuePair(entityRefToString r, FSharp2Fable.FsEnt e :> Fable.Entity))
         |> ConcurrentDictionary.From
 
-    let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
+    let plugins =
+        ({ CallPlugins = Map.empty
+           MemberDeclarationPlugins = Map.empty }, plugins)
+        ||> Seq.fold (fun acc kv ->
+            if kv.Value.IsSubclassOf(typeof<MemberDeclarationPluginAttribute>) then
+                { acc with MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
+            elif kv.Value.IsSubclassOf(typeof<CallPluginAttribute>) then
+                { acc with CallPlugins = Map.add kv.Key kv.Value acc.CallPlugins }
+            else acc)
 
+    member _.Plugins = plugins
     member _.ImplementationFiles = implFiles
     member _.RootModules = rootModules
     member _.Entities = entities
@@ -121,6 +177,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
 
     interface Compiler with
         member _.Options = options
+        member _.Plugins = project.Plugins
         member _.LibraryDir = fableLibraryDir
         member _.CurrentFile = currentFile
         member _.ImplementationFiles = project.ImplementationFiles

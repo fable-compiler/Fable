@@ -10,13 +10,20 @@ open FSharp.Compiler.SourceCodeServices
 open Fable
 open Globbing.Operators
 
-type Options = {
-    fableLib: string option
-    define: string[]
-    forcePkgs: bool
-    projFile: string
-    optimize: bool
-}
+type FablePackage = Fable.Transforms.State.Package
+
+type CrackerOptions =
+    { fableLib: string option
+      define: string[]
+      forcePkgs: bool
+      projFile: string
+      optimize: bool }
+
+type CrackerResponse =
+    { FableLibDir: string
+      FableLibReset: bool
+      Packages: FablePackage list
+      ProjectOptions: FSharpProjectOptions }
 
 let isSystemPackage (pkgName: string) =
     pkgName.StartsWith("System.")
@@ -25,12 +32,6 @@ let isSystemPackage (pkgName: string) =
         || pkgName = "NETStandard.Library"
         || pkgName = "FSharp.Core"
         || pkgName = "Fable.Core"
-
-type FablePackage =
-    { Id: string
-      Version: string
-      FsprojPath: string
-      Dependencies: Set<string> }
 
 type CrackedFsproj =
     { ProjectFile: string
@@ -94,6 +95,8 @@ let tryGetFablePackage (dllPath: string) =
             { Id = metadata |> child "id"
               Version = metadata |> child "version"
               FsprojPath = fsprojPath
+              DllPath = dllPath
+              SourcePaths = []
               Dependencies =
                 metadata.Elements()
                 |> firstWithName "dependencies" |> elements
@@ -102,12 +105,12 @@ let tryGetFablePackage (dllPath: string) =
                 |> Seq.map (attr "id")
                 |> Seq.filter (isSystemPackage >> not)
                 |> Set
-            } |> Some
+            }: FablePackage |> Some
         | _ -> None
 
 let sortFablePackages (pkgs: FablePackage list) =
     ([], pkgs) ||> List.fold (fun acc pkg ->
-        match List.tryFindIndexBack (fun x -> pkg.Dependencies.Contains(x.Id)) acc with
+        match List.tryFindIndexBack (fun (x: FablePackage) -> pkg.Dependencies.Contains(x.Id)) acc with
         | None -> pkg::acc
         | Some targetIdx ->
             let rec insertAfter x targetIdx i before after =
@@ -116,7 +119,7 @@ let sortFablePackages (pkgs: FablePackage list) =
                     if i = targetIdx then
                         if i > 0 then
                             let dependent, nonDependent =
-                                List.rev before |> List.partition (fun x ->
+                                List.rev before |> List.partition (fun (x: FablePackage) ->
                                     x.Dependencies.Contains(pkg.Id))
                             nonDependent @ justBefore::x::dependent @ after
                         else
@@ -238,7 +241,7 @@ let private isUsefulOption (opt : string) =
 /// and get F# compiler args from an .fsproj file. As we'll merge this
 /// later with other projects we'll only take the sources and the references,
 /// checking if some .dlls correspond to Fable libraries
-let fullCrack (opts: Options): CrackedFsproj =
+let fullCrack (opts: CrackerOptions): CrackedFsproj =
     let projFile = opts.projFile
     // Use case insensitive keys, as package names in .paket.resolved
     // may have a different case, see #1227
@@ -319,7 +322,7 @@ let easyCrack (projFile: string): CrackedFsproj =
       PackageReferences = []
       OtherCompilerOptions = [] }
 
-let getCrackedProjectsFromMainFsproj (opts: Options) =
+let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
     let rec crackProjects (acc: CrackedFsproj list) (projFile: string) =
         let crackedFsproj =
             match acc |> List.tryFind (fun x -> x.ProjectFile = projFile) with
@@ -334,7 +337,7 @@ let getCrackedProjectsFromMainFsproj (opts: Options) =
         |> List.distinctBy (fun x -> x.ProjectFile)
     refProjs, mainProj
 
-let getCrackedProjects (opts: Options) =
+let getCrackedProjects (opts: CrackerOptions) =
     match (Path.GetExtension opts.projFile).ToLower() with
     | ".fsx" ->
         getProjectOptionsFromScript opts.define opts.projFile
@@ -365,7 +368,7 @@ let retryGetCrackedProjects opts =
 let isDirectoryEmpty dir =
     not(IO.Directory.Exists(dir)) || IO.Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
-let createFableDir (opts: Options) =
+let createFableDir (opts: CrackerOptions) =
     let fableDir = IO.Path.Combine(IO.Path.GetDirectoryName(opts.projFile), Naming.fableHiddenDir)
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
 
@@ -388,7 +391,7 @@ let createFableDir (opts: Options) =
 
     isEmptyOrOutdated, fableDir
 
-let copyDirIfDoesNotExist (opts: Options) (source: string) (target: string) =
+let copyDirIfDoesNotExist (source: string) (target: string) =
     if isDirectoryEmpty target then
         IO.Directory.CreateDirectory(target) |> ignore
         if IO.Directory.Exists source |> not then
@@ -400,7 +403,7 @@ let copyDirIfDoesNotExist (opts: Options) (source: string) (target: string) =
         for newPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
             IO.File.Copy(newPath, newPath.Replace(source, target), true)
 
-let copyFableLibraryAndPackageSources (opts: Options) (pkgs: FablePackage list) =
+let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
     let fableLibReset, fableLibDir = createFableDir opts
 
     let fableLibraryPath =
@@ -426,15 +429,15 @@ let copyFableLibraryAndPackageSources (opts: Options) (pkgs: FablePackage list) 
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
             let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist opts fableLibrarySource fableLibraryTarget
+            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
             fableLibraryTarget
 
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir = IO.Path.Combine(fableLibDir, pkg.Id + "." + pkg.Version)
-            copyDirIfDoesNotExist opts sourceDir targetDir
-            IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)))
+            copyDirIfDoesNotExist sourceDir targetDir
+            { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
 
     fableLibReset, fableLibraryPath, pkgRefs
 
@@ -443,15 +446,18 @@ let removeFilesInObjFolder sourceFiles =
     let reg = System.Text.RegularExpressions.Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
-let getFullProjectOpts (opts: Options) =
+let getFullProjectOpts (opts: CrackerOptions) =
     if not(IO.File.Exists(opts.projFile)) then
         failwith ("File does not exist: " + opts.projFile)
     let projRefs, mainProj = retryGetCrackedProjects opts
     let fableLibReset, fableLibDir, pkgRefs =
         copyFableLibraryAndPackageSources opts mainProj.PackageReferences
+    let pkgRefs =
+        pkgRefs |> List.map (fun pkg ->
+            { pkg with SourcePaths = getSourcesFromFsproj pkg.FsprojPath })
     let projOpts =
         let sourceFiles =
-            let pkgSources = pkgRefs |> List.collect getSourcesFromFsproj
+            let pkgSources = pkgRefs |> List.collect (fun x -> x.SourcePaths)
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
             pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
         let otherOptions =
@@ -480,6 +486,7 @@ let getFullProjectOpts (opts: Options) =
               dllRefs ]
             |> Array.concat
         makeProjectOptions opts.projFile sourceFiles otherOptions
-    {| ProjectOptions = projOpts
-       FableLibReset = fableLibReset
-       FableLibDir = fableLibDir |}
+    { ProjectOptions = projOpts
+      Packages = pkgRefs
+      FableLibReset = fableLibReset
+      FableLibDir = fableLibDir }

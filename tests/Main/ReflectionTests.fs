@@ -475,6 +475,14 @@ let reflectionTests = [
     let x = x :?> MyClass<int, string>
     x.Value1 |> equal 123
     x.Value2 |> equal "abc"
+
+  testCase "IsSubclassOf works" <| fun () ->
+    let t1 = typeof<MyClass>
+    let t2 = typeof<MyClass<obj, obj>>
+    let t3 = typeof<MyClass2>
+    t3.IsSubclassOf(t1) |> equal false
+    t2.IsSubclassOf(t1) |> equal true
+    t1.IsSubclassOf(t2) |> equal false
 ]
 
 // TODO!!! Add reflection tests for interfaces, erased unions,

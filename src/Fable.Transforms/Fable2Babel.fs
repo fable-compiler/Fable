@@ -124,9 +124,11 @@ module Reflection =
             let resolved = resolveGenerics genArgs
             libReflectionCall com ctx None name resolved
         let genericEntity (fullname: string) generics =
-            let fullnameExpr = StringLiteral fullname :> Expression
-            let args = if Array.isEmpty generics then [|fullnameExpr|] else [|fullnameExpr; ArrayExpression generics :> Expression|]
-            libReflectionCall com ctx None "class" args
+            libReflectionCall com ctx None "class" [|
+                StringLiteral fullname :> Expression
+                if not(Array.isEmpty generics) then
+                    ArrayExpression generics :> Expression
+            |]
         match t with
         | Fable.Any -> primitiveTypeInfo "obj"
         | Fable.GenericParam name ->
@@ -241,6 +243,15 @@ module Reflection =
                 | generics -> yield ArrayExpression generics :> _
                 match tryJsConstructor com ctx ent with
                 | Some cons -> yield cons
+                | None -> ()
+                match ent.BaseType with
+                | Some d ->
+                    let genMap =
+                        Seq.zip ent.GenericParameters generics
+                        |> Seq.map (fun (p, e) -> p.Name, e)
+                        |> Map
+                    yield Fable.DeclaredType(d.Entity, d.GenericArgs)
+                          |> transformTypeInfo com ctx r genMap
                 | None -> ()
             |]
             |> libReflectionCall com ctx r "class"
@@ -1728,7 +1739,7 @@ module Util =
             let typeParamInst = makeGenTypeParamInst com ctx genArgs
             ClassImplements(id, ?typeParameters=typeParamInst) |> Some
         ent.AllInterfaces |> Seq.choose (fun ifc ->
-            match ifc.Definition.FullName with
+            match ifc.Entity.FullName with
             | "Fable.Collections.IMutableSet`1" -> mkNative ifc.GenericArgs "Set"
             | "Fable.Collections.IMutableMap`2" -> mkNative ifc.GenericArgs "Map"
             | _ -> None
@@ -1804,7 +1815,7 @@ module Util =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
         let expr = FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) :> Expression
         info.Attributes
-        |> Seq.exists (fun att -> att.FullName = Atts.entryPoint)
+        |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
         | true -> declareEntryPoint com ctx expr
         | false -> declareModuleMember info.IsPublic membName false expr
@@ -2074,6 +2085,7 @@ module Compiler =
 
         interface Compiler with
             member _.Options = com.Options
+            member _.Plugins = com.Plugins
             member _.LibraryDir = com.LibraryDir
             member _.CurrentFile = com.CurrentFile
             member _.ImplementationFiles = com.ImplementationFiles

@@ -79,6 +79,29 @@ type Watcher() =
         )
 
 module private Util =
+    let getType (r: PluginRef): Type =
+        /// Prevent ReflectionTypeLoadException
+        /// From http://stackoverflow.com/a/7889272
+        let getTypes (asm: System.Reflection.Assembly) =
+            let mutable types: Option<Type[]> = None
+            try
+                types <- Some(asm.GetTypes())
+            with
+            | :? System.Reflection.ReflectionTypeLoadException as e ->
+                types <- Some e.Types
+            match types with
+            | None -> Seq.empty
+            | Some types ->
+                types |> Seq.filter ((<>) null)
+
+        // The assembly may be already loaded, so use `LoadFrom` which takes
+        // the copy in memory unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
+        System.Reflection.Assembly.LoadFrom(r.DllPath)
+        |> getTypes
+        // Normalize type name
+        |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
+        |> Option.defaultWith (fun () -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath)
+
     let getSourceFiles (opts: FSharpProjectOptions) =
         opts.OtherOptions |> Array.filter (fun path -> path.StartsWith("-") |> not)
 
@@ -213,24 +236,22 @@ type File(normalizedFullPath: string) =
             h, lazy source
 
 type ProjectCracked(sourceFiles: File array,
-                    fsharpProjOptions: FSharpProjectOptions,
                     fableCompilerOptions: CompilerOptions,
-                    fableLibDir: string,
-                    ?fableLibReset: bool) =
+                    crackerResponse: CrackerResponse) =
 
-    member _.ProjectFile = fsharpProjOptions.ProjectFileName
-    member _.ProjectOptions = fsharpProjOptions
+    member _.ProjectOptions = crackerResponse.ProjectOptions
+    member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
 
     /// Indicates if the .fable dir has been created or reset because of new compiler version
-    member _.FableLibReset = defaultArg fableLibReset true
+    member _.FableLibReset = crackerResponse.FableLibReset
 
     member _.MakeCompiler(currentFile, project) =
-        let fableLibDir = Path.getRelativePath currentFile fableLibDir
+        let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
         CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir)
 
     member _.MapSourceFiles(f) =
-        ProjectCracked(Array.map f sourceFiles, fsharpProjOptions, fableCompilerOptions, fableLibDir)
+        ProjectCracked(Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
 
     static member Init(cliArgs: CliArgs) =
         let res =
@@ -248,7 +269,7 @@ type ProjectCracked(sourceFiles: File array,
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
         let sourceFiles = getSourceFiles res.ProjectOptions |> Array.map File
-        ProjectCracked(sourceFiles, res.ProjectOptions, cliArgs.CompilerOptions, res.FableLibDir, res.FableLibReset)
+        ProjectCracked(sourceFiles, cliArgs.CompilerOptions, res)
 
 type ProjectParsed(project: Project,
                    checker: InteractiveChecker) =
@@ -264,18 +285,23 @@ type ProjectParsed(project: Project,
                 Log.always("Initializing F# compiler...")
                 InteractiveChecker.Create(config.ProjectOptions)
 
-        Log.always("Compiling " + File.getRelativePathFromCwd config.ProjectFile + "...")
+        Log.always("Compiling " + File.getRelativePathFromCwd config.ProjectOptions.ProjectFileName + "...")
 
         let checkedProject, ms = measureTime <| fun () ->
             let fileDic = config.SourceFiles |> Seq.map (fun f -> f.NormalizedFullPath, f) |> dict
             let sourceReader f = fileDic.[f].ReadSource()
             let filePaths = config.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
-            checker.ParseAndCheckProject(config.ProjectFile, filePaths, sourceReader)
+            checker.ParseAndCheckProject(config.ProjectOptions.ProjectFileName, filePaths, sourceReader)
 
         Log.always(sprintf "F# compilation finished in %ims" ms)
 
         // checkFableCoreVersion checkedProject
-        let proj = Project(config.ProjectOptions, checkedProject, optimize=cliArgs.CompilerOptions.OptimizeFSharpAst)
+        let proj =
+            Project(config.ProjectOptions,
+                    checkedProject,
+                    packages=config.Packages,
+                    getPlugin=getType,
+                    optimize=cliArgs.CompilerOptions.OptimizeFSharpAst)
         ProjectParsed(proj, checker)
 
 type TestInfo private (current, iterations, times: int64 list) =
@@ -456,7 +482,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             |> Set.filter (fun file -> not(Array.contains file filesToCompile))
 
         let! changes = Watcher.AwaitChanges [
-            cracked.ProjectFile
+            cracked.ProjectOptions.ProjectFileName
             yield! cracked.SourceFiles
                 |> Array.choose (fun f ->
                     let path = f.NormalizedFullPath

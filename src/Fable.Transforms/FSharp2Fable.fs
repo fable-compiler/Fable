@@ -895,14 +895,8 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
     | Some ent ->
         let mutable baseCall = None
         let captureBaseCall =
-            ent.BaseType |> Option.bind (fun (NonAbbreviatedType baseType) ->
-                if baseType.HasTypeDefinition then
-                    let ent = baseType.TypeDefinition
-                    match ent.TryFullName with
-                    | Some name when name <> Types.object ->
-                        Some(ent, fun c -> baseCall <- Some c)
-                    | _ -> None
-                else None)
+            getBaseEntity ent
+            |> Option.map (fun (ent, _) -> ent, fun c -> baseCall <- Some c)
         let bodyCtx, args = bindMemberArgs com ctx args
         let bodyCtx = { bodyCtx with CaptureBaseConsCall = captureBaseCall }
         let body = transformExpr com bodyCtx body |> run
@@ -1251,6 +1245,7 @@ type FableCompiler(com: Compiler) =
 
     interface Compiler with
         member _.Options = com.Options
+        member _.Plugins = com.Plugins
         member _.LibraryDir = com.LibraryDir
         member _.CurrentFile = com.CurrentFile
         member _.ImplementationFiles = com.ImplementationFiles

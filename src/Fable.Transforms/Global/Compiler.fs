@@ -48,10 +48,15 @@ type InlineExpr =
       Body: FSharpExpr
       FileName: string }
 
+type CompilerPlugins =
+    { CallPlugins: Map<Fable.EntityRef, System.Type>
+      MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
+
 type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
     abstract Options: CompilerOptions
+    abstract Plugins: CompilerPlugins
     abstract ImplementationFiles: IDictionary<string, FSharpImplementationFileContents>
     abstract GetRootModule: fileName: string -> string
     abstract GetEntity: Fable.EntityRef -> Fable.Entity

@@ -8,5 +8,6 @@
     <Compile Include="Common.fs" />
     <Compile Include="Fable.fs" />
     <Compile Include="Babel.fs" />
+    <Compile Include="Plugins.fs" />
   </ItemGroup>
 </Project>
