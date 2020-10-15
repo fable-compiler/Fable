@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-alpha-011
+
+* Plugins
+
 ### 3.0.0-nagareyama-alpha-010
 
 * Fix #2202: Using System.Type as Dictionary key @Zaid-Ajaj
