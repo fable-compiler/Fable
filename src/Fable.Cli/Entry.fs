@@ -53,7 +53,6 @@ Arguments:
   --forcePkgs       Force a new copy of package sources into `.fable` folder
   --extension       Extension for generated JS files (default .fs.js)
   --verbose         Print more info during compilation
-  --exclude         Skip Fable compilation for files containing the pattern
   --optimize        Compile with optimized F# AST (experimental)
   --typescript      Compile to TypeScript (experimental)
 """

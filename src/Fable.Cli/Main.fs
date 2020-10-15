@@ -262,6 +262,7 @@ type ProjectCracked(sourceFiles: File array,
             getFullProjectOpts {
                 fableLib = cliArgs.FableLibraryPath
                 define = cliArgs.Define
+                exclude = cliArgs.Exclude
                 forcePkgs = cliArgs.ForcePackages
                 projFile = cliArgs.ProjectFile
                 optimize = cliArgs.CompilerOptions.OptimizeFSharpAst
@@ -330,14 +331,6 @@ type State =
       ErroredFiles: Set<string>
       TestInfo: TestInfo option }
 
-let excludeFilesAndSignatures (exclude: string option) (files: string[]) =
-    files
-    |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
-    |> fun filesToCompile ->
-        match exclude with
-        | Some exclude -> filesToCompile |> Array.filter (fun x -> not(x.Contains(exclude))) // Use regex?
-        | None -> filesToCompile
-
 let rec startCompilation (changes: Set<string>) (state: State) = async {
     // TODO: Use Result here to fail more gracefully if FCS crashes
     let cracked, parsed, filesToCompile =
@@ -391,7 +384,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
 
     let filesToCompile =
         filesToCompile
-        |> excludeFilesAndSignatures state.CliArgs.Exclude
+        |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
         |> Array.append (Set.toArray state.ErroredFiles)
         |> Array.distinct
 
@@ -492,7 +485,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     let path = f.NormalizedFullPath
                     if Naming.isInFableHiddenDir(path) then None
                     else Some path)
-                |> excludeFilesAndSignatures state.CliArgs.Exclude
         ]
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)

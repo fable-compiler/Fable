@@ -1177,6 +1177,11 @@ module Util =
             ent.DeclaredInterfaces
             |> Seq.exists (testInterfaceHierarchy interfaceFullName))
 
+    let rec inherits (ent: FSharpEntity) baseFullName =
+        tryFindInTypeHierarchy ent (fun ent ->
+            ent.TryFullName = Some baseFullName)
+        |> Option.isSome
+
     let isMangledAbstractEntity (ent: FSharpEntity) =
         match ent.TryFullName with
         // By default mangle interfaces in System namespace as they are not meant to interact with JS

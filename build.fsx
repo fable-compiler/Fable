@@ -74,6 +74,7 @@ let buildLibrary() =
 
     runTypescript projectDir
 
+    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + buildDir
@@ -114,6 +115,7 @@ let buildLibraryTs() =
 
     cleanDirs [buildDirTs; buildDirJs]
 
+    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
@@ -135,6 +137,7 @@ let quicktest () =
     if pathExists quicktestJsPath |> not then
         writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
 
+    run "dotnet build src/Fable.Core"
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
 let buildStandalone(minify: bool) =
@@ -225,6 +228,7 @@ let buildCompilerJs(minify: bool) =
     cleanDirs [buildDir; distDir]
     makeDirRecursive distDir
 
+    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + libraryDir
@@ -275,6 +279,7 @@ let test() =
     if not (pathExists libraryDir) then
         buildLibrary()
 
+    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + libraryDir

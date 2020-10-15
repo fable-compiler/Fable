@@ -8,11 +8,6 @@ type PluginHelper =
     abstract LogWarning: string * ?range: SourceLocation -> unit
     abstract LogError: string * ?range: SourceLocation -> unit
 
-[<AttributeUsage(AttributeTargets.Assembly)>]
-type RegisterPluginAttribute(t: System.Type, devDll: string) =
-    inherit System.Attribute()
-    new (t: System.Type) = RegisterPluginAttribute(t, "")
-
 [<AbstractClass>]
 type PluginAttribute() =
     inherit System.Attribute()

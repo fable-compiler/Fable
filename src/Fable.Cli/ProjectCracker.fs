@@ -15,6 +15,7 @@ type FablePackage = Fable.Transforms.State.Package
 type CrackerOptions =
     { fableLib: string option
       define: string[]
+      exclude: string option
       forcePkgs: bool
       projFile: string
       optimize: bool }
@@ -279,12 +280,15 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     let projRefs =
         projRefs |> List.choose (fun projRef ->
-            // Remove dllRefs corresponding to project references
-            let projName = Path.GetFileNameWithoutExtension(projRef)
-            let removed = dllRefs.Remove(projName)
-            if not removed then
-                Log.always("Couldn't remove project reference " + projName + " from dll references")
-            Path.normalizeFullPath projRef |> Some)
+            match opts.exclude with
+            | Some e when projRef.Contains(e) -> None
+            | _ ->
+                // Remove dllRef corresponding to project references?
+                let projName = Path.GetFileNameWithoutExtension(projRef)
+                let removed = dllRefs.Remove(projName)
+                if not removed then
+                    Log.always("Couldn't remove project reference " + projName + " from dll references")
+                Path.normalizeFullPath projRef |> Some)
 
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
@@ -449,19 +453,24 @@ let removeFilesInObjFolder sourceFiles =
 let getFullProjectOpts (opts: CrackerOptions) =
     if not(IO.File.Exists(opts.projFile)) then
         failwith ("File does not exist: " + opts.projFile)
+
     let projRefs, mainProj = retryGetCrackedProjects opts
+
     let fableLibReset, fableLibDir, pkgRefs =
         copyFableLibraryAndPackageSources opts mainProj.PackageReferences
+
     let pkgRefs =
         pkgRefs |> List.map (fun pkg ->
             { pkg with SourcePaths = getSourcesFromFsproj pkg.FsprojPath })
+
     let projOpts =
         let sourceFiles =
             let pkgSources = pkgRefs |> List.collect (fun x -> x.SourcePaths)
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
             pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
+
         let otherOptions =
-            let coreRefs = HashSet Fable.Standalone.Metadata.references_core
+            let coreRefs = HashSet Standalone.Metadata.references_core
             let ignoredRefs = HashSet [
                "WindowsBase"
                "Microsoft.Win32.Primitives"
@@ -469,23 +478,22 @@ let getFullProjectOpts (opts: CrackerOptions) =
                "Microsoft.VisualBasic.Core"
                "Microsoft.CSharp"
             ]
-            let dllRefs =
+            [|
+                yield! getBasicCompilerArgs opts.define
+                yield! mainProj.OtherCompilerOptions
+                yield "--optimize" + (if opts.optimize then "+" else "-")
                 // We only keep dllRefs for the main project
-                mainProj.DllReferences
-                // Remove unneeded System dll references
-                |> List.chooseToArray (fun r ->
-                    let name = getDllName r
-                    if ignoredRefs.Contains(name) ||
-                       (name.StartsWith("System.") && not(coreRefs.Contains(name))) then None
-                    else Some("-r:" + r))
-            let optimize = [| "--optimize" + (if opts.optimize then "+" else "-") |]
-            let otherOpts = mainProj.OtherCompilerOptions |> Array.ofList
-            [ getBasicCompilerArgs opts.define
-              otherOpts
-              optimize
-              dllRefs ]
-            |> Array.concat
+                yield! mainProj.DllReferences
+                        // Remove unneeded System dll references
+                        |> Seq.choose (fun r ->
+                            let name = getDllName r
+                            if ignoredRefs.Contains(name) ||
+                               (name.StartsWith("System.") && not(coreRefs.Contains(name))) then None
+                            else Some("-r:" + r))
+            |]
+
         makeProjectOptions opts.projFile sourceFiles otherOptions
+
     { ProjectOptions = projOpts
       Packages = pkgRefs
       FableLibReset = fableLibReset
