@@ -1426,7 +1426,12 @@ module Util =
             memberRefTyped com ctx r typ memb
 
         | _ ->
-            memberRef com ctx r memb |> makeCall r typ callInfo
+            let atts =
+                memb.Attributes
+                |> Seq.map (fun a -> FsAtt(a) :> Fable.Attribute)
+            memberRef com ctx r memb
+            |> makeCall r typ callInfo
+            |> fun e -> com.ApplyCallPlugin(atts, e)
 
     let makeCallInfoFrom (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
         {

@@ -9,13 +9,14 @@ type PluginHelper =
     abstract LogError: string * ?range: SourceLocation -> unit
 
 [<AttributeUsage(AttributeTargets.Assembly)>]
-type RegisterPluginAttribute(t: System.Type) =
+type RegisterPluginAttribute(t: System.Type, devDll: string) =
     inherit System.Attribute()
+    new (t: System.Type) = RegisterPluginAttribute(t, "")
 
 [<AbstractClass>]
 type PluginAttribute() =
     inherit System.Attribute()
-    abstract FableVersion: string
+    abstract FableMinimumVersion: string
 
 [<AbstractClass>]
 type MemberDeclarationPluginAttribute() =
@@ -25,4 +26,4 @@ type MemberDeclarationPluginAttribute() =
 [<AbstractClass>]
 type CallPluginAttribute() =
     inherit PluginAttribute()
-    abstract Transform: PluginHelper * callee: Expr * info: CallInfo * typ: Type * range: SourceLocation option -> Expr
+    abstract Transform: PluginHelper * expr: Expr -> Expr

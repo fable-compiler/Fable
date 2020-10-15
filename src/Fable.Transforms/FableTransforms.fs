@@ -259,12 +259,10 @@ module private Transforms =
         | e -> e
 
     let bindingBetaReduction (com: Compiler) e =
-        // Don't erase user-declared bindings in debug mode for better source maps
-        let isErasingCandidate (ident: Ident) =
-            (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
+        // Don't erase user-declared bindings
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
-        | Let([ident, value], letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
+        | Let([ident, value], letBody) when (not ident.IsMutable) && ident.IsCompilerGenerated ->
             let canEraseBinding =
                 match value with
                 | NestedLambda(_, lambdaBody, _) ->
@@ -508,7 +506,7 @@ open Transforms
 
 // ATTENTION: Order of transforms matters
 // TODO: Optimize binary operations with numerical or string literals
-let optimizations =
+let getTransformations (com: Compiler) =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
@@ -521,19 +519,21 @@ let optimizations =
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
     ]
 
-let transformExpr (com: Compiler) e =
-    List.fold (fun e f -> f com e) e optimizations
+let transformDeclaration transformations (com: Compiler) decl =
+    let transformExpr (com: Compiler) e =
+        List.fold (fun e f -> f com e) e transformations
 
-let transformMemberBody com (m: MemberDecl) =
-    { m with Body = transformExpr com m.Body }
+    let transformMemberBody com (m: MemberDecl) =
+        { m with Body = transformExpr com m.Body }
 
-let transformDeclaration (com: Compiler) = function
+    match decl with
     | ActionDeclaration decl ->
         { decl with Body = transformExpr com decl.Body }
         |> ActionDeclaration
 
     | MemberDeclaration m ->
-        uncurryMemberArgs m
+        com.ApplyMemberDeclarationPlugin(m)
+        |> uncurryMemberArgs
         |> transformMemberBody com
         |> MemberDeclaration
 
@@ -564,5 +564,6 @@ let transformDeclaration (com: Compiler) = function
         |> ClassDeclaration
 
 let transformFile (com: Compiler) (file: File) =
-    let newDecls = List.map (transformDeclaration com) file.Declarations
+    let transformations = getTransformations com
+    let newDecls = List.map (transformDeclaration transformations com) file.Declarations
     File(newDecls, usedRootNames=file.UsedNamesInRootScope)

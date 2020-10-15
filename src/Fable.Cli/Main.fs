@@ -79,7 +79,7 @@ type Watcher() =
         )
 
 module private Util =
-    let getType (r: PluginRef): Type =
+    let loadType (r: PluginRef): Type =
         /// Prevent ReflectionTypeLoadException
         /// From http://stackoverflow.com/a/7889272
         let getTypes (asm: System.Reflection.Assembly) =
@@ -100,7 +100,11 @@ module private Util =
         |> getTypes
         // Normalize type name
         |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
-        |> Option.defaultWith (fun () -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath)
+        |> function
+            | Some t ->
+                sprintf "Loaded %s from %s" r.TypeFullName (File.getRelativePathFromCwd r.DllPath)
+                |> Log.always; t
+            | None -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath
 
     let getSourceFiles (opts: FSharpProjectOptions) =
         opts.OtherOptions |> Array.filter (fun path -> path.StartsWith("-") |> not)
@@ -300,7 +304,7 @@ type ProjectParsed(project: Project,
             Project(config.ProjectOptions,
                     checkedProject,
                     packages=config.Packages,
-                    getPlugin=getType,
+                    getPlugin=loadType,
                     optimize=cliArgs.CompilerOptions.OptimizeFSharpAst)
         ProjectParsed(proj, checker)
 

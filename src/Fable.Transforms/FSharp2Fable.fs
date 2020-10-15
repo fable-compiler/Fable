@@ -234,6 +234,10 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
         let! body = transformExpr com ctx over.Body
         let name, info = getAttachedMemberInfo com ctx body.Range nonMangledNameConflicts None over.Signature []
         return { Name = name
+                 FullDisplayName =
+                     match tryDefinition over.Signature.DeclaringType with
+                     | Some(_, Some entFullName) -> entFullName + "." + over.Signature.Name
+                     | _ -> over.Signature.Name
                  Args = args
                  Body = body
                  // UsedNames are not used for obj expr members
@@ -905,13 +909,15 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
                     hasSpread=hasParamArray memb,
                     isPublic=isPublicMember memb,
                     isInstance=false)
+        let fullName = ent.FullName
         let cons: Fable.MemberDecl =
             { Name = consName
+              FullDisplayName = fullName
               Args = args
               Body = body
               UsedNames = set ctx.UseNamesInDeclarationScope
               Info = info }
-        com.AddConstructor(ent.FullName, cons, baseCall)
+        com.AddConstructor(fullName, cons, baseCall)
         []
 
 /// When using `importMember`, uses the member display name as selector
@@ -921,19 +927,20 @@ let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
         getMemberDisplayName memb |> makeStrConst
     | _ -> selector
 
-let private transformImport com r typ isMutable isPublic name selector path =
+let private transformImport com r typ isMutable isPublic name fullDisplayName selector path =
     if isMutable && isPublic then // See #1314
         "Imported members cannot be mutable and public, please make it private: " + name
         |> addError com [] None
     let info = MemberInfo(isValue=true, isPublic=isPublic, isMutable=isMutable)
     [Fable.MemberDeclaration
         { Name = name
+          FullDisplayName = fullDisplayName
           Args = []
           Body = makeImportUserGenerated r typ selector path
           UsedNames = Set.empty
           Info = info }]
 
-let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
+let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let value = transformExpr com ctx value |> run
     match value with
     // Accept import expressions, e.g. let foo = import "foo" "myLib"
@@ -946,11 +953,12 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name (memb: 
             |> addError com ctx.InlinePath None
         | _ -> ()
         let selector = importExprSelector memb info.Selector
-        transformImport com r typ memb.IsMutable isPublic name selector info.Path
+        transformImport com r typ memb.IsMutable isPublic name fullDisplayName selector info.Path
     | fableValue ->
         let info = MemberInfo(memb.Attributes, isValue=true, isPublic=isPublic, isMutable=memb.IsMutable)
         [Fable.MemberDeclaration
             { Name = name
+              FullDisplayName = fullDisplayName
               Args = []
               Body = fableValue
               UsedNames = set ctx.UseNamesInDeclarationScope
@@ -963,7 +971,7 @@ let private moduleMemberDeclarationInfo isPublic (memb: FSharpMemberOrFunctionOr
                    isInstance=memb.IsInstanceMember,
                    isMutable=memb.IsMutable) :> _
 
-let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx body |> run
     match body with
@@ -973,7 +981,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         // Use the full function type
         let typ = makeType Map.empty memb.FullType
         let selector = importExprSelector memb info.Selector
-        transformImport com r typ false isPublic name selector info.Path
+        transformImport com r typ false isPublic name fullDisplayName selector info.Path
     | body ->
         // If this is a static constructor, call it immediately
         if memb.CompiledName = ".cctor" then
@@ -985,6 +993,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
         else
             [Fable.MemberDeclaration
                 { Name = name
+                  FullDisplayName = fullDisplayName
                   Args = args
                   Body = body
                   UsedNames = set ctx.UseNamesInDeclarationScope
@@ -993,6 +1002,7 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name (mem
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
     let name, _ = getMemberDeclarationName com memb
+    let fullDisplayName = memb.TryGetFullDisplayName() |> Option.defaultValue name
     memb.Attributes
     |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
     |> function
@@ -1001,11 +1011,11 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
             if selector = Naming.placeholder then getMemberDisplayName memb
             else selector
         let typ = makeType Map.empty memb.FullType
-        transformImport com None typ memb.IsMutable isPublic name (makeStrConst selector) (makeStrConst path)
+        transformImport com None typ memb.IsMutable isPublic name fullDisplayName (makeStrConst selector) (makeStrConst path)
     | _ ->
         if isModuleValueForDeclarations memb
-        then transformMemberValue com ctx isPublic name memb body
-        else transformMemberFunction com ctx isPublic name memb args body
+        then transformMemberValue com ctx isPublic name fullDisplayName memb body
+        else transformMemberFunction com ctx isPublic name fullDisplayName memb args body
 
 let private transformAttachedMember (com: FableCompiler) (ctx: Context)
             (declaringEntity: Fable.Entity) (signature: FSharpAbstractSignature)
@@ -1016,6 +1026,7 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
     let name, info = getAttachedMemberInfo com ctx body.Range com.NonMangledAttachedMemberConflicts (Some entFullName) signature memb.Attributes
     com.AddAttachedMember(entFullName,
         { Name = name
+          FullDisplayName = entFullName + "." + signature.Name
           Args = args
           Body = body
           UsedNames = set ctx.UseNamesInDeclarationScope

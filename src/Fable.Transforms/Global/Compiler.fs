@@ -64,3 +64,28 @@ type Compiler =
     abstract AddWatchDependency: file: string -> unit
     abstract AddLog: msg:string * severity: Severity * ?range: SourceLocation
                         * ?fileName:string * ?tag: string -> unit
+
+[<AutoOpen>]
+module CompilerExt =
+    type Compiler with
+        member com.ApplyPlugin<'Plugin, 'Input>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =
+            if Map.isEmpty plugins then input
+            else
+                (input, atts) ||> Seq.fold (fun input att ->
+                    match Map.tryFind att.Entity plugins with
+                    | None -> input
+                    | Some plugin ->
+                        let plugin = System.Activator.CreateInstance(plugin, List.toArray att.ConstructorArgs) :?> 'Plugin
+                        let helper =
+                            { new PluginHelper with
+                                member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
+                                member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile) }
+                        transform plugin helper input)
+
+        member com.ApplyMemberDeclarationPlugin(decl: Fable.MemberDecl) =
+            com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
+                (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, i))
+
+        member com.ApplyCallPlugin(atts, expr: Fable.Expr) =
+            com.ApplyPlugin<CallPluginAttribute,_>
+                (com.Plugins.CallPlugins, atts, expr, fun p h e -> p.Transform(h, e))

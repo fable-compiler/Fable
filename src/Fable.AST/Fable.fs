@@ -118,6 +118,7 @@ type ActionDecl = {
 
 type MemberDecl = {
     Name: string
+    FullDisplayName: string
     Args: Ident list
     Body: Expr
     Info: MemberInfo

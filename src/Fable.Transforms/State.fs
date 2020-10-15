@@ -65,19 +65,25 @@ type Project(projectOptions: FSharpProjectOptions,
                     let t = snd att.ConstructorArguments.[0] :?> FSharpType
                     match FSharp2Fable.Helpers.tryDefinition t with
                     | Some(pluginEntity, Some fullName) ->
-                        let dllPath =
-                            match pluginEntity.Assembly.FileName with
-                            | Some dllPath -> dllPath
-                            | None ->
-                                let sourcePath = FSharp2Fable.FsEnt.SourcePath pluginEntity
-                                let pkg =
-                                    packages
-                                    |> List.tryFind (fun pkg ->
-                                        pkg.SourcePaths |> List.contains sourcePath)
-                                    |> Option.defaultWith (fun () -> failwithf "Cannot find dll path for plugin %s" fullName)
-                                pkg.DllPath
-                        let plugin = getPlugin { DllPath = dllPath; TypeFullName = fullName }
-                        plugins.Add(FSharp2Fable.FsEnt.Ref pluginEntity, plugin)
+                        match pluginEntity.Assembly.FileName with
+                        | Some dllPath -> Some dllPath
+                        | None ->
+                            let sourcePath = FSharp2Fable.FsEnt.SourcePath pluginEntity
+                            packages
+                            |> List.tryFind (fun pkg ->
+                                pkg.SourcePaths |> List.contains sourcePath)
+                            |> Option.map (fun pkg -> pkg.DllPath)
+                            |> Option.orElseWith (fun () ->
+                                if att.ConstructorArguments.Count > 1 then
+                                    let devDll = snd att.ConstructorArguments.[1] :?> string
+                                    if System.String.IsNullOrEmpty(devDll) then None
+                                    elif Path.isRelativePath devDll then
+                                        Path.Combine(Path.GetDirectoryName(sourcePath), devDll) |> Some
+                                    else Some devDll
+                                else None)
+                        |> Option.iter (fun dllPath ->
+                            let plugin = getPlugin { DllPath = dllPath; TypeFullName = fullName }
+                            plugins.Add(FSharp2Fable.FsEnt.Ref pluginEntity, plugin))
                     | _ -> ()
                 | _ -> ()
             with _ -> ()

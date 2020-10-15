@@ -422,10 +422,11 @@ let syncFcsRepo() =
     copyFcsRepo FCS_REPO_LOCAL
 
 let packages =
-    ["Fable.Cli", (fun () ->
+    ["Fable.AST", doNothing
+     "Fable.Core", doNothing
+     "Fable.Cli", (fun () ->
         updateVersionInCliUtil()
         buildLibrary())
-     "Fable.Core", doNothing
      "fable-compiler-js", fun () -> buildCompilerJs true
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing

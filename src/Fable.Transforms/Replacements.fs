@@ -61,6 +61,7 @@ module Helpers =
     let objValue (k, v): MemberDecl =
         {
             Name = k
+            FullDisplayName = k
             Args = []
             Body = v
             UsedNames = Set.empty
