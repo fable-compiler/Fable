@@ -4,7 +4,7 @@ open System.IO
 
 module Literals =
 
-    let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-011"
+    let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-012"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?runningProcess: System.Diagnostics.Process) =

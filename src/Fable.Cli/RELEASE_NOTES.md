@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-alpha-012
+
+* Fix plugins
+
 ### 3.0.0-nagareyama-alpha-011
 
 * Plugins
