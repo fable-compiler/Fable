@@ -64,9 +64,8 @@ type Project(projectOptions: FSharpProjectOptions,
                 let sourcePath = if useSourcePath then Some(FSharp2Fable.FsEnt.SourcePath e) else None
                 yield ({ QualifiedName = FSharp2Fable.FsEnt.QualifiedName e
                          SourcePath = sourcePath }: Fable.EntityRef), e
-                if e.IsFSharpModule then
-                    for sub in e.NestedEntities do
-                        yield! withNestedEntities useSourcePath sub
+                for sub in e.NestedEntities do
+                    yield! withNestedEntities useSourcePath sub
             }
 
     let implFiles =

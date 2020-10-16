@@ -389,8 +389,7 @@ module AST =
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
 
     let getLibPath (com: Compiler) moduleName =
-        let ext = if com.Options.Typescript then "" else ".js"
-        com.LibraryDir + "/" + moduleName + ext
+        com.LibraryDir + "/" + moduleName + ".js"
 
     let makeImportUserGenerated r t selector path =
         Import({ Selector = selector

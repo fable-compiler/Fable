@@ -9,8 +9,9 @@
     "postbuild-dotnet": "npm run rollup-bundle",
 
     "build-node": "node dist/bundle.js bench-compiler.fsproj out-node2",
+    "build-node-es": "node out-node/app.js bench-compiler.fsproj out-node2",
     "benchmark": "node dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
-    "benchmark2": "node out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
+    "benchmark-es": "node out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
 
     "compile-native": "dotnet publish -c Release -r win-x64",
     "native": "cd . && \"bin/Release/netcoreapp2.1/win-x64/native/bench-compiler\"",
@@ -32,7 +33,8 @@
     "build-test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test",
     "build-test-dotnet-ts": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --typescript",
     "build-test-dotnet-opt": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --optimize-fcs",
-    "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test",
+    "build-test-node": "node dist/bundle.js ../../../../../fable-test/fable-test.fsproj out-test",
+    "build-test-node-es": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test",
     "build-test-node-ts": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --typescript",
     "test-node": "node ./out-test/src/test.js",
 

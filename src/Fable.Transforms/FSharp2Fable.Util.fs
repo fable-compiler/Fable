@@ -1098,6 +1098,9 @@ module Util =
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
             | _ -> false)
 
+    let isFromDllRef (ent: Fable.Entity) =
+        Option.isNone ent.Ref.SourcePath
+
     let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
         if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
         // When compiling Fable itself, Fable.Core entities will be part of the code base,
@@ -1133,10 +1136,13 @@ module Util =
         entityRefWithSuffix com ent ""
 
     /// First checks if the entity is global or imported
-    let entityRefMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
+    let tryEntityRefMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
         match tryGlobalOrImportedEntity com ent with
-        | Some importedEntity -> importedEntity
-        | None -> entityRef com ent
+        | Some _importedEntity as entOpt -> entOpt
+        | None ->
+            if not (isFromDllRef ent)
+            then Some (entityRef com ent)
+            else None
 
     let memberRefTyped (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })

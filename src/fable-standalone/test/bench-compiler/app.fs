@@ -19,7 +19,7 @@ module Imports =
     let getTargetRelPath importPath targetDir projDir outDir =
         let relPath = getRelativePath projDir importPath |> trimPath
         let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
-        let relPath = if relPath.StartsWith("..") then relPath else "./" + relPath
+        let relPath = if relPath.StartsWith(".") then relPath else "./" + relPath
         let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
         relPath
 
@@ -118,7 +118,9 @@ let parseFiles projectFileName options =
         else getFableLibDir()
         |> normalizeFullPath
     let parseFable (res, fileName) =
-        fable.CompileToBabelAst(libDir, res, fileName, typescript=options.typescript)
+        fable.CompileToBabelAst(libDir, res, fileName,
+            typedArrays = options.typedArrays,
+            typescript = options.typescript)
 
     async {
         for fileName in fileNames do
@@ -151,13 +153,25 @@ let parseFiles projectFileName options =
             writeAllText outPath writer.Result
     } |> runAsync
 
-let hasFlag flag (args: string[]) =
-    Array.contains flag args
-
 let argValue key (args: string[]) =
     args
     |> Array.pairwise
-    |> Array.tryPick (fun (k, v) -> if k = key then Some v else None)
+    |> Array.tryPick (fun (k, v) ->
+        if k = key && not (v.StartsWith("-"))
+        then Some v else None)
+
+let tryFlag flag (args: string[]) =
+    match argValue flag args with
+    | Some flag ->
+        match System.Boolean.TryParse(flag) with
+        | true, flag -> Some flag
+        | false, _ -> None
+    // Flags can be activated without an explicit value
+    | None when Array.contains flag args -> Some true
+    | None -> None
+
+let hasFlag flag (args: string[]) =
+    tryFlag flag args |> Option.defaultValue false
 
 let run opts projectFileName outDir =
     let commandToRun =
@@ -174,6 +188,8 @@ let run opts projectFileName outDir =
         benchmark = opts |> hasFlag "--benchmark"
         optimize = opts |> hasFlag "--optimize"
         // sourceMaps = opts |> hasFlag "--sourceMaps"
+        typedArrays = opts |> tryFlag "--typedArrays"
+                           |> Option.defaultValue (opts |> hasFlag "--typescript" |> not)
         typescript = opts |> hasFlag "--typescript"
         printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"
@@ -190,6 +206,7 @@ Options:
   --outDir          Redirect compilation output to a directory
   --optimize        Compile with optimized F# AST (experimental)
   --typescript      Compile to TypeScript (experimental)
+  --typedArrays     Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)
   --run             Execute the script after compilation
 """
 
