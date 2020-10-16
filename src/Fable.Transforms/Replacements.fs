@@ -969,8 +969,9 @@ let tryEntityRef (com: Compiler) entFullName =
     | _ -> None
 
 let tryJsConstructor com (ent: Entity) =
-    if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent.FullName
-    else FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent |> Some
+    if FSharp2Fable.Util.isReplacementCandidate ent
+    then tryEntityRef com ent.FullName
+    else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
 
 let jsConstructor com ent =
     match tryJsConstructor com ent with
@@ -1004,7 +1005,8 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     | DeclaredType(ent,_)  ->
         let ent = com.GetEntity(ent)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
-        if ent.IsValueType then tryJsConstructor com ent
+        if ent.IsValueType
+        then tryJsConstructor com ent
         else None
         |> Option.map (fun e -> Helper.JsConstructorCall(e, t, []))
         |> Option.defaultWith (fun () -> Null t |> makeValue None)

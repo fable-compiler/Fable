@@ -57,7 +57,8 @@
             "name": "Run bench-compiler (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/netcoreapp3.1/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--typescript"],
+            // "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--typescript"],
+            "args": ["${workspaceRoot}/src/fable-library/Fable.Library.fsproj", "out-lib", "--typescript"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
