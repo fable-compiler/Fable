@@ -45,14 +45,21 @@ Commands:
 Arguments:
   --cwd             Working directory
   --outDir          Redirect compilation output to a directory
+  --extension       Extension for generated JS files (default .fs.js)
+
   --define          Defines a symbol for use in conditional compilation
+  --verbose         Print more info during compilation
+  --typedArrays     Compile numeric arrays as JS typed arrays (default true)
+
   --run             The command after the argument will be executed after compilation
   --runWatch        Like run, but will execute after each watch compilation
-  --runScript       Runs the generated script for last file with node (requires "esm" npm package)
-  --typedArrays     Compile numeric arrays as JS typed arrays (default true)
-  --forcePkgs       Force a new copy of package sources into `.fable` folder
-  --extension       Extension for generated JS files (default .fs.js)
-  --verbose         Print more info during compilation
+  --runScript       Runs the generated script for last file with node
+                    (Requires "esm" npm package)
+
+  --noCache         Ignore cached files during compilation
+  --exclude         Don't merge sources of referenced projects with specified pattern
+                    (Intended for plugin development)
+
   --optimize        Compile with optimized F# AST (experimental)
   --typescript      Compile to TypeScript (experimental)
 """
@@ -120,7 +127,7 @@ type Runner =
               RootDir = rootDir
               OutDir = argValue "--outDir" args
               WatchMode = watch
-              ForcePackages = flagEnabled "--forcePkgs" args
+              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args
               Exclude = argValue "--exclude" args
               Define = defines
               RunProcess = runProc

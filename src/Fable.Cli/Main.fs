@@ -263,7 +263,7 @@ type ProjectCracked(sourceFiles: File array,
                 fableLib = cliArgs.FableLibraryPath
                 define = cliArgs.Define
                 exclude = cliArgs.Exclude
-                forcePkgs = cliArgs.ForcePackages
+                forcePkgs = cliArgs.NoCache
                 projFile = cliArgs.ProjectFile
                 optimize = cliArgs.CompilerOptions.OptimizeFSharpAst
             }
@@ -371,10 +371,10 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             let filesToCompile =
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
-                // Skip files that have a more recent JS version
                 |> fun files ->
-                    if cracked.FableLibReset then files
+                    if cracked.FableLibReset || state.CliArgs.NoCache then files
                     else
+                        // Skip files that have a more recent JS version
                         files |> Array.skipWhile (fun file ->
                             try
                                 let jsFile = getOutJsPath state.CliArgs file

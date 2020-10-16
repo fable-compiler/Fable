@@ -40,15 +40,19 @@ let cleanDirs dirs =
     for dir in dirs do
         removeDirRecursive dir
 
-let updateVersionInCliUtil() =
+let updateVersionInCliUtil version =
     let filePath = "src/Fable.Cli/Util.fs"
-    let version = Publish.loadReleaseVersion "src/Fable.Cli"
     // printfn "VERSION %s" version
     Regex.Replace(
         readFile filePath,
         @"let \[<Literal>] VERSION = "".*?""",
         sprintf "let [<Literal>] VERSION = \"%s\"" version)
     |> writeFile filePath
+
+let updatePkgVersionInFsproj projFile version =
+    readFile projFile
+    |> replaceRegex Publish.NUGET_PACKAGE_VERSION ["$1"; version; "$3"]
+    |> writeFile projFile
 
 let downloadAndExtractTo (url: string) (targetDir: string) =
     sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
@@ -74,7 +78,6 @@ let buildLibrary() =
 
     runTypescript projectDir
 
-    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + buildDir
@@ -115,7 +118,6 @@ let buildLibraryTs() =
 
     cleanDirs [buildDirTs; buildDirJs]
 
-    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
@@ -137,8 +139,7 @@ let quicktest () =
     if pathExists quicktestJsPath |> not then
         writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
 
-    run "dotnet build src/Fable.Core"
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 
 let buildStandalone(minify: bool) =
     printfn "Building standalone%s..." (if minify then "" else " (no minification)")
@@ -159,7 +160,7 @@ let buildStandalone(minify: bool) =
     runFableWithArgs projectDir [
         "--outDir " + buildDir + "/bundle"
         "--fableLib " + libraryDir
-        "--forcePkgs"
+        "--noCache"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"
@@ -175,7 +176,7 @@ let buildStandalone(minify: bool) =
     runFableWithArgs (projectDir + "/Worker") [
         "--outDir " + buildDir + "/worker"
         "--fableLib " + libraryDir
-        "--forcePkgs"
+        "--noCache"
     ]
 
     // make standalone bundle dist
@@ -228,11 +229,10 @@ let buildCompilerJs(minify: bool) =
     cleanDirs [buildDir; distDir]
     makeDirRecursive distDir
 
-    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + libraryDir
-        "--forcePkgs"
+        "--noCache"
         "--exclude Fable.Core"
     ]
 
@@ -279,11 +279,10 @@ let test() =
     if not (pathExists libraryDir) then
         buildLibrary()
 
-    run "dotnet build src/Fable.Core"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + libraryDir
-        "--forcePkgs"
+        "--noCache"
         "--exclude Fable.Core"
     ]
 
@@ -295,24 +294,21 @@ let test() =
 
 let testRepos() =
     let repos = [
-        "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama"
+        "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"
+        "https://github.com/Zaid-Ajaj/Fable.SimpleJson:master", "npm i && npm run test-nagareyama"
     ]
 
-    // Make sure we don't install a cached version
-    let removeCachedPackage() =
-        run "rm -rf ~/.nuget/packages/fable"
-        // run "dotnet nuget locals all --clear"
-
-    let fableVersionRange = "3.0.0-nagareyama-*"
+    let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     let testDir = "temp"
     let pkgDir = "pkg"
+
     cleanDirs [testDir]
     makeDirRecursive testDir
-
-    removeCachedPackage()
+    updateVersionInCliUtil version
+    updatePkgVersionInFsproj "src/Fable.Cli/Fable.Cli.fsproj" version
     run (sprintf "dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o %s" (testDir </> pkgDir))
 
-    for repo in repos do
+    for (repo, command) in repos do
         let url, branch = let i = repo.LastIndexOf(":") in repo.[..i-1], repo.[i+1..]
         let name = url.[url.LastIndexOf("/") + 1..]
         runInDir testDir (sprintf "git clone %s %s" url name)
@@ -320,12 +316,8 @@ let testRepos() =
         runInDir repoDir ("git checkout " + branch)
         runInDir repoDir "dotnet tool uninstall fable"
         runInDir repoDir (sprintf "dotnet tool install fable --version \"%s\" --add-source %s"
-                            fableVersionRange (".." </> pkgDir))
-        runInDir repoDir "dotnet tool restore"
-        runInDir repoDir "npm install" // yarn
-        runInDir repoDir "npm test"
-
-    removeCachedPackage()
+                            version (".." </> pkgDir))
+        runInDir repoDir command
 
 let coverage() =
     // report converter
@@ -430,7 +422,7 @@ let packages =
     ["Fable.AST", doNothing
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
-        updateVersionInCliUtil()
+        Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInCliUtil
         buildLibrary())
      "fable-compiler-js", fun () -> buildCompilerJs true
      "fable-metadata", doNothing

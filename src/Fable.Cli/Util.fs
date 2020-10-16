@@ -4,7 +4,7 @@ open System.IO
 
 module Literals =
 
-    let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-012"
+    let [<Literal>] VERSION = "3.0.0-local-build-20201016-1440"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?runningProcess: System.Diagnostics.Process) =
@@ -20,7 +20,7 @@ type CliArgs =
       OutDir: string option
       FableLibraryPath: string option
       Define: string[]
-      ForcePackages: bool
+      NoCache: bool
       WatchMode: bool
       Exclude: string option
       RunProcess: RunProcess option

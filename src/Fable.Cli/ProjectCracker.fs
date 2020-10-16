@@ -56,6 +56,17 @@ let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
       ExtraProjectInfo = None
       Stamp = None }
 
+let buildDll (normalizedDllPath: string) =
+    let projDir =
+        normalizedDllPath.Split('/')
+        |> Array.rev
+        |> Array.skipWhile (fun part -> part <> "bin")
+        |> Array.skip 1
+        |> Array.rev
+        |> String.concat "/"
+    Process.runSync projDir "dotnet" ["build"]
+    |> ignore
+
 let tryGetFablePackage (dllPath: string) =
     let tryFileWithPattern dir pattern =
         try
@@ -280,11 +291,15 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     let projRefs =
         projRefs |> List.choose (fun projRef ->
+            let projName = Path.GetFileNameWithoutExtension(projRef)
             match opts.exclude with
-            | Some e when projRef.Contains(e) -> None
+            | Some e when projRef.Contains(e) ->
+                try
+                    buildDll dllRefs.[projName]
+                with e ->
+                    Log.always("Couldn't build " + projName + ": " + e.Message)
+                None
             | _ ->
-                // Remove dllRef corresponding to project references?
-                let projName = Path.GetFileNameWithoutExtension(projRef)
                 let removed = dllRefs.Remove(projName)
                 if not removed then
                     Log.always("Couldn't remove project reference " + projName + " from dll references")
