@@ -52,6 +52,7 @@ Arguments:
   --typedArrays     Compile numeric arrays as JS typed arrays (default true)
 
   --run             The command after the argument will be executed after compilation
+  --runFast         The command after the argument will be executed BEFORE compilation
   --runWatch        Like run, but will execute after each watch compilation
   --runScript       Runs the generated script for last file with node
                     (Requires "esm" npm package)
@@ -185,14 +186,13 @@ let main argv =
             |> function
                 | argv, flag::runArgs ->
                     match flag, runArgs with
-                    | "--run", [] -> Error "Missing command after --run"
-                    | "--runWatch", [] -> Error "Missing command after --runWatch"
-                    | "--run", exeFile::args -> Ok(false, exeFile, args)
-                    | "--runWatch", exeFile::args -> Ok(true, exeFile, args)
-                    | "--runScript", args -> Ok(true, Naming.placeholder, args)
-                    | _ -> Error ""
-                    |> Result.map (fun (watch, exeFile, args) ->
-                        argv, Some(RunProcess(exeFile, args, watch)))
+                    | "--run", exeFile::args -> Ok(RunProcess(exeFile, args))
+                    | "--runFast", exeFile::args -> Ok(RunProcess(exeFile, args, fast=true))
+                    | "--runWatch", exeFile::args -> Ok(RunProcess(exeFile, args, watch=true))
+                    | "--runScript", args -> Ok(RunProcess(Naming.placeholder, args, watch=true))
+                    | _, [] -> Error("Missing command after "+ flag)
+                    | _ -> Error("Unknown argument " + flag)
+                    |> Result.map (fun runProc -> argv, Some runProc)
                 | argv, [] -> Ok(argv, None)
 
         let rootDir =

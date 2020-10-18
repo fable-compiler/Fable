@@ -7,12 +7,13 @@ module Literals =
     let [<Literal>] VERSION = "3.0.0-local-build-20201016-1440"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
-type RunProcess(exeFile: string, args: string list, ?watch: bool, ?runningProcess: System.Diagnostics.Process) =
+type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool, ?runningProcess: System.Diagnostics.Process) =
     member _.ExeFile = exeFile
     member _.Args = args
     member _.IsWatch = defaultArg watch false
+    member _.IsFast = defaultArg fast false
     member _.RunningProcess = runningProcess
-    member this.WithRunningProcess(p) = RunProcess(this.ExeFile, this.Args, watch=this.IsWatch, runningProcess=p)
+    member this.WithRunningProcess(p) = RunProcess(this.ExeFile, this.Args, watch=this.IsWatch, fast=this.IsFast, runningProcess=p)
 
 type CliArgs =
     { ProjectFile: string

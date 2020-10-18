@@ -259,14 +259,13 @@ type ProjectCracked(sourceFiles: File array,
 
     static member Init(cliArgs: CliArgs) =
         let res =
-            getFullProjectOpts {
-                fableLib = cliArgs.FableLibraryPath
-                define = cliArgs.Define
-                exclude = cliArgs.Exclude
-                forcePkgs = cliArgs.NoCache
-                projFile = cliArgs.ProjectFile
-                optimize = cliArgs.CompilerOptions.OptimizeFSharpAst
-            }
+            CrackerOptions(fableLib = cliArgs.FableLibraryPath,
+                           define = cliArgs.Define,
+                           exclude = cliArgs.Exclude,
+                           forcePkgs = cliArgs.NoCache,
+                           projFile = cliArgs.ProjectFile,
+                           optimize = cliArgs.CompilerOptions.OptimizeFSharpAst)
+            |> getFullProjectOpts
 
         Log.verbose(lazy
             let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
@@ -332,6 +331,17 @@ type State =
       TestInfo: TestInfo option }
 
 let rec startCompilation (changes: Set<string>) (state: State) = async {
+    let state =
+        match state.CliArgs.RunProcess with
+        | Some runProc when runProc.IsFast ->
+            let workingDir = state.CliArgs.RootDir
+            let exeFile =
+                File.tryNodeModulesBin workingDir runProc.ExeFile
+                |> Option.defaultValue runProc.ExeFile
+            Process.tryStart workingDir exeFile runProc.Args |> ignore
+            { state with CliArgs = { state.CliArgs with RunProcess = None } }
+        | _ -> state
+
     // TODO: Use Result here to fail more gracefully if FCS crashes
     let cracked, parsed, filesToCompile =
         match state.ProjectCrackedAndParsed with

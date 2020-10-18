@@ -81,6 +81,7 @@ let buildLibrary() =
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + buildDir
+        "--noCache"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
     ]
@@ -121,6 +122,7 @@ let buildLibraryTs() =
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
+        "--noCache"
         "--typescript"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
@@ -159,7 +161,6 @@ let buildStandalone(minify: bool) =
     // build standalone bundle
     runFableWithArgs projectDir [
         "--outDir " + buildDir + "/bundle"
-        "--fableLib " + libraryDir
         "--noCache"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
@@ -175,7 +176,6 @@ let buildStandalone(minify: bool) =
     // build standalone worker
     runFableWithArgs (projectDir + "/Worker") [
         "--outDir " + buildDir + "/worker"
-        "--fableLib " + libraryDir
         "--noCache"
     ]
 
@@ -219,7 +219,6 @@ let buildStandalone(minify: bool) =
 
 let buildCompilerJs(minify: bool) =
     let projectDir = "src/fable-compiler-js/src"
-    let libraryDir = "build/fable-library"
     let buildDir = "build/fable-compiler-js"
     let distDir = "src/fable-compiler-js/dist"
 
@@ -231,7 +230,6 @@ let buildCompilerJs(minify: bool) =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--fableLib " + libraryDir
         "--noCache"
         "--exclude Fable.Core"
     ]
@@ -281,7 +279,6 @@ let test() =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--fableLib " + libraryDir
         "--noCache"
         "--exclude Fable.Core"
     ]
