@@ -2,6 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build-cli": "dotnet run -c Release -p ../../../Fable.Cli -- bench-compiler.fsproj --outDir out-node",
 
     "prebuild-dotnet": "git clean -fdx",
     "build-dotnet": "dotnet run -c Release bench-compiler.fsproj out-node",

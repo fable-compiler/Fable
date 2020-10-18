@@ -156,4 +156,5 @@ let rec private projInfo additionalMSBuildProps (file: string) =
       projOptions, projRefs, props
 
 let GetProjectOptionsFromProjectFile (file : string) =
-  projInfo [] file
+    // projInfo ["Configuration", ""] file // this removes --define:DEBUG, if needed
+    projInfo [] file

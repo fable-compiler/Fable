@@ -1,14 +1,13 @@
 {
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "npm run splitter",
-    "postbuild": "npm run rollup -- -i ./out/app.js -o ./dist/bundle.js --format cjs",
+    "build": "dotnet run -c Release -p ../../../Fable.Cli -- bench.fsproj --outDir out",
+    "postbuild": "npm run rollup -- -i out/app.js -o dist/bundle.js --format esm",
     "rollup": "node ../../../../node_modules/rollup/dist/bin/rollup",
-    "splitter": "node ../../../../node_modules/fable-splitter/dist/cli",
     "test-dotnet": "dotnet run -c Release",
     "test-node": "node dist/bundle",
-    "profile": "node --prof dist/bundle",
-    "process": "chcp 65001 > nul && for %x in (isolate-*.log) do node --prof-process %x > %x.txt",
+    "cpu-prof": "node --cpu-prof --cpu-prof-dir=out-prof dist/bundle.js",
     "trace": "node --trace-deopt out/app > deopt.txt"
   }
 }

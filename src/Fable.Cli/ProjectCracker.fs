@@ -246,7 +246,8 @@ let getSourcesFromFsproj (projFile: string) =
         | path -> [ path ])
 
 let private isUsefulOption (opt : string) =
-    [ "--nowarn"
+    [ "--define"
+      "--nowarn"
       "--warnon"
       "--warnaserror"
       "--langversion" ]
@@ -330,18 +331,22 @@ let easyCrack opts dllRefs (projFile: string): CrackedFsproj =
     let projOpts, projRefs, _msbuildProps =
         ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
 
-    let sourceFiles =
-        (projOpts.OtherOptions, []) ||> Array.foldBack (fun line src ->
-            if line.StartsWith("-")
-            then src
-            else (Path.normalizeFullPath line)::src)
+    let sourceFiles, otherOpts =
+        (projOpts.OtherOptions, ([], []))
+        ||> Array.foldBack (fun line (src, otherOpts) ->
+            if isUsefulOption line then
+                src, line::otherOpts
+            elif line.StartsWith("-") then
+                src, otherOpts
+            else
+                (Path.normalizeFullPath line)::src, otherOpts)
 
     { ProjectFile = projFile
       SourceFiles = sourceFiles
       ProjectReferences = List.choose (excludeProjRef opts dllRefs) projRefs
       DllReferences = Dictionary()
       PackageReferences = []
-      OtherCompilerOptions = [] }
+      OtherCompilerOptions = otherOpts }
 
 let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
     let mainProj = fullCrack opts
@@ -486,6 +491,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
             let refSources = projRefs |> List.collect (fun x -> x.SourceFiles)
             pkgSources @ refSources @ mainProj.SourceFiles |> List.toArray |> removeFilesInObjFolder
 
+        let refOptions =
+            projRefs
+            |> List.collect (fun x -> x.OtherCompilerOptions)
+            |> List.toArray
+
         let otherOptions =
             let coreRefs = HashSet Standalone.Metadata.references_core
             let ignoredRefs = HashSet [
@@ -496,8 +506,9 @@ let getFullProjectOpts (opts: CrackerOptions) =
                "Microsoft.CSharp"
             ]
             [|
-                yield! getBasicCompilerArgs opts.Define
-                yield! mainProj.OtherCompilerOptions
+                yield! refOptions // merged options from all referenced projects
+                yield! mainProj.OtherCompilerOptions // main project compiler options
+                yield! getBasicCompilerArgs opts.Define // options from compiler args
                 yield "--optimize" + (if opts.Optimize then "+" else "-")
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values
