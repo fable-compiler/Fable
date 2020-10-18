@@ -1,3 +1,8 @@
+### 3.0.0-nagareyama-alpha-014
+
+* Fixed entity resolution @ncave
+* Cli improvements
+
 ### 3.0.0-nagareyama-alpha-012
 
 * Fix plugins
