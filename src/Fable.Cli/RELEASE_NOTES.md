@@ -1,3 +1,16 @@
+### 3.0.0-nagareyama-alpha-014
+
+* Fixed entity resolution @ncave
+* Cli improvements
+
+### 3.0.0-nagareyama-alpha-012
+
+* Fix plugins
+
+### 3.0.0-nagareyama-alpha-011
+
+* Plugins
+
 ### 3.0.0-nagareyama-alpha-010
 
 * Fix #2202: Using System.Type as Dictionary key @Zaid-Ajaj

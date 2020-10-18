@@ -45,15 +45,22 @@ Commands:
 Arguments:
   --cwd             Working directory
   --outDir          Redirect compilation output to a directory
-  --define          Defines a symbol for use in conditional compilation
-  --run             The command after the argument will be executed after compilation
-  --runWatch        Like run, but will execute after each watch compilation
-  --runScript       Runs the generated script for last file with node (requires "esm" npm package)
-  --typedArrays     Compile numeric arrays as JS typed arrays (default true)
-  --forcePkgs       Force a new copy of package sources into `.fable` folder
   --extension       Extension for generated JS files (default .fs.js)
+
+  --define          Defines a symbol for use in conditional compilation
   --verbose         Print more info during compilation
-  --exclude         Skip Fable compilation for files containing the pattern
+  --typedArrays     Compile numeric arrays as JS typed arrays (default true)
+
+  --run             The command after the argument will be executed after compilation
+  --runFast         The command after the argument will be executed BEFORE compilation
+  --runWatch        Like run, but will execute after each watch compilation
+  --runScript       Runs the generated script for last file with node
+                    (Requires "esm" npm package)
+
+  --noCache         Ignore cached files during compilation
+  --exclude         Don't merge sources of referenced projects with specified pattern
+                    (Intended for plugin development)
+
   --optimize        Compile with optimized F# AST (experimental)
   --typescript      Compile to TypeScript (experimental)
 """
@@ -121,7 +128,7 @@ type Runner =
               RootDir = rootDir
               OutDir = argValue "--outDir" args
               WatchMode = watch
-              ForcePackages = flagEnabled "--forcePkgs" args
+              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args
               Exclude = argValue "--exclude" args
               Define = defines
               RunProcess = runProc
@@ -179,14 +186,13 @@ let main argv =
             |> function
                 | argv, flag::runArgs ->
                     match flag, runArgs with
-                    | "--run", [] -> Error "Missing command after --run"
-                    | "--runWatch", [] -> Error "Missing command after --runWatch"
-                    | "--run", exeFile::args -> Ok(false, exeFile, args)
-                    | "--runWatch", exeFile::args -> Ok(true, exeFile, args)
-                    | "--runScript", args -> Ok(true, Naming.placeholder, args)
-                    | _ -> Error ""
-                    |> Result.map (fun (watch, exeFile, args) ->
-                        argv, Some(RunProcess(exeFile, args, watch)))
+                    | "--run", exeFile::args -> Ok(RunProcess(exeFile, args))
+                    | "--runFast", exeFile::args -> Ok(RunProcess(exeFile, args, fast=true))
+                    | "--runWatch", exeFile::args -> Ok(RunProcess(exeFile, args, watch=true))
+                    | "--runScript", args -> Ok(RunProcess(Naming.placeholder, args, watch=true))
+                    | _, [] -> Error("Missing command after "+ flag)
+                    | _ -> Error("Unknown argument " + flag)
+                    |> Result.map (fun runProc -> argv, Some runProc)
                 | argv, [] -> Ok(argv, None)
 
         let rootDir =

@@ -4,15 +4,16 @@ open System.IO
 
 module Literals =
 
-    let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-010"
+    let [<Literal>] VERSION = "3.0.0-nagareyama-alpha-014"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
-type RunProcess(exeFile: string, args: string list, ?watch: bool, ?runningProcess: System.Diagnostics.Process) =
+type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool, ?runningProcess: System.Diagnostics.Process) =
     member _.ExeFile = exeFile
     member _.Args = args
     member _.IsWatch = defaultArg watch false
+    member _.IsFast = defaultArg fast false
     member _.RunningProcess = runningProcess
-    member this.WithRunningProcess(p) = RunProcess(this.ExeFile, this.Args, watch=this.IsWatch, runningProcess=p)
+    member this.WithRunningProcess(p) = RunProcess(this.ExeFile, this.Args, watch=this.IsWatch, fast=this.IsFast, runningProcess=p)
 
 type CliArgs =
     { ProjectFile: string
@@ -20,7 +21,7 @@ type CliArgs =
       OutDir: string option
       FableLibraryPath: string option
       Define: string[]
-      ForcePackages: bool
+      NoCache: bool
       WatchMode: bool
       Exclude: string option
       RunProcess: RunProcess option
@@ -184,7 +185,7 @@ module Imports =
     let getTargetRelPath importPath targetDir projDir outDir =
         let relPath = getRelativePath projDir importPath |> trimPath
         let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
-        let relPath = if relPath.StartsWith("..") then relPath else "./" + relPath
+        let relPath = if relPath.StartsWith(".") then relPath else "./" + relPath
         let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
         relPath
 

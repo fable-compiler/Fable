@@ -5,9 +5,6 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AST/AST.Common.fs" />
-    <Compile Include="AST/AST.Fable.fs" />
-    <Compile Include="AST/AST.Babel.fs" />
     <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Prelude.fs" />
     <Compile Include="Global/Compiler.fs" />
@@ -28,7 +25,8 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="4.7.2" /> -->
+  <ItemGroup><!-- <PackageReference Include="FSharp.Core" Version="4.7.2" /> -->
+
+    <ProjectReference Include="..\Fable.AST\Fable.AST.fsproj" />
   </ItemGroup>
 </Project>

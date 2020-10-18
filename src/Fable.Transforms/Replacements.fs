@@ -61,6 +61,7 @@ module Helpers =
     let objValue (k, v): MemberDecl =
         {
             Name = k
+            FullDisplayName = k
             Args = []
             Body = v
             UsedNames = Set.empty
@@ -968,8 +969,9 @@ let tryEntityRef (com: Compiler) entFullName =
     | _ -> None
 
 let tryJsConstructor com (ent: Entity) =
-    if FSharp2Fable.Util.isReplacementCandidate ent then tryEntityRef com ent.FullName
-    else FSharp2Fable.Util.entityRefMaybeGlobalOrImported com ent |> Some
+    if FSharp2Fable.Util.isReplacementCandidate ent
+    then tryEntityRef com ent.FullName
+    else FSharp2Fable.Util.tryEntityRefMaybeGlobalOrImported com ent
 
 let jsConstructor com ent =
     match tryJsConstructor com ent with
@@ -1003,7 +1005,8 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     | DeclaredType(ent,_)  ->
         let ent = com.GetEntity(ent)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
-        if ent.IsValueType then tryJsConstructor com ent
+        if ent.IsValueType
+        then tryJsConstructor com ent
         else None
         |> Option.map (fun e -> Helper.JsConstructorCall(e, t, []))
         |> Option.defaultWith (fun () -> Null t |> makeValue None)
@@ -1059,6 +1062,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | "Fable.Core.Reflection", meth ->
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
+    | "Fable.Core.Compiler", meth ->
+        match meth with
+        | "debugMode" -> makeBoolConst com.Options.DebugMode |> Some
+        | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
+        | _ -> None
     | "Fable.Core.JsInterop", _ ->
         match i.CompiledName, args with
         | "importDynamic", _ ->
@@ -2819,9 +2827,9 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_FullName" | "get_Namespace"
         | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition"
-        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" ->
+        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
-            Helper.LibCall(com, "Reflection", meth, t, [thisArg], ?loc=r) |> Some
+            Helper.LibCall(com, "Reflection", meth, t, thisArg::args, ?loc=r) |> Some
         | _ -> None
     | None, None -> None
 

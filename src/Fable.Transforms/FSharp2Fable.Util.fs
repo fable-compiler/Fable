@@ -13,9 +13,9 @@ type FsField(name, typ: Lazy<Fable.Type>, ?isMutable, ?isStatic, ?literalValue) 
     new (fi: FSharpField) =
         let getFSharpFieldName (fi: FSharpField) =
             let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
-                match TypeHelpers.getBaseClass ent with
+                match TypeHelpers.getBaseEntity ent with
                 | None -> acc
-                | Some (baseClass: FSharpEntity) ->
+                | Some (baseClass, _) ->
                     let conflicts =
                         baseClass.FSharpFields
                         |> Seq.exists (fun fi -> fi.Name = name)
@@ -55,8 +55,8 @@ type FsUnionCase(uci: FSharpUnionCase) =
 
 type FsAtt(att: FSharpAttribute) =
     interface Fable.Attribute with
-        member _.FullName = defaultArg att.AttributeType.TryFullName ""
-        member _.ConstructorArguments = att.ConstructorArguments |> Seq.mapToList snd
+        member _.Entity = FsEnt.Ref att.AttributeType
+        member _.ConstructorArgs = att.ConstructorArguments |> Seq.mapToList snd
 
 type FsGenParam(gen: FSharpGenericParameter) =
     interface Fable.GenericParam with
@@ -69,7 +69,7 @@ type FsParam(p: FSharpParameter) =
 
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
-        member _.Definition = FsEnt.Ref ent
+        member _.Entity = FsEnt.Ref ent
         member _.GenericArgs = genArgs |> Seq.mapToList (TypeHelpers.makeType Map.empty)
 
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
@@ -162,14 +162,10 @@ type FsEnt(ent: FSharpEntity) =
         member _.DisplayName = ent.DisplayName
         member _.FullName = FsEnt.FullName ent
 
-        member _.BaseDeclaration =
-            match ent.BaseType with
-            | Some baseType ->
-                match Helpers.tryDefinition baseType with
-                | Some(baseEntity, fullName) when fullName <> Some Types.object ->
-                    Some(upcast FsDeclaredType(baseEntity, baseType.GenericArguments))
-                | _ -> None
-            | None -> None
+        member _.BaseType =
+            match TypeHelpers.getBaseEntity ent with
+            | Some(baseEntity, baseGenArgs) -> Some(upcast FsDeclaredType(baseEntity, baseGenArgs))
+            | _ -> None
 
         member _.Attributes =
             ent.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
@@ -528,8 +524,8 @@ module Patterns =
             | "Microsoft.FSharp.Core.Operators.raise" ->
                 match value with
                 | NewRecord(recordType, [Const (value, _valueT) ; _rangeFrom; _rangeTo]) ->
-                    match recordType.TypeDefinition.FullName with
-                    | "Microsoft.FSharp.Core.MatchFailureException"-> Some (value.ToString())
+                    match recordType.TypeDefinition.TryFullName with
+                    | Some "Microsoft.FSharp.Core.MatchFailureException" -> Some (value.ToString())
                     | _ -> None
                 | _ -> None
             | _ -> None
@@ -794,17 +790,16 @@ module TypeHelpers =
                 makeTypeFromDef ctxTypeArgs t.GenericArguments t.TypeDefinition
         else Fable.Any // failwithf "Unexpected non-declared F# type: %A" t
 
-    let getBaseClass (tdef: FSharpEntity) =
+    let getBaseEntity (tdef: FSharpEntity): (FSharpEntity * IList<FSharpType>) option =
         match tdef.BaseType with
-        | Some(TypeDefinition tdef) when tdef.TryFullName <> Some Types.object ->
-            Some tdef
+        | Some(TypeDefinition baseEnt as baseType) when baseEnt.TryFullName <> Some Types.object ->
+            Some(baseEnt, baseType.GenericArguments)
         | _ -> None
 
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
         yield! tdef.TryGetMembersFunctionsAndValues
-        match tdef.BaseType with
-        | Some(TypeDefinition baseDef) when tdef.TryFullName <> Some Types.object ->
-            yield! getOwnAndInheritedFsharpMembers baseDef
+        match getBaseEntity tdef with
+        | Some(baseDef, _) -> yield! getOwnAndInheritedFsharpMembers baseDef
         | _ -> ()
     }
 
@@ -817,9 +812,6 @@ module TypeHelpers =
 
     let isAbstract (ent: FSharpEntity) =
        hasAttribute Atts.abstractClass ent.Attributes
-
-    let tryTypeDefinition (NonAbbreviatedType t) =
-        if t.HasTypeDefinition then Some t.TypeDefinition else None
 
     let tryGetInterfaceTypeFromMethod (meth: FSharpMemberOrFunctionOrValue) =
         if meth.ImplementedAbstractSignatures.Count > 0
@@ -1029,16 +1021,16 @@ module Util =
             |> Path.getRelativePath com.CurrentFile
 
     let (|GlobalAtt|ImportAtt|NoGlobalNorImport|) (atts: Fable.Attribute seq) =
-        let (|AttFullName|) (att: Fable.Attribute) = att.FullName, att
+        let (|AttFullName|) (att: Fable.Attribute) = att.Entity.FullName, att
 
         atts |> Seq.tryPick (function
             | AttFullName(Atts.global_, att) ->
-                match att.ConstructorArguments with
+                match att.ConstructorArgs with
                 | [:? string as customName] -> GlobalAtt(Some customName) |> Some
                 | _ -> GlobalAtt(None) |> Some
 
             | AttFullName(Naming.StartsWith Atts.import _ as fullName, att) ->
-                match fullName, att.ConstructorArguments with
+                match fullName, att.ConstructorArgs with
                 | Atts.importAll, [(:? string as path)] ->
                     ImportAtt("*", path.Trim()) |> Some
                 | Atts.importDefault, [(:? string as path)] ->
@@ -1096,15 +1088,18 @@ module Util =
 
     let isErasedOrStringEnumEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->
-            match att.FullName with
+            match att.Entity.FullName with
             | Atts.erase | Atts.stringEnum -> true
             | _ -> false)
 
     let isGlobalOrImportedEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->
-            match att.FullName with
+            match att.Entity.FullName with
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
             | _ -> false)
+
+    let isFromDllRef (ent: Fable.Entity) =
+        Option.isNone ent.Ref.SourcePath
 
     let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
         if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
@@ -1141,10 +1136,13 @@ module Util =
         entityRefWithSuffix com ent ""
 
     /// First checks if the entity is global or imported
-    let entityRefMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
+    let tryEntityRefMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
         match tryGlobalOrImportedEntity com ent with
-        | Some importedEntity -> importedEntity
-        | None -> entityRef com ent
+        | Some _importedEntity as entOpt -> entOpt
+        | None ->
+            if not (isFromDllRef ent)
+            then Some (entityRef com ent)
+            else None
 
     let memberRefTyped (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
@@ -1171,17 +1169,24 @@ module Util =
     let memberRef (com: IFableCompiler) ctx r (memb: FSharpMemberOrFunctionOrValue) =
         memberRefTyped com ctx r Fable.Any memb
 
+    let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
+        if filter ent then Some ent
+        else
+            match getBaseEntity ent with
+            | Some(ent, _) ->
+                tryFindInTypeHierarchy ent filter
+            | _ -> None
+
     /// Checks who's the actual implementor of the interface, this entity or any of its parents
     let rec tryFindImplementingEntity (ent: FSharpEntity) interfaceFullName =
-        ent.DeclaredInterfaces
-        |> Seq.exists (testInterfaceHierarchy interfaceFullName)
-        |> function
-            | true -> Some ent
-            | false ->
-                match ent.BaseType with
-                | Some(NonAbbreviatedType t) when t.HasTypeDefinition ->
-                    tryFindImplementingEntity t.TypeDefinition interfaceFullName
-                | _ -> None
+        tryFindInTypeHierarchy ent (fun ent ->
+            ent.DeclaredInterfaces
+            |> Seq.exists (testInterfaceHierarchy interfaceFullName))
+
+    let rec inherits (ent: FSharpEntity) baseFullName =
+        tryFindInTypeHierarchy ent (fun ent ->
+            ent.TryFullName = Some baseFullName)
+        |> Option.isSome
 
     let isMangledAbstractEntity (ent: FSharpEntity) =
         match ent.TryFullName with
@@ -1408,7 +1413,7 @@ module Util =
             |> snd
 
     let hasInterface interfaceFullname (ent: Fable.Entity) =
-        ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Definition.FullName = interfaceFullname)
+        ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
     let makeCallWithArgInfo com ctx r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
         match memb, memb.DeclaringEntity with
@@ -1432,7 +1437,12 @@ module Util =
             memberRefTyped com ctx r typ memb
 
         | _ ->
-            memberRef com ctx r memb |> makeCall r typ callInfo
+            let atts =
+                memb.Attributes
+                |> Seq.map (fun a -> FsAtt(a) :> Fable.Attribute)
+            memberRef com ctx r memb
+            |> makeCall r typ callInfo
+            |> fun e -> com.ApplyCallPlugin(atts, e)
 
     let makeCallInfoFrom (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
         {

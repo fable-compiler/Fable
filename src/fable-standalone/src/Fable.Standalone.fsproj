@@ -13,9 +13,10 @@
 
   <ItemGroup>
     <!-- Fable.Transforms -->
-    <Compile Include="../../Fable.Transforms/AST/AST.Common.fs" />
-    <Compile Include="../../Fable.Transforms/AST/AST.Fable.fs" />
-    <Compile Include="../../Fable.Transforms/AST/AST.Babel.fs" />
+    <Compile Include="../../Fable.AST/Common.fs" />
+    <Compile Include="../../Fable.AST/Fable.fs" />
+    <Compile Include="../../Fable.AST/Babel.fs" />
+    <Compile Include="../../Fable.AST/Plugins.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />
