@@ -14,7 +14,7 @@ open FSharp.Compiler.Range
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.TypedTree
 
-#if DEBUG
+#if DEBUG && !FABLE_COMPILER
 assert (sizeof<ValFlags> = 8)
 assert (sizeof<EntityFlags> = 8)
 assert (sizeof<TyparFlags> = 4)
