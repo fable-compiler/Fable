@@ -1090,15 +1090,13 @@ module Util =
         |> List.append thisArg
         |> emitExpression range macro
 
-    let transformCall com ctx range callee (callInfo: Fable.CallInfo) =
+    let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
+        let callee = com.TransformAsExpr(ctx, callee)
         let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
-        match callee, callInfo.ThisArg with
-        | TransformExpr com ctx callee, None when callInfo.IsJsConstructor ->
-            NewExpression(callee, List.toArray args, ?loc=range) :> Expression
-        | TransformExpr com ctx callee, Some(TransformExpr com ctx thisArg) ->
-            callFunction range callee (thisArg::args)
-        | TransformExpr com ctx callee, None ->
-            callFunction range callee args
+        match callInfo.ThisArg with
+        | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
+        | None when callInfo.IsJsConstructor -> NewExpression(callee, List.toArray args, ?loc=range) :> Expression
+        | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx false args with

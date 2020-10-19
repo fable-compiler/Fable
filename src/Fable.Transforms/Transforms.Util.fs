@@ -222,6 +222,10 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|IdentType|) (id: Ident) = id.Type
 
+    let (|StringConst|_|) = function
+        | Value(StringConstant str, _) -> Some str
+        | _ -> None
+
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
             | LambdaType(arg, returnType) ->
