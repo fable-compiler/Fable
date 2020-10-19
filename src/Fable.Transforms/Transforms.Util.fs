@@ -317,10 +317,9 @@ module AST =
             | NewOption(Some e,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
             | NewTuple exprs
-            | NewArray(exprs,_)
             | NewUnion(exprs,_,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
-            | NewArrayFrom(e,_) -> canHaveSideEffects e
-            // TODO: Check exprs?
+            // Arrays can be mutable
+            | NewArray _ | NewArrayFrom _ -> true
             | NewRecord _ | NewAnonymousRecord _ -> true
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
