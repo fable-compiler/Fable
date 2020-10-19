@@ -254,10 +254,13 @@ let getSourcesFromFsproj (projFile: string) =
         | path -> [ path ])
 
 let private isUsefulOption (opt : string) =
-    if opt.StartsWith("--define") then
-        opt <> "--define:DEBUG"  // DEBUG constant is managed by cli
-    else
-        [ "--nowarn"
+    match opt with
+    // We manage DEBUG (and maybe later TRACE) through CLI
+    | "--define:DEBUG"
+    | "--define:TRACE" -> false
+    | _ ->
+        [ "--define"
+          "--nowarn"
           "--warnon"
           "--warnaserror"
           "--langversion" ]

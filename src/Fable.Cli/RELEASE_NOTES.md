@@ -1,3 +1,11 @@
+### 3.0.0-nagareyama-alpha-015
+
+* Fix #2211: File extension in dynamic imports @Zaid-Ajaj
+* Fix #2212: Kill subprocess in Windows @Zaid-Ajaj
+* Fix #2213: Weird logs
+* Compatibility with latest Fable.AST release
+* Minor improvements in code generation
+
 ### 3.0.0-nagareyama-alpha-014
 
 * Fixed entity resolution @ncave
