@@ -29,7 +29,7 @@ module Imports =
     let getTargetRelPath importPath targetDir projDir outDir =
         let relPath = getRelativePath projDir importPath |> trimPath
         let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
-        let relPath = if relPath.StartsWith(".") then relPath else "./" + relPath
+        let relPath = if isRelativePath relPath then relPath else "./" + relPath
         let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
         relPath
 
