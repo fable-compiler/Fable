@@ -306,10 +306,22 @@ module AST =
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
         | Import _ -> false
-        | Value((Null _ | UnitConstant | NumberConstant _ | StringConstant _ | BoolConstant _),_) -> false
-        | Value(NewTuple exprs,_) ->
-            (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
-        | Value(EnumConstant(e, _),_) -> canHaveSideEffects e
+        | TypeCast(e,_) -> canHaveSideEffects e
+        | Value(value,_) ->
+            match value with
+            | ThisValue _ | BaseValue _ -> true
+            | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
+            | CharConstant _ | StringConstant _ | RegexConstant _  -> false
+            | EnumConstant(e, _) -> canHaveSideEffects e
+            | NewList(None,_) | NewOption(None,_) -> false
+            | NewOption(Some e,_) -> canHaveSideEffects e
+            | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
+            | NewTuple exprs
+            | NewArray(exprs,_)
+            | NewUnion(exprs,_,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
+            | NewArrayFrom(e,_) -> canHaveSideEffects e
+            // TODO: Check exprs?
+            | NewRecord _ | NewAnonymousRecord _ -> true
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
             match kind with

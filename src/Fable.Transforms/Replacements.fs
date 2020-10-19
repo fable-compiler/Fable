@@ -245,7 +245,7 @@ let (|ListLiteral|_|) e =
     | _ -> None
 
 let (|ArrayOrListLiteral|_|) = function
-    | Value((NewArray(vals, t)|ListLiteral(vals, t)),_) -> Some(vals, t)
+    | MaybeCasted(Value((NewArray(vals, t)|ListLiteral(vals, t)),_)) -> Some(vals, t)
     | _ -> None
 
 let (|IDictionary|IEqualityComparer|Other|) = function
@@ -912,7 +912,7 @@ let makePojoFromLambda com arg =
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
     |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", Any, [arg]))
 
-let makePojo (com: Compiler) (ctx: Context) caseRule keyValueList =
+let makePojo (com: Compiler) caseRule keyValueList =
     let makeObjMember caseRule name values =
         let value =
             match values with
@@ -921,16 +921,16 @@ let makePojo (com: Compiler) (ctx: Context) caseRule keyValueList =
             | values -> Value(NewArray(values, Any), None)
         objValue(Naming.applyCaseRule caseRule name, value)
 
-    let rec findKeyValueList scope identName =
-        match scope with
-        | [] -> None
-        | (_,ident2,expr)::prevScope ->
-            if identName = ident2.Name then
-                match expr with
-                | Some(MaybeCasted(ArrayOrListLiteral(kvs,_))) -> Some kvs
-                | Some(MaybeCasted(IdentExpr ident)) -> findKeyValueList prevScope ident.Name
-                | _ -> None
-            else findKeyValueList prevScope identName
+    // let rec findKeyValueList scope identName =
+    //     match scope with
+    //     | [] -> None
+    //     | (_,ident2,expr)::prevScope ->
+    //         if identName = ident2.Name then
+    //             match expr with
+    //             | Some(ArrayOrListLiteral(kvs,_)) -> Some kvs
+    //             | Some(MaybeCasted(IdentExpr ident)) -> findKeyValueList prevScope ident.Name
+    //             | _ -> None
+    //         else findKeyValueList prevScope identName
 
     match caseRule with
     | Value(NumberConstant(rule, _),_)
@@ -939,8 +939,8 @@ let makePojo (com: Compiler) (ctx: Context) caseRule keyValueList =
     |> Option.bind(fun rule ->
         let caseRule = enum(int rule)
         match keyValueList with
-        | MaybeCasted(ArrayOrListLiteral(kvs,_)) -> Some kvs
-        | MaybeCasted(IdentExpr ident) -> findKeyValueList ctx.Scope ident.Name
+        | ArrayOrListLiteral(kvs,_) -> Some kvs
+        // | MaybeCasted(IdentExpr ident) -> findKeyValueList ctx.Scope ident.Name
         | _ -> None
         |> Option.bind (fun kvs ->
             (kvs, Some []) ||> List.foldBack (fun m acc ->
@@ -1193,11 +1193,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let m = if com.Options.DebugMode then "createObjDebug" else "createObj"
             Helper.LibCall(com, "Util", m, Any, args) |> Some
          | "keyValueList", [caseRule; keyValueList] ->
-            makePojo com ctx caseRule keyValueList
-            |> Option.orElseWith (fun () ->
-                let args = [keyValueList; caseRule]
-                let args = if com.Options.DebugMode then args @ [makeBoolConst true] else args
-                Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> Some)
+            // makePojo com ctx caseRule keyValueList
+            let args = [keyValueList; caseRule]
+            let args = if com.Options.DebugMode then args @ [makeBoolConst true] else args
+            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
