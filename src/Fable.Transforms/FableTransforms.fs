@@ -259,8 +259,10 @@ module private Transforms =
         | e -> e
 
     let bindingBetaReduction (com: Compiler) e =
+        // Don't erase user-declared bindings in debug mode for better output
+        let isErasingCandidate (ident: Ident) =
+            (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
-        // Don't erase user-declared bindings
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
         | Let([ident, value], letBody) when (not ident.IsMutable) && ident.IsCompilerGenerated ->
             let canEraseBinding =

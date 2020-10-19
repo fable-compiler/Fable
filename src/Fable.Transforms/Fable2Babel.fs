@@ -689,7 +689,7 @@ module Util =
             let cons = getArrayCons typ
             let expr = com.TransformAsExpr(ctx, fableExpr)
             NewExpression(cons, [|expr|]) :> Expression
-        | MaybeCasted(Replacements.ArrayOrListLiteral(exprs, _)) ->
+        | Replacements.ArrayOrListLiteral(exprs, _) ->
             makeTypedArray com ctx typ exprs
         | _ ->
             let cons = getArrayCons typ
@@ -731,7 +731,7 @@ module Util =
         let kind = if isMutable then Let else Const
         VariableDeclaration(var, value, kind)
 
-    let restElement (var: Identifier) =
+    let restElement (var: Pattern) =
         RestElement(var) :> Pattern
 
     let callSuper (args: Expression list) =
@@ -801,11 +801,13 @@ module Util =
             else typeParamDecl
 
         let args =
-            if not hasSpread then args
-            else
-                let args = Array.rev args
-                let restEl = RestElement(Array.head args) :> Pattern
-                Array.append [|restEl|] (Array.tail args) |> Array.rev
+            let len = Array.length args
+            if not hasSpread || len = 0 then args
+            else [|
+                if len > 1 then
+                    yield! args.[..len-2]
+                yield restElement args.[len-1]
+            |]
 
         args, body, returnType, typeParamDecl
 
@@ -1091,12 +1093,21 @@ module Util =
         |> emitExpression range macro
 
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
-        let callee = com.TransformAsExpr(ctx, callee)
-        let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
-        match callInfo.ThisArg with
-        | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-        | None when callInfo.IsJsConstructor -> NewExpression(callee, List.toArray args, ?loc=range) :> Expression
-        | None -> callFunction range callee args
+        let optimized =
+            match callee, callInfo.ThisArg, callInfo.Args with
+            // HACK: Try to optimize keyValueList after the FableTransforms
+            | Fable.Import({ Selector = StringConst "keyValueList"; Path = StringConst path },_,_), None, keyValueList::caseRule::_
+                when path.EndsWith("/MapUtil.js") ->
+                Replacements.makePojo com caseRule keyValueList |> Option.map (transformAsExpr com ctx)
+            | _ -> None
+
+        optimized |> Option.defaultWith (fun () ->
+            let callee = com.TransformAsExpr(ctx, callee)
+            let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
+            match callInfo.ThisArg with
+            | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
+            | None when callInfo.IsJsConstructor -> NewExpression(callee, List.toArray args, ?loc=range) :> Expression
+            | None -> callFunction range callee args)
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx false args with
