@@ -912,6 +912,50 @@ let makePojoFromLambda com arg =
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
     |> Option.defaultWith (fun () -> Helper.LibCall(com, "Util", "jsOptions", Any, [arg]))
 
+let makePojo (com: Compiler) (ctx: Context) caseRule keyValueList =
+    let makeObjMember caseRule name values =
+        let value =
+            match values with
+            | [] -> makeBoolConst true
+            | [value] -> value
+            | values -> Value(NewArray(values, Any), None)
+        objValue(Naming.applyCaseRule caseRule name, value)
+
+    let rec findKeyValueList scope identName =
+        match scope with
+        | [] -> None
+        | (_,ident2,expr)::prevScope ->
+            if identName = ident2.Name then
+                match expr with
+                | Some(MaybeCasted(ArrayOrListLiteral(kvs,_))) -> Some kvs
+                | Some(MaybeCasted(IdentExpr ident)) -> findKeyValueList prevScope ident.Name
+                | _ -> None
+            else findKeyValueList prevScope identName
+
+    match caseRule with
+    | Value(NumberConstant(rule, _),_)
+    | Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_) -> Some rule
+    | _ -> None
+    |> Option.bind(fun rule ->
+        let caseRule = enum(int rule)
+        match keyValueList with
+        | MaybeCasted(ArrayOrListLiteral(kvs,_)) -> Some kvs
+        | MaybeCasted(IdentExpr ident) -> findKeyValueList ctx.Scope ident.Name
+        | _ -> None
+        |> Option.bind (fun kvs ->
+            (kvs, Some []) ||> List.foldBack (fun m acc ->
+                match acc, m with
+                // Try to get the member key and value at compile time for unions and tuples
+                | Some acc, MaybeCasted(Value(NewUnion(values, uci, ent, _),_)) ->
+                    let uci = com.GetEntity(ent).UnionCases |> List.item uci
+                    let name = defaultArg uci.CompiledName uci.Name
+                    makeObjMember caseRule name values::acc |> Some
+                | Some acc, Value(NewTuple((Value(StringConstant name,_))::values),_) ->
+                    // Don't change the case for tuples in disguise
+                    makeObjMember Core.CaseRules.None name values::acc |> Some
+                | _ -> None)))
+    |> Option.map (fun members -> ObjectExpr(members, Any, None))
+
 let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
     let injectArgInner args (injectType, injectGenArgIndex) =
         let fail () =
@@ -1149,9 +1193,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let m = if com.Options.DebugMode then "createObjDebug" else "createObj"
             Helper.LibCall(com, "Util", m, Any, args) |> Some
          | "keyValueList", [caseRule; keyValueList] ->
-            let args = [keyValueList; caseRule]
-            let args = if com.Options.DebugMode then args @ [makeBoolConst true] else args
-            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> Some
+            makePojo com ctx caseRule keyValueList
+            |> Option.orElseWith (fun () ->
+                let args = [keyValueList; caseRule]
+                let args = if com.Options.DebugMode then args @ [makeBoolConst true] else args
+                Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> Some)
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
