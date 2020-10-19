@@ -246,12 +246,14 @@ let getSourcesFromFsproj (projFile: string) =
         | path -> [ path ])
 
 let private isUsefulOption (opt : string) =
-    [ "--define"
-      "--nowarn"
-      "--warnon"
-      "--warnaserror"
-      "--langversion" ]
-    |> List.exists opt.StartsWith
+    if opt.StartsWith("--define") then
+        opt <> "--define:DEBUG"  // DEBUG constant is managed by cli
+    else
+        [ "--nowarn"
+          "--warnon"
+          "--warnaserror"
+          "--langversion" ]
+        |> List.exists opt.StartsWith
 
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
