@@ -810,7 +810,7 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typePa
             printer.PrintOptional(returnType)
             printer.Print(" ")
 
-            printer.Print(body)
+            printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -846,7 +846,8 @@ type ObjectExpression(properties, ?loc) =
                 p.PrintNewLine()
 
             printer.AddLocation(loc)
-            printer.PrintBlock(properties, (fun p x -> p.Print(x)), printSeparator, skipNewLineAtEnd=true)
+            if Array.isEmpty properties then printer.Print("{}")
+            else printer.PrintBlock(properties, (fun p x -> p.Print(x)), printSeparator, skipNewLineAtEnd=true)
 
 /// A conditional expression, i.e., a ternary ?/: expression.
 type ConditionalExpression(test, consequent, alternate, ?loc) =
