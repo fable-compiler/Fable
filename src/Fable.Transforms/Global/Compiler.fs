@@ -49,8 +49,7 @@ type InlineExpr =
       FileName: string }
 
 type CompilerPlugins =
-    { CallPlugins: Map<Fable.EntityRef, System.Type>
-      MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
+    { MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
 
 type Compiler =
     abstract LibraryDir: string
@@ -86,6 +85,6 @@ module CompilerExt =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
                 (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, i))
 
-        member com.ApplyCallPlugin(atts, expr: Fable.Expr) =
-            com.ApplyPlugin<CallPluginAttribute,_>
-                (com.Plugins.CallPlugins, atts, expr, fun p h e -> p.Transform(h, e))
+        member com.ApplyMemberCallPlugin(memb: Fable.MemberFunctionOrValue, expr: Fable.Expr) =
+            com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
+                (com.Plugins.MemberDeclarationPlugins, memb.Attributes, expr, fun p h e -> p.TransformCall(h, memb, e))

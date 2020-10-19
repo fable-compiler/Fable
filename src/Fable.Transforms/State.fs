@@ -112,13 +112,10 @@ type Project(projectOptions: FSharpProjectOptions,
         |> dict
 
     let plugins =
-        ({ CallPlugins = Map.empty
-           MemberDeclarationPlugins = Map.empty }, plugins)
+        ({ MemberDeclarationPlugins = Map.empty }, plugins)
         ||> Seq.fold (fun acc kv ->
             if kv.Value.IsSubclassOf(typeof<MemberDeclarationPluginAttribute>) then
                 { acc with MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
-            elif kv.Value.IsSubclassOf(typeof<CallPluginAttribute>) then
-                { acc with CallPlugins = Map.add kv.Key kv.Value acc.CallPlugins }
             else acc)
 
     member _.Plugins = plugins
