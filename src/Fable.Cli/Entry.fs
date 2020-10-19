@@ -130,6 +130,12 @@ type Runner =
               WatchMode = watch
               NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args
               Exclude = argValue "--exclude" args
+              Replace =
+                argValues "--replace" args
+                |> List.map (fun v ->
+                    let v = v.Split(':')
+                    v.[0], Path.normalizeFullPath v.[1])
+                |> Map
               Define = defines
               RunProcess = runProc
               CompilerOptions = compilerOptions }

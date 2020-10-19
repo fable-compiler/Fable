@@ -262,6 +262,7 @@ type ProjectCracked(sourceFiles: File array,
             CrackerOptions(fableLib = cliArgs.FableLibraryPath,
                            define = cliArgs.Define,
                            exclude = cliArgs.Exclude,
+                           replace = cliArgs.Replace,
                            forcePkgs = cliArgs.NoCache,
                            projFile = cliArgs.ProjectFile,
                            optimize = cliArgs.CompilerOptions.OptimizeFSharpAst)
@@ -471,7 +472,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     |> Option.defaultValue exeFile, runProc.Args
 
             if state.CliArgs.WatchMode then
-                runProc.RunningProcess |> Option.iter (fun p -> p.Kill())
+                runProc.RunningProcess |> Option.iter Process.kill
                 let runProc =
                     match runProc.IsWatch, Process.tryStart workingDir exeFile args with
                     | false, _ -> None

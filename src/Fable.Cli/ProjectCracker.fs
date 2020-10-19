@@ -12,11 +12,12 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableLib, define, exclude, forcePkgs, projFile, optimize) =
+type CrackerOptions(fableLib, define, exclude, replace, forcePkgs, projFile, optimize) =
     let builtDlls = HashSet()
     member _.FableLib: string option = fableLib
     member _.Define: string[] = define
     member _.Exclude: string option = exclude
+    member _.Replace: Map<string, string> = replace
     member _.ForcePkgs: bool = forcePkgs
     member _.ProjFile: string = projFile
     member _.Optimize: bool = optimize
@@ -68,7 +69,7 @@ let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
       ExtraProjectInfo = None
       Stamp = None }
 
-let tryGetFablePackage (dllPath: string) =
+let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
     let tryFileWithPattern dir pattern =
         try
             let files = IO.Directory.GetFiles(dir, pattern)
@@ -105,7 +106,12 @@ let tryGetFablePackage (dllPath: string) =
             let metadata =
                 xmlDoc.Root.Elements()
                 |> firstWithName "metadata"
-            { Id = metadata |> child "id"
+            let pkgId = metadata |> child "id"
+            let fsprojPath =
+                match Map.tryFind pkgId opts.Replace with
+                | Some fsprojPath -> fsprojPath
+                | None -> fsprojPath
+            { Id = pkgId
               Version = metadata |> child "version"
               FsprojPath = fsprojPath
               DllPath = dllPath
@@ -147,7 +153,9 @@ let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
     dllFullPath.[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
 
-let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj list * CrackedFsproj =
+let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * CrackedFsproj =
+    let define = opts.Define
+    let scriptFile = opts.ProjFile
     let otherFlags = [|
         yield "--target:library"
 #if !NETFX
@@ -160,9 +168,9 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
                                         File.readAllTextNonBlocking scriptFile |> FSharp.Compiler.Text.SourceText.ofString,
                                         assumeDotNetFramework=false, otherFlags=otherFlags)
     |> Async.RunSynchronously
-    |> fun (opts, _errors) -> // TODO: Check errors
+    |> fun (scriptOpts, _errors) -> // TODO: Check errors
         let dllRefs =
-            opts.OtherOptions
+            scriptOpts.OtherOptions
             |> Array.filter (fun r -> r.StartsWith("-r:"))
             |> Array.map (fun r ->
                 let dllRef = r.[3..]
@@ -170,20 +178,20 @@ let getProjectOptionsFromScript (define: string[]) scriptFile: CrackedFsproj lis
             |> dict
 
         let fablePkgs =
-            opts.OtherOptions
+            scriptOpts.OtherOptions
             |> List.ofArray
             |> List.map (fun line ->
                 if line.StartsWith("-r:") then
                     let dllPath = line.Substring(3)
-                    tryGetFablePackage dllPath
+                    tryGetFablePackage opts dllPath
                 else
                     None
             )
             |> List.choose id
             |> sortFablePackages
 
-        [], { ProjectFile = opts.ProjectFileName
-              SourceFiles = opts.SourceFiles |> Array.mapToList Path.normalizeFullPath
+        [], { ProjectFile = scriptOpts.ProjectFileName
+              SourceFiles = scriptOpts.SourceFiles |> Array.mapToList Path.normalizeFullPath
               ProjectReferences = []
               DllReferences = dllRefs
               PackageReferences = fablePkgs
@@ -266,8 +274,8 @@ let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) 
         None
     | _ ->
         let removed = dllRefs.Remove(projName)
-        if not removed then
-            Log.always("Couldn't remove project reference " + projName + " from dll references")
+        // if not removed then
+        //     Log.always("Couldn't remove project reference " + projName + " from dll references")
         Path.normalizeFullPath projRef |> Some
 
 /// Use Dotnet.ProjInfo (through ProjectCoreCracker) to invoke MSBuild
@@ -313,7 +321,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     let fablePkgs =
         let dllRefs' = dllRefs |> Seq.map (fun (KeyValue(k,v)) -> k,v) |> Seq.toArray
         dllRefs' |> Seq.choose (fun (dllName, dllPath) ->
-            match tryGetFablePackage dllPath with
+            match tryGetFablePackage opts dllPath with
             | Some pkg ->
                 dllRefs.Remove(dllName) |> ignore
                 Some pkg
@@ -368,7 +376,7 @@ let getCrackedProjectsFromMainFsproj (opts: CrackerOptions) =
 let getCrackedProjects (opts: CrackerOptions) =
     match (Path.GetExtension opts.ProjFile).ToLower() with
     | ".fsx" ->
-        getProjectOptionsFromScript opts.Define opts.ProjFile
+        getProjectOptionsFromScript opts
     | ".fsproj" ->
         getCrackedProjectsFromMainFsproj opts
     | s -> failwithf "Unsupported project type: %s" s

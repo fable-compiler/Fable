@@ -1014,6 +1014,11 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     | _ -> Null t |> makeValue None
 
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let fixDynamicImportPath = function
+        | Value(StringConstant path, r) when path.EndsWith(".fs") ->
+            Value(StringConstant(Path.replaceExtension com.Options.FileExtension path), r)
+        | path -> path
+
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, ".ctor" -> typedObjExpr t [] |> Some
     | _, "jsNative" ->
@@ -1069,10 +1074,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> None
     | "Fable.Core.JsInterop", _ ->
         match i.CompiledName, args with
-        | "importDynamic", _ ->
-            Helper.GlobalCall("import", t, args, ?loc=r) |> Some
+        | "importDynamic", [path] ->
+            let path = fixDynamicImportPath path
+            Helper.GlobalCall("import", t, [path], ?loc=r) |> Some
         | "importValueDynamic", [arg] ->
             let dynamicImport selector path =
+                let path = fixDynamicImportPath path
                 let import = Helper.GlobalCall("import", t, [path], ?loc=r)
                 match selector with
                 | Value(StringConstant "*",_) -> import

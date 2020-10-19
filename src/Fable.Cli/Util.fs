@@ -24,6 +24,7 @@ type CliArgs =
       NoCache: bool
       WatchMode: bool
       Exclude: string option
+      Replace: Map<string, string>
       RunProcess: RunProcess option
       CompilerOptions: Fable.CompilerOptions }
 
@@ -84,11 +85,11 @@ module File =
 
 [<RequireQualifiedAccess>]
 module Process =
+    open System.Runtime
     open System.Diagnostics
-    open System.Runtime.InteropServices
 
     let isWindows() =
-        RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+        InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
 
     let addToPath (dir: string) =
         let currentPath = System.Environment.GetEnvironmentVariable("PATH")
@@ -121,9 +122,16 @@ module Process =
         p.BeginErrorReadLine()
         p
 
+    let kill(p: Process) =
+        p.Refresh()
+        if not p.HasExited then
+            p.Kill()
+
     let tryStart (workingDir: string) (exePath: string) (args: string list) =
         try
-            startProcess workingDir exePath args |> Some
+            let p = startProcess workingDir exePath args
+            Loader.AssemblyLoadContext.Default.add_Unloading(fun _ -> kill p)
+            Some p
         with ex ->
             Log.always("Cannot run: " + ex.Message)
             None
