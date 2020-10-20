@@ -103,13 +103,6 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
 
 type FsEnt(ent: FSharpEntity) =
-    static let rec nonAbbreviatedDefinition (ent: FSharpEntity) =
-        if ent.IsFSharpAbbreviation then
-            let t = ent.AbbreviatedType
-            if t.HasTypeDefinition then nonAbbreviatedDefinition t.TypeDefinition
-            else ent
-        else ent
-
     static let tryArrayFullName (ent: FSharpEntity) =
         if ent.IsArrayType then
             let rank =
@@ -129,7 +122,7 @@ type FsEnt(ent: FSharpEntity) =
         not ent.Accessibility.IsPrivate
 
     static member QualifiedName (ent: FSharpEntity): string =
-        let ent = nonAbbreviatedDefinition ent
+        let ent = Helpers.nonAbbreviatedDefinition ent
         match tryArrayFullName ent with
         | Some fullName -> fullName
         | None ->
@@ -137,7 +130,7 @@ type FsEnt(ent: FSharpEntity) =
             with _ -> ent.LogicalName
 
     static member FullName (ent: FSharpEntity): string =
-        let ent = nonAbbreviatedDefinition ent
+        let ent = Helpers.nonAbbreviatedDefinition ent
         match tryArrayFullName ent with
         | Some fullName -> fullName
         | None when ent.IsNamespace ->
@@ -261,6 +254,13 @@ type IFableCompiler =
     abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
 
 module Helpers =
+    let rec nonAbbreviatedDefinition (ent: FSharpEntity) =
+        if ent.IsFSharpAbbreviation then
+            let t = ent.AbbreviatedType
+            if t.HasTypeDefinition then nonAbbreviatedDefinition t.TypeDefinition
+            else ent
+        else ent
+
     let rec nonAbbreviatedType (t: FSharpType) =
         let isSameType (t1: FSharpType) (t2: FSharpType) =
             t1.HasTypeDefinition && t2.HasTypeDefinition && (t1.TypeDefinition = t2.TypeDefinition)
@@ -354,7 +354,7 @@ module Helpers =
 
     let tryFindAtt fullName (atts: FSharpAttribute seq) =
         atts |> Seq.tryPick (fun att ->
-            match att.AttributeType.TryFullName with
+            match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some fullName' ->
                 if fullName = fullName' then Some att else None
             | None -> None)
@@ -363,7 +363,8 @@ module Helpers =
         let mutable found = false
         let attFullName = Some attFullName
         for att in attributes do
-            found <- found || att.AttributeType.TryFullName = attFullName
+            if not found then
+                found <- (nonAbbreviatedDefinition att.AttributeType).TryFullName = attFullName
         found
 
     let tryAttributeConsArg (att: FSharpAttribute) index (defValue: 'T) (f: obj -> 'T option) =
@@ -465,11 +466,10 @@ module Helpers =
             let args = memb.CurriedParameterGroups.[0]
             args.Count > 0 && args.[args.Count - 1].IsParamArrayArg
 
-        // TODO: Remove this after removing ParamList from Fable.React
         let hasParamSeq (memb: FSharpMemberOrFunctionOrValue) =
             Seq.tryLast memb.CurriedParameterGroups
             |> Option.bind Seq.tryLast
-            |> Option.map (fun lastParam -> hasAttribute "Fable.Core.ParamListAttribute" lastParam.Attributes)
+            |> Option.map (fun lastParam -> hasAttribute "Fable.Core.ParamSeqAttribute" lastParam.Attributes)
             |> Option.defaultValue false
 
         hasParamArray memb || hasParamSeq memb

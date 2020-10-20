@@ -10,6 +10,7 @@ type CompilerOptions =
       abstract TypedArrays: bool
       abstract ClampByteArrays: bool
       abstract Typescript: bool
+      abstract Define: string list
       abstract DebugMode: bool
       abstract OptimizeFSharpAst: bool
       abstract Verbosity: Verbosity
@@ -19,7 +20,7 @@ type CompilerOptionsHelper =
     static member DefaultFileExtension = ".fs.js"
     static member Make(?typedArrays,
                        ?typescript,
-                       ?debugMode,
+                       ?define,
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
@@ -27,7 +28,8 @@ type CompilerOptionsHelper =
         { new CompilerOptions with
               member _.Typescript = defaultArg typescript false
               member _.TypedArrays = defaultArg typedArrays true
-              member _.DebugMode = defaultArg debugMode false
+              member _.Define = defaultArg define []
+              member this.DebugMode = this.Define |> List.contains "DEBUG"
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
               member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultFileExtension

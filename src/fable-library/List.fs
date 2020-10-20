@@ -6,6 +6,13 @@ module List
 open System.Collections.Generic
 open Fable.Core
 
+[<Import("List", "${outDir}/Types.js"); EmitConstructor>]
+let private newList ([<ParamList>] args: obj list): 'a list = jsNative
+
+let empty<'a> : 'a list = newList []
+let singleton (x: 'a): 'a list = newList [x; empty]
+let cons (x: 'a) (xs: 'a list): 'a list = newList [x; xs]
+
 let head = function
     | x::_ -> x
     | _ -> failwith "List was empty"
@@ -170,14 +177,15 @@ let iterateIndexed f xs =
 let iterateIndexed2 f xs ys =
     foldIndexed2 (fun i () x y -> f i x y) () xs ys
 
-let ofArray (xs: IList<'T>) =
-    // Array.foldBack (fun x acc -> x::acc) xs []
-    let mutable res = []
+let ofArrayWithTail (xs: IList<'T>) (tail: 'T list) =
+    let mutable res = tail
     for i = xs.Count - 1 downto 0 do
         res <- xs.[i]::res
     res
 
-let empty<'a> : 'a list = []
+let ofArray (xs: IList<'T>) =
+    // Array.foldBack (fun x acc -> x::acc) xs []
+    ofArrayWithTail xs []
 
 let isEmpty = function
     | [] -> true

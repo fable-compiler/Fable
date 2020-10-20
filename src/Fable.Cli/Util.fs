@@ -20,7 +20,7 @@ type CliArgs =
       RootDir: string
       OutDir: string option
       FableLibraryPath: string option
-      Define: string[]
+      Define: string list
       NoCache: bool
       WatchMode: bool
       Exclude: string option
@@ -188,7 +188,7 @@ module Imports =
 
     let getRelativePath (path: string) (pathTo: string) =
         let relPath = Path.GetRelativePath(path, pathTo).Replace('\\', '/')
-        if relPath.StartsWith('.') then relPath else "./" + relPath
+        if isRelativePath relPath then relPath else "./" + relPath
 
     let getTargetRelPath importPath targetDir projDir outDir =
         let relPath = getRelativePath projDir importPath |> trimPath
@@ -197,10 +197,14 @@ module Imports =
         let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
         relPath
 
-    let getImportPath sourcePath targetPath projDir outDir importPath =
+    let getImportPath sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
         | None -> importPath
         | Some outDir ->
+            let importPath =
+                if importPath.StartsWith("${outDir}") then
+                    Path.Combine(outDir, importPath.Replace("${outDir}", "").TrimStart('/'))
+                else importPath
             let sourceDir = Path.GetDirectoryName(sourcePath)
             let targetDir = Path.GetDirectoryName(targetPath)
             let importPath =

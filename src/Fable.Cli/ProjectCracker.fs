@@ -1,6 +1,5 @@
 /// This module gets the F# compiler arguments from .fsproj as well as some
 /// Fable-specific tasks like tracking the sources of Fable Nuget packages
-/// using Paket .paket.resolved file
 module Fable.Cli.ProjectCracker
 
 open System
@@ -12,9 +11,10 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableLib, define, exclude, replace, forcePkgs, projFile, optimize) =
+type CrackerOptions(fableLib, outDir, define, exclude, replace, forcePkgs, projFile, optimize) =
     let builtDlls = HashSet()
     member _.FableLib: string option = fableLib
+    member _.OutDir: string option = outDir
     member _.Define: string[] = define
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
@@ -408,7 +408,10 @@ let isDirectoryEmpty dir =
     not(IO.Directory.Exists(dir)) || IO.Directory.EnumerateFileSystemEntries(dir) |> Seq.isEmpty
 
 let createFableDir (opts: CrackerOptions) =
-    let fableDir = IO.Path.Combine(IO.Path.GetDirectoryName(opts.ProjFile), Naming.fableHiddenDir)
+    let fableDir =
+        let baseDir = opts.OutDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(opts.ProjFile))
+        IO.Path.Combine(baseDir, Naming.fableHiddenDir)
+
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
 
     let isEmptyOrOutdated =
@@ -424,6 +427,8 @@ let createFableDir (opts: CrackerOptions) =
             isOutdated
 
     if isEmptyOrOutdated then
+        if IO.Directory.Exists(fableDir) then
+            IO.Directory.Delete(fableDir, true)
         IO.Directory.CreateDirectory(fableDir) |> ignore
         IO.File.WriteAllText(compilerInfo, Literals.VERSION)
         IO.File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")

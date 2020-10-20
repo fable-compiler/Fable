@@ -76,6 +76,13 @@ type StringEnumAttribute(caseRules: CaseRules) =
     inherit Attribute()
     new () = StringEnumAttribute(CaseRules.LowerFirst)
 
+/// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
+[<AttributeUsage(AttributeTargets.Parameter)>]
+type ParamSeqAttribute() =
+    inherit Attribute()
+
+type ParamListAttribute = ParamSeqAttribute
+
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type InjectAttribute() =
