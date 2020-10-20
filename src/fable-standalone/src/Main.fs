@@ -259,8 +259,11 @@ let init () =
                                     ?typedArrays, ?typescript) =
             let res = parseResults :?> ParseResults
             let project = res.GetProject()
-            let isDebug = parseResults.OtherFSharpOptions |> Array.exists (fun x -> x = "--define:DEBUG" || x = "-d:DEBUG")
-            let options = Fable.CompilerOptionsHelper.Make(debugMode=isDebug, ?typedArrays=typedArrays, ?typescript=typescript)
+            let define = parseResults.OtherFSharpOptions |> Array.choose (fun x ->
+                if x.StartsWith("--define:") || x.StartsWith("-d:")
+                then x.[(x.IndexOf(':') + 1)..] |> Some
+                else None) |> Array.toList
+            let options = Fable.CompilerOptionsHelper.Make(define=define, ?typedArrays=typedArrays, ?typescript=typescript)
             let com = CompilerImpl(fileName, project, options, fableLibrary)
             let ast =
                 FSharp2Fable.Compiler.transformFile com

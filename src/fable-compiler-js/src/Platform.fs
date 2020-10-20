@@ -73,7 +73,7 @@ let normalizeFullPath (path: string) =
 
 let getRelativePath (path: string) (pathTo: string) =
     let relPath = JS.path.relative(path, pathTo).Replace('\\', '/')
-    if relPath.StartsWith('.') then relPath else "./" + relPath
+    if relPath.StartsWith("./") || relPath.StartsWith("../") then relPath else "./" + relPath
 
 let getHomePath () =
     JS.os.homedir()

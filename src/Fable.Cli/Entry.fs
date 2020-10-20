@@ -67,13 +67,16 @@ Arguments:
 
 type Runner =
   static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
+    let makeAbsolute (path: string) =
+        if IO.Path.IsPathRooted(path) then path
+        else IO.Path.Combine(rootDir, path)
+
     let watch = defaultArg watch false
 
     let fsprojPath =
-        match fsprojPath with
-        | None -> rootDir
-        | Some p when IO.Path.IsPathRooted(p) -> p
-        | Some p -> IO.Path.Combine(rootDir, p)
+        fsprojPath
+        |> Option.map makeAbsolute
+        |> Option.defaultValue rootDir
 
     if IO.Directory.Exists(fsprojPath) then
         IO.Directory.EnumerateFileSystemEntries(fsprojPath)
@@ -105,20 +108,19 @@ type Runner =
                 Verbosity.Verbose
             else Verbosity.Normal
 
-        let defines =
+        let define =
             argValues "--define" args
             |> List.append [
                 "FABLE_COMPILER"
                 if watch then "DEBUG"
             ]
             |> List.distinct
-            |> List.toArray
 
         let compilerOptions =
             CompilerOptionsHelper.Make(typescript = typescript,
                                        typedArrays = typedArrays,
                                        ?fileExtension = argValue "--extension" args,
-                                       debugMode = Array.contains "DEBUG" defines,
+                                       define = define,
                                        optimizeFSharpAst = flagEnabled "--optimize" args,
                                        verbosity = verbosity)
 
@@ -126,7 +128,7 @@ type Runner =
             { ProjectFile = Path.normalizeFullPath projFile
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
-              OutDir = argValue "--outDir" args
+              OutDir = argValue "--outDir" args |> Option.map makeAbsolute
               WatchMode = watch
               NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args
               Exclude = argValue "--exclude" args
@@ -136,7 +138,7 @@ type Runner =
                     let v = v.Split(':')
                     v.[0], Path.normalizeFullPath v.[1])
                 |> Map
-              Define = defines
+              Define = define
               RunProcess = runProc
               CompilerOptions = compilerOptions }
 

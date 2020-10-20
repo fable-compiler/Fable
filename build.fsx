@@ -84,6 +84,7 @@ let buildLibrary() =
         "--noCache"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
+        "--define FABLE_LIBRARY"
     ]
 
     // // Move js files to build folder
@@ -126,6 +127,7 @@ let buildLibraryTs() =
         "--typescript"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
+        "--define FABLE_LIBRARY"
     ]
     // TODO: cleanDirs [buildDirTs </> "fable-library"]
     // TODO: copy *.ts/*.js from projectDir to buildDir
