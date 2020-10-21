@@ -264,7 +264,7 @@ module private Transforms =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
-        | Let([ident, value], letBody) when (not ident.IsMutable) && ident.IsCompilerGenerated ->
+        | Let([ident, value], letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             let canEraseBinding =
                 match value with
                 | NestedLambda(_, lambdaBody, _) ->

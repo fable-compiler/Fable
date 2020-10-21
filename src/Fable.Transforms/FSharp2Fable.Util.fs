@@ -73,6 +73,17 @@ type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
         member _.GenericArgs = genArgs |> Seq.mapToList (TypeHelpers.makeType Map.empty)
 
 type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
+    static member CurriedParameterGroups(m: FSharpMemberOrFunctionOrValue): Fable.Parameter list list =
+        m.CurriedParameterGroups
+        |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
+
+    static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
+        { CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
+          IsInstance = m.IsInstanceMember
+          FullName = m.FullName
+          CompiledName = m.CompiledName
+          DeclaringEntity = m.DeclaringEntity |> Option.map (FsEnt.Ref) }
+
     interface Fable.MemberFunctionOrValue with
         member _.Attributes =
             m.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
@@ -95,9 +106,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.DisplayName = Naming.removeGetSetPrefix m.DisplayName
         member _.CompiledName = m.CompiledName
         member _.FullName = m.FullName
-        member _.CurriedParameterGroups =
-            m.CurriedParameterGroups
-            |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
+        member _.CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
         member _.ReturnParameter = upcast FsParam(m.ReturnParameter)
         member _.IsExplicitInterfaceImplementation = m.IsExplicitInterfaceImplementation
         member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity
@@ -1280,6 +1289,7 @@ module Util =
                     | None -> { ThisArg = None
                                 Args = []
                                 SignatureArgTypes = []
+                                CallMemberInfo = None
                                 HasSpread = false
                                 IsJsConstructor = false }
                 // Allow combination of Import and Emit attributes
@@ -1450,6 +1460,7 @@ module Util =
             SignatureArgTypes = getArgTypes com memb
             HasSpread = hasParamArray memb
             IsJsConstructor = false
+            CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
         }
 
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =

@@ -29,6 +29,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
           { ThisArg = None
             Args = args
             SignatureArgTypes = getArgTypes com baseCons
+            CallMemberInfo = None
             HasSpread = false
             IsJsConstructor = false }
         makeCall r Fable.Unit callInfo baseRef

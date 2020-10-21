@@ -427,6 +427,7 @@ module AST =
         { ThisArg = thisArg
           Args = args
           SignatureArgTypes = argTypes
+          CallMemberInfo = None
           HasSpread = false
           IsJsConstructor = false }
 
@@ -435,6 +436,7 @@ module AST =
             { ThisArg = None
               Args = args
               SignatureArgTypes = []
+              CallMemberInfo = None
               HasSpread = false
               IsJsConstructor = false }
         let emitInfo =
