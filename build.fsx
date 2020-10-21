@@ -184,8 +184,12 @@ let buildStandalone(minify: bool) =
         run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
 
     // make standalone worker dist
-    run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
-    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
+    // TODO: Temporarily disable minification as it's failing in Appveyor for some reason
+    if envVarOrNone "APPVEYOR" |> Option.isSome then
+        run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.min.js --format esm" buildDir distDir)
+    else
+        run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
+        run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
