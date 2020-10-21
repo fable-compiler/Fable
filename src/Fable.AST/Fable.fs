@@ -276,7 +276,7 @@ type Expr =
     | ObjectExpr of MemberDecl list * Type * baseCall: Expr option
 
     // Type cast and tests
-    | TypeCast of Expr * Type
+    | TypeCast of Expr * Type * tag: string option
     | Test of Expr * TestKind * range: SourceLocation option
 
     // Operations
@@ -312,7 +312,7 @@ type Expr =
         | IdentExpr id -> id.Type
         | Call(_,_,t,_)
         | CurriedApply(_,_,t,_)
-        | TypeCast (_, t)
+        | TypeCast (_, t,_)
         | Import (_, t, _)
         | Curry (_, _, t, _)
         | ObjectExpr (_, t, _)
@@ -340,7 +340,7 @@ type Expr =
         | DecisionTreeSuccess _ -> None
         | Lambda (_, e, _)
         | Delegate (_, e, _)
-        | TypeCast (e, _) -> e.Range
+        | TypeCast (e, _, _) -> e.Range
         | IdentExpr id -> id.Range
         | Call(_,_,_,r)
         | CurriedApply(_,_,_,r)

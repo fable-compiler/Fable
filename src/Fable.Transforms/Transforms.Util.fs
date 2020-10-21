@@ -294,7 +294,7 @@ module AST =
         | _ -> uncurryLambdaInner None [] arity expr
 
     let (|MaybeCasted|) = function
-        | TypeCast(e,_) -> e
+        | TypeCast(e,_,_) -> e
         | e -> e
 
     /// Try to uncurry lambdas at compile time in dynamic assignments
@@ -306,7 +306,7 @@ module AST =
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
         | Import _ -> false
-        | TypeCast(e,_) -> canHaveSideEffects e
+        | TypeCast(e,_,_) -> canHaveSideEffects e
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true

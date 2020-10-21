@@ -476,11 +476,11 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
         | Long _ -> Helper.LibCall(com, "Long", "toNumber", targetType, args)
         | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
-        | JsNumber _ -> TypeCast(args.Head, targetType)
-    | Enum _ -> TypeCast(args.Head, targetType)
+        | JsNumber _ -> TypeCast(args.Head, targetType, None)
+    | Enum _ -> TypeCast(args.Head, targetType, None)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
+        TypeCast(args.Head, targetType, None)
 
 let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
@@ -498,7 +498,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
     | Enum _ -> makeDecimalFromExpr com r targetType args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
+        TypeCast(args.Head, targetType, None)
 
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
 let fastIntFloor expr =
@@ -538,7 +538,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
     | Enum _ -> fromInteger Int32 args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
+        TypeCast(args.Head, targetType, None)
 
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
@@ -565,10 +565,10 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
             | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
-        else TypeCast(args.Head, targetType)
+        else TypeCast(args.Head, targetType, None)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType)
+        TypeCast(args.Head, targetType, None)
 
 let round com (args: Expr list) =
     match args.Head.Type with
@@ -600,7 +600,7 @@ let toSeq t (e: Expr) =
     match e.Type with
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    | _ -> TypeCast(e, t)
+    | _ -> TypeCast(e, t, None)
 
 let (|ListSingleton|) x = [x]
 
@@ -1321,7 +1321,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
     // KeyValuePair is already compiled as a tuple
-    | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
+    | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t, None) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ -> "void $0" |> emitJsExpr r t args |> Some
     // Number and String conversions
@@ -2525,8 +2525,8 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ".ctor" ->
         let meth = match args with [ticks] -> "fromTicks" | _ -> "create"
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
-    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
+    | "FromMilliseconds" -> TypeCast(args.Head, t, None) |> Some
+    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t, None) |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r

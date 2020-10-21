@@ -6,7 +6,7 @@ open Fable.AST.Fable
 let visit f e =
     match e with
     | IdentExpr _ -> e
-    | TypeCast(e, t) -> TypeCast(f e, t)
+    | TypeCast(e, t, tag) -> TypeCast(f e, t, tag)
     | Import(info, t, r) ->
         Import({ info with Selector = f info.Selector
                            Path = f info.Path }, t, r)
@@ -95,7 +95,7 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
 
 let getSubExpressions = function
     | IdentExpr _ -> []
-    | TypeCast(e,_) -> [e]
+    | TypeCast(e,_,_) -> [e]
     | Import(info,_,_) -> [info.Selector; info.Path]
     | Value(kind,_) ->
         match kind with
