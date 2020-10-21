@@ -247,9 +247,6 @@ type ProjectCracked(sourceFiles: File array,
     member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
 
-    /// Indicates if the .fable dir has been created or reset because of new compiler version
-    member _.FableLibReset = crackerResponse.FableLibReset
-
     member _.MakeCompiler(currentFile, project) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
         CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir)
@@ -261,10 +258,10 @@ type ProjectCracked(sourceFiles: File array,
         let res =
             CrackerOptions(fableLib = cliArgs.FableLibraryPath,
                            outDir = cliArgs.OutDir,
-                           define = List.toArray cliArgs.Define,
+                           define = List.toArray cliArgs.CompilerOptions.Define,
                            exclude = cliArgs.Exclude,
                            replace = cliArgs.Replace,
-                           forcePkgs = cliArgs.NoCache,
+                           forcePkgs = cliArgs.ForcePkgs,
                            projFile = cliArgs.ProjectFile,
                            optimize = cliArgs.CompilerOptions.OptimizeFSharpAst)
             |> getFullProjectOpts
@@ -384,7 +381,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
                 |> fun files ->
-                    if cracked.FableLibReset || state.CliArgs.NoCache then files
+                    if not state.CliArgs.CompilerOptions.DebugMode then files
                     else
                         // Skip files that have a more recent JS version
                         files |> Array.skipWhile (fun file ->

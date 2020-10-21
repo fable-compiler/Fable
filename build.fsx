@@ -81,7 +81,6 @@ let buildLibrary() =
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + buildDir
-        "--noCache"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
         "--define FABLE_LIBRARY"
@@ -123,7 +122,6 @@ let buildLibraryTs() =
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
-        "--noCache"
         "--typescript"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
@@ -143,7 +141,7 @@ let quicktest () =
     if pathExists quicktestJsPath |> not then
         writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
 
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
 let buildStandalone(minify: bool) =
     printfn "Building standalone%s..." (if minify then "" else " (no minification)")
@@ -163,7 +161,6 @@ let buildStandalone(minify: bool) =
     // build standalone bundle
     runFableWithArgs projectDir [
         "--outDir " + buildDir + "/bundle"
-        "--noCache"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"
@@ -178,7 +175,6 @@ let buildStandalone(minify: bool) =
     // build standalone worker
     runFableWithArgs (projectDir + "/Worker") [
         "--outDir " + buildDir + "/worker"
-        "--noCache"
     ]
 
     // make standalone bundle dist
@@ -232,7 +228,6 @@ let buildCompilerJs(minify: bool) =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--noCache"
         "--exclude Fable.Core"
     ]
 
@@ -279,6 +274,7 @@ let test() =
     if not (pathExists libraryDir) then
         buildLibrary()
 
+    cleanDirs [buildDir]
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--noCache"

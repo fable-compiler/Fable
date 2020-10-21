@@ -130,7 +130,7 @@ type Runner =
               RootDir = rootDir
               OutDir = argValue "--outDir" args |> Option.map makeAbsolute
               WatchMode = watch
-              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args
+              ForcePkgs = flagEnabled "--forcePkgs" args
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args
@@ -138,7 +138,6 @@ type Runner =
                     let v = v.Split(':')
                     v.[0], Path.normalizeFullPath v.[1])
                 |> Map
-              Define = define
               RunProcess = runProc
               CompilerOptions = compilerOptions }
 

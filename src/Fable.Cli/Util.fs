@@ -20,8 +20,7 @@ type CliArgs =
       RootDir: string
       OutDir: string option
       FableLibraryPath: string option
-      Define: string list
-      NoCache: bool
+      ForcePkgs: bool
       WatchMode: bool
       Exclude: string option
       Replace: Map<string, string>
