@@ -57,7 +57,7 @@ Arguments:
   --runScript       Runs the generated script for last file with node
                     (Requires "esm" npm package)
 
-  --noCache         Ignore cached files during compilation
+  --forcePkgs       Force a new copy of package sources into `.fable` folder
   --exclude         Don't merge sources of referenced projects with specified pattern
                     (Intended for plugin development)
 
