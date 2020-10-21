@@ -302,10 +302,10 @@ module AST =
         | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda
         | e -> e
 
-    // Functions return yes because we don't want to duplicate them in the code
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
         | Import _ -> false
+        | Lambda _ | Delegate _ -> false
         | TypeCast(e,_,_) -> canHaveSideEffects e
         | Value(value,_) ->
             match value with

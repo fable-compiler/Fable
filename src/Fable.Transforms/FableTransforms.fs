@@ -197,9 +197,8 @@ let countReferences limit identName body =
     count
 
 let canInlineArg identName value body =
-    match value with
-    | Lambda _ | Delegate _ -> countReferences 1 identName body <= 1
-    | value -> canHaveSideEffects value |> not
+    not(canHaveSideEffects value)
+    && countReferences 1 identName body <= 1
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
