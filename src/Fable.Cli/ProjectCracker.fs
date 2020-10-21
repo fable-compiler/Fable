@@ -35,7 +35,6 @@ type CrackerOptions(fableLib, outDir, define, exclude, replace, forcePkgs, projF
 
 type CrackerResponse =
     { FableLibDir: string
-      FableLibReset: bool
       Packages: FablePackage list
       ProjectOptions: FSharpProjectOptions }
 
@@ -433,7 +432,7 @@ let createFableDir (opts: CrackerOptions) =
         IO.File.WriteAllText(compilerInfo, Literals.VERSION)
         IO.File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")
 
-    isEmptyOrOutdated, fableDir
+    fableDir
 
 let copyDirIfDoesNotExist (source: string) (target: string) =
     if isDirectoryEmpty target then
@@ -448,7 +447,7 @@ let copyDirIfDoesNotExist (source: string) (target: string) =
             IO.File.Copy(newPath, newPath.Replace(source, target), true)
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
-    let fableLibReset, fableLibDir = createFableDir opts
+    let fableLibDir = createFableDir opts
 
     let fableLibraryPath =
         match opts.FableLib with
@@ -483,7 +482,7 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
             copyDirIfDoesNotExist sourceDir targetDir
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
 
-    fableLibReset, fableLibraryPath, pkgRefs
+    fableLibraryPath, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
 let removeFilesInObjFolder sourceFiles =
@@ -496,7 +495,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     let projRefs, mainProj = retryGetCrackedProjects opts
 
-    let fableLibReset, fableLibDir, pkgRefs =
+    let fableLibDir, pkgRefs =
         copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
     let pkgRefs =
@@ -542,5 +541,4 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
     { ProjectOptions = projOpts
       Packages = pkgRefs
-      FableLibReset = fableLibReset
       FableLibDir = fableLibDir }

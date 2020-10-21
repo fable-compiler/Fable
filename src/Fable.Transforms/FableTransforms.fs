@@ -6,7 +6,7 @@ open Fable.AST.Fable
 let visit f e =
     match e with
     | IdentExpr _ -> e
-    | TypeCast(e, t) -> TypeCast(f e, t)
+    | TypeCast(e, t, tag) -> TypeCast(f e, t, tag)
     | Import(info, t, r) ->
         Import({ info with Selector = f info.Selector
                            Path = f info.Path }, t, r)
@@ -95,7 +95,7 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
 
 let getSubExpressions = function
     | IdentExpr _ -> []
-    | TypeCast(e,_) -> [e]
+    | TypeCast(e,_,_) -> [e]
     | Import(info,_,_) -> [info.Selector; info.Path]
     | Value(kind,_) ->
         match kind with
@@ -197,9 +197,8 @@ let countReferences limit identName body =
     count
 
 let canInlineArg identName value body =
-    match value with
-    | Lambda _ | Delegate _ -> countReferences 1 identName body <= 1
-    | value -> canHaveSideEffects value |> not
+    not(canHaveSideEffects value)
+    && countReferences 1 identName body <= 1
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -264,7 +263,7 @@ module private Transforms =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
         // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
-        | Let([ident, value], letBody) when (not ident.IsMutable) && ident.IsCompilerGenerated ->
+        | Let([ident, value], letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             let canEraseBinding =
                 match value with
                 | NestedLambda(_, lambdaBody, _) ->

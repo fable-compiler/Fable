@@ -57,7 +57,7 @@ Arguments:
   --runScript       Runs the generated script for last file with node
                     (Requires "esm" npm package)
 
-  --noCache         Ignore cached files during compilation
+  --forcePkgs       Force a new copy of package sources into `.fable` folder
   --exclude         Don't merge sources of referenced projects with specified pattern
                     (Intended for plugin development)
 
@@ -130,7 +130,7 @@ type Runner =
               RootDir = rootDir
               OutDir = argValue "--outDir" args |> Option.map makeAbsolute
               WatchMode = watch
-              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args
+              ForcePkgs = flagEnabled "--forcePkgs" args
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args
@@ -138,7 +138,6 @@ type Runner =
                     let v = v.Split(':')
                     v.[0], Path.normalizeFullPath v.[1])
                 |> Map
-              Define = define
               RunProcess = runProc
               CompilerOptions = compilerOptions }
 

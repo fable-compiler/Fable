@@ -81,7 +81,6 @@ let buildLibrary() =
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--fableLib " + buildDir
-        "--noCache"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
         "--define FABLE_LIBRARY"
@@ -123,7 +122,6 @@ let buildLibraryTs() =
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
-        "--noCache"
         "--typescript"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
@@ -143,7 +141,7 @@ let quicktest () =
     if pathExists quicktestJsPath |> not then
         writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
 
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
 let buildStandalone(minify: bool) =
     printfn "Building standalone%s..." (if minify then "" else " (no minification)")
@@ -163,7 +161,6 @@ let buildStandalone(minify: bool) =
     // build standalone bundle
     runFableWithArgs projectDir [
         "--outDir " + buildDir + "/bundle"
-        "--noCache"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"
@@ -178,7 +175,6 @@ let buildStandalone(minify: bool) =
     // build standalone worker
     runFableWithArgs (projectDir + "/Worker") [
         "--outDir " + buildDir + "/worker"
-        "--noCache"
     ]
 
     // make standalone bundle dist
@@ -188,8 +184,12 @@ let buildStandalone(minify: bool) =
         run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
 
     // make standalone worker dist
-    run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
-    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
+    // TODO: Temporarily disable minification as it's failing in Appveyor for some reason
+    if envVarOrNone "APPVEYOR" |> Option.isSome then
+        run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.min.js --format esm" buildDir distDir)
+    else
+        run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
+        run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
@@ -232,7 +232,6 @@ let buildCompilerJs(minify: bool) =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--noCache"
         "--exclude Fable.Core"
     ]
 
@@ -279,6 +278,7 @@ let test() =
     if not (pathExists libraryDir) then
         buildLibrary()
 
+    cleanDirs [buildDir]
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--noCache"

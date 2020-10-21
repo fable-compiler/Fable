@@ -1492,7 +1492,7 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.TypeCast(e,t) -> transformCast com ctx t e
+        | Fable.TypeCast(e,t,_) -> transformCast com ctx t e
 
         | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
 
@@ -1565,7 +1565,7 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
-        | Fable.TypeCast(e, t) ->
+        | Fable.TypeCast(e, t, _) ->
             [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
 
         | Fable.Curry(e, arity, t, r) ->

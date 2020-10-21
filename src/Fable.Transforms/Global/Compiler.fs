@@ -1,21 +1,5 @@
 namespace Fable
 
-[<RequireQualifiedAccess>]
-type Verbosity =
-    | Normal
-    | Verbose
-    | Silent
-
-type CompilerOptions =
-      abstract TypedArrays: bool
-      abstract ClampByteArrays: bool
-      abstract Typescript: bool
-      abstract Define: string list
-      abstract DebugMode: bool
-      abstract OptimizeFSharpAst: bool
-      abstract Verbosity: Verbosity
-      abstract FileExtension: string
-
 type CompilerOptionsHelper =
     static member DefaultFileExtension = ".fs.js"
     static member Make(?typedArrays,
@@ -69,6 +53,17 @@ type Compiler =
 [<AutoOpen>]
 module CompilerExt =
     type Compiler with
+        member com.ToPluginHelper() =
+            { new PluginHelper with
+                member _.LibraryDir = com.LibraryDir
+                member _.CurrentFile = com.CurrentFile
+                member _.Options = com.Options
+                member _.GetRootModule(fileName) = com.GetRootModule(fileName)
+                member _.GetEntity(ref) = com.GetEntity(ref)
+                member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
+                member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
+             }
+
         member com.ApplyPlugin<'Plugin, 'Input>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =
             if Map.isEmpty plugins then input
             else
@@ -77,10 +72,7 @@ module CompilerExt =
                     | None -> input
                     | Some plugin ->
                         let plugin = System.Activator.CreateInstance(plugin, List.toArray att.ConstructorArgs) :?> 'Plugin
-                        let helper =
-                            { new PluginHelper with
-                                member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
-                                member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile) }
+                        let helper = com.ToPluginHelper()
                         transform plugin helper input)
 
         member com.ApplyMemberDeclarationPlugin(decl: Fable.MemberDecl) =

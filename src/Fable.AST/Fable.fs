@@ -209,12 +209,20 @@ type ValueKind =
         | NewAnonymousRecord (_, fieldNames, genArgs) -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
+type CallMemberInfo =
+    { CurriedParameterGroups: Parameter list list
+      IsInstance: bool
+      FullName: string
+      CompiledName: string
+      DeclaringEntity: EntityRef option }
+
 type CallInfo =
     { ThisArg: Expr option
       Args: Expr list
       /// Argument types as defined in the method signature, this may be slightly different to types of actual argument expressions.
       /// E.g.: signature accepts 'a->'b->'c (2-arity) but we pass int->int->int->int (3-arity)
       SignatureArgTypes: Type list
+      CallMemberInfo: CallMemberInfo option
       HasSpread: bool
       IsJsConstructor: bool }
 
@@ -276,7 +284,7 @@ type Expr =
     | ObjectExpr of MemberDecl list * Type * baseCall: Expr option
 
     // Type cast and tests
-    | TypeCast of Expr * Type
+    | TypeCast of Expr * Type * tag: string option
     | Test of Expr * TestKind * range: SourceLocation option
 
     // Operations
@@ -312,7 +320,7 @@ type Expr =
         | IdentExpr id -> id.Type
         | Call(_,_,t,_)
         | CurriedApply(_,_,t,_)
-        | TypeCast (_, t)
+        | TypeCast (_, t,_)
         | Import (_, t, _)
         | Curry (_, _, t, _)
         | ObjectExpr (_, t, _)
@@ -340,7 +348,7 @@ type Expr =
         | DecisionTreeSuccess _ -> None
         | Lambda (_, e, _)
         | Delegate (_, e, _)
-        | TypeCast (e, _) -> e.Range
+        | TypeCast (e, _, _) -> e.Range
         | IdentExpr id -> id.Range
         | Call(_,_,_,r)
         | CurriedApply(_,_,_,r)

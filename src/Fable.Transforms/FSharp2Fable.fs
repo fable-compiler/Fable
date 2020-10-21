@@ -29,6 +29,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
           { ThisArg = None
             Args = args
             SignatureArgTypes = getArgTypes com baseCons
+            CallMemberInfo = None
             HasSpread = false
             IsJsConstructor = false }
         makeCall r Fable.Unit callInfo baseRef
@@ -446,8 +447,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some(_, Some fullName) ->
             match fullName with
             | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.toSeq t inpExpr
-            | _ -> return Fable.TypeCast(inpExpr, t)
-        | _ -> return Fable.TypeCast(inpExpr, t)
+            | _ -> return Fable.TypeCast(inpExpr, t, None)
+        | _ -> return Fable.TypeCast(inpExpr, t, None)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
