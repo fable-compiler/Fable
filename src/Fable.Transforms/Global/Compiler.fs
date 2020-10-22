@@ -9,11 +9,13 @@ type CompilerOptionsHelper =
                        ?verbosity,
                        ?fileExtension,
                        ?clampByteArrays) =
+        let define = defaultArg define []
+        let isDebug = List.contains "DEBUG" define
         { new CompilerOptions with
+              member _.Define = define
+              member _.DebugMode = isDebug
               member _.Typescript = defaultArg typescript false
               member _.TypedArrays = defaultArg typedArrays true
-              member _.Define = defaultArg define []
-              member this.DebugMode = this.Define |> List.contains "DEBUG"
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
               member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultFileExtension

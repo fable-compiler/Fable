@@ -78,10 +78,10 @@ type StringEnumAttribute(caseRules: CaseRules) =
 
 /// Used to spread the last argument. Mainly intended for `React.createElement` binding, not for general use.
 [<AttributeUsage(AttributeTargets.Parameter)>]
-type ParamSeqAttribute() =
+type ParamListAttribute() =
     inherit Attribute()
 
-type ParamListAttribute = ParamSeqAttribute
+type ParamSeqAttribute = ParamListAttribute
 
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]

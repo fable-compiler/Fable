@@ -152,49 +152,51 @@ let private getDllName (dllFullPath: string) =
     let i = dllFullPath.LastIndexOf('/')
     dllFullPath.[(i + 1) .. (dllFullPath.Length - 5)] // -5 removes the .dll extension
 
+let (|Regex|_|) (pattern: string) (input: string) =
+    let m = Text.RegularExpressions.Regex.Match(input, pattern)
+    if m.Success then Some [for x in m.Groups -> x.Value]
+    else None
+
+// GetProjectOptionsFromScript doesn't work with latest FCS
+// This is adapted from fable-compiler-js ProjectParser, maybe we should try to unify code
 let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * CrackedFsproj =
-    let define = opts.Define
-    let scriptFile = opts.ProjFile
-    let otherFlags = [|
-        yield "--target:library"
-#if !NETFX
-        yield "--targetprofile:netcore"
-#endif
-        for constant in define do yield "--define:" + constant
-    |]
-    let checker = FSharpChecker.Create()
-    checker.GetProjectOptionsFromScript(scriptFile,
-                                        File.readAllTextNonBlocking scriptFile |> FSharp.Compiler.Text.SourceText.ofString,
-                                        assumeDotNetFramework=false, otherFlags=otherFlags)
-    |> Async.RunSynchronously
-    |> fun (scriptOpts, _errors) -> // TODO: Check errors
-        let dllRefs =
-            scriptOpts.OtherOptions
-            |> Array.filter (fun r -> r.StartsWith("-r:"))
-            |> Array.map (fun r ->
-                let dllRef = r.[3..]
-                getDllName dllRef, dllRef)
-            |> dict
 
-        let fablePkgs =
-            scriptOpts.OtherOptions
-            |> List.ofArray
-            |> List.map (fun line ->
-                if line.StartsWith("-r:") then
-                    let dllPath = line.Substring(3)
-                    tryGetFablePackage opts dllPath
-                else
-                    None
-            )
-            |> List.choose id
-            |> sortFablePackages
+    let projectFilePath = opts.ProjFile
+    let projectDir = IO.Path.GetDirectoryName projectFilePath
 
-        [], { ProjectFile = scriptOpts.ProjectFileName
-              SourceFiles = scriptOpts.SourceFiles |> Array.mapToList Path.normalizeFullPath
-              ProjectReferences = []
-              DllReferences = dllRefs
-              PackageReferences = fablePkgs
-              OtherCompilerOptions = [] }
+    let dllRefs, srcFiles =
+        (([], []), IO.File.ReadLines(projectFilePath))
+        ||> Seq.fold (fun (dllRefs, srcFiles) line ->
+            match line.Trim() with
+            // TODO: Check nuget references
+            | Regex @"^#r\s+""(.*?)""$" [_;path] when not(path.EndsWith("Fable.Core.dll")) ->
+                path::dllRefs, srcFiles
+            | Regex @"^#load\s+""(.*?)""$" [_;path] ->
+                dllRefs, path::srcFiles
+            | _ -> dllRefs, srcFiles)
+
+    let dllRefs =
+        dllRefs
+        |> List.rev
+        |> List.map (fun dllRef ->
+            let dllRef = IO.Path.Combine(projectDir, dllRef) |> Path.normalizeFullPath
+            getDllName dllRef, dllRef)
+        |> dict
+
+    let srcFiles =
+        srcFiles
+        |> List.map (fun srcFile -> IO.Path.Combine(projectDir, srcFile) |> Path.normalizeFullPath)
+
+    let srcFiles =
+        projectFilePath::srcFiles
+        |> List.rev
+
+    [], { ProjectFile = projectFilePath
+          SourceFiles = srcFiles
+          ProjectReferences = []
+          DllReferences = dllRefs
+          PackageReferences = []
+          OtherCompilerOptions = [] }
 
 let getBasicCompilerArgs (define: string[]) =
     [|
@@ -215,7 +217,7 @@ let getBasicCompilerArgs (define: string[]) =
         yield "--flaterrors"
         yield "--target:library"
 #if !NETFX
-        yield "--targetprofile:netstandard"
+        yield "--targetprofile:netcore"
 #endif
     |]
 

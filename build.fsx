@@ -469,6 +469,7 @@ let minify<'T> =
 match argsLower with
 | "test"::_ -> test()
 | "test-js"::_ -> testJs(minify)
+| "test-js-fast"::_ -> testJsFast()
 | "coverage"::_ -> coverage()
 | "quicktest"::_ -> quicktest()
 // | "check-sourcemaps"::_ ->

@@ -1,7 +1,6 @@
 module Fable.Cli.Main
 
 open System
-open System.IO
 open FSharp.Compiler.SourceCodeServices
 
 open Fable
@@ -11,7 +10,7 @@ open Fable.Transforms.State
 open ProjectCracker
 
 type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option) =
-    let stream = new StreamWriter(targetPath)
+    let stream = new IO.StreamWriter(targetPath)
     interface BabelPrinter.Writer with
         member _.Write(str) =
             stream.WriteAsync(str) |> Async.AwaitTask
@@ -41,7 +40,7 @@ type Watcher() =
                     getCommonDir dir
 
         let changes = ResizeArray()
-        let watcher = new FileSystemWatcher(commonBaseDir)
+        let watcher = new IO.FileSystemWatcher(commonBaseDir)
         let timer = new Timers.Timer(200., AutoReset=false)
         Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
 
@@ -207,7 +206,7 @@ module private Util =
 
             // ensure directory exists
             let dir = IO.Path.GetDirectoryName outPath
-            if not (Directory.Exists dir) then Directory.CreateDirectory dir |> ignore
+            if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
             // write output to file
             let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
@@ -387,7 +386,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         files |> Array.skipWhile (fun file ->
                             try
                                 let jsFile = getOutJsPath state.CliArgs file
-                                File.Exists(jsFile) && File.GetLastWriteTime(jsFile) > File.GetLastWriteTime(file)
+                                IO.File.Exists(jsFile) && IO.File.GetLastWriteTime(jsFile) > IO.File.GetLastWriteTime(file)
                             with _ -> false)
             cracked, parsed, filesToCompile
 
@@ -518,6 +517,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         info.MedianMilliseconds
             Log.always(log)
             let perfLog = IO.Path.Combine(state.CliArgs.RootDir, info.LogFileName)
-            File.AppendAllText(perfLog, log + "\n")
+            IO.File.AppendAllText(perfLog, log + "\n")
             return Ok()
 }
