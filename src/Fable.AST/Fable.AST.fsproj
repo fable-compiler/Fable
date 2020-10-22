@@ -6,7 +6,7 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Version>3.0.0</Version>
-    <PackageVersion>3.0.0-nagareyama-alpha-002</PackageVersion>
+    <PackageVersion>3.0.0-nagareyama-alpha-003</PackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Common.fs" />
