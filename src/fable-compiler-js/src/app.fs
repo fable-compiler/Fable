@@ -7,10 +7,10 @@ open Fable.Compiler.ProjectParser
 
 #if LOCAL_TEST
 let [<Global>] __dirname = "__dirname"
-let getMetadataDir(): string = __dirname + "/../../../fable-metadata/"
-let getFableLibDir(): string = __dirname + "/../../../fable-library/"
+let getMetadataDir(): string = __dirname + "/../../fable-metadata/lib/"
+let getFableLibDir(): string = __dirname + "/../../../build/fable-library/"
 let getVersion(): string = ".next"
-let initFable (): Fable.Standalone.IFableManager = import "init" "../../../build/fable-standalone/bundle/Main.js"
+let initFable (): Fable.Standalone.IFableManager = import "init" "../../fable-standalone/src/Main.fs.js"
 #else
 let getMetadataDir(): string = import "getAssembliesDir" "fable-metadata"
 let getFableLibDir(): string = importMember "./util.js"

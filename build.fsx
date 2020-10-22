@@ -143,6 +143,33 @@ let quicktest () =
 
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
+// Like testJs() but doesn't create bundles/packages for fable-standalone & friends
+// Mainly intended for CI
+let testJsFast() =
+    runFableWithArgs "src/fable-standalone/src" [
+        "--define FX_NO_CORHOST_SIGNER"
+        "--define FX_NO_LINKEDRESOURCES"
+        "--define FX_NO_PDB_READER"
+        "--define FX_NO_PDB_WRITER"
+        "--define FX_NO_WEAKTABLE"
+        "--define FX_REDUCED_EXCEPTIONS"
+        "--define NO_COMPILER_BACKEND"
+        "--define NO_EXTENSIONTYPING"
+        "--define NO_INLINE_IL_PARSER"
+    ]
+
+    runFableWithArgs "src/fable-compiler-js/src" [
+        "--exclude Fable.Core"
+        "--define LOCAL_TEST"
+    ]
+
+    let fableJs = "./src/fable-compiler-js/src/app.fs.js"
+    let testProj = "tests/Main/Fable.Tests.fsproj"
+    let buildDir = "build/tests-js"
+    run (sprintf "node --eval \"require('esm')(module)('%s')\" %s %s %s" fableJs fableJs testProj buildDir)
+    run ("npx mocha " + buildDir + " -r esm --reporter dot -t 10000")
+
+
 let buildStandalone(minify: bool) =
     printfn "Building standalone%s..." (if minify then "" else " (no minification)")
 
@@ -184,12 +211,8 @@ let buildStandalone(minify: bool) =
         run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
 
     // make standalone worker dist
-    // TODO: Temporarily disable minification as it's failing in Appveyor for some reason
-    if envVarOrNone "APPVEYOR" |> Option.isSome then
-        run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.min.js --format esm" buildDir distDir)
-    else
-        run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
-        run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
+    run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
+    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
@@ -289,7 +312,7 @@ let test() =
 
     runInDir projectDir "dotnet run"
     if envVarOrNone "APPVEYOR" |> Option.isSome then
-        testJs(true)
+        testJsFast()
 
 let testRepos() =
     let repos = [

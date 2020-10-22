@@ -28,8 +28,8 @@ build_script:
   - cmd: npm install && npm test
 test: off
 # version: 0.0.1.{build}
-artifacts:
-# https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip
-  - path: src\fable-standalone\dist
-    name: fable-standalone
-    type: zip
+# artifacts:
+# # https://ci.appveyor.com/api/projects/fable-compiler/Fable/artifacts/src/fable-standalone/fable-standalone.zip
+#   - path: src\fable-standalone\dist
+#     name: fable-standalone
+#     type: zip
