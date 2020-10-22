@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-alpha-017
+
+* Only use cached (precompiled) files in debug mode
+
 ### 3.0.0-nagareyama-alpha-016
 
 * Only use cached (precompiled) files in debug mode
