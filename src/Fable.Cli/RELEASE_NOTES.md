@@ -1,3 +1,8 @@
+### 3.0.0-nagareyama-beta-001
+
+* Beta release
+* Fix .fsx compilation
+
 ### 3.0.0-nagareyama-alpha-017
 
 * Only use cached (precompiled) files in debug mode
