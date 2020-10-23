@@ -380,7 +380,7 @@ type NumericLiteral(value, ?loc) =
     interface Literal with
         member _.Print(printer) =
             let value =
-                match value.ToString() with
+                match value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
                 | "∞" -> "Infinity"
                 | "-∞" -> "-Infinity"
                 | value -> value
