@@ -169,15 +169,29 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * Cra
         ||> Seq.fold (fun (dllRefs, srcFiles) line ->
             match line.Trim() with
             // TODO: Check nuget references
-            | Regex @"^#r\s+""(.*?)""$" [_;path] when not(path.EndsWith("Fable.Core.dll")) ->
+            | Regex @"^#r\s*""(.*?)""$" [_;path] ->
                 path::dllRefs, srcFiles
-            | Regex @"^#load\s+""(.*?)""$" [_;path] ->
+            | Regex @"^#load\s*""(.*?)""$" [_;path] ->
                 dllRefs, path::srcFiles
             | _ -> dllRefs, srcFiles)
 
+    let coreDllDir = IO.Path.GetDirectoryName(typeof<System.Array>.Assembly.Location) |> Path.normalizePath
+    let fsharpCoreDll = typeof<obj list>.Assembly.Location |> Path.normalizePath
+
+    let coreDlls =
+        Standalone.Metadata.references_core
+        |> Array.filter (function
+            | "FSharp.Core" | "Fable.Core" -> false
+            | _ -> true)
+        |> Array.append [|"System.Private.CoreLib"|]
+        |> Array.map (fun dll -> IO.Path.Combine(coreDllDir, dll + ".dll"))
+
     let dllRefs =
-        dllRefs
-        |> List.rev
+        [
+            yield! coreDlls
+            yield fsharpCoreDll
+            yield! List.rev dllRefs
+        ]
         |> List.map (fun dllRef ->
             let dllRef = IO.Path.Combine(projectDir, dllRef) |> Path.normalizeFullPath
             getDllName dllRef, dllRef)
@@ -217,7 +231,7 @@ let getBasicCompilerArgs (define: string[]) =
         yield "--flaterrors"
         yield "--target:library"
 #if !NETFX
-        yield "--targetprofile:netcore"
+        yield "--targetprofile:netstandard"
 #endif
     |]
 
@@ -517,6 +531,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let otherOptions =
             let coreRefs = HashSet Standalone.Metadata.references_core
+            coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
                "WindowsBase"
                "Microsoft.Win32.Primitives"
