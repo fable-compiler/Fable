@@ -243,8 +243,8 @@ type EmitInfo =
       CallInfo: CallInfo }
 
 type ImportInfo =
-    { Selector: Expr
-      Path: Expr
+    { Selector: string
+      Path: string
       IsCompilerGenerated: bool }
 
 type OperationKind =

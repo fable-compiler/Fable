@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-beta-002
+
+* Compatibility with Fable.AST beta-001
+
 ### 3.0.0-nagareyama-beta-001
 
 * Beta release

@@ -1141,20 +1141,20 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             match arg with
             // TODO: Check this is not a fable-library import?
             | Import(info,_,_) ->
-                dynamicImport info.Selector info.Path |> Some
+                dynamicImport (makeStrConst info.Selector) (makeStrConst info.Path) |> Some
             | NestedLambda(args, Call(Import(importInfo,_,_),callInfo,_,_), None)
                 when argEquals args callInfo.Args ->
-                dynamicImport importInfo.Selector importInfo.Path |> Some
+                dynamicImport (makeStrConst importInfo.Selector) (makeStrConst importInfo.Path) |> Some
             | _ ->
                 "The imported value is not coming from a different file"
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Naming.StartsWith "import" suffix, _ ->
             match suffix, args with
-            | "Member", [path]      -> makeImportUserGenerated r t (makeStrConst Naming.placeholder) path |> Some
-            | "Default", [path]     -> makeImportUserGenerated r t (makeStrConst "default") path |> Some
-            | "SideEffects", [path] -> makeImportUserGenerated r t (makeStrConst "") path |> Some
-            | "All", [path]         -> makeImportUserGenerated r t (makeStrConst "*") path |> Some
-            | _, [selector; path]   -> makeImportUserGenerated r t (selector) path |> Some
+            | "Member", [StringConst path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
+            | "Default", [StringConst path]     -> makeImportUserGenerated r t "default" path |> Some
+            | "SideEffects", [StringConst path] -> makeImportUserGenerated r t "" path |> Some
+            | "All", [StringConst path]         -> makeImportUserGenerated r t "*" path |> Some
+            | _, [StringConst selector; StringConst path] -> makeImportUserGenerated r t (selector) path |> Some
             | _ -> None
         // Dynamic casting, erase
         | "op_BangHat", [arg] -> Some arg

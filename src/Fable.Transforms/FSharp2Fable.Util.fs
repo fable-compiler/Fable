@@ -1073,7 +1073,7 @@ module Util =
                     |> Option.map (fixImportedRelativePath com path)
                     |> Option.defaultValue path
                 | _ -> path
-            makeImportUserGenerated None typ (makeStrConst selector) (makeStrConst path) |> Some
+            makeImportUserGenerated None typ selector path |> Some
         | _ -> None
 
     let tryGlobalOrImportedEntity (com: Compiler) (ent: Fable.Entity) =
@@ -1092,7 +1092,7 @@ module Util =
                     |> Option.map (fixImportedRelativePath com path)
                     |> Option.defaultValue path
                 else path
-            makeImportUserGenerated None Fable.Any (makeStrConst selector) (makeStrConst path) |> Some
+            makeImportUserGenerated None Fable.Any selector path |> Some
         | _ -> None
 
     let isErasedOrStringEnumEntity (ent: Fable.Entity) =

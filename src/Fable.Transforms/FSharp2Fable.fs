@@ -924,8 +924,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
 /// When using `importMember`, uses the member display name as selector
 let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
     match selector with
-    | Fable.Value(Fable.StringConstant Naming.placeholder,_) ->
-        getMemberDisplayName memb |> makeStrConst
+    | Naming.placeholder -> getMemberDisplayName memb
     | _ -> selector
 
 let private transformImport com r typ isMutable isPublic name fullDisplayName selector path =
@@ -1012,7 +1011,7 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
             if selector = Naming.placeholder then getMemberDisplayName memb
             else selector
         let typ = makeType Map.empty memb.FullType
-        transformImport com None typ memb.IsMutable isPublic name fullDisplayName (makeStrConst selector) (makeStrConst path)
+        transformImport com None typ memb.IsMutable isPublic name fullDisplayName selector path
     | _ ->
         if isModuleValueForDeclarations memb
         then transformMemberValue com ctx isPublic name fullDisplayName memb body

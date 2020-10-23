@@ -406,14 +406,14 @@ module AST =
     let getLibPath (com: Compiler) moduleName =
         com.LibraryDir + "/" + moduleName + ".js"
 
-    let makeImportUserGenerated r t selector path =
-        Import({ Selector = selector
-                 Path = path
+    let makeImportUserGenerated r t (selector: string) (path: string) =
+        Import({ Selector = selector.Trim()
+                 Path = path.Trim()
                  IsCompilerGenerated = false }, t, r)
 
     let makeImportCompilerGenerated t (selector: string) (path: string) =
-        Import({ Selector = selector.Trim() |> makeStrConst
-                 Path = path.Trim() |> makeStrConst
+        Import({ Selector = selector.Trim()
+                 Path = path.Trim()
                  IsCompilerGenerated = true }, t, None)
 
     let makeImportLib (com: Compiler) t memberName moduleName =

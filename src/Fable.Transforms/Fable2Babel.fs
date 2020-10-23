@@ -868,15 +868,12 @@ module Util =
             yield upcast ContinueStatement(Identifier tc.Label, ?loc=range)
         |]
 
-    let transformImport (com: IBabelCompiler) ctx r (selector: Fable.Expr) (path: Fable.Expr) =
-        match selector, path with
-        | Fable.Value(Fable.StringConstant selector,_), Fable.Value(Fable.StringConstant path,_) ->
-            let selector, parts =
-                let parts = Array.toList(selector.Split('.'))
-                parts.Head, parts.Tail
-            com.GetImportExpr(ctx, selector, path)
-            |> getParts parts
-        | _ -> "Import expressions only accept string literals" |> addErrorAndReturnNull com r
+    let transformImport (com: IBabelCompiler) ctx r (selector: string) (path: string) =
+        let selector, parts =
+            let parts = Array.toList(selector.Split('.'))
+            parts.Head, parts.Tail
+        com.GetImportExpr(ctx, selector, path)
+        |> getParts parts
 
     let transformCast (com: IBabelCompiler) (ctx: Context) t e: Expression =
         match t with
@@ -1109,7 +1106,7 @@ module Util =
         let optimized =
             match callee, callInfo.ThisArg, callInfo.Args with
             // HACK: Try to optimize keyValueList after the FableTransforms
-            | Fable.Import({ Selector = StringConst "keyValueList"; Path = StringConst path },_,_), None, keyValueList::caseRule::_
+            | Fable.Import({ Selector = "keyValueList"; Path = path },_,_), None, keyValueList::caseRule::_
                 when path.EndsWith("/MapUtil.js") ->
                 Replacements.makePojo com caseRule keyValueList |> Option.map (transformAsExpr com ctx)
             | _ -> None
@@ -1234,10 +1231,10 @@ module Util =
     let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         match value with
         // Check imports with name placeholder
-        | Fable.Import({ Selector = Fable.Value(Fable.StringConstant Naming.placeholder,_); Path = path }, _, r) ->
-            transformImport com ctx r (makeStrConst var.Name) path
-        | Function(_,Fable.Import({ Selector = Fable.Value(Fable.StringConstant Naming.placeholder,_); Path = path }, _, r)) ->
-            transformImport com ctx r (makeStrConst var.Name) path
+        | Fable.Import({ Selector = Naming.placeholder; Path = path }, _, r) ->
+            transformImport com ctx r var.Name path
+        | Function(_,Fable.Import({ Selector = Naming.placeholder; Path = path }, _, r)) ->
+            transformImport com ctx r var.Name path
         | Function(args, body) ->
             let name = Some var.Name
             transformFunctionWithAnnotations com ctx name args body
@@ -2103,7 +2100,7 @@ module Compiler =
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
-            member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None (makeStrConst selector) (makeStrConst path)
+            member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None selector path
 
         interface Compiler with
             member _.Options = com.Options

@@ -8,8 +8,8 @@ let visit f e =
     | IdentExpr _ -> e
     | TypeCast(e, t, tag) -> TypeCast(f e, t, tag)
     | Import(info, t, r) ->
-        Import({ info with Selector = f info.Selector
-                           Path = f info.Path }, t, r)
+        Import({ info with Selector = info.Selector
+                           Path = info.Path }, t, r)
     | Value(kind, r) ->
         match kind with
         | ThisValue _ | BaseValue _
@@ -96,7 +96,7 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
 let getSubExpressions = function
     | IdentExpr _ -> []
     | TypeCast(e,_,_) -> [e]
-    | Import(info,_,_) -> [info.Selector; info.Path]
+    | Import(_,_,_) -> []
     | Value(kind,_) ->
         match kind with
         | ThisValue _ | BaseValue _
