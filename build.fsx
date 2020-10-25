@@ -304,7 +304,6 @@ let test() =
     cleanDirs [buildDir]
     runFableWithArgs projectDir [
         "--outDir " + buildDir
-        "--noCache"
         "--exclude Fable.Core"
     ]
 
