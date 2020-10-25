@@ -37,7 +37,7 @@ module PrinterExtensions =
                 printer.Print(";")
                 printer.PrintNewLine()
 
-        member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
+        member _.IsProductiveStatement(s: Statement) =
             let rec hasNoSideEffects (e: Expression) =
                 match e with
                 | :? Undefined
@@ -48,11 +48,17 @@ module PrinterExtensions =
                 // Constructors of classes deriving from System.Object add an empty object at the end
                 | :? ObjectExpression as o -> o.Properties.Length = 0
                 | :? UnaryExpression as e when e.Operator = "void" -> hasNoSideEffects e.Argument
+                // Some identifiers may be stranded as the result of imports
+                // intended only for side effects, see #2228
+                | :? Identifier -> true
                 | _ -> false
 
             match s with
-            | :? ExpressionStatement as e when hasNoSideEffects e.Expression -> ()
-            | _ ->
+            | :? ExpressionStatement as e -> hasNoSideEffects e.Expression |> not
+            | _ -> true
+
+        member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
+            if printer.IsProductiveStatement(s) then
                 s.Print(printer)
                 printSeparator |> Option.iter (fun f -> f printer)
 
@@ -493,13 +499,23 @@ type IfStatement(test, consequent, ?alternate, ?loc) =
             | None -> ()
             | Some alternate ->
                 if printer.Column > 0 then printer.Print(" ")
-                printer.Print("else ")
                 match alternate with
-                | :? IfStatement
-                // TODO: Get productive statements and skip else if they're empty
-                | :? BlockStatement -> printer.Print(alternate)
-                // Make sure alternate is always printed as block
-                | _ -> printer.PrintBlock([|alternate|])
+                | :? IfStatement ->
+                    printer.Print("else ")
+                    printer.Print(alternate)
+                | alternate ->
+                    let statements =
+                        match alternate with
+                        | :? BlockStatement as b -> b.Body
+                        | alternate -> [|alternate|]
+                    // Get productive statements and skip `else` if they're empty
+                    statements
+                    |> Array.filter printer.IsProductiveStatement
+                    |> function
+                        | [||] -> ()
+                        | statements ->
+                            printer.Print("else ")
+                            printer.PrintBlock(statements)
             if printer.Column > 0 then
                 printer.PrintNewLine()
 
@@ -1168,10 +1184,11 @@ type ClassExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParamete
 
 // Modules
 type PrivateModuleDeclaration(statement) =
-    member _.Statement = statement
+    member _.Statement: Statement = statement
     interface ModuleDeclaration with
         member _.Print(printer) =
-            printer.Print(statement)
+            if printer.IsProductiveStatement(statement) then
+                printer.Print(statement)
 
 type ImportSpecifier = inherit Node
 
