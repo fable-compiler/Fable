@@ -211,7 +211,7 @@ let getTypeName com (ctx: Context) r t =
 
 let (|Nameof|_|) com ctx = function
     | IdentExpr ident -> Some ident.DisplayName
-    | Get(_, ByKey(ExprKey(Value(StringConstant prop,_))), _, _) -> Some prop
+    | Get(_, ByKey(ExprKey(StringConst prop)), _, _) -> Some prop
     | Get(_, ByKey(FieldKey fi), _, _) -> Some fi.Name
     | NestedLambda(args, Call(IdentExpr ident, info, _, _), None) ->
         if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->
@@ -950,7 +950,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
                     let uci = com.GetEntity(ent).UnionCases |> List.item uci
                     let name = defaultArg uci.CompiledName uci.Name
                     makeObjMember caseRule name values::acc |> Some
-                | Some acc, Value(NewTuple((Value(StringConstant name,_))::values),_) ->
+                | Some acc, Value(NewTuple((StringConst name)::values),_) ->
                     // Don't change the case for tuples in disguise
                     makeObjMember Core.CaseRules.None name values::acc |> Some
                 | _ -> None)))
@@ -1057,6 +1057,16 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
+let rec findInScope scope identName =
+    match scope with
+    | [] -> None
+    | (_,ident2,expr)::prevScope ->
+        if identName = ident2.Name then
+            match expr with
+            | Some(MaybeCasted(IdentExpr ident)) -> findInScope prevScope ident.Name
+            | expr -> expr
+        else findInScope prevScope identName
+
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
         | Value(StringConstant path, r) when path.EndsWith(".fs") ->
@@ -1084,18 +1094,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "nameofLambda" ->
         match args with
         | [Lambda(_, (Nameof com ctx name), _)] -> Some name
-        | [IdentExpr ident] ->
-            let rec findLambda scope identName =
-                match scope with
-                | [] -> None
-                | (_,ident2,expr)::prevScope ->
-                    if identName = ident2.Name then
-                        match expr with
-                        | Some(Lambda(_, (Nameof com ctx name), _)) -> Some name
-                        | Some(IdentExpr ident) -> findLambda prevScope ident.Name
-                        | _ -> None
-                    else findLambda prevScope identName
-            findLambda ctx.Scope ident.Name
+        | [MaybeCasted(IdentExpr ident)] ->
+            match findInScope ctx.Scope ident.Name with
+            | Some(Lambda(_, (Nameof com ctx name), _)) -> Some name
+            | _ -> None
         | _ -> None
         |> Option.defaultWith (fun () ->
             "Cannot infer name of expression"
@@ -1126,7 +1128,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 let path = fixDynamicImportPath path
                 let import = Helper.GlobalCall("import", t, [path], ?loc=r)
                 match selector with
-                | Value(StringConstant "*",_) -> import
+                | StringConst "*" -> import
                 | selector ->
                     let selector =
                         let m = makeIdent "m"
@@ -1149,12 +1151,22 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 "The imported value is not coming from a different file"
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Naming.StartsWith "import" suffix, _ ->
+            let (|RequireStringConst|_|) e =
+                (match e with
+                 | StringConst s -> Some s
+                 | MaybeCasted(IdentExpr ident) ->
+                    match findInScope ctx.Scope ident.Name with
+                    | Some(StringConst s) -> Some s
+                    | _ -> None
+                 | _ -> None)
+                |> Option.orElseWith(fun () ->
+                    addError com ctx.InlinePath r "Import only accepts string literals"; None)
             match suffix, args with
-            | "Member", [StringConst path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
-            | "Default", [StringConst path]     -> makeImportUserGenerated r t "default" path |> Some
-            | "SideEffects", [StringConst path] -> makeImportUserGenerated r t "" path |> Some
-            | "All", [StringConst path]         -> makeImportUserGenerated r t "*" path |> Some
-            | _, [StringConst selector; StringConst path] -> makeImportUserGenerated r t (selector) path |> Some
+            | "Member", [RequireStringConst path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
+            | "Default", [RequireStringConst path]     -> makeImportUserGenerated r t "default" path |> Some
+            | "SideEffects", [RequireStringConst path] -> makeImportUserGenerated r t "" path |> Some
+            | "All", [RequireStringConst path]         -> makeImportUserGenerated r t "*" path |> Some
+            | _, [RequireStringConst selector; RequireStringConst path] -> makeImportUserGenerated r t (selector) path |> Some
             | _ -> None
         // Dynamic casting, erase
         | "op_BangHat", [arg] -> Some arg
@@ -1182,7 +1194,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> emitJsExpr r t (callee::args) |> Some
         | Naming.StartsWith "emitJs" rest, [args; macro] ->
             match macro with
-            | Value(StringConstant macro,_) ->
+            | StringConst macro ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emitJs r t args isStatement macro |> Some
@@ -1584,7 +1596,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         // Optimization
         | [] -> Helper.InstanceCall(c, "split", t, [makeStrConst ""]) |> Some
         | [Value(CharConstant _,_) as separator]
-        | [Value(StringConstant _,_) as separator]
+        | [StringConst _ as separator]
         | [Value(NewArray([separator],_),_)] ->
             Helper.InstanceCall(c, "split", t, [separator]) |> Some
         | [arg1; ExprType(Enum _) as arg2] ->
@@ -2017,7 +2029,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> addWarning com ctx.InlinePath r
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str style
-    | "ToString", [Value (StringConstant _, _) as format] ->
+    | "ToString", [StringConst _ as format] ->
         let format = emitJsExpr r String [format] "'{0:' + $0 + '}'"
         Helper.LibCall(com, "String", "format", t, [format; thisArg.Value], [format.Type; thisArg.Value.Type], ?loc=r) |> Some
     | "ToString", _ ->
@@ -2384,7 +2396,7 @@ let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
         match args with
         | [] -> []
         | [v] -> [v]
-        | (Value(StringConstant _, _))::_ -> [Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes)]
+        | (StringConst _)::_ -> [Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes)]
         | _ -> [args.Head]
     Helper.GlobalCall("console", t, args, memb="log", ?loc=r)
 
@@ -2533,9 +2545,9 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         None
     | "ToString" when (args.Length = 2) ->
         match args.Head with
-        | Value (StringConstant "c", _)
-        | Value (StringConstant "g", _)
-        | Value (StringConstant "G", _) ->
+        | StringConst "c"
+        | StringConst "g"
+        | StringConst "G" ->
             Helper.LibCall(com, "TimeSpan", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
         | _ ->
             "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
@@ -2745,14 +2757,14 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
     | "NewGuid"     -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
     | "Parse"       ->
         match args with
-        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | [StringConst literalGuid] -> parseGuid literalGuid
         | _-> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
     | "TryParse"    -> Helper.LibCall(com, "Guid", "tryParse", t, turnLastArgIntoRef com ctx args, i.SignatureArgTypes) |> Some
     | "ToByteArray" -> Helper.LibCall(com, "Guid", "guidToArray", t, [thisArg.Value], [thisArg.Value.Type]) |> Some
     | "ToString" when (args.Length = 0) -> thisArg.Value |> Some
     | "ToString" when (args.Length = 1) ->
         match args with
-        | [Value (StringConstant literalFormat, _)] ->
+        | [StringConst literalFormat] ->
             match literalFormat with
             | "N" | "D" | "B" | "P" | "X" ->
                 Helper.LibCall(com, "Guid", "toString", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
@@ -2765,7 +2777,7 @@ let guids (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallI
         match args with
         | [] -> emptyGuid() |> Some
         | [ExprType (Array _)] -> Helper.LibCall(com, "Guid", "arrayToGuid", t, args, i.SignatureArgTypes) |> Some
-        | [Value (StringConstant literalGuid, _)] -> parseGuid literalGuid
+        | [StringConst literalGuid] -> parseGuid literalGuid
         | [ExprType String] -> Helper.LibCall(com, "Guid", "parse", t, args, i.SignatureArgTypes) |> Some
         | _ -> None
     | _ -> None

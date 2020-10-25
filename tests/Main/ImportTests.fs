@@ -41,6 +41,8 @@ type MyFSharpClass() =
     inherit MyJsClass(3)
     override _.bar() = 4
 
+let inline ofImport<'P> (importMember: string) (importPath: string) =
+    JsInterop.import importMember importPath
 #endif
 
 let tests =
@@ -156,6 +158,10 @@ let tests =
     // Fix it or leave the warning as it's now?
     // testCase "Importing curried functions with multiple arguments via `importMember` without naming arguments works" <| fun () ->
     //     add 40 2 |> equal 42
+
+    testCase "ofImport should inline properly" <| fun () ->
+        let f = ofImport "add4" "./js/1foo.js"
+        f 5 |> equal 9
     #endif
 
     testCase "Module mutable values work" <| fun () -> // See #986
