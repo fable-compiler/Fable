@@ -3,20 +3,6 @@ namespace Fable.Collections
 
 open System.Collections.Generic
 
-/// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set
-type IMutableSet<'T> =
-    inherit IEnumerable<'T>
-    abstract size: int
-    abstract add: 'T -> IMutableSet<'T>
-    /// Convenience method (not in JS Set prototype) to check if the element has actually been added
-    abstract add_: 'T -> bool
-    abstract clear: unit -> unit
-    abstract delete: 'T -> bool
-    abstract has: 'T -> bool
-    abstract keys: unit -> 'T seq
-    abstract values: unit -> 'T seq
-    abstract entries: unit -> ('T * 'T) seq
-
 [<Sealed>]
 [<CompiledName("HashSet")>]
 type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer<'T>) as this =
@@ -27,6 +13,9 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
 
     // new () = MutableSet (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableSet (Seq.empty, comparer)
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "HashSet"
 
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
@@ -127,13 +116,13 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
                 this.Add x |> ignore
 #endif
 
-    interface IMutableSet<'T> with
+    interface Fable.Core.JS.Set<'T> with
         member this.size = this.Count
-        member this.add(k) = this.Add(k) |> ignore; this :> IMutableSet<'T>
-        member this.add_(k) = this.Add(k)
+        member this.add(k) = this.Add(k) |> ignore; this :> Fable.Core.JS.Set<'T>
         member this.clear() = this.Clear()
         member this.delete(k) = this.Remove(k)
         member this.has(k) = this.Contains(k)
         member this.keys() = this |> Seq.map id
         member this.values() = this |> Seq.map id
         member this.entries() = this |> Seq.map (fun v -> (v, v))
+        member this.forEach (f, ?thisArg) = this |> Seq.iter (fun x -> f x x this)

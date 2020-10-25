@@ -484,7 +484,7 @@ module Annotation =
     let makeEntityTypeAnnotation com ctx (ent: Fable.EntityRef) genArgs =
         match ent.FullName with
         | Types.ienumerableGeneric ->
-            makeNativeTypeAnnotation com ctx genArgs "Iterable"
+            makeNativeTypeAnnotation com ctx genArgs "IterableIterator"
         | Types.result ->
             makeUnionTypeAnnotation com ctx genArgs
         | entName when entName.StartsWith(Types.choiceNonGeneric) ->
@@ -975,14 +975,17 @@ module Util =
     let extractBaseExprFromBaseCall com ctx baseCall =
         let baseRef, args, hasSpread =
             match baseCall with
-            | Fable.Call(baseRef, info,_,_) ->
+            | Fable.Call(baseRef, info, _, _) ->
                 baseRef, info.Args, info.HasSpread
             | _ ->
                 "Unexpected base call expression, please report"
                 |> addError com [] baseCall.Range
                 Fable.Value(Fable.UnitConstant, None), [], false
 
-        let baseExpr = transformAsExpr com ctx baseRef
+        let baseExpr =
+            match baseRef with
+            | Fable.IdentExpr id -> typedIdent com ctx id :> Expression
+            | _ -> transformAsExpr com ctx baseRef
         let args = transformCallArgs com ctx hasSpread args
         baseExpr, args
 
@@ -1254,7 +1257,7 @@ module Util =
             Array.append [|decl|] body
         else
             let value = transformBindingExprBody com ctx var value
-            [|varDeclaration (typedIdent com ctx var) var.IsMutable value :> Statement|]
+            [|varDeclaration (ident var) var.IsMutable value :> Statement|]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
         match kind with
@@ -1759,8 +1762,8 @@ module Util =
             ClassImplements(id, ?typeParameters=typeParamInst) |> Some
         ent.AllInterfaces |> Seq.choose (fun ifc ->
             match ifc.Entity.FullName with
-            | "Fable.Collections.IMutableSet`1" -> mkNative ifc.GenericArgs "Set"
-            | "Fable.Collections.IMutableMap`2" -> mkNative ifc.GenericArgs "Map"
+            | "Fable.Core.JS.Set`1" -> mkNative ifc.GenericArgs "Set"
+            | "Fable.Core.JS.Map`2" -> mkNative ifc.GenericArgs "Map"
             | _ -> None
         )
 
@@ -1817,14 +1820,16 @@ module Util =
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration =
-            let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent |> ident)
-            let body = transformReflectionInfo com ctx None ent (Array.map (fun x -> x :> _) genArgs)
-            let returnType =
+            let ta =
                 if com.Options.Typescript then
                     makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
                     |> TypeAnnotation |> Some
                 else None
-            let args = genArgs |> Array.map (fun x -> x :> Pattern)
+            let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
+            let generics = genArgs |> Array.map (fun x -> ident x :> Expression)
+            let body = transformReflectionInfo com ctx None ent generics
+            let args = genArgs |> Array.map (fun x -> Identifier(x.Name, ?typeAnnotation=ta) :> Pattern)
+            let returnType = ta
             makeFunctionExpression None (args, body, returnType, None)
             |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
         [typeDeclaration; reflectionDeclaration]
@@ -1890,7 +1895,6 @@ module Util =
                         | _ -> ident id :> Expression
                     assign None left right |> ExpressionStatement :> Statement)
             |]
-
         let cases =
             let body =
                 ent.UnionCases
@@ -1902,9 +1906,9 @@ module Util =
                 |> BlockStatement
             ClassMethod(ClassFunction, Identifier "cases", [||], body) :> ClassMember
 
-        declareType com ctx ent entName args body
-            (libValue com ctx "Types" "Union" |> Some)
-            (Array.append [|cases|] classMembers)
+        let baseExpr = libValue com ctx "Types" "Union" |> Some
+        let classMembers = Array.append [|cases|] classMembers
+        declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getEntityFieldsAsIdents com ent

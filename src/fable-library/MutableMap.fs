@@ -3,19 +3,6 @@ namespace Fable.Collections
 
 open System.Collections.Generic
 
-/// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-type IMutableMap<'Key, 'Value> =
-    inherit IEnumerable<KeyValuePair<'Key, 'Value>>
-    abstract size: int
-    abstract clear: unit -> unit
-    abstract delete: 'Key -> bool
-    abstract entries: unit -> KeyValuePair<'Key,'Value> seq
-    abstract get: 'Key -> 'Value
-    abstract has: 'Key -> bool
-    abstract keys: unit -> 'Key seq
-    abstract set: 'Key * 'Value -> IMutableMap<'Key,'Value>
-    abstract values: unit -> 'Value seq
-
 [<Sealed>]
 [<CompiledName("Dictionary")>]
 type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Value> seq, comparer: IEqualityComparer<'Key>) as this =
@@ -26,6 +13,9 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
 
     // new () = MutableMap (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableMap (Seq.empty, comparer)
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "Dictionary"
 
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
@@ -141,13 +131,14 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             [| for pair in this -> pair.Value |] :> ICollection<'Value>
 #endif
 
-    interface IMutableMap<'Key, 'Value> with
+    interface Fable.Core.JS.Map<'Key, 'Value> with
         member this.size = this.Count
         member this.clear() = this.Clear()
         member this.delete(k) = this.Remove(k)
-        member this.entries() = this |> Seq.map id
+        member this.entries() = this |> Seq.map (fun p -> p.Key, p.Value)
         member this.get(k) = this.[k]
         member this.has(k) = this.ContainsKey(k)
-        member this.keys() = this |> Seq.map (fun pair -> pair.Key)
-        member this.set(k, v) = this.[k] <- v; this :> IMutableMap<'Key, 'Value>
-        member this.values() = this |> Seq.map (fun pair -> pair.Value)
+        member this.keys() = this |> Seq.map (fun p -> p.Key)
+        member this.set(k, v) = this.[k] <- v; this :> Fable.Core.JS.Map<'Key, 'Value>
+        member this.values() = this |> Seq.map (fun p -> p.Value)
+        member this.forEach(f, ?thisArg) = this |> Seq.iter (fun p -> f p.Value p.Key this)

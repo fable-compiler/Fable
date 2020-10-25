@@ -172,7 +172,7 @@ module JS =
         abstract get: key: 'K -> 'V
         abstract has: key: 'K -> bool
         abstract keys: unit -> seq<'K>
-        abstract set: key: 'K * ?value: 'V -> Map<'K, 'V>
+        abstract set: key: 'K * value: 'V -> Map<'K, 'V>
         abstract values: unit -> seq<'V>
 
     and [<AllowNullLiteral>] MapConstructor =
@@ -183,7 +183,7 @@ module JS =
         abstract delete: key: 'K -> bool
         abstract get: key: 'K -> 'V
         abstract has: key: 'K -> bool
-        abstract set: key: 'K * ?value: 'V -> WeakMap<'K, 'V>
+        abstract set: key: 'K * value: 'V -> WeakMap<'K, 'V>
 
     and [<AllowNullLiteral>] WeakMapConstructor =
         [<Emit("new $0($1...)")>] abstract Create: ?iterable: seq<'K * 'V> -> WeakMap<'K, 'V>

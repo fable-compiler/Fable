@@ -14,6 +14,7 @@ let fableReplacementsModules =
       "average", (Types.averager, 0)
     ]
     "Array", Map [
+      "append", (Types.arrayCons, 0)
       "mapIndexed", (Types.arrayCons, 1)
       "map", (Types.arrayCons, 1)
       "mapIndexed2", (Types.arrayCons, 2)
@@ -35,6 +36,10 @@ let fableReplacementsModules =
       "replicate", (Types.arrayCons, 0)
       "scan", (Types.arrayCons, 1)
       "scanBack", (Types.arrayCons, 1)
+      "skip", (Types.arrayCons, 0)
+      "skipWhile", (Types.arrayCons, 0)
+      "take", (Types.arrayCons, 0)
+      "takeWhile", (Types.arrayCons, 0)
       "partition", (Types.arrayCons, 0)
       "choose", (Types.arrayCons, 1)
       "sortInPlaceBy", (Types.comparer, 1)
@@ -51,6 +56,7 @@ let fableReplacementsModules =
       "min", (Types.comparer, 0)
       "average", ("Fable.Core.IGenericAverager`1", 0)
       "averageBy", ("Fable.Core.IGenericAverager`1", 1)
+      "transpose", (Types.arrayCons, 0)
     ]
     "List", Map [
       "contains", (Types.equalityComparer, 0)
@@ -73,7 +79,7 @@ let fableReplacementsModules =
       "countBy", (Types.equalityComparer, 1)
     ]
     "Set", Map [
-      "FSharpSet$$Map$$7597B8F7", (Types.comparer, 1)
+      "FSharpSet__Map", (Types.comparer, 1)
       "singleton", (Types.comparer, 0)
       "unionMany", (Types.comparer, 0)
       "empty", (Types.comparer, 0)
@@ -91,12 +97,9 @@ let fableReplacementsModules =
       "isProperSupersetOf", (Types.comparer, 0)
     ]
     "Map", Map [
-      "ofList", (Types.comparer, 0)
-      "ofSeq", (Types.comparer, 0)
-      "ofArray", (Types.comparer, 0)
-      "empty", (Types.comparer, 0)
       "createMutable", (Types.equalityComparer, 0)
       "groupBy", (Types.equalityComparer, 1)
       "countBy", (Types.equalityComparer, 1)
     ]
   ]
+

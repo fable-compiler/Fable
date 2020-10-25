@@ -3,11 +3,12 @@ import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long
 import { Option, some, value } from "./Option.js";
 import { compare, equals, IComparer, IDisposable } from "./Util.js";
 
-export interface IEnumerator<T> {
+export interface IEnumerator<T> extends IDisposable {
   ["System.Collections.Generic.IEnumerator`1.get_Current"](): T | undefined;
   ["System.Collections.IEnumerator.get_Current"](): T | undefined;
   ["System.Collections.IEnumerator.MoveNext"](): boolean;
   ["System.Collections.IEnumerator.Reset"](): void;
+  Dispose(): void;
 }
 
 export interface IEnumerable<T> extends Iterable<T> {
@@ -25,7 +26,7 @@ interface IGenericAverager<T> {
   DivideByInt(x: T, i: number): T;
 }
 
-export class Enumerator<T> implements IEnumerator<T>, IDisposable {
+export class Enumerator<T> implements IEnumerator<T> {
   private current?: T;
   constructor(private iter: Iterator<T>) { }
   public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
@@ -53,14 +54,15 @@ export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
     : new Enumerator(o[Symbol.iterator]());
 }
 
-export function toIterator<T>(en: IEnumerator<T>): Iterator<T> {
+export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
   return {
+    [Symbol.iterator]() { return this; },
     next() {
-      return en["System.Collections.IEnumerator.MoveNext"]()
-        ? { done: false, value: en["System.Collections.IEnumerator.get_Current"]() }
-        : { done: true, value: undefined };
+      const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
+      const current = hasNext ? en["System.Collections.IEnumerator.get_Current"]() : undefined;
+      return { done: !hasNext, value: current } as IteratorResult<T>;
     },
-  } as Iterator<T>;
+  };
 }
 
 // export function toIterable<T>(en: IEnumerable<T>): Iterable<T> {
@@ -78,10 +80,21 @@ function __failIfNone<T>(res: Option<T>) {
   return value(res);
 }
 
-function makeSeq<T>(f: () => Iterator<T>): Iterable<T> {
-  return {
-    [Symbol.iterator]: f,
-  };
+class Seq<T> implements IterableIterator<T> {
+  private iter?: Iterator<T>;
+  constructor(private f: () => Iterator<T>) { }
+  [Symbol.iterator]() { return new Seq(this.f); }
+  next() {
+    this.iter = this.iter ?? this.f();
+    return this.iter.next();
+  }
+  toString() {
+    return "seq [" + Array.from(this).join("; ") + "]";
+  }
+}
+
+function makeSeq<T>(f: () => Iterator<T>): IterableIterator<T> {
+  return new Seq(f);
 }
 
 function isArrayOrBufferView<T>(xs: Iterable<T>): xs is T[] {
@@ -96,7 +109,7 @@ export function ofArray<T>(xs: ArrayLike<T>) {
   }
 }
 
-export function allPairs<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): Iterable<[T1, T2]> {
+export function allPairs<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): IterableIterator<[T1, T2]> {
   let firstEl = true;
   const ysCache: T2[] = [];
   return collect((x: T1) => {
@@ -112,7 +125,7 @@ export function allPairs<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): Iterable<[
       //     return [x, ysCache[i]];
       // }, rangeNumber(0, 1, ysCache.length - 1));
     }
-  }, xs);
+  }, xs) as IterableIterator<[T1, T2]>;
 }
 
 export function append<T>(xs: Iterable<T>, ys: Iterable<T>) {
@@ -155,7 +168,7 @@ export function averageBy<T, T2>(f: (a: T) => T2, xs: Iterable<T>, averager: IGe
   return averager.DivideByInt(total, count);
 }
 
-export function concat<T>(xs: Iterable<Iterable<T>>): Iterable<T> {
+export function concat<T>(xs: IterableIterator<Iterable<T>>) {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
     let output: T;
@@ -184,7 +197,7 @@ export function concat<T>(xs: Iterable<Iterable<T>>): Iterable<T> {
   });
 }
 
-export function collect<T, U>(f: (x: T) => Iterable<U>, xs: Iterable<T>): Iterable<U> {
+export function collect<T, U>(f: (x: T) => Iterable<U>, xs: Iterable<T>): IterableIterator<U> {
   return concat(map(f, xs));
 }
 
@@ -217,16 +230,16 @@ export function compareWith<T>(f: (x: T, y: T) => number, xs: Iterable<T>, ys: I
   return (c !== 0) ? c : (cur1.done && !cur2.done) ? -1 : (!cur1.done && cur2.done) ? 1 : 0;
 }
 
-export function delay<T>(f: () => Iterable<T>): Iterable<T> {
+export function delay<T>(f: () => Iterable<T>): IterableIterator<T> {
   return makeSeq(() => f()[Symbol.iterator]());
 }
 
-export function empty<T>(): Iterable<T> {
-  return [];
+export function empty<T>(): IterableIterator<T> {
+  return delay(() => []);
 }
 
-export function singleton<T>(y: T): Iterable<T> {
-  return [y];
+export function singleton<T>(y: T): IterableIterator<T> {
+  return delay(() => [y]);
 }
 
 export function enumerateFromFunctions<T, Enumerator>(
@@ -480,7 +493,7 @@ export function length<T>(xs: Iterable<T>) {
     : fold((acc, _x) => acc + 1, 0, xs);
 }
 
-export function map<T, U>(f: (x: T) => U, xs: Iterable<T>): Iterable<U> {
+export function map<T, U>(f: (x: T) => U, xs: Iterable<T>): IterableIterator<U> {
   return delay(() => unfold((iter) => {
     const cur = iter.next();
     return !cur.done ? [f(cur.value), iter] : undefined;
@@ -591,7 +604,7 @@ export function minBy<T, U>(f: (x: T) => U, xs: Iterable<T>, comparer?: ICompare
   return reduce((acc: T, x: T) => compareFn(f(acc), f(x)) === -1 ? acc : x, xs);
 }
 
-export function pairwise<T>(xs: Iterable<T>): Iterable<[T, T]> {
+export function pairwise<T>(xs: Iterable<T>): IterableIterator<[T, T]> {
   return delay(() => {
     const iter = xs[Symbol.iterator]();
     const cur = iter.next();
@@ -609,12 +622,12 @@ export function rangeChar(first: string, last: string) {
   return delay(() => unfold((x) => x <= last ? [x, String.fromCharCode(x.charCodeAt(0) + 1)] : undefined, first));
 }
 
-export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean): Iterable<Long> {
+export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean): IterableIterator<Long> {
   const stepFn = makeLongRangeStepFunction(step, last, unsigned) as (arg: Long) => Option<[Long, Long]>;
   return delay(() => unfold(stepFn, first));
 }
 
-export function rangeDecimal(first: Decimal, step: Decimal, last: Decimal): Iterable<Decimal> {
+export function rangeDecimal(first: Decimal, step: Decimal, last: Decimal): IterableIterator<Decimal> {
   const stepFn = makeDecimalRangeStepFunction(step, last) as (arg: Decimal) => Option<[Decimal, Decimal]>;
   return delay(() => unfold(stepFn, first));
 }
@@ -692,7 +705,7 @@ export function scanBack<T, ST>(f: (x: T, st: ST) => ST, xs: Iterable<T>, seed: 
   return reverse(scan((acc, x) => f(x, acc), seed, reverse(xs)));
 }
 
-export function skip<T>(n: number, xs: Iterable<T>): Iterable<T> {
+export function skip<T>(n: number, xs: Iterable<T>): IterableIterator<T> {
   return makeSeq(() => {
     const iter = xs[Symbol.iterator]();
     for (let i = 1; i <= n; i++) {
@@ -838,7 +851,7 @@ export function pick<T, U>(f: (x: T, i?: number) => Option<U>, xs: Iterable<T>) 
   return __failIfNone(tryPick(f, xs));
 }
 
-export function unfold<T, ST>(f: (st: ST) => Option<[T, ST]>, fst: ST): Iterable<T> {
+export function unfold<T, ST>(f: (st: ST) => Option<[T, ST]>, fst: ST): IterableIterator<T> {
   return makeSeq(() => {
     // Capture a copy of the first value in the closure
     // so the sequence is restarted every time, see #1230
@@ -860,15 +873,15 @@ export function unfold<T, ST>(f: (st: ST) => Option<[T, ST]>, fst: ST): Iterable
   });
 }
 
-export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): Iterable<[T1, T2]> {
+export function zip<T1, T2>(xs: Iterable<T1>, ys: Iterable<T2>): IterableIterator<[T1, T2]> {
   return map2((x, y) => [x, y], xs, ys);
 }
 
-export function zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>): Iterable<[T1, T2, T3]> {
+export function zip3<T1, T2, T3>(xs: Iterable<T1>, ys: Iterable<T2>, zs: Iterable<T3>): IterableIterator<[T1, T2, T3]> {
   return map3((x, y, z) => [x, y, z], xs, ys, zs);
 }
 
-export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T[]> {
+export function windowed<T>(windowSize: number, source: Iterable<T>): IterableIterator<T[]> {
   if (windowSize <= 0) {
     throw new Error("windowSize must be positive");
   }
@@ -893,7 +906,7 @@ export function windowed<T>(windowSize: number, source: Iterable<T>): Iterable<T
   });
 }
 
-export function transpose<T>(source: Iterable<Iterable<T>>): Iterable<Iterable<T>> {
+export function transpose<T>(source: Iterable<Iterable<T>>): IterableIterator<Iterable<T>> {
   return makeSeq(() => {
     const iters = Array.from(source, (x) => x[Symbol.iterator]());
     const iter: Iterator<Iterable<T>> = {

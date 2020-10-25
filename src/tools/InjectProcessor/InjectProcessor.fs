@@ -91,14 +91,14 @@ module Fable.Transforms.ReplacementsInject
 let fableReplacementsModules =
   Map [
     "Seq", Map [
-      "maxBy", [(Types.comparer, 1)]
-      "max", [(Types.comparer, 0)]
-      "minBy", [(Types.comparer, 1)]
-      "min", [(Types.comparer, 0)]
-      "sumBy", [(Types.adder, 1)]
-      "sum", [(Types.adder, 0)]
-      "averageBy", [(Types.averager, 1)]
-      "average", [(Types.averager, 0)]
+      "maxBy", (Types.comparer, 1)
+      "max", (Types.comparer, 0)
+      "minBy", (Types.comparer, 1)
+      "min", (Types.comparer, 0)
+      "sumBy", (Types.adder, 1)
+      "sum", (Types.adder, 0)
+      "averageBy", (Types.averager, 1)
+      "average", (Types.averager, 0)
     ]"""
             for file in proj.AssemblyContents.ImplementationFiles do
                 let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
@@ -114,7 +114,7 @@ let fableReplacementsModules =
                                     | None -> "\"" + typeArgName + "\""
                                 sprintf "(%s, %i)" typeArgName genArgIndex)
                             |> String.concat "; "
-                            |> sprintf "      \"%s\", [%s]" membName)
+                            |> sprintf "      \"%s\", %s" membName)
                         |> Seq.toArray
                     if moduleInjects.Length > 0 then
                         yield sprintf "    \"%s\", Map [" fileName

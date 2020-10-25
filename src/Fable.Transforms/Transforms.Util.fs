@@ -364,6 +364,9 @@ module AST =
     let makeIdentExpr name =
         makeIdent name |> IdentExpr
 
+    let makeTypedIdentExpr typ name =
+        makeTypedIdent typ name |> IdentExpr
+
     let makeWhileLoop range guardExpr bodyExpr =
         WhileLoop (guardExpr, bodyExpr, range)
 

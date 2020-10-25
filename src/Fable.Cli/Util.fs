@@ -200,7 +200,7 @@ module Imports =
 
     let getImportPath sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
-        | None -> importPath
+        | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
             let importPath =
                 if importPath.StartsWith("${outDir}") then
