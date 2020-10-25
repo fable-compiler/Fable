@@ -1,4 +1,4 @@
-import { IComparable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
+import { IComparable, IEquatable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
 
 export function seqToString<T>(self: Iterable<T>): string {
   let count = 0;
@@ -52,7 +52,7 @@ function compareList<T>(self: List<T>, other: List<T>): number {
   }
 }
 
-export class List<T> implements IComparable<List<T>>, Iterable<T> {
+export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
   public head: T;
   public tail?: List<T>;
 
@@ -81,7 +81,7 @@ export class List<T> implements IComparable<List<T>>, Iterable<T> {
   public CompareTo(other: List<T>): number { return compareList(this, other); }
 }
 
-export abstract class Union implements IComparable<Union> {
+export abstract class Union implements IEquatable<Union>, IComparable<Union> {
   public tag!: number;
   public fields!: any[];
   abstract cases(): string[];
@@ -92,7 +92,7 @@ export abstract class Union implements IComparable<Union> {
 
   public toJSON() {
     return this.fields.length === 0 ? this.name : [this.name].concat(this.fields);
-  };
+  }
 
   public toString() {
     return this.ToString();
@@ -198,7 +198,7 @@ function recordCompareTo<T>(self: T, other: T) {
   }
 }
 
-export abstract class Record implements IComparable<Record> {
+export abstract class Record implements IEquatable<Record>, IComparable<Record> {
   toJSON() { return recordToJSON(this); }
   toString() { return this.ToString(); }
   ToString() { return recordToString(this); }
@@ -241,7 +241,8 @@ export function isException(x: any) {
   return x instanceof Exception || x instanceof Error;
 }
 
-export abstract class FSharpException extends Exception implements IComparable<FSharpException> {
+export abstract class FSharpException extends Exception
+  implements IEquatable<FSharpException>, IComparable<FSharpException> {
   toJSON() { return recordToJSON(this); }
   toString() { return this.ToString(); }
   ToString() { return recordToString(this); }

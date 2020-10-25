@@ -263,14 +263,14 @@ type IFableCompiler =
     abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
 
 module Helpers =
-    let rec nonAbbreviatedDefinition (ent: FSharpEntity) =
+    let rec nonAbbreviatedDefinition (ent: FSharpEntity): FSharpEntity =
         if ent.IsFSharpAbbreviation then
             let t = ent.AbbreviatedType
             if t.HasTypeDefinition then nonAbbreviatedDefinition t.TypeDefinition
             else ent
         else ent
 
-    let rec nonAbbreviatedType (t: FSharpType) =
+    let rec nonAbbreviatedType (t: FSharpType): FSharpType =
         let isSameType (t1: FSharpType) (t2: FSharpType) =
             t1.HasTypeDefinition && t2.HasTypeDefinition && (t1.TypeDefinition = t2.TypeDefinition)
         if t.IsAbbreviation && not (isSameType t t.AbbreviatedType) then
@@ -712,7 +712,8 @@ module TypeHelpers =
 
     // Sometimes the names of user-declared and compiler-generated clash, see #1900
     let genParamName (genParam: FSharpGenericParameter) =
-        if genParam.IsCompilerGenerated then genParam.Name + "$"
+        if genParam.IsCompilerGenerated
+        then genParam.Name.Replace("?", "$") + "$"
         else genParam.Name
 
     let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
@@ -1124,6 +1125,10 @@ module Util =
         let isFromDllRef = Option.isSome ent.Assembly.FileName
         isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
 
+    let getEntityType (ent: Fable.Entity): Fable.Type =
+        let genArgs = ent.GenericParameters |> List.map (fun x -> Fable.Type.GenericParam(x.Name))
+        Fable.Type.DeclaredType(ent.Ref, genArgs)
+
     /// We can add a suffix to the entity name for special methods, like reflection declaration
     let entityRefWithSuffix (com: Compiler) (ent: Fable.Entity) suffix =
         let error msg =
@@ -1133,9 +1138,9 @@ module Util =
         | true, _ -> error "Cannot reference an interface"
         | _, None -> error "Cannot reference entity from .dll reference"
         | _, Some file ->
-            let entityName = getEntityDeclarationName com ent.Ref + suffix
+            let entityName = (getEntityDeclarationName com ent.Ref) + suffix
             if file = com.CurrentFile then
-                makeIdentExpr entityName
+                makeTypedIdentExpr (getEntityType ent) entityName
             elif ent.IsPublic then
                 makeImportInternal com Fable.Any entityName file
             else

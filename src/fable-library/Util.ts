@@ -47,30 +47,6 @@ export interface ICollection<T> {
   Remove(item: T): boolean;
 }
 
-// export interface IMutableMap<K, V> {
-//   readonly size: number;
-//   clear(): void;
-//   delete(key: K): boolean;
-//   get(key: K): V | undefined;
-//   has(key: K): boolean;
-//   set(key: K, value: V): this;
-//   keys(): IterableIterator<K>;
-//   values(): IterableIterator<V>;
-//   entries(): IterableIterator<[K, V]>;
-// }
-
-// export interface IMutableSet<T> {
-//   readonly size: number;
-//   add(value: T): this;
-//   add_(value: T): boolean;
-//   clear(): void;
-//   delete(value: T): boolean;
-//   has(value: T): boolean;
-//   keys(): IterableIterator<T>;
-//   values(): IterableIterator<T>;
-//   entries(): IterableIterator<[T, T]>;
-// }
-
 export function isIterable<T>(x: T | Iterable<T>): x is Iterable<T> {
   return x != null && typeof x === "object" && Symbol.iterator in x;
 }

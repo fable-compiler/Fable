@@ -104,8 +104,12 @@ module PrinterExtensions =
             printer.Print("class", ?loc=loc)
             printer.PrintOptional(" ", id)
             printer.PrintOptional(typeParameters)
-            printer.PrintOptional(" extends ", superClass)
-            printer.PrintOptional(superTypeParameters)
+            match superClass with
+            | Some (:? Identifier as id) when id.TypeAnnotation.IsSome ->
+                printer.Print(" extends ");
+                printer.Print(id.TypeAnnotation.Value.TypeAnnotation)
+            | _ -> printer.PrintOptional(" extends ", superClass)
+            // printer.PrintOptional(superTypeParameters)
             match implements with
             | Some implements when not (Array.isEmpty implements) ->
                 printer.Print(" implements ")
