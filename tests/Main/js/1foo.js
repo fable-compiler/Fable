@@ -16,6 +16,10 @@ const _exports = {
         return x + y;
     },
 
+    add4: function(x) {
+        return x + 4;
+    },
+
     MyClass: class {
         constructor(v) {
             this.__value = typeof v === "string" ? v : "haha";
@@ -53,5 +57,5 @@ const _exports = {
     }
 };
 
-export const { foo, apply, square, add, MyClass, MyJsClass, fooOptional } = _exports;
+export const { foo, apply, square, add, add4, MyClass, MyJsClass, fooOptional } = _exports;
 // module.exports = _exports;

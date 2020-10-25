@@ -222,10 +222,6 @@ module AST =
     let inline (|ExprType|) (e: Expr) = e.Type
     let inline (|IdentType|) (id: Ident) = id.Type
 
-    let (|StringConst|_|) = function
-        | Value(StringConstant str, _) -> Some str
-        | _ -> None
-
     let (|NestedLambdaType|_|) t =
         let rec nestedLambda acc = function
             | LambdaType(arg, returnType) ->
@@ -301,6 +297,10 @@ module AST =
     let (|MaybeLambdaUncurriedAtCompileTime|) = function
         | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda
         | e -> e
+
+    let (|StringConst|_|) = function
+        | MaybeCasted(Value(StringConstant str, _)) -> Some str
+        | _ -> None
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function

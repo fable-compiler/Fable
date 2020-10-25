@@ -1113,17 +1113,17 @@ let tests =
             Guid("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
             Guid(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
         ]
-        
+
         guids
         |> List.iter (fun g -> g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
 
-    testCase "Guid.Parse fails if string is not well formed" <| fun () ->
-        let success =
-            try
-                let g1 = Guid.Parse(id "foo")
-                true
-            with _ -> false
-        equal false success
+    // testCase "Guid.Parse fails if string is not well formed" <| fun () ->
+    //     let success =
+    //         try
+    //             let g1 = Guid.Parse(id "foo")
+    //             true
+    //         with _ -> false
+    //     equal false success
 
     testCase "Guid.TryParse works" <| fun () ->
         let successGuids = [
@@ -1138,7 +1138,7 @@ let tests =
             Guid.TryParse("{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
             Guid.TryParse(id "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}")
         ]
-        
+
         let failGuids = [
             Guid.TryParse("96258006-c4ba-4a7f-80c4")
             Guid.TryParse(id "96258006-c4ba-4a7f-80c4")

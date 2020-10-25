@@ -138,9 +138,6 @@ type JsOptions =
     abstract foo: string with get, set
     abstract bar: int with get, set
 
-let inline ofImport<'P> (importMember: string) (importPath: string) =
-    Fable.Core.JsInterop.import importMember importPath
-
 let tests =
   testList "JsInterop" [
 #if FABLE_COMPILER
@@ -446,8 +443,4 @@ let tests =
     testCase "StringEnums can have static members" <| fun () ->
         let x = Field.Default
         validatePassword x |> equal "np"
-
-    testCase "ofImport should inline properly" <| fun () ->
-        let a = ofImport "member" "path"
-        ()
   ]
