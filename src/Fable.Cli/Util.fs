@@ -4,7 +4,7 @@ open System
 
 module Literals =
 
-    let [<Literal>] VERSION = "3.0.0-nagareyama-beta-002"
+    let [<Literal>] VERSION = "3.0.0-nagareyama-beta-003"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
