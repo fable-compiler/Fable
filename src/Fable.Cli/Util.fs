@@ -1,19 +1,17 @@
 namespace Fable.Cli
 
-open System.IO
+open System
 
 module Literals =
 
     let [<Literal>] VERSION = "3.0.0-nagareyama-beta-002"
     let [<Literal>] CORE_VERSION = "2.1.0"
 
-type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool, ?runningProcess: System.Diagnostics.Process) =
+type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
     member _.ExeFile = exeFile
     member _.Args = args
     member _.IsWatch = defaultArg watch false
     member _.IsFast = defaultArg fast false
-    member _.RunningProcess = runningProcess
-    member this.WithRunningProcess(p) = RunProcess(this.ExeFile, this.Args, watch=this.IsWatch, fast=this.IsFast, runningProcess=p)
 
 type CliArgs =
     { ProjectFile: string
@@ -31,8 +29,6 @@ type private TypeInThisAssembly = class end
 
 [<RequireQualifiedAccess>]
 module Log =
-    open System
-
     let mutable private verbosity = Fable.Verbosity.Normal
 
     /// To be called only at the beginning of the app
@@ -53,6 +49,8 @@ module Log =
             always msg.Value
 
 module File =
+    open System.IO
+
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
     let readAllTextNonBlocking (path: string) =
         if File.Exists(path) then
@@ -77,10 +75,8 @@ module File =
         tryFindPackageJsonDir workingDir
         |> Option.bind (fun pkgJsonDir ->
             let nodeModulesBin = Path.Join(pkgJsonDir, "node_modules", ".bin", exeFile)
-            // let nodeModulesBin = if Process.isWindows() then nodeModulesBin + ".cmd" else nodeModulesBin
             if File.Exists(nodeModulesBin) then Some nodeModulesBin
             else None)
-
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -91,8 +87,8 @@ module Process =
         InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
 
     let addToPath (dir: string) =
-        let currentPath = System.Environment.GetEnvironmentVariable("PATH")
-        Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
+        let currentPath = Environment.GetEnvironmentVariable("PATH")
+        IO.Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
 
     // Adapted from https://github.com/enricosada/dotnet-proj-info/blob/1e6d0521f7f333df7eff3148465f7df6191e0201/src/dotnet-proj/Program.fs#L155
     let private startProcess workingDir exePath args =
@@ -126,14 +122,20 @@ module Process =
         if not p.HasExited then
             p.Kill(entireProcessTree=true)
 
-    let tryStart (workingDir: string) (exePath: string) (args: string list) =
-        try
-            let p = startProcess workingDir exePath args
-            Loader.AssemblyLoadContext.Default.add_Unloading(fun _ -> kill p)
-            Some p
-        with ex ->
-            Log.always("Cannot run: " + ex.Message)
-            None
+    let start =
+        let mutable runningProcess = None
+        // In Windows, terminating the main process doesn't kill the spawned ones
+        // so we need to listen for the Console.CancelKeyPress event
+        if isWindows() then
+            Console.CancelKeyPress.AddHandler(ConsoleCancelEventHandler(fun a b ->
+                runningProcess |> Option.iter kill))
+        fun (workingDir: string) (exePath: string) (args: string list) ->
+            try
+                runningProcess |> Option.iter kill
+                let p = startProcess workingDir exePath args
+                runningProcess <- Some p
+            with ex ->
+                Log.always("Cannot run: " + ex.Message)
 
     let runSync (workingDir: string) (exePath: string) (args: string list) =
         try
@@ -186,7 +188,7 @@ module Imports =
     let isAbsolutePath (path: string) = path.StartsWith('/') || path.IndexOf(':') = 1
 
     let getRelativePath (path: string) (pathTo: string) =
-        let relPath = Path.GetRelativePath(path, pathTo).Replace('\\', '/')
+        let relPath = IO.Path.GetRelativePath(path, pathTo).Replace('\\', '/')
         if isRelativePath relPath then relPath else "./" + relPath
 
     let getTargetRelPath importPath targetDir projDir outDir =

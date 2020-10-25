@@ -336,7 +336,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             let exeFile =
                 File.tryNodeModulesBin workingDir runProc.ExeFile
                 |> Option.defaultValue runProc.ExeFile
-            Process.tryStart workingDir exeFile runProc.Args |> ignore
+            Process.start workingDir exeFile runProc.Args
             { state with CliArgs = { state.CliArgs with RunProcess = None } }
         | _ -> state
 
@@ -469,12 +469,8 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     |> Option.defaultValue exeFile, runProc.Args
 
             if state.CliArgs.WatchMode then
-                runProc.RunningProcess |> Option.iter Process.kill
-                let runProc =
-                    match runProc.IsWatch, Process.tryStart workingDir exeFile args with
-                    | false, _ -> None
-                    | true, None -> Some runProc
-                    | true, Some p -> runProc.WithRunningProcess(p) |> Some
+                Process.start workingDir exeFile args
+                let runProc = if runProc.IsWatch then Some runProc else None
                 None, { state with CliArgs = { state.CliArgs with RunProcess = runProc } }
             else
                 let exitCode = Process.runSync workingDir exeFile args
