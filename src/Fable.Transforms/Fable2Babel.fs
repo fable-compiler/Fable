@@ -2017,6 +2017,7 @@ module Util =
                 else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformImports (imports: Import seq): ModuleDeclaration list =
+        let statefulImports = ResizeArray()
         imports |> Seq.map (fun import ->
             let specifier =
                 import.LocalIdent
@@ -2036,19 +2037,27 @@ module Util =
                     | :? ImportNamespaceSpecifier -> mems, defs, x::alls
                     | :? ImportDefaultSpecifier -> mems, x::defs, alls
                     | _ -> x::mems, defs, alls)
-            // There seem to be errors if we mix member, default and namespace imports
-            // so we must issue an import statement for each kind
-            match [mems; defs; alls] with
-            | [[];[];[]] ->
-                // No specifiers, so this is just an import for side effects
-                [ImportDeclaration([||], StringLiteral path) :> ModuleDeclaration]
-            | specifiers ->
-                specifiers |> List.choose (function
+            // We used to have trouble when mixing member, default and namespace imports,
+            // issue an import statement for each kind just in case
+            [mems; defs; alls] |> List.choose (function
                 | [] -> None
                 | specifiers ->
                     ImportDeclaration(List.toArray specifiers, StringLiteral path)
-                    :> ModuleDeclaration |> Some))
-        |> Seq.toList
+                    :> ModuleDeclaration |> Some)
+            |> function
+                | [] ->
+                    // If there are no specifiers, this is just an import for side effects,
+                    // put it after the other ones to match standard JS practices, see #2228
+                    ImportDeclaration([||], StringLiteral path)
+                    :> ModuleDeclaration
+                    |> statefulImports.Add
+                    []
+                | decls -> decls
+            )
+        |> fun staticImports -> [
+            yield! staticImports
+            yield! statefulImports
+        ]
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then None
