@@ -10,6 +10,7 @@ type Verbosity =
     | Silent
 
 type CompilerOptions =
+      abstract EraseUnions: bool
       abstract TypedArrays: bool
       abstract ClampByteArrays: bool
       abstract Typescript: bool

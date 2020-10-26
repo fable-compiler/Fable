@@ -50,22 +50,14 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
         | e -> e
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
-    match fsType, unionCase with
-    | ErasedUnionCase ->
-        Fable.NewTuple argExprs |> makeValue r
-    | ErasedUnion(tdef, _genArgs, rule) ->
-        match argExprs with
-        | [] -> transformStringEnum rule unionCase
-        | [argExpr] -> argExpr
-        | _ when tdef.UnionCases.Count > 1 ->
-            "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
-            |> addErrorAndReturnNull com ctx.InlinePath r
-        | argExprs -> Fable.NewTuple argExprs |> makeValue r
-    | StringEnum(tdef, rule) ->
-        match argExprs with
-        | [] -> transformStringEnum rule unionCase
-        | _ -> sprintf "StringEnum types cannot have fields: %O" tdef.TryFullName
-               |> addErrorAndReturnNull com ctx.InlinePath r
+    match com, fsType, unionCase with
+    | ErasedUnion(kind, tdef, _genArgs) ->
+        match kind, argExprs with
+        | EraseKind.AsName rule, _ -> transformStringEnum rule unionCase
+        | EraseKind.AsTupleWithName, _ -> (makeStrConst unionCase.Name)::argExprs |> Fable.NewTuple |> makeValue r
+        | EraseKind.AsValue, [arg] -> arg
+        | EraseKind.AsValue, _ // Shouldn't happen, error?
+        | EraseKind.AsTuple, _ -> Fable.NewTuple argExprs |> makeValue r
     | OptionUnion typ ->
         let typ = makeType ctx.GenericArgs typ
         let expr =
@@ -286,14 +278,15 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                             unionExpr fsType (unionCase: FSharpUnionCase) =
   trampoline {
     let! unionExpr = transformExpr com ctx unionExpr
-    match fsType, unionCase with
-    | ErasedUnionCase ->
-        return "Cannot test erased union cases"
-        |> addErrorAndReturnNull com ctx.InlinePath r
-    | ErasedUnion(tdef, genArgs, rule) ->
-        match unionCase.UnionCaseFields.Count with
-        | 0 -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
-        | 1 ->
+    match com, fsType, unionCase with
+    | ErasedUnion(kind, tdef, genArgs) ->
+        match kind with
+        | EraseKind.AsName rule ->
+            return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
+        | EraseKind.AsTupleWithName ->
+            let name = Fable.Get(unionExpr, Fable.TupleIndex(0), Fable.String, None)
+            return makeEqOp r name (makeStrConst unionCase.Name) BinaryEqualStrict
+        | EraseKind.AsValue ->
             let fi = unionCase.UnionCaseFields.[0]
             let typ =
                 if fi.FieldType.IsGenericParameter then
@@ -305,8 +298,8 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
                 else fi.FieldType
             let kind = makeType ctx.GenericArgs typ |> Fable.TypeTest
             return Fable.Test(unionExpr, kind, r)
-        | _ ->
-            return "Erased unions with multiple cases cannot have more than one field: " + (getFsTypeFullName fsType)
+        | EraseKind.AsTuple ->
+            return "Cannot test erased union cases"
             |> addErrorAndReturnNull com ctx.InlinePath r
     | OptionUnion _ ->
         let kind = Fable.OptionTest(unionCase.Name <> "None" && unionCase.Name <> "ValueNone")
@@ -314,8 +307,6 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
     | ListUnion _ ->
         let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
         return Fable.Test(unionExpr, kind, r)
-    | StringEnum(_, rule) ->
-        return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
     | DiscriminatedUnion(tdef,_) ->
         let tag = unionCaseTag tdef unionCase
         return Fable.Test(unionExpr, Fable.UnionCaseTest(tag), r)
@@ -687,18 +678,19 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | BasicPatterns.UnionCaseGet (unionExpr, fsType, unionCase, field) ->
         let r = makeRangeFrom fsExpr
         let! unionExpr = transformExpr com ctx unionExpr
-        match fsType, unionCase with
-        | ErasedUnionCase ->
-            let index = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = field.Name)
-            return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs fsType, r)
-        | ErasedUnion _ ->
-            if unionCase.UnionCaseFields.Count = 1 then return unionExpr
-            else
+        match com, fsType, unionCase with
+        | ErasedUnion(kind, _, _) ->
+            let getByIndex offset =
                 let index = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = field.Name)
-                return Fable.Get(unionExpr, Fable.TupleIndex index, makeType ctx.GenericArgs fsType, r)
-        | StringEnum _ ->
-            return "StringEnum types cannot have fields"
-            |> addErrorAndReturnNull com ctx.InlinePath r
+                Fable.Get(unionExpr, Fable.TupleIndex(index + offset), makeType ctx.GenericArgs fsType, r)
+
+            match kind with
+            | EraseKind.AsName _ ->
+                return "StringEnum types cannot have fields"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+            | EraseKind.AsValue -> return unionExpr
+            | EraseKind.AsTuple -> return getByIndex 0
+            | EraseKind.AsTupleWithName -> return getByIndex 1
         | OptionUnion t ->
             return Fable.Get(unionExpr, Fable.OptionValue, makeType ctx.GenericArgs t, r)
         | ListUnion t ->

@@ -2,7 +2,8 @@ namespace Fable
 
 type CompilerOptionsHelper =
     static member DefaultFileExtension = ".fs.js"
-    static member Make(?typedArrays,
+    static member Make(?eraseUnions,
+                       ?typedArrays,
                        ?typescript,
                        ?define,
                        ?optimizeFSharpAst,
@@ -14,6 +15,7 @@ type CompilerOptionsHelper =
         { new CompilerOptions with
               member _.Define = define
               member _.DebugMode = isDebug
+              member _.EraseUnions = defaultArg eraseUnions false
               member _.Typescript = defaultArg typescript false
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false

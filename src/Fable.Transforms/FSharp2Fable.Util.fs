@@ -675,33 +675,59 @@ module Patterns =
         | true, kind -> Some kind
         | false, _ -> None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|ErasedUnionCase|StringEnum|DiscriminatedUnion|)
-                            (NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
+    [<RequireQualifiedAccess>]
+    type EraseKind =
+        | AsValue
+        | AsTuple
+        | AsTupleWithName
+        | AsName of CaseRules
+
+    let (|OptionUnion|ListUnion|ErasedUnion|DiscriminatedUnion|)
+            (com: Compiler, NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
+
         let getCaseRule (att: FSharpAttribute) =
             match Seq.tryHead att.ConstructorArguments with
             | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
             | _ -> CaseRules.LowerFirst
 
-        unionCase.Attributes |> Seq.tryPick (fun att ->
-            match att.AttributeType.TryFullName with
-            | Some Atts.erase -> Some ErasedUnionCase
-            | _ -> None)
-        |> Option.defaultWith (fun () ->
-            match tryDefinition typ with
-            | None -> failwith "Union without definition"
-            | Some(tdef, fullName) ->
-                match defaultArg fullName tdef.CompiledName with
-                | Types.valueOption
-                | Types.option -> OptionUnion typ.GenericArguments.[0]
-                | Types.list -> ListUnion typ.GenericArguments.[0]
-                | _ ->
+        let getEraseKind (tdef: FSharpEntity) _fullName =
+            if tdef.UnionCases.Count = 1 then
+                match tdef.UnionCases.[0].UnionCaseFields.Count with
+                | 0 -> EraseKind.AsName(CaseRules.None)
+                | 1 -> EraseKind.AsValue
+                | _ -> EraseKind.AsTuple
+            else
+//                if System.Text.RegularExpressions.Regex.IsMatch(fullName, @"Fable\.Core\.U\d+")
+//                then EraseKind.AsValue
+//                elif tdef.UnionCases |> Seq.forall (fun uci -> uci.UnionCaseFields.Count = 0)
+//                then EraseKind.AsName
+//                else
+                    EraseKind.AsTupleWithName
+
+        match tryDefinition typ with
+        | None -> failwith "Union without definition"
+        | Some(tdef, fullName) ->
+            let fullName = defaultArg fullName tdef.CompiledName
+            match fullName with
+            | Types.valueOption
+            | Types.option -> OptionUnion typ.GenericArguments.[0]
+            | Types.list -> ListUnion typ.GenericArguments.[0]
+            | _ ->
+                unionCase.Attributes |> Seq.tryPick (fun att ->
+                    match att.AttributeType.TryFullName with
+                    | Some Atts.erase -> Some (ErasedUnion(EraseKind.AsTuple, tdef, typ.GenericArguments))
+                    | _ -> None)
+                |> Option.orElseWith (fun () ->
                     tdef.Attributes |> Seq.tryPick (fun att ->
                         match att.AttributeType.TryFullName with
-                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
-                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
-                        | _ -> None)
-                    |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
-        )
+                        | Some Atts.erase -> Some (ErasedUnion(EraseKind.AsValue, tdef, typ.GenericArguments))
+                        | Some Atts.stringEnum -> Some (ErasedUnion(EraseKind.AsName(getCaseRule att), tdef, typ.GenericArguments))
+                        | _ -> None))
+                |> Option.defaultWith (fun () ->
+                    if com.Options.EraseUnions then
+                        let kind = getEraseKind tdef fullName
+                        ErasedUnion(kind, tdef, typ.GenericArguments)
+                    else DiscriminatedUnion(tdef, typ.GenericArguments))
 
     let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
         tryFindAtt fullName ent.Attributes

@@ -117,7 +117,8 @@ type Runner =
             |> List.distinct
 
         let compilerOptions =
-            CompilerOptionsHelper.Make(typescript = typescript,
+            CompilerOptionsHelper.Make(eraseUnions = flagEnabled "--eraseUnions" args,
+                                       typescript = typescript,
                                        typedArrays = typedArrays,
                                        ?fileExtension = argValue "--extension" args,
                                        define = define,
