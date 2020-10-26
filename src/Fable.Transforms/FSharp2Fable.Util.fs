@@ -1154,9 +1154,9 @@ module Util =
         match tryGlobalOrImportedEntity com ent with
         | Some _importedEntity as entOpt -> entOpt
         | None ->
-            if not (isFromDllRef ent)
-            then Some (entityRef com ent)
-            else None
+            if isFromDllRef ent
+            then None
+            else Some (entityRef com ent)
 
     let memberRefTyped (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
@@ -1402,9 +1402,9 @@ module Util =
             ||> List.fold (fun body binding -> Fable.Let([binding], body))
 
     let (|Inlined|_|) (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
-        if not(isInline memb)
-        then None
-        else inlineExpr com ctx r genArgs callee args memb |> Some
+        if isInline memb
+        then inlineExpr com ctx r genArgs callee args memb |> Some
+        else None
 
     /// Removes optional arguments set to None in tail position and calls the injector if necessary
     let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r
