@@ -21,6 +21,15 @@ type CompilerOptionsHelper =
               member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultFileExtension
               member _.ClampByteArrays = defaultArg clampByteArrays false }
 
+    static member ToKeyValues(version: string, opts: CompilerOptions): Map<string, string> =
+        Map [
+            "version", version
+            "define", opts.Define |> List.sort |> String.concat ","
+            "typedArrays", opts.TypedArrays.ToString()
+            "clampByteArrays", opts.ClampByteArrays.ToString()
+            "optimize", opts.OptimizeFSharpAst.ToString()
+        ]
+
 [<RequireQualifiedAccess>]
 type Severity =
     | Warning

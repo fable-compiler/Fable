@@ -255,9 +255,9 @@ type ProjectCracked(sourceFiles: File array,
 
     static member Init(cliArgs: CliArgs) =
         let res =
-            CrackerOptions(fableLib = cliArgs.FableLibraryPath,
+            CrackerOptions(fableOpts = cliArgs.CompilerOptions,
+                           fableLib = cliArgs.FableLibraryPath,
                            outDir = cliArgs.OutDir,
-                           define = List.toArray cliArgs.CompilerOptions.Define,
                            exclude = cliArgs.Exclude,
                            replace = cliArgs.Replace,
                            forcePkgs = cliArgs.ForcePkgs,

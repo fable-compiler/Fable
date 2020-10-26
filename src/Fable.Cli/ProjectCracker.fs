@@ -11,11 +11,11 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableLib, outDir, define, exclude, replace, forcePkgs, projFile, optimize) =
+type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, projFile, optimize) =
     let builtDlls = HashSet()
+    member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
     member _.OutDir: string option = outDir
-    member _.Define: string[] = define
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
     member _.ForcePkgs: bool = forcePkgs
@@ -212,7 +212,7 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * Cra
           PackageReferences = []
           OtherCompilerOptions = [] }
 
-let getBasicCompilerArgs (define: string[]) =
+let getBasicCompilerArgs (define: string list) =
     [|
         // yield "--debug"
         // yield "--debug:portable"
@@ -428,14 +428,17 @@ let createFableDir (opts: CrackerOptions) =
         IO.Path.Combine(baseDir, Naming.fableHiddenDir)
 
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
+    let newInfo = CompilerOptionsHelper.ToKeyValues(Literals.VERSION, opts.FableOptions)
 
     let isEmptyOrOutdated =
         if opts.ForcePkgs || isDirectoryEmpty fableDir then true
         else
             let isOutdated =
                 try
-                    let version = IO.File.ReadAllText(compilerInfo)
-                    version <> Literals.VERSION
+                    IO.File.ReadLines(compilerInfo)
+                    |> Seq.map (fun line -> let parts = line.Split("=") in parts.[0], parts.[1])
+                    |> Map
+                    |> fun oldInfo -> oldInfo <> newInfo
                 with _ -> true
             if isOutdated then
                 IO.Directory.Delete(fableDir, true)
@@ -445,7 +448,7 @@ let createFableDir (opts: CrackerOptions) =
         if IO.Directory.Exists(fableDir) then
             IO.Directory.Delete(fableDir, true)
         IO.Directory.CreateDirectory(fableDir) |> ignore
-        IO.File.WriteAllText(compilerInfo, Literals.VERSION)
+        IO.File.WriteAllLines(compilerInfo, newInfo |> Seq.map (fun kv -> kv.Key + "=" + kv.Value))
         IO.File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")
 
     fableDir
@@ -542,7 +545,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             [|
                 yield! refOptions // merged options from all referenced projects
                 yield! mainProj.OtherCompilerOptions // main project compiler options
-                yield! getBasicCompilerArgs opts.Define // options from compiler args
+                yield! getBasicCompilerArgs opts.FableOptions.Define // options from compiler args
                 yield "--optimize" + (if opts.Optimize then "+" else "-")
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values

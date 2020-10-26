@@ -2066,9 +2066,8 @@ module Util =
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then None
         else
-            let moduleName = Path.GetFileNameWithoutExtension(path)
             match selector with
-            | "*" | "default" -> moduleName
+            | "*" | "default" -> Path.GetFileNameWithoutExtension(path)
             | _ -> selector
             |> getUniqueNameInRootScope ctx
             |> Some
