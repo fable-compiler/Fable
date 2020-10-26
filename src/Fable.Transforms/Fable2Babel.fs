@@ -2069,7 +2069,7 @@ module Util =
             let moduleName = Path.GetFileNameWithoutExtension(path)
             match selector with
             | "*" | "default" -> moduleName
-            | _ -> moduleName + "_" + selector
+            | _ -> selector
             |> getUniqueNameInRootScope ctx
             |> Some
 
