@@ -2617,1947 +2617,1953 @@ type internal SR private() =
     /// Display this usage message (Short form: -?)
     /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:883)
     static member optsHelp() = (sprintf "Display this usage message (Short form: -?)" )
-    /// Read response file for more options
+    /// Display compiler version banner and exit
     /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:884)
+    static member optsVersion() = (sprintf "Display compiler version banner and exit" )
+    /// Read response file for more options
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:885)
     static member optsResponseFile() = (sprintf "Read response file for more options" )
     /// Specify the codepage used to read source files
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:885)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:886)
     static member optsCodepage() = (sprintf "Specify the codepage used to read source files" )
     /// Output messages in UTF-8 encoding
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:886)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:887)
     static member optsUtf8output() = (sprintf "Output messages in UTF-8 encoding" )
     /// Output messages with fully qualified paths
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:887)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:888)
     static member optsFullpaths() = (sprintf "Output messages with fully qualified paths" )
     /// Specify a directory for the include path which is used to resolve source files and assemblies (Short form: -I)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:888)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:889)
     static member optsLib() = (sprintf "Specify a directory for the include path which is used to resolve source files and assemblies (Short form: -I)" )
     /// Base address for the library to be built
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:889)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:890)
     static member optsBaseaddress() = (sprintf "Base address for the library to be built" )
     /// Specify algorithm for calculating source file checksum stored in PDB. Supported values are: SHA1 or SHA256 (default)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:890)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:891)
     static member optsChecksumAlgorithm() = (sprintf "Specify algorithm for calculating source file checksum stored in PDB. Supported values are: SHA1 or SHA256 (default)" )
     /// Do not reference the default CLI assemblies by default
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:891)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:892)
     static member optsNoframework() = (sprintf "Do not reference the default CLI assemblies by default" )
     /// Statically link the F# library and all referenced DLLs that depend on it into the assembly being generated
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:892)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:893)
     static member optsStandalone() = (sprintf "Statically link the F# library and all referenced DLLs that depend on it into the assembly being generated" )
     /// Statically link the given assembly and all referenced DLLs that depend on this assembly. Use an assembly name e.g. mylib, not a DLL name.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:893)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:894)
     static member optsStaticlink() = (sprintf "Statically link the given assembly and all referenced DLLs that depend on this assembly. Use an assembly name e.g. mylib, not a DLL name." )
     /// Use a resident background compilation service to improve compiler startup times.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:894)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:895)
     static member optsResident() = (sprintf "Use a resident background compilation service to improve compiler startup times." )
     /// Name the output debug file
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:895)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:896)
     static member optsPdb() = (sprintf "Name the output debug file" )
     /// Resolve assembly references using directory-based rules rather than MSBuild resolution
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:896)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:897)
     static member optsSimpleresolution() = (sprintf "Resolve assembly references using directory-based rules rather than MSBuild resolution" )
     /// Unrecognized target '%s', expected 'exe', 'winexe', 'library' or 'module'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:897)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:898)
     static member optsUnrecognizedTarget(a0 : System.String) = (1048, sprintf "Unrecognized target '%s', expected 'exe', 'winexe', 'library' or 'module'" a0)
     /// Unrecognized debug type '%s', expected 'pdbonly' or 'full'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:898)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:899)
     static member optsUnrecognizedDebugType(a0 : System.String) = (1049, sprintf "Unrecognized debug type '%s', expected 'pdbonly' or 'full'" a0)
     /// Invalid warning level '%d'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:899)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:900)
     static member optsInvalidWarningLevel(a0 : System.Int32) = (1050, sprintf "Invalid warning level '%d'" a0)
     /// Short form of '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:900)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:901)
     static member optsShortFormOf(a0 : System.String) = (sprintf "Short form of '%s'" a0)
     /// The command-line option '--cliroot' has been deprecated. Use an explicit reference to a specific copy of mscorlib.dll instead.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:901)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:902)
     static member optsClirootDeprecatedMsg() = (sprintf "The command-line option '--cliroot' has been deprecated. Use an explicit reference to a specific copy of mscorlib.dll instead." )
     /// Use to override where the compiler looks for mscorlib.dll and framework components
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:902)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:903)
     static member optsClirootDescription() = (sprintf "Use to override where the compiler looks for mscorlib.dll and framework components" )
     /// - OUTPUT FILES -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:903)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:904)
     static member optsHelpBannerOutputFiles() = (sprintf "- OUTPUT FILES -" )
     /// - INPUT FILES -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:904)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:905)
     static member optsHelpBannerInputFiles() = (sprintf "- INPUT FILES -" )
     /// - RESOURCES -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:905)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:906)
     static member optsHelpBannerResources() = (sprintf "- RESOURCES -" )
     /// - CODE GENERATION -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:906)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:907)
     static member optsHelpBannerCodeGen() = (sprintf "- CODE GENERATION -" )
     /// - ADVANCED -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:907)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:908)
     static member optsHelpBannerAdvanced() = (sprintf "- ADVANCED -" )
     /// - MISCELLANEOUS -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:908)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:909)
     static member optsHelpBannerMisc() = (sprintf "- MISCELLANEOUS -" )
     /// - LANGUAGE -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:909)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:910)
     static member optsHelpBannerLanguage() = (sprintf "- LANGUAGE -" )
     /// - ERRORS AND WARNINGS -
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:910)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:911)
     static member optsHelpBannerErrsAndWarns() = (sprintf "- ERRORS AND WARNINGS -" )
     /// Unknown --test argument: '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:911)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:912)
     static member optsUnknownArgumentToTheTestSwitch(a0 : System.String) = (1063, sprintf "Unknown --test argument: '%s'" a0)
     /// Unrecognized platform '%s', valid values are 'x86', 'x64', 'Itanium', 'anycpu32bitpreferred', and 'anycpu'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:912)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:913)
     static member optsUnknownPlatform(a0 : System.String) = (1064, sprintf "Unrecognized platform '%s', valid values are 'x86', 'x64', 'Itanium', 'anycpu32bitpreferred', and 'anycpu'" a0)
     /// Algorithm '%s' is not supported
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:913)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:914)
     static member optsUnknownChecksumAlgorithm(a0 : System.String) = (1065, sprintf "Algorithm '%s' is not supported" a0)
     /// The command-line option '%s' is for test purposes only
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:914)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:915)
     static member optsInternalNoDescription(a0 : System.String) = (sprintf "The command-line option '%s' is for test purposes only" a0)
     /// The command-line option '%s' has been deprecated
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:915)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:916)
     static member optsDCLONoDescription(a0 : System.String) = (sprintf "The command-line option '%s' has been deprecated" a0)
     /// The command-line option '%s' has been deprecated. Use '%s' instead.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:916)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:917)
     static member optsDCLODeprecatedSuggestAlternative(a0 : System.String, a1 : System.String) = (sprintf "The command-line option '%s' has been deprecated. Use '%s' instead." a0 a1)
     /// The command-line option '%s' has been deprecated. HTML document generation is now part of the F# Power Pack, via the tool FsHtmlDoc.exe.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:917)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:918)
     static member optsDCLOHtmlDoc(a0 : System.String) = (sprintf "The command-line option '%s' has been deprecated. HTML document generation is now part of the F# Power Pack, via the tool FsHtmlDoc.exe." a0)
     /// Output warning and error messages in color
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:918)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:919)
     static member optsConsoleColors() = (sprintf "Output warning and error messages in color" )
     /// Enable high-entropy ASLR
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:919)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:920)
     static member optsUseHighEntropyVA() = (sprintf "Enable high-entropy ASLR" )
     /// Specify subsystem version of this assembly
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:920)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:921)
     static member optsSubSystemVersion() = (sprintf "Specify subsystem version of this assembly" )
     /// Specify target framework profile of this assembly. Valid values are mscorlib, netcore or netstandard. Default - mscorlib
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:921)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:922)
     static member optsTargetProfile() = (sprintf "Specify target framework profile of this assembly. Valid values are mscorlib, netcore or netstandard. Default - mscorlib" )
     /// Emit debug information in quotations
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:922)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:923)
     static member optsEmitDebugInfoInQuotations() = (sprintf "Emit debug information in quotations" )
     /// Specify the preferred output language culture name (e.g. es-ES, ja-JP)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:923)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:924)
     static member optsPreferredUiLang() = (sprintf "Specify the preferred output language culture name (e.g. es-ES, ja-JP)" )
     /// Don't copy FSharp.Core.dll along the produced binaries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:924)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:925)
     static member optsNoCopyFsharpCore() = (sprintf "Don't copy FSharp.Core.dll along the produced binaries" )
     /// Invalid version '%s' for '--subsystemversion'. The version must be 4.00 or greater.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:925)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:926)
     static member optsInvalidSubSystemVersion(a0 : System.String) = (1051, sprintf "Invalid version '%s' for '--subsystemversion'. The version must be 4.00 or greater." a0)
     /// Invalid value '%s' for '--targetprofile', valid values are 'mscorlib', 'netcore' or 'netstandard'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:926)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:927)
     static member optsInvalidTargetProfile(a0 : System.String) = (1052, sprintf "Invalid value '%s' for '--targetprofile', valid values are 'mscorlib', 'netcore' or 'netstandard'." a0)
     /// Full name
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:927)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:928)
     static member typeInfoFullName() = (sprintf "Full name" )
     /// and %d other overloads
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:931)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:932)
     static member typeInfoOtherOverloads(a0 : System.Int32) = (sprintf "and %d other overloads" a0)
     /// union case
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:932)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:933)
     static member typeInfoUnionCase() = (sprintf "union case" )
     /// active pattern result
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:933)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:934)
     static member typeInfoActivePatternResult() = (sprintf "active pattern result" )
     /// active recognizer
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:934)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:935)
     static member typeInfoActiveRecognizer() = (sprintf "active recognizer" )
     /// field
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:935)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:936)
     static member typeInfoField() = (sprintf "field" )
     /// event
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:936)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:937)
     static member typeInfoEvent() = (sprintf "event" )
     /// property
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:937)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:938)
     static member typeInfoProperty() = (sprintf "property" )
     /// extension
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:938)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:939)
     static member typeInfoExtension() = (sprintf "extension" )
     /// custom operation
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:939)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:940)
     static member typeInfoCustomOperation() = (sprintf "custom operation" )
     /// argument
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:940)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:941)
     static member typeInfoArgument() = (sprintf "argument" )
     /// anonymous record field
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:941)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:942)
     static member typeInfoAnonRecdField() = (sprintf "anonymous record field" )
     /// patvar
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:942)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:943)
     static member typeInfoPatternVariable() = (sprintf "patvar" )
     /// namespace
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:943)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:944)
     static member typeInfoNamespace() = (sprintf "namespace" )
     /// module
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:944)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:945)
     static member typeInfoModule() = (sprintf "module" )
     /// namespace/module
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:945)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:946)
     static member typeInfoNamespaceOrModule() = (sprintf "namespace/module" )
     /// from %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:946)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:947)
     static member typeInfoFromFirst(a0 : System.String) = (sprintf "from %s" a0)
     /// also from %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:947)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:948)
     static member typeInfoFromNext(a0 : System.String) = (sprintf "also from %s" a0)
     /// generated property
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:948)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:949)
     static member typeInfoGeneratedProperty() = (sprintf "generated property" )
     /// generated type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:949)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:950)
     static member typeInfoGeneratedType() = (sprintf "generated type" )
     /// Found by AssemblyFolders registry key
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:950)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:951)
     static member assemblyResolutionFoundByAssemblyFoldersKey() = (sprintf "Found by AssemblyFolders registry key" )
     /// Found by AssemblyFoldersEx registry key
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:951)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:952)
     static member assemblyResolutionFoundByAssemblyFoldersExKey() = (sprintf "Found by AssemblyFoldersEx registry key" )
     /// .NET Framework
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:952)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:953)
     static member assemblyResolutionNetFramework() = (sprintf ".NET Framework" )
     /// Global Assembly Cache
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:953)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:954)
     static member assemblyResolutionGAC() = (sprintf "Global Assembly Cache" )
     /// Recursive class hierarchy in type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:954)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:955)
     static member recursiveClassHierarchy(a0 : System.String) = (1089, sprintf "Recursive class hierarchy in type '%s'" a0)
     /// Invalid recursive reference to an abstract slot
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:955)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:956)
     static member InvalidRecursiveReferenceToAbstractSlot() = (1090, sprintf "Invalid recursive reference to an abstract slot" )
     /// The event '%s' has a non-standard type. If this event is declared in another CLI language, you may need to access this event using the explicit %s and %s methods for the event. If this event is declared in F#, make the type of the event an instantiation of either 'IDelegateEvent<_>' or 'IEvent<_,_>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:956)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:957)
     static member eventHasNonStandardType(a0 : System.String, a1 : System.String, a2 : System.String) = (1091, sprintf "The event '%s' has a non-standard type. If this event is declared in another CLI language, you may need to access this event using the explicit %s and %s methods for the event. If this event is declared in F#, make the type of the event an instantiation of either 'IDelegateEvent<_>' or 'IEvent<_,_>'." a0 a1 a2)
     /// The type '%s' is not accessible from this code location
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:957)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:958)
     static member typeIsNotAccessible(a0 : System.String) = (1092, sprintf "The type '%s' is not accessible from this code location" a0)
     /// The union cases or fields of the type '%s' are not accessible from this code location
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:958)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:959)
     static member unionCasesAreNotAccessible(a0 : System.String) = (1093, sprintf "The union cases or fields of the type '%s' are not accessible from this code location" a0)
     /// The value '%s' is not accessible from this code location
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:959)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:960)
     static member valueIsNotAccessible(a0 : System.String) = (1094, sprintf "The value '%s' is not accessible from this code location" a0)
     /// The union case '%s' is not accessible from this code location
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:960)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:961)
     static member unionCaseIsNotAccessible(a0 : System.String) = (1095, sprintf "The union case '%s' is not accessible from this code location" a0)
     /// The record, struct or class field '%s' is not accessible from this code location
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:961)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:962)
     static member fieldIsNotAccessible(a0 : System.String) = (1096, sprintf "The record, struct or class field '%s' is not accessible from this code location" a0)
     /// The struct or class field '%s' is not accessible from this code location
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:962)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:963)
     static member structOrClassFieldIsNotAccessible(a0 : System.String) = (1097, sprintf "The struct or class field '%s' is not accessible from this code location" a0)
     /// This construct is experimental
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:963)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:964)
     static member experimentalConstruct() = (sprintf "This construct is experimental" )
     /// No Invoke methods found for delegate type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:964)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:965)
     static member noInvokeMethodsFound() = (1099, sprintf "No Invoke methods found for delegate type" )
     /// More than one Invoke method found for delegate type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:965)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:966)
     static member moreThanOneInvokeMethodFound() = (sprintf "More than one Invoke method found for delegate type" )
     /// Delegates are not allowed to have curried signatures
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:966)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:967)
     static member delegatesNotAllowedToHaveCurriedSignatures() = (1101, sprintf "Delegates are not allowed to have curried signatures" )
     /// Unexpected Expr.TyChoose
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:967)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:968)
     static member tlrUnexpectedTExpr() = (1102, sprintf "Unexpected Expr.TyChoose" )
     /// Note: Lambda-lifting optimizations have not been applied because of the use of this local constrained generic function as a first class value. Adding type constraints may resolve this condition.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:968)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:969)
     static member tlrLambdaLiftingOptimizationsNotApplied() = (1103, sprintf "Note: Lambda-lifting optimizations have not been applied because of the use of this local constrained generic function as a first class value. Adding type constraints may resolve this condition." )
     /// Identifiers containing '@' are reserved for use in F# code generation
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:969)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:970)
     static member lexhlpIdentifiersContainingAtSymbolReserved() = (1104, sprintf "Identifiers containing '@' are reserved for use in F# code generation" )
     /// The identifier '%s' is reserved for future use by F#
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:970)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:971)
     static member lexhlpIdentifierReserved(a0 : System.String) = (sprintf "The identifier '%s' is reserved for future use by F#" a0)
     /// Missing variable '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:971)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:972)
     static member patcMissingVariable(a0 : System.String) = (1106, sprintf "Missing variable '%s'" a0)
     /// Partial active patterns may only generate one result
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:972)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:973)
     static member patcPartialActivePatternsGenerateOneResult() = (1107, sprintf "Partial active patterns may only generate one result" )
     /// The type '%s' is required here and is unavailable. You must add a reference to assembly '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:973)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:974)
     static member impTypeRequiredUnavailable(a0 : System.String, a1 : System.String) = (1108, sprintf "The type '%s' is required here and is unavailable. You must add a reference to assembly '%s'." a0 a1)
     /// A reference to the type '%s' in assembly '%s' was found, but the type could not be found in that assembly
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:974)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:975)
     static member impReferencedTypeCouldNotBeFoundInAssembly(a0 : System.String, a1 : System.String) = (1109, sprintf "A reference to the type '%s' in assembly '%s' was found, but the type could not be found in that assembly" a0 a1)
     /// Internal error or badly formed metadata: not enough type parameters were in scope while importing
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:975)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:976)
     static member impNotEnoughTypeParamsInScopeWhileImporting() = (1110, sprintf "Internal error or badly formed metadata: not enough type parameters were in scope while importing" )
     /// A reference to the DLL %s is required by assembly %s. The imported type %s is located in the first assembly and could not be resolved.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:976)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:977)
     static member impReferenceToDllRequiredByAssembly(a0 : System.String, a1 : System.String, a2 : System.String) = (1111, sprintf "A reference to the DLL %s is required by assembly %s. The imported type %s is located in the first assembly and could not be resolved." a0 a1 a2)
     /// An imported assembly uses the type '%s' but that type is not public
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:977)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:978)
     static member impImportedAssemblyUsesNotPublicType(a0 : System.String) = (1112, sprintf "An imported assembly uses the type '%s' but that type is not public" a0)
     /// The value '%s' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:978)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:979)
     static member optValueMarkedInlineButIncomplete(a0 : System.String) = (1113, sprintf "The value '%s' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible" a0)
     /// The value '%s' was marked inline but was not bound in the optimization environment
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:979)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:980)
     static member optValueMarkedInlineButWasNotBoundInTheOptEnv(a0 : System.String) = (1114, sprintf "The value '%s' was marked inline but was not bound in the optimization environment" a0)
     /// Local value %s not found during optimization
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:980)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:981)
     static member optLocalValueNotFoundDuringOptimization(a0 : System.String) = (1115, sprintf "Local value %s not found during optimization" a0)
     /// A value marked as 'inline' has an unexpected value
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:981)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:982)
     static member optValueMarkedInlineHasUnexpectedValue() = (1116, sprintf "A value marked as 'inline' has an unexpected value" )
     /// A value marked as 'inline' could not be inlined
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:982)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:983)
     static member optValueMarkedInlineCouldNotBeInlined() = (1117, sprintf "A value marked as 'inline' could not be inlined" )
     /// Failed to inline the value '%s' marked 'inline', perhaps because a recursive value was marked 'inline'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:983)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:984)
     static member optFailedToInlineValue(a0 : System.String) = (1118, sprintf "Failed to inline the value '%s' marked 'inline', perhaps because a recursive value was marked 'inline'" a0)
     /// Recursive ValValue %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:984)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:985)
     static member optRecursiveValValue(a0 : System.String) = (1119, sprintf "Recursive ValValue %s" a0)
     /// The indentation of this 'in' token is incorrect with respect to the corresponding 'let'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:985)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:986)
     static member lexfltIncorrentIndentationOfIn() = (sprintf "The indentation of this 'in' token is incorrect with respect to the corresponding 'let'" )
     /// Possible incorrect indentation: this token is offside of context started at position %s. Try indenting this token further or using standard formatting conventions.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:986)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:987)
     static member lexfltTokenIsOffsideOfContextStartedEarlier(a0 : System.String) = (sprintf "Possible incorrect indentation: this token is offside of context started at position %s. Try indenting this token further or using standard formatting conventions." a0)
     /// The '|' tokens separating rules of this pattern match are misaligned by one column. Consider realigning your code or using further indentation.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:987)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:988)
     static member lexfltSeparatorTokensOfPatternMatchMisaligned() = (sprintf "The '|' tokens separating rules of this pattern match are misaligned by one column. Consider realigning your code or using further indentation." )
     /// Invalid module/expression/type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:988)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:989)
     static member nrInvalidModuleExprType() = (1123, sprintf "Invalid module/expression/type" )
     /// Multiple types exist called '%s', taking different numbers of generic parameters. Provide a type instantiation to disambiguate the type resolution, e.g. '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:989)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:990)
     static member nrTypeInstantiationNeededToDisambiguateTypesWithSameName(a0 : System.String, a1 : System.String) = (1124, sprintf "Multiple types exist called '%s', taking different numbers of generic parameters. Provide a type instantiation to disambiguate the type resolution, e.g. '%s'." a0 a1)
     /// The instantiation of the generic type '%s' is missing and can't be inferred from the arguments or return type of this member. Consider providing a type instantiation when accessing this type, e.g. '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:990)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:991)
     static member nrTypeInstantiationIsMissingAndCouldNotBeInferred(a0 : System.String, a1 : System.String) = (1125, sprintf "The instantiation of the generic type '%s' is missing and can't be inferred from the arguments or return type of this member. Consider providing a type instantiation when accessing this type, e.g. '%s'." a0 a1)
     /// 'global' may only be used as the first name in a qualified path
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:991)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:992)
     static member nrGlobalUsedOnlyAsFirstName() = (1126, sprintf "'global' may only be used as the first name in a qualified path" )
     /// This is not a constructor or literal, or a constructor is being used incorrectly
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:992)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:993)
     static member nrIsNotConstructorOrLiteral() = (1127, sprintf "This is not a constructor or literal, or a constructor is being used incorrectly" )
     /// Unexpected empty long identifier
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:993)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:994)
     static member nrUnexpectedEmptyLongId() = (1128, sprintf "Unexpected empty long identifier" )
     /// The record type '%s' does not contain a label '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:994)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:995)
     static member nrRecordDoesNotContainSuchLabel(a0 : System.String, a1 : System.String) = (1129, sprintf "The record type '%s' does not contain a label '%s'." a0 a1)
     /// Invalid field label
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:995)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:996)
     static member nrInvalidFieldLabel() = (1130, sprintf "Invalid field label" )
     /// Invalid expression '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:996)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:997)
     static member nrInvalidExpression(a0 : System.String) = (1132, sprintf "Invalid expression '%s'" a0)
     /// No constructors are available for the type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:997)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:998)
     static member nrNoConstructorsAvailableForType(a0 : System.String) = (1133, sprintf "No constructors are available for the type '%s'" a0)
     /// The union type for union case '%s' was defined with the RequireQualifiedAccessAttribute. Include the name of the union type ('%s') in the name you are using.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:998)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:999)
     static member nrUnionTypeNeedsQualifiedAccess(a0 : System.String, a1 : System.String) = (1134, sprintf "The union type for union case '%s' was defined with the RequireQualifiedAccessAttribute. Include the name of the union type ('%s') in the name you are using." a0 a1)
     /// The record type for the record field '%s' was defined with the RequireQualifiedAccessAttribute. Include the name of the record type ('%s') in the name you are using.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:999)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1000)
     static member nrRecordTypeNeedsQualifiedAccess(a0 : System.String, a1 : System.String) = (1135, sprintf "The record type for the record field '%s' was defined with the RequireQualifiedAccessAttribute. Include the name of the record type ('%s') in the name you are using." a0 a1)
     /// Unexpected error creating debug information file '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1000)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1001)
     static member ilwriteErrorCreatingPdb(a0 : System.String) = (1136, sprintf "Unexpected error creating debug information file '%s'" a0)
     /// This number is outside the allowable range for this integer type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1001)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1002)
     static member lexOutsideIntegerRange() = (1138, sprintf "This number is outside the allowable range for this integer type" )
     /// '%s' is not permitted as a character in operator names and is reserved for future use
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1005)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1006)
     static member lexCharNotAllowedInOperatorNames(a0 : System.String) = (sprintf "'%s' is not permitted as a character in operator names and is reserved for future use" a0)
     /// Unexpected character '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1006)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1007)
     static member lexUnexpectedChar(a0 : System.String) = (sprintf "Unexpected character '%s'" a0)
     /// This byte array literal contains characters that do not encode as a single byte
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1007)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1008)
     static member lexByteArrayCannotEncode() = (1140, sprintf "This byte array literal contains characters that do not encode as a single byte" )
     /// Identifiers followed by '%s' are reserved for future use
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1008)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1009)
     static member lexIdentEndInMarkReserved(a0 : System.String) = (1141, sprintf "Identifiers followed by '%s' are reserved for future use" a0)
     /// This number is outside the allowable range for 8-bit signed integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1009)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1010)
     static member lexOutsideEightBitSigned() = (1142, sprintf "This number is outside the allowable range for 8-bit signed integers" )
     /// This number is outside the allowable range for hexadecimal 8-bit signed integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1010)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1011)
     static member lexOutsideEightBitSignedHex() = (1143, sprintf "This number is outside the allowable range for hexadecimal 8-bit signed integers" )
     /// This number is outside the allowable range for 8-bit unsigned integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1011)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1012)
     static member lexOutsideEightBitUnsigned() = (1144, sprintf "This number is outside the allowable range for 8-bit unsigned integers" )
     /// This number is outside the allowable range for 16-bit signed integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1012)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1013)
     static member lexOutsideSixteenBitSigned() = (1145, sprintf "This number is outside the allowable range for 16-bit signed integers" )
     /// This number is outside the allowable range for 16-bit unsigned integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1013)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1014)
     static member lexOutsideSixteenBitUnsigned() = (1146, sprintf "This number is outside the allowable range for 16-bit unsigned integers" )
     /// This number is outside the allowable range for 32-bit signed integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1014)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1015)
     static member lexOutsideThirtyTwoBitSigned() = (1147, sprintf "This number is outside the allowable range for 32-bit signed integers" )
     /// This number is outside the allowable range for 32-bit unsigned integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1015)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1016)
     static member lexOutsideThirtyTwoBitUnsigned() = (1148, sprintf "This number is outside the allowable range for 32-bit unsigned integers" )
     /// This number is outside the allowable range for 64-bit signed integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1016)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1017)
     static member lexOutsideSixtyFourBitSigned() = (1149, sprintf "This number is outside the allowable range for 64-bit signed integers" )
     /// This number is outside the allowable range for 64-bit unsigned integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1017)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1018)
     static member lexOutsideSixtyFourBitUnsigned() = (1150, sprintf "This number is outside the allowable range for 64-bit unsigned integers" )
     /// This number is outside the allowable range for signed native integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1018)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1019)
     static member lexOutsideNativeSigned() = (1151, sprintf "This number is outside the allowable range for signed native integers" )
     /// This number is outside the allowable range for unsigned native integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1019)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1020)
     static member lexOutsideNativeUnsigned() = (1152, sprintf "This number is outside the allowable range for unsigned native integers" )
     /// Invalid floating point number
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1020)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1021)
     static member lexInvalidFloat() = (1153, sprintf "Invalid floating point number" )
     /// This number is outside the allowable range for decimal literals
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1021)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1022)
     static member lexOusideDecimal() = (1154, sprintf "This number is outside the allowable range for decimal literals" )
     /// This number is outside the allowable range for 32-bit floats
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1022)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1023)
     static member lexOusideThirtyTwoBitFloat() = (1155, sprintf "This number is outside the allowable range for 32-bit floats" )
     /// This is not a valid numeric literal. Valid numeric literals include 1, 0x1, 0o1, 0b1, 1l (int), 1u (uint32), 1L (int64), 1UL (uint64), 1s (int16), 1y (sbyte), 1uy (byte), 1.0 (float), 1.0f (float32), 1.0m (decimal), 1I (BigInteger).
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1023)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1024)
     static member lexInvalidNumericLiteral() = (1156, sprintf "This is not a valid numeric literal. Valid numeric literals include 1, 0x1, 0o1, 0b1, 1l (int), 1u (uint32), 1L (int64), 1UL (uint64), 1s (int16), 1y (sbyte), 1uy (byte), 1.0 (float), 1.0f (float32), 1.0m (decimal), 1I (BigInteger)." )
     /// This is not a valid byte literal
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1024)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1025)
     static member lexInvalidByteLiteral() = (1157, sprintf "This is not a valid byte literal" )
     /// This is not a valid character literal
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1025)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1026)
     static member lexInvalidCharLiteral() = (1158, sprintf "This is not a valid character literal" )
     /// This Unicode encoding is only valid in string literals
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1026)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1027)
     static member lexThisUnicodeOnlyInStringLiterals() = (1159, sprintf "This Unicode encoding is only valid in string literals" )
     /// This token is reserved for future use
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1027)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1028)
     static member lexTokenReserved() = (1160, sprintf "This token is reserved for future use" )
     /// TABs are not allowed in F# code unless the #indent \"off\" option is used
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1028)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1029)
     static member lexTabsNotAllowed() = (1161, sprintf "TABs are not allowed in F# code unless the #indent \"off\" option is used" )
     /// Invalid line number: '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1029)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1030)
     static member lexInvalidLineNumber(a0 : System.String) = (1162, sprintf "Invalid line number: '%s'" a0)
     /// #if directive must appear as the first non-whitespace character on a line
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1030)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1031)
     static member lexHashIfMustBeFirst() = (1163, sprintf "#if directive must appear as the first non-whitespace character on a line" )
     /// #else has no matching #if
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1031)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1032)
     static member lexHashElseNoMatchingIf() = (sprintf "#else has no matching #if" )
     /// #endif required for #else
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1032)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1033)
     static member lexHashEndifRequiredForElse() = (sprintf "#endif required for #else" )
     /// #else directive must appear as the first non-whitespace character on a line
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1033)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1034)
     static member lexHashElseMustBeFirst() = (1166, sprintf "#else directive must appear as the first non-whitespace character on a line" )
     /// #endif has no matching #if
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1034)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1035)
     static member lexHashEndingNoMatchingIf() = (sprintf "#endif has no matching #if" )
     /// #endif directive must appear as the first non-whitespace character on a line
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1035)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1036)
     static member lexHashEndifMustBeFirst() = (1168, sprintf "#endif directive must appear as the first non-whitespace character on a line" )
     /// #if directive should be immediately followed by an identifier
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1036)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1037)
     static member lexHashIfMustHaveIdent() = (1169, sprintf "#if directive should be immediately followed by an identifier" )
     /// Syntax error. Wrong nested #endif, unexpected tokens before it.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1037)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1038)
     static member lexWrongNestedHashEndif() = (1170, sprintf "Syntax error. Wrong nested #endif, unexpected tokens before it." )
     /// #! may only appear as the first line at the start of a file.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1038)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1039)
     static member lexHashBangMustBeFirstInFile() = (sprintf "#! may only appear as the first line at the start of a file." )
     /// Expected single line comment or end of line
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1039)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1040)
     static member pplexExpectedSingleLineComment() = (1171, sprintf "Expected single line comment or end of line" )
     /// Infix operator member '%s' has no arguments. Expected a tuple of 2 arguments, e.g. static member (+) (x,y) = ...
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1040)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1041)
     static member memberOperatorDefinitionWithNoArguments(a0 : System.String) = (1172, sprintf "Infix operator member '%s' has no arguments. Expected a tuple of 2 arguments, e.g. static member (+) (x,y) = ..." a0)
     /// Infix operator member '%s' has %d initial argument(s). Expected a tuple of 2 arguments, e.g. static member (+) (x,y) = ...
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1041)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1042)
     static member memberOperatorDefinitionWithNonPairArgument(a0 : System.String, a1 : System.Int32) = (1173, sprintf "Infix operator member '%s' has %d initial argument(s). Expected a tuple of 2 arguments, e.g. static member (+) (x,y) = ..." a0 a1)
     /// Infix operator member '%s' has extra curried arguments. Expected a tuple of 2 arguments, e.g. static member (+) (x,y) = ...
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1042)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1043)
     static member memberOperatorDefinitionWithCurriedArguments(a0 : System.String) = (1174, sprintf "Infix operator member '%s' has extra curried arguments. Expected a tuple of 2 arguments, e.g. static member (+) (x,y) = ..." a0)
     /// All record, union and struct types in FSharp.Core.dll must be explicitly labelled with 'StructuralComparison' or 'NoComparison'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1043)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1044)
     static member tcFSharpCoreRequiresExplicit() = (1175, sprintf "All record, union and struct types in FSharp.Core.dll must be explicitly labelled with 'StructuralComparison' or 'NoComparison'" )
     /// The struct, record or union type '%s' has the 'StructuralComparison' attribute but the type parameter '%s' does not satisfy the 'comparison' constraint. Consider adding the 'comparison' constraint to the type parameter
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1044)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1045)
     static member tcStructuralComparisonNotSatisfied1(a0 : System.String, a1 : System.String) = (1176, sprintf "The struct, record or union type '%s' has the 'StructuralComparison' attribute but the type parameter '%s' does not satisfy the 'comparison' constraint. Consider adding the 'comparison' constraint to the type parameter" a0 a1)
     /// The struct, record or union type '%s' has the 'StructuralComparison' attribute but the component type '%s' does not satisfy the 'comparison' constraint
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1045)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1046)
     static member tcStructuralComparisonNotSatisfied2(a0 : System.String, a1 : System.String) = (1177, sprintf "The struct, record or union type '%s' has the 'StructuralComparison' attribute but the component type '%s' does not satisfy the 'comparison' constraint" a0 a1)
     /// The struct, record or union type '%s' is not structurally comparable because the type parameter %s does not satisfy the 'comparison' constraint. Consider adding the 'NoComparison' attribute to the type '%s' to clarify that the type is not comparable
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1046)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1047)
     static member tcNoComparisonNeeded1(a0 : System.String, a1 : System.String, a2 : System.String) = (1178, sprintf "The struct, record or union type '%s' is not structurally comparable because the type parameter %s does not satisfy the 'comparison' constraint. Consider adding the 'NoComparison' attribute to the type '%s' to clarify that the type is not comparable" a0 a1 a2)
     /// The struct, record or union type '%s' is not structurally comparable because the type '%s' does not satisfy the 'comparison' constraint. Consider adding the 'NoComparison' attribute to the type '%s' to clarify that the type is not comparable
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1047)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1048)
     static member tcNoComparisonNeeded2(a0 : System.String, a1 : System.String, a2 : System.String) = (1178, sprintf "The struct, record or union type '%s' is not structurally comparable because the type '%s' does not satisfy the 'comparison' constraint. Consider adding the 'NoComparison' attribute to the type '%s' to clarify that the type is not comparable" a0 a1 a2)
     /// The struct, record or union type '%s' does not support structural equality because the type parameter %s does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1048)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1049)
     static member tcNoEqualityNeeded1(a0 : System.String, a1 : System.String, a2 : System.String) = (1178, sprintf "The struct, record or union type '%s' does not support structural equality because the type parameter %s does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality" a0 a1 a2)
     /// The struct, record or union type '%s' does not support structural equality because the type '%s' does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1049)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1050)
     static member tcNoEqualityNeeded2(a0 : System.String, a1 : System.String, a2 : System.String) = (1178, sprintf "The struct, record or union type '%s' does not support structural equality because the type '%s' does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality" a0 a1 a2)
     /// The struct, record or union type '%s' has the 'StructuralEquality' attribute but the type parameter '%s' does not satisfy the 'equality' constraint. Consider adding the 'equality' constraint to the type parameter
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1050)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1051)
     static member tcStructuralEqualityNotSatisfied1(a0 : System.String, a1 : System.String) = (1179, sprintf "The struct, record or union type '%s' has the 'StructuralEquality' attribute but the type parameter '%s' does not satisfy the 'equality' constraint. Consider adding the 'equality' constraint to the type parameter" a0 a1)
     /// The struct, record or union type '%s' has the 'StructuralEquality' attribute but the component type '%s' does not satisfy the 'equality' constraint
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1051)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1052)
     static member tcStructuralEqualityNotSatisfied2(a0 : System.String, a1 : System.String) = (1180, sprintf "The struct, record or union type '%s' has the 'StructuralEquality' attribute but the component type '%s' does not satisfy the 'equality' constraint" a0 a1)
     /// Each argument of the primary constructor for a struct must be given a type, for example 'type S(x1:int, x2: int) = ...'. These arguments determine the fields of the struct.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1052)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1053)
     static member tcStructsMustDeclareTypesOfImplicitCtorArgsExplicitly() = (1181, sprintf "Each argument of the primary constructor for a struct must be given a type, for example 'type S(x1:int, x2: int) = ...'. These arguments determine the fields of the struct." )
     /// The value '%s' is unused
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1053)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1054)
     static member chkUnusedValue(a0 : System.String) = (1182, sprintf "The value '%s' is unused" a0)
     /// The recursive object reference '%s' is unused. The presence of a recursive object reference adds runtime initialization checks to members in this and derived types. Consider removing this recursive object reference.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1054)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1055)
     static member chkUnusedThisVariable(a0 : System.String) = (1183, sprintf "The recursive object reference '%s' is unused. The presence of a recursive object reference adds runtime initialization checks to members in this and derived types. Consider removing this recursive object reference." a0)
     /// A getter property may have at most one argument group
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1055)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1056)
     static member parsGetterAtMostOneArgument() = (1184, sprintf "A getter property may have at most one argument group" )
     /// A setter property may have at most two argument groups
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1056)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1057)
     static member parsSetterAtMostTwoArguments() = (1185, sprintf "A setter property may have at most two argument groups" )
     /// Invalid property getter or setter
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1057)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1058)
     static member parsInvalidProperty() = (1186, sprintf "Invalid property getter or setter" )
     /// An indexer property must be given at least one argument
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1058)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1059)
     static member parsIndexerPropertyRequiresAtLeastOneArgument() = (1187, sprintf "An indexer property must be given at least one argument" )
     /// This operation accesses a mutable top-level value defined in another assembly in an unsupported way. The value cannot be accessed through its address. Consider copying the expression to a mutable local, e.g. 'let mutable x = ...', and if necessary assigning the value back after the completion of the operation
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1059)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1060)
     static member tastInvalidAddressOfMutableAcrossAssemblyBoundary() = (1188, sprintf "This operation accesses a mutable top-level value defined in another assembly in an unsupported way. The value cannot be accessed through its address. Consider copying the expression to a mutable local, e.g. 'let mutable x = ...', and if necessary assigning the value back after the completion of the operation" )
     /// Remove spaces between the type name and type parameter, e.g. \"type C<'T>\", not type \"C   <'T>\". Type parameters must be placed directly adjacent to the type name.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1060)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1061)
     static member parsNonAdjacentTypars() = (1189, sprintf "Remove spaces between the type name and type parameter, e.g. \"type C<'T>\", not type \"C   <'T>\". Type parameters must be placed directly adjacent to the type name." )
     /// Remove spaces between the type name and type parameter, e.g. \"C<'T>\", not \"C <'T>\". Type parameters must be placed directly adjacent to the type name.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1061)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1062)
     static member parsNonAdjacentTyargs() = (1190, sprintf "Remove spaces between the type name and type parameter, e.g. \"C<'T>\", not \"C <'T>\". Type parameters must be placed directly adjacent to the type name." )
     /// The use of the type syntax 'int C' and 'C  <int>' is not permitted here. Consider adjusting this type to be written in the form 'C<int>'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1062)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1063)
     static member parsNonAtomicType() = (sprintf "The use of the type syntax 'int C' and 'C  <int>' is not permitted here. Consider adjusting this type to be written in the form 'C<int>'" )
     /// The module/namespace '%s' from compilation unit '%s' did not contain the module/namespace '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1065)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1066)
     static member tastUndefinedItemRefModuleNamespace(a0 : System.String, a1 : System.String, a2 : System.String) = (1193, sprintf "The module/namespace '%s' from compilation unit '%s' did not contain the module/namespace '%s'" a0 a1 a2)
     /// The module/namespace '%s' from compilation unit '%s' did not contain the val '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1066)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1067)
     static member tastUndefinedItemRefVal(a0 : System.String, a1 : System.String, a2 : System.String) = (1194, sprintf "The module/namespace '%s' from compilation unit '%s' did not contain the val '%s'" a0 a1 a2)
     /// The module/namespace '%s' from compilation unit '%s' did not contain the namespace, module or type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1067)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1068)
     static member tastUndefinedItemRefModuleNamespaceType(a0 : System.String, a1 : System.String, a2 : System.String) = (1195, sprintf "The module/namespace '%s' from compilation unit '%s' did not contain the namespace, module or type '%s'" a0 a1 a2)
     /// The 'UseNullAsTrueValue' attribute flag may only be used with union types that have one nullary case and at least one non-nullary case
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1068)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1069)
     static member tcInvalidUseNullAsTrueValue() = (1196, sprintf "The 'UseNullAsTrueValue' attribute flag may only be used with union types that have one nullary case and at least one non-nullary case" )
     /// The parameter '%s' was inferred to have byref type. Parameters of byref type must be given an explicit type annotation, e.g. 'x1: byref<int>'. When used, a byref parameter is implicitly dereferenced.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1069)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1070)
     static member tcParameterInferredByref(a0 : System.String) = (1197, sprintf "The parameter '%s' was inferred to have byref type. Parameters of byref type must be given an explicit type annotation, e.g. 'x1: byref<int>'. When used, a byref parameter is implicitly dereferenced." a0)
     /// The generic member '%s' has been used at a non-uniform instantiation prior to this program point. Consider reordering the members so this member occurs first. Alternatively, specify the full type of the member explicitly, including argument types, return type and any additional generic parameters and constraints.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1070)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1071)
     static member tcNonUniformMemberUse(a0 : System.String) = (1198, sprintf "The generic member '%s' has been used at a non-uniform instantiation prior to this program point. Consider reordering the members so this member occurs first. Alternatively, specify the full type of the member explicitly, including argument types, return type and any additional generic parameters and constraints." a0)
     /// The attribute '%s' appears in both the implementation and the signature, but the attribute arguments differ. Only the attribute from the signature will be included in the compiled code.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1071)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1072)
     static member tcAttribArgsDiffer(a0 : System.String) = (1200, sprintf "The attribute '%s' appears in both the implementation and the signature, but the attribute arguments differ. Only the attribute from the signature will be included in the compiled code." a0)
     /// Cannot call an abstract base member: '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1072)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1073)
     static member tcCannotCallAbstractBaseMember(a0 : System.String) = (1201, sprintf "Cannot call an abstract base member: '%s'" a0)
     /// Could not resolve the ambiguity in the use of a generic construct with an 'unmanaged' constraint at or near this position
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1073)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1074)
     static member typrelCannotResolveAmbiguityInUnmanaged() = (1202, sprintf "Could not resolve the ambiguity in the use of a generic construct with an 'unmanaged' constraint at or near this position" )
     /// This construct is for ML compatibility. %s. You can disable this warning by using '--mlcompatibility' or '--nowarn:62'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1076)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1077)
     static member mlCompatMessage(a0 : System.String) = (sprintf "This construct is for ML compatibility. %s. You can disable this warning by using '--mlcompatibility' or '--nowarn:62'." a0)
     /// The type '%s' has been marked as having an Explicit layout, but the field '%s' has not been marked with the 'FieldOffset' attribute
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1078)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1079)
     static member ilFieldDoesNotHaveValidOffsetForStructureLayout(a0 : System.String, a1 : System.String) = (1206, sprintf "The type '%s' has been marked as having an Explicit layout, but the field '%s' has not been marked with the 'FieldOffset' attribute" a0 a1)
     /// Interfaces inherited by other interfaces should be declared using 'inherit ...' instead of 'interface ...'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1079)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1080)
     static member tcInterfacesShouldUseInheritNotInterface() = (1207, sprintf "Interfaces inherited by other interfaces should be declared using 'inherit ...' instead of 'interface ...'" )
     /// Invalid prefix operator
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1080)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1081)
     static member parsInvalidPrefixOperator() = (1208, sprintf "Invalid prefix operator" )
     /// Invalid operator definition. Prefix operator definitions must use a valid prefix operator name.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1081)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1082)
     static member parsInvalidPrefixOperatorDefinition() = (1208, sprintf "Invalid operator definition. Prefix operator definitions must use a valid prefix operator name." )
     /// The file extensions '.ml' and '.mli' are for ML compatibility
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1082)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1083)
     static member buildCompilingExtensionIsForML() = (sprintf "The file extensions '.ml' and '.mli' are for ML compatibility" )
     /// Consider using a file with extension '.ml' or '.mli' instead
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1083)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1084)
     static member lexIndentOffForML() = (sprintf "Consider using a file with extension '.ml' or '.mli' instead" )
     /// Active pattern '%s' is not a function
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1084)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1085)
     static member activePatternIdentIsNotFunctionTyped(a0 : System.String) = (1209, sprintf "Active pattern '%s' is not a function" a0)
     /// Active pattern '%s' has a result type containing type variables that are not determined by the input. The common cause is a when a result case is not mentioned, e.g. 'let (|A|B|) (x:int) = A x'. This can be fixed with a type constraint, e.g. 'let (|A|B|) (x:int) : Choice<int,unit> = A x'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1085)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1086)
     static member activePatternChoiceHasFreeTypars(a0 : System.String) = (1210, sprintf "Active pattern '%s' has a result type containing type variables that are not determined by the input. The common cause is a when a result case is not mentioned, e.g. 'let (|A|B|) (x:int) = A x'. This can be fixed with a type constraint, e.g. 'let (|A|B|) (x:int) : Choice<int,unit> = A x'" a0)
     /// The FieldOffset attribute can only be placed on members of types marked with the StructLayout(LayoutKind.Explicit)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1086)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1087)
     static member ilFieldHasOffsetForSequentialLayout() = (1211, sprintf "The FieldOffset attribute can only be placed on members of types marked with the StructLayout(LayoutKind.Explicit)" )
     /// Optional arguments must come at the end of the argument list, after any non-optional arguments
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1087)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1088)
     static member tcOptionalArgsMustComeAfterNonOptionalArgs() = (1212, sprintf "Optional arguments must come at the end of the argument list, after any non-optional arguments" )
     /// Attribute 'System.Diagnostics.ConditionalAttribute' is only valid on methods or attribute classes
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1088)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1089)
     static member tcConditionalAttributeUsage() = (1213, sprintf "Attribute 'System.Diagnostics.ConditionalAttribute' is only valid on methods or attribute classes" )
     /// Extension members cannot provide operator overloads.  Consider defining the operator as part of the type definition instead.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1090)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1091)
     static member tcMemberOperatorDefinitionInExtrinsic() = (1215, sprintf "Extension members cannot provide operator overloads.  Consider defining the operator as part of the type definition instead." )
     /// The name of the MDB file must be <assembly-file-name>.mdb. The --pdb option will be ignored.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1091)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1092)
     static member ilwriteMDBFileNameCannotBeChangedWarning() = (1216, sprintf "The name of the MDB file must be <assembly-file-name>.mdb. The --pdb option will be ignored." )
     /// MDB generation failed. Could not find compatible member %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1092)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1093)
     static member ilwriteMDBMemberMissing(a0 : System.String) = (1217, sprintf "MDB generation failed. Could not find compatible member %s" a0)
     /// Cannot generate MDB debug information. Failed to load the 'MonoSymbolWriter' type from the 'Mono.CompilerServices.SymbolWriter.dll' assembly.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1093)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1094)
     static member ilwriteErrorCreatingMdb() = (1218, sprintf "Cannot generate MDB debug information. Failed to load the 'MonoSymbolWriter' type from the 'Mono.CompilerServices.SymbolWriter.dll' assembly." )
     /// The union case named '%s' conflicts with the generated type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1094)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1095)
     static member tcUnionCaseNameConflictsWithGeneratedType(a0 : System.String, a1 : System.String) = (1219, sprintf "The union case named '%s' conflicts with the generated type '%s'" a0 a1)
     /// ReflectedDefinitionAttribute may not be applied to an instance member on a struct type, because the instance member takes an implicit 'this' byref parameter
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1095)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1096)
     static member chkNoReflectedDefinitionOnStructMember() = (1220, sprintf "ReflectedDefinitionAttribute may not be applied to an instance member on a struct type, because the instance member takes an implicit 'this' byref parameter" )
     /// DLLImport bindings must be static members in a class or function definitions in a module
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1096)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1097)
     static member tcDllImportNotAllowed() = (1221, sprintf "DLLImport bindings must be static members in a class or function definitions in a module" )
     /// FSharp.Core.sigdata not found alongside FSharp.Core. File expected in %s. Consider upgrading to a more recent version of FSharp.Core, where this file is no longer be required.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1097)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1098)
     static member buildExpectedSigdataFile(a0 : System.String) = (1223, sprintf "FSharp.Core.sigdata not found alongside FSharp.Core. File expected in %s. Consider upgrading to a more recent version of FSharp.Core, where this file is no longer be required." a0)
     /// File '%s' not found alongside FSharp.Core. File expected in %s. Consider upgrading to a more recent version of FSharp.Core, where this file is no longer be required.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1098)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1099)
     static member buildExpectedFileAlongSideFSharpCore(a0 : System.String, a1 : System.String) = (1225, sprintf "File '%s' not found alongside FSharp.Core. File expected in %s. Consider upgrading to a more recent version of FSharp.Core, where this file is no longer be required." a0 a1)
     /// Filename '%s' contains invalid character '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1099)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1100)
     static member buildUnexpectedFileNameCharacter(a0 : System.String, a1 : System.String) = (1227, sprintf "Filename '%s' contains invalid character '%s'" a0 a1)
     /// 'use!' bindings must be of the form 'use! <var> = <expr>'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1100)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1101)
     static member tcInvalidUseBangBinding() = (1228, sprintf "'use!' bindings must be of the form 'use! <var> = <expr>'" )
     /// Inner generic functions are not permitted in quoted expressions. Consider adding some type constraints until this function is no longer generic.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1101)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1102)
     static member crefNoInnerGenericsInQuotations() = (1230, sprintf "Inner generic functions are not permitted in quoted expressions. Consider adding some type constraints until this function is no longer generic." )
     /// The type '%s' is not a valid enumerator type , i.e. does not have a 'MoveNext()' method returning a bool, and a 'Current' property
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1102)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1103)
     static member tcEnumTypeCannotBeEnumerated(a0 : System.String) = (1231, sprintf "The type '%s' is not a valid enumerator type , i.e. does not have a 'MoveNext()' method returning a bool, and a 'Current' property" a0)
     /// End of file in triple-quote string begun at or before here
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1103)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1104)
     static member parsEofInTripleQuoteString() = (1232, sprintf "End of file in triple-quote string begun at or before here" )
     /// End of file in triple-quote string embedded in comment begun at or before here
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1104)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1105)
     static member parsEofInTripleQuoteStringInComment() = (1233, sprintf "End of file in triple-quote string embedded in comment begun at or before here" )
     /// This type test or downcast will ignore the unit-of-measure '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1105)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1106)
     static member tcTypeTestLosesMeasures(a0 : System.String) = (1240, sprintf "This type test or downcast will ignore the unit-of-measure '%s'" a0)
     /// Expected type argument or static argument
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1106)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1107)
     static member parsMissingTypeArgs() = (1241, sprintf "Expected type argument or static argument" )
     /// Unmatched '<'. Expected closing '>'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1107)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1108)
     static member parsMissingGreaterThan() = (1242, sprintf "Unmatched '<'. Expected closing '>'" )
     /// Unexpected quotation operator '<@' in type definition. If you intend to pass a verbatim string as a static argument to a type provider, put a space between the '<' and '@' characters.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1108)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1109)
     static member parsUnexpectedQuotationOperatorInTypeAliasDidYouMeanVerbatimString() = (1243, sprintf "Unexpected quotation operator '<@' in type definition. If you intend to pass a verbatim string as a static argument to a type provider, put a space between the '<' and '@' characters." )
     /// Attempted to parse this as an operator name, but failed
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1109)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1110)
     static member parsErrorParsingAsOperatorName() = (1244, sprintf "Attempted to parse this as an operator name, but failed" )
     /// \U%s is not a valid Unicode character escape sequence
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1110)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1111)
     static member lexInvalidUnicodeLiteral(a0 : System.String) = (1245, sprintf "\U%s is not a valid Unicode character escape sequence" a0)
     /// '%s' must be applied to an argument of type '%s', but has been applied to an argument of type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1111)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1112)
     static member tcCallerInfoWrongType(a0 : System.String, a1 : System.String, a2 : System.String) = (1246, sprintf "'%s' must be applied to an argument of type '%s', but has been applied to an argument of type '%s'" a0 a1 a2)
     /// '%s' can only be applied to optional arguments
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1112)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1113)
     static member tcCallerInfoNotOptional(a0 : System.String) = (1247, sprintf "'%s' can only be applied to optional arguments" a0)
     /// The specified .NET Framework version '%s' is not supported. Please specify a value from the enumeration Microsoft.Build.Utilities.TargetDotNetFrameworkVersion.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1114)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1115)
     static member toolLocationHelperUnsupportedFrameworkVersion(a0 : System.String) = (1300, sprintf "The specified .NET Framework version '%s' is not supported. Please specify a value from the enumeration Microsoft.Build.Utilities.TargetDotNetFrameworkVersion." a0)
     /// Invalid Magic value in CLR Header
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1118)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1119)
     static member ilSignInvalidMagicValue() = (1301, sprintf "Invalid Magic value in CLR Header" )
     /// Bad image format
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1119)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1120)
     static member ilSignBadImageFormat() = (1302, sprintf "Bad image format" )
     /// Private key expected
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1120)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1121)
     static member ilSignPrivateKeyExpected() = (1303, sprintf "Private key expected" )
     /// RSA key expected
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1121)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1122)
     static member ilSignRsaKeyExpected() = (1304, sprintf "RSA key expected" )
     /// Invalid bit Length
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1122)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1123)
     static member ilSignInvalidBitLen() = (1305, sprintf "Invalid bit Length" )
     /// Invalid RSAParameters structure - '{0}' expected
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1123)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1124)
     static member ilSignInvalidRSAParams() = (1306, sprintf "Invalid RSAParameters structure - '{0}' expected" )
     /// Invalid algId - 'Exponent' expected
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1124)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1125)
     static member ilSignInvalidAlgId() = (1307, sprintf "Invalid algId - 'Exponent' expected" )
     /// Invalid signature size
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1125)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1126)
     static member ilSignInvalidSignatureSize() = (1308, sprintf "Invalid signature size" )
     /// No signature directory
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1126)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1127)
     static member ilSignNoSignatureDirectory() = (1309, sprintf "No signature directory" )
     /// Invalid Public Key blob
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1127)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1128)
     static member ilSignInvalidPKBlob() = (1310, sprintf "Invalid Public Key blob" )
     /// Exiting - too many errors
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1129)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1130)
     static member fscTooManyErrors() = (sprintf "Exiting - too many errors" )
     /// The documentation file has no .xml suffix
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1130)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1131)
     static member docfileNoXmlSuffix() = (2001, sprintf "The documentation file has no .xml suffix" )
     /// No implementation files specified
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1131)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1132)
     static member fscNoImplementationFiles() = (2002, sprintf "No implementation files specified" )
     /// The attribute %s specified version '%s', but this value is invalid and has been ignored
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1132)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1133)
     static member fscBadAssemblyVersion(a0 : System.String, a1 : System.String) = (2003, sprintf "The attribute %s specified version '%s', but this value is invalid and has been ignored" a0 a1)
     /// Conflicting options specified: 'win32manifest' and 'win32res'. Only one of these can be used.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1133)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1134)
     static member fscTwoResourceManifests() = (2004, sprintf "Conflicting options specified: 'win32manifest' and 'win32res'. Only one of these can be used." )
     /// The code in assembly '%s' makes uses of quotation literals. Static linking may not include components that make use of quotation literals unless all assemblies are compiled with at least F# 4.0.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1134)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1135)
     static member fscQuotationLiteralsStaticLinking(a0 : System.String) = (2005, sprintf "The code in assembly '%s' makes uses of quotation literals. Static linking may not include components that make use of quotation literals unless all assemblies are compiled with at least F# 4.0." a0)
     /// Code in this assembly makes uses of quotation literals. Static linking may not include components that make use of quotation literals unless all assemblies are compiled with at least F# 4.0.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1135)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1136)
     static member fscQuotationLiteralsStaticLinking0() = (2006, sprintf "Code in this assembly makes uses of quotation literals. Static linking may not include components that make use of quotation literals unless all assemblies are compiled with at least F# 4.0." )
     /// Static linking may not include a .EXE
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1136)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1137)
     static member fscStaticLinkingNoEXE() = (2007, sprintf "Static linking may not include a .EXE" )
     /// Static linking may not include a mixed managed/unmanaged DLL
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1137)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1138)
     static member fscStaticLinkingNoMixedDLL() = (2008, sprintf "Static linking may not include a mixed managed/unmanaged DLL" )
     /// Ignoring mixed managed/unmanaged assembly '%s' during static linking
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1138)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1139)
     static member fscIgnoringMixedWhenLinking(a0 : System.String) = (2009, sprintf "Ignoring mixed managed/unmanaged assembly '%s' during static linking" a0)
     /// Assembly '%s' was referenced transitively and the assembly could not be resolved automatically. Static linking will assume this DLL has no dependencies on the F# library or other statically linked DLLs. Consider adding an explicit reference to this DLL.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1139)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1140)
     static member fscAssumeStaticLinkContainsNoDependencies(a0 : System.String) = (2011, sprintf "Assembly '%s' was referenced transitively and the assembly could not be resolved automatically. Static linking will assume this DLL has no dependencies on the F# library or other statically linked DLLs. Consider adding an explicit reference to this DLL." a0)
     /// Assembly '%s' not found in dependency set of target binary. Statically linked roots should be specified using an assembly name, without a DLL or EXE extension. If this assembly was referenced explicitly then it is possible the assembly was not actually required by the generated binary, in which case it should not be statically linked.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1140)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1141)
     static member fscAssemblyNotFoundInDependencySet(a0 : System.String) = (2012, sprintf "Assembly '%s' not found in dependency set of target binary. Statically linked roots should be specified using an assembly name, without a DLL or EXE extension. If this assembly was referenced explicitly then it is possible the assembly was not actually required by the generated binary, in which case it should not be statically linked." a0)
     /// The key file '%s' could not be opened
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1141)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1142)
     static member fscKeyFileCouldNotBeOpened(a0 : System.String) = (2013, sprintf "The key file '%s' could not be opened" a0)
     /// A problem occurred writing the binary '%s': %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1142)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1143)
     static member fscProblemWritingBinary(a0 : System.String, a1 : System.String) = (2014, sprintf "A problem occurred writing the binary '%s': %s" a0 a1)
     /// The 'AssemblyVersionAttribute' has been ignored because a version was given using a command line option
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1143)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1144)
     static member fscAssemblyVersionAttributeIgnored() = (2015, sprintf "The 'AssemblyVersionAttribute' has been ignored because a version was given using a command line option" )
     /// Error emitting 'System.Reflection.AssemblyCultureAttribute' attribute -- 'Executables cannot be satellite assemblies, Culture should always be empty'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1144)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1145)
     static member fscAssemblyCultureAttributeError() = (2016, sprintf "Error emitting 'System.Reflection.AssemblyCultureAttribute' attribute -- 'Executables cannot be satellite assemblies, Culture should always be empty'" )
     /// Option '--delaysign' overrides attribute 'System.Reflection.AssemblyDelaySignAttribute' given in a source file or added module
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1145)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1146)
     static member fscDelaySignWarning() = (2017, sprintf "Option '--delaysign' overrides attribute 'System.Reflection.AssemblyDelaySignAttribute' given in a source file or added module" )
     /// Option '--keyfile' overrides attribute 'System.Reflection.AssemblyKeyFileAttribute' given in a source file or added module
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1146)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1147)
     static member fscKeyFileWarning() = (2018, sprintf "Option '--keyfile' overrides attribute 'System.Reflection.AssemblyKeyFileAttribute' given in a source file or added module" )
     /// Option '--keycontainer' overrides attribute 'System.Reflection.AssemblyNameAttribute' given in a source file or added module
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1147)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1148)
     static member fscKeyNameWarning() = (2019, sprintf "Option '--keycontainer' overrides attribute 'System.Reflection.AssemblyNameAttribute' given in a source file or added module" )
     /// The assembly '%s' is listed on the command line. Assemblies should be referenced using a command line flag such as '-r'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1148)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1149)
     static member fscReferenceOnCommandLine(a0 : System.String) = (2020, sprintf "The assembly '%s' is listed on the command line. Assemblies should be referenced using a command line flag such as '-r'." a0)
     /// The resident compilation service was not used because a problem occured in communicating with the server.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1149)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1150)
     static member fscRemotingError() = (2021, sprintf "The resident compilation service was not used because a problem occured in communicating with the server." )
     /// Problem with filename '%s': Illegal characters in path.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1150)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1151)
     static member pathIsInvalid(a0 : System.String) = (2022, sprintf "Problem with filename '%s': Illegal characters in path." a0)
     /// Passing a .resx file (%s) as a source file to the compiler is deprecated. Use resgen.exe to transform the .resx file into a .resources file to pass as a --resource option. If you are using MSBuild, this can be done via an <EmbeddedResource> item in the .fsproj project file.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1151)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1152)
     static member fscResxSourceFileDeprecated(a0 : System.String) = (2023, sprintf "Passing a .resx file (%s) as a source file to the compiler is deprecated. Use resgen.exe to transform the .resx file into a .resources file to pass as a --resource option. If you are using MSBuild, this can be done via an <EmbeddedResource> item in the .fsproj project file." a0)
     /// Static linking may not be used on an assembly referencing mscorlib (e.g. a .NET Framework assembly) when generating an assembly that references System.Runtime (e.g. a .NET Core or Portable assembly).
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1152)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1153)
     static member fscStaticLinkingNoProfileMismatches() = (2024, sprintf "Static linking may not be used on an assembly referencing mscorlib (e.g. a .NET Framework assembly) when generating an assembly that references System.Runtime (e.g. a .NET Core or Portable assembly)." )
     /// An %s specified version '%s', but this value is a wildcard, and you have requested a deterministic build, these are in conflict.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1153)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1154)
     static member fscAssemblyWildcardAndDeterminism(a0 : System.String, a1 : System.String) = (2025, sprintf "An %s specified version '%s', but this value is a wildcard, and you have requested a deterministic build, these are in conflict." a0 a1)
     /// Deterministic builds only support portable PDBs (--debug:portable or --debug:embedded)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1154)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1155)
     static member fscDeterministicDebugRequiresPortablePdb() = (2026, sprintf "Deterministic builds only support portable PDBs (--debug:portable or --debug:embedded)" )
     /// --pathmap can only be used with portable PDBs (--debug:portable or --debug:embedded)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1155)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1156)
     static member fscPathMapDebugRequiresPortablePdb() = (2027, sprintf "--pathmap can only be used with portable PDBs (--debug:portable or --debug:embedded)" )
     /// Invalid path map. Mappings must be comma separated and of the format 'path=sourcePath'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1156)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1157)
     static member optsInvalidPathMapFormat() = (2028, sprintf "Invalid path map. Mappings must be comma separated and of the format 'path=sourcePath'" )
     /// Character '%s' is not allowed in provided namespace name '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1157)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1158)
     static member etIllegalCharactersInNamespaceName(a0 : System.String, a1 : System.String) = (3000, sprintf "Character '%s' is not allowed in provided namespace name '%s'" a0 a1)
     /// The provided type '%s' returned a member with a null or empty member name
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1158)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1159)
     static member etNullOrEmptyMemberName(a0 : System.String) = (3001, sprintf "The provided type '%s' returned a member with a null or empty member name" a0)
     /// The provided type '%s' returned a null member
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1159)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1160)
     static member etNullMember(a0 : System.String) = (3002, sprintf "The provided type '%s' returned a null member" a0)
     /// The provided type '%s' member info '%s' has null declaring type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1160)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1161)
     static member etNullMemberDeclaringType(a0 : System.String, a1 : System.String) = (3003, sprintf "The provided type '%s' member info '%s' has null declaring type" a0 a1)
     /// The provided type '%s' has member '%s' which has declaring type '%s'. Expected declaring type to be the same as provided type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1161)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1162)
     static member etNullMemberDeclaringTypeDifferentFromProvidedType(a0 : System.String, a1 : System.String, a2 : System.String) = (3004, sprintf "The provided type '%s' has member '%s' which has declaring type '%s'. Expected declaring type to be the same as provided type." a0 a1 a2)
     /// Referenced assembly '%s' has assembly level attribute '%s' but no public type provider classes were found
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1162)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1163)
     static member etHostingAssemblyFoundWithoutHosts(a0 : System.String, a1 : System.String) = (3005, sprintf "Referenced assembly '%s' has assembly level attribute '%s' but no public type provider classes were found" a0 a1)
     /// Type '%s' from type provider '%s' has an empty namespace. Use 'null' for the global namespace.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1163)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1164)
     static member etEmptyNamespaceOfTypeNotAllowed(a0 : System.String, a1 : System.String) = (3006, sprintf "Type '%s' from type provider '%s' has an empty namespace. Use 'null' for the global namespace." a0 a1)
     /// Empty namespace found from the type provider '%s'. Use 'null' for the global namespace.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1164)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1165)
     static member etEmptyNamespaceNotAllowed(a0 : System.String) = (3007, sprintf "Empty namespace found from the type provider '%s'. Use 'null' for the global namespace." a0)
     /// Provided type '%s' has 'IsGenericType' as true, but generic types are not supported.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1165)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1166)
     static member etMustNotBeGeneric(a0 : System.String) = (3011, sprintf "Provided type '%s' has 'IsGenericType' as true, but generic types are not supported." a0)
     /// Provided type '%s' has 'IsArray' as true, but array types are not supported.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1166)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1167)
     static member etMustNotBeAnArray(a0 : System.String) = (3013, sprintf "Provided type '%s' has 'IsArray' as true, but array types are not supported." a0)
     /// Invalid member '%s' on provided type '%s'. Provided type members must be public, and not be generic, virtual, or abstract.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1167)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1168)
     static member etMethodHasRequirements(a0 : System.String, a1 : System.String) = (3014, sprintf "Invalid member '%s' on provided type '%s'. Provided type members must be public, and not be generic, virtual, or abstract." a0 a1)
     /// Invalid member '%s' on provided type '%s'. Only properties, methods and constructors are allowed
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1168)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1169)
     static member etUnsupportedMemberKind(a0 : System.String, a1 : System.String) = (3015, sprintf "Invalid member '%s' on provided type '%s'. Only properties, methods and constructors are allowed" a0 a1)
     /// Property '%s' on provided type '%s' has CanRead=true but there was no value from GetGetMethod()
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1169)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1170)
     static member etPropertyCanReadButHasNoGetter(a0 : System.String, a1 : System.String) = (3016, sprintf "Property '%s' on provided type '%s' has CanRead=true but there was no value from GetGetMethod()" a0 a1)
     /// Property '%s' on provided type '%s' has CanRead=false but GetGetMethod() returned a method
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1170)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1171)
     static member etPropertyHasGetterButNoCanRead(a0 : System.String, a1 : System.String) = (3017, sprintf "Property '%s' on provided type '%s' has CanRead=false but GetGetMethod() returned a method" a0 a1)
     /// Property '%s' on provided type '%s' has CanWrite=true but there was no value from GetSetMethod()
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1171)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1172)
     static member etPropertyCanWriteButHasNoSetter(a0 : System.String, a1 : System.String) = (3018, sprintf "Property '%s' on provided type '%s' has CanWrite=true but there was no value from GetSetMethod()" a0 a1)
     /// Property '%s' on provided type '%s' has CanWrite=false but GetSetMethod() returned a method
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1172)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1173)
     static member etPropertyHasSetterButNoCanWrite(a0 : System.String, a1 : System.String) = (3019, sprintf "Property '%s' on provided type '%s' has CanWrite=false but GetSetMethod() returned a method" a0 a1)
     /// One or more errors seen during provided type setup
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1173)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1174)
     static member etOneOrMoreErrorsSeenDuringExtensionTypeSetting() = (3020, sprintf "One or more errors seen during provided type setup" )
     /// Unexpected exception from provided type '%s' member '%s': %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1174)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1175)
     static member etUnexpectedExceptionFromProvidedTypeMember(a0 : System.String, a1 : System.String, a2 : System.String) = (3021, sprintf "Unexpected exception from provided type '%s' member '%s': %s" a0 a1 a2)
     /// Unsupported constant type '%s'. Quotations provided by type providers can only contain simple constants. The implementation of the type provider may need to be adjusted by moving a value declared outside a provided quotation literal to be a 'let' binding inside the quotation literal.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1175)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1176)
     static member etUnsupportedConstantType(a0 : System.String) = (3022, sprintf "Unsupported constant type '%s'. Quotations provided by type providers can only contain simple constants. The implementation of the type provider may need to be adjusted by moving a value declared outside a provided quotation literal to be a 'let' binding inside the quotation literal." a0)
     /// Unsupported expression '%s' from type provider. If you are the author of this type provider, consider adjusting it to provide a different provided expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1176)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1177)
     static member etUnsupportedProvidedExpression(a0 : System.String) = (3025, sprintf "Unsupported expression '%s' from type provider. If you are the author of this type provider, consider adjusting it to provide a different provided expression." a0)
     /// Expected provided type named '%s' but provided type has 'Name' with value '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1177)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1178)
     static member etProvidedTypeHasUnexpectedName(a0 : System.String, a1 : System.String) = (3028, sprintf "Expected provided type named '%s' but provided type has 'Name' with value '%s'" a0 a1)
     /// Event '%s' on provided type '%s' has no value from GetAddMethod()
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1178)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1179)
     static member etEventNoAdd(a0 : System.String, a1 : System.String) = (3029, sprintf "Event '%s' on provided type '%s' has no value from GetAddMethod()" a0 a1)
     /// Event '%s' on provided type '%s' has no value from GetRemoveMethod()
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1179)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1180)
     static member etEventNoRemove(a0 : System.String, a1 : System.String) = (3030, sprintf "Event '%s' on provided type '%s' has no value from GetRemoveMethod()" a0 a1)
     /// Assembly attribute '%s' refers to a designer assembly '%s' which cannot be loaded or doesn't exist. The exception reported was: %s - %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1180)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1181)
     static member etProviderHasWrongDesignerAssemblyNoPath(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3031, sprintf "Assembly attribute '%s' refers to a designer assembly '%s' which cannot be loaded or doesn't exist. The exception reported was: %s - %s" a0 a1 a2 a3)
     /// Assembly attribute '%s' refers to a designer assembly '%s' which cannot be loaded from path '%s'. The exception reported was: %s - %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1181)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1182)
     static member etProviderHasWrongDesignerAssembly(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String, a4 : System.String) = (3031, sprintf "Assembly attribute '%s' refers to a designer assembly '%s' which cannot be loaded from path '%s'. The exception reported was: %s - %s" a0 a1 a2 a3 a4)
     /// The type provider does not have a valid constructor. A constructor taking either no arguments or one argument of type 'TypeProviderConfig' was expected.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1182)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1183)
     static member etProviderDoesNotHaveValidConstructor() = (3032, sprintf "The type provider does not have a valid constructor. A constructor taking either no arguments or one argument of type 'TypeProviderConfig' was expected." )
     /// The type provider '%s' reported an error: %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1183)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1184)
     static member etProviderError(a0 : System.String, a1 : System.String) = (3033, sprintf "The type provider '%s' reported an error: %s" a0 a1)
     /// The type provider '%s' used an invalid parameter in the ParameterExpression: %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1184)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1185)
     static member etIncorrectParameterExpression(a0 : System.String, a1 : System.String) = (3034, sprintf "The type provider '%s' used an invalid parameter in the ParameterExpression: %s" a0 a1)
     /// The type provider '%s' provided a method with a name '%s' and metadata token '%d', which is not reported among its methods of its declaring type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1185)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1186)
     static member etIncorrectProvidedMethod(a0 : System.String, a1 : System.String, a2 : System.Int32, a3 : System.String) = (3035, sprintf "The type provider '%s' provided a method with a name '%s' and metadata token '%d', which is not reported among its methods of its declaring type '%s'" a0 a1 a2 a3)
     /// The type provider '%s' provided a constructor which is not reported among the constructors of its declaring type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1186)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1187)
     static member etIncorrectProvidedConstructor(a0 : System.String, a1 : System.String) = (3036, sprintf "The type provider '%s' provided a constructor which is not reported among the constructors of its declaring type '%s'" a0 a1)
     /// A direct reference to the generated type '%s' is not permitted. Instead, use a type definition, e.g. 'type TypeAlias = <path>'. This indicates that a type provider adds generated types to your assembly.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1187)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1188)
     static member etDirectReferenceToGeneratedTypeNotAllowed(a0 : System.String) = (3039, sprintf "A direct reference to the generated type '%s' is not permitted. Instead, use a type definition, e.g. 'type TypeAlias = <path>'. This indicates that a type provider adds generated types to your assembly." a0)
     /// Expected provided type with path '%s' but provided type has path '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1188)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1189)
     static member etProvidedTypeHasUnexpectedPath(a0 : System.String, a1 : System.String) = (3041, sprintf "Expected provided type with path '%s' but provided type has path '%s'" a0 a1)
     /// Unexpected 'null' return value from provided type '%s' member '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1189)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1190)
     static member etUnexpectedNullFromProvidedTypeMember(a0 : System.String, a1 : System.String) = (3042, sprintf "Unexpected 'null' return value from provided type '%s' member '%s'" a0 a1)
     /// Unexpected exception from member '%s' of provided type '%s' member '%s': %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1190)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1191)
     static member etUnexpectedExceptionFromProvidedMemberMember(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3043, sprintf "Unexpected exception from member '%s' of provided type '%s' member '%s': %s" a0 a1 a2 a3)
     /// Nested provided types do not take static arguments or generic parameters
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1191)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1192)
     static member etNestedProvidedTypesDoNotTakeStaticArgumentsOrGenericParameters() = (3044, sprintf "Nested provided types do not take static arguments or generic parameters" )
     /// Invalid static argument to provided type. Expected an argument of kind '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1192)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1193)
     static member etInvalidStaticArgument(a0 : System.String) = (3045, sprintf "Invalid static argument to provided type. Expected an argument of kind '%s'." a0)
     /// An error occured applying the static arguments to a provided type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1193)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1194)
     static member etErrorApplyingStaticArgumentsToType() = (3046, sprintf "An error occured applying the static arguments to a provided type" )
     /// Unknown static argument kind '%s' when resolving a reference to a provided type or method '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1194)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1195)
     static member etUnknownStaticArgumentKind(a0 : System.String, a1 : System.String) = (3047, sprintf "Unknown static argument kind '%s' when resolving a reference to a provided type or method '%s'" a0 a1)
     /// The type provider designer assembly '%s' could not be loaded from folder '%s' because a dependency was missing or could not loaded. All dependencies of the type provider designer assembly must be located in the same folder as that assembly. The exception reported was: %s - %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1195)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1196)
     static member etProviderHasDesignerAssemblyDependency(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3048, sprintf "The type provider designer assembly '%s' could not be loaded from folder '%s' because a dependency was missing or could not loaded. All dependencies of the type provider designer assembly must be located in the same folder as that assembly. The exception reported was: %s - %s" a0 a1 a2 a3)
     /// The type provider designer assembly '%s' could not be loaded from folder '%s'. The exception reported was: %s - %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1196)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1197)
     static member etProviderHasDesignerAssemblyException(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3049, sprintf "The type provider designer assembly '%s' could not be loaded from folder '%s'. The exception reported was: %s - %s" a0 a1 a2 a3)
     /// invalid namespace for provided type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1197)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1198)
     static member invalidNamespaceForProvidedType() = (sprintf "invalid namespace for provided type" )
     /// invalid full name for provided type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1198)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1199)
     static member invalidFullNameForProvidedType() = (sprintf "invalid full name for provided type" )
     /// The type provider returned 'null', which is not a valid return value from '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1200)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1201)
     static member etProviderReturnedNull(a0 : System.String) = (3051, sprintf "The type provider returned 'null', which is not a valid return value from '%s'" a0)
     /// The type provider constructor has thrown an exception: %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1201)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1202)
     static member etTypeProviderConstructorException(a0 : System.String) = (3053, sprintf "The type provider constructor has thrown an exception: %s" a0)
     /// Type provider '%s' returned null from GetInvokerExpression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1202)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1203)
     static member etNullProvidedExpression(a0 : System.String) = (3056, sprintf "Type provider '%s' returned null from GetInvokerExpression." a0)
     /// The type provider '%s' returned an invalid type from 'ApplyStaticArguments'. A type with name '%s' was expected, but a type with name '%s' was returned.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1203)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1204)
     static member etProvidedAppliedTypeHadWrongName(a0 : System.String, a1 : System.String, a2 : System.String) = (3057, sprintf "The type provider '%s' returned an invalid type from 'ApplyStaticArguments'. A type with name '%s' was expected, but a type with name '%s' was returned." a0 a1 a2)
     /// The type provider '%s' returned an invalid method from 'ApplyStaticArgumentsForMethod'. A method with name '%s' was expected, but a method with name '%s' was returned.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1204)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1205)
     static member etProvidedAppliedMethodHadWrongName(a0 : System.String, a1 : System.String, a2 : System.String) = (3058, sprintf "The type provider '%s' returned an invalid method from 'ApplyStaticArgumentsForMethod'. A method with name '%s' was expected, but a method with name '%s' was returned." a0 a1 a2)
     /// This type test or downcast will erase the provided type '%s' to the type '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1205)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1206)
     static member tcTypeTestLossy(a0 : System.String, a1 : System.String) = (3060, sprintf "This type test or downcast will erase the provided type '%s' to the type '%s'" a0 a1)
     /// This downcast will erase the provided type '%s' to the type '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1206)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1207)
     static member tcTypeCastErased(a0 : System.String, a1 : System.String) = (3061, sprintf "This downcast will erase the provided type '%s' to the type '%s'." a0 a1)
     /// This type test with a provided type '%s' is not allowed because this provided type will be erased to '%s' at runtime.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1207)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1208)
     static member tcTypeTestErased(a0 : System.String, a1 : System.String) = (3062, sprintf "This type test with a provided type '%s' is not allowed because this provided type will be erased to '%s' at runtime." a0 a1)
     /// Cannot inherit from erased provided type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1208)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1209)
     static member tcCannotInheritFromErasedType() = (3063, sprintf "Cannot inherit from erased provided type" )
     /// Assembly '%s' hase TypeProviderAssembly attribute with invalid value '%s'. The value should be a valid assembly name
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1209)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1210)
     static member etInvalidTypeProviderAssemblyName(a0 : System.String, a1 : System.String) = (3065, sprintf "Assembly '%s' hase TypeProviderAssembly attribute with invalid value '%s'. The value should be a valid assembly name" a0 a1)
     /// Invalid member name. Members may not have name '.ctor' or '.cctor'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1210)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1211)
     static member tcInvalidMemberNameCtor() = (3066, sprintf "Invalid member name. Members may not have name '.ctor' or '.cctor'" )
     /// The function or member '%s' is used in a way that requires further type annotations at its definition to ensure consistency of inferred types. The inferred signature is '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1211)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1212)
     static member tcInferredGenericTypeGivesRiseToInconsistency(a0 : System.String, a1 : System.String) = (3068, sprintf "The function or member '%s' is used in a way that requires further type annotations at its definition to ensure consistency of inferred types. The inferred signature is '%s'." a0 a1)
     /// The number of type arguments did not match: '%d' given, '%d' expected. This may be related to a previously reported error.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1212)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1213)
     static member tcInvalidTypeArgumentCount(a0 : System.Int32, a1 : System.Int32) = (3069, sprintf "The number of type arguments did not match: '%d' given, '%d' expected. This may be related to a previously reported error." a0 a1)
     /// Cannot override inherited member '%s' because it is sealed
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1213)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1214)
     static member tcCannotOverrideSealedMethod(a0 : System.String) = (3070, sprintf "Cannot override inherited member '%s' because it is sealed" a0)
     /// The type provider '%s' reported an error in the context of provided type '%s', member '%s'. The error: %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1214)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1215)
     static member etProviderErrorWithContext(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3071, sprintf "The type provider '%s' reported an error in the context of provided type '%s', member '%s'. The error: %s" a0 a1 a2 a3)
     /// An exception occurred when accessing the '%s' of a provided type: %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1215)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1216)
     static member etProvidedTypeWithNameException(a0 : System.String, a1 : System.String) = (3072, sprintf "An exception occurred when accessing the '%s' of a provided type: %s" a0 a1)
     /// The '%s' of a provided type was null or empty.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1216)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1217)
     static member etProvidedTypeWithNullOrEmptyName(a0 : System.String) = (3073, sprintf "The '%s' of a provided type was null or empty." a0)
     /// Character '%s' is not allowed in provided type name '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1217)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1218)
     static member etIllegalCharactersInTypeName(a0 : System.String, a1 : System.String) = (3075, sprintf "Character '%s' is not allowed in provided type name '%s'" a0 a1)
     /// In queries, '%s' must use a simple pattern
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1218)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1219)
     static member tcJoinMustUseSimplePattern(a0 : System.String) = (3077, sprintf "In queries, '%s' must use a simple pattern" a0)
     /// A custom query operation for '%s' is required but not specified
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1219)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1220)
     static member tcMissingCustomOperation(a0 : System.String) = (3078, sprintf "A custom query operation for '%s' is required but not specified" a0)
     /// Named static arguments must come after all unnamed static arguments
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1220)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1221)
     static member etBadUnnamedStaticArgs() = (3080, sprintf "Named static arguments must come after all unnamed static arguments" )
     /// The static parameter '%s' of the provided type or method '%s' requires a value. Static parameters to type providers may be optionally specified using named arguments, e.g. '%s<%s=...>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1221)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1222)
     static member etStaticParameterRequiresAValue(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3081, sprintf "The static parameter '%s' of the provided type or method '%s' requires a value. Static parameters to type providers may be optionally specified using named arguments, e.g. '%s<%s=...>'." a0 a1 a2 a3)
     /// No static parameter exists with name '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1222)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1223)
     static member etNoStaticParameterWithName(a0 : System.String) = (3082, sprintf "No static parameter exists with name '%s'" a0)
     /// The static parameter '%s' has already been given a value
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1223)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1224)
     static member etStaticParameterAlreadyHasValue(a0 : System.String) = (3083, sprintf "The static parameter '%s' has already been given a value" a0)
     /// Multiple static parameters exist with name '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1224)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1225)
     static member etMultipleStaticParameterWithName(a0 : System.String) = (3084, sprintf "Multiple static parameters exist with name '%s'" a0)
     /// A custom operation may not be used in conjunction with a non-value or recursive 'let' binding in another part of this computation expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1225)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1226)
     static member tcCustomOperationMayNotBeUsedInConjunctionWithNonSimpleLetBindings() = (3085, sprintf "A custom operation may not be used in conjunction with a non-value or recursive 'let' binding in another part of this computation expression" )
     /// A custom operation may not be used in conjunction with 'use', 'try/with', 'try/finally', 'if/then/else' or 'match' operators within this computation expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1226)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1227)
     static member tcCustomOperationMayNotBeUsedHere() = (3086, sprintf "A custom operation may not be used in conjunction with 'use', 'try/with', 'try/finally', 'if/then/else' or 'match' operators within this computation expression" )
     /// The custom operation '%s' refers to a method which is overloaded. The implementations of custom operations may not be overloaded.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1227)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1228)
     static member tcCustomOperationMayNotBeOverloaded(a0 : System.String) = (3087, sprintf "The custom operation '%s' refers to a method which is overloaded. The implementations of custom operations may not be overloaded." a0)
     /// overloads for custom operations
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1228)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1229)
     static member featureOverloadsForCustomOperations() = (sprintf "overloads for custom operations" )
     /// An if/then/else expression may not be used within queries. Consider using either an if/then expression, or use a sequence expression instead.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1229)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1230)
     static member tcIfThenElseMayNotBeUsedWithinQueries() = (3090, sprintf "An if/then/else expression may not be used within queries. Consider using either an if/then expression, or use a sequence expression instead." )
     /// Invalid argument to 'methodhandleof' during codegen
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1230)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1231)
     static member ilxgenUnexpectedArgumentToMethodHandleOfDuringCodegen() = (3091, sprintf "Invalid argument to 'methodhandleof' during codegen" )
     /// A reference to a provided type was missing a value for the static parameter '%s'. You may need to recompile one or more referenced assemblies.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1231)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1232)
     static member etProvidedTypeReferenceMissingArgument(a0 : System.String) = (3092, sprintf "A reference to a provided type was missing a value for the static parameter '%s'. You may need to recompile one or more referenced assemblies." a0)
     /// A reference to a provided type had an invalid value '%s' for a static parameter. You may need to recompile one or more referenced assemblies.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1232)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1233)
     static member etProvidedTypeReferenceInvalidText(a0 : System.String) = (3093, sprintf "A reference to a provided type had an invalid value '%s' for a static parameter. You may need to recompile one or more referenced assemblies." a0)
     /// '%s' is not used correctly. This is a custom operation in this query or computation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1233)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1234)
     static member tcCustomOperationNotUsedCorrectly(a0 : System.String) = (3095, sprintf "'%s' is not used correctly. This is a custom operation in this query or computation expression." a0)
     /// '%s' is not used correctly. Usage: %s. This is a custom operation in this query or computation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1234)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1235)
     static member tcCustomOperationNotUsedCorrectly2(a0 : System.String, a1 : System.String) = (3095, sprintf "'%s' is not used correctly. Usage: %s. This is a custom operation in this query or computation expression." a0 a1)
     /// %s var in collection %s (outerKey = innerKey). Note that parentheses are required after '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1235)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1236)
     static member customOperationTextLikeJoin(a0 : System.String, a1 : System.String, a2 : System.String) = (sprintf "%s var in collection %s (outerKey = innerKey). Note that parentheses are required after '%s'" a0 a1 a2)
     /// %s var in collection %s (outerKey = innerKey) into group. Note that parentheses are required after '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1236)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1237)
     static member customOperationTextLikeGroupJoin(a0 : System.String, a1 : System.String, a2 : System.String) = (sprintf "%s var in collection %s (outerKey = innerKey) into group. Note that parentheses are required after '%s'" a0 a1 a2)
     /// %s var in collection
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1237)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1238)
     static member customOperationTextLikeZip(a0 : System.String) = (sprintf "%s var in collection" a0)
     /// '%s' must be followed by a variable name. Usage: %s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1238)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1239)
     static member tcBinaryOperatorRequiresVariable(a0 : System.String, a1 : System.String) = (3096, sprintf "'%s' must be followed by a variable name. Usage: %s." a0 a1)
     /// Incorrect syntax for '%s'. Usage: %s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1239)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1240)
     static member tcOperatorIncorrectSyntax(a0 : System.String, a1 : System.String) = (3097, sprintf "Incorrect syntax for '%s'. Usage: %s." a0 a1)
     /// '%s' must come after a 'for' selection clause and be followed by the rest of the query. Syntax: ... %s ...
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1240)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1241)
     static member tcBinaryOperatorRequiresBody(a0 : System.String, a1 : System.String) = (3098, sprintf "'%s' must come after a 'for' selection clause and be followed by the rest of the query. Syntax: ... %s ..." a0 a1)
     /// '%s' is used with an incorrect number of arguments. This is a custom operation in this query or computation expression. Expected %d argument(s), but given %d.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1241)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1242)
     static member tcCustomOperationHasIncorrectArgCount(a0 : System.String, a1 : System.Int32, a2 : System.Int32) = (3099, sprintf "'%s' is used with an incorrect number of arguments. This is a custom operation in this query or computation expression. Expected %d argument(s), but given %d." a0 a1 a2)
     /// Expected an expression after this point
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1242)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1243)
     static member parsExpectedExpressionAfterToken() = (3100, sprintf "Expected an expression after this point" )
     /// Expected a type after this point
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1243)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1244)
     static member parsExpectedTypeAfterToken() = (3101, sprintf "Expected a type after this point" )
     /// Unmatched '[<'. Expected closing '>]'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1244)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1245)
     static member parsUnmatchedLBrackLess() = (3102, sprintf "Unmatched '[<'. Expected closing '>]'" )
     /// Unexpected end of input in 'match' expression. Expected 'match <expr> with | <pat> -> <expr> | <pat> -> <expr> ...'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1245)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1246)
     static member parsUnexpectedEndOfFileMatch() = (3103, sprintf "Unexpected end of input in 'match' expression. Expected 'match <expr> with | <pat> -> <expr> | <pat> -> <expr> ...'." )
     /// Unexpected end of input in 'try' expression. Expected 'try <expr> with <rules>' or 'try <expr> finally <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1246)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1247)
     static member parsUnexpectedEndOfFileTry() = (3104, sprintf "Unexpected end of input in 'try' expression. Expected 'try <expr> with <rules>' or 'try <expr> finally <expr>'." )
     /// Unexpected end of input in 'while' expression. Expected 'while <expr> do <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1247)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1248)
     static member parsUnexpectedEndOfFileWhile() = (3105, sprintf "Unexpected end of input in 'while' expression. Expected 'while <expr> do <expr>'." )
     /// Unexpected end of input in 'for' expression. Expected 'for <pat> in <expr> do <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1248)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1249)
     static member parsUnexpectedEndOfFileFor() = (3106, sprintf "Unexpected end of input in 'for' expression. Expected 'for <pat> in <expr> do <expr>'." )
     /// Unexpected end of input in 'match' or 'try' expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1249)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1250)
     static member parsUnexpectedEndOfFileWith() = (3107, sprintf "Unexpected end of input in 'match' or 'try' expression" )
     /// Unexpected end of input in 'then' branch of conditional expression. Expected 'if <expr> then <expr>' or 'if <expr> then <expr> else <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1250)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1251)
     static member parsUnexpectedEndOfFileThen() = (3108, sprintf "Unexpected end of input in 'then' branch of conditional expression. Expected 'if <expr> then <expr>' or 'if <expr> then <expr> else <expr>'." )
     /// Unexpected end of input in 'else' branch of conditional expression. Expected 'if <expr> then <expr>' or 'if <expr> then <expr> else <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1251)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1252)
     static member parsUnexpectedEndOfFileElse() = (3109, sprintf "Unexpected end of input in 'else' branch of conditional expression. Expected 'if <expr> then <expr>' or 'if <expr> then <expr> else <expr>'." )
     /// Unexpected end of input in body of lambda expression. Expected 'fun <pat> ... <pat> -> <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1252)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1253)
     static member parsUnexpectedEndOfFileFunBody() = (3110, sprintf "Unexpected end of input in body of lambda expression. Expected 'fun <pat> ... <pat> -> <expr>'." )
     /// Unexpected end of input in type arguments
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1253)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1254)
     static member parsUnexpectedEndOfFileTypeArgs() = (3111, sprintf "Unexpected end of input in type arguments" )
     /// Unexpected end of input in type signature
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1254)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1255)
     static member parsUnexpectedEndOfFileTypeSignature() = (3112, sprintf "Unexpected end of input in type signature" )
     /// Unexpected end of input in type definition
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1255)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1256)
     static member parsUnexpectedEndOfFileTypeDefinition() = (3113, sprintf "Unexpected end of input in type definition" )
     /// Unexpected end of input in object members
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1256)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1257)
     static member parsUnexpectedEndOfFileObjectMembers() = (3114, sprintf "Unexpected end of input in object members" )
     /// Unexpected end of input in value, function or member definition
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1257)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1258)
     static member parsUnexpectedEndOfFileDefinition() = (3115, sprintf "Unexpected end of input in value, function or member definition" )
     /// Unexpected end of input in expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1258)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1259)
     static member parsUnexpectedEndOfFileExpression() = (3116, sprintf "Unexpected end of input in expression" )
     /// Unexpected end of type. Expected a name after this point.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1259)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1260)
     static member parsExpectedNameAfterToken() = (3117, sprintf "Unexpected end of type. Expected a name after this point." )
     /// Incomplete value or function definition. If this is in an expression, the body of the expression must be indented to the same column as the 'let' keyword.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1260)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1261)
     static member parsUnmatchedLet() = (3118, sprintf "Incomplete value or function definition. If this is in an expression, the body of the expression must be indented to the same column as the 'let' keyword." )
     /// Incomplete value definition. If this is in an expression, the body of the expression must be indented to the same column as the 'let!' keyword.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1261)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1262)
     static member parsUnmatchedLetBang() = (3119, sprintf "Incomplete value definition. If this is in an expression, the body of the expression must be indented to the same column as the 'let!' keyword." )
     /// Incomplete value definition. If this is in an expression, the body of the expression must be indented to the same column as the 'use!' keyword.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1262)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1263)
     static member parsUnmatchedUseBang() = (3120, sprintf "Incomplete value definition. If this is in an expression, the body of the expression must be indented to the same column as the 'use!' keyword." )
     /// Incomplete value definition. If this is in an expression, the body of the expression must be indented to the same column as the 'use' keyword.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1263)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1264)
     static member parsUnmatchedUse() = (3121, sprintf "Incomplete value definition. If this is in an expression, the body of the expression must be indented to the same column as the 'use' keyword." )
     /// Missing 'do' in 'while' expression. Expected 'while <expr> do <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1264)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1265)
     static member parsWhileDoExpected() = (3122, sprintf "Missing 'do' in 'while' expression. Expected 'while <expr> do <expr>'." )
     /// Missing 'do' in 'for' expression. Expected 'for <pat> in <expr> do <expr>'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1265)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1266)
     static member parsForDoExpected() = (3123, sprintf "Missing 'do' in 'for' expression. Expected 'for <pat> in <expr> do <expr>'." )
     /// Invalid join relation in '%s'. Expected 'expr <op> expr', where <op> is =, =?, ?= or ?=?.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1266)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1267)
     static member tcInvalidRelationInJoin(a0 : System.String) = (3125, sprintf "Invalid join relation in '%s'. Expected 'expr <op> expr', where <op> is =, =?, ?= or ?=?." a0)
     /// Calls
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1267)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1268)
     static member typeInfoCallsWord() = (sprintf "Calls" )
     /// Invalid number of generic arguments to type '%s' in provided type. Expected '%d' arguments, given '%d'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1268)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1269)
     static member impInvalidNumberOfGenericArguments(a0 : System.String, a1 : System.Int32, a2 : System.Int32) = (3126, sprintf "Invalid number of generic arguments to type '%s' in provided type. Expected '%d' arguments, given '%d'." a0 a1 a2)
     /// Invalid value '%s' for unit-of-measure parameter '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1269)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1270)
     static member impInvalidMeasureArgument1(a0 : System.String, a1 : System.String) = (3127, sprintf "Invalid value '%s' for unit-of-measure parameter '%s'" a0 a1)
     /// Invalid value unit-of-measure parameter '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1270)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1271)
     static member impInvalidMeasureArgument2(a0 : System.String) = (3127, sprintf "Invalid value unit-of-measure parameter '%s'" a0)
     /// Property '%s' on provided type '%s' is neither readable nor writable as it has CanRead=false and CanWrite=false
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1271)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1272)
     static member etPropertyNeedsCanWriteOrCanRead(a0 : System.String, a1 : System.String) = (3128, sprintf "Property '%s' on provided type '%s' is neither readable nor writable as it has CanRead=false and CanWrite=false" a0 a1)
     /// A use of 'into' must be followed by the remainder of the computation
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1272)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1273)
     static member tcIntoNeedsRestOfQuery() = (3129, sprintf "A use of 'into' must be followed by the remainder of the computation" )
     /// The operator '%s' does not accept the use of 'into'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1273)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1274)
     static member tcOperatorDoesntAcceptInto(a0 : System.String) = (3130, sprintf "The operator '%s' does not accept the use of 'into'" a0)
     /// The definition of the custom operator '%s' does not use a valid combination of attribute flags
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1274)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1275)
     static member tcCustomOperationInvalid(a0 : System.String) = (3131, sprintf "The definition of the custom operator '%s' does not use a valid combination of attribute flags" a0)
     /// This type definition may not have the 'CLIMutable' attribute. Only record types may have this attribute.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1275)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1276)
     static member tcThisTypeMayNotHaveACLIMutableAttribute() = (3132, sprintf "This type definition may not have the 'CLIMutable' attribute. Only record types may have this attribute." )
     /// 'member val' definitions are only permitted in types with a primary constructor. Consider adding arguments to your type definition, e.g. 'type X(args) = ...'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1276)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1277)
     static member tcAutoPropertyRequiresImplicitConstructionSequence() = (3133, sprintf "'member val' definitions are only permitted in types with a primary constructor. Consider adding arguments to your type definition, e.g. 'type X(args) = ...'." )
     /// Property definitions may not be declared mutable. To indicate that this property can be set, use 'member val PropertyName = expr with get,set'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1277)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1278)
     static member parsMutableOnAutoPropertyShouldBeGetSet() = (3134, sprintf "Property definitions may not be declared mutable. To indicate that this property can be set, use 'member val PropertyName = expr with get,set'." )
     /// To indicate that this property can be set, use 'member val PropertyName = expr with get,set'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1278)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1279)
     static member parsMutableOnAutoPropertyShouldBeGetSetNotJustSet() = (3135, sprintf "To indicate that this property can be set, use 'member val PropertyName = expr with get,set'." )
     /// Type '%s' is illegal because in byref<T>, T cannot contain byref types.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1279)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1280)
     static member chkNoByrefsOfByrefs(a0 : System.String) = (3136, sprintf "Type '%s' is illegal because in byref<T>, T cannot contain byref types." a0)
     /// F# supports array ranks between 1 and 32. The value %d is not allowed.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1280)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1281)
     static member tastopsMaxArrayThirtyTwo(a0 : System.Int32) = (3138, sprintf "F# supports array ranks between 1 and 32. The value %d is not allowed." a0)
     /// In queries, use the form 'for x in n .. m do ...' for ranging over integers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1281)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1282)
     static member tcNoIntegerForLoopInQuery() = (3139, sprintf "In queries, use the form 'for x in n .. m do ...' for ranging over integers" )
     /// 'while' expressions may not be used in queries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1282)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1283)
     static member tcNoWhileInQuery() = (3140, sprintf "'while' expressions may not be used in queries" )
     /// 'try/finally' expressions may not be used in queries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1283)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1284)
     static member tcNoTryFinallyInQuery() = (3141, sprintf "'try/finally' expressions may not be used in queries" )
     /// 'use' expressions may not be used in queries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1284)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1285)
     static member tcUseMayNotBeUsedInQueries() = (3142, sprintf "'use' expressions may not be used in queries" )
     /// 'let!', 'use!' and 'do!' expressions may not be used in queries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1285)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1286)
     static member tcBindMayNotBeUsedInQueries() = (3143, sprintf "'let!', 'use!' and 'do!' expressions may not be used in queries" )
     /// 'return' and 'return!' may not be used in queries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1286)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1287)
     static member tcReturnMayNotBeUsedInQueries() = (3144, sprintf "'return' and 'return!' may not be used in queries" )
     /// This is not a known query operator. Query operators are identifiers such as 'select', 'where', 'sortBy', 'thenBy', 'groupBy', 'groupValBy', 'join', 'groupJoin', 'sumBy' and 'averageBy', defined using corresponding methods on the 'QueryBuilder' type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1287)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1288)
     static member tcUnrecognizedQueryOperator() = (3145, sprintf "This is not a known query operator. Query operators are identifiers such as 'select', 'where', 'sortBy', 'thenBy', 'groupBy', 'groupValBy', 'join', 'groupJoin', 'sumBy' and 'averageBy', defined using corresponding methods on the 'QueryBuilder' type." )
     /// 'try/with' expressions may not be used in queries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1288)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1289)
     static member tcTryWithMayNotBeUsedInQueries() = (3146, sprintf "'try/with' expressions may not be used in queries" )
     /// This 'let' definition may not be used in a query. Only simple value definitions may be used in queries.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1289)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1290)
     static member tcNonSimpleLetBindingInQuery() = (3147, sprintf "This 'let' definition may not be used in a query. Only simple value definitions may be used in queries." )
     /// Too many static parameters. Expected at most %d parameters, but got %d unnamed and %d named parameters.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1290)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1291)
     static member etTooManyStaticParameters(a0 : System.Int32, a1 : System.Int32, a2 : System.Int32) = (3148, sprintf "Too many static parameters. Expected at most %d parameters, but got %d unnamed and %d named parameters." a0 a1 a2)
     /// Invalid provided literal value '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1291)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1292)
     static member infosInvalidProvidedLiteralValue(a0 : System.String) = (3149, sprintf "Invalid provided literal value '%s'" a0)
     /// The 'anycpu32bitpreferred' platform can only be used with EXE targets. You must use 'anycpu' instead.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1292)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1293)
     static member invalidPlatformTarget() = (3150, sprintf "The 'anycpu32bitpreferred' platform can only be used with EXE targets. You must use 'anycpu' instead." )
     /// This member, function or value declaration may not be declared 'inline'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1293)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1294)
     static member tcThisValueMayNotBeInlined() = (3151, sprintf "This member, function or value declaration may not be declared 'inline'" )
     /// The provider '%s' returned a non-generated type '%s' in the context of a set of generated types. Consider adjusting the type provider to only return generated types.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1294)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1295)
     static member etErasedTypeUsedInGeneration(a0 : System.String, a1 : System.String) = (3152, sprintf "The provider '%s' returned a non-generated type '%s' in the context of a set of generated types. Consider adjusting the type provider to only return generated types." a0 a1)
     /// Arguments to query operators may require parentheses, e.g. 'where (x > y)' or 'groupBy (x.Length / 10)'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1295)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1296)
     static member tcUnrecognizedQueryBinaryOperator() = (3153, sprintf "Arguments to query operators may require parentheses, e.g. 'where (x > y)' or 'groupBy (x.Length / 10)'" )
     /// A quotation may not involve an assignment to or taking the address of a captured local variable
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1296)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1297)
     static member crefNoSetOfHole() = (3155, sprintf "A quotation may not involve an assignment to or taking the address of a captured local variable" )
     /// + 1 overload
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1297)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1298)
     static member nicePrintOtherOverloads1() = (sprintf "+ 1 overload" )
     /// + %d overloads
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1298)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1299)
     static member nicePrintOtherOverloadsN(a0 : System.Int32) = (sprintf "+ %d overloads" a0)
     /// Erased to
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1299)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1300)
     static member erasedTo() = (sprintf "Erased to" )
     /// Unexpected token '%s' or incomplete expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1300)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1301)
     static member parsUnfinishedExpression(a0 : System.String) = (3156, sprintf "Unexpected token '%s' or incomplete expression" a0)
     /// Cannot find code target for this attribute, possibly because the code after the attribute is incomplete.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1301)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1302)
     static member parsAttributeOnIncompleteCode() = (3158, sprintf "Cannot find code target for this attribute, possibly because the code after the attribute is incomplete." )
     /// Type name cannot be empty.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1302)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1303)
     static member parsTypeNameCannotBeEmpty() = (3159, sprintf "Type name cannot be empty." )
     /// Problem reading assembly '%s': %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1303)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1304)
     static member buildProblemReadingAssembly(a0 : System.String, a1 : System.String) = (3160, sprintf "Problem reading assembly '%s': %s" a0 a1)
     /// Invalid provided field. Provided fields of erased provided types must be literals.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1304)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1305)
     static member tcTPFieldMustBeLiteral() = (3161, sprintf "Invalid provided field. Provided fields of erased provided types must be literals." )
     /// (loading description...)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1305)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1306)
     static member loadingDescription() = (sprintf "(loading description...)" )
     /// (description unavailable...)
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1306)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1307)
     static member descriptionUnavailable() = (sprintf "(description unavailable...)" )
     /// A type variable has been constrained by multiple different class types. A type variable may only have one class constraint.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1307)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1308)
     static member chkTyparMultipleClassConstraints() = (3162, sprintf "A type variable has been constrained by multiple different class types. A type variable may only have one class constraint." )
     /// 'match' expressions may not be used in queries
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1308)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1309)
     static member tcMatchMayNotBeUsedWithQuery() = (3163, sprintf "'match' expressions may not be used in queries" )
     /// Infix operator member '%s' has %d initial argument(s). Expected a tuple of 3 arguments
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1309)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1310)
     static member memberOperatorDefinitionWithNonTripleArgument(a0 : System.String, a1 : System.Int32) = (3164, sprintf "Infix operator member '%s' has %d initial argument(s). Expected a tuple of 3 arguments" a0 a1)
     /// The operator '%s' cannot be resolved. Consider opening the module 'Microsoft.FSharp.Linq.NullableOperators'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1310)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1311)
     static member cannotResolveNullableOperators(a0 : System.String) = (3165, sprintf "The operator '%s' cannot be resolved. Consider opening the module 'Microsoft.FSharp.Linq.NullableOperators'." a0)
     /// '%s' must be followed by 'in'. Usage: %s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1311)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1312)
     static member tcOperatorRequiresIn(a0 : System.String, a1 : System.String) = (3167, sprintf "'%s' must be followed by 'in'. Usage: %s." a0 a1)
     /// Neither 'member val' nor 'override val' definitions are permitted in object expressions.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1312)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1313)
     static member parsIllegalMemberVarInObjectImplementation() = (3168, sprintf "Neither 'member val' nor 'override val' definitions are permitted in object expressions." )
     /// Copy-and-update record expressions must include at least one field.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1313)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1314)
     static member tcEmptyCopyAndUpdateRecordInvalid() = (3169, sprintf "Copy-and-update record expressions must include at least one field." )
     /// '_' cannot be used as field name
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1314)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1315)
     static member parsUnderscoreInvalidFieldName() = (3170, sprintf "'_' cannot be used as field name" )
     /// The provided types generated by this use of a type provider may not be used from other F# assemblies and should be marked internal or private. Consider using 'type internal TypeName = ...' or 'type private TypeName = ...'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1315)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1316)
     static member tcGeneratedTypesShouldBeInternalOrPrivate() = (3171, sprintf "The provided types generated by this use of a type provider may not be used from other F# assemblies and should be marked internal or private. Consider using 'type internal TypeName = ...' or 'type private TypeName = ...'." )
     /// A property's getter and setter must have the same type. Property '%s' has getter of type '%s' but setter of type '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1316)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1317)
     static member chkGetterAndSetterHaveSamePropertyType(a0 : System.String, a1 : System.String, a2 : System.String) = (3172, sprintf "A property's getter and setter must have the same type. Property '%s' has getter of type '%s' but setter of type '%s'." a0 a1 a2)
     /// Array method '%s' is supplied by the runtime and cannot be directly used in code. For operations with array elements consider using family of GetArray/SetArray functions from LanguagePrimitives.IntrinsicFunctions module.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1317)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1318)
     static member tcRuntimeSuppliedMethodCannotBeUsedInUserCode(a0 : System.String) = (3173, sprintf "Array method '%s' is supplied by the runtime and cannot be directly used in code. For operations with array elements consider using family of GetArray/SetArray functions from LanguagePrimitives.IntrinsicFunctions module." a0)
     /// The union case '%s' does not have a field named '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1318)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1319)
     static member tcUnionCaseConstructorDoesNotHaveFieldWithGivenName(a0 : System.String, a1 : System.String) = (3174, sprintf "The union case '%s' does not have a field named '%s'." a0 a1)
     /// The exception '%s' does not have a field named '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1319)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1320)
     static member tcExceptionConstructorDoesNotHaveFieldWithGivenName(a0 : System.String, a1 : System.String) = (3174, sprintf "The exception '%s' does not have a field named '%s'." a0 a1)
     /// Active patterns do not have fields. This syntax is invalid.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1320)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1321)
     static member tcActivePatternsDoNotHaveFields() = (3174, sprintf "Active patterns do not have fields. This syntax is invalid." )
     /// The constructor does not have a field named '%s'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1321)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1322)
     static member tcConstructorDoesNotHaveFieldWithGivenName(a0 : System.String) = (3174, sprintf "The constructor does not have a field named '%s'." a0)
     /// Union case/exception field '%s' cannot be used more than once.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1322)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1323)
     static member tcUnionCaseFieldCannotBeUsedMoreThanOnce(a0 : System.String) = (3175, sprintf "Union case/exception field '%s' cannot be used more than once." a0)
     /// Named field '%s' is used more than once.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1323)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1324)
     static member tcFieldNameIsUsedModeThanOnce(a0 : System.String) = (3176, sprintf "Named field '%s' is used more than once." a0)
     /// Named field '%s' conflicts with autogenerated name for anonymous field.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1324)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1325)
     static member tcFieldNameConflictsWithGeneratedNameForAnonymousField(a0 : System.String) = (3176, sprintf "Named field '%s' conflicts with autogenerated name for anonymous field." a0)
     /// This literal expression or attribute argument results in an arithmetic overflow.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1325)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1326)
     static member tastConstantExpressionOverflow() = (3177, sprintf "This literal expression or attribute argument results in an arithmetic overflow." )
     /// This is not valid literal expression. The [<Literal>] attribute will be ignored.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1326)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1327)
     static member tcIllegalStructTypeForConstantExpression() = (3178, sprintf "This is not valid literal expression. The [<Literal>] attribute will be ignored." )
     /// System.Runtime.InteropServices assembly is required to use UnknownWrapper\DispatchWrapper classes.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1327)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1328)
     static member fscSystemRuntimeInteropServicesIsRequired() = (3179, sprintf "System.Runtime.InteropServices assembly is required to use UnknownWrapper\DispatchWrapper classes." )
     /// The mutable local '%s' is implicitly allocated as a reference cell because it has been captured by a closure. This warning is for informational purposes only to indicate where implicit allocations are performed.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1328)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1329)
     static member abImplicitHeapAllocation(a0 : System.String) = (3180, sprintf "The mutable local '%s' is implicitly allocated as a reference cell because it has been captured by a closure. This warning is for informational purposes only to indicate where implicit allocations are performed." a0)
     /// A type provider implemented GetStaticParametersForMethod, but ApplyStaticArgumentsForMethod was not implemented or invalid
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1329)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1330)
     static member estApplyStaticArgumentsForMethodNotImplemented() = (sprintf "A type provider implemented GetStaticParametersForMethod, but ApplyStaticArgumentsForMethod was not implemented or invalid" )
     /// An error occured applying the static arguments to a provided method
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1330)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1331)
     static member etErrorApplyingStaticArgumentsToMethod() = (3181, sprintf "An error occured applying the static arguments to a provided method" )
     /// Unexpected character '%s' in preprocessor expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1331)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1332)
     static member pplexUnexpectedChar(a0 : System.String) = (3182, sprintf "Unexpected character '%s' in preprocessor expression" a0)
     /// Unexpected token '%s' in preprocessor expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1332)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1333)
     static member ppparsUnexpectedToken(a0 : System.String) = (3183, sprintf "Unexpected token '%s' in preprocessor expression" a0)
     /// Incomplete preprocessor expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1333)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1334)
     static member ppparsIncompleteExpression() = (3184, sprintf "Incomplete preprocessor expression" )
     /// Missing token '%s' in preprocessor expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1334)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1335)
     static member ppparsMissingToken(a0 : System.String) = (3185, sprintf "Missing token '%s' in preprocessor expression" a0)
     /// An error occurred while reading the F# metadata node at position %d in table '%s' of assembly '%s'. The node had no matching declaration. Please report this warning. You may need to recompile the F# assembly you are using.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1335)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1336)
     static member pickleMissingDefinition(a0 : System.Int32, a1 : System.String, a2 : System.String) = (3186, sprintf "An error occurred while reading the F# metadata node at position %d in table '%s' of assembly '%s'. The node had no matching declaration. Please report this warning. You may need to recompile the F# assembly you are using." a0 a1 a2)
     /// Type inference caused the type variable %s to escape its scope. Consider adding an explicit type parameter declaration or adjusting your code to be less generic.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1336)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1337)
     static member checkNotSufficientlyGenericBecauseOfScope(a0 : System.String) = (3187, sprintf "Type inference caused the type variable %s to escape its scope. Consider adding an explicit type parameter declaration or adjusting your code to be less generic." a0)
     /// Type inference caused an inference type variable to escape its scope. Consider adding type annotations to make your code less generic.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1337)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1338)
     static member checkNotSufficientlyGenericBecauseOfScopeAnon() = (3188, sprintf "Type inference caused an inference type variable to escape its scope. Consider adding type annotations to make your code less generic." )
     /// Redundant arguments are being ignored in function '%s'. Expected %d but got %d arguments.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1338)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1339)
     static member checkRaiseFamilyFunctionArgumentCount(a0 : System.String, a1 : System.Int32, a2 : System.Int32) = (3189, sprintf "Redundant arguments are being ignored in function '%s'. Expected %d but got %d arguments." a0 a1 a2)
     /// Lowercase literal '%s' is being shadowed by a new pattern with the same name. Only uppercase and module-prefixed literals can be used as named patterns.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1339)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1340)
     static member checkLowercaseLiteralBindingInPattern(a0 : System.String) = (3190, sprintf "Lowercase literal '%s' is being shadowed by a new pattern with the same name. Only uppercase and module-prefixed literals can be used as named patterns." a0)
     /// This literal pattern does not take arguments
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1340)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1341)
     static member tcLiteralDoesNotTakeArguments() = (3191, sprintf "This literal pattern does not take arguments" )
     /// Constructors are not permitted as extension members - they must be defined as part of the original definition of the type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1341)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1342)
     static member tcConstructorsIllegalInAugmentation() = (3192, sprintf "Constructors are not permitted as extension members - they must be defined as part of the original definition of the type" )
     /// Invalid response file '%s' ( '%s' )
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1342)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1343)
     static member optsInvalidResponseFile(a0 : System.String, a1 : System.String) = (3193, sprintf "Invalid response file '%s' ( '%s' )" a0 a1)
     /// Response file '%s' not found in '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1343)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1344)
     static member optsResponseFileNotFound(a0 : System.String, a1 : System.String) = (3194, sprintf "Response file '%s' not found in '%s'" a0 a1)
     /// Response file name '%s' is empty, contains invalid characters, has a drive specification without an absolute path, or is too long
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1344)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1345)
     static member optsResponseFileNameInvalid(a0 : System.String) = (3195, sprintf "Response file name '%s' is empty, contains invalid characters, has a drive specification without an absolute path, or is too long" a0)
     /// Cannot find FSharp.Core.dll in compiler's directory
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1345)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1346)
     static member fsharpCoreNotFoundToBeCopied() = (3196, sprintf "Cannot find FSharp.Core.dll in compiler's directory" )
     /// One tuple type is a struct tuple, the other is a reference tuple
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1346)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1347)
     static member tcTupleStructMismatch() = (sprintf "One tuple type is a struct tuple, the other is a reference tuple" )
     /// This provided method requires static parameters
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1347)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1348)
     static member etMissingStaticArgumentsToMethod() = (3197, sprintf "This provided method requires static parameters" )
     /// The conversion from %s to %s is a compile-time safe upcast, not a downcast. Consider using 'upcast' instead of 'downcast'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1348)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1349)
     static member considerUpcast(a0 : System.String, a1 : System.String) = (3198, sprintf "The conversion from %s to %s is a compile-time safe upcast, not a downcast. Consider using 'upcast' instead of 'downcast'." a0 a1)
     /// The conversion from %s to %s is a compile-time safe upcast, not a downcast. Consider using the :> (upcast) operator instead of the :?> (downcast) operator.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1349)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1350)
     static member considerUpcastOperator(a0 : System.String, a1 : System.String) = (3198, sprintf "The conversion from %s to %s is a compile-time safe upcast, not a downcast. Consider using the :> (upcast) operator instead of the :?> (downcast) operator." a0 a1)
     /// The 'rec' on this module is implied by an outer 'rec' declaration and is being ignored
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1350)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1351)
     static member tcRecImplied() = (3199, sprintf "The 'rec' on this module is implied by an outer 'rec' declaration and is being ignored" )
     /// In a recursive declaration group, 'open' declarations must come first in each module
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1351)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1352)
     static member tcOpenFirstInMutRec() = (3200, sprintf "In a recursive declaration group, 'open' declarations must come first in each module" )
     /// In a recursive declaration group, module abbreviations must come after all 'open' declarations and before other declarations
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1352)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1353)
     static member tcModuleAbbrevFirstInMutRec() = (3201, sprintf "In a recursive declaration group, module abbreviations must come after all 'open' declarations and before other declarations" )
     /// This declaration is not supported in recursive declaration groups
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1353)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1354)
     static member tcUnsupportedMutRecDecl() = (3202, sprintf "This declaration is not supported in recursive declaration groups" )
     /// Invalid use of 'rec' keyword
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1354)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1355)
     static member parsInvalidUseOfRec() = (3203, sprintf "Invalid use of 'rec' keyword" )
     /// If a union type has more than one case and is a struct, then all fields within the union type must be given unique names.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1355)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1356)
     static member tcStructUnionMultiCaseDistinctFields() = (3204, sprintf "If a union type has more than one case and is a struct, then all fields within the union type must be given unique names." )
     /// The CallerMemberNameAttribute applied to parameter '%s' will have no effect. It is overridden by the CallerFilePathAttribute.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1356)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1357)
     static member CallerMemberNameIsOverriden(a0 : System.String) = (3206, sprintf "The CallerMemberNameAttribute applied to parameter '%s' will have no effect. It is overridden by the CallerFilePathAttribute." a0)
     /// Invalid use of 'fixed'. 'fixed' may only be used in a declaration of the form 'use x = fixed expr' where the expression is an array, the address of a field, the address of an array element or a string'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1357)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1358)
     static member tcFixedNotAllowed() = (3207, sprintf "Invalid use of 'fixed'. 'fixed' may only be used in a declaration of the form 'use x = fixed expr' where the expression is an array, the address of a field, the address of an array element or a string'" )
     /// Could not find method System.Runtime.CompilerServices.OffsetToStringData in references when building 'fixed' expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1358)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1359)
     static member tcCouldNotFindOffsetToStringData() = (3208, sprintf "Could not find method System.Runtime.CompilerServices.OffsetToStringData in references when building 'fixed' expression." )
     /// The address of the variable '%s' or a related expression cannot be used at this point. This is to ensure the address of the local value does not escape its scope.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1359)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1360)
     static member chkNoByrefAddressOfLocal(a0 : System.String) = (3209, sprintf "The address of the variable '%s' or a related expression cannot be used at this point. This is to ensure the address of the local value does not escape its scope." a0)
     /// %s is an active pattern and cannot be treated as a discriminated union case with named fields.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1360)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1361)
     static member tcNamedActivePattern(a0 : System.String) = (3210, sprintf "%s is an active pattern and cannot be treated as a discriminated union case with named fields." a0)
     /// The default value does not have the same type as the argument. The DefaultParameterValue attribute and any Optional attribute will be ignored. Note: 'null' needs to be annotated with the correct type, e.g. 'DefaultParameterValue(null:obj)'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1361)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1362)
     static member DefaultParameterValueNotAppropriateForArgument() = (3211, sprintf "The default value does not have the same type as the argument. The DefaultParameterValue attribute and any Optional attribute will be ignored. Note: 'null' needs to be annotated with the correct type, e.g. 'DefaultParameterValue(null:obj)'." )
     /// The system type '%s' was required but no referenced system DLL contained this type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1362)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1363)
     static member tcGlobalsSystemTypeNotFound(a0 : System.String) = (sprintf "The system type '%s' was required but no referenced system DLL contained this type" a0)
     /// The member '%s' matches multiple overloads of the same method.\nPlease restrict it to one of the following:%s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1363)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1364)
     static member typrelMemberHasMultiplePossibleDispatchSlots(a0 : System.String, a1 : System.String) = (3213, sprintf "The member '%s' matches multiple overloads of the same method.\nPlease restrict it to one of the following:%s." a0 a1)
     /// Method or object constructor '%s' is not static
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1364)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1365)
     static member methodIsNotStatic(a0 : System.String) = (3214, sprintf "Method or object constructor '%s' is not static" a0)
     /// Unexpected symbol '=' in expression. Did you intend to use 'for x in y .. z do' instead?
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1365)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1366)
     static member parsUnexpectedSymbolEqualsInsteadOfIn() = (3215, sprintf "Unexpected symbol '=' in expression. Did you intend to use 'for x in y .. z do' instead?" )
     /// Package manager key '%s' was not registered in %s. Currently registered: %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1366)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1367)
     static member packageManagerUnknown(a0 : System.String, a1 : System.String, a2 : System.String) = (3216, sprintf "Package manager key '%s' was not registered in %s. Currently registered: %s" a0 a1 a2)
     /// %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1367)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1368)
     static member packageManagerError(a0 : System.String) = (3217, sprintf "%s" a0)
     /// Invalid Anonymous Record type declaration.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1368)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1369)
     static member tcAnonRecdInvalid() = (sprintf "Invalid Anonymous Record type declaration." )
     /// Two anonymous record types are from different assemblies '%s' and '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1369)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1370)
     static member tcAnonRecdCcuMismatch(a0 : System.String, a1 : System.String) = (sprintf "Two anonymous record types are from different assemblies '%s' and '%s'" a0 a1)
     /// This anonymous record does not exactly match the expected shape. Add the missing fields %s and remove the extra fields %s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1370)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1371)
     static member tcAnonRecdFieldNameMismatch(a0 : System.String, a1 : System.String) = (sprintf "This anonymous record does not exactly match the expected shape. Add the missing fields %s and remove the extra fields %s." a0 a1)
     /// This anonymous record does not have enough fields. Add the missing fields %s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1371)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1372)
     static member tcAnonRecdFieldNameSubset(a0 : System.String) = (sprintf "This anonymous record does not have enough fields. Add the missing fields %s." a0)
     /// This anonymous record has too many fields. Remove the extra fields %s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1372)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1373)
     static member tcAnonRecdFieldNameSuperset(a0 : System.String) = (sprintf "This anonymous record has too many fields. Remove the extra fields %s." a0)
     /// This is the wrong anonymous record. It should have the fields %s.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1373)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1374)
     static member tcAnonRecdFieldNameDifferent(a0 : System.String) = (sprintf "This is the wrong anonymous record. It should have the fields %s." a0)
     /// Indicates a method that either has no implementation in the type in which it is declared or that is virtual and has a default implementation.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1374)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1375)
     static member keywordDescriptionAbstract() = (sprintf "Indicates a method that either has no implementation in the type in which it is declared or that is virtual and has a default implementation." )
     /// Used in mutually recursive bindings, in property declarations, and with multiple constraints on generic parameters.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1375)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1376)
     static member keyworkDescriptionAnd() = (sprintf "Used in mutually recursive bindings, in property declarations, and with multiple constraints on generic parameters." )
     /// Used to give the current class object an object name. Also used to give a name to a whole pattern within a pattern match.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1376)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1377)
     static member keywordDescriptionAs() = (sprintf "Used to give the current class object an object name. Also used to give a name to a whole pattern within a pattern match." )
     /// Used to verify code during debugging.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1377)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1378)
     static member keywordDescriptionAssert() = (sprintf "Used to verify code during debugging." )
     /// Used as the name of the base class object.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1378)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1379)
     static member keywordDescriptionBase() = (sprintf "Used as the name of the base class object." )
     /// In verbose syntax, indicates the start of a code block.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1379)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1380)
     static member keywordDescriptionBegin() = (sprintf "In verbose syntax, indicates the start of a code block." )
     /// In verbose syntax, indicates the start of a class definition.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1380)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1381)
     static member keywordDescriptionClass() = (sprintf "In verbose syntax, indicates the start of a class definition." )
     /// Keyword to specify a constant literal as a type parameter argument in Type Providers.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1381)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1382)
     static member keywordDescriptionConst() = (sprintf "Keyword to specify a constant literal as a type parameter argument in Type Providers." )
     /// Indicates an implementation of an abstract method; used together with an abstract method declaration to create a virtual method.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1382)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1383)
     static member keywordDescriptionDefault() = (sprintf "Indicates an implementation of an abstract method; used together with an abstract method declaration to create a virtual method." )
     /// Used to declare a delegate.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1383)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1384)
     static member keywordDescriptionDelegate() = (sprintf "Used to declare a delegate." )
     /// Used in looping constructs or to execute imperative code.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1384)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1385)
     static member keywordDescriptionDo() = (sprintf "Used in looping constructs or to execute imperative code." )
     /// In verbose syntax, indicates the end of a block of code in a looping expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1385)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1386)
     static member keywordDescriptionDone() = (sprintf "In verbose syntax, indicates the end of a block of code in a looping expression." )
     /// Used to convert to a type that is lower in the inheritance chain.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1386)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1387)
     static member keywordDescriptionDowncast() = (sprintf "Used to convert to a type that is lower in the inheritance chain." )
     /// In a for expression, used when counting in reverse.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1387)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1388)
     static member keywordDescriptionDownto() = (sprintf "In a for expression, used when counting in reverse." )
     /// Used in conditional branching. A short form of else if.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1388)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1389)
     static member keywordDescriptionElif() = (sprintf "Used in conditional branching. A short form of else if." )
     /// Used in conditional branching.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1389)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1390)
     static member keywordDescriptionElse() = (sprintf "Used in conditional branching." )
     /// In type definitions and type extensions, indicates the end of a section of member definitions. In verbose syntax, used to specify the end of a code block that starts with the begin keyword.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1390)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1391)
     static member keywordDescriptionEnd() = (sprintf "In type definitions and type extensions, indicates the end of a section of member definitions. In verbose syntax, used to specify the end of a code block that starts with the begin keyword." )
     /// Used to declare an exception type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1391)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1392)
     static member keywordDescriptionException() = (sprintf "Used to declare an exception type." )
     /// Indicates that a declared program element is defined in another binary or assembly.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1392)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1393)
     static member keywordDescriptionExtern() = (sprintf "Indicates that a declared program element is defined in another binary or assembly." )
     /// Used as a Boolean literal.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1393)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1394)
     static member keywordDescriptionTrueFalse() = (sprintf "Used as a Boolean literal." )
     /// Used together with try to introduce a block of code that executes regardless of whether an exception occurs.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1394)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1395)
     static member keywordDescriptionFinally() = (sprintf "Used together with try to introduce a block of code that executes regardless of whether an exception occurs." )
     /// Used in looping constructs.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1395)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1396)
     static member keywordDescriptionFor() = (sprintf "Used in looping constructs." )
     /// Used in lambda expressions, also known as anonymous functions.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1396)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1397)
     static member keywordDescriptionFun() = (sprintf "Used in lambda expressions, also known as anonymous functions." )
     /// Used as a shorter alternative to the fun keyword and a match expression in a lambda expression that has pattern matching on a single argument.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1397)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1398)
     static member keywordDescriptionFunction() = (sprintf "Used as a shorter alternative to the fun keyword and a match expression in a lambda expression that has pattern matching on a single argument." )
     /// Used to reference the top-level .NET namespace.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1398)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1399)
     static member keywordDescriptionGlobal() = (sprintf "Used to reference the top-level .NET namespace." )
     /// Used in conditional branching constructs.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1399)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1400)
     static member keywordDescriptionIf() = (sprintf "Used in conditional branching constructs." )
     /// Used for sequence expressions and, in verbose syntax, to separate expressions from bindings.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1400)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1401)
     static member keywordDescriptionIn() = (sprintf "Used for sequence expressions and, in verbose syntax, to separate expressions from bindings." )
     /// Used to specify a base class or base interface.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1401)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1402)
     static member keywordDescriptionInherit() = (sprintf "Used to specify a base class or base interface." )
     /// Used to indicate a function that should be integrated directly into the caller's code.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1402)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1403)
     static member keywordDescriptionInline() = (sprintf "Used to indicate a function that should be integrated directly into the caller's code." )
     /// Used to declare and implement interfaces.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1403)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1404)
     static member keywordDescriptionInterface() = (sprintf "Used to declare and implement interfaces." )
     /// Used to specify that a member is visible inside an assembly but not outside it.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1404)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1405)
     static member keywordDescriptionInternal() = (sprintf "Used to specify that a member is visible inside an assembly but not outside it." )
     /// Used to specify a computation that is to be performed only when a result is needed.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1405)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1406)
     static member keywordDescriptionLazy() = (sprintf "Used to specify a computation that is to be performed only when a result is needed." )
     /// Used to associate, or bind, a name to a value or function.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1406)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1407)
     static member keywordDescriptionLet() = (sprintf "Used to associate, or bind, a name to a value or function." )
     /// Used in computation expressions to bind a name to the result of another computation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1407)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1408)
     static member keywordDescriptionLetBang() = (sprintf "Used in computation expressions to bind a name to the result of another computation expression." )
     /// Used to branch by comparing a value to a pattern.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1408)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1409)
     static member keywordDescriptionMatch() = (sprintf "Used to branch by comparing a value to a pattern." )
     /// Used in computation expressions to pattern match directly over the result of another computation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1409)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1410)
     static member keywordDescriptionMatchBang() = (sprintf "Used in computation expressions to pattern match directly over the result of another computation expression." )
     /// Used to declare a property or method in an object type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1410)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1411)
     static member keywordDescriptionMember() = (sprintf "Used to declare a property or method in an object type." )
     /// Used to associate a name with a group of related types, values, and functions, to logically separate it from other code.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1411)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1412)
     static member keywordDescriptionModule() = (sprintf "Used to associate a name with a group of related types, values, and functions, to logically separate it from other code." )
     /// Used to declare a variable, that is, a value that can be changed.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1412)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1413)
     static member keywordDescriptionMutable() = (sprintf "Used to declare a variable, that is, a value that can be changed." )
     /// Used to associate a name with a group of related types and modules, to logically separate it from other code.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1413)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1414)
     static member keywordDescriptionNamespace() = (sprintf "Used to associate a name with a group of related types and modules, to logically separate it from other code." )
     /// Used to declare, define, or invoke a constructor that creates or that can create an object. Also used in generic parameter constraints to indicate that a type must have a certain constructor.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1414)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1415)
     static member keywordDescriptionNew() = (sprintf "Used to declare, define, or invoke a constructor that creates or that can create an object. Also used in generic parameter constraints to indicate that a type must have a certain constructor." )
     /// Not actually a keyword. However, not struct in combination is used as a generic parameter constraint.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1415)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1416)
     static member keywordDescriptionNot() = (sprintf "Not actually a keyword. However, not struct in combination is used as a generic parameter constraint." )
     /// Indicates the absence of an object. Also used in generic parameter constraints.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1416)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1417)
     static member keywordDescriptionNull() = (sprintf "Indicates the absence of an object. Also used in generic parameter constraints." )
     /// Used in discriminated unions to indicate the type of categories of values, and in delegate and exception declarations.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1417)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1418)
     static member keywordDescriptionOf() = (sprintf "Used in discriminated unions to indicate the type of categories of values, and in delegate and exception declarations." )
     /// Used to make the contents of a namespace or module available without qualification.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1418)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1419)
     static member keywordDescriptionOpen() = (sprintf "Used to make the contents of a namespace or module available without qualification." )
     /// Used with Boolean conditions as a Boolean or operator. Equivalent to ||. Also used in member constraints.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1419)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1420)
     static member keywordDescriptionOr() = (sprintf "Used with Boolean conditions as a Boolean or operator. Equivalent to ||. Also used in member constraints." )
     /// Used to implement a version of an abstract or virtual method that differs from the base version.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1420)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1421)
     static member keywordDescriptionOverride() = (sprintf "Used to implement a version of an abstract or virtual method that differs from the base version." )
     /// Restricts access to a member to code in the same type or module.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1421)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1422)
     static member keywordDescriptionPrivate() = (sprintf "Restricts access to a member to code in the same type or module." )
     /// Allows access to a member from outside the type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1422)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1423)
     static member keywordDescriptionPublic() = (sprintf "Allows access to a member from outside the type." )
     /// Used to indicate that a function is recursive.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1423)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1424)
     static member keywordDescriptionRec() = (sprintf "Used to indicate that a function is recursive." )
     /// Used to provide a value for the result of the containing computation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1424)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1425)
     static member keywordDescriptionReturn() = (sprintf "Used to provide a value for the result of the containing computation expression." )
     /// Used to provide a value for the result of the containing computation expression, where that value itself comes from the result another computation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1425)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1426)
     static member keywordDescriptionReturnBang() = (sprintf "Used to provide a value for the result of the containing computation expression, where that value itself comes from the result another computation expression." )
     /// Used in query expressions to specify what fields or columns to extract. Note that this is a contextual keyword, which means that it is not actually a reserved word and it only acts like a keyword in appropriate context.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1426)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1427)
     static member keywordDescriptionSelect() = (sprintf "Used in query expressions to specify what fields or columns to extract. Note that this is a contextual keyword, which means that it is not actually a reserved word and it only acts like a keyword in appropriate context." )
     /// Used to indicate a method or property that can be called without an instance of a type, or a value member that is shared among all instances of a type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1427)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1428)
     static member keywordDescriptionStatic() = (sprintf "Used to indicate a method or property that can be called without an instance of a type, or a value member that is shared among all instances of a type." )
     /// Used to declare a structure type. Also used in generic parameter constraints. Used for OCaml compatibility in module definitions.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1428)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1429)
     static member keywordDescriptionStruct() = (sprintf "Used to declare a structure type. Also used in generic parameter constraints. Used for OCaml compatibility in module definitions." )
     /// Used in conditional expressions. Also used to perform side effects after object construction.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1429)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1430)
     static member keywordDescriptionThen() = (sprintf "Used in conditional expressions. Also used to perform side effects after object construction." )
     /// Used in for loops to indicate a range.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1430)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1431)
     static member keywordDescriptionTo() = (sprintf "Used in for loops to indicate a range." )
     /// Used to introduce a block of code that might generate an exception. Used together with with or finally.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1431)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1432)
     static member keywordDescriptionTry() = (sprintf "Used to introduce a block of code that might generate an exception. Used together with with or finally." )
     /// Used to declare a class, record, structure, discriminated union, enumeration type, unit of measure, or type abbreviation.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1432)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1433)
     static member keywordDescriptionType() = (sprintf "Used to declare a class, record, structure, discriminated union, enumeration type, unit of measure, or type abbreviation." )
     /// Used to convert to a type that is higher in the inheritance chain.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1433)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1434)
     static member keywordDescriptionUpcast() = (sprintf "Used to convert to a type that is higher in the inheritance chain." )
     /// Used instead of let for values that implement IDisposable
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1434)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1435)
     static member keywordDescriptionUse() = (sprintf "Used instead of let for values that implement IDisposable" )
     /// Used instead of let! in computation expressions for computation expression results that implement IDisposable.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1435)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1436)
     static member keywordDescriptionUseBang() = (sprintf "Used instead of let! in computation expressions for computation expression results that implement IDisposable." )
     /// Used in a signature to indicate a value, or in a type to declare a member, in limited situations.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1436)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1437)
     static member keywordDescriptionVal() = (sprintf "Used in a signature to indicate a value, or in a type to declare a member, in limited situations." )
     /// Indicates the .NET void type. Used when interoperating with other .NET languages.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1437)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1438)
     static member keywordDescriptionVoid() = (sprintf "Indicates the .NET void type. Used when interoperating with other .NET languages." )
     /// Used for Boolean conditions (when guards) on pattern matches and to introduce a constraint clause for a generic type parameter.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1438)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1439)
     static member keywordDescriptionWhen() = (sprintf "Used for Boolean conditions (when guards) on pattern matches and to introduce a constraint clause for a generic type parameter." )
     /// Introduces a looping construct.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1439)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1440)
     static member keywordDescriptionWhile() = (sprintf "Introduces a looping construct." )
     /// Used together with the match keyword in pattern matching expressions. Also used in object expressions, record copying expressions, and type extensions to introduce member definitions, and to introduce exception handlers.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1440)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1441)
     static member keywordDescriptionWith() = (sprintf "Used together with the match keyword in pattern matching expressions. Also used in object expressions, record copying expressions, and type extensions to introduce member definitions, and to introduce exception handlers." )
     /// Used in a sequence expression to produce a value for a sequence.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1441)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1442)
     static member keywordDescriptionYield() = (sprintf "Used in a sequence expression to produce a value for a sequence." )
     /// Used in a computation expression to append the result of a given computation expression to a collection of results for the containing computation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1442)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1443)
     static member keywordDescriptionYieldBang() = (sprintf "Used in a computation expression to append the result of a given computation expression to a collection of results for the containing computation expression." )
     /// In function types, delimits arguments and return values. Yields an expression (in sequence expressions); equivalent to the yield keyword. Used in match expressions
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1443)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1444)
     static member keywordDescriptionRightArrow() = (sprintf "In function types, delimits arguments and return values. Yields an expression (in sequence expressions); equivalent to the yield keyword. Used in match expressions" )
     /// Assigns a value to a variable.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1444)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1445)
     static member keywordDescriptionLeftArrow() = (sprintf "Assigns a value to a variable." )
     /// Converts a type to type that is higher in the hierarchy.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1445)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1446)
     static member keywordDescriptionCast() = (sprintf "Converts a type to type that is higher in the hierarchy." )
     /// Converts a type to a type that is lower in the hierarchy.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1446)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1447)
     static member keywordDescriptionDynamicCast() = (sprintf "Converts a type to a type that is lower in the hierarchy." )
     /// Delimits a typed code quotation.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1447)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1448)
     static member keywordDescriptionTypedQuotation() = (sprintf "Delimits a typed code quotation." )
     /// Delimits a untyped code quotation.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1448)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1449)
     static member keywordDescriptionUntypedQuotation() = (sprintf "Delimits a untyped code quotation." )
     /// %s '%s' not found in assembly '%s'. A possible cause may be a version incompatibility. You may need to explicitly reference the correct version of this assembly to allow all referenced components to use the correct version.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1449)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1450)
     static member itemNotFoundDuringDynamicCodeGen(a0 : System.String, a1 : System.String, a2 : System.String) = (3216, sprintf "%s '%s' not found in assembly '%s'. A possible cause may be a version incompatibility. You may need to explicitly reference the correct version of this assembly to allow all referenced components to use the correct version." a0 a1 a2)
     /// %s '%s' not found in type '%s' from assembly '%s'. A possible cause may be a version incompatibility. You may need to explicitly reference the correct version of this assembly to allow all referenced components to use the correct version.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1450)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1451)
     static member itemNotFoundInTypeDuringDynamicCodeGen(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3216, sprintf "%s '%s' not found in type '%s' from assembly '%s'. A possible cause may be a version incompatibility. You may need to explicitly reference the correct version of this assembly to allow all referenced components to use the correct version." a0 a1 a2 a3)
     /// is
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1451)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1452)
     static member descriptionWordIs() = (sprintf "is" )
     /// This value is not a function and cannot be applied.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1452)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1453)
     static member notAFunction() = (sprintf "This value is not a function and cannot be applied." )
     /// This value is not a function and cannot be applied. Did you intend to access the indexer via %s.[index] instead?
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1453)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1454)
     static member notAFunctionButMaybeIndexerWithName(a0 : System.String) = (sprintf "This value is not a function and cannot be applied. Did you intend to access the indexer via %s.[index] instead?" a0)
     /// This expression is not a function and cannot be applied. Did you intend to access the indexer via expr.[index] instead?
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1454)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1455)
     static member notAFunctionButMaybeIndexer() = (sprintf "This expression is not a function and cannot be applied. Did you intend to access the indexer via expr.[index] instead?" )
     /// 
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1455)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1456)
     static member notAFunctionButMaybeIndexerErrorCode() = (3217, sprintf "" )
     /// This value is not a function and cannot be applied. Did you forget to terminate a declaration?
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1456)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1457)
     static member notAFunctionButMaybeDeclaration() = (sprintf "This value is not a function and cannot be applied. Did you forget to terminate a declaration?" )
     /// The argument names in the signature '%s' and implementation '%s' do not match. The argument name from the signature file will be used. This may cause problems when debugging or profiling.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1457)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1458)
     static member ArgumentsInSigAndImplMismatch(a0 : System.String, a1 : System.String) = (3218, sprintf "The argument names in the signature '%s' and implementation '%s' do not match. The argument name from the signature file will be used. This may cause problems when debugging or profiling." a0 a1)
     /// An error occurred while reading the F# metadata of assembly '%s'. A reserved construct was utilized. You may need to upgrade your F# compiler or use an earlier version of the assembly that doesn't make use of a specific construct.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1458)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1459)
     static member pickleUnexpectedNonZero(a0 : System.String) = (3219, sprintf "An error occurred while reading the F# metadata of assembly '%s'. A reserved construct was utilized. You may need to upgrade your F# compiler or use an earlier version of the assembly that doesn't make use of a specific construct." a0)
     /// This method or property is not normally used from F# code, use an explicit tuple pattern for deconstruction instead.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1459)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1460)
     static member tcTupleMemberNotNormallyUsed() = (3220, sprintf "This method or property is not normally used from F# code, use an explicit tuple pattern for deconstruction instead." )
     /// This expression returns a value of type '%s' but is implicitly discarded. Consider using 'let' to bind the result to a name, e.g. 'let result = expression'. If you intended to use the expression as a value in the sequence then use an explicit 'yield'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1460)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1461)
     static member implicitlyDiscardedInSequenceExpression(a0 : System.String) = (3221, sprintf "This expression returns a value of type '%s' but is implicitly discarded. Consider using 'let' to bind the result to a name, e.g. 'let result = expression'. If you intended to use the expression as a value in the sequence then use an explicit 'yield'." a0)
     /// This expression returns a value of type '%s' but is implicitly discarded. Consider using 'let' to bind the result to a name, e.g. 'let result = expression'. If you intended to use the expression as a value in the sequence then use an explicit 'yield!'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1461)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1462)
     static member implicitlyDiscardedSequenceInSequenceExpression(a0 : System.String) = (3222, sprintf "This expression returns a value of type '%s' but is implicitly discarded. Consider using 'let' to bind the result to a name, e.g. 'let result = expression'. If you intended to use the expression as a value in the sequence then use an explicit 'yield!'." a0)
     /// The file '%s' changed on disk unexpectedly, please reload.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1462)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1463)
     static member ilreadFileChanged(a0 : System.String) = (3223, sprintf "The file '%s' changed on disk unexpectedly, please reload." a0)
     /// The byref pointer is readonly, so this write is not permitted.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1463)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1464)
     static member writeToReadOnlyByref() = (3224, sprintf "The byref pointer is readonly, so this write is not permitted." )
     /// A ReadOnly attribute has been applied to a struct type with a mutable field.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1464)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1465)
     static member readOnlyAttributeOnStructWithMutableField() = (3225, sprintf "A ReadOnly attribute has been applied to a struct type with a mutable field." )
     /// A byref pointer returned by a function or method is implicitly dereferenced as of F# 4.5. To acquire the return value as a pointer, use the address-of operator, e.g. '&f(x)' or '&obj.Method(arg1, arg2)'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1465)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1466)
     static member tcByrefReturnImplicitlyDereferenced() = (3226, sprintf "A byref pointer returned by a function or method is implicitly dereferenced as of F# 4.5. To acquire the return value as a pointer, use the address-of operator, e.g. '&f(x)' or '&obj.Method(arg1, arg2)'." )
     /// A type annotated with IsByRefLike must also be a struct. Consider adding the [<Struct>] attribute to the type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1466)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1467)
     static member tcByRefLikeNotStruct() = (3227, sprintf "A type annotated with IsByRefLike must also be a struct. Consider adding the [<Struct>] attribute to the type." )
     /// The address of a value returned from the expression cannot be used at this point. This is to ensure the address of the local value does not escape its scope.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1467)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1468)
     static member chkNoByrefAddressOfValueFromExpression() = (3228, sprintf "The address of a value returned from the expression cannot be used at this point. This is to ensure the address of the local value does not escape its scope." )
     /// This value can't be assigned because the target '%s' may refer to non-stack-local memory, while the expression being assigned is assessed to potentially refer to stack-local memory. This is to help prevent pointers to stack-bound memory escaping their scope.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1468)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1469)
     static member chkNoWriteToLimitedSpan(a0 : System.String) = (3229, sprintf "This value can't be assigned because the target '%s' may refer to non-stack-local memory, while the expression being assigned is assessed to potentially refer to stack-local memory. This is to help prevent pointers to stack-bound memory escaping their scope." a0)
     /// A value defined in a module must be mutable in order to take its address, e.g. 'let mutable x = ...'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1469)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1470)
     static member tastValueMustBeLocal() = (3230, sprintf "A value defined in a module must be mutable in order to take its address, e.g. 'let mutable x = ...'" )
     /// A type annotated with IsReadOnly must also be a struct. Consider adding the [<Struct>] attribute to the type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1470)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1471)
     static member tcIsReadOnlyNotStruct() = (3231, sprintf "A type annotated with IsReadOnly must also be a struct. Consider adding the [<Struct>] attribute to the type." )
     /// Struct members cannot return the address of fields of the struct by reference
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1471)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1472)
     static member chkStructsMayNotReturnAddressesOfContents() = (3232, sprintf "Struct members cannot return the address of fields of the struct by reference" )
     /// The function or method call cannot be used at this point, because one argument that is a byref of a non-stack-local Span or IsByRefLike type is used with another argument that is a stack-local Span or IsByRefLike type. This is to ensure the address of the local value does not escape its scope.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1472)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1473)
     static member chkNoByrefLikeFunctionCall() = (3233, sprintf "The function or method call cannot be used at this point, because one argument that is a byref of a non-stack-local Span or IsByRefLike type is used with another argument that is a stack-local Span or IsByRefLike type. This is to ensure the address of the local value does not escape its scope." )
     /// The Span or IsByRefLike variable '%s' cannot be used at this point. This is to ensure the address of the local value does not escape its scope.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1473)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1474)
     static member chkNoSpanLikeVariable(a0 : System.String) = (3234, sprintf "The Span or IsByRefLike variable '%s' cannot be used at this point. This is to ensure the address of the local value does not escape its scope." a0)
     /// A Span or IsByRefLike value returned from the expression cannot be used at ths point. This is to ensure the address of the local value does not escape its scope.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1474)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1475)
     static member chkNoSpanLikeValueFromExpression() = (3235, sprintf "A Span or IsByRefLike value returned from the expression cannot be used at ths point. This is to ensure the address of the local value does not escape its scope." )
     /// Cannot take the address of the value returned from the expression. Assign the returned value to a let-bound value before taking the address.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1475)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1476)
     static member tastCantTakeAddressOfExpression() = (3236, sprintf "Cannot take the address of the value returned from the expression. Assign the returned value to a let-bound value before taking the address." )
     /// Cannot call the byref extension method '%s. The first parameter requires the value to be mutable or a non-readonly byref type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1476)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1477)
     static member tcCannotCallExtensionMethodInrefToByref(a0 : System.String) = (3237, sprintf "Cannot call the byref extension method '%s. The first parameter requires the value to be mutable or a non-readonly byref type." a0)
     /// Byref types are not allowed to have optional type extensions.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1477)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1478)
     static member tcByrefsMayNotHaveTypeExtensions() = (3238, sprintf "Byref types are not allowed to have optional type extensions." )
     /// Cannot partially apply the extension method '%s' because the first parameter is a byref type.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1478)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1479)
     static member tcCannotPartiallyApplyExtensionMethodForByref(a0 : System.String) = (3239, sprintf "Cannot partially apply the extension method '%s' because the first parameter is a byref type." a0)
     /// This type does not inherit Attribute, it will not work correctly with other .NET languages.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1479)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1480)
     static member tcTypeDoesNotInheritAttribute() = (3242, sprintf "This type does not inherit Attribute, it will not work correctly with other .NET languages." )
     /// Invalid anonymous record expression
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1480)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1481)
     static member parsInvalidAnonRecdExpr() = (3243, sprintf "Invalid anonymous record expression" )
     /// Invalid anonymous record type
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1481)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1482)
     static member parsInvalidAnonRecdType() = (3244, sprintf "Invalid anonymous record type" )
     /// The input to a copy-and-update expression that creates an anonymous record must be either an anonymous record or a record
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1482)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1483)
     static member tcCopyAndUpdateNeedsRecordType() = (3245, sprintf "The input to a copy-and-update expression that creates an anonymous record must be either an anonymous record or a record" )
     /// Attributes cannot be applied to type extensions.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1483)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1484)
     static member tcAugmentationsCannotHaveAttributes() = (3246, sprintf "Attributes cannot be applied to type extensions." )
     /// The dependency manager extension %s could not be loaded. Message: %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1484)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1485)
     static member couldNotLoadDependencyManagerExtension(a0 : System.String, a1 : System.String) = (3247, sprintf "The dependency manager extension %s could not be loaded. Message: %s" a0 a1)
     /// Expression does not have a name.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1485)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1486)
     static member expressionHasNoName() = (3250, sprintf "Expression does not have a name." )
     /// Using the 'nameof' operator as a first-class function value is not permitted.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1486)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1487)
     static member chkNoFirstClassNameOf() = (3251, sprintf "Using the 'nameof' operator as a first-class function value is not permitted." )
     /// Byref types are not allowed in an open type declaration.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1487)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1488)
     static member tcIllegalByrefsInOpenTypeDeclaration() = (3252, sprintf "Byref types are not allowed in an open type declaration." )
     /// The parameter '%s' has an invalid type '%s'. This is not permitted by the rules of Common IL.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1488)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1489)
     static member chkInvalidFunctionParameterType(a0 : System.String, a1 : System.String) = (3300, sprintf "The parameter '%s' has an invalid type '%s'. This is not permitted by the rules of Common IL." a0 a1)
     /// The function or method has an invalid return type '%s'. This is not permitted by the rules of Common IL.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1489)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1490)
     static member chkInvalidFunctionReturnType(a0 : System.String) = (3301, sprintf "The function or method has an invalid return type '%s'. This is not permitted by the rules of Common IL." a0)
     /// The package management feature requires language version 5.0 use /langversion:preview
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1490)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1491)
     static member packageManagementRequiresVFive() = (3302, sprintf "The package management feature requires language version 5.0 use /langversion:preview" )
     /// From the end slicing with requires language version 5.0, use /langversion:preview.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1491)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1492)
     static member fromEndSlicingRequiresVFive() = (3303, sprintf "From the end slicing with requires language version 5.0, use /langversion:preview." )
     /// #i is not supported by the registered PackageManagers
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1492)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1493)
     static member poundiNotSupportedByRegisteredDependencyManagers() = (3304, sprintf "#i is not supported by the registered PackageManagers" )
     /// The 'let! ... and! ...' construct may only be used if the computation expression builder defines either a '%s' method or appropriate 'MergeSource' and 'Bind' methods
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1493)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1494)
     static member tcRequireMergeSourcesOrBindN(a0 : System.String) = (3343, sprintf "The 'let! ... and! ...' construct may only be used if the computation expression builder defines either a '%s' method or appropriate 'MergeSource' and 'Bind' methods" a0)
     /// This feature is not supported in this version of F#. You may need to add /langversion:preview to use this feature.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1494)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1495)
     static member tcAndBangNotSupported() = (3344, sprintf "This feature is not supported in this version of F#. You may need to add /langversion:preview to use this feature." )
     /// use! may not be combined with and!
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1495)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1496)
     static member tcInvalidUseBangBindingNoAndBangs() = (3345, sprintf "use! may not be combined with and!" )
     /// Feature '%s' is not available in F# %s. Please use language version %s or greater.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1496)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1497)
     static member chkFeatureNotLanguageSupported(a0 : System.String, a1 : System.String, a2 : System.String) = (3350, sprintf "Feature '%s' is not available in F# %s. Please use language version %s or greater." a0 a1 a2)
     /// Feature '%s' is not supported by target runtime.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1497)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1498)
     static member chkFeatureNotRuntimeSupported(a0 : System.String) = (3351, sprintf "Feature '%s' is not supported by target runtime." a0)
     /// Interface member '%s' does not have a most specific implementation.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1498)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1499)
     static member typrelInterfaceMemberNoMostSpecificImplementation(a0 : System.String) = (3352, sprintf "Interface member '%s' does not have a most specific implementation." a0)
     /// Feature '%s' requires the F# library for language version %s or greater.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1499)
-    static member chkFeatureNotSupportedInLibrary(a0 : System.String, a1 : System.String) = (3353, sprintf "Feature '%s' requires the F# library for language version %s or greater." a0 a1)
-    /// Use reference assemblies for .NET framework references when available (Enabled by default).
     /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1500)
+    static member chkFeatureNotSupportedInLibrary(a0 : System.String, a1 : System.String) = (3353, sprintf "Feature '%s' requires the F# library for language version %s or greater." a0 a1)
+    /// Unexpected token in type definition. Expected '=' after the type '%s'.
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1501)
+    static member parsEqualsMissingInTypeDefinition(a0 : System.String) = (3360, sprintf "Unexpected token in type definition. Expected '=' after the type '%s'." a0)
+    /// Use reference assemblies for .NET framework references when available (Enabled by default).
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1502)
     static member useSdkRefs() = (sprintf "Use reference assemblies for .NET framework references when available (Enabled by default)." )
     /// Display the allowed values for language version, specify language version such as 'latest' or 'preview'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1501)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1503)
     static member optsLangVersion() = (sprintf "Display the allowed values for language version, specify language version such as 'latest' or 'preview'" )
     /// Supported language versions:
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1502)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1504)
     static member optsSupportedLangVersions() = (sprintf "Supported language versions:" )
     /// Stream does not begin with a null resource and is not in '.RES' format.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1503)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1505)
     static member nativeResourceFormatError() = (sprintf "Stream does not begin with a null resource and is not in '.RES' format." )
     /// Resource header beginning at offset %s is malformed.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1504)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1506)
     static member nativeResourceHeaderMalformed(a0 : System.String) = (sprintf "Resource header beginning at offset %s is malformed." a0)
     ///  - %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1505)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1507)
     static member formatDashItem(a0 : System.String) = (sprintf " - %s" a0)
     /// single underscore pattern
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1506)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1508)
     static member featureSingleUnderscorePattern() = (sprintf "single underscore pattern" )
     /// wild card in for loop
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1507)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1509)
     static member featureWildCardInForLoop() = (sprintf "wild card in for loop" )
     /// whitespace relexation
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1508)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1510)
     static member featureRelaxWhitespace() = (sprintf "whitespace relexation" )
     /// nameof
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1509)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1511)
     static member featureNameOf() = (sprintf "nameof" )
     /// implicit yield
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1510)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1512)
     static member featureImplicitYield() = (sprintf "implicit yield" )
     /// open type declaration
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1511)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1513)
     static member featureOpenTypeDeclaration() = (sprintf "open type declaration" )
     /// dotless float32 literal
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1512)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1514)
     static member featureDotlessFloat32Literal() = (sprintf "dotless float32 literal" )
     /// package management
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1513)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1515)
     static member featurePackageManagement() = (sprintf "package management" )
     /// from-end slicing
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1514)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1516)
     static member featureFromEndSlicing() = (sprintf "from-end slicing" )
     /// fixed-index slice 3d/4d
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1515)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1517)
     static member featureFixedIndexSlice3d4d() = (sprintf "fixed-index slice 3d/4d" )
     /// applicative computation expressions
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1516)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1518)
     static member featureAndBang() = (sprintf "applicative computation expressions" )
     /// nullable optional interop
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1517)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1519)
     static member featureNullableOptionalInterop() = (sprintf "nullable optional interop" )
     /// default interface member consumption
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1518)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1520)
     static member featureDefaultInterfaceMemberConsumption() = (sprintf "default interface member consumption" )
     /// string interpolation
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1519)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1521)
     static member featureStringInterpolation() = (sprintf "string interpolation" )
     /// witness passing for trait constraints in F# quotations
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1520)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1522)
     static member featureWitnessPassing() = (sprintf "witness passing for trait constraints in F# quotations" )
     /// Invalid directive '#%s %s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1521)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1523)
     static member fsiInvalidDirective(a0 : System.String, a1 : System.String) = (3353, sprintf "Invalid directive '#%s %s'" a0 a1)
     /// '%s' cannot implement the interface '%s' with the two instantiations '%s' and '%s' because they may unify.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1522)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1524)
     static member typrelInterfaceWithConcreteAndVariable(a0 : System.String, a1 : System.String, a2 : System.String, a3 : System.String) = (3360, sprintf "'%s' cannot implement the interface '%s' with the two instantiations '%s' and '%s' because they may unify." a0 a1 a2 a3)
     /// You cannot implement the interface '%s' with the two instantiations '%s' and '%s' because they may unify.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1523)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1525)
     static member typrelInterfaceWithConcreteAndVariableObjectExpression(a0 : System.String, a1 : System.String, a2 : System.String) = (3361, sprintf "You cannot implement the interface '%s' with the two instantiations '%s' and '%s' because they may unify." a0 a1 a2)
     /// interfaces with multiple generic instantiation
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1524)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1526)
     static member featureInterfacesWithMultipleGenericInstantiation() = (sprintf "interfaces with multiple generic instantiation" )
     /// Cannot assign '%s' to a value marked literal
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1525)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1527)
     static member tcLiteralFieldAssignmentWithArg(a0 : System.String) = (3362, sprintf "Cannot assign '%s' to a value marked literal" a0)
     /// Cannot assign a value to another value marked literal
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1526)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1528)
     static member tcLiteralFieldAssignmentNoArg() = (3363, sprintf "Cannot assign a value to another value marked literal" )
     /// Interpolated strings may not use '%%' format specifiers unless each is given an expression, e.g. '%%d{1+1}'.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1527)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1529)
     static member forFormatInvalidForInterpolated() = (sprintf "Interpolated strings may not use '%%' format specifiers unless each is given an expression, e.g. '%%d{1+1}'." )
     /// .NET-style format specifiers such as '{x,3}' or '{x:N5}' may not be mixed with '%%' format specifiers.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1528)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1530)
     static member forFormatInvalidForInterpolated2() = (sprintf ".NET-style format specifiers such as '{x,3}' or '{x:N5}' may not be mixed with '%%' format specifiers." )
     /// The '%%P' specifier may not be used explicitly.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1529)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1531)
     static member forFormatInvalidForInterpolated3() = (sprintf "The '%%P' specifier may not be used explicitly." )
     /// Interpolated strings used as type IFormattable or type FormattableString may not use '%%' specifiers, only .NET-style interpolands such as '{expr}', '{expr,3}' or '{expr:N5}' may be used.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1530)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1532)
     static member forFormatInvalidForInterpolated4() = (sprintf "Interpolated strings used as type IFormattable or type FormattableString may not use '%%' specifiers, only .NET-style interpolands such as '{expr}', '{expr,3}' or '{expr:N5}' may be used." )
     /// Mismatch in interpolated string. Interpolated strings may not use '%%' format specifiers unless each is given an expression, e.g. '%%d{1+1}'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1531)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1533)
     static member tcInterpolationMixedWithPercent() = (3371, sprintf "Mismatch in interpolated string. Interpolated strings may not use '%%' format specifiers unless each is given an expression, e.g. '%%d{1+1}'" )
     /// Invalid alignment in interpolated string
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1532)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1534)
     static member tcInvalidAlignmentInInterpolatedString() = (3372, sprintf "Invalid alignment in interpolated string" )
     /// Invalid interpolated string. Single quote or verbatim string literals may not be used in interpolated expressions in single quote or verbatim strings. Consider using an explicit 'let' binding for the interpolation expression or use a triple quote string as the outer string literal.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1533)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1535)
     static member lexSingleQuoteInSingleQuote() = (3373, sprintf "Invalid interpolated string. Single quote or verbatim string literals may not be used in interpolated expressions in single quote or verbatim strings. Consider using an explicit 'let' binding for the interpolation expression or use a triple quote string as the outer string literal." )
     /// Invalid interpolated string. Triple quote string literals may not be used in interpolated expressions. Consider using an explicit 'let' binding for the interpolation expression.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1534)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1536)
     static member lexTripleQuoteInTripleQuote() = (3374, sprintf "Invalid interpolated string. Triple quote string literals may not be used in interpolated expressions. Consider using an explicit 'let' binding for the interpolation expression." )
     /// Invalid interpolated string. %s
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1535)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1537)
     static member tcUnableToParseInterpolatedString(a0 : System.String) = (3376, sprintf "Invalid interpolated string. %s" a0)
     /// a byte string may not be interpolated
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1536)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1538)
     static member lexByteStringMayNotBeInterpolated() = (3377, sprintf "a byte string may not be interpolated" )
     /// Incomplete interpolated string expression fill begun at or before here
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1537)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1539)
     static member parsEofInInterpolatedStringFill() = (3378, sprintf "Incomplete interpolated string expression fill begun at or before here" )
     /// Incomplete interpolated string begun at or before here
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1538)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1540)
     static member parsEofInInterpolatedString() = (3379, sprintf "Incomplete interpolated string begun at or before here" )
     /// Incomplete interpolated verbatim string begun at or before here
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1539)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1541)
     static member parsEofInInterpolatedVerbatimString() = (3380, sprintf "Incomplete interpolated verbatim string begun at or before here" )
     /// Incomplete interpolated triple-quote string begun at or before here
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1540)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1542)
     static member parsEofInInterpolatedTripleQuoteString() = (3381, sprintf "Incomplete interpolated triple-quote string begun at or before here" )
     /// Invalid interpolated string. This interpolated string expression fill is empty, an expression was expected.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1541)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1543)
     static member parsEmptyFillInInterpolatedString() = (3382, sprintf "Invalid interpolated string. This interpolated string expression fill is empty, an expression was expected." )
     /// A '}' character must be escaped (by doubling) in an interpolated string.
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1542)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1544)
     static member lexRBraceInInterpolatedString() = (3383, sprintf "A '}' character must be escaped (by doubling) in an interpolated string." )
     /// This XML comment is invalid: '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1544)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1546)
     static member xmlDocBadlyFormed(a0 : System.String) = (3390, sprintf "This XML comment is invalid: '%s'" a0)
     /// This XML comment is invalid: missing 'name' attribute for parameter or parameter reference
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1545)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1547)
     static member xmlDocMissingParameterName() = (3390, sprintf "This XML comment is invalid: missing 'name' attribute for parameter or parameter reference" )
     /// This XML comment is invalid: missing 'cref' attribute for cross-reference
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1546)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1548)
     static member xmlDocMissingCrossReference() = (3390, sprintf "This XML comment is invalid: missing 'cref' attribute for cross-reference" )
     /// This XML comment is invalid: unknown parameter '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1547)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1549)
     static member xmlDocInvalidParameterName(a0 : System.String) = (3390, sprintf "This XML comment is invalid: unknown parameter '%s'" a0)
     /// This XML comment is invalid: multiple documentation entries for parameter '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1548)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1550)
     static member xmlDocDuplicateParameter(a0 : System.String) = (3390, sprintf "This XML comment is invalid: multiple documentation entries for parameter '%s'" a0)
     /// This XML comment is invalid: unresolved cross-reference '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1549)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1551)
     static member xmlDocUnresolvedCrossReference(a0 : System.String) = (3390, sprintf "This XML comment is invalid: unresolved cross-reference '%s'" a0)
     /// This XML comment is incomplete: no documentation for parameter '%s'
-    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1550)
+    /// (Originally from /home/dev/Projects/fsharp/src/fsharp/FSComp.txt:1552)
     static member xmlDocMissingParameter(a0 : System.String) = (3390, sprintf "This XML comment is incomplete: no documentation for parameter '%s'" a0)

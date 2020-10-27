@@ -92,7 +92,7 @@ type Diagnostic =
     | Long of bool * DiagnosticDetailedInfo
 
 /// Part of LegacyHostedCompilerForTesting
-val CollectDiagnostic: implicitIncludeDir:string * showFullPaths: bool * flattenErrors: bool * errorStyle: ErrorStyle *  warning:bool * PhasedDiagnostic * suggestNames: bool -> seq<Diagnostic>
+val CollectDiagnostic: implicitIncludeDir:string * showFullPaths: bool * flattenErrors: bool * errorStyle: ErrorStyle *  isError:bool * PhasedDiagnostic * suggestNames: bool -> seq<Diagnostic>
 
 #endif //!FABLE_COMPILER
 

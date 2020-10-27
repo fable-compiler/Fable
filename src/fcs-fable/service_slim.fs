@@ -7,6 +7,8 @@ open System.Collections.Concurrent
 
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.Internal.Library
+open FSharp.Compiler.CheckExpressions
+open FSharp.Compiler.CheckDeclarations
 open FSharp.Compiler.CompilerConfig
 open FSharp.Compiler.CompilerDiagnostics
 open FSharp.Compiler.CompilerGlobalState
@@ -21,7 +23,6 @@ open FSharp.Compiler.ScriptClosure
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Text
-open FSharp.Compiler.TypeChecker
 open FSharp.Compiler.TypedTree
 
 open Internal.Utilities
@@ -150,7 +151,7 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
         let input, moduleNamesDict = input |> DeduplicateParsedInputModuleName moduleNamesDict
         let tcResult, tcState =
-            TypeCheckOneInputEventually (checkForErrors, tcConfig, tcImports, tcGlobals, prefixPathOpt, tcSink, tcState, input)
+            TypeCheckOneInputEventually (checkForErrors, tcConfig, tcImports, tcGlobals, prefixPathOpt, tcSink, tcState, input, false)
             |> Eventually.force ctok
 
         let fileName = parseResults.FileName
