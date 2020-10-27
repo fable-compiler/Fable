@@ -383,11 +383,15 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     if not state.CliArgs.CompilerOptions.DebugMode then files
                     else
                         // Skip files that have a more recent JS version
-                        files |> Array.skipWhile (fun file ->
-                            try
-                                let jsFile = getOutJsPath state.CliArgs file
-                                IO.File.Exists(jsFile) && IO.File.GetLastWriteTime(jsFile) > IO.File.GetLastWriteTime(file)
-                            with _ -> false)
+                        let skipped =
+                            files |> Array.skipWhile (fun file ->
+                                try
+                                    let jsFile = getOutJsPath state.CliArgs file
+                                    IO.File.Exists(jsFile) && IO.File.GetLastWriteTime(jsFile) > IO.File.GetLastWriteTime(file)
+                                with _ -> false)
+                        if skipped.Length < files.Length then
+                            Log.always("Skipping Fable compilation of up-to-date JS files")
+                        skipped
             cracked, parsed, filesToCompile
 
     let filesToCompile =

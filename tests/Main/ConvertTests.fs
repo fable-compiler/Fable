@@ -1204,7 +1204,7 @@ let tests =
         |> equal [| 0x7Auy; 0x00uy; 0x61uy; 0x00uy; 0x06uy; 0x03uy; 0xFDuy; 0x01uy; 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
 
     testCase "Encoding.Unicode.GetBytes for range works" <| fun () ->
-        System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+        System.Text.Encoding.Unicode.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
         |> equal [| 0xB2uy; 0x03uy; 0xFFuy; 0xD8uy; 0xFFuy; 0xDCuy |]
 
     testCase "Encoding.Unicode.GetString works" <| fun () ->
@@ -1222,7 +1222,7 @@ let tests =
         |> equal [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
 
     testCase "Encoding.UTF8.GetBytes for range works" <| fun () ->
-        System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF", 4, 3)
+        System.Text.Encoding.UTF8.GetBytes("za\u0306\u01FD\u03B2\uD8FF\uDCFF".ToCharArray(), 4, 3)
         |> equal [| 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
 
     testCase "Encoding.UTF8.GetString works" <| fun () ->

@@ -2388,6 +2388,12 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                                         "GetNames", "getEnumNames"
                                         "GetValues", "getEnumValues"
                                         "GetUnderlyingType", "getEnumUnderlyingType"]) meth, args ->
+        let args =
+            match meth, args with
+            // TODO: Parse at compile time if we know the type
+            | "parseEnum", [value] -> [Value(TypeInfo(t), None); value]
+            | "tryParseEnum", [value; refValue] -> [Value(TypeInfo(genArg com ctx r 0 i.GenericArgs), None); value; refValue]
+            | _ -> args
         let args = if meth = "tryParseEnum" then turnLastArgIntoRef com ctx args else args
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | _ -> None

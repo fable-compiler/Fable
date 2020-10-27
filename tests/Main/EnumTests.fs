@@ -244,10 +244,12 @@ let tests =
         Enum.Parse(t, "Foo") |> equal (box MyEnum.Foo)
         Enum.Parse(t, "Bar") |> equal (box MyEnum.Bar)
         Enum.Parse(t, "8") |> equal (box MyEnum.Baz)
+        Enum.Parse<MyEnum>("Foo") |> equal (MyEnum.Foo)
+        Enum.Parse<MyEnum>("Bar") |> equal (MyEnum.Bar)
+        Enum.Parse<MyEnum>("8") |> equal (MyEnum.Baz)
 
     testCase "Enum.TryParse works" <| fun () ->
-        let t = typeof<MyEnum>
-        Enum.TryParse(t, "Foo") |> equal (true, box MyEnum.Foo)
-        Enum.TryParse(t, "Bar") |> equal (true, box MyEnum.Bar)
-        Enum.TryParse(t, "Ozu") |> fst |> equal false
+        Enum.TryParse<MyEnum>("Foo") |> equal (true, MyEnum.Foo)
+        Enum.TryParse<MyEnum>("Bar") |> equal (true, MyEnum.Bar)
+        Enum.TryParse<MyEnum>("Ozu") |> fst |> equal false
   ]
