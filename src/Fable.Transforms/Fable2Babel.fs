@@ -1987,16 +1987,21 @@ module Util =
 
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                if decl.Info.IsValue then
-                    let isPublic, isMutable, value =
-                        // Mutable public values must be compiled as functions (see #986)
-                        // because values imported from ES2015 modules cannot be modified
-                        match decl.Info.IsPublic, decl.Info.IsMutable with
-                        | true, true -> true, false, Replacements.createAtom com decl.Body |> transformAsExpr com ctx
-                        | isPublic, isMutable -> isPublic, isMutable, transformAsExpr com ctx decl.Body
-                    [declareModuleMember isPublic decl.Name isMutable value]
-                else
-                    [transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body]
+                let decls =
+                    if decl.Info.IsValue then
+                        let isPublic, isMutable, value =
+                            // Mutable public values must be compiled as functions (see #986)
+                            // because values imported from ES2015 modules cannot be modified
+                            match decl.Info.IsPublic, decl.Info.IsMutable with
+                            | true, true -> true, false, Replacements.createAtom com decl.Body |> transformAsExpr com ctx
+                            | isPublic, isMutable -> isPublic, isMutable, transformAsExpr com ctx decl.Body
+                        [declareModuleMember isPublic decl.Name isMutable value]
+                    else
+                        [transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body]
+
+                if decl.ExportDefault then
+                    decls @ [ExportDefaultDeclaration(Choice2Of2(Identifier decl.Name :> _)) :> ModuleDeclaration]
+                else decls
 
         | Fable.ClassDeclaration decl ->
             let ent = decl.Entity

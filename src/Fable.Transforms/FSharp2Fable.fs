@@ -243,7 +243,8 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
                  Body = body
                  // UsedNames are not used for obj expr members
                  UsedNames = Set.empty
-                 Info = info }
+                 Info = info
+                 ExportDefault = false }
       }
 
     trampoline {
@@ -917,7 +918,8 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               Args = args
               Body = body
               UsedNames = set ctx.UseNamesInDeclarationScope
-              Info = info }
+              Info = info
+              ExportDefault = false }
         com.AddConstructor(fullName, cons, baseCall)
         []
 
@@ -938,7 +940,8 @@ let private transformImport com r typ isMutable isPublic name fullDisplayName se
           Args = []
           Body = makeImportUserGenerated r typ selector path
           UsedNames = Set.empty
-          Info = info }]
+          Info = info
+          ExportDefault = false }]
 
 let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let value = transformExpr com ctx value |> run
@@ -962,7 +965,8 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
               Args = []
               Body = fableValue
               UsedNames = set ctx.UseNamesInDeclarationScope
-              Info = info }]
+              Info = info
+              ExportDefault = false }]
 
 let private moduleMemberDeclarationInfo isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.MemberInfo =
     MemberInfo(memb.Attributes,
@@ -997,7 +1001,8 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                   Args = args
                   Body = body
                   UsedNames = set ctx.UseNamesInDeclarationScope
-                  Info = moduleMemberDeclarationInfo isPublic memb }]
+                  Info = moduleMemberDeclarationInfo isPublic memb
+                  ExportDefault = false }]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let isPublic = isPublicMember memb
@@ -1030,7 +1035,8 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
           Args = args
           Body = body
           UsedNames = set ctx.UseNamesInDeclarationScope
-          Info = info })
+          Info = info
+          ExportDefault = false })
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =

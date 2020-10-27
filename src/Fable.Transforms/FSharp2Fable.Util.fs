@@ -1136,7 +1136,7 @@ module Util =
             |> addErrorAndReturnNull com [] None
         match ent.IsInterface, ent.Ref.SourcePath with
         | true, _ -> error "Cannot reference an interface"
-        | _, None -> error "Cannot reference entity from .dll reference"
+        | _, None -> error "Cannot reference entity from .dll reference, Fable packages must include F# sources"
         | _, Some file ->
             let entityName = (getEntityDeclarationName com ent.Ref) + suffix
             if file = com.CurrentFile then

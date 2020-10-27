@@ -123,6 +123,9 @@ type MemberDecl = {
     Body: Expr
     Info: MemberInfo
     UsedNames: Set<string>
+    /// This can only be set once per file
+    /// for a declaration in the root scope
+    ExportDefault: bool
 }
 
 type ClassDecl = {

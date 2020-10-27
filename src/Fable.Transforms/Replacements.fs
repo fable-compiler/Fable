@@ -66,6 +66,7 @@ module Helpers =
             Body = v
             UsedNames = Set.empty
             Info = FSharp2Fable.MemberInfo(isValue=true)
+            ExportDefault = false
         }
 
     let typedObjExpr t kvs =
