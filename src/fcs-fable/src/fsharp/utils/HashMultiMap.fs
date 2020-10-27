@@ -8,18 +8,18 @@ open Microsoft.FSharp.Collections
 // Each entry in the HashMultiMap dictionary has at least one entry. Under normal usage each entry has _only_
 // one entry. So use two hash tables: one for the main entries and one for the overflow.
 [<Sealed>]
-type internal HashMultiMap<'Key,'Value>(n: int, hashEq: IEqualityComparer<'Key>) = 
+type internal HashMultiMap<'Key,'Value>(size: int, comparer: IEqualityComparer<'Key>) = 
 
-    let firstEntries = Dictionary<_,_>(n,hashEq)
+    let firstEntries = Dictionary<_,_>(size,comparer)
 
-    let rest = Dictionary<_,_>(3,hashEq)
+    let rest = Dictionary<_,_>(3,comparer)
  
 #if !FABLE_COMPILER
-    new (hashEq : IEqualityComparer<'Key>) = HashMultiMap<'Key,'Value>(11, hashEq)
+    new (comparer : IEqualityComparer<'Key>) = HashMultiMap<'Key,'Value>(11, comparer)
 
-    new (seq : seq<'Key * 'Value>, hashEq : IEqualityComparer<'Key>) as x = 
-        new HashMultiMap<'Key,'Value>(11, hashEq)
-        then seq |> Seq.iter (fun (k,v) -> x.Add(k,v))
+    new (entries : seq<'Key * 'Value>, comparer : IEqualityComparer<'Key>) as x = 
+        new HashMultiMap<'Key,'Value>(11, comparer)
+        then entries |> Seq.iter (fun (k,v) -> x.Add(k,v))
 #endif
 
     member x.GetRest(k) =
@@ -44,7 +44,7 @@ type internal HashMultiMap<'Key,'Value>(n: int, hashEq: IEqualityComparer<'Key>)
 
     member x.Copy() = 
 #if FABLE_COMPILER
-        let res = HashMultiMap<'Key,'Value>(firstEntries.Count, hashEq)
+        let res = HashMultiMap<'Key,'Value>(firstEntries.Count, comparer)
 #else
         let res = HashMultiMap<'Key,'Value>(firstEntries.Count,firstEntries.Comparer)
 #endif

@@ -581,8 +581,11 @@ type ILTypeRef =
       hashCode : int
       mutable asBoxedType: ILType }
 
+    static member ComputeHash(scope, enclosing, name) =
+        hash scope * 17 ^^^ (hash enclosing * 101 <<< 1) ^^^ (hash name * 47 <<< 2)
+
     static member Create (scope, enclosing, name) =
-        let hashCode = hash scope * 17 ^^^ (hash enclosing * 101 <<< 1) ^^^ (hash name * 47 <<< 2)
+        let hashCode = ILTypeRef.ComputeHash(scope, enclosing, name)
         { trefScope=scope
           trefEnclosing=enclosing
           trefName=name
@@ -612,11 +615,31 @@ type ILTypeRef =
     override x.GetHashCode() = x.hashCode
 
     override x.Equals yobj =
-         let y = (yobj :?> ILTypeRef)
-         (x.ApproxId = y.ApproxId) &&
-         (x.Scope = y.Scope) &&
-         (x.Name = y.Name) &&
-         (x.Enclosing = y.Enclosing)
+        let y = (yobj :?> ILTypeRef)
+        (x.ApproxId = y.ApproxId) &&
+        (x.Scope = y.Scope) &&
+        (x.Name = y.Name) &&
+        (x.Enclosing = y.Enclosing)
+
+    member x.EqualsWithPrimaryScopeRef(primaryScopeRef:ILScopeRef, yobj:obj) =
+        let y = (yobj :?> ILTypeRef)
+        let isPrimary (v:ILTypeRef) =
+            match v.Scope with
+            | ILScopeRef.PrimaryAssembly -> true
+            | _ -> false
+
+        // Since we can remap the scope, we need to recompute hash ... this is not an expensive operation
+        let isPrimaryX = isPrimary x
+        let isPrimaryY = isPrimary y
+        let xApproxId = if isPrimaryX && not(isPrimaryY) then ILTypeRef.ComputeHash(primaryScopeRef, x.Enclosing, x.Name) else x.ApproxId
+        let yApproxId = if isPrimaryY && not(isPrimaryX) then ILTypeRef.ComputeHash(primaryScopeRef, y.Enclosing, y.Name) else y.ApproxId
+        let xScope = if isPrimaryX then primaryScopeRef else x.Scope
+        let yScope = if isPrimaryY then primaryScopeRef else y.Scope
+
+        (xApproxId = yApproxId) &&
+        (xScope = yScope) &&
+        (x.Name = y.Name) &&
+        (x.Enclosing = y.Enclosing)
 
     interface IComparable with
 
@@ -666,7 +689,7 @@ and [<StructuralEquality; StructuralComparison; StructuredFormatDisplay("{DebugT
 
     member x.GenericArgs=x.tspecInst
 
-    static member Create (tref, inst) = { tspecTypeRef =tref; tspecInst=inst }
+    static member Create (typeRef, instantiation) = { tspecTypeRef =typeRef; tspecInst=instantiation }
 
     member x.BasicQualifiedName =
         let tc = x.TypeRef.BasicQualifiedName
@@ -683,6 +706,10 @@ and [<StructuralEquality; StructuralComparison; StructuredFormatDisplay("{DebugT
     /// For debugging
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member x.DebugText = x.ToString()
+
+    member x.EqualsWithPrimaryScopeRef(primaryScopeRef:ILScopeRef, yobj:obj) =
+        let y = (yobj :?> ILTypeSpec)
+        x.tspecTypeRef.EqualsWithPrimaryScopeRef(primaryScopeRef, y.TypeRef) && (x.GenericArgs = y.GenericArgs)
 
     override x.ToString() = x.TypeRef.ToString() + if isNil x.GenericArgs then "" else "<...>"
 
@@ -798,8 +825,13 @@ type ILMethodRef =
 
     member x.CallingSignature = mkILCallSig (x.CallingConv, x.ArgTypes, x.ReturnType)
 
-    static member Create (a, b, c, d, e, f) =
-        { mrefParent=a; mrefCallconv=b; mrefName=c; mrefGenericArity=d; mrefArgs=e; mrefReturn=f }
+    static member Create (enclosingTypeRef, callingConv, name, genericArity, argTypes, returnType) =
+        { mrefParent=enclosingTypeRef
+          mrefCallconv=callingConv
+          mrefName=name
+          mrefGenericArity=genericArity
+          mrefArgs=argTypes
+          mrefReturn=returnType }
 
     /// For debugging
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
@@ -885,10 +917,10 @@ type ILSourceDocument =
       sourceDocType: ILGuid option
       sourceFile: string }
 
-    static member Create (language, vendor, docType, file) =
+    static member Create (language, vendor, documentType, file) =
         { sourceLanguage=language
           sourceVendor=vendor
-          sourceDocType=docType
+          sourceDocType=documentType
           sourceFile=file }
 
     member x.Language=x.sourceLanguage
@@ -2922,8 +2954,8 @@ type ILFieldSpec with
 // Make a method mbody
 // --------------------------------------------------------------------
 
-let mkILMethodBody (zeroinit, locals, maxstack, code, tag) : ILMethodBody =
-    { IsZeroInit=zeroinit
+let mkILMethodBody (initlocals, locals, maxstack, code, tag) : ILMethodBody =
+    { IsZeroInit=initlocals
       MaxStack=maxstack
       NoInlining=false
       AggressiveInlining=false
@@ -3158,10 +3190,10 @@ let mkILLiteralField (nm, ty, init, at, access) = mkILField (true, nm, ty, Some 
 // Scopes for allocating new temporary variables.
 // --------------------------------------------------------------------
 
-type ILLocalsAllocator (numPrealloc: int) =
+type ILLocalsAllocator (preAlloc: int) =
     let newLocals = ResizeArray<ILLocal>()
     member tmps.AllocLocal loc =
-        let locn = uint16 (numPrealloc + newLocals.Count)
+        let locn = uint16 (preAlloc + newLocals.Count)
         newLocals.Add loc
         locn
 
@@ -3303,7 +3335,7 @@ let destTypeDefsWithGlobalFunctionsFirst ilg (tdefs: ILTypeDefs) =
   let top2 = if isNil top then [ mkILTypeDefForGlobalFunctions ilg (emptyILMethods, emptyILFields) ] else top
   top2@nontop
 
-let mkILSimpleModule assemblyName modname dll subsystemVersion useHighEntropyVA tdefs hashalg locale flags exportedTypes metadataVersion =
+let mkILSimpleModule assemblyName moduleName dll subsystemVersion useHighEntropyVA tdefs hashalg locale flags exportedTypes metadataVersion =
     let manifest =
         { Name=assemblyName
           AuxModuleHashAlgorithm= match hashalg with | Some alg -> alg | _ -> 0x8004 // SHA1
@@ -3322,7 +3354,7 @@ let mkILSimpleModule assemblyName modname dll subsystemVersion useHighEntropyVA 
           MetadataIndex = NoMetadataIdx }
     { Manifest= Some manifest
       CustomAttrsStored=storeILCustomAttrs emptyILCustomAttrs
-      Name=modname
+      Name=moduleName
       NativeResources=[]
       TypeDefs=tdefs
       SubsystemVersion = subsystemVersion

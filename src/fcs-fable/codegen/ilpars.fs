@@ -4,7 +4,7 @@ module internal FSharp.Compiler.AbstractIL.Internal.AsciiParser
 open FSharp.Compiler.AbstractIL
 open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Text.Parsing.ParseHelpers
-//# 3 "../../../src/absil/ilpars.fsy"
+//# 3 "../../../src/fsharp/absil/ilpars.fsy"
 
 
 #nowarn "1182"  // the generated code often has unused variable "parseState"
@@ -604,10 +604,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 116 "../../../src/absil/ilpars.fsy"
+//# 116 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScope _1 [] 
                    )
-//# 116 "../../../src/absil/ilpars.fsy"
+//# 116 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType));
 //# 612 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -615,10 +615,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 120 "../../../src/absil/ilpars.fsy"
+//# 120 "../../../src/fsharp/absil/ilpars.fsy"
                               Array.ofList _1 
                    )
-//# 120 "../../../src/absil/ilpars.fsy"
+//# 120 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILInstr array));
 //# 623 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -626,10 +626,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 124 "../../../src/absil/ilpars.fsy"
+//# 124 "../../../src/fsharp/absil/ilpars.fsy"
                                         _1 
                    )
-//# 124 "../../../src/absil/ilpars.fsy"
+//# 124 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'compQstring));
 //# 634 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -638,10 +638,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 125 "../../../src/absil/ilpars.fsy"
+//# 125 "../../../src/fsharp/absil/ilpars.fsy"
                                                          _1 + _3 
                    )
-//# 125 "../../../src/absil/ilpars.fsy"
+//# 125 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'compQstring));
 //# 646 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -649,10 +649,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 127 "../../../src/absil/ilpars.fsy"
+//# 127 "../../../src/fsharp/absil/ilpars.fsy"
                                           _1 
                    )
-//# 127 "../../../src/absil/ilpars.fsy"
+//# 127 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'methodName));
 //# 657 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -661,20 +661,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 131 "../../../src/absil/ilpars.fsy"
+//# 131 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 :: _2  
                    )
-//# 131 "../../../src/absil/ilpars.fsy"
+//# 131 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instrs2));
 //# 669 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 132 "../../../src/absil/ilpars.fsy"
+//# 132 "../../../src/fsharp/absil/ilpars.fsy"
                             [] 
                    )
-//# 132 "../../../src/absil/ilpars.fsy"
+//# 132 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instrs2));
 //# 679 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -682,10 +682,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 136 "../../../src/absil/ilpars.fsy"
+//# 136 "../../../src/fsharp/absil/ilpars.fsy"
                                 (_1 ()) 
                    )
-//# 136 "../../../src/absil/ilpars.fsy"
+//# 136 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 690 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -694,10 +694,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 138 "../../../src/absil/ilpars.fsy"
+//# 138 "../../../src/fsharp/absil/ilpars.fsy"
                                 (_1 _2) 
                    )
-//# 138 "../../../src/absil/ilpars.fsy"
+//# 138 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 702 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -707,10 +707,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 140 "../../../src/absil/ilpars.fsy"
+//# 140 "../../../src/fsharp/absil/ilpars.fsy"
                                 (_1 (_2,_3)) 
                    )
-//# 140 "../../../src/absil/ilpars.fsy"
+//# 140 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 715 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -719,10 +719,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 142 "../../../src/absil/ilpars.fsy"
+//# 142 "../../../src/fsharp/absil/ilpars.fsy"
                                 (_1 _2) 
                    )
-//# 142 "../../../src/absil/ilpars.fsy"
+//# 142 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 727 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -731,10 +731,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 144 "../../../src/absil/ilpars.fsy"
+//# 144 "../../../src/fsharp/absil/ilpars.fsy"
                                 (_1 (ILConst.R8 _2)) 
                    )
-//# 144 "../../../src/absil/ilpars.fsy"
+//# 144 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 739 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -743,10 +743,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 146 "../../../src/absil/ilpars.fsy"
+//# 146 "../../../src/fsharp/absil/ilpars.fsy"
                                 (_1 (ILConst.R8 (float _2))) 
                    )
-//# 146 "../../../src/absil/ilpars.fsy"
+//# 146 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 751 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -755,10 +755,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 148 "../../../src/absil/ilpars.fsy"
+//# 148 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 148 "../../../src/absil/ilpars.fsy"
+//# 148 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 763 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -768,10 +768,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 150 "../../../src/absil/ilpars.fsy"
+//# 150 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 ( _2,resolveCurrentMethodSpecScope _3) 
                    )
-//# 150 "../../../src/absil/ilpars.fsy"
+//# 150 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 776 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -780,10 +780,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 152 "../../../src/absil/ilpars.fsy"
+//# 152 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 (resolveCurrentMethodSpecScope _2) 
                    )
-//# 152 "../../../src/absil/ilpars.fsy"
+//# 152 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 788 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -792,10 +792,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 154 "../../../src/absil/ilpars.fsy"
+//# 154 "../../../src/fsharp/absil/ilpars.fsy"
                                 (_1 (ILToken.ILType (resolveCurrentMethodSpecScope _2)))  
                    )
-//# 154 "../../../src/absil/ilpars.fsy"
+//# 154 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'instr));
 //# 800 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -803,10 +803,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 161 "../../../src/absil/ilpars.fsy"
+//# 161 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 
                    )
-//# 161 "../../../src/absil/ilpars.fsy"
+//# 161 "../../../src/fsharp/absil/ilpars.fsy"
                  : string));
 //# 811 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -814,10 +814,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 163 "../../../src/absil/ilpars.fsy"
+//# 163 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 
                    )
-//# 163 "../../../src/absil/ilpars.fsy"
+//# 163 "../../../src/fsharp/absil/ilpars.fsy"
                  : string));
 //# 822 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -826,10 +826,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 165 "../../../src/absil/ilpars.fsy"
+//# 165 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 + "." + _3 
                    )
-//# 165 "../../../src/absil/ilpars.fsy"
+//# 165 "../../../src/fsharp/absil/ilpars.fsy"
                  : string));
 //# 834 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -838,11 +838,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 169 "../../../src/absil/ilpars.fsy"
+//# 169 "../../../src/fsharp/absil/ilpars.fsy"
                                let (enc,nm) = _4 
                                ILScopeRef.PrimaryAssembly, enc, nm 
                    )
-//# 169 "../../../src/absil/ilpars.fsy"
+//# 169 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'className));
 //# 847 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -850,10 +850,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 172 "../../../src/absil/ilpars.fsy"
+//# 172 "../../../src/fsharp/absil/ilpars.fsy"
                                let enc, nm = _1 in (ILScopeRef.Local, enc, nm) 
                    )
-//# 172 "../../../src/absil/ilpars.fsy"
+//# 172 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'className));
 //# 858 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -861,10 +861,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 176 "../../../src/absil/ilpars.fsy"
+//# 176 "../../../src/fsharp/absil/ilpars.fsy"
                                ([],_1) 
                    )
-//# 176 "../../../src/absil/ilpars.fsy"
+//# 176 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'slashedName));
 //# 869 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -873,10 +873,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 178 "../../../src/absil/ilpars.fsy"
+//# 178 "../../../src/fsharp/absil/ilpars.fsy"
                                let (enc,nm) = _3 in (_1 :: enc, nm)  
                    )
-//# 178 "../../../src/absil/ilpars.fsy"
+//# 178 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'slashedName));
 //# 881 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -885,12 +885,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 182 "../../../src/absil/ilpars.fsy"
+//# 182 "../../../src/fsharp/absil/ilpars.fsy"
                                let (a,b,c) = _1 
                                resolveMethodSpecScopeThen _2 (fun inst -> 
                                noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), inst)))) 
                    )
-//# 182 "../../../src/absil/ilpars.fsy"
+//# 182 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'typeNameInst));
 //# 895 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -898,11 +898,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 189 "../../../src/absil/ilpars.fsy"
+//# 189 "../../../src/fsharp/absil/ilpars.fsy"
                                let (a,b,c) = _1 
                                noMethodSpecScope ( (mkILTySpec ( (mkILNestedTyRef (a,b,c)), []))) 
                    )
-//# 189 "../../../src/absil/ilpars.fsy"
+//# 189 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'typeName));
 //# 907 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -910,11 +910,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 195 "../../../src/absil/ilpars.fsy"
+//# 195 "../../../src/fsharp/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun tref -> 
                                noMethodSpecScope (mkILBoxedType tref))  
                    )
-//# 195 "../../../src/absil/ilpars.fsy"
+//# 195 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'typSpec));
 //# 919 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -922,10 +922,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 198 "../../../src/absil/ilpars.fsy"
+//# 198 "../../../src/fsharp/absil/ilpars.fsy"
                                _1 
                    )
-//# 198 "../../../src/absil/ilpars.fsy"
+//# 198 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'typSpec));
 //# 930 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -933,10 +933,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 200 "../../../src/absil/ilpars.fsy"
+//# 200 "../../../src/fsharp/absil/ilpars.fsy"
                                _2 
                    )
-//# 200 "../../../src/absil/ilpars.fsy"
+//# 200 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'typSpec));
 //# 941 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -944,10 +944,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 205 "../../../src/absil/ilpars.fsy"
+//# 205 "../../../src/fsharp/absil/ilpars.fsy"
                                Callconv (ILThisConvention.Instance,_2) 
                    )
-//# 205 "../../../src/absil/ilpars.fsy"
+//# 205 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'callConv));
 //# 952 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -955,10 +955,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 207 "../../../src/absil/ilpars.fsy"
+//# 207 "../../../src/fsharp/absil/ilpars.fsy"
                                Callconv (ILThisConvention.InstanceExplicit,_2) 
                    )
-//# 207 "../../../src/absil/ilpars.fsy"
+//# 207 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'callConv));
 //# 963 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -966,60 +966,60 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 209 "../../../src/absil/ilpars.fsy"
+//# 209 "../../../src/fsharp/absil/ilpars.fsy"
                                Callconv (ILThisConvention.Static,_1) 
                    )
-//# 209 "../../../src/absil/ilpars.fsy"
+//# 209 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'callConv));
 //# 974 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 213 "../../../src/absil/ilpars.fsy"
+//# 213 "../../../src/fsharp/absil/ilpars.fsy"
                              ILArgConvention.Default 
                    )
-//# 213 "../../../src/absil/ilpars.fsy"
+//# 213 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'callKind));
 //# 984 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 215 "../../../src/absil/ilpars.fsy"
+//# 215 "../../../src/fsharp/absil/ilpars.fsy"
                              ILArgConvention.Default 
                    )
-//# 215 "../../../src/absil/ilpars.fsy"
+//# 215 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'callKind));
 //# 994 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 217 "../../../src/absil/ilpars.fsy"
+//# 217 "../../../src/fsharp/absil/ilpars.fsy"
                              ILArgConvention.VarArg 
                    )
-//# 217 "../../../src/absil/ilpars.fsy"
+//# 217 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'callKind));
 //# 1004 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 226 "../../../src/absil/ilpars.fsy"
+//# 226 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_String 
                    )
-//# 226 "../../../src/absil/ilpars.fsy"
+//# 226 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1014 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 228 "../../../src/absil/ilpars.fsy"
+//# 228 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Object 
                    )
-//# 228 "../../../src/absil/ilpars.fsy"
+//# 228 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1024 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1027,11 +1027,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 230 "../../../src/absil/ilpars.fsy"
+//# 230 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _2 (fun tspec -> 
                                noMethodSpecScope (mkILBoxedType tspec)) 
                    )
-//# 230 "../../../src/absil/ilpars.fsy"
+//# 230 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1036 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1039,11 +1039,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 233 "../../../src/absil/ilpars.fsy"
+//# 233 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _3 (fun tspec -> 
                               noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 233 "../../../src/absil/ilpars.fsy"
+//# 233 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1048 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1051,11 +1051,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 236 "../../../src/absil/ilpars.fsy"
+//# 236 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _2 (fun tspec -> 
                               noMethodSpecScope (ILType.Value tspec)) 
                    )
-//# 236 "../../../src/absil/ilpars.fsy"
+//# 236 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1060 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1063,10 +1063,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 239 "../../../src/absil/ilpars.fsy"
+//# 239 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArr1DTy ty)) 
                    )
-//# 239 "../../../src/absil/ilpars.fsy"
+//# 239 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1071 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1075,10 +1075,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 241 "../../../src/absil/ilpars.fsy"
+//# 241 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (mkILArrTy (ty,ILArrayShape _3))) 
                    )
-//# 241 "../../../src/absil/ilpars.fsy"
+//# 241 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1083 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1086,10 +1086,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 243 "../../../src/absil/ilpars.fsy"
+//# 243 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Byref ty)) 
                    )
-//# 243 "../../../src/absil/ilpars.fsy"
+//# 243 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1094 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1097,210 +1097,210 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 245 "../../../src/absil/ilpars.fsy"
+//# 245 "../../../src/fsharp/absil/ilpars.fsy"
                               resolveMethodSpecScopeThen _1 (fun ty -> noMethodSpecScope (ILType.Ptr ty)) 
                    )
-//# 245 "../../../src/absil/ilpars.fsy"
+//# 245 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1105 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 247 "../../../src/absil/ilpars.fsy"
+//# 247 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Char 
                    )
-//# 247 "../../../src/absil/ilpars.fsy"
+//# 247 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1115 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 249 "../../../src/absil/ilpars.fsy"
+//# 249 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope ILType.Void 
                    )
-//# 249 "../../../src/absil/ilpars.fsy"
+//# 249 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1125 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 251 "../../../src/absil/ilpars.fsy"
+//# 251 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Bool 
                    )
-//# 251 "../../../src/absil/ilpars.fsy"
+//# 251 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1135 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 253 "../../../src/absil/ilpars.fsy"
+//# 253 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_SByte 
                    )
-//# 253 "../../../src/absil/ilpars.fsy"
+//# 253 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1145 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 255 "../../../src/absil/ilpars.fsy"
+//# 255 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int16 
                    )
-//# 255 "../../../src/absil/ilpars.fsy"
+//# 255 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1155 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 257 "../../../src/absil/ilpars.fsy"
+//# 257 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int32 
                    )
-//# 257 "../../../src/absil/ilpars.fsy"
+//# 257 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1165 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 259 "../../../src/absil/ilpars.fsy"
+//# 259 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Int64 
                    )
-//# 259 "../../../src/absil/ilpars.fsy"
+//# 259 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1175 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 261 "../../../src/absil/ilpars.fsy"
+//# 261 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Single 
                    )
-//# 261 "../../../src/absil/ilpars.fsy"
+//# 261 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1185 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 263 "../../../src/absil/ilpars.fsy"
+//# 263 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Double 
                    )
-//# 263 "../../../src/absil/ilpars.fsy"
+//# 263 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1195 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 265 "../../../src/absil/ilpars.fsy"
+//# 265 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte 
                    )
-//# 265 "../../../src/absil/ilpars.fsy"
+//# 265 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1205 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 267 "../../../src/absil/ilpars.fsy"
+//# 267 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 
                    )
-//# 267 "../../../src/absil/ilpars.fsy"
+//# 267 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1215 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 269 "../../../src/absil/ilpars.fsy"
+//# 269 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 
                    )
-//# 269 "../../../src/absil/ilpars.fsy"
+//# 269 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1225 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 271 "../../../src/absil/ilpars.fsy"
+//# 271 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 
                    )
-//# 271 "../../../src/absil/ilpars.fsy"
+//# 271 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1235 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 273 "../../../src/absil/ilpars.fsy"
+//# 273 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_Byte 
                    )
-//# 273 "../../../src/absil/ilpars.fsy"
+//# 273 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1245 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 275 "../../../src/absil/ilpars.fsy"
+//# 275 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt16 
                    )
-//# 275 "../../../src/absil/ilpars.fsy"
+//# 275 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1255 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 277 "../../../src/absil/ilpars.fsy"
+//# 277 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt32 
                    )
-//# 277 "../../../src/absil/ilpars.fsy"
+//# 277 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1265 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 279 "../../../src/absil/ilpars.fsy"
+//# 279 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UInt64 
                    )
-//# 279 "../../../src/absil/ilpars.fsy"
+//# 279 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1275 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 281 "../../../src/absil/ilpars.fsy"
+//# 281 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_IntPtr 
                    )
-//# 281 "../../../src/absil/ilpars.fsy"
+//# 281 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1285 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 283 "../../../src/absil/ilpars.fsy"
+//# 283 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr 
                    )
-//# 283 "../../../src/absil/ilpars.fsy"
+//# 283 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1295 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 285 "../../../src/absil/ilpars.fsy"
+//# 285 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope PrimaryAssemblyILGlobals.typ_UIntPtr 
                    )
-//# 285 "../../../src/absil/ilpars.fsy"
+//# 285 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1305 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1308,10 +1308,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 288 "../../../src/absil/ilpars.fsy"
+//# 288 "../../../src/fsharp/absil/ilpars.fsy"
                               noMethodSpecScope (ILType.TypeVar (uint16 ( _2)))  
                    )
-//# 288 "../../../src/absil/ilpars.fsy"
+//# 288 "../../../src/fsharp/absil/ilpars.fsy"
                  : ILType ResolvedAtMethodSpecScope));
 //# 1316 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1319,10 +1319,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 293 "../../../src/absil/ilpars.fsy"
+//# 293 "../../../src/fsharp/absil/ilpars.fsy"
                               [_1] 
                    )
-//# 293 "../../../src/absil/ilpars.fsy"
+//# 293 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bounds1));
 //# 1327 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1331,20 +1331,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 295 "../../../src/absil/ilpars.fsy"
+//# 295 "../../../src/fsharp/absil/ilpars.fsy"
                               _1 @ [_3] 
                    )
-//# 295 "../../../src/absil/ilpars.fsy"
+//# 295 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bounds1));
 //# 1339 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 299 "../../../src/absil/ilpars.fsy"
+//# 299 "../../../src/fsharp/absil/ilpars.fsy"
                               (None, None) 
                    )
-//# 299 "../../../src/absil/ilpars.fsy"
+//# 299 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bound));
 //# 1349 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1352,10 +1352,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 301 "../../../src/absil/ilpars.fsy"
+//# 301 "../../../src/fsharp/absil/ilpars.fsy"
                               (None, Some _1) 
                    )
-//# 301 "../../../src/absil/ilpars.fsy"
+//# 301 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bound));
 //# 1360 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1364,10 +1364,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 303 "../../../src/absil/ilpars.fsy"
+//# 303 "../../../src/fsharp/absil/ilpars.fsy"
                               (Some _1, Some (_3 - _1 + 1)) 
                    )
-//# 303 "../../../src/absil/ilpars.fsy"
+//# 303 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bound));
 //# 1372 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1375,10 +1375,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 305 "../../../src/absil/ilpars.fsy"
+//# 305 "../../../src/fsharp/absil/ilpars.fsy"
                               (Some _1, None) 
                    )
-//# 305 "../../../src/absil/ilpars.fsy"
+//# 305 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bound));
 //# 1383 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1387,10 +1387,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 312 "../../../src/absil/ilpars.fsy"
+//# 312 "../../../src/fsharp/absil/ilpars.fsy"
                               (Some _1, Some (_2 - _1 + 1)) 
                    )
-//# 312 "../../../src/absil/ilpars.fsy"
+//# 312 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bound));
 //# 1395 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1398,10 +1398,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 314 "../../../src/absil/ilpars.fsy"
+//# 314 "../../../src/fsharp/absil/ilpars.fsy"
                               (Some _1, None) 
                    )
-//# 314 "../../../src/absil/ilpars.fsy"
+//# 314 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'bound));
 //# 1406 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1409,10 +1409,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 318 "../../../src/absil/ilpars.fsy"
+//# 318 "../../../src/fsharp/absil/ilpars.fsy"
                               _1 
                    )
-//# 318 "../../../src/absil/ilpars.fsy"
+//# 318 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'id));
 //# 1417 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1420,10 +1420,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 320 "../../../src/absil/ilpars.fsy"
+//# 320 "../../../src/fsharp/absil/ilpars.fsy"
                               _1 
                    )
-//# 320 "../../../src/absil/ilpars.fsy"
+//# 320 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'id));
 //# 1428 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1431,10 +1431,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 324 "../../../src/absil/ilpars.fsy"
+//# 324 "../../../src/fsharp/absil/ilpars.fsy"
                               int32 _1 
                    )
-//# 324 "../../../src/absil/ilpars.fsy"
+//# 324 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'int32));
 //# 1439 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1442,10 +1442,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 328 "../../../src/absil/ilpars.fsy"
+//# 328 "../../../src/fsharp/absil/ilpars.fsy"
                               _1 
                    )
-//# 328 "../../../src/absil/ilpars.fsy"
+//# 328 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'int64));
 //# 1450 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1453,10 +1453,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 332 "../../../src/absil/ilpars.fsy"
+//# 332 "../../../src/fsharp/absil/ilpars.fsy"
                               _1 
                    )
-//# 332 "../../../src/absil/ilpars.fsy"
+//# 332 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'float64));
 //# 1461 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1464,20 +1464,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 334 "../../../src/absil/ilpars.fsy"
+//# 334 "../../../src/fsharp/absil/ilpars.fsy"
                               System.BitConverter.Int64BitsToDouble _3 
                    )
-//# 334 "../../../src/absil/ilpars.fsy"
+//# 334 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'float64));
 //# 1472 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 338 "../../../src/absil/ilpars.fsy"
+//# 338 "../../../src/fsharp/absil/ilpars.fsy"
                                noMethodSpecScope [] 
                    )
-//# 338 "../../../src/absil/ilpars.fsy"
+//# 338 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'opt_actual_tyargs));
 //# 1482 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1485,11 +1485,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 340 "../../../src/absil/ilpars.fsy"
+//# 340 "../../../src/fsharp/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun res -> 
                                noMethodSpecScope  res) 
                    )
-//# 340 "../../../src/absil/ilpars.fsy"
+//# 340 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'opt_actual_tyargs));
 //# 1494 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1497,10 +1497,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 345 "../../../src/absil/ilpars.fsy"
+//# 345 "../../../src/fsharp/absil/ilpars.fsy"
                                _2 
                    )
-//# 345 "../../../src/absil/ilpars.fsy"
+//# 345 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'actual_tyargs));
 //# 1505 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1508,11 +1508,11 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 349 "../../../src/absil/ilpars.fsy"
+//# 349 "../../../src/fsharp/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun res -> 
                                noMethodSpecScope [ res]) 
                    )
-//# 349 "../../../src/absil/ilpars.fsy"
+//# 349 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'actualTypSpecs));
 //# 1517 "ilpars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -1521,12 +1521,12 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 352 "../../../src/absil/ilpars.fsy"
+//# 352 "../../../src/fsharp/absil/ilpars.fsy"
                                resolveMethodSpecScopeThen _1 (fun x -> 
                                resolveMethodSpecScopeThen _3 (fun y -> 
                                noMethodSpecScope (x @ [ y]))) 
                    )
-//# 352 "../../../src/absil/ilpars.fsy"
+//# 352 "../../../src/fsharp/absil/ilpars.fsy"
                  : 'actualTypSpecs));
 |]
 //# 1532 "ilpars.fs"

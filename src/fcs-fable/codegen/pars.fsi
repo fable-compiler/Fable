@@ -715,6 +715,7 @@ type nonTerminalId =
     | NONTERM_opt_declEnd
     | NONTERM_opt_ODECLEND
     | NONTERM_deprecated_opt_equals
+    | NONTERM_opt_equals
     | NONTERM_opt_OBLOCKSEP
     | NONTERM_opt_seps
     | NONTERM_opt_rec

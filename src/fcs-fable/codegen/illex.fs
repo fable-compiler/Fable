@@ -1,4 +1,4 @@
-//# 3 "../../../src/absil/illex.fsl"
+//# 3 "../../../src/fsharp/absil/illex.fsl"
  
 
 module internal FSharp.Compiler.AbstractIL.Internal.AsciiLexer 
@@ -378,92 +378,92 @@ let rec _fslex_dummy () = _fslex_dummy()
 and token  lexbuf =
   match _fslex_tables.Interpret(0,lexbuf) with
   | 0 -> ( 
-//# 102 "../../../src/absil/illex.fsl"
+//# 102 "../../../src/fsharp/absil/illex.fsl"
                          COMMA 
 //# 383 "illex.fs"
           )
   | 1 -> ( 
-//# 103 "../../../src/absil/illex.fsl"
+//# 103 "../../../src/fsharp/absil/illex.fsl"
                          DOT 
 //# 388 "illex.fs"
           )
   | 2 -> ( 
-//# 104 "../../../src/absil/illex.fsl"
+//# 104 "../../../src/fsharp/absil/illex.fsl"
                          STAR 
 //# 393 "illex.fs"
           )
   | 3 -> ( 
-//# 105 "../../../src/absil/illex.fsl"
+//# 105 "../../../src/fsharp/absil/illex.fsl"
                          BANG 
 //# 398 "illex.fs"
           )
   | 4 -> ( 
-//# 106 "../../../src/absil/illex.fsl"
+//# 106 "../../../src/fsharp/absil/illex.fsl"
                          AMP 
 //# 403 "illex.fs"
           )
   | 5 -> ( 
-//# 107 "../../../src/absil/illex.fsl"
+//# 107 "../../../src/fsharp/absil/illex.fsl"
                          LPAREN 
 //# 408 "illex.fs"
           )
   | 6 -> ( 
-//# 108 "../../../src/absil/illex.fsl"
+//# 108 "../../../src/fsharp/absil/illex.fsl"
                          RPAREN 
 //# 413 "illex.fs"
           )
   | 7 -> ( 
-//# 109 "../../../src/absil/illex.fsl"
+//# 109 "../../../src/fsharp/absil/illex.fsl"
                          LBRACK 
 //# 418 "illex.fs"
           )
   | 8 -> ( 
-//# 110 "../../../src/absil/illex.fsl"
+//# 110 "../../../src/fsharp/absil/illex.fsl"
                          RBRACK 
 //# 423 "illex.fs"
           )
   | 9 -> ( 
-//# 111 "../../../src/absil/illex.fsl"
+//# 111 "../../../src/fsharp/absil/illex.fsl"
                          SLASH 
 //# 428 "illex.fs"
           )
   | 10 -> ( 
-//# 112 "../../../src/absil/illex.fsl"
+//# 112 "../../../src/fsharp/absil/illex.fsl"
                          LESS 
 //# 433 "illex.fs"
           )
   | 11 -> ( 
-//# 113 "../../../src/absil/illex.fsl"
+//# 113 "../../../src/fsharp/absil/illex.fsl"
                          GREATER 
 //# 438 "illex.fs"
           )
   | 12 -> ( 
-//# 114 "../../../src/absil/illex.fsl"
+//# 114 "../../../src/fsharp/absil/illex.fsl"
                            ELIPSES 
 //# 443 "illex.fs"
           )
   | 13 -> ( 
-//# 115 "../../../src/absil/illex.fsl"
+//# 115 "../../../src/fsharp/absil/illex.fsl"
                           DCOLON 
 //# 448 "illex.fs"
           )
   | 14 -> ( 
-//# 116 "../../../src/absil/illex.fsl"
+//# 116 "../../../src/fsharp/absil/illex.fsl"
                          PLUS 
 //# 453 "illex.fs"
           )
   | 15 -> ( 
-//# 118 "../../../src/absil/illex.fsl"
+//# 118 "../../../src/fsharp/absil/illex.fsl"
                         VAL_INT64(int64(lexeme lexbuf)) 
 //# 458 "illex.fs"
           )
   | 16 -> ( 
-//# 127 "../../../src/absil/illex.fsl"
+//# 127 "../../../src/fsharp/absil/illex.fsl"
                        VAL_INT32_ELIPSES(int32(lexemeTrimBoth lexbuf 0 3)) 
 //# 463 "illex.fs"
           )
   | 17 -> ( 
-//# 129 "../../../src/absil/illex.fsl"
+//# 129 "../../../src/fsharp/absil/illex.fsl"
                        let c1 = (lexemeChar lexbuf 0) in 
                        let c2 = (lexemeChar lexbuf 1) in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
@@ -472,12 +472,12 @@ and token  lexbuf =
 //# 472 "illex.fs"
           )
   | 18 -> ( 
-//# 135 "../../../src/absil/illex.fsl"
+//# 135 "../../../src/fsharp/absil/illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
 //# 477 "illex.fs"
           )
   | 19 -> ( 
-//# 137 "../../../src/absil/illex.fsl"
+//# 137 "../../../src/fsharp/absil/illex.fsl"
                        let c1 = (lexemeChar lexbuf 6) in 
                        let c2 = (lexemeChar lexbuf 7) in 
                        if c1 >= '0' && c1 <= '9' && c2 >= '0' && c2 <= '9' then 
@@ -486,42 +486,42 @@ and token  lexbuf =
 //# 486 "illex.fs"
           )
   | 20 -> ( 
-//# 144 "../../../src/absil/illex.fsl"
+//# 144 "../../../src/fsharp/absil/illex.fsl"
                        VAL_INT64(int64(lexeme lexbuf)) 
 //# 491 "illex.fs"
           )
   | 21 -> ( 
-//# 146 "../../../src/absil/illex.fsl"
+//# 146 "../../../src/fsharp/absil/illex.fsl"
                        VAL_FLOAT64( (float (lexeme lexbuf)) ) 
 //# 496 "illex.fs"
           )
   | 22 -> ( 
-//# 149 "../../../src/absil/illex.fsl"
+//# 149 "../../../src/fsharp/absil/illex.fsl"
                        let s = (lexeme lexbuf) in kwdOrInstr s 
 //# 501 "illex.fs"
           )
   | 23 -> ( 
-//# 151 "../../../src/absil/illex.fsl"
+//# 151 "../../../src/fsharp/absil/illex.fsl"
                        kwdOrInstrOrId (lexeme lexbuf) 
 //# 506 "illex.fs"
           )
   | 24 -> ( 
-//# 154 "../../../src/absil/illex.fsl"
+//# 154 "../../../src/fsharp/absil/illex.fsl"
                        VAL_DOTTEDNAME(lexeme lexbuf) 
 //# 511 "illex.fs"
           )
   | 25 -> ( 
-//# 157 "../../../src/absil/illex.fsl"
+//# 157 "../../../src/fsharp/absil/illex.fsl"
                        token lexbuf 
 //# 516 "illex.fs"
           )
   | 26 -> ( 
-//# 159 "../../../src/absil/illex.fsl"
+//# 159 "../../../src/fsharp/absil/illex.fsl"
                        unexpectedChar lexbuf 
 //# 521 "illex.fs"
           )
   | 27 -> ( 
-//# 161 "../../../src/absil/illex.fsl"
+//# 161 "../../../src/fsharp/absil/illex.fsl"
                        EOF 
 //# 526 "illex.fs"
           )

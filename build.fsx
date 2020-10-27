@@ -389,12 +389,12 @@ let copyFcsRepo sourceDir =
     let targetDir = "src/fcs-fable"
     cleanDirs [targetDir]
     copyDirRecursive (sourceDir </> "fcs/fcs-fable") targetDir
-    [ "src/absil"
-    ; "src/fsharp"
+    [ "src/fsharp"
+    ; "src/fsharp/absil"
+    ; "src/fsharp/ilx"
     ; "src/fsharp/service"
     ; "src/fsharp/symbols"
-    ; "src/ilx"
-    ; "src/utils"
+    ; "src/fsharp/utils"
     ] |> List.iter (fun path ->
         copyDirNonRecursive (sourceDir </> path) (targetDir </> path))
     removeFile (targetDir </> ".gitignore")
