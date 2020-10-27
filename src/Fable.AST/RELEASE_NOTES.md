@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-beta-002
+
+* Add `MemberDecl.ExportDefault`
+
 ### 3.0.0-nagareyama-beta-001
 
 * Beta release

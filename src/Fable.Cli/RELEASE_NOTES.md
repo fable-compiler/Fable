@@ -1,3 +1,10 @@
+### 3.0.0-nagareyama-beta-004
+
+* Typescript-related updates @ncave
+* Omit module prefix in imports @Zaid-Ajaj
+* Write compiler options to .fable/compiler_info.txt
+* Compatibility with Fable.AST beta-002
+
 ### 3.0.0-nagareyama-beta-003
 
 * Fix #2226: Wrong decimal separator depending on regional setting @bklop
