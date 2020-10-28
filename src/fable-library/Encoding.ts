@@ -127,7 +127,8 @@ class UTF16LE {
 
 class UTF8 {
 
-  public getBytes(str: string, index?: number, count?: number) {
+  public getBytes(str: string | string[], index?: number, count?: number) {
+    str = Array.isArray(str) ? str.join("") : str;
     if (index != null && count != null) {
       str = str.substring(index, index + count);
     } else if (index != null) {
