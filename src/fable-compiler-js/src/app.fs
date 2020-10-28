@@ -30,7 +30,6 @@ module Imports =
         let relPath = getRelativePath projDir importPath |> trimPath
         let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
         let relPath = if isRelativePath relPath then relPath else "./" + relPath
-        let relPath = if relPath.EndsWith(".fs.js") then relPath.Replace(".fs.js", ".js") else relPath
         relPath
 
     let getImportPath sourcePath targetPath projDir outDir importPath =
@@ -44,17 +43,21 @@ module Imports =
                 then Path.Combine(sourceDir, importPath) |> normalizeFullPath
                 else importPath
             if isAbsolutePath importPath then
-                if importPath.EndsWith(".fs.js")
+                if importPath.EndsWith(".fs")
                 then getTargetRelPath importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath
 
-type SourceWriter(sourcePath, targetPath, projDir, outDir) =
+type SourceWriter(sourcePath, targetPath, projDir, outDir, fileExt: string) =
+    // In imports *.ts extensions have to be converted to *.js extensions instead
+    let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
     let sb = System.Text.StringBuilder()
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
         member _.EscapeJsStringLiteral(str) = javaScriptStringEncode(str)
-        member _.MakeImportPath(path) = Imports.getImportPath sourcePath targetPath projDir outDir path
+        member _.MakeImportPath(path) =
+            let path = Imports.getImportPath sourcePath targetPath projDir outDir path
+            if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
         member _.Dispose() = ()
     member __.Result = sb.ToString()
 
@@ -128,6 +131,11 @@ let parseFiles projectFileName options =
             typedArrays = options.typedArrays,
             typescript = options.typescript)
 
+    let fileExt =
+        match options.outDir with
+        | Some _ -> if options.typescript then ".ts" else ".js"
+        | None -> if options.typescript then ".fs.ts" else ".fs.js"
+
     async {
         for fileName in fileNames do
 
@@ -142,16 +150,15 @@ let parseFiles projectFileName options =
             res.FableErrors |> printErrors showWarnings
 
             // print Babel AST as JavaScript/TypeScript
-            let fileExt = if options.typescript then ".ts" else ".js"
             let outPath =
                 match options.outDir with
                 | None ->
-                    fileName + fileExt
+                    Path.ChangeExtension(fileName, fileExt)
                 | Some outDir ->
                     let relPath = getRelativePath projDir fileName |> Imports.trimPath
                     let relPath = Path.ChangeExtension(relPath, fileExt)
                     Path.Combine(outDir, relPath)
-            let writer = new SourceWriter(fileName, outPath, projDir, options.outDir)
+            let writer = new SourceWriter(fileName, outPath, projDir, options.outDir, fileExt)
             do! fable.PrintBabelAst(res, writer)
 
             // write the result to file

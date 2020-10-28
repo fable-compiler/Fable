@@ -9,7 +9,9 @@ open Fable.Transforms
 open Fable.Transforms.State
 open ProjectCracker
 
-type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option) =
+type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option, fileExt: string) =
+    // In imports *.ts extensions have to be converted to *.js extensions instead
+    let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
     let stream = new IO.StreamWriter(targetPath)
     interface BabelPrinter.Writer with
         member _.Write(str) =
@@ -17,7 +19,8 @@ type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir:
         member _.EscapeJsStringLiteral(str) =
             Web.HttpUtility.JavaScriptStringEncode(str)
         member _.MakeImportPath(path) =
-            Imports.getImportPath sourcePath targetPath projDir outDir path
+            let path = Imports.getImportPath sourcePath targetPath projDir outDir path
+            if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
         member _.Dispose() = stream.Dispose()
 
 type Watcher() =
@@ -180,12 +183,12 @@ module private Util =
             watchDependencies |> Array.exists (fun p -> Set.contains p dirtyFiles)
 
     let getOutJsPath (cliArgs: CliArgs) file =
+        let fileExt = cliArgs.CompilerOptions.FileExtension
         match cliArgs.OutDir with
         | None ->
-            Path.replaceExtension cliArgs.CompilerOptions.FileExtension file
+            Path.replaceExtension fileExt file
         | Some outDir ->
             let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-            let fileExt = if cliArgs.CompilerOptions.Typescript then ".ts" else ".js"
             let relPath = Imports.getRelativePath projDir file |> Imports.trimPath
             let relPath = IO.Path.ChangeExtension(relPath, fileExt)
             IO.Path.Combine(outDir, relPath)
@@ -210,7 +213,8 @@ module private Util =
 
             // write output to file
             let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-            let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir)
+            let fileExt = cliArgs.CompilerOptions.FileExtension
+            let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir, fileExt)
             do! BabelPrinter.run writer map babel
 
             Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
