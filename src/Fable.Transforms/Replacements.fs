@@ -1071,7 +1071,10 @@ let rec findInScope scope identName =
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
         | Value(StringConstant path, r) when path.EndsWith(".fs") ->
-            Value(StringConstant(Path.replaceExtension com.Options.FileExtension path), r)
+            // In imports *.ts extensions have to be converted to *.js extensions instead
+            let fileExt = com.Options.FileExtension
+            let fileExt = if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
+            Value(StringConstant(Path.replaceExtension fileExt path), r)
         | path -> path
 
     match i.DeclaringEntityFullName, i.CompiledName with

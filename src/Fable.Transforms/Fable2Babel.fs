@@ -2104,10 +2104,7 @@ module Compiler =
                                  "`importMember` must be assigned to a variable"
                                  |> addError com [] None; selector
                             else selector
-                        Path =
-                            if path.EndsWith(".fs") then
-                                Path.replaceExtension com.Options.FileExtension path
-                            else path
+                        Path = path
                         LocalIdent = localId }
                     imports.Add(cachedName, i)
                     match localId with

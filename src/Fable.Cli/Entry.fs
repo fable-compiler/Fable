@@ -65,6 +65,12 @@ Arguments:
   --typescript      Compile to TypeScript (experimental)
 """
 
+let defaultFileExt args =
+    let typescript = flagEnabled "--typescript" args
+    match argValue "--outDir" args with
+    | Some _ -> if typescript then ".ts" else ".js"
+    | None -> if typescript then ".fs.ts" else ".fs.js"
+
 type Runner =
   static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
     let makeAbsolute (path: string) =
@@ -116,10 +122,13 @@ type Runner =
             ]
             |> List.distinct
 
+        let fileExt =
+            argValue "--extension" args |> Option.defaultValue (defaultFileExt args)
+
         let compilerOptions =
             CompilerOptionsHelper.Make(typescript = typescript,
                                        typedArrays = typedArrays,
-                                       ?fileExtension = argValue "--extension" args,
+                                       fileExtension = fileExt,
                                        define = define,
                                        optimizeFSharpAst = flagEnabled "--optimize" args,
                                        verbosity = verbosity)
@@ -152,13 +161,20 @@ type Runner =
 
 let clean args dir =
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
-    let ext =
-        argValue "--extension" args
-        |> Option.defaultValue CompilerOptionsHelper.DefaultFileExtension
+    let fileExt =
+        argValue "--extension" args |> Option.defaultValue (defaultFileExt args)
+
+    // clean is a potentially destructive operation, we need a permission before proceeding
+    Console.WriteLine("This will recursively delete all *{0} files in {1}.", fileExt, dir)
+    Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
+    let keyInfo = Console.ReadKey()
+    if keyInfo.Key <> ConsoleKey.Y then
+        Console.WriteLine("Clean was cancelled.")
+        exit 0
 
     let mutable fileCount = 0
     let rec recClean dir =
-        IO.Directory.GetFiles(dir, "*" + ext)
+        IO.Directory.GetFiles(dir, "*" + fileExt)
         |> Array.iter (fun file ->
             IO.File.Delete(file)
             fileCount <- fileCount + 1
