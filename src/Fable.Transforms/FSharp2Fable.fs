@@ -87,6 +87,30 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         let tag = unionCaseTag tdef unionCase
         Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
+let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: Fable.Expr list) =
+    let resolveMemberCall (entity: Fable.Entity) genArgs membCompiledName isInstance argTypes thisArg args =
+        let genParamNames = entity.GenericParameters |> List.map (fun x -> x.Name)
+        let genArgs = List.zip genParamNames genArgs
+        tryFindMember com entity (Map genArgs) membCompiledName isInstance argTypes
+        |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
+
+    let isInstance = flags.IsInstance
+    let argTypes = List.map (makeType ctx.GenericArgs) argTypes
+    let thisArg, args, argTypes =
+        match argExprs, argTypes with
+        | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
+        | args, argTypes -> None, args, argTypes
+
+    sourceTypes |> Seq.tryPick (fun sourceType ->
+        let t = makeType ctx.GenericArgs sourceType
+        match t with
+        | Fable.DeclaredType(entity, genArgs) ->
+            let entity = com.GetEntity(entity)
+            resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
+        | _ -> None
+    ) |> Option.defaultWith (fun () ->
+        "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
+
 let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                 (declaringEntityName: string option) (sign: FSharpAbstractSignature) attributes =
     let declaringEntityName = defaultArg declaringEntityName ""
@@ -475,13 +499,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! args = transformExprList com ctx argExprs
 
         match ctx.Witnesses with
+        | [] -> return transformTraitCall com ctx r typ sourceTypes traitName flags argTypes args
+
         | [witness] ->
-            // printfn "single witness for %s in context %A" traitName witness
             let! callee = transformExpr com ctx witness
             return Fable.CurriedApply(callee, args, typ, r)
 
         | witnesses ->
-            // printfn "multiple witnesses for %s in context %A" traitName witnesses
             let rec tryNestedLambda args = function
                 | BasicPatterns.Lambda(arg, body) -> tryNestedLambda (arg::args) body
                 | _ when List.isEmpty args -> None
@@ -500,7 +524,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 return Fable.CurriedApply(callee, args, typ, r)
             | None ->
                 return
-                    sprintf "Cannot resolve trait call %s %A\n\n" traitName witnesses
+                    sprintf "Cannot resolve witness %s %A\n\n" traitName witnesses
                     |> addErrorAndReturnNull com ctx.InlinePath r
 
     | BasicPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->

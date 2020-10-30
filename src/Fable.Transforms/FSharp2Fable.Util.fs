@@ -1281,7 +1281,7 @@ module Util =
             | None when info.IsInterface ->
                 callInstanceMember com r typ callInfo ent memb |> Some
             | None ->
-                sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
+                sprintf "Cannot resolve replacement %s.%s" info.DeclaringEntityFullName info.CompiledName
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
