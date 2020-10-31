@@ -86,6 +86,9 @@ module Process =
     let isWindows() =
         InteropServices.RuntimeInformation.IsOSPlatform(InteropServices.OSPlatform.Windows)
 
+    let getCurrentAssembly() =
+        typeof<TypeInThisAssembly>.Assembly
+
     let addToPath (dir: string) =
         let currentPath = Environment.GetEnvironmentVariable("PATH")
         IO.Path.GetFullPath(dir) + (if isWindows() then ";" else ":") + currentPath
@@ -124,11 +127,18 @@ module Process =
 
     let start =
         let mutable runningProcess = None
-        // In Windows, terminating the main process doesn't kill the spawned ones
-        // so we need to listen for the Console.CancelKeyPress event
+
+        // In Windows, terminating the main process doesn't kill the spawned ones so we need
+        // to listen for the Console.CancelKeyPress and AssemblyLoadContext.Unloading events
         if isWindows() then
-            Console.CancelKeyPress.AddHandler(ConsoleCancelEventHandler(fun a b ->
+            Console.CancelKeyPress.AddHandler(ConsoleCancelEventHandler(fun _ _ ->
                 runningProcess |> Option.iter kill))
+            let assemblyLoadContext =
+                getCurrentAssembly()
+                |> Loader.AssemblyLoadContext.GetLoadContext
+            assemblyLoadContext.add_Unloading(fun _ ->
+                runningProcess |> Option.iter kill)
+
         fun (workingDir: string) (exePath: string) (args: string list) ->
             try
                 runningProcess |> Option.iter kill

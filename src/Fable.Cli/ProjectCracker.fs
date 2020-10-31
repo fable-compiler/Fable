@@ -473,8 +473,8 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
         | Some path -> Path.normalizeFullPath path
         | None ->
             let assemblyDir =
-              typeof<TypeInThisAssembly>.Assembly.Location
-              |> Path.GetDirectoryName
+                Process.getCurrentAssembly().Location
+                |> Path.GetDirectoryName
 
             let defaultFableLibraryPaths =
                 [ "../../../fable-library/"               // running from nuget tools package
