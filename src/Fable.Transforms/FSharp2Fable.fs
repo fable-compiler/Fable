@@ -1180,9 +1180,8 @@ let private tryGetMemberArgsAndBody (com: Compiler) fileName entityFullName memb
             then Some(args, body)
             else None
         | InitAction _ -> None
-    match com.ImplementationFiles.TryGetValue(fileName) with
-    | true, f -> f.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName)
-    | false, _ -> None
+    let file = com.GetImplementationFile(fileName)
+    file.Declarations |> List.tryPick (tryGetMemberArgsAndBodyInner entityFullName memberUniqueName)
 
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
@@ -1254,18 +1253,12 @@ type FableCompiler(com: Compiler) =
                               FileName = fileName }
                         | None -> failwith ("Cannot find inline member. Please report: " + membUniqueName))
 
-        member _.TryGetImplementationFile (fileName) =
-            let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match com.ImplementationFiles.TryGetValue(fileName) with
-            | true, f -> Some f
-            | false, _ -> None
-
     interface Compiler with
         member _.Options = com.Options
         member _.Plugins = com.Plugins
         member _.LibraryDir = com.LibraryDir
         member _.CurrentFile = com.CurrentFile
-        member _.ImplementationFiles = com.ImplementationFiles
+        member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
         member _.GetRootModule(fileName) = com.GetRootModule(fileName)
         member _.GetEntity(fullName) = com.GetEntity(fullName)
         member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
@@ -1274,12 +1267,7 @@ type FableCompiler(com: Compiler) =
             com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
 let transformFile (com: Compiler) =
-    let file =
-        match com.ImplementationFiles.TryGetValue(com.CurrentFile) with
-        | true, file -> file
-        | false, _ ->
-            let projFiles = com.ImplementationFiles |> Seq.map (fun kv -> kv.Key) |> String.concat "\n"
-            failwithf "File %s cannot be found in source list:\n%s" com.CurrentFile projFiles
+    let file = com.GetImplementationFile(com.CurrentFile)
     let usedRootNames = getUsedRootNames com Set.empty file.Declarations
     let ctx = Context.Create(usedRootNames)
     let com = FableCompiler(com)

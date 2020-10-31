@@ -160,7 +160,12 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.Plugins = project.Plugins
         member _.LibraryDir = fableLibraryDir
         member _.CurrentFile = currentFile
-        member _.ImplementationFiles = project.ImplementationFiles
+
+        member _.GetImplementationFile(fileName) =
+            let fileName = Path.normalizePathAndEnsureFsExtension fileName
+            match project.ImplementationFiles.TryGetValue(fileName) with
+            | true, rootModule -> rootModule
+            | false, _ -> failwith ("Cannot find implementation file " + fileName)
 
         member this.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName

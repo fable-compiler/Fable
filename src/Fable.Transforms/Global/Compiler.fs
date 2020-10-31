@@ -53,7 +53,7 @@ type Compiler =
     abstract CurrentFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
-    abstract ImplementationFiles: IDictionary<string, FSharpImplementationFileContents>
+    abstract GetImplementationFile: fileName: string -> FSharpImplementationFileContents
     abstract GetRootModule: fileName: string -> string
     abstract GetEntity: Fable.EntityRef -> Fable.Entity
     abstract GetOrAddInlineExpr: string * (unit->InlineExpr) -> InlineExpr
