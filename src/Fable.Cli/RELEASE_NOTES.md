@@ -1,3 +1,8 @@
+### 3.0.0-nagareyama-beta-005
+
+* Fix #2238: Normalize paths on Windows
+* Fix #2212 (3rd attempt): Killing subprocess on Windows
+
 ### 3.0.0-nagareyama-beta-004
 
 * Typescript-related updates @ncave
