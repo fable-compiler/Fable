@@ -57,6 +57,7 @@ Arguments:
   --runScript       Runs the generated script for last file with node
                     (Requires "esm" npm package)
 
+  --noRestore       Skip `dotnet restore`
   --forcePkgs       Force a new copy of package sources into `.fable` folder
   --exclude         Don't merge sources of referenced projects with specified pattern
                     (Intended for plugin development)
@@ -140,6 +141,7 @@ type Runner =
               OutDir = argValue "--outDir" args |> Option.map makeAbsolute
               WatchMode = watch
               ForcePkgs = flagEnabled "--forcePkgs" args
+              NoRestore = flagEnabled "--noRestore" args
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args

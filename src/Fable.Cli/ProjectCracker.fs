@@ -11,7 +11,7 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, projFile, optimize) =
+type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noRestore, projFile, optimize) =
     let builtDlls = HashSet()
     member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
@@ -19,6 +19,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, pr
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
     member _.ForcePkgs: bool = forcePkgs
+    member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.Optimize: bool = optimize
     member _.BuildDll(normalizedDllPath: string) =
@@ -309,8 +310,9 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
     // Try restoring project
     let projDir = IO.Path.GetDirectoryName projFile
     let projName = IO.Path.GetFileName projFile
-    Process.runSync projDir "dotnet" ["restore"; projName]
-    |> ignore
+
+    if not opts.NoRestore then
+        Process.runSync projDir "dotnet" ["restore"; projName] |> ignore
 
     Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
