@@ -260,7 +260,6 @@ type IFableCompiler =
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
-    abstract TryGetImplementationFile: filename: string -> FSharpImplementationFileContents option
 
 module Helpers =
     let rec nonAbbreviatedDefinition (ent: FSharpEntity): FSharpEntity =
