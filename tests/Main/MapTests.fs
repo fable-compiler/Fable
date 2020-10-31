@@ -215,6 +215,12 @@ let tests =
             pr someSeq |> equal "a, b"
             pr someSeq |> equal "a, b"
 
+        testCase "Map.change works" <| fun () ->
+            let m = Map["a",1; "b",2]
+            let m2 = Map["a",1; "b",3]
+            m |> Map.change "c" (Option.map (fun v -> v + 1)) |> equal m
+            m |> Map.change "b" (Option.map (fun v -> v + 1)) |> equal m2
+
         testCase "Map can be casted to IDictionary" <| fun () -> // See #1729, #1857
             let map = Map [ "a", 1; "b", 2; "c", 3]
             let dic = map :> System.Collections.Generic.IDictionary<_,_>

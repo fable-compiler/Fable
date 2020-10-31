@@ -4,11 +4,15 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <RollForward>Major</RollForward>
     <LangVersion>preview</LangVersion>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="QuickTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>
