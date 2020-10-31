@@ -205,6 +205,16 @@ let tests =
             (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
             |> equal true
 
+        testCase "Map.toSeq generates sequences that can be iterated multiple times" <| fun () -> // See #2242
+            let pr (sequence: seq<int * string>) =
+                sequence
+                |> Seq.map (fun (i, v) -> v)
+                |> String.concat ", "
+
+            let someSeq = Map.ofList [(1, "a"); (2, "b")] |> Map.toSeq
+            pr someSeq |> equal "a, b"
+            pr someSeq |> equal "a, b"
+
         testCase "Map can be casted to IDictionary" <| fun () -> // See #1729, #1857
             let map = Map [ "a", 1; "b", 2; "c", 3]
             let dic = map :> System.Collections.Generic.IDictionary<_,_>
