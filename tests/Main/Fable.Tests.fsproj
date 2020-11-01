@@ -11,6 +11,7 @@
     <PackageReference Include="Expecto" Version="5.1.2" />
     <PackageReference Include="AltCover" Version="5.3.675" />
     <PackageReference Include="FSharp.Core" Version="5.0.0" />
+    <PackageReference Include="FSharp.UMX" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
