@@ -188,12 +188,6 @@ let tests =
     //     equal 0 (compare r1 r2)
     // #endif
 
-    // TODO!!!
-    // testCase "Record reference equality works" <| fun () ->
-    //     let r1 = { a2 = 1; b2 = 2 }
-    //     let r2 = { a2 = 1; b2 = 2 }
-    //     equal false (r1 = r2)
-
     testCase "Equality with objects implementing IEquatable works" <| fun () ->
         let c1 = Test(5)
         let c2 = Test(4)

@@ -29,6 +29,9 @@ let containsInOrder (substrings: string list) (str: string) =
       lastIndex <- i
       success)
 
+module M =
+    let f x = nameof x
+
 let tests =
   testList "Strings" [
       testCase "String literal addition is optimized" <| fun () ->
@@ -839,4 +842,9 @@ let tests =
       // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
       testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
             "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
+
+      testCase "F# nameof works" <| fun () ->
+          M.f 12 |> equal "x"
+          nameof M |> equal "M"
+          nameof M.f |> equal "f"
 ]

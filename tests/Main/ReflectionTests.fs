@@ -485,8 +485,6 @@ let reflectionTests = [
     t1.IsSubclassOf(t2) |> equal false
 ]
 
-// TODO!!! Add reflection tests for interfaces, erased unions,
-// string enums, imported and replaced types
 #if FABLE_COMPILER
 open Fable.Core
 open Fable.Core.Reflection
