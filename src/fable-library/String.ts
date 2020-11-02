@@ -7,6 +7,7 @@ import { toString } from "./Types.js";
 type Numeric = number | Long | Decimal;
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
+const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 
 // These are used for formatting and only take longs and decimals into account (no bigint)
@@ -165,79 +166,98 @@ export function printf(input: string): IPrintfFormat {
   };
 }
 
-export function toConsole(arg: IPrintfFormat) {
+export function interpolate(input: string, values: any[]): string {
+  let i = 0;
+  return input.replace(interpolateRegExp, (_, prefix, flags, padLength, precision, format) => {
+    return formatReplacement(values[i++], prefix, flags, padLength, precision, format);
+  });
+}
+
+function continuePrint(cont: (x: string) => any, arg: IPrintfFormat | string) {
+  return typeof arg === "string" ? cont(arg) : arg.cont(cont);
+}
+
+export function toConsole(arg: IPrintfFormat | string) {
   // Don't remove the lambda here, see #1357
-  return arg.cont((x) => { console.log(x); });
+  return continuePrint((x: string) => console.log(x), arg);
 }
 
-export function toConsoleError(arg: IPrintfFormat) {
-  return arg.cont((x) => { console.error(x); });
+export function toConsoleError(arg: IPrintfFormat | string) {
+  return continuePrint((x: string) => console.error(x), arg);
 }
 
-export function toText(arg: IPrintfFormat) {
-  return arg.cont((x) => x);
+export function toText(arg: IPrintfFormat | string): string {
+  return continuePrint((x: string) => x, arg);
 }
 
-export function toFail(arg: IPrintfFormat) {
-  return arg.cont((x) => { throw new Error(x); });
+export function toFail(arg: IPrintfFormat | string) {
+  return continuePrint((x: string) => {
+    throw new Error(x);
+  }, arg);
+}
+
+function formatReplacement(rep: any, prefix: any, flags: any, padLength: any, precision: any, format: any) {
+  let sign = "";
+  flags = flags || "";
+  format = format || "";
+  if (isNumeric(rep)) {
+    if (format.toLowerCase() !== "x") {
+      if (isLessThan(rep, 0)) {
+        rep = multiply(rep, -1);
+        sign = "-";
+      } else {
+        if (flags.indexOf(" ") >= 0) {
+          sign = " ";
+        } else if (flags.indexOf("+") >= 0) {
+          sign = "+";
+        }
+      }
+    }
+    precision = precision == null ? null : parseInt(precision, 10);
+    switch (format) {
+      case "f": case "F":
+        precision = precision != null ? precision : 6;
+        rep = toFixed(rep, precision);
+        break;
+      case "g": case "G":
+        rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+        break;
+      case "e": case "E":
+        rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+        break;
+      case "x":
+        rep = toHex(rep);
+        break;
+      case "X":
+        rep = toHex(rep).toUpperCase();
+        break;
+      default: // AOid
+        rep = String(rep);
+        break;
+    }
+  } else {
+    rep = toString(rep);
+  }
+  padLength = parseInt(padLength, 10);
+  if (!isNaN(padLength)) {
+    const zeroFlag = flags.indexOf("0") >= 0; // Use '0' for left padding
+    const minusFlag = flags.indexOf("-") >= 0; // Right padding
+    const ch = minusFlag || !zeroFlag ? " " : "0";
+    if (ch === "0") {
+      rep = padLeft(rep, padLength - sign.length, ch, minusFlag);
+      rep = sign + rep;
+    } else {
+      rep = padLeft(sign + rep, padLength, ch, minusFlag);
+    }
+  } else {
+    rep = sign + rep;
+  }
+  return prefix ? prefix + rep : rep;
 }
 
 function formatOnce(str2: string, rep: any) {
   return str2.replace(fsFormatRegExp, (_, prefix, flags, padLength, precision, format) => {
-    let sign = "";
-    if (isNumeric(rep)) {
-      if (format.toLowerCase() !== "x") {
-        if (isLessThan(rep, 0)) {
-          rep = multiply(rep, -1);
-          sign = "-";
-        } else {
-          if (flags.indexOf(" ") >= 0) {
-            sign = " ";
-          } else if (flags.indexOf("+") >= 0) {
-            sign = "+";
-          }
-        }
-      }
-      precision = precision == null ? null : parseInt(precision, 10);
-      switch (format) {
-        case "f": case "F":
-          precision = precision != null ? precision : 6;
-          rep = toFixed(rep, precision);
-          break;
-        case "g": case "G":
-          rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
-          break;
-        case "e": case "E":
-          rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
-          break;
-        case "x":
-          rep = toHex(rep);
-          break;
-        case "X":
-          rep = toHex(rep).toUpperCase();
-          break;
-        default: // AOid
-          rep = String(rep);
-          break;
-      }
-    } else {
-      rep = toString(rep);
-    }
-    padLength = parseInt(padLength, 10);
-    if (!isNaN(padLength)) {
-      const zeroFlag = flags.indexOf("0") >= 0; // Use '0' for left padding
-      const minusFlag = flags.indexOf("-") >= 0; // Right padding
-      const ch = minusFlag || !zeroFlag ? " " : "0";
-      if (ch === "0") {
-        rep = padLeft(rep, padLength - sign.length, ch, minusFlag);
-        rep = sign + rep;
-      } else {
-        rep = padLeft(sign + rep, padLength, ch, minusFlag);
-      }
-    } else {
-      rep = sign + rep;
-    }
-    const once = prefix + rep;
+    const once = formatReplacement(rep, prefix, flags, padLength, precision, format);
     return once.replace(/%/g, "%%");
   });
 }

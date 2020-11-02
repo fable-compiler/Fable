@@ -4,6 +4,9 @@ open System
 open Util.Testing
 #if FABLE_COMPILER
 open Fable.Core.JsInterop
+
+module M =
+    let f x = nameof x
 #endif
 
 // LINE SEPARATOR char doesn't cause an error #1283
@@ -28,9 +31,6 @@ let containsInOrder (substrings: string list) (str: string) =
       let success = i >= 0 && i > lastIndex
       lastIndex <- i
       success)
-
-module M =
-    let f x = nameof x
 
 let tests =
   testList "Strings" [
@@ -192,12 +192,40 @@ let tests =
             let o = Test(5)
             (sprintf "%A" o).Replace("\"", "") |> equal "10"
 
-      #if FABLE_COMPILER
+#if FABLE_COMPILER
       testCase "sprintf \"%A\" with circular references doesn't crash" <| fun () -> // See #338
             let o = obj()
             o?self <- o
             sprintf "%A" o |> ignore
-      #endif
+
+// TODO!!! Enable these in .NET when CI supports net5.0 and
+// in fable-compiler-js when updating fable-metadata/FSharp.Core
+#if !FABLE_COMPILER_JS
+      testCase "F# nameof works" <| fun () ->
+          M.f 12 |> equal "x"
+          nameof M |> equal "M"
+          nameof M.f |> equal "f"
+
+      testCase "string interpolation works" <| fun () ->
+          let name = "Phillip"
+          let age = 29
+          sprintf $"Name: {name}, Age: %i{age}"
+          |> equal "Name: Phillip, Age: 29"
+
+      testCase "string interpolation works with inline expressions" <| fun () ->
+          $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!"
+          |> equal "I think 3.14 is close to 3.14159265!"
+
+      testCase "" <| fun () ->
+          let person =
+              {| Name = "John"
+                 Surname = "Doe"
+                 Age = 32
+                 Country = "The United Kingdom" |}
+          $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
+          |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+#endif
+#endif
 
       testCase "sprintf \"%A\" with lists works" <| fun () ->
             let xs = ["Hi"; "Hello"; "Hola"]
@@ -842,9 +870,4 @@ let tests =
       // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
       testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
             "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
-
-      testCase "F# nameof works" <| fun () ->
-          M.f 12 |> equal "x"
-          nameof M |> equal "M"
-          nameof M.f |> equal "f"
 ]
