@@ -169,7 +169,6 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
             checkCache.[fileName] <- ((tcResult, tcErrors), (tcState, moduleNamesDict))
 
             let loadClosure = None
-            let textSnapshotInfo = None
             let keepAssemblyContents = true
 
             let tcEnvAtEnd, _topAttrs, implFile, ccuSigForFile = tcResult
@@ -177,8 +176,8 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
 
             let scope = TypeCheckInfo (tcConfig, tcGlobals, ccuSigForFile, tcState.Ccu, tcImports, tcEnvAtEnd.AccessRights,
                                     projectFileName, fileName, sink.GetResolutions(), sink.GetSymbolUses(), tcEnvAtEnd.NameEnv,
-                                    loadClosure, reactorOps, textSnapshotInfo, implFile, sink.GetOpenDeclarations())
-            FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, reactorOps, keepAssemblyContents)
+                                    loadClosure, implFile, sink.GetOpenDeclarations())
+            FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, keepAssemblyContents)
             |> Some
         | None ->
             None
@@ -219,16 +218,15 @@ type InteractiveChecker internal (tcConfig, tcGlobals, tcImports, tcInitialState
         let moduleNamesDict = Map.empty
         let loadClosure = None
         let backgroundErrors = [||]
-        let textSnapshotInfo = None
         let tcState = tcInitialState
         let tcResults = ParseAndCheckFile.CheckOneFile(
                             parseResults, sourceText, fileName, projectFileName, tcConfig, tcGlobals, tcImports, tcState,
-                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, textSnapshotInfo, userOpName, suggestNamesForErrors)
+                            moduleNamesDict, loadClosure, backgroundErrors, reactorOps, userOpName, suggestNamesForErrors)
         match tcResults with
         | tcErrors, Result.Ok tcFileInfo ->
             let errors = Array.append parseResults.Errors tcErrors
             let tcImplFilesOpt = match tcFileInfo.ImplementationFile with Some x -> Some [x] | None -> None
-            let typeCheckResults = FSharpCheckFileResults (fileName, errors, Some tcFileInfo, parseResults.DependencyFiles, None, reactorOps, true)
+            let typeCheckResults = FSharpCheckFileResults (fileName, errors, Some tcFileInfo, parseResults.DependencyFiles, None, true)
             let symbolUses = [tcFileInfo.ScopeSymbolUses]
             let projectResults = x.MakeProjectResults (projectFileName, [|parseResults|], tcState, errors, symbolUses, None, tcImplFilesOpt)
             parseResults, typeCheckResults, projectResults

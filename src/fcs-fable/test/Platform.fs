@@ -22,6 +22,9 @@ let getRelativePath (path: string) (pathTo: string) =
     let path = if System.String.IsNullOrWhiteSpace path then "." else path
     Path.GetRelativePath(path, pathTo).Replace('\\', '/')
 
+let getHomePath () =
+    System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile)
+
 #else
 
 open Fable.Core.JsInterop
@@ -40,25 +43,35 @@ module JS =
         abstract resolve: string -> string
         abstract relative: string * string -> string
 
-    let FileSystem: IFileSystem = importAll "fs"
-    let Process: IProcess = importAll "process"
-    let Path: IPath = importAll "path"
+    type IOperSystem =
+        abstract homedir: unit -> string
+        abstract tmpdir: unit -> string
+        abstract platform: unit -> string
+        abstract arch: unit -> string
 
-let readAllBytes (filePath: string) = JS.FileSystem.readFileSync(filePath)
-let readAllText (filePath: string) = JS.FileSystem.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
-let writeAllText (filePath: string) (text: string) = JS.FileSystem.writeFileSync(filePath, text)
+    let fs: IFileSystem = importAll "fs"
+    let os: IOperSystem = importAll "os"
+    let proc: IProcess = importAll "process"
+    let path: IPath = importAll "path"
+
+let readAllBytes (filePath: string) = JS.fs.readFileSync(filePath)
+let readAllText (filePath: string) = JS.fs.readFileSync(filePath, "utf8").TrimStart('\uFEFF')
+let writeAllText (filePath: string) (text: string) = JS.fs.writeFileSync(filePath, text)
 
 let measureTime (f: 'a -> 'b) x =
-    let startTime = JS.Process.hrtime()
+    let startTime = JS.proc.hrtime()
     let res = f x
-    let elapsed = JS.Process.hrtime(startTime)
+    let elapsed = JS.proc.hrtime(startTime)
     int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6), res
 
 let normalizeFullPath (path: string) =
-    JS.Path.resolve(path).Replace('\\', '/')
+    JS.path.resolve(path).Replace('\\', '/')
 
 let getRelativePath (path: string) (pathTo: string) =
-    JS.Path.relative(path, pathTo).Replace('\\', '/')
+    JS.path.relative(path, pathTo).Replace('\\', '/')
+
+let getHomePath () =
+    JS.os.homedir()
 
 #endif
 

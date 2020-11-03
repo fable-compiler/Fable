@@ -5,7 +5,7 @@ open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let references = Metadata.references_core
-let metadataPath = "/Projects/Fable/src/fable-metadata/lib/" // .NET BCL binaries
+let metadataPath = "../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
 let printErrors showWarnings (errors: FSharpErrorInfo[]) =
     let isWarning (e: FSharpErrorInfo) =
@@ -23,12 +23,8 @@ let printErrors showWarnings (errors: FSharpErrorInfo[]) =
 
 let parseFiles projectFileName outDir optimize =
     // parse project
-    let projSet = makeHashSetIgnoreCase ()
-    let (dllRefs, fileNames, sources, otherOptions) = parseProject projSet projectFileName
-
-    // dedup file names
-    let fileSet = makeHashSetIgnoreCase ()
-    let fileNames = dedupFileNames fileSet fileNames
+    let (dllRefs, fileNames, otherOptions) = parseProject projectFileName
+    let sources = fileNames |> Array.map readAllText
 
     // create checker
     let readAllBytes dllName = readAllBytes (metadataPath + dllName)
@@ -82,13 +78,15 @@ let parseFiles projectFileName outDir optimize =
                     then projectResults.GetOptimizedAssemblyContents().ImplementationFiles
                     else projectResults.AssemblyContents.ImplementationFiles
 
-    // for each file
-    for implFile in implFiles do
-        printfn "%s" implFile.FileName
+    let fileCount = Seq.length implFiles
+    printfn "Typechecked %d files" fileCount
+    // // for each file
+    // for implFile in implFiles do
+    //     printfn "%s" implFile.FileName
 
-        // printfn "--------------------------------------------"
-        // let fsAst = implFile.Declarations |> AstPrint.printFSharpDecls "" |> String.concat "\n"
-        // printfn "%s" fsAst
+    //     // printfn "--------------------------------------------"
+    //     // let fsAst = implFile.Declarations |> AstPrint.printFSharpDecls "" |> String.concat "\n"
+    //     // printfn "%s" fsAst
 
 let parseArguments (argv: string[]) =
     let usage = "Usage: bench <PROJECT_PATH> [--options]"

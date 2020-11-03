@@ -4,6 +4,9 @@
 
 namespace System
 
+type Environment() =
+    static member ProcessorCount = 1
+
 module Diagnostics =
     type Trace() =
         static member TraceInformation(_s) = () //TODO: proper implementation

@@ -28,16 +28,12 @@ module Concurrent =
     open System.Collections.Generic
 
     /// not actually thread safe, just an extension of Dictionary
-    type ConcurrentDictionary<'Key, 'Value when 'Key: equality>(comparer: IEqualityComparer<'Key>) =
+    [<AllowNullLiteral>]
+    type ConcurrentDictionary<'Key, 'Value>(comparer: IEqualityComparer<'Key>) =
         inherit Dictionary<'Key, 'Value>(comparer)
 
         new () =
-            let comparer = {
-                new IEqualityComparer<'Key> with
-                    member __.GetHashCode(x) = x.GetHashCode()
-                    member __.Equals(x, y) = x.Equals(y) }
-            ConcurrentDictionary(comparer)
-
+            ConcurrentDictionary(EqualityComparer.Default)
         new (_concurrencyLevel: int, _capacity: int) =
             ConcurrentDictionary()
         new (_concurrencyLevel: int, comparer: IEqualityComparer<'Key>) =

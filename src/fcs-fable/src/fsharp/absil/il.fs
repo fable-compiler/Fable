@@ -12,6 +12,7 @@ open System.IO
 open System.Collections
 open System.Collections.Generic
 open System.Collections.Concurrent
+open System.Collections.ObjectModel
 open System.Reflection
 open System.Text
 open System.Threading
@@ -2154,7 +2155,11 @@ and [<Sealed>] ILTypeDefs(f : unit -> ILPreTypeDef[]) =
         for pre in arr do
             let key = pre.Namespace, pre.Name
             t.[key] <- pre
+#if FABLE_COMPILER
         t)
+#else
+        ReadOnlyDictionary t)
+#endif
 
     member x.AsArray = [| for pre in array.Value -> pre.GetTypeDef() |]
 

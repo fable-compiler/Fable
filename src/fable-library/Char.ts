@@ -127,7 +127,7 @@ function charCodeAt(s: string, index: number) {
   if (index >= 0 && index < s.length) {
     return s.charCodeAt(index);
   } else {
-    throw Error("Index out of range.");
+    throw new Error("Index out of range.");
   }
 }
 
@@ -236,6 +236,6 @@ export function parse(input: string) {
   if (input.length === 1) {
     return input[0];
   } else {
-    throw Error("String must be exactly one character long.");
+    throw new Error("String must be exactly one character long.");
   }
 }

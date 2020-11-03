@@ -1543,14 +1543,9 @@ module Lexer =
         use _unwindBP = PushThreadBuildPhaseUntilUnwind BuildPhase.Parse
         use _unwindEL = PushErrorLoggerPhaseUntilUnwind (fun _ -> DiscardErrorsLogger)
 
-#if FABLE_COMPILER
-        ignore ct
-#endif
         resetLexbufPos "" lexbuf
         while not lexbuf.IsPastEndOfStream do
-#if !FABLE_COMPILER
             ct.ThrowIfCancellationRequested ()
-#endif
             onToken (getNextToken lexbuf) lexbuf.LexemeRange
 
     let lex text conditionalCompilationDefines flags supportsFeature lexCallback pathMap ct =
