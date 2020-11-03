@@ -1,5 +1,6 @@
 import { IObservable, IObserver, Observer, protect } from "./Observable.js";
-import { Choice, Option, some, tryValueIfChoice1Of2, tryValueIfChoice2Of2, value } from "./Option.js";
+import { Option, some, value } from "./Option.js";
+import { FSharpChoice$2, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
 import { iterate as seqIterate } from "./Seq.js";
 import { IDisposable } from "./Util.js";
 
@@ -210,10 +211,10 @@ export function scan<U, T>(collector: (u: U, t: T) => U, state: U, sourceEvent: 
   }, source.delegates);
 }
 
-export function split<T, U1, U2>(splitter: (x: T) => Choice<U1, U2>, sourceEvent: IEvent<T>): [IEvent<U1>, IEvent<U2>] {
+export function split<T, U1, U2>(splitter: (x: T) => FSharpChoice$2<U1, U2>, sourceEvent: IEvent<T>): [IEvent<U1>, IEvent<U2>] {
   return [
-    choose((v) => tryValueIfChoice1Of2(splitter(v)), sourceEvent),
-    choose((v) => tryValueIfChoice2Of2(splitter(v)), sourceEvent),
+    choose((v) => Choice_tryValueIfChoice1Of2(splitter(v)), sourceEvent),
+    choose((v) => Choice_tryValueIfChoice2Of2(splitter(v)), sourceEvent),
   ];
 }
 
