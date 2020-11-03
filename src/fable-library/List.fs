@@ -441,7 +441,7 @@ let splitAt i xs =
 
 let outOfRange() = failwith "Index out of range"
 
-let slice (lower: int option) (upper: int option) (xs: 'T list) =
+let getSlice (lower: int option) (upper: int option) (xs: 'T list) =
     let lower = defaultArg lower 0
     let hasUpper = Option.isSome upper
     if lower < 0 then outOfRange()
@@ -511,7 +511,7 @@ let windowed (windowSize: int) (source: 'T list): 'T list list =
         failwith "windowSize must be positive"
     let mutable res = []
     for i = length source downto windowSize do
-        res <- (slice (Some(i-windowSize)) (Some(i-1)) source) :: res
+        res <- (getSlice (Some(i-windowSize)) (Some(i-1)) source) :: res
     res
 
 let splitInto (chunks: int) (source: 'T list): 'T list list =
