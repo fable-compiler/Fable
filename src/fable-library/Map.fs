@@ -667,9 +667,9 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member m.ToArray() =
         MapTree.toArray tree
 
-    static member ofList l : Map<'Key, 'Value> =
-       let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-       new Map<_, _>(comparer, MapTree.ofList comparer l)
+    // static member ofList l : Map<'Key, 'Value> =
+    //    let comparer = LanguagePrimitives.FastGenericComparer<'Key>
+    //    new Map<_, _>(comparer, MapTree.ofList comparer l)
 
     member this.ComputeHashCode() =
         let combineHash x y = (x <<< 1) + y + 631
@@ -851,7 +851,7 @@ let tryFindKey predicate (table : Map<_, _>) =
 
 // [<CompiledName("OfList")>]
 let ofList (elements: ('Key * 'Value) list) =
-    Map<_, _>.ofList elements
+    Map<_, _>.Create elements
 
 // [<CompiledName("OfSeq")>]
 let ofSeq elements =

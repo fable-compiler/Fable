@@ -22,10 +22,14 @@ module Imports =
         let relPath = if isRelativePath relPath then relPath else "./" + relPath
         relPath
 
-    let getImportPath sourcePath targetPath projDir outDir importPath =
+    let getImportPath sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
-        | None -> importPath
+        | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
+            let importPath =
+                if importPath.StartsWith("${outDir}")
+                then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
+                else importPath
             let sourceDir = Path.GetDirectoryName(sourcePath)
             let targetDir = Path.GetDirectoryName(targetPath)
             let importPath =

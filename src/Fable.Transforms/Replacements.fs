@@ -1868,7 +1868,7 @@ let lists (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Ex
         "get_Tail",   "tail"
         "get_Item",   "item"
         "get_Length", "length"
-        "GetSlice",   "slice" ] methName, Some x, _ ->
+        "GetSlice",   "getSlice" ] methName, Some x, _ ->
             let args = match args with [ExprType Unit] -> [x] | args -> args @ [x]
             Helper.LibCall(com, "List", methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "get_IsEmpty", Some x, _ -> Test(x, ListTest false, r) |> Some

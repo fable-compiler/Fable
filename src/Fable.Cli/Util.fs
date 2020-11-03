@@ -213,8 +213,8 @@ module Imports =
         | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
             let importPath =
-                if importPath.StartsWith("${outDir}") then
-                    Path.Combine(outDir, importPath.Replace("${outDir}", "").TrimStart('/'))
+                if importPath.StartsWith("${outDir}")
+                then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
                 else importPath
             let sourceDir = Path.GetDirectoryName(sourcePath)
             let targetDir = Path.GetDirectoryName(targetPath)
