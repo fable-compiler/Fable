@@ -285,8 +285,8 @@ let coreModFor = function
     | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
     | FSharpMap _ -> "Map"
-    | FSharpResult _ -> "Option"
-    | FSharpChoice _ -> "Option"
+    | FSharpResult _ -> "Choice"
+    | FSharpChoice _ -> "Choice"
     | FSharpReference _ -> "Types"
     | BclHashSet _ -> "MutableSet"
     | BclDictionary _ -> "MutableMap"
@@ -1000,8 +1000,8 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclDecimal -> makeImportLib com Any "default" "Decimal" |> Some
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "Result" "Option" |> Some
-    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "Choice" "Option" |> Some
+    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Choice" |> Some
+    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice$2" "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -1931,11 +1931,11 @@ let mapModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr
 
 let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "Map" -> Some "mapOk"
-    | "MapError" -> Some "mapError"
-    | "Bind" -> Some "bindOk"
+    | ("Bind" | "Map" | "MapError") as meth ->
+        Some ("Result_" + meth)
     | _ -> None
-    |> Option.map (fun meth -> Helper.LibCall(com, "Option", meth, t, args, i.SignatureArgTypes, ?loc=r))
+    |> Option.map (fun meth ->
+        Helper.LibCall(com, "Choice", meth, t, args, i.SignatureArgTypes, ?loc=r))
 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
 let options (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

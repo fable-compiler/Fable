@@ -6,7 +6,7 @@ import { IAsyncContext } from "./AsyncBuilder.js";
 import { protectedCont } from "./AsyncBuilder.js";
 import { protectedBind } from "./AsyncBuilder.js";
 import { protectedReturn } from "./AsyncBuilder.js";
-import { choice1Of2, choice2Of2 } from "./Option.js";
+import { FSharpChoice$2, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
 import { map } from "./Seq.js";
 
 // Implemented just for type references
@@ -75,10 +75,10 @@ export function cancellationToken() {
 export const defaultCancellationToken = new CancellationToken();
 
 export function catchAsync<T>(work: IAsync<T>) {
-  return protectedCont((ctx: IAsyncContext<any>) => { // ctx: IAsyncContext<Choice<T, Error>>
+  return protectedCont((ctx: IAsyncContext<FSharpChoice$2<T, Error>>) => {
     work({
-      onSuccess: (x) => ctx.onSuccess(choice1Of2(x)),
-      onError: (ex) => ctx.onSuccess(choice2Of2(ex)),
+      onSuccess: (x) => ctx.onSuccess(Choice_makeChoice1Of2(x)),
+      onError: (ex) => ctx.onSuccess(Choice_makeChoice2Of2(ex)),
       onCancel: ctx.onCancel,
       cancelToken: ctx.cancelToken,
       trampoline: ctx.trampoline,

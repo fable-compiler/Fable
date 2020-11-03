@@ -40,7 +40,15 @@
             "args": ["watch", "--exclude", "Fable.Core"],
             "cwd": "${workspaceRoot}/src/quicktest",
             "stopAtEntry": false,
-            "console": "internalConsole",
+            "console": "internalConsole"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Run bench-compiler tests",
+            "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
+            "args": ["out-tests", "-r", "esm"],
+            "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
             "type": "node",
