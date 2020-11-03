@@ -78,7 +78,7 @@ function utf8_decode(bytes: ArrayLike<uint8>) {
       const i4 = bytes[pos++];
       return ((i1 & 0x07) << 18) | ((i2 & 0x3F) << 12) | ((i3 & 0x3F) << 6) | (i4 & 0x3F);
     } else {
-      throw RangeError("Invalid UTF8 byte: " + i1);
+      throw new RangeError("Invalid UTF8 byte: " + i1);
     }
   };
   const chars = new Array<string>();

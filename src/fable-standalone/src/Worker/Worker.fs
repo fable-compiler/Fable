@@ -145,25 +145,25 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
         return! loop box state
 
     | Some fable, GetTooltip(id, line, col, lineText) ->
-        let! tooltipLines =
+        let tooltipLines =
             match state.CurrentResults with
-            | None -> async.Return [||]
+            | None -> [||]
             | Some res -> fable.Manager.GetToolTipText(res, int line, int col, lineText)
         FoundTooltip(id, tooltipLines) |> state.Worker.Post
         return! loop box state
 
     | Some fable, GetCompletions(id, line, col, lineText) ->
-        let! completions =
+        let completions =
             match state.CurrentResults with
-            | None -> async.Return [||]
+            | None -> [||]
             | Some res -> fable.Manager.GetCompletionsAtLocation(res, int line, int col, lineText)
         FoundCompletions(id, completions) |> state.Worker.Post
         return! loop box state
 
     | Some fable, GetDeclarationLocation(id, line, col, lineText) ->
-        let! result =
+        let result =
             match state.CurrentResults with
-            | None -> async.Return None
+            | None -> None
             | Some res -> fable.Manager.GetDeclarationLocation(res, int line, int col, lineText)
         match result with
         | Some x -> FoundDeclarationLocation(id, Some(x.StartLine, x.StartColumn, x.EndLine, x.EndColumn))

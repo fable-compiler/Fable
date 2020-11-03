@@ -57,7 +57,7 @@
 
     "perf": "perf record -q -e cpu-clock -F 1000 -g -- node --perf-basic-prof --interpreted-frames-native-stack dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "perf2": "perf record -q -e cpu-clock -F 1000 -g -- node --perf-basic-prof --interpreted-frames-native-stack ./out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
-    "perf-report": "perf report -n --stdio > perf-report.log",
+    "perf-report": "perf report -n --stdio -g srcline -s dso,sym,srcline --inline > perf-report.log",
     "profile": "node --prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "cpu-prof": "node --cpu-prof --cpu-prof-dir=out-prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "heap-prof": "node --heap-prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",

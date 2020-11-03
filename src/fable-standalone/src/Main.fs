@@ -164,50 +164,50 @@ let tooltipToString (el: FSharpToolTipElement<string>): string[] =
     | FSharpToolTipElement.CompositionError err -> [|err|]
 
 /// Get tool tip at the specified location
-let getDeclarationLocation (parseResults: ParseResults) line col lineText = async {
+let getDeclarationLocation (parseResults: ParseResults) line col lineText =
     match parseResults.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents(col - 1, lineText) with
-        | None -> return None
+        | None -> None
         | Some(col,identIsland) ->
-            let! (declarations: FSharpFindDeclResult) = checkFile.GetDeclarationLocation(line, col, lineText, identIsland)
+            let (declarations: FSharpFindDeclResult) =
+                checkFile.GetDeclarationLocation(line, col, lineText, identIsland)
             match declarations with
             | FSharpFindDeclResult.DeclNotFound _
             | FSharpFindDeclResult.ExternalDecl _ ->
-                return None
+                None
             | FSharpFindDeclResult.DeclFound range ->
-                return Some { StartLine = range.StartLine
-                              StartColumn = range.StartColumn
-                              EndLine = range.EndLine
-                              EndColumn = range.EndColumn }
-    | None -> return None
-}
+                Some { StartLine = range.StartLine
+                       StartColumn = range.StartColumn
+                       EndLine = range.EndLine
+                       EndColumn = range.EndColumn }
+    | None -> None
 
 /// Get tool tip at the specified location
-let getToolTipAtLocation (parseResults: ParseResults) line col lineText = async {
+let getToolTipAtLocation (parseResults: ParseResults) line col lineText =
     match parseResults.CheckFileResultsOpt with
     | Some checkFile ->
         match findLongIdents(col - 1, lineText) with
-        | None -> return [|"Cannot find ident for tooltip"|]
+        | None ->
+            [|"Cannot find ident for tooltip"|]
         | Some(col,identIsland) ->
-            let! (FSharpToolTipText els) = checkFile.GetToolTipText(line, col, lineText, identIsland, FSharpTokenTag.Identifier)
-            return Seq.map tooltipToString els |> Array.concat
+            let (FSharpToolTipText els) =
+                checkFile.GetToolTipText(line, col, lineText, identIsland, FSharpTokenTag.Identifier)
+            Seq.map tooltipToString els |> Array.concat
     | None ->
-        return [||]
-}
+        [||]
 
-let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int) lineText = async {
+let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int) lineText =
    match parseResults.CheckFileResultsOpt with
     | Some checkFile ->
         let ln, residue = findLongIdentsAndResidue(col - 1, lineText)
         let longName = FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineText, col - 1)
         let longName = { longName with QualifyingIdents = ln; PartialIdent = residue }
-        let! decls = checkFile.GetDeclarationListInfo(parseResults.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
-        return decls.Items |> Array.map (fun decl ->
+        let decls = checkFile.GetDeclarationListInfo(parseResults.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
+        decls.Items |> Array.map (fun decl ->
             { Name = decl.Name; Glyph = convertGlyph decl.Glyph })
     | None ->
-        return [||]
-}
+        [||]
 
 type BabelResult(program: Babel.Program, errors) =
     member _.Program = program

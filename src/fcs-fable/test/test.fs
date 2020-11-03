@@ -46,20 +46,19 @@ let main _argv =
 
         let inputLines = source.Split('\n')
 
-        async {
-            // Get tool tip at the specified location
-            let! tip = typeCheckResults.GetToolTipText(4, 7, inputLines.[3], ["foo"], FSharpTokenTag.IDENT)
-            (sprintf "%A" tip).Replace("\n","") |> printfn "\n---> ToolTip Text = %A" // should be "FSharpToolTipText [...]"
+        // Get tool tip at the specified location
+        let tip = typeCheckResults.GetToolTipText(4, 7, inputLines.[3], ["foo"], FSharpTokenTag.IDENT)
+        (sprintf "%A" tip).Replace("\n","") |> printfn "\n---> ToolTip Text = %A" // should be "FSharpToolTipText [...]"
 
-            // Get declarations (autocomplete) for msg
-            let partialName = { QualifyingIdents = []; PartialIdent = "msg"; EndColumn = 17; LastDotPos = None }
-            let! decls = typeCheckResults.GetDeclarationListInfo(Some parseResults, 6, inputLines.[5], partialName, (fun _ -> []), fun _ -> false)
-            [ for item in decls.Items -> item.Name ] |> printfn "\n---> msg AutoComplete = %A" // should be string methods
+        // Get declarations (autocomplete) for msg
+        let partialName = { QualifyingIdents = []; PartialIdent = "msg"; EndColumn = 17; LastDotPos = None }
+        let decls = typeCheckResults.GetDeclarationListInfo(Some parseResults, 6, inputLines.[5], partialName, (fun _ -> []))
+        [ for item in decls.Items -> item.Name ] |> printfn "\n---> msg AutoComplete = %A" // should be string methods
 
-            // Get declarations (autocomplete) for canvas
-            let partialName = { QualifyingIdents = []; PartialIdent = "canvas"; EndColumn = 10; LastDotPos = None }
-            let! decls = typeCheckResults.GetDeclarationListInfo(Some parseResults, 8, inputLines.[7], partialName, (fun _ -> []), fun _ -> false)
-            [ for item in decls.Items -> item.Name ] |> printfn "\n---> canvas AutoComplete = %A"
-        } |> Async.StartImmediate
+        // Get declarations (autocomplete) for canvas
+        let partialName = { QualifyingIdents = []; PartialIdent = "canvas"; EndColumn = 10; LastDotPos = None }
+        let decls = typeCheckResults.GetDeclarationListInfo(Some parseResults, 8, inputLines.[7], partialName, (fun _ -> []))
+        [ for item in decls.Items -> item.Name ] |> printfn "\n---> canvas AutoComplete = %A"
+
     | _ -> ()
     0

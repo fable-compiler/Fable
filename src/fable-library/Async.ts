@@ -53,6 +53,12 @@ export function isCancellationRequested(token: CancellationToken) {
   return token != null && token.isCancelled;
 }
 
+export function throwIfCancellationRequested(token: CancellationToken) {
+  if (token != null && token.isCancelled) {
+    throw new Error("Operation is cancelled");
+  }
+}
+
 export function startChild<T>(computation: IAsync<T>): IAsync<IAsync<T>> {
   const promise = startAsPromise(computation);
   // JS Promises are hot, computation has already started

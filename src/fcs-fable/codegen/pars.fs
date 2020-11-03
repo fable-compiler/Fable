@@ -9892,7 +9892,7 @@ let _fsyacc_reductions ()  =    [|
                    (
 //# 3365 "../../../src/fsharp/pars.fsy"
                             let e = snd _1
-                            SynExpr.Do (e, e.Range) 
+                            SynExpr.Do (e, unionRanges (rhs parseState 1).StartRange e.Range) 
                    )
 //# 3365 "../../../src/fsharp/pars.fsy"
                  : SyntaxTree.SynExpr));

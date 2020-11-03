@@ -59,9 +59,9 @@ type IFableManager =
     abstract ParseFSharpProject: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
     abstract ParseFSharpFileInProject: checker: IChecker * fileName: string * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]
-    abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Range option>
-    abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<string[]>
-    abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Async<Completion[]>
+    abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Range option
+    abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> string[]
+    abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Completion[]
     abstract CompileToBabelAst: fableLibrary: string * parseResults: IParseResults * fileName: string
                                 * ?typedArrays: bool
                                 * ?typescript: bool -> IBabelResult
