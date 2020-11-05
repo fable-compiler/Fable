@@ -11,7 +11,7 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noRestore, projFile, optimize) =
+type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noPreview, noRestore, projFile, optimize) =
     let builtDlls = HashSet()
     member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
@@ -19,6 +19,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, no
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
     member _.ForcePkgs: bool = forcePkgs
+    member _.NoPreview: bool = noPreview
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.Optimize: bool = optimize
@@ -213,7 +214,7 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * Cra
           PackageReferences = []
           OtherCompilerOptions = [] }
 
-let getBasicCompilerArgs (define: string list) =
+let getBasicCompilerArgs (opts: CrackerOptions) =
     [|
         // yield "--debug"
         // yield "--debug:portable"
@@ -222,7 +223,7 @@ let getBasicCompilerArgs (define: string list) =
         yield "--simpleresolution"
         yield "--nocopyfsharpcore"
         // yield "--define:DEBUG"
-        for constant in define do
+        for constant in opts.FableOptions.Define do
             yield "--define:" + constant
         yield "--optimize-"
         // yield "--nowarn:NU1603,NU1604,NU1605,NU1608"
@@ -231,6 +232,8 @@ let getBasicCompilerArgs (define: string list) =
         yield "--fullpaths"
         yield "--flaterrors"
         yield "--target:library"
+        if not opts.NoPreview then
+            yield "--langversion:preview"
 #if !NETFX
         yield "--targetprofile:netstandard"
 #endif
@@ -279,7 +282,9 @@ let private isUsefulOption (opt : string) =
           "--nowarn"
           "--warnon"
           "--warnaserror"
-          "--langversion" ]
+        // Set --langversion:preview automatically until it's not needed for witnesses
+        // "--langversion"
+        ]
         |> List.exists opt.StartsWith
 
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
@@ -547,7 +552,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             [|
                 yield! refOptions // merged options from all referenced projects
                 yield! mainProj.OtherCompilerOptions // main project compiler options
-                yield! getBasicCompilerArgs opts.FableOptions.Define // options from compiler args
+                yield! getBasicCompilerArgs opts // options from compiler args
                 yield "--optimize" + (if opts.Optimize then "+" else "-")
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values

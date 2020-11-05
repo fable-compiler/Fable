@@ -111,7 +111,35 @@ type SideEffects =
     member        this.MethodN ()       = { this with a = this.a * 10                 }
     member inline this.MethodI ()       = { this with a = this.a * 10                 }
 
+let inline getFirstName x = (^T : (member FirstName : string) x)
+let inline getLastName x = (^T : (member LastName : string) x)
+
+let inline getFirsAndLastName x =
+    (^T : (member FirstName : string) x) + " " + (^T : (member LastName : string) x)
+
+let inline getFullName x =
+    let lname = getLastName x
+    let fname = getFirstName x
+    lname + " " + fname
+
+let inline addSomething1 (x: ^T) = (^T : (member Add : int -> string) (x, 3))
+let inline addSomething2 (x: ^T) = (^T : (member Add : string -> string) (x, "abc"))
+
+// This code doesn't compile in F# unless `addSomething2` requires a static member or a member with a different name
+// let inline testAddSomething (x: ^T when ^T : (member Add : int -> string) and ^T : (member Add2 : string -> string)) =
+//     let y = add1 x
+//     let z = add2 x
+//     y + z
+
 let tests1 = [
+    testCase "Picks the right witness" <| fun () ->
+        getFullName {| FirstName = "Alfonso"; LastName = "Horigome" |}
+        |> equal "Horigome Alfonso"
+
+    testCase "Picks the right witness II" <| fun () ->
+        getFirsAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
+        |> equal "Alfonso Horigome"
+
     testCase "Infix applicative can be generated" <| fun () ->
         let r = Ok 1
         let a = Ok string

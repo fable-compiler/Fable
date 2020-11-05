@@ -142,6 +142,7 @@ type Runner =
               WatchMode = watch
               ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
+              NoPreview = flagEnabled "--noPreview" args
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args

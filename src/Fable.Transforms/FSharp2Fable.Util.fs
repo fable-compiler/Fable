@@ -226,8 +226,11 @@ type MemberInfo(?attributes: FSharpAttribute seq,
 type Witness =
     { TraitName: string
       IsInstance: bool
-      ArgTypes: Fable.Type list
       Expr: Fable.Expr }
+    member this.ArgTypes =
+        match this.Expr with
+        | Fable.Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
+        | _ -> []
 
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list

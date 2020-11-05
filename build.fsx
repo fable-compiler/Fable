@@ -147,6 +147,8 @@ let quicktest () =
 // Mainly intended for CI
 let testJsFast() =
     runFableWithArgs "src/fable-standalone/src" [
+        "--forcePkgs"
+        "--noPreview"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"
@@ -187,6 +189,7 @@ let buildStandalone(minify: bool) =
 
     // build standalone bundle
     runFableWithArgs projectDir [
+        "--noPreview"
         "--outDir " + buildDir + "/bundle"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"

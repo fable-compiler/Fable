@@ -87,7 +87,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         let tag = unionCaseTag tdef unionCase
         Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
-let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType list) traitName (flags: MemberFlags) (argTypes: FSharpType list) (argExprs: Fable.Expr list) =
+let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type list) traitName (flags: MemberFlags) (argTypes: Fable.Type list) (argExprs: Fable.Expr list) =
     let resolveMemberCall (entity: Fable.Entity) genArgs membCompiledName isInstance argTypes thisArg args =
         let genParamNames = entity.GenericParameters |> List.map (fun x -> x.Name)
         let genArgs = List.zip genParamNames genArgs
@@ -95,15 +95,12 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: FSharpType
         |> Option.map (fun memb -> makeCallFrom com ctx r typ [] thisArg args memb)
 
     let isInstance = flags.IsInstance
-    let argTypes = List.map (makeType ctx.GenericArgs) argTypes
     let thisArg, args, argTypes =
         match argExprs, argTypes with
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
 
-    sourceTypes |> Seq.tryPick (fun sourceType ->
-        let t = makeType ctx.GenericArgs sourceType
-        match t with
+    sourceTypes |> Seq.tryPick (function
         | Fable.DeclaredType(entity, genArgs) ->
             let entity = com.GetEntity(entity)
             resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
@@ -504,12 +501,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
         return
             match ctx.Witnesses with
-            | [] -> transformTraitCall com ctx r typ sourceTypes traitName flags argTypes args
+            | [] ->
+                let argTypes = List.map (makeType ctx.GenericArgs) argTypes
+                let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
+                transformTraitCall com ctx r typ sourceTypes traitName flags argTypes args
             | [w] -> applyWitness r typ args w
             | witnesses ->
                 witnesses
-                // TODO: Check IsInstance and ArgTypes to disambiguate if needed
-                |> List.tryFind (fun w -> w.TraitName = traitName)
+                // Seems the F# compiler doesn't accept two witness with same traitName and IsInstance
+                // but different arg types so we don't need to disambiguate:
+                // listEquals (typeEquals false) argTypes w.ArgTypes
+                |> List.tryFind (fun w -> w.TraitName = traitName && w.IsInstance = flags.IsInstance)
                 |> Option.map (applyWitness r typ args)
                 |> Option.defaultWith (fun () ->
                     "Cannot resolve witness " + traitName
@@ -557,7 +559,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                         return {
                             Witness.TraitName = traitName
                             IsInstance = isInstance
-                            ArgTypes = [] // TODO
                             Expr = Fable.Delegate(args, body, None)
                         }
                     })
