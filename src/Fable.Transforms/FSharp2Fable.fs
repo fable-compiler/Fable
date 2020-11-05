@@ -458,15 +458,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let! body = transformExpr com ctx body
             return Fable.Let([ident, value], body)
 
-        // Capture variable generic type mapping
-        | _, BasicPatterns.Application(_callee, genArgs, _args) ->
-            let genArgs = Seq.map (makeType ctx.GenericArgs) genArgs
-            let ctx = { ctx with GenericArgs = matchGenericParamsFrom var genArgs |> Map }
-            let! value = transformExpr com ctx value
-            let ctx, ident = putBindingInScope com ctx var value
-            let! body = transformExpr com ctx body
-            return Fable.Let([ident, value], body)
-
         | value, body ->
             if isInline var then
                 let ctx = { ctx with ScopeInlineValues = (var, value)::ctx.ScopeInlineValues }

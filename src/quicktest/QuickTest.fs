@@ -66,19 +66,3 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-let inline getFirstName x = (^T : (member FirstName : string) x)
-let inline getLastName x = (^T : (member LastName : string) x)
-
-let inline getFirstAndLastName x =
-    (^T : (member FirstName : string) x)
-    + " " + (^T : (member FirstName : string) x)
-    + " " + (^T : (member LastName : string) x)
-
-let test x =
-    // getFirstAndLastName x
-    let fname = getFirstName x
-    let lname = getLastName x
-    fname + " " + lname
-
-test {| FirstName = "Alfonso"; LastName = "Horigome"; Foo = 5 |} |> printfn "%s"
