@@ -38,7 +38,7 @@
           "System.Threading.Tasks.Parallel": "4.3.0",
           "System.Threading.Thread": "4.3.0",
           "System.Threading.ThreadPool": "4.3.0",
-          "XliffTasks": "1.0.0-beta.20514.1"
+          "XliffTasks": "1.0.0-beta.20520.1"
         },
         "runtime": {
           "FSharp.Compiler.Service.dll": {}
@@ -1061,7 +1061,7 @@
           }
         }
       },
-      "XliffTasks/1.0.0-beta.20514.1": {},
+      "XliffTasks/1.0.0-beta.20520.1": {},
       "FSharp.Core/5.0.0-dev": {
         "dependencies": {
           "System.Linq.Queryable": "4.3.0",
@@ -1779,12 +1779,12 @@
       "path": "system.threading.threadpool/4.3.0",
       "hashPath": "system.threading.threadpool.4.3.0.nupkg.sha512"
     },
-    "XliffTasks/1.0.0-beta.20514.1": {
+    "XliffTasks/1.0.0-beta.20520.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-3Fpo2KIVown6QApW3w13dbBIjodAjdhX+BcBCcHtU0vhXElaiIOQ81ZTmCevu3TAWkwdIDmkZi9RoIxTgAJQXQ==",
-      "path": "xlifftasks/1.0.0-beta.20514.1",
-      "hashPath": "xlifftasks.1.0.0-beta.20514.1.nupkg.sha512"
+      "sha512": "sha512-qU2qEnMwuk+EuB2qxu9Bb+wMh/1L79i5DYqQhgvSyxP7U4wmIpxzJTYsl9w5tCymjTA1Py8Zf3dtH96o89mWvw==",
+      "path": "xlifftasks/1.0.0-beta.20520.1",
+      "hashPath": "xlifftasks.1.0.0-beta.20520.1.nupkg.sha512"
     },
     "FSharp.Core/5.0.0-dev": {
       "type": "project",

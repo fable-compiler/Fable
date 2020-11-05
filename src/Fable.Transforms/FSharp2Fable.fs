@@ -494,6 +494,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // `argTypes2` is always empty
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
+        let applyWitness r t args (w: Witness) =
+            let callInfo = makeCallInfo None args w.ArgTypes
+            makeCall r t callInfo w.Expr
+
         let r = makeRangeFrom fsExpr
         let typ = makeType ctx.GenericArgs fsExpr.Type
         let! args = transformExprList com ctx argExprs
@@ -501,18 +505,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return
             match ctx.Witnesses with
             | [] -> transformTraitCall com ctx r typ sourceTypes traitName flags argTypes args
-
-            | [w] ->
-                let callInfo = makeCallInfo None args w.ArgTypes
-                makeCall r typ callInfo w.Expr
-
+            | [w] -> applyWitness r typ args w
             | witnesses ->
                 witnesses
                 // TODO: Check IsInstance and ArgTypes to disambiguate if needed
                 |> List.tryFind (fun w -> w.TraitName = traitName)
-                |> Option.map (fun w ->
-                    let callInfo = makeCallInfo None args w.ArgTypes
-                    makeCall r typ callInfo w.Expr)
+                |> Option.map (applyWitness r typ args)
                 |> Option.defaultWith (fun () ->
                     "Cannot resolve witness " + traitName
                     |> addErrorAndReturnNull com ctx.InlinePath r)
