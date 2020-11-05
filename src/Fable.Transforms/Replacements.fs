@@ -2131,6 +2131,10 @@ let errorStrings = function
 
 let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
+    | Naming.EndsWith "Dynamic" operation, arg::_ ->
+        let operation = if operation = Operators.divideByInt then operation else "op_" + operation
+        if operation = "op_Explicit" then Some arg // TODO
+        else applyOp com ctx r t operation args i.SignatureArgTypes i.GenericArgs |> Some
     | "DivideByInt", _ -> applyOp com ctx r t i.CompiledName args i.SignatureArgTypes i.GenericArgs |> Some
     | "GenericZero", _ -> getZero com ctx t |> Some
     | "GenericOne", _ -> getOne com ctx t |> Some

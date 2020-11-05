@@ -230,7 +230,7 @@ module private Transforms =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
                 |||> List.fold2 (fun (bindings, replacements) ident expr ->
-                    if (not com.Options.DebugMode) && canInlineArg ident.Name expr body
+                    if canInlineArg ident.Name expr body
                     then bindings, Map.add ident.Name expr replacements
                     else (ident, expr)::bindings, replacements)
             match bindings with
@@ -240,6 +240,8 @@ module private Transforms =
         // TODO: Other binary operations and numeric types, also recursive?
         | Operation(Binary(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
             Value(StringConstant(str1 + str2), addRanges [r1; r2])
+        | Call(Delegate(args, body, _), info, _, _) ->
+            applyArgs args info.Args body
         | NestedApply(NestedLetsAndLambdas(lambdaArgs, body, _) as lambda, argExprs,_,_) ->
             if List.sameLength lambdaArgs argExprs then
                 applyArgs lambdaArgs argExprs body

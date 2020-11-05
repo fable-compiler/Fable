@@ -223,6 +223,12 @@ type MemberInfo(?attributes: FSharpAttribute seq,
         member _.IsEnumerator = defaultArg isEnumerator false
         member _.IsMangled = defaultArg isMangled false
 
+type Witness =
+    { TraitName: string
+      IsInstance: bool
+      ArgTypes: Fable.Type list
+      Expr: Fable.Expr }
+
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
@@ -236,7 +242,7 @@ type Context =
       BoundMemberThis: Fable.Ident option
       InlinePath: Log.InlinePath list
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
-      Witnesses: FSharpExpr list
+      Witnesses: Witness list
     }
     static member Create(usedRootNames) =
         { Scope = []
@@ -539,6 +545,14 @@ module Patterns =
                     | _ -> None
                 | _ -> None
             | _ -> None
+        | _ -> None
+
+    let (|NestedLambda|_|) x =
+        let rec nestedLambda args = function
+            | Lambda(arg, body) -> nestedLambda (arg::args) body
+            | body -> List.rev args, body
+        match x with
+        | Lambda(arg, body) -> nestedLambda [arg] body |> Some
         | _ -> None
 
     let (|ForOf|_|) = function

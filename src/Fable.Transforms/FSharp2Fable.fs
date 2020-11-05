@@ -498,34 +498,24 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let typ = makeType ctx.GenericArgs fsExpr.Type
         let! args = transformExprList com ctx argExprs
 
-        match ctx.Witnesses with
-        | [] -> return transformTraitCall com ctx r typ sourceTypes traitName flags argTypes args
+        return
+            match ctx.Witnesses with
+            | [] -> transformTraitCall com ctx r typ sourceTypes traitName flags argTypes args
 
-        | [witness] ->
-            let! callee = transformExpr com ctx witness
-            return Fable.CurriedApply(callee, args, typ, r)
+            | [w] ->
+                let callInfo = makeCallInfo None args w.ArgTypes
+                makeCall r typ callInfo w.Expr
 
-        | witnesses ->
-            let rec tryNestedLambda args = function
-                | BasicPatterns.Lambda(arg, body) -> tryNestedLambda (arg::args) body
-                | _ when List.isEmpty args -> None
-                | body -> Some(List.rev args, body)
-
-            let callee =
-                witnesses |> List.tryFind (fun e ->
-                    match tryNestedLambda [] e with
-                    | Some(lambdaArgs, _) when List.sameLength argTypes lambdaArgs ->
-                        argTypes = (lambdaArgs |> List.map (fun a -> a.FullType))
-                    | _ -> false)
-
-            match callee with
-            | Some callee ->
-                let! callee = transformExpr com ctx callee
-                return Fable.CurriedApply(callee, args, typ, r)
-            | None ->
-                return
-                    sprintf "Cannot resolve witness %s %A\n\n" traitName witnesses
-                    |> addErrorAndReturnNull com ctx.InlinePath r
+            | witnesses ->
+                witnesses
+                // TODO: Check IsInstance and ArgTypes to disambiguate if needed
+                |> List.tryFind (fun w -> w.TraitName = traitName)
+                |> Option.map (fun w ->
+                    let callInfo = makeCallInfo None args w.ArgTypes
+                    makeCall r typ callInfo w.Expr)
+                |> Option.defaultWith (fun () ->
+                    "Cannot resolve witness " + traitName
+                    |> addErrorAndReturnNull com ctx.InlinePath r)
 
     | BasicPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
         match callee with
@@ -543,12 +533,38 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let! args = transformExprList com ctx args
             let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
             let typ = makeType ctx.GenericArgs fsExpr.Type
-            let ctx =
-                { ctx with Witnesses =
-                            witnesses |> List.filter (function
-                                | BasicPatterns.WitnessArg _ -> false
-                                | _ -> true)
-                            |> List.append ctx.Witnesses }
+            let! ctx = trampoline {
+                match witnesses with
+                | [] -> return ctx
+                | witnesses ->
+                    let witnesses =
+                        witnesses |> List.choose (function
+                            // Index is not reliable, just append witnesses from parent call
+                            | BasicPatterns.WitnessArg _idx -> None
+                            | NestedLambda(args, body) ->
+                                match body with
+                                | BasicPatterns.Call(callee, memb, _, _, _args) ->
+                                    Some(memb.CompiledName, Option.isSome callee, args, body)
+                                | BasicPatterns.AnonRecordGet(_, calleeType, fieldIndex) ->
+                                    let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
+                                    Some("get_" + fieldName, true, args, body)
+                                | BasicPatterns.FSharpFieldGet(_, _, field) ->
+                                    Some("get_" + field.Name, true, args, body)
+                                | _ -> None
+                            | _ -> None)
+
+                    let! witnesses = witnesses |> trampolineListMap (fun (traitName, isInstance, args, body) -> trampoline {
+                        let ctx, args = makeFunctionArgs com ctx args
+                        let! body = transformExpr com ctx body
+                        return {
+                            Witness.TraitName = traitName
+                            IsInstance = isInstance
+                            ArgTypes = [] // TODO
+                            Expr = Fable.Delegate(args, body, None)
+                        }
+                    })
+                    return { ctx with Witnesses = List.append witnesses ctx.Witnesses }
+                }
 
             return makeCallFrom com ctx r typ genArgs callee args memb
 
