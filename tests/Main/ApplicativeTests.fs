@@ -111,7 +111,35 @@ type SideEffects =
     member        this.MethodN ()       = { this with a = this.a * 10                 }
     member inline this.MethodI ()       = { this with a = this.a * 10                 }
 
+let inline getFirstName x = (^T : (member FirstName : string) x)
+let inline getLastName x = (^T : (member LastName : string) x)
+
+let inline getFirsAndLastName x =
+    (^T : (member FirstName : string) x) + " " + (^T : (member LastName : string) x)
+
+let inline getFullName x =
+    let lname = getLastName x
+    let fname = getFirstName x
+    lname + " " + fname
+
+let inline addSomething1 (x: ^T) = (^T : (member Add : int -> string) (x, 3))
+let inline addSomething2 (x: ^T) = (^T : (member Add : string -> string) (x, "abc"))
+
+// This code doesn't compile in F# unless `addSomething2` requires a static member or a member with a different name
+// let inline testAddSomething (x: ^T when ^T : (member Add : int -> string) and ^T : (member Add2 : string -> string)) =
+//     let y = add1 x
+//     let z = add2 x
+//     y + z
+
 let tests1 = [
+    testCase "Picks the right witness" <| fun () ->
+        getFullName {| FirstName = "Alfonso"; LastName = "Horigome" |}
+        |> equal "Horigome Alfonso"
+
+    testCase "Picks the right witness II" <| fun () ->
+        getFirsAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
+        |> equal "Alfonso Horigome"
+
     testCase "Infix applicative can be generated" <| fun () ->
         let r = Ok 1
         let a = Ok string
@@ -426,6 +454,28 @@ let mutateAndLambdify x =
     mutableValue3 <- x
     (fun _ -> x)
 
+type Grandchild =
+    { x : int option }
+    static member x_ : Prism<Grandchild, int> =
+        (fun p -> p.x),
+        (fun x p ->
+            match p with
+            | p when p.x.IsSome -> { p with x = Some x }
+            | p -> p)
+
+type Child =
+    { g : Grandchild }
+    static member g_ : Lens<Child, Grandchild> = (fun p -> p.g), (fun x p -> { p with g = x })
+
+type Parent =
+    { c : Child option }
+    static member c_ : Prism<Parent, Child> =
+        (fun p -> p.c),
+        (fun x p ->
+            match p with
+            | p when p.c.IsSome -> { p with c = Some x }
+            | p -> p)
+
 let tests5 = [
     testCase "TraitCall can resolve overloads with a single generic argument" <| fun () ->
         implicitMethod !+"hello" 5 |> equal 1
@@ -502,6 +552,15 @@ let tests5 = [
         let input2, checkbox2 = view a2
         input2 |> equal "bar"
         checkbox2 |> equal true
+
+    testCase "Aether works II" <| fun () -> // See #2101
+        let x : Parent = { c = Some { g = { x = Some 5 } } }
+        let y : Parent = { c = None }
+        let z : Parent = { c = Some { g = { x = None } } }
+        let grandchild = Parent.c_ >?> Child.g_ >?> Grandchild.x_
+        x ^. grandchild |> equal (Some 5)
+        y ^. grandchild |> equal None
+        z ^. grandchild |> equal None
 
     testCase "Trait calls work with tuples" <| fun () ->
         Item2.Invoke (1,2,3) |> equal 2

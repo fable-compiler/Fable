@@ -265,6 +265,7 @@ type ProjectCracked(sourceFiles: File array,
                            exclude = cliArgs.Exclude,
                            replace = cliArgs.Replace,
                            forcePkgs = cliArgs.ForcePkgs,
+                           noPreview = cliArgs.NoPreview,
                            noRestore = cliArgs.NoRestore,
                            projFile = cliArgs.ProjectFile,
                            optimize = cliArgs.CompilerOptions.OptimizeFSharpAst)

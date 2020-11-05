@@ -223,6 +223,15 @@ type MemberInfo(?attributes: FSharpAttribute seq,
         member _.IsEnumerator = defaultArg isEnumerator false
         member _.IsMangled = defaultArg isMangled false
 
+type Witness =
+    { TraitName: string
+      IsInstance: bool
+      Expr: Fable.Expr }
+    member this.ArgTypes =
+        match this.Expr with
+        | Fable.Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
+        | _ -> []
+
 type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
@@ -236,6 +245,7 @@ type Context =
       BoundMemberThis: Fable.Ident option
       InlinePath: Log.InlinePath list
       CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
+      Witnesses: Witness list
     }
     static member Create(usedRootNames) =
         { Scope = []
@@ -250,6 +260,7 @@ type Context =
           BoundMemberThis = None
           InlinePath = []
           CaptureBaseConsCall = None
+          Witnesses = []
         }
 
 type IFableCompiler =
@@ -537,6 +548,14 @@ module Patterns =
                     | _ -> None
                 | _ -> None
             | _ -> None
+        | _ -> None
+
+    let (|NestedLambda|_|) x =
+        let rec nestedLambda args = function
+            | Lambda(arg, body) -> nestedLambda (arg::args) body
+            | body -> List.rev args, body
+        match x with
+        | Lambda(arg, body) -> nestedLambda [arg] body |> Some
         | _ -> None
 
     let (|ForOf|_|) = function
@@ -1279,7 +1298,7 @@ module Util =
             | None when info.IsInterface ->
                 callInstanceMember com r typ callInfo ent memb |> Some
             | None ->
-                sprintf "Cannot resolve %s.%s" info.DeclaringEntityFullName info.CompiledName
+                sprintf "Cannot resolve replacement %s.%s" info.DeclaringEntityFullName info.CompiledName
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 

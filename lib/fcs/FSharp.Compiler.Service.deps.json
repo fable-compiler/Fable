@@ -18,7 +18,7 @@
           "Microsoft.SourceLink.GitHub": "1.1.0-beta-20206-02",
           "NETStandard.Library": "2.0.3",
           "System.Buffers": "4.5.1",
-          "System.Collections.Immutable": "1.5.0",
+          "System.Collections.Immutable": "1.7.1",
           "System.Diagnostics.Process": "4.3.0",
           "System.Diagnostics.TraceSource": "4.3.0",
           "System.Linq.Expressions": "4.3.0",
@@ -27,7 +27,7 @@
           "System.Net.Requests": "4.3.0",
           "System.Net.Security": "4.3.0",
           "System.Reflection.Emit": "4.3.0",
-          "System.Reflection.Metadata": "1.6.0",
+          "System.Reflection.Metadata": "1.8.1",
           "System.Reflection.TypeExtensions": "4.3.0",
           "System.Runtime": "4.3.0",
           "System.Runtime.InteropServices": "4.3.0",
@@ -38,7 +38,7 @@
           "System.Threading.Tasks.Parallel": "4.3.0",
           "System.Threading.Thread": "4.3.0",
           "System.Threading.ThreadPool": "4.3.0",
-          "XliffTasks": "1.0.0-beta.20420.1"
+          "XliffTasks": "1.0.0-beta.20520.1"
         },
         "runtime": {
           "FSharp.Compiler.Service.dll": {}
@@ -102,8 +102,8 @@
           "Microsoft.Build.Utilities.Core": "16.6.0",
           "Microsoft.Win32.Registry": "4.3.0",
           "System.CodeDom": "4.4.0",
-          "System.Collections.Immutable": "1.5.0",
-          "System.Reflection.Metadata": "1.6.0",
+          "System.Collections.Immutable": "1.7.1",
+          "System.Reflection.Metadata": "1.8.1",
           "System.Reflection.TypeExtensions": "4.3.0",
           "System.Resources.Extensions": "4.6.0",
           "System.Security.Permissions": "4.7.0",
@@ -121,7 +121,7 @@
         "dependencies": {
           "Microsoft.Build.Framework": "16.6.0",
           "Microsoft.Win32.Registry": "4.3.0",
-          "System.Collections.Immutable": "1.5.0",
+          "System.Collections.Immutable": "1.7.1",
           "System.Security.Permissions": "4.7.0",
           "System.Text.Encoding.CodePages": "4.0.1"
         },
@@ -263,11 +263,14 @@
           }
         }
       },
-      "System.Collections.Immutable/1.5.0": {
+      "System.Collections.Immutable/1.7.1": {
+        "dependencies": {
+          "System.Memory": "4.5.4"
+        },
         "runtime": {
           "lib/netstandard2.0/System.Collections.Immutable.dll": {
-            "assemblyVersion": "1.2.3.0",
-            "fileVersion": "4.6.26515.6"
+            "assemblyVersion": "1.2.5.0",
+            "fileVersion": "4.700.20.21406"
           }
         }
       },
@@ -651,14 +654,14 @@
           "System.Runtime": "4.3.0"
         }
       },
-      "System.Reflection.Metadata/1.6.0": {
+      "System.Reflection.Metadata/1.8.1": {
         "dependencies": {
-          "System.Collections.Immutable": "1.5.0"
+          "System.Collections.Immutable": "1.7.1"
         },
         "runtime": {
           "lib/netstandard2.0/System.Reflection.Metadata.dll": {
-            "assemblyVersion": "1.4.3.0",
-            "fileVersion": "4.6.26515.6"
+            "assemblyVersion": "1.4.5.0",
+            "fileVersion": "4.700.20.21406"
           }
         }
       },
@@ -1058,7 +1061,7 @@
           }
         }
       },
-      "XliffTasks/1.0.0-beta.20420.1": {},
+      "XliffTasks/1.0.0-beta.20520.1": {},
       "FSharp.Core/5.0.0-dev": {
         "dependencies": {
           "System.Linq.Queryable": "4.3.0",
@@ -1349,12 +1352,12 @@
       "path": "system.collections.concurrent/4.3.0",
       "hashPath": "system.collections.concurrent.4.3.0.nupkg.sha512"
     },
-    "System.Collections.Immutable/1.5.0": {
+    "System.Collections.Immutable/1.7.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-EXKiDFsChZW0RjrZ4FYHu9aW6+P4MCgEDCklsVseRfhoO0F+dXeMSsMRAlVXIo06kGJ/zv+2w1a2uc2+kxxSaQ==",
-      "path": "system.collections.immutable/1.5.0",
-      "hashPath": "system.collections.immutable.1.5.0.nupkg.sha512"
+      "sha512": "sha512-B43Zsz5EfMwyEbnObwRxW5u85fzJma3lrDeGcSAV1qkhSRTNY5uXAByTn9h9ddNdhM+4/YoLc/CI43umjwIl9Q==",
+      "path": "system.collections.immutable/1.7.1",
+      "hashPath": "system.collections.immutable.1.7.1.nupkg.sha512"
     },
     "System.Diagnostics.Debug/4.3.0": {
       "type": "package",
@@ -1545,12 +1548,12 @@
       "path": "system.reflection.extensions/4.3.0",
       "hashPath": "system.reflection.extensions.4.3.0.nupkg.sha512"
     },
-    "System.Reflection.Metadata/1.6.0": {
+    "System.Reflection.Metadata/1.8.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-COC1aiAJjCoA5GBF+QKL2uLqEBew4JsCkQmoHKbN3TlOZKa2fKLz5CpiRQKDz0RsAOEGsVKqOD5bomsXq/4STQ==",
-      "path": "system.reflection.metadata/1.6.0",
-      "hashPath": "system.reflection.metadata.1.6.0.nupkg.sha512"
+      "sha512": "sha512-1wrPLtYQFUGTsl9OqPzdzmMRdQvo3PRK38y+4rCHG0f6iyvSYwNXVr0orMvsu2orOIiVbk6MMckINI1g54ZvfA==",
+      "path": "system.reflection.metadata/1.8.1",
+      "hashPath": "system.reflection.metadata.1.8.1.nupkg.sha512"
     },
     "System.Reflection.Primitives/4.3.0": {
       "type": "package",
@@ -1776,12 +1779,12 @@
       "path": "system.threading.threadpool/4.3.0",
       "hashPath": "system.threading.threadpool.4.3.0.nupkg.sha512"
     },
-    "XliffTasks/1.0.0-beta.20420.1": {
+    "XliffTasks/1.0.0-beta.20520.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-8QsLUTJo96l2S3G48gpVX9M7+/VVXIhaoJrwzXbBa+1DN2xHlf4yX1yuSoOjv8nmlf4dawIaulsvdIoegcuHUA==",
-      "path": "xlifftasks/1.0.0-beta.20420.1",
-      "hashPath": "xlifftasks.1.0.0-beta.20420.1.nupkg.sha512"
+      "sha512": "sha512-qU2qEnMwuk+EuB2qxu9Bb+wMh/1L79i5DYqQhgvSyxP7U4wmIpxzJTYsl9w5tCymjTA1Py8Zf3dtH96o89mWvw==",
+      "path": "xlifftasks/1.0.0-beta.20520.1",
+      "hashPath": "xlifftasks.1.0.0-beta.20520.1.nupkg.sha512"
     },
     "FSharp.Core/5.0.0-dev": {
       "type": "project",

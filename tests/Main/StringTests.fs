@@ -198,9 +198,7 @@ let tests =
             o?self <- o
             sprintf "%A" o |> ignore
 
-// TODO!!! Enable these in .NET when CI supports net5.0 and
-// in fable-compiler-js when updating fable-metadata/FSharp.Core
-#if !FABLE_COMPILER_JS
+// TODO!!! Enable these in .NET when CI supports net5.0
       testCase "F# nameof works" <| fun () ->
           M.f 12 |> equal "x"
           nameof M |> equal "M"
@@ -216,7 +214,7 @@ let tests =
           $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!"
           |> equal "I think 3.14 is close to 3.14159265!"
 
-      testCase "" <| fun () ->
+      testCase "string interpolation works with anonymous records" <| fun () ->
           let person =
               {| Name = "John"
                  Surname = "Doe"
@@ -224,7 +222,6 @@ let tests =
                  Country = "The United Kingdom" |}
           $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
           |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
-#endif
 #endif
 
       testCase "sprintf \"%A\" with lists works" <| fun () ->

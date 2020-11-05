@@ -67,6 +67,28 @@ let operatorsAsFunctions = [
         x |> equal false
 ]
 
+type [<Measure>] px
+type [<Measure>] em
+
+type D1 = D1
+type D2 = D2
+type D3 = D3
+
+type ToLength = ToLength with
+    static member (&.) (ToLength, x: int<px>) = fun D1 _ _ -> String.Join("", string x, "px")
+    static member (&.) (ToLength, x: int<em>) = fun D1 D2 _ -> String.Join("", string x, "em")
+
+let inline toLen x : string = (Unchecked.defaultof<ToLength> &. x) D1 D2 D3
+
+let operatorsForOverloads = [
+    testCase "first overload" <| fun () ->
+        toLen 1<px>
+        |> equal "1px"
+    testCase "second overload" <| fun () ->
+        toLen 1<em>
+        |> equal "1em"
+]
+
 let tests =
   testList "Miscellaneous"
-    (typeOperators @ moduleOperators @ operatorsAsFunctions)
+    (typeOperators @ moduleOperators @ operatorsAsFunctions @ operatorsForOverloads)
