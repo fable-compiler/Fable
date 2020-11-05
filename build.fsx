@@ -40,8 +40,8 @@ let cleanDirs dirs =
     for dir in dirs do
         removeDirRecursive dir
 
-let updateVersionInCliUtil version =
-    let filePath = "src/Fable.Cli/Util.fs"
+let updateVersionInFableTransforms version =
+    let filePath = "src/Fable.Transforms/Global/Compiler.fs"
     // printfn "VERSION %s" version
     Regex.Replace(
         readFile filePath,
@@ -328,7 +328,7 @@ let testRepos() =
 
     cleanDirs [testDir]
     makeDirRecursive testDir
-    updateVersionInCliUtil version
+    updateVersionInFableTransforms version
     updatePkgVersionInFsproj "src/Fable.Cli/Fable.Cli.fsproj" version
     run (sprintf "dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o %s" (testDir </> pkgDir))
 
@@ -446,7 +446,7 @@ let packages =
     ["Fable.AST", doNothing
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
-        Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInCliUtil
+        Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
         buildLibrary())
      "fable-compiler-js", fun () -> buildCompilerJs true
      "fable-metadata", doNothing

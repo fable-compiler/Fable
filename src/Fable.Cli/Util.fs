@@ -2,11 +2,6 @@ namespace Fable.Cli
 
 open System
 
-module Literals =
-
-    let [<Literal>] VERSION = "3.0.0-nagareyama-beta-005"
-    let [<Literal>] CORE_VERSION = "2.1.0"
-
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
     member _.ExeFile = exeFile
     member _.Args = args

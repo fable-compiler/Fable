@@ -435,7 +435,14 @@ let createFableDir (opts: CrackerOptions) =
         IO.Path.Combine(baseDir, Naming.fableHiddenDir)
 
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
-    let newInfo = CompilerOptionsHelper.ToKeyValues(Literals.VERSION, opts.FableOptions)
+    let newInfo =
+        Map [
+            "version", Fable.Literals.VERSION
+            "define", opts.FableOptions.Define |> List.sort |> String.concat ","
+            "typedArrays", opts.FableOptions.TypedArrays.ToString()
+            "clampByteArrays", opts.FableOptions.ClampByteArrays.ToString()
+            "optimize", opts.FableOptions.OptimizeFSharpAst.ToString()
+        ]
 
     let isEmptyOrOutdated =
         if opts.ForcePkgs || isDirectoryEmpty fableDir then true

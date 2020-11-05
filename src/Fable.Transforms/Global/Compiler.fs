@@ -1,7 +1,9 @@
 namespace Fable
 
+module Literals =
+    let [<Literal>] VERSION = "3.0.0-nagareyama-beta-005"
+
 type CompilerOptionsHelper =
-    static member DefaultFileExtension = ".fs.js"
     static member Make(?typedArrays,
                        ?typescript,
                        ?define,
@@ -18,17 +20,8 @@ type CompilerOptionsHelper =
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
-              member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultFileExtension
+              member _.FileExtension = defaultArg fileExtension ".fs.js"
               member _.ClampByteArrays = defaultArg clampByteArrays false }
-
-    static member ToKeyValues(version: string, opts: CompilerOptions): Map<string, string> =
-        Map [
-            "version", version
-            "define", opts.Define |> List.sort |> String.concat ","
-            "typedArrays", opts.TypedArrays.ToString()
-            "clampByteArrays", opts.ClampByteArrays.ToString()
-            "optimize", opts.OptimizeFSharpAst.ToString()
-        ]
 
 [<RequireQualifiedAccess>]
 type Severity =
@@ -36,7 +29,6 @@ type Severity =
     | Error
     | Info
 
-open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 open Fable.AST
 
@@ -63,6 +55,17 @@ type Compiler =
 
 [<AutoOpen>]
 module CompilerExt =
+    let expectedVersionMatchesActual (expected: string) (actual: string) =
+        try
+            let r = System.Text.RegularExpressions.Regex("^(\d+)\.(\d+)")
+            let parse v =
+                let m = r.Match(v)
+                int m.Groups.[1].Value, int m.Groups.[2].Value
+            let actualMajor, actualMinor = parse actual
+            let expectedMajor, expectedMinor = parse expected
+            actualMajor = expectedMajor && actualMinor >= expectedMinor
+        with _ -> false
+
     type Compiler with
         member com.ToPluginHelper() =
             { new PluginHelper with
@@ -75,16 +78,19 @@ module CompilerExt =
                 member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
              }
 
-        member com.ApplyPlugin<'Plugin, 'Input>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =
+        member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =
             if Map.isEmpty plugins then input
             else
                 (input, atts) ||> Seq.fold (fun input att ->
                     match Map.tryFind att.Entity plugins with
                     | None -> input
                     | Some plugin ->
-                        let plugin = System.Activator.CreateInstance(plugin, List.toArray att.ConstructorArgs) :?> 'Plugin
+                        let pluginInstance = System.Activator.CreateInstance(plugin, List.toArray att.ConstructorArgs) :?> 'Plugin
+                        if not(expectedVersionMatchesActual pluginInstance.FableMinimumVersion Literals.VERSION) then
+                            failwithf "Plugin %s expects v%s but currently running Fable v%s"
+                                        plugin.FullName pluginInstance.FableMinimumVersion Literals.VERSION
                         let helper = com.ToPluginHelper()
-                        transform plugin helper input)
+                        transform pluginInstance helper input)
 
         member com.ApplyMemberDeclarationPlugin(decl: Fable.MemberDecl) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
