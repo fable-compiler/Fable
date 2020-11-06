@@ -1078,6 +1078,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | path -> path
 
     match i.DeclaringEntityFullName, i.CompiledName with
+    | _, "op_ErasedCast" -> List.tryHead args
     | _, ".ctor" -> typedObjExpr t [] |> Some
     | _, "jsNative" ->
         // TODO: Fail at compile time?
@@ -1218,6 +1219,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
         | "jsOptions", [arg] ->
             makePojoFromLambda com arg |> Some
+        | "jsThis", _ ->
+            emitJsExpr r t [] "this" |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
             | DeclaredType(ent, _) -> com.GetEntity(ent) |> jsConstructor com |> Some

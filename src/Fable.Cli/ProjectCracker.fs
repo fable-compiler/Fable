@@ -11,7 +11,7 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noPreview, noRestore, projFile, optimize) =
+type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noRestore, projFile, optimize) =
     let builtDlls = HashSet()
     member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
@@ -19,7 +19,6 @@ type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, no
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
     member _.ForcePkgs: bool = forcePkgs
-    member _.NoPreview: bool = noPreview
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.Optimize: bool = optimize
@@ -232,8 +231,6 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
         yield "--fullpaths"
         yield "--flaterrors"
         yield "--target:library"
-        if not opts.NoPreview then
-            yield "--langversion:preview"
 #if !NETFX
         yield "--targetprofile:netstandard"
 #endif
@@ -282,8 +279,7 @@ let private isUsefulOption (opt : string) =
           "--nowarn"
           "--warnon"
           "--warnaserror"
-        // Set --langversion:preview automatically until it's not needed for witnesses
-        // "--langversion"
+          "--langversion"
         ]
         |> List.exists opt.StartsWith
 
@@ -548,6 +544,8 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let otherOptions =
             let coreRefs = HashSet Standalone.Metadata.references_core
+            // TODO: Add System.Runtime.InteropServices to fable-metadata
+            coreRefs.Add("System.Runtime.InteropServices") |> ignore
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
                "WindowsBase"

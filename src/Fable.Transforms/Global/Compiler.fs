@@ -4,6 +4,7 @@ module Literals =
     let [<Literal>] VERSION = "3.0.0-nagareyama-beta-005"
 
 type CompilerOptionsHelper =
+    static member DefaultExtension = ".fs.js"
     static member Make(?typedArrays,
                        ?typescript,
                        ?define,
@@ -20,7 +21,7 @@ type CompilerOptionsHelper =
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
-              member _.FileExtension = defaultArg fileExtension ".fs.js"
+              member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
               member _.ClampByteArrays = defaultArg clampByteArrays false }
 
 [<RequireQualifiedAccess>]

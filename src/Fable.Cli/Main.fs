@@ -9,77 +9,6 @@ open Fable.Transforms
 open Fable.Transforms.State
 open ProjectCracker
 
-type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option, fileExt: string) =
-    // In imports *.ts extensions have to be converted to *.js extensions instead
-    let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
-    let stream = new IO.StreamWriter(targetPath)
-    interface BabelPrinter.Writer with
-        member _.Write(str) =
-            stream.WriteAsync(str) |> Async.AwaitTask
-        member _.EscapeJsStringLiteral(str) =
-            Web.HttpUtility.JavaScriptStringEncode(str)
-        member _.MakeImportPath(path) =
-            let path = Imports.getImportPath sourcePath targetPath projDir outDir path
-            if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
-        member _.Dispose() = stream.Dispose()
-
-type Watcher() =
-    static member AwaitChanges(filesToWatch: string list) =
-        let commonBaseDir =
-            filesToWatch
-            |> List.map (IO.Path.GetDirectoryName)
-            |> List.distinct
-            |> List.sortBy (fun f -> f.Length)
-            |> function
-                | [] -> failwith "Empty list passed to watcher"
-                | [dir] -> dir
-                | dir::restDirs ->
-                    let rec getCommonDir (dir: string) =
-                        if restDirs |> List.forall (fun d -> d.StartsWith(dir)) then dir
-                        else
-                            match IO.Path.GetDirectoryName(dir) with
-                            | null -> failwith "No common base dir"
-                            | dir -> getCommonDir dir
-                    getCommonDir dir
-
-        let changes = ResizeArray()
-        let watcher = new IO.FileSystemWatcher(commonBaseDir)
-        let timer = new Timers.Timer(200., AutoReset=false)
-        Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
-
-        watcher.Filters.Add("*.fs")
-        watcher.Filters.Add("*.fsx")
-        watcher.Filters.Add("*.fsproj")
-        watcher.IncludeSubdirectories <- true
-        // watcher.NotifyFilter <- NotifyFilters.LastWrite
-        watcher.EnableRaisingEvents <- false
-
-        let filePaths = set filesToWatch
-        let onChange _changeType fullPath =
-            let fullPath = Path.normalizePath fullPath
-            if Set.contains fullPath filePaths then
-                changes.Add(fullPath)
-                if timer.Enabled then
-                    timer.Stop()
-                timer.Start()
-
-        watcher.Changed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-        watcher.Created.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-        watcher.Deleted.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-        watcher.Renamed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-
-        Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
-            timer.Elapsed.Add(fun _ ->
-                watcher.EnableRaisingEvents <- false
-                watcher.Dispose()
-                timer.Dispose()
-
-                changes
-                |> set
-                |> onSuccess)
-            watcher.EnableRaisingEvents <- true
-        )
-
 module private Util =
     let loadType (r: PluginRef): Type =
         /// Prevent ReflectionTypeLoadException
@@ -182,16 +111,43 @@ module private Util =
         | Some watchDependencies ->
             watchDependencies |> Array.exists (fun p -> Set.contains p dirtyFiles)
 
+    let changeFsExtension isInFableHiddenDir filePath fileExt =
+        let fileExt =
+            // Prevent conflicts in package sources as they may include
+            // JS files with same name as the F# .fs file
+            if fileExt = ".js" && isInFableHiddenDir then
+                CompilerOptionsHelper.DefaultExtension
+            else fileExt
+        Path.replaceExtension fileExt filePath
+
     let getOutJsPath (cliArgs: CliArgs) file =
         let fileExt = cliArgs.CompilerOptions.FileExtension
+        let isInFableHiddenDir = Naming.isInFableHiddenDir file
         match cliArgs.OutDir with
-        | None ->
-            Path.replaceExtension fileExt file
         | Some outDir ->
             let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-            let relPath = Imports.getRelativePath projDir file |> Imports.trimPath
-            let relPath = IO.Path.ChangeExtension(relPath, fileExt)
-            IO.Path.Combine(outDir, relPath)
+            let absPath = Imports.getTargetAbsolutePath file projDir outDir
+            changeFsExtension isInFableHiddenDir absPath fileExt
+        | None ->
+            changeFsExtension isInFableHiddenDir file fileExt
+
+    type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option, fileExt: string) =
+        // In imports *.ts extensions have to be converted to *.js extensions instead
+        let fileExt = if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
+        let targetDir = Path.GetDirectoryName(targetPath)
+        let stream = new IO.StreamWriter(targetPath)
+        interface BabelPrinter.Writer with
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
+            member _.EscapeJsStringLiteral(str) =
+                Web.HttpUtility.JavaScriptStringEncode(str)
+            member _.MakeImportPath(path) =
+                let path = Imports.getImportPath sourcePath targetPath projDir outDir path
+                if path.EndsWith(".fs") then
+                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
+                    changeFsExtension isInFableHiddenDir path fileExt
+                else path
+            member _.Dispose() = stream.Dispose()
 
     let compileFile (cliArgs: CliArgs) (com: CompilerImpl) = async {
         try
@@ -229,6 +185,63 @@ module private Util =
 
 open Util
 
+type Watcher() =
+    static member AwaitChanges(filesToWatch: string list) =
+        let commonBaseDir =
+            filesToWatch
+            |> List.map (IO.Path.GetDirectoryName)
+            |> List.distinct
+            |> List.sortBy (fun f -> f.Length)
+            |> function
+                | [] -> failwith "Empty list passed to watcher"
+                | [dir] -> dir
+                | dir::restDirs ->
+                    let rec getCommonDir (dir: string) =
+                        if restDirs |> List.forall (fun d -> d.StartsWith(dir)) then dir
+                        else
+                            match IO.Path.GetDirectoryName(dir) with
+                            | null -> failwith "No common base dir"
+                            | dir -> getCommonDir dir
+                    getCommonDir dir
+
+        let changes = ResizeArray()
+        let watcher = new IO.FileSystemWatcher(commonBaseDir)
+        let timer = new Timers.Timer(200., AutoReset=false)
+        Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
+
+        watcher.Filters.Add("*.fs")
+        watcher.Filters.Add("*.fsx")
+        watcher.Filters.Add("*.fsproj")
+        watcher.IncludeSubdirectories <- true
+        // watcher.NotifyFilter <- NotifyFilters.LastWrite
+        watcher.EnableRaisingEvents <- false
+
+        let filePaths = set filesToWatch
+        let onChange _changeType fullPath =
+            let fullPath = Path.normalizePath fullPath
+            if Set.contains fullPath filePaths then
+                changes.Add(fullPath)
+                if timer.Enabled then
+                    timer.Stop()
+                timer.Start()
+
+        watcher.Changed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
+        watcher.Created.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
+        watcher.Deleted.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
+        watcher.Renamed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
+
+        Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
+            timer.Elapsed.Add(fun _ ->
+                watcher.EnableRaisingEvents <- false
+                watcher.Dispose()
+                timer.Dispose()
+
+                changes
+                |> set
+                |> onSuccess)
+            watcher.EnableRaisingEvents <- true
+        )
+
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
     let mutable sourceHash = None
@@ -265,7 +278,6 @@ type ProjectCracked(sourceFiles: File array,
                            exclude = cliArgs.Exclude,
                            replace = cliArgs.Replace,
                            forcePkgs = cliArgs.ForcePkgs,
-                           noPreview = cliArgs.NoPreview,
                            noRestore = cliArgs.NoRestore,
                            projFile = cliArgs.ProjectFile,
                            optimize = cliArgs.CompilerOptions.OptimizeFSharpAst)
@@ -464,14 +476,10 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             let exeFile, args =
                 match runProc.ExeFile with
                 | Naming.placeholder ->
-                    let lastFilePath =
-                        cracked.SourceFiles
-                        |> Array.last
-                        // Fable's getRelativePath version ensures there's always
-                        // a period in front of the path: ./
-                        |> fun f -> Path.getRelativeFileOrDirPath
-                                        true workingDir false f.NormalizedFullPath
-                        |> Path.replaceExtension state.CliArgs.CompilerOptions.FileExtension
+                    let lastFile = Array.last cracked.SourceFiles
+                    let lastFilePath = getOutJsPath state.CliArgs lastFile.NormalizedFullPath
+                    // Fable's getRelativePath version ensures there's always a period in front of the path: ./
+                    let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
                     // Pass also the file name as argument, as when calling the script directly
                     "node", ["--eval"; "\"require('esm')(module)('" + lastFilePath + "')\""; lastFilePath] @ runProc.Args
                 | exeFile ->

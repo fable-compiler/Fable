@@ -9,6 +9,10 @@ let rec run = function
     | ReturnValue x -> x
 
 type TrampolineBuilder() =
+    member __.TryWith(thunk, handler) =
+        match thunk with
+        | DelayValue f -> DelayValue(fun () -> try f() with e -> handler e)
+        | ReturnValue _ -> thunk
     member __.Bind(thunk, f) = DelayValue (fun () -> run thunk |> f)
     member __.Delay f = DelayValue f
     member __.Return a = ReturnValue a

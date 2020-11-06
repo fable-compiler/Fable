@@ -66,11 +66,12 @@ Arguments:
   --typescript      Compile to TypeScript (experimental)
 """
 
-let defaultFileExt args =
-    let typescript = flagEnabled "--typescript" args
-    match argValue "--outDir" args with
-    | Some _ -> if typescript then ".ts" else ".js"
-    | None -> if typescript then ".fs.ts" else ".fs.js"
+let defaultFileExt isTypescript args =
+    let fileExt =
+        match argValue "--outDir" args with
+        | Some _ -> ".js"
+        | None -> CompilerOptionsHelper.DefaultExtension
+    if isTypescript then Path.replaceExtension ".ts" fileExt else fileExt
 
 type Runner =
   static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
@@ -124,7 +125,7 @@ type Runner =
             |> List.distinct
 
         let fileExt =
-            argValue "--extension" args |> Option.defaultValue (defaultFileExt args)
+            argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
 
         let compilerOptions =
             CompilerOptionsHelper.Make(typescript = typescript,
@@ -142,7 +143,6 @@ type Runner =
               WatchMode = watch
               ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
-              NoPreview = flagEnabled "--noPreview" args
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args
@@ -163,9 +163,10 @@ type Runner =
 
 
 let clean args dir =
+    let typescript = flagEnabled "--typescript" args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
     let fileExt =
-        argValue "--extension" args |> Option.defaultValue (defaultFileExt args)
+        argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
 
     // clean is a potentially destructive operation, we need a permission before proceeding
     Console.WriteLine("This will recursively delete all *{0} files in {1}.", fileExt, dir)

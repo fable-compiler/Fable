@@ -15,7 +15,6 @@ type CliArgs =
       FableLibraryPath: string option
       ForcePkgs: bool
       NoRestore: bool
-      NoPreview: bool
       WatchMode: bool
       Exclude: string option
       Replace: Map<string, string>
@@ -198,11 +197,20 @@ module Imports =
         let relPath = IO.Path.GetRelativePath(path, pathTo).Replace('\\', '/')
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getTargetRelPath importPath targetDir projDir outDir =
-        let relPath = getRelativePath projDir importPath |> trimPath
-        let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
-        let relPath = if isRelativePath relPath then relPath else "./" + relPath
-        relPath
+    let getTargetAbsolutePath importPath projDir outDir =
+        let importPath = Path.normalizePath importPath
+        let outDir = Path.normalizePath outDir
+        // It may happen the importPath is already in outDir,
+        // for example package sources in .fable folder
+        if importPath.StartsWith(outDir) then importPath
+        else
+            let relPath = getRelativePath projDir importPath |> trimPath
+            Path.Combine(outDir, relPath)
+
+    let getTargetRelativePath (importPath: string) targetDir projDir (outDir: string) =
+        let absPath = getTargetAbsolutePath importPath projDir outDir
+        let relPath = getRelativePath targetDir absPath
+        if isRelativePath relPath then relPath else "./" + relPath
 
     let getImportPath sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
@@ -210,6 +218,8 @@ module Imports =
         | Some outDir ->
             let importPath =
                 if importPath.StartsWith("${outDir}")
+                // NOTE: Path.Combine in Fable Prelude trims / at the start
+                // of the 2nd argument, unline .NET IO.Path.Combine
                 then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
                 else importPath
             let sourceDir = Path.GetDirectoryName(sourcePath)
@@ -220,6 +230,6 @@ module Imports =
                 else importPath
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs")
-                then getTargetRelPath importPath targetDir projDir outDir
+                then getTargetRelativePath importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath

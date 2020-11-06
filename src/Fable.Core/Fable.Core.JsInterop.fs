@@ -97,6 +97,12 @@ let importValueDynamic (x: 'T): JS.Promise<'T> = jsNative
 /// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
 let toPlainJsObj(o: 'T): obj = jsNative
 
+/// Compiles to JS `this` keyword.
+///
+/// ## Sample
+///     jqueryMethod(fun x y -> jsThis?add(x, y))
+let [<Emit("this")>] jsThis<'T> : 'T = jsNative
+
 /// JS `in` operator
 let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = jsNative
 
