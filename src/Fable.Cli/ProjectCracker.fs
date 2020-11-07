@@ -231,6 +231,7 @@ let getBasicCompilerArgs (opts: CrackerOptions) =
         yield "--fullpaths"
         yield "--flaterrors"
         yield "--target:library"
+        yield "--langversion:preview" // Needed for witnesses
 #if !NETFX
         yield "--targetprofile:netstandard"
 #endif
@@ -279,7 +280,7 @@ let private isUsefulOption (opt : string) =
           "--nowarn"
           "--warnon"
           "--warnaserror"
-          "--langversion"
+        //   "--langversion" // See getBasicCompilerArgs
         ]
         |> List.exists opt.StartsWith
 
