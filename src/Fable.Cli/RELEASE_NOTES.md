@@ -1,3 +1,9 @@
+### 3.0.0-nagareyama-rc-001
+
+* Release candidate
+* FCS witnesses!
+* Other fixes
+
 ### 3.0.0-nagareyama-beta-005
 
 * Fix #2238: Normalize paths on Windows
