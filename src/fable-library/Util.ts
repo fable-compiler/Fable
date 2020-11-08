@@ -427,6 +427,10 @@ export function max<T>(comparer: (x: T, y: T) => number, x: T, y: T) {
   return comparer(x, y) > 0 ? x : y;
 }
 
+export function clamp<T>(comparer: (x: T, y: T) => number, value: T, min: T, max: T) {
+  return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
+}
+
 export function createAtom<T>(value?: T): (v?: T, isSet?: boolean) => T | void {
   let atom = value;
   return (value?: T, isSetter?: boolean) => {

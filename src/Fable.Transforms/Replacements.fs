@@ -1482,7 +1482,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | (Operators.lessThanOrEqual | "Lte"), [left; right] -> compareIf com ctx r left right BinaryLessOrEqual |> Some
     | (Operators.greaterThan | "Gt"), [left; right] -> compareIf com ctx r left right BinaryGreater |> Some
     | (Operators.greaterThanOrEqual | "Gte"), [left; right] -> compareIf com ctx r left right BinaryGreaterOrEqual |> Some
-    | ("Min"|"Max" as meth), _ ->
+    | ("Min"|"Max"|"Clamp" as meth), _ ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Util", Naming.lowerFirst meth, t, f::args, i.SignatureArgTypes, ?loc=r) |> Some
     | "Not", [operand] -> // TODO: Check custom operator?

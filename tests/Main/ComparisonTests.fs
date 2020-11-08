@@ -359,6 +359,10 @@ let tests =
         let c2 = Test(5)
         Object.ReferenceEquals(min c1 c2, c2) |> equal true
 
+    // TODO: More tests, also with longs and decimals
+    testCase "clamp works" <| fun () ->
+        Math.Clamp(14, 0, 12) |> equal 12
+
     testCase "nullArg works" <| fun () ->
         try
             nullArg null
