@@ -1,3 +1,8 @@
+### 3.0.0-nagareyama-rc-002
+
+* Patch FCS witness error @ncave
+* Set always --langversion:preview
+
 ### 3.0.0-nagareyama-rc-001
 
 * Release candidate
