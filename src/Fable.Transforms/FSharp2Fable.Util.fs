@@ -159,6 +159,10 @@ type FsEnt(ent: FSharpEntity) =
         { QualifiedName = FsEnt.QualifiedName ent
           SourcePath = sourcePath }
 
+    static member Ref (assemblyEntityQualifiedName: string): Fable.EntityRef =
+        { QualifiedName = assemblyEntityQualifiedName
+          SourcePath = None }
+
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
         member _.DisplayName = ent.DisplayName
@@ -385,6 +389,13 @@ module Helpers =
             if not found then
                 found <- (nonAbbreviatedDefinition att.AttributeType).TryFullName = attFullName
         found
+
+    let tryPickAttribute attFullNames (attributes: FSharpAttribute seq) =
+        let attFullNames = Map attFullNames
+        attributes |> Seq.tryPick (fun att ->
+            match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
+            | Some fullName -> Map.tryFind fullName attFullNames
+            | None -> None)
 
     let tryAttributeConsArg (att: FSharpAttribute) index (defValue: 'T) (f: obj -> 'T option) =
         let consArgs = att.ConstructorArguments
@@ -672,27 +683,6 @@ module Patterns =
             | _ -> None
         else None
 
-    let private numberTypes =
-        dict [Types.int8, Int8
-              Types.uint8, UInt8
-              Types.int16, Int16
-              Types.uint16, UInt16
-              Types.int32, Int32
-              Types.uint32 , UInt32
-              Types.float32, Float32
-              Types.float64, Float64
-               // Units of measure
-              "Microsoft.FSharp.Core.sbyte`1", Int8
-              "Microsoft.FSharp.Core.int16`1", Int16
-              "Microsoft.FSharp.Core.int`1", Int32
-              "Microsoft.FSharp.Core.float32`1", Float32
-              "Microsoft.FSharp.Core.float`1", Float64]
-
-    let (|NumberKind|_|) fullName =
-        match numberTypes.TryGetValue(fullName) with
-        | true, kind -> Some kind
-        | false, _ -> None
-
     let (|OptionUnion|ListUnion|ErasedUnion|ErasedUnionCase|StringEnum|DiscriminatedUnion|)
                             (NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
         let getCaseRule (att: FSharpAttribute) =
@@ -765,6 +755,32 @@ module TypeHelpers =
         let returnType = returnType |> resolveType |> makeType ctxTypeArgs
         Fable.DelegateType(argTypes, returnType)
 
+    let numberTypes =
+        dict [Types.int8, Int8
+              Types.uint8, UInt8
+              Types.int16, Int16
+              Types.uint16, UInt16
+              Types.int32, Int32
+              Types.uint32 , UInt32
+              Types.float32, Float32
+              Types.float64, Float64
+               // Units of measure
+              "Microsoft.FSharp.Core.sbyte`1", Int8
+              "Microsoft.FSharp.Core.int16`1", Int16
+              "Microsoft.FSharp.Core.int`1", Int32
+              "Microsoft.FSharp.Core.float32`1", Float32
+              "Microsoft.FSharp.Core.float`1", Float64]
+
+    let fsharpUMX =
+        dict ["bool`1", Choice1Of2 Fable.Boolean
+              "byte`1", Choice1Of2 (Fable.Number UInt8)
+              "string`1", Choice1Of2 Fable.String
+              "uint64`1", Choice2Of2 Types.uint64
+              "Guid`1", Choice2Of2 Types.guid
+              "TimeSpan`1", Choice2Of2 Types.timespan
+              "DateTime`1", Choice2Of2 Types.datetime
+              "DateTimeOffset`1", Choice2Of2 Types.datetimeOffset]
+
     let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
             makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
@@ -786,12 +802,22 @@ module TypeHelpers =
             | Types.option -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Option
             | Types.resizeArray -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
             | Types.list -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
-            | NumberKind kind -> Fable.Number kind
-            // Special attributes
-            | _ when hasAttribute Atts.stringEnum tdef.Attributes -> Fable.String
-            | _ when hasAttribute Atts.erase tdef.Attributes -> Fable.Any
-            // Rest of declared types
-            | _ -> Fable.DeclaredType(FsEnt.Ref tdef, makeGenArgs ctxTypeArgs genArgs)
+            | DicContains numberTypes kind -> Fable.Number kind
+            // TODO: FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
+            // so we need to hard-cde FSharp.UMX types
+            | Naming.StartsWith "FSharp.UMX." (DicContains fsharpUMX choice) ->
+                match choice with
+                | Choice1Of2 t -> t
+                | Choice2Of2 qualifiedName -> Fable.DeclaredType(FsEnt.Ref qualifiedName, [])
+            | _ ->
+                // Special attributes
+                tdef.Attributes |> tryPickAttribute [
+                    Atts.stringEnum, Fable.String
+                    Atts.erase, Fable.Any
+                ]
+                // Rest of declared types
+                |> Option.defaultWith (fun () ->
+                    Fable.DeclaredType(FsEnt.Ref tdef, makeGenArgs ctxTypeArgs genArgs))
 
     let rec makeType (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)

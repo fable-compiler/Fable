@@ -479,6 +479,9 @@ let tests =
         |> Option.map (fun o -> UMX.untag o.quantity)
         |> equal (Some 50)
 
+    testCase "FSharp.UMX: reflection info" <| fun () ->
+        let fields = Reflection.FSharpType.GetRecordFields typeof<Order>
+        fields.Length |> equal 3
 
     testCase "Static constructors work" <| fun () ->
         let point1 = PointWithCounter(10, 52)

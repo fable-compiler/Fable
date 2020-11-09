@@ -177,7 +177,7 @@ type NumberExtKind =
     | BigInt
 
 let (|NumberExtKind|_|) = function
-    | FSharp2Fable.Patterns.NumberKind kind -> Some (JsNumber kind)
+    | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> Some (JsNumber kind)
     | Types.int64 -> Some (Long false)
     | Types.uint64 -> Some (Long true)
     | Types.decimal -> Some Decimal
