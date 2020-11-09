@@ -31,7 +31,7 @@ function changeCase(str: string, caseRule: number) {
   }
 }
 
-export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None, isDebug = false) {
+export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None) {
   const obj: { [k: string]: any } = {};
   const definedCaseRule = caseRule;
 
@@ -40,9 +40,6 @@ export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None, i
   }
   function assign(key: string, caseRule: number, value: any) {
     key = changeCase(key, caseRule);
-    if (isDebug && key in obj) {
-      console.warn(`Key ${key} is overwritten when creating JS object`);
-    }
     obj[key] = value;
   }
 

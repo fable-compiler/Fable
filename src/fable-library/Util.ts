@@ -451,17 +451,6 @@ export function createObj(fields: Iterable<[string, any]>) {
   return obj;
 }
 
-export function createObjDebug(fields: Iterable<[string, any]>) {
-  const obj: any = {};
-  for (const kv of fields) {
-    if (kv[0] in obj) {
-      console.error(new Error(`Property ${kv[0]} is duplicated`));
-    }
-    obj[kv[0]] = kv[1];
-  }
-  return obj;
-}
-
 export function jsOptions(mutator: (x: object) => void): object {
   const opts = {};
   mutator(opts);

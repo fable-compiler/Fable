@@ -1207,12 +1207,10 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
         | "createObj", _ ->
-            let m = if com.Options.DebugMode then "createObjDebug" else "createObj"
-            Helper.LibCall(com, "Util", m, Any, args) |> Some
+            Helper.LibCall(com, "Util", "createObj", Any, args) |> Some
          | "keyValueList", [caseRule; keyValueList] ->
             // makePojo com ctx caseRule keyValueList
             let args = [keyValueList; caseRule]
-            let args = if com.Options.DebugMode then args @ [makeBoolConst true] else args
             Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)

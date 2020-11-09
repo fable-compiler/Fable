@@ -545,8 +545,6 @@ let getFullProjectOpts (opts: CrackerOptions) =
 
         let otherOptions =
             let coreRefs = HashSet Standalone.Metadata.references_core
-            // TODO: Add System.Runtime.InteropServices to fable-metadata
-            coreRefs.Add("System.Runtime.InteropServices") |> ignore
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
                "WindowsBase"
