@@ -1,3 +1,9 @@
+### 3.0.0-nagareyama-rc-003
+
+* Fix #1962: FSharp.UMX measure annotated types
+* Fix #2250: Math.Clamp
+* Fix #2257: Remove warnings in keyValueList
+
 ### 3.0.0-nagareyama-rc-002
 
 * Patch FCS witness error @ncave
