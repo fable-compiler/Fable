@@ -235,6 +235,8 @@ function formatReplacement(rep: any, prefix: any, flags: any, padLength: any, pr
         rep = String(rep);
         break;
     }
+  } else if (rep instanceof Date) {
+    rep = dateToString(rep);
   } else {
     rep = toString(rep);
   }
