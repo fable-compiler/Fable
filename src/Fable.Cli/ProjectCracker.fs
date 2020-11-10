@@ -11,7 +11,7 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noRestore, projFile, optimize) =
+type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noRestore, projFile) =
     let builtDlls = HashSet()
     member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
@@ -21,7 +21,6 @@ type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, no
     member _.ForcePkgs: bool = forcePkgs
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
-    member _.Optimize: bool = optimize
     member _.BuildDll(normalizedDllPath: string) =
         if not(builtDlls.Contains(normalizedDllPath)) then
             let projDir =
@@ -557,7 +556,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
                 yield! refOptions // merged options from all referenced projects
                 yield! mainProj.OtherCompilerOptions // main project compiler options
                 yield! getBasicCompilerArgs opts // options from compiler args
-                yield "--optimize" + (if opts.Optimize then "+" else "-")
+                yield "--optimize" + (if opts.FableOptions.OptimizeFSharpAst then "+" else "-")
                 // We only keep dllRefs for the main project
                 yield! mainProj.DllReferences.Values
                         // Remove unneeded System dll references

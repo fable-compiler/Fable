@@ -32,6 +32,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
+    <ProjectReference Include="..\LeanWork.IO.FileSystem.Watcher\LeanWork.IO.FileSystem.Watcher.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
