@@ -29,11 +29,6 @@ type ConcurrentDictionary<'TKey, 'TValue> with
         ConcurrentDictionary(kvs)
 #endif
 
-let private entityRefToString (r: Fable.EntityRef) =
-    match r.SourcePath with
-    | Some x -> x + "::" + r.QualifiedName
-    | None -> r.QualifiedName
-
 type Package =
     { Id: string
       Version: string
@@ -46,70 +41,45 @@ type PluginRef =
     { DllPath: string
       TypeFullName: string }
 
-type Project(projectOptions: FSharpProjectOptions,
-             checkResults: FSharpCheckProjectResults,
-             ?packages: Package list,
-             ?getPlugin: PluginRef -> System.Type,
-             ?optimize: bool) =
+let private entityRefToString (r: Fable.EntityRef) =
+    match r.SourcePath with
+    | Some x -> x + "::" + r.QualifiedName
+    | None -> r.QualifiedName
 
-    let packages = defaultArg packages []
-    let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
-    let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
+let rec private withNestedEntities useSourcePath (e: FSharpEntity) =
+    if e.IsFSharpAbbreviation then Seq.empty
+    else
+        seq  {
+            let sourcePath = if useSourcePath then Some(FSharp2Fable.FsEnt.SourcePath e) else None
+            yield ({ QualifiedName = FSharp2Fable.FsEnt.QualifiedName e
+                     SourcePath = sourcePath }: Fable.EntityRef), e
+            for sub in e.NestedEntities do
+                yield! withNestedEntities useSourcePath sub
+        }
+
+let private loadDllEntitiesAndPlugins getPlugin (checkResults: FSharpCheckProjectResults) =
     let plugins = Dictionary<Fable.EntityRef, System.Type>()
 
-    let rec withNestedEntities useSourcePath (e: FSharpEntity) =
-        if e.IsFSharpAbbreviation then Seq.empty
-        else
-            seq  {
-                let sourcePath = if useSourcePath then Some(FSharp2Fable.FsEnt.SourcePath e) else None
-                yield ({ QualifiedName = FSharp2Fable.FsEnt.QualifiedName e
-                         SourcePath = sourcePath }: Fable.EntityRef), e
-                for sub in e.NestedEntities do
-                    yield! withNestedEntities useSourcePath sub
-            }
+    let dllEntities =
+        checkResults.ProjectContext.GetReferencedAssemblies()
+        |> Seq.collect (fun a ->
+            let entities =
+                a.Contents.Entities
+                |> Seq.collect (withNestedEntities false)
 
-    let implFiles =
-        (if defaultArg optimize false then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
-         else checkResults.AssemblyContents.ImplementationFiles)
-        |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file)
-        |> dict
-
-//    if List.isEmpty implFiles then
-//        Log.always "The list of files returned by F# compiler is empty"
-
-    let rootModules =
-        implFiles |> Seq.map (fun kv ->
-            kv.Key, FSharp2Fable.Compiler.getRootModule kv.Value) |> dict
-
-    let entities =
-        let dllEntities =
-            checkResults.ProjectContext.GetReferencedAssemblies()
-            |> Seq.collect (fun a ->
-                let entities =
-                    a.Contents.Entities
-                    |> Seq.collect (withNestedEntities false)
-
-                match a.FileName with
-                | Some dllPath when not(dllPath.EndsWith("Fable.AST.dll")) ->
-                    entities |> Seq.map (fun (r, e) ->
-                        try
-                            if e.IsAttributeType
-                                && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
-                                let plugin = getPlugin { DllPath = dllPath; TypeFullName = e.FullName }
-                                plugins.Add(r, plugin)
-                        with _ -> ()
-                        r, e)
-                | _ -> entities)
-
-        let projEntities =
-            checkResults.AssemblyContents.ImplementationFiles
-            |> Seq.collect (fun file ->
-                FSharp2Fable.Compiler.getRootFSharpEntities file
-                |> Seq.collect (withNestedEntities true))
-
-        Seq.append dllEntities projEntities
+            match a.FileName with
+            | Some dllPath when not(dllPath.EndsWith("Fable.AST.dll")) ->
+                entities |> Seq.map (fun (r, e) ->
+                    try
+                        if e.IsAttributeType
+                            && FSharp2Fable.Util.inherits e "Fable.PluginAttribute" then
+                            let plugin = getPlugin { DllPath = dllPath; TypeFullName = e.FullName }
+                            plugins.Add(r, plugin)
+                    with _ -> ()
+                    r, e)
+            | _ -> entities)
         |> Seq.map (fun (r, e) -> entityRefToString r, FSharp2Fable.FsEnt e :> Fable.Entity)
-        |> dict
+        |> Map
 
     let plugins =
         ({ MemberDeclarationPlugins = Map.empty }, plugins)
@@ -118,13 +88,55 @@ type Project(projectOptions: FSharpProjectOptions,
                 { acc with MemberDeclarationPlugins = Map.add kv.Key kv.Value acc.MemberDeclarationPlugins }
             else acc)
 
+    dllEntities, plugins
+
+type Project(checkResults: FSharpCheckProjectResults,
+             ?getPlugin: PluginRef -> System.Type,
+             ?optimizeFSharpAst,
+             ?dllEntitiesAndPlugins) =
+
+    let optimizeFSharpAst = defaultArg optimizeFSharpAst false
+    let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
+    let dllEntities, plugins =
+        match dllEntitiesAndPlugins with
+        | Some(dllEntities, plugins) -> dllEntities, plugins
+        | None -> loadDllEntitiesAndPlugins getPlugin checkResults
+
+    let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
+
+    let implFiles =
+        (if optimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
+         else checkResults.AssemblyContents.ImplementationFiles)
+        |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file)
+        |> dict
+
+    // TODO: Save root modules of unchanged files from previous compilation?
+    let rootModules =
+        implFiles |> Seq.map (fun kv ->
+            kv.Key, FSharp2Fable.Compiler.getRootModule kv.Value) |> dict
+
+    let entities =
+        // Read entities in current project
+        checkResults.AssemblyContents.ImplementationFiles
+        |> Seq.collect (fun file ->
+            FSharp2Fable.Compiler.getRootFSharpEntities file
+            |> Seq.collect (withNestedEntities true))
+        |> Seq.fold (fun entities (r, e) ->
+            let r = entityRefToString r
+            let e = FSharp2Fable.FsEnt e :> Fable.Entity
+            Map.add r e entities) dllEntities
+
+    member _.Update(checkResults) =
+        Project(checkResults,
+                optimizeFSharpAst=optimizeFSharpAst,
+                dllEntitiesAndPlugins=(dllEntities, plugins))
+
     member _.Plugins = plugins
     member _.ImplementationFiles = implFiles
     member _.RootModules = rootModules
     member _.Entities = entities
     member _.InlineExprs = inlineExprs
     member _.Errors = checkResults.Errors
-    member _.ProjectOptions = projectOptions
 
 type Log =
     { Message: string
@@ -178,9 +190,9 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
 
         member _.GetEntity(entityRef) =
             let fullName = entityRefToString entityRef
-            match project.Entities.TryGetValue(fullName) with
-            | true, e -> e
-            | false, _ -> failwithf "Cannot find entity %s" fullName
+            match Map.tryFind fullName project.Entities with
+            | Some e -> e
+            | None -> failwithf "Cannot find entity %s" fullName
 
         member _.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
