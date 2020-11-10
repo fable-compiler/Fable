@@ -207,7 +207,7 @@ type Watcher() =
         let changes = ResizeArray()
         let timer = new Timers.Timer(200., AutoReset=false)
         Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
-        let watcher = new IO.FileSystemWatcher(EnableRaisingEvents=false)
+        let watcher = new LeanWork.IO.FileSystem.BufferingFileSystemWatcher(EnableRaisingEvents=false)
         watcher.Filters.Add("*.fs")
         watcher.Filters.Add("*.fsx")
         watcher.Filters.Add("*.fsproj")
