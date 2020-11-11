@@ -1,3 +1,9 @@
+### 2.0.0
+
+* Updated Fable.Core to latest
+* Updated FSharp.Core to 5.0.0
+* Updated .NET Core to 5.0.100
+
 ### 1.5.0
 
 * Updated FSharp.Core to 4.7.2
