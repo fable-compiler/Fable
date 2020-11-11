@@ -140,7 +140,6 @@ type Runner =
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
               OutDir = argValue "--outDir" args |> Option.map makeAbsolute
-              WatchMode = watch
               ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
               Exclude = argValue "--exclude" args
@@ -156,6 +155,7 @@ type Runner =
         { CliArgs = cliArgs
           ProjectCrackedAndParsed = None
           WatchDependencies = Map.empty
+          Watcher = if watch then Some(FsWatcher()) else None
           ErroredFiles = Set.empty
           TestInfo = testInfo }
         |> startCompilation Set.empty

@@ -15,7 +15,6 @@ type CliArgs =
       FableLibraryPath: string option
       ForcePkgs: bool
       NoRestore: bool
-      WatchMode: bool
       Exclude: string option
       Replace: Map<string, string>
       RunProcess: RunProcess option
@@ -179,6 +178,13 @@ module Async =
         | None -> return! f ()
     }
 
+    let AwaitObservable (obs: IObservable<'T>) =
+        Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
+            let mutable disp = Unchecked.defaultof<IDisposable>
+            disp <- obs.Subscribe(fun v ->
+                disp.Dispose()
+                onSuccess(v)))
+
 module Imports =
     open Fable
 
@@ -226,3 +232,37 @@ module Imports =
                 then getTargetRelativePath importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath
+
+module Observable =
+    type Observer<'T>(f) =
+        interface IObserver<'T> with
+            member _.OnNext v = f v
+            member _.OnError e = ()
+            member _.OnCompleted() = ()
+
+    type SingleObservable<'T>(dispose: unit -> unit) =
+        let mutable listener: IObserver<'T> option = None
+        member _.Trigger v =
+            match listener with
+            | Some lis -> lis.OnNext v
+            | None -> ()
+        interface IObservable<'T> with
+            member _.Subscribe w =
+                listener <- Some w
+                { new IDisposable with
+                    member _.Dispose() = dispose() }
+
+    let throttle ms (obs: IObservable<'T>) =
+        { new IObservable<Set<'T>> with
+            member _.Subscribe w =
+                let events = Collections.Generic.HashSet<'T>()
+                let timer = new Timers.Timer(ms, AutoReset=false)
+                timer.Elapsed.Add(fun _ ->
+                    set events |> w.OnNext
+                    timer.Dispose())
+                let disp = obs.Subscribe(Observer(fun v ->
+                    if events.Add(v) then
+                        timer.Stop()
+                        timer.Start()))
+                { new IDisposable with
+                    member _.Dispose() = disp.Dispose() } }
