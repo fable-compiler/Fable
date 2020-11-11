@@ -362,17 +362,23 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
     let cracked, parsed, filesToCompile =
         match state.ProjectCrackedAndParsed with
         | Some(cracked, parsed) ->
-            let init, cracked =
+            let fsprojChanged, oldFiles, cracked =
                 if changes.Contains(state.CliArgs.ProjectFile)
                     // For performance reasons, don't crack .fsx scripts for every change
                     && not(state.CliArgs.ProjectFile.EndsWith(".fsx")) then
-                    true, ProjectCracked.Init(state.CliArgs)
-                else false, cracked
+                    let oldFiles =
+                        cracked.SourceFiles
+                        |> Array.map (fun f -> f.NormalizedFullPath)
+                        |> Set
+                    true, oldFiles, ProjectCracked.Init(state.CliArgs)
+                else false, Set.empty, cracked
 
             cracked.SourceFiles
             |> Array.choose (fun file ->
                 let path = file.NormalizedFullPath
-                if Set.contains path changes then Some path
+                if Set.contains path changes
+                    || (fsprojChanged && not(Set.contains path oldFiles))
+                    then Some path
                 else None)
             |> function
                 | [||] -> cracked, parsed, [||]
@@ -383,7 +389,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                             File(file.NormalizedFullPath) // Clear the cached source hash
                         else file)
                     let parsed =
-                        if init then ProjectParsed.Init(cracked, parsed.Checker)
+                        if fsprojChanged then ProjectParsed.Init(cracked, parsed.Checker)
                         else parsed.Update(cracked)
                     let filesToCompile =
                         cracked.SourceFiles
