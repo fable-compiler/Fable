@@ -150,7 +150,8 @@ type Runner =
                     v.[0], Path.normalizeFullPath v.[1])
                 |> Map
               RunProcess = runProc
-              CompilerOptions = compilerOptions }
+              CompilerOptions = compilerOptions
+              DeduplicateDic = System.Collections.Generic.Dictionary() }
 
         { CliArgs = cliArgs
           ProjectCrackedAndParsed = None

@@ -34,8 +34,6 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "fable-compiler-js", "src\fa
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.AST", "src\Fable.AST\Fable.AST.fsproj", "{7D98854F-8786-4F4B-9B57-2C3F905BB53D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LeanWork.IO.FileSystem.Watcher", "src\LeanWork.IO.FileSystem.Watcher\LeanWork.IO.FileSystem.Watcher.csproj", "{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -202,18 +200,6 @@ Global
 		{7D98854F-8786-4F4B-9B57-2C3F905BB53D}.Release|x64.Build.0 = Release|Any CPU
 		{7D98854F-8786-4F4B-9B57-2C3F905BB53D}.Release|x86.ActiveCfg = Release|Any CPU
 		{7D98854F-8786-4F4B-9B57-2C3F905BB53D}.Release|x86.Build.0 = Release|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Debug|x64.Build.0 = Debug|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Debug|x86.Build.0 = Debug|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Release|Any CPU.Build.0 = Release|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Release|x64.ActiveCfg = Release|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Release|x64.Build.0 = Release|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Release|x86.ActiveCfg = Release|Any CPU
-		{86AB6A86-A860-4FF6-8E38-BCE2132E3B42}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

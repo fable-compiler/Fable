@@ -1,6 +1,7 @@
 module Fable.Cli.Main
 
 open System
+open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.SourceCodeServices
 
 open Fable
@@ -126,14 +127,16 @@ module private Util =
         match cliArgs.OutDir with
         | Some outDir ->
             let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-            let absPath = Imports.getTargetAbsolutePath file projDir outDir
+            let absPath = Imports.getTargetAbsolutePath cliArgs.DeduplicateDic file projDir outDir
             changeFsExtension isInFableHiddenDir absPath fileExt
         | None ->
             changeFsExtension isInFableHiddenDir file fileExt
 
-    type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option, fileExt: string) =
+    type FileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs) =
         // In imports *.ts extensions have to be converted to *.js extensions instead
-        let fileExt = if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
+        let fileExt =
+            let fileExt = cliArgs.CompilerOptions.FileExtension
+            if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
         interface BabelPrinter.Writer with
@@ -142,7 +145,8 @@ module private Util =
             member _.EscapeJsStringLiteral(str) =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
-                let path = Imports.getImportPath sourcePath targetPath projDir outDir path
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+                let path = Imports.getImportPath cliArgs.DeduplicateDic sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then
                     let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
                     changeFsExtension isInFableHiddenDir path fileExt
@@ -168,9 +172,7 @@ module private Util =
             if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
             // write output to file
-            let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-            let fileExt = cliArgs.CompilerOptions.FileExtension
-            let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir, fileExt)
+            let writer = new FileWriter(com.CurrentFile, outPath, cliArgs)
             do! BabelPrinter.run writer map babel
 
             Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)

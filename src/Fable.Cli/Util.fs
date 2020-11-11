@@ -18,7 +18,8 @@ type CliArgs =
       Exclude: string option
       Replace: Map<string, string>
       RunProcess: RunProcess option
-      CompilerOptions: Fable.CompilerOptions }
+      CompilerOptions: Fable.CompilerOptions
+      DeduplicateDic: Collections.Generic.Dictionary<string, string> }
 
 type private TypeInThisAssembly = class end
 
@@ -196,22 +197,31 @@ module Imports =
         let relPath = IO.Path.GetRelativePath(path, pathTo).Replace('\\', '/')
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getTargetAbsolutePath importPath projDir outDir =
+    let getTargetAbsolutePath (deduplicateDic: Collections.Generic.Dictionary<_,_>) importPath projDir outDir =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir,
         // for example package sources in .fable folder
         if importPath.StartsWith(outDir) then importPath
         else
-            let relPath = getRelativePath projDir importPath |> trimPath
-            Path.Combine(outDir, relPath)
+            let importDir = Path.GetDirectoryName(importPath)
+            let importFile = Path.GetFileName(importPath)
+            match deduplicateDic.TryGetValue(importDir) with
+            | true, targetDir -> Path.Combine(targetDir, importFile)
+            | false, _ ->
+                let relDir = getRelativePath projDir importDir |> trimPath
+                let targetDir =
+                    Path.Combine(outDir, relDir)
+                    |> Naming.preventConflicts deduplicateDic.ContainsValue
+                deduplicateDic.Add(importDir, targetDir)
+                Path.Combine(targetDir, importFile)
 
-    let getTargetRelativePath (importPath: string) targetDir projDir (outDir: string) =
-        let absPath = getTargetAbsolutePath importPath projDir outDir
+    let getTargetRelativePath deduplicateDic (importPath: string) targetDir projDir (outDir: string) =
+        let absPath = getTargetAbsolutePath deduplicateDic importPath projDir outDir
         let relPath = getRelativePath targetDir absPath
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getImportPath sourcePath targetPath projDir outDir (importPath: string) =
+    let getImportPath deduplicateDic sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
         | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
@@ -229,7 +239,7 @@ module Imports =
                 else importPath
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs")
-                then getTargetRelativePath importPath targetDir projDir outDir
+                then getTargetRelativePath deduplicateDic importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath
 
@@ -237,7 +247,7 @@ module Observable =
     type Observer<'T>(f) =
         interface IObserver<'T> with
             member _.OnNext v = f v
-            member _.OnError e = ()
+            member _.OnError _ = ()
             member _.OnCompleted() = ()
 
     type SingleObservable<'T>(dispose: unit -> unit) =

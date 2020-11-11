@@ -3,6 +3,8 @@ module Fable.Tests.DllRef.Lib2
 open Fable.Core
 open Fable.Core.JsInterop
 
+let value = 20
+
 type IBar =
     abstract generator: unit -> string
 
