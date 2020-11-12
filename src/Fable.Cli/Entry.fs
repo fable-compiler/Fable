@@ -150,13 +150,13 @@ type Runner =
                     v.[0], Path.normalizeFullPath v.[1])
                 |> Map
               RunProcess = runProc
-              CompilerOptions = compilerOptions
-              DeduplicateDic = System.Collections.Generic.Dictionary() }
+              CompilerOptions = compilerOptions }
 
         { CliArgs = cliArgs
           ProjectCrackedAndParsed = None
           WatchDependencies = Map.empty
           Watcher = if watch then Some(FsWatcher()) else None
+          DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
           ErroredFiles = Set.empty
           TestInfo = testInfo }
         |> startCompilation Set.empty

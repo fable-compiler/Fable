@@ -1,7 +1,6 @@
 module Fable.Cli.Main
 
 open System
-open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.SourceCodeServices
 
 open Fable
@@ -121,18 +120,18 @@ module private Util =
             else fileExt
         Path.replaceExtension fileExt filePath
 
-    let getOutJsPath (cliArgs: CliArgs) file =
+    let getOutJsPath (cliArgs: CliArgs) dedupTargetDir file =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let isInFableHiddenDir = Naming.isInFableHiddenDir file
         match cliArgs.OutDir with
         | Some outDir ->
             let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-            let absPath = Imports.getTargetAbsolutePath cliArgs.DeduplicateDic file projDir outDir
+            let absPath = Imports.getTargetAbsolutePath dedupTargetDir file projDir outDir
             changeFsExtension isInFableHiddenDir absPath fileExt
         | None ->
             changeFsExtension isInFableHiddenDir file fileExt
 
-    type FileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs) =
+    type FileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
         // In imports *.ts extensions have to be converted to *.js extensions instead
         let fileExt =
             let fileExt = cliArgs.CompilerOptions.FileExtension
@@ -146,14 +145,14 @@ module private Util =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath cliArgs.DeduplicateDic sourcePath targetPath projDir cliArgs.OutDir path
+                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then
                     let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
                     changeFsExtension isInFableHiddenDir path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (cliArgs: CliArgs) (com: CompilerImpl) = async {
+    let compileFile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
         try
             let babel =
                 FSharp2Fable.Compiler.transformFile com
@@ -165,14 +164,14 @@ module private Util =
             let map = { new BabelPrinter.SourceMapGenerator with
                             member _.AddMapping(_,_,_,_,_) = () }
 
-            let outPath = getOutJsPath cliArgs com.CurrentFile
+            let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
             // ensure directory exists
             let dir = IO.Path.GetDirectoryName outPath
             if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
             // write output to file
-            let writer = new FileWriter(com.CurrentFile, outPath, cliArgs)
+            let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
             do! BabelPrinter.run writer map babel
 
             Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
@@ -239,7 +238,7 @@ type FsWatcher() =
             if Set.contains fullPath filePaths
             then Some fullPath
             else None)
-        |> Observable.throttle 500.
+        |> Observable.throttle 200.
 
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
@@ -344,8 +343,13 @@ type State =
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
       WatchDependencies: Map<string, string[]>
       ErroredFiles: Set<string>
+      DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
       Watcher: FsWatcher option
       TestInfo: TestInfo option }
+    member this.GetOrAddDeduplicateTargetDir importDir addTargetDir =
+        this.DeduplicateDic.GetOrAdd(importDir, fun _ ->
+            set this.DeduplicateDic.Values
+            |> addTargetDir)
 
 let rec startCompilation (changes: Set<string>) (state: State) = async {
     let state =
@@ -413,7 +417,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         let skipped =
                             files |> Array.skipWhile (fun file ->
                                 try
-                                    let jsFile = getOutJsPath state.CliArgs file
+                                    let jsFile = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir file
                                     IO.File.Exists(jsFile) && IO.File.GetLastWriteTime(jsFile) > IO.File.GetLastWriteTime(file)
                                 with _ -> false)
                         if skipped.Length < files.Length then
@@ -433,7 +437,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         filesToCompile
         |> Array.map (fun file ->
             cracked.MakeCompiler(file, parsed.Project)
-            |> compileFile state.CliArgs)
+            |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
         |> Async.Parallel
         |> Async.map (fun results ->
             ((logs, state.WatchDependencies), results) ||> Array.fold (fun (logs, deps) -> function
@@ -459,13 +463,13 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> false
         | Severity.Warning, _ -> true
         | _ -> false)
-    |> Array.iter (formatLog >> Log.always)
+    |> Array.iter (formatLog >> Log.warning)
 
     let newErrors =
         logs
         |> Array.filter (fun x -> x.Severity = Severity.Error)
         |> Array.fold (fun errors log ->
-            Log.always(formatLog log)
+            Log.error(formatLog log)
             match log.FileName with
             | Some file -> Set.add file errors
             | None -> errors) Set.empty
@@ -486,7 +490,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 match runProc.ExeFile with
                 | Naming.placeholder ->
                     let lastFile = Array.last cracked.SourceFiles
-                    let lastFilePath = getOutJsPath state.CliArgs lastFile.NormalizedFullPath
+                    let lastFilePath = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir lastFile.NormalizedFullPath
                     // Fable's getRelativePath version ensures there's always a period in front of the path: ./
                     let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
                     // Pass also the file name as argument, as when calling the script directly

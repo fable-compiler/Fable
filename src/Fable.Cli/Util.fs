@@ -18,8 +18,7 @@ type CliArgs =
       Exclude: string option
       Replace: Map<string, string>
       RunProcess: RunProcess option
-      CompilerOptions: Fable.CompilerOptions
-      DeduplicateDic: Collections.Generic.Dictionary<string, string> }
+      CompilerOptions: Fable.CompilerOptions }
 
 type private TypeInThisAssembly = class end
 
@@ -34,15 +33,22 @@ module Log =
     let writerLock = obj()
 
     let always (msg: string) =
-        if verbosity <> Fable.Verbosity.Silent
-            && not(String.IsNullOrEmpty(msg)) then
-//            lock writerLock <| fun () ->
-                Console.Out.WriteLine(msg)
-                // Console.Out.Flush()
+        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
+            Console.Out.WriteLine(msg)
 
     let verbose (msg: Lazy<string>) =
         if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
+
+    let warning (msg: string) =
+        Console.ForegroundColor <- ConsoleColor.DarkYellow
+        Console.Out.WriteLine(msg)
+        Console.ResetColor()
+
+    let error (msg: string) =
+        Console.ForegroundColor <- ConsoleColor.DarkRed
+        Console.Error.WriteLine(msg)
+        Console.ResetColor()
 
 module File =
     open System.IO
@@ -197,7 +203,7 @@ module Imports =
         let relPath = IO.Path.GetRelativePath(path, pathTo).Replace('\\', '/')
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getTargetAbsolutePath (deduplicateDic: Collections.Generic.Dictionary<_,_>) importPath projDir outDir =
+    let getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir,
@@ -205,23 +211,19 @@ module Imports =
         if importPath.StartsWith(outDir) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
-            let importFile = Path.GetFileName(importPath)
-            match deduplicateDic.TryGetValue(importDir) with
-            | true, targetDir -> Path.Combine(targetDir, importFile)
-            | false, _ ->
+            let targetDir = getOrAddDeduplicateTargetDir importDir (fun (currentTargetDirs: Set<string>) ->
                 let relDir = getRelativePath projDir importDir |> trimPath
-                let targetDir =
-                    Path.Combine(outDir, relDir)
-                    |> Naming.preventConflicts deduplicateDic.ContainsValue
-                deduplicateDic.Add(importDir, targetDir)
-                Path.Combine(targetDir, importFile)
+                Path.Combine(outDir, relDir)
+                |> Naming.preventConflicts currentTargetDirs.Contains)
+            let importFile = Path.GetFileName(importPath)
+            Path.Combine(targetDir, importFile)
 
-    let getTargetRelativePath deduplicateDic (importPath: string) targetDir projDir (outDir: string) =
-        let absPath = getTargetAbsolutePath deduplicateDic importPath projDir outDir
+    let getTargetRelativePath getOrAddDeduplicateTargetDir (importPath: string) targetDir projDir (outDir: string) =
+        let absPath = getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir
         let relPath = getRelativePath targetDir absPath
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getImportPath deduplicateDic sourcePath targetPath projDir outDir (importPath: string) =
+    let getImportPath getOrAddDeduplicateTargetDir sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
         | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
@@ -239,7 +241,7 @@ module Imports =
                 else importPath
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs")
-                then getTargetRelativePath deduplicateDic importPath targetDir projDir outDir
+                then getTargetRelativePath getOrAddDeduplicateTargetDir importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath
 

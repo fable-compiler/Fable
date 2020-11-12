@@ -1,3 +1,3 @@
-module Fable.Tests.Main.DllRef.Lib2
+module Fable.Tests.DllRef2.Lib2
 
-let value = 10
+let value = 20
