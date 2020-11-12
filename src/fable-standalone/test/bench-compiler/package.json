@@ -6,7 +6,7 @@
 
     "prebuild-dotnet": "git clean -fdx",
     "build-dotnet": "dotnet run -c Release bench-compiler.fsproj out-node",
-    "build-dotnet-opt": "dotnet run -c Release bench-compiler.fsproj out-node --optimize-fcs",
+    "build-dotnet-opt": "dotnet run -c Release bench-compiler.fsproj out-node --optimize",
     "postbuild-dotnet": "npm run rollup-bundle",
 
     "build-node": "node dist/bundle.js bench-compiler.fsproj out-node2",
@@ -33,7 +33,7 @@
 
     "build-test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test",
     "build-test-dotnet-ts": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --typescript",
-    "build-test-dotnet-opt": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --optimize-fcs",
+    "build-test-dotnet-opt": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --optimize",
     "build-test-node": "node dist/bundle.js ../../../../../fable-test/fable-test.fsproj out-test",
     "build-test-node-es": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test",
     "build-test-node-ts": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --typescript",
@@ -42,7 +42,7 @@
     "prebuild-tests-dotnet": "git clean -fdx",
     "build-tests-dotnet": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests",
     "build-tests-dotnet-ts": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests --typescript",
-    "build-tests-dotnet-opt": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests --optimize-fcs",
+    "build-tests-dotnet-opt": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests --optimize",
     "build-tests-node": "node out-node/app.js ../../../../tests/Main/Fable.Tests.fsproj out-tests",
     "pretests": "npm run build-tests-dotnet",
     "tests": "npm run mocha -- out-tests -r esm --colors",
