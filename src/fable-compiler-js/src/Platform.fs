@@ -68,6 +68,9 @@ let ensureDirExists = JS.util.ensureDirExists
 let copyFolder = JS.util.copyFolder
 let runCmdAndExitIfFails = JS.util.runCmdAndExitIfFails
 
+let normalizePath (path: string) =
+    path.Replace('\\', '/')
+
 let normalizeFullPath (path: string) =
     JS.path.resolve(path).Replace('\\', '/')
 
