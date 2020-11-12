@@ -103,18 +103,11 @@ module Process =
         //     psi.EnvironmentVariables.[envVar.Key] <- envVar.Value
         psi.FileName <- exePath
         psi.WorkingDirectory <- workingDir
-        psi.RedirectStandardOutput <- true
-        psi.RedirectStandardError <- true
         psi.Arguments <- args
-        psi.CreateNoWindow <- true
+        psi.CreateNoWindow <- false
         psi.UseShellExecute <- false
 
-        let p = Process.Start(psi)
-        p.OutputDataReceived.Add(fun ea -> Log.always(ea.Data))
-        p.ErrorDataReceived.Add(fun ea -> Log.always(ea.Data))
-        p.BeginOutputReadLine()
-        p.BeginErrorReadLine()
-        p
+        Process.Start(psi)
 
     let kill(p: Process) =
         p.Refresh()
