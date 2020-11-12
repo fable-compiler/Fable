@@ -1,3 +1,11 @@
+### 3.0.0-nagareyama-rc-005
+
+* Fix #2267: Allow direct console output preserving colors @zanaptak
+* Fix #2259: File conflict in outDir
+* Fix #2260: Add new files to watcher
+* StringBuilder.Append overloads @gusty
+* Make file watcher more robust
+
 ### 3.0.0-nagareyama-rc-004
 
 * LeanWork.IO.FileSystem.Watcher by Peter Meinl
