@@ -120,20 +120,22 @@ module private Util =
             else fileExt
         Path.replaceExtension fileExt filePath
 
-    let getOutJsPath (cliArgs: CliArgs) file =
+    let getOutJsPath (cliArgs: CliArgs) dedupTargetDir file =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let isInFableHiddenDir = Naming.isInFableHiddenDir file
         match cliArgs.OutDir with
         | Some outDir ->
             let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-            let absPath = Imports.getTargetAbsolutePath file projDir outDir
+            let absPath = Imports.getTargetAbsolutePath dedupTargetDir file projDir outDir
             changeFsExtension isInFableHiddenDir absPath fileExt
         | None ->
             changeFsExtension isInFableHiddenDir file fileExt
 
-    type FileWriter(sourcePath: string, targetPath: string, projDir: string, outDir: string option, fileExt: string) =
+    type FileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
         // In imports *.ts extensions have to be converted to *.js extensions instead
-        let fileExt = if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
+        let fileExt =
+            let fileExt = cliArgs.CompilerOptions.FileExtension
+            if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
         interface BabelPrinter.Writer with
@@ -142,14 +144,15 @@ module private Util =
             member _.EscapeJsStringLiteral(str) =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
-                let path = Imports.getImportPath sourcePath targetPath projDir outDir path
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then
                     let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
                     changeFsExtension isInFableHiddenDir path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (cliArgs: CliArgs) (com: CompilerImpl) = async {
+    let compileFile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
         try
             let babel =
                 FSharp2Fable.Compiler.transformFile com
@@ -161,16 +164,14 @@ module private Util =
             let map = { new BabelPrinter.SourceMapGenerator with
                             member _.AddMapping(_,_,_,_,_) = () }
 
-            let outPath = getOutJsPath cliArgs com.CurrentFile
+            let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
             // ensure directory exists
             let dir = IO.Path.GetDirectoryName outPath
             if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
             // write output to file
-            let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-            let fileExt = cliArgs.CompilerOptions.FileExtension
-            let writer = new FileWriter(com.CurrentFile, outPath, projDir, cliArgs.OutDir, fileExt)
+            let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
             do! BabelPrinter.run writer map babel
 
             Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
@@ -183,63 +184,61 @@ module private Util =
                             Exception = e |}
     }
 
+    let getCommonBaseDir (files: string list) =
+        files
+        |> List.map (IO.Path.GetDirectoryName)
+        |> List.distinct
+        |> List.sortBy (fun f -> f.Length)
+        |> function
+            | [] -> failwith "Empty list passed to watcher"
+            | [dir] -> dir
+            | dir::restDirs ->
+                let rec getCommonDir (dir: string) =
+                    if restDirs |> List.forall (fun d -> d.StartsWith(dir)) then dir
+                    else
+                        match IO.Path.GetDirectoryName(dir) with
+                        | null -> failwith "No common base dir"
+                        | dir -> getCommonDir dir
+                getCommonDir dir
+
 open Util
 
-type Watcher() =
-    static member AwaitChanges(filesToWatch: string list) =
-        let commonBaseDir =
-            filesToWatch
-            |> List.map (IO.Path.GetDirectoryName)
-            |> List.distinct
-            |> List.sortBy (fun f -> f.Length)
-            |> function
-                | [] -> failwith "Empty list passed to watcher"
-                | [dir] -> dir
-                | dir::restDirs ->
-                    let rec getCommonDir (dir: string) =
-                        if restDirs |> List.forall (fun d -> d.StartsWith(dir)) then dir
-                        else
-                            match IO.Path.GetDirectoryName(dir) with
-                            | null -> failwith "No common base dir"
-                            | dir -> getCommonDir dir
-                    getCommonDir dir
+type FsWatcher() =
+    let watcher = new IO.FileSystemWatcher(EnableRaisingEvents=false)
+    let observable = Observable.SingleObservable(fun () ->
+        watcher.EnableRaisingEvents <- false)
 
-        let changes = ResizeArray()
-        let timer = new Timers.Timer(200., AutoReset=false)
-        Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
-        let watcher = new LeanWork.IO.FileSystem.BufferingFileSystemWatcher(EnableRaisingEvents=false)
+    do
         watcher.Filters.Add("*.fs")
         watcher.Filters.Add("*.fsx")
         watcher.Filters.Add("*.fsproj")
-        watcher.Path <- commonBaseDir
         watcher.IncludeSubdirectories <- true
         // watcher.NotifyFilter <- NotifyFilters.LastWrite
 
-        let filePaths = set filesToWatch
-        let onChange _changeType fullPath =
-            let fullPath = Path.normalizePath fullPath
-            if Set.contains fullPath filePaths then
-                changes.Add(fullPath)
-                if timer.Enabled then
-                    timer.Stop()
-                timer.Start()
-
-        watcher.Changed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-        watcher.Created.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-        watcher.Deleted.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-        watcher.Renamed.Add(fun ev -> onChange ev.ChangeType ev.FullPath)
-
-        Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
-            timer.Elapsed.Add(fun _ ->
-                watcher.EnableRaisingEvents <- false
-                watcher.Dispose()
-                timer.Dispose()
-
-                changes
-                |> set
-                |> onSuccess)
-            watcher.EnableRaisingEvents <- true
+        watcher.Changed.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
+        watcher.Created.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
+        watcher.Deleted.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
+        watcher.Renamed.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
+        watcher.Error.Add(fun ev ->
+            Log.always("Watcher found and error, some events may have been lost.")
+            Log.verbose(lazy ev.GetException().Message)
         )
+
+    member _.Observe(filesToWatch: string list) =
+        let commonBaseDir = getCommonBaseDir filesToWatch
+        Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
+
+        let filePaths = set filesToWatch
+        watcher.Path <- commonBaseDir
+        watcher.EnableRaisingEvents <- true
+
+        observable
+        |> Observable.choose (fun (_, fullPath) ->
+            let fullPath = Path.normalizePath fullPath
+            if Set.contains fullPath filePaths
+            then Some fullPath
+            else None)
+        |> Observable.throttle 200.
 
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
@@ -344,7 +343,13 @@ type State =
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
       WatchDependencies: Map<string, string[]>
       ErroredFiles: Set<string>
+      DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
+      Watcher: FsWatcher option
       TestInfo: TestInfo option }
+    member this.GetOrAddDeduplicateTargetDir importDir addTargetDir =
+        this.DeduplicateDic.GetOrAdd(importDir, fun _ ->
+            set this.DeduplicateDic.Values
+            |> addTargetDir)
 
 let rec startCompilation (changes: Set<string>) (state: State) = async {
     let state =
@@ -362,17 +367,23 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
     let cracked, parsed, filesToCompile =
         match state.ProjectCrackedAndParsed with
         | Some(cracked, parsed) ->
-            let init, cracked =
+            let fsprojChanged, oldFiles, cracked =
                 if changes.Contains(state.CliArgs.ProjectFile)
                     // For performance reasons, don't crack .fsx scripts for every change
                     && not(state.CliArgs.ProjectFile.EndsWith(".fsx")) then
-                    true, ProjectCracked.Init(state.CliArgs)
-                else false, cracked
+                    let oldFiles =
+                        cracked.SourceFiles
+                        |> Array.map (fun f -> f.NormalizedFullPath)
+                        |> Set
+                    true, oldFiles, ProjectCracked.Init(state.CliArgs)
+                else false, Set.empty, cracked
 
             cracked.SourceFiles
             |> Array.choose (fun file ->
                 let path = file.NormalizedFullPath
-                if Set.contains path changes then Some path
+                if Set.contains path changes
+                    || (fsprojChanged && not(Set.contains path oldFiles))
+                    then Some path
                 else None)
             |> function
                 | [||] -> cracked, parsed, [||]
@@ -383,7 +394,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                             File(file.NormalizedFullPath) // Clear the cached source hash
                         else file)
                     let parsed =
-                        if init then ProjectParsed.Init(cracked, parsed.Checker)
+                        if fsprojChanged then ProjectParsed.Init(cracked, parsed.Checker)
                         else parsed.Update(cracked)
                     let filesToCompile =
                         cracked.SourceFiles
@@ -406,7 +417,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         let skipped =
                             files |> Array.skipWhile (fun file ->
                                 try
-                                    let jsFile = getOutJsPath state.CliArgs file
+                                    let jsFile = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir file
                                     IO.File.Exists(jsFile) && IO.File.GetLastWriteTime(jsFile) > IO.File.GetLastWriteTime(file)
                                 with _ -> false)
                         if skipped.Length < files.Length then
@@ -426,7 +437,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         filesToCompile
         |> Array.map (fun file ->
             cracked.MakeCompiler(file, parsed.Project)
-            |> compileFile state.CliArgs)
+            |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
         |> Async.Parallel
         |> Async.map (fun results ->
             ((logs, state.WatchDependencies), results) ||> Array.fold (fun (logs, deps) -> function
@@ -452,13 +463,13 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> false
         | Severity.Warning, _ -> true
         | _ -> false)
-    |> Array.iter (formatLog >> Log.always)
+    |> Array.iter (formatLog >> Log.warning)
 
     let newErrors =
         logs
         |> Array.filter (fun x -> x.Severity = Severity.Error)
         |> Array.fold (fun errors log ->
-            Log.always(formatLog log)
+            Log.error(formatLog log)
             match log.FileName with
             | Some file -> Set.add file errors
             | None -> errors) Set.empty
@@ -479,7 +490,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 match runProc.ExeFile with
                 | Naming.placeholder ->
                     let lastFile = Array.last cracked.SourceFiles
-                    let lastFilePath = getOutJsPath state.CliArgs lastFile.NormalizedFullPath
+                    let lastFilePath = getOutJsPath state.CliArgs state.GetOrAddDeduplicateTargetDir lastFile.NormalizedFullPath
                     // Fable's getRelativePath version ensures there's always a period in front of the path: ./
                     let lastFilePath = Path.getRelativeFileOrDirPath true workingDir false lastFilePath
                     // Pass also the file name as argument, as when calling the script directly
@@ -488,7 +499,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     File.tryNodeModulesBin workingDir exeFile
                     |> Option.defaultValue exeFile, runProc.Args
 
-            if state.CliArgs.WatchMode then
+            if Option.isSome state.Watcher then
                 Process.start workingDir exeFile args
                 let runProc = if runProc.IsWatch then Some runProc else None
                 None, { state with CliArgs = { state.CliArgs with RunProcess = runProc } }
@@ -496,30 +507,33 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 let exitCode = Process.runSync workingDir exeFile args
                 (if exitCode = 0 then None else Some "Run process failed"), state
 
-    match state.CliArgs.WatchMode, state.TestInfo with
-    | true, _ ->
+    match state.Watcher, state.TestInfo with
+    | Some watcher, _ ->
         let oldErrors =
             state.ErroredFiles
             |> Set.filter (fun file -> not(Array.contains file filesToCompile))
 
-        let! changes = Watcher.AwaitChanges [
-            cracked.ProjectOptions.ProjectFileName
-            yield! cracked.SourceFiles
-                |> Array.choose (fun f ->
-                    let path = f.NormalizedFullPath
-                    if Naming.isInFableHiddenDir(path) then None
-                    else Some path)
-        ]
+        let! changes =
+            watcher.Observe [
+                cracked.ProjectOptions.ProjectFileName
+                yield! cracked.SourceFiles
+                    |> Array.choose (fun f ->
+                        let path = f.NormalizedFullPath
+                        if Naming.isInFableHiddenDir(path) then None
+                        else Some path)
+            ]
+            |> Async.AwaitObservable
+
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)
                          WatchDependencies = watchDependencies
                          ErroredFiles = Set.union oldErrors newErrors }
             |> startCompilation changes
 
-    | false, None ->
+    | None, None ->
         return match errorMsg with Some e -> Error e | None -> Ok()
 
-    | false, Some info ->
+    | None, Some info ->
         let info = info.NextIteration(ms)
         if info.CurrentIteration < info.TotalIterations then
             return!

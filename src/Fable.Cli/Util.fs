@@ -15,7 +15,6 @@ type CliArgs =
       FableLibraryPath: string option
       ForcePkgs: bool
       NoRestore: bool
-      WatchMode: bool
       Exclude: string option
       Replace: Map<string, string>
       RunProcess: RunProcess option
@@ -34,15 +33,22 @@ module Log =
     let writerLock = obj()
 
     let always (msg: string) =
-        if verbosity <> Fable.Verbosity.Silent
-            && not(String.IsNullOrEmpty(msg)) then
-//            lock writerLock <| fun () ->
-                Console.Out.WriteLine(msg)
-                // Console.Out.Flush()
+        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
+            Console.Out.WriteLine(msg)
 
     let verbose (msg: Lazy<string>) =
         if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
+
+    let warning (msg: string) =
+        Console.ForegroundColor <- ConsoleColor.DarkYellow
+        Console.Out.WriteLine(msg)
+        Console.ResetColor()
+
+    let error (msg: string) =
+        Console.ForegroundColor <- ConsoleColor.DarkRed
+        Console.Error.WriteLine(msg)
+        Console.ResetColor()
 
 module File =
     open System.IO
@@ -179,6 +185,13 @@ module Async =
         | None -> return! f ()
     }
 
+    let AwaitObservable (obs: IObservable<'T>) =
+        Async.FromContinuations(fun (onSuccess, _onError, _onCancel) ->
+            let mutable disp = Unchecked.defaultof<IDisposable>
+            disp <- obs.Subscribe(fun v ->
+                disp.Dispose()
+                onSuccess(v)))
+
 module Imports =
     open Fable
 
@@ -190,22 +203,27 @@ module Imports =
         let relPath = IO.Path.GetRelativePath(path, pathTo).Replace('\\', '/')
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getTargetAbsolutePath importPath projDir outDir =
+    let getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir,
         // for example package sources in .fable folder
         if importPath.StartsWith(outDir) then importPath
         else
-            let relPath = getRelativePath projDir importPath |> trimPath
-            Path.Combine(outDir, relPath)
+            let importDir = Path.GetDirectoryName(importPath)
+            let targetDir = getOrAddDeduplicateTargetDir importDir (fun (currentTargetDirs: Set<string>) ->
+                let relDir = getRelativePath projDir importDir |> trimPath
+                Path.Combine(outDir, relDir)
+                |> Naming.preventConflicts currentTargetDirs.Contains)
+            let importFile = Path.GetFileName(importPath)
+            Path.Combine(targetDir, importFile)
 
-    let getTargetRelativePath (importPath: string) targetDir projDir (outDir: string) =
-        let absPath = getTargetAbsolutePath importPath projDir outDir
+    let getTargetRelativePath getOrAddDeduplicateTargetDir (importPath: string) targetDir projDir (outDir: string) =
+        let absPath = getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir
         let relPath = getRelativePath targetDir absPath
         if isRelativePath relPath then relPath else "./" + relPath
 
-    let getImportPath sourcePath targetPath projDir outDir (importPath: string) =
+    let getImportPath getOrAddDeduplicateTargetDir sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
         | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
@@ -223,6 +241,40 @@ module Imports =
                 else importPath
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs")
-                then getTargetRelativePath importPath targetDir projDir outDir
+                then getTargetRelativePath getOrAddDeduplicateTargetDir importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath
+
+module Observable =
+    type Observer<'T>(f) =
+        interface IObserver<'T> with
+            member _.OnNext v = f v
+            member _.OnError _ = ()
+            member _.OnCompleted() = ()
+
+    type SingleObservable<'T>(dispose: unit -> unit) =
+        let mutable listener: IObserver<'T> option = None
+        member _.Trigger v =
+            match listener with
+            | Some lis -> lis.OnNext v
+            | None -> ()
+        interface IObservable<'T> with
+            member _.Subscribe w =
+                listener <- Some w
+                { new IDisposable with
+                    member _.Dispose() = dispose() }
+
+    let throttle ms (obs: IObservable<'T>) =
+        { new IObservable<Set<'T>> with
+            member _.Subscribe w =
+                let events = Collections.Generic.HashSet<'T>()
+                let timer = new Timers.Timer(ms, AutoReset=false)
+                timer.Elapsed.Add(fun _ ->
+                    set events |> w.OnNext
+                    timer.Dispose())
+                let disp = obs.Subscribe(Observer(fun v ->
+                    if events.Add(v) then
+                        timer.Stop()
+                        timer.Start()))
+                { new IDisposable with
+                    member _.Dispose() = disp.Dispose() } }

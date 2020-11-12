@@ -60,6 +60,8 @@ let rec private withNestedEntities useSourcePath (e: FSharpEntity) =
 let private loadDllEntitiesAndPlugins getPlugin (checkResults: FSharpCheckProjectResults) =
     let plugins = Dictionary<Fable.EntityRef, System.Type>()
 
+    // printfn "MEMORY %i" (System.GC.GetTotalMemory(true))
+
     let dllEntities =
         checkResults.ProjectContext.GetReferencedAssemblies()
         |> Seq.collect (fun a ->
@@ -80,6 +82,8 @@ let private loadDllEntitiesAndPlugins getPlugin (checkResults: FSharpCheckProjec
             | _ -> entities)
         |> Seq.map (fun (r, e) -> entityRefToString r, FSharp2Fable.FsEnt e :> Fable.Entity)
         |> Map
+
+    // printfn "MEMORY %i" (System.GC.GetTotalMemory(true))
 
     let plugins =
         ({ MemberDeclarationPlugins = Map.empty }, plugins)

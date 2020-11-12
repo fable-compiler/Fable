@@ -74,6 +74,16 @@ let tests =
             builder.Clear() |> ignore
             equal "" (builder.ToString())
 
+      testCase "StringBuilder.Append works with various overloads" <| fun () ->
+            let builder = Text.StringBuilder()
+                              .Append(Text.StringBuilder "aaa")
+                              .Append("bcd".ToCharArray())
+                              .Append('/')
+                              .Append(true)
+                              .Append(5.2)
+                              .Append(34)
+            equal "aaabcd/true5.234" (builder.ToString().ToLower())
+
       testCase "kprintf works" <| fun () ->
             let f (s:string) = s + "XX"
             Printf.kprintf f "hello" |> equal "helloXX"

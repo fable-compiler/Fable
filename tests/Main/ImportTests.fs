@@ -107,6 +107,10 @@ let tests =
         let x = Fable.Tests.DllRef.Lib2.Bar(2, "ho")
         x.generator() |> equal "hoho"
 
+    testCase "Files in outDir don't conflict" <| fun () -> // See #2259
+        Fable.Tests.DllRef.Lib2.value |> equal 10
+        Fable.Tests.DllRef2.Lib2.value |> equal 20
+
     testCase "Referencing a Fable project through a dll works" <| fun () ->
         Fable.Tests.DllRef.Util.add2 5 |> equal 7
 

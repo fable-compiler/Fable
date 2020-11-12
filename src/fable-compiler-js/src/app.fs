@@ -26,18 +26,40 @@ module Imports =
     let isRelativePath (path: string) = path.StartsWith("./") || path.StartsWith("../")
     let isAbsolutePath (path: string) = path.StartsWith('/') || path.IndexOf(':') = 1
 
-    let getTargetRelPath importPath targetDir projDir outDir =
-        let relPath = getRelativePath projDir importPath |> trimPath
-        let relPath = getRelativePath targetDir (Path.Combine(outDir, relPath))
-        let relPath = if isRelativePath relPath then relPath else "./" + relPath
-        relPath
+    let preventConflicts conflicts originalName =
+        let rec check originalName n =
+            let name = if n > 0 then originalName + "_" + (string n) else originalName
+            if not (conflicts name) then name else check originalName (n+1)
+        check originalName 0
 
-    let getImportPath sourcePath targetPath projDir outDir (importPath: string) =
+    let getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir =
+        let importPath = normalizePath importPath
+        let outDir = normalizePath outDir
+        // It may happen the importPath is already in outDir,
+        // for example package sources in .fable folder
+        if importPath.StartsWith(outDir) then importPath
+        else
+            let importDir = Path.GetDirectoryName(importPath)
+            let targetDir = getOrAddDeduplicateTargetDir importDir (fun (currentTargetDirs: Set<string>) ->
+                let relDir = getRelativePath projDir importDir |> trimPath
+                Path.Combine(outDir, relDir)
+                |> preventConflicts currentTargetDirs.Contains)
+            let importFile = Path.GetFileName(importPath)
+            Path.Combine(targetDir, importFile)
+
+    let getTargetRelativePath getOrAddDeduplicateTargetDir (importPath: string) targetDir projDir (outDir: string) =
+        let absPath = getTargetAbsolutePath getOrAddDeduplicateTargetDir importPath projDir outDir
+        let relPath = getRelativePath targetDir absPath
+        if isRelativePath relPath then relPath else "./" + relPath
+
+    let getImportPath getOrAddDeduplicateTargetDir sourcePath targetPath projDir outDir (importPath: string) =
         match outDir with
         | None -> importPath.Replace("${outDir}", ".")
         | Some outDir ->
             let importPath =
                 if importPath.StartsWith("${outDir}")
+                // NOTE: Path.Combine in Fable Prelude trims / at the start
+                // of the 2nd argument, unline .NET IO.Path.Combine
                 then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
                 else importPath
             let sourceDir = Path.GetDirectoryName(sourcePath)
@@ -48,11 +70,11 @@ module Imports =
                 else importPath
             if isAbsolutePath importPath then
                 if importPath.EndsWith(".fs")
-                then getTargetRelPath importPath targetDir projDir outDir
+                then getTargetRelativePath getOrAddDeduplicateTargetDir importPath targetDir projDir outDir
                 else getRelativePath targetDir importPath
             else importPath
 
-type SourceWriter(sourcePath, targetPath, projDir, outDir, fileExt: string) =
+type SourceWriter(sourcePath, targetPath, projDir, outDir, fileExt: string, dedupTargetDir) =
     // In imports *.ts extensions have to be converted to *.js extensions instead
     let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
     let sb = System.Text.StringBuilder()
@@ -60,7 +82,7 @@ type SourceWriter(sourcePath, targetPath, projDir, outDir, fileExt: string) =
         member _.Write(str) = async { return sb.Append(str) |> ignore }
         member _.EscapeJsStringLiteral(str) = javaScriptStringEncode(str)
         member _.MakeImportPath(path) =
-            let path = Imports.getImportPath sourcePath targetPath projDir outDir path
+            let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir outDir path
             if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
         member _.Dispose() = ()
     member __.Result = sb.ToString()
@@ -140,6 +162,16 @@ let parseFiles projectFileName options =
         | Some _ -> if options.typescript then ".ts" else ".js"
         | None -> if options.typescript then ".fs.ts" else ".fs.js"
 
+    let getOrAddDeduplicateTargetDir =
+        let dedupDic = System.Collections.Generic.Dictionary()
+        fun importDir addTargetDir ->
+            match dedupDic.TryGetValue(importDir) with
+            | true, v -> v
+            | false, _ ->
+                let v = set dedupDic.Values |> addTargetDir
+                dedupDic.Add(importDir, v)
+                v
+
     async {
         for fileName in fileNames do
 
@@ -159,10 +191,9 @@ let parseFiles projectFileName options =
                 | None ->
                     Path.ChangeExtension(fileName, fileExt)
                 | Some outDir ->
-                    let relPath = getRelativePath projDir fileName |> Imports.trimPath
-                    let relPath = Path.ChangeExtension(relPath, fileExt)
-                    Path.Combine(outDir, relPath)
-            let writer = new SourceWriter(fileName, outPath, projDir, options.outDir, fileExt)
+                    let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
+                    Path.ChangeExtension(absPath, fileExt)
+            let writer = new SourceWriter(fileName, outPath, projDir, options.outDir, fileExt, getOrAddDeduplicateTargetDir)
             do! fable.PrintBabelAst(res, writer)
 
             // write the result to file

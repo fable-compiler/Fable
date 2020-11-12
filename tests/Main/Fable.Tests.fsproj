@@ -21,6 +21,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Globs/*.fs" />
+    <Compile Include="DllRef/Lib2.fs" />
     <Compile Include="Util/b.fs" />
     <Compile Include="Util/Thoth.Json.Decode.fs" />
     <Compile Include="Util/Aether.fs" />
