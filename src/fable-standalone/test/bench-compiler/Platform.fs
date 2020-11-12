@@ -32,6 +32,9 @@ let javaScriptStringEncode (str: string) =
 let ensureDirExists (path: string): unit =
     Directory.CreateDirectory(path) |> ignore
 
+let normalizePath (path: string) =
+    path.Replace('\\', '/')
+
 let normalizeFullPath (path: string) =
     let path = if System.String.IsNullOrWhiteSpace path then "." else path
     Path.GetFullPath(path).Replace('\\', '/')
@@ -123,6 +126,9 @@ let javaScriptStringEncode (str: string) =
     JS.util.escapeJsStringLiteral(str)
 
 let ensureDirExists = JS.util.ensureDirExists
+
+let normalizePath (path: string) =
+    path.Replace('\\', '/')
 
 let normalizeFullPath (path: string) =
     JS.path.resolve(path).Replace('\\', '/')

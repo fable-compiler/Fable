@@ -94,7 +94,7 @@ let parseArguments (argv: string[]) =
     match args with
     | [| projectFileName |] ->
         let outDir = "./out-test"
-        let optimize = opts |> Array.contains "--optimize-fcs"
+        let optimize = opts |> Array.contains "--optimize"
         parseFiles projectFileName outDir optimize
     | _ -> printfn "%s" usage
 
