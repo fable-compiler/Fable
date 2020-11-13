@@ -78,7 +78,6 @@ export function toNullable<T>(x: Option<T>): T | null {
   return x == null ? null : value(x);
 }
 
-
 export function flatten<T>(x: Option<Option<T>>) {
   return x == null ? undefined : value(x);
 }
