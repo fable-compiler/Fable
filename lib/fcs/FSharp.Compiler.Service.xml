@@ -9553,7 +9553,7 @@
  Call this method once to validate that all known resources are valid; throws if not
 </summary>
 </member>
-<member name="M:Internal.Utilities.QueueList`1.System-Collections-Generic-IEnumerable`1-GetEnumerator">
+<member name="M:Internal.Utilities.QueueList`1.System.Collections.Generic.IEnumerable<'T>.GetEnumerator">
 <summary>
  This operation is O(n) anyway, so executing ToList() here is OK
 </summary>
@@ -10867,6 +10867,15 @@
 </member>
 <member name="T:Internal.Utilities.Collections.Tagged.Map`3">
 <summary>
+ Immutable maps.  Keys are ordered by construction function specified
+ when creating empty maps or by F# structural comparison if no
+ construction function is specified.
+
+ &lt;performance&gt; 
+   Maps based on structural comparison are  
+   efficient for small keys. They are not a suitable choice if keys are recursive data structures 
+   or require non-structural comparison semantics.
+ &lt;/performance&gt;
  Immutable maps.  A constraint tag carries information about the class of key-comparers being used.  
 </summary>
 </member>
@@ -11022,6 +11031,7 @@
 </member>
 <member name="T:Internal.Utilities.Collections.Tagged.Set`2">
 <summary>
+ Immutable sets based on binary trees, default tag
  Immutable sets where a constraint tag carries information about the class of key-comparer being used.  
 </summary>
 </member>
@@ -11986,6 +11996,7 @@
 </member>
 <member name="M:FSharp.Compiler.ErrorLogger.PhasedDiagnostic.IsPhaseInCompile">
 <summary>
+ Return true if this phase is one that&apos;s known to be part of the &apos;compile&apos;. This is the initial phase of the entire compilation that
  the language service knows about.                
 </summary>
 </member>
@@ -12454,6 +12465,30 @@
 </member>
 <member name="T:FSharp.Compiler.AbstractIL.IL.ILNestedExportedType">
 <summary>
+ &quot;Classes Elsewhere&quot; - classes in auxiliary modules.
+
+ Manifests include declarations for all the classes in an 
+ assembly, regardless of which module they are in.
+
+ The &quot;.class extern&quot; construct describes so-called exported types -- 
+ these are public classes defined in the auxiliary modules of this assembly,
+ i.e. modules other than the manifest-carrying module. 
+ 
+ For example, if you have a two-module 
+ assembly (A.DLL and B.DLL), and the manifest resides in the A.DLL, 
+ then in the manifest all the public classes declared in B.DLL should
+ be defined as exported types, i.e., as &quot;.class extern&quot;. The public classes 
+ defined in A.DLL should not be defined as &quot;.class extern&quot; -- they are 
+ already available in the manifest-carrying module. The union of all 
+ public classes defined in the manifest-carrying module and all 
+ exported types defined there is the set of all classes exposed by 
+ this assembly. Thus, by analysing the metadata of the manifest-carrying 
+ module of an assembly, you can identify all the classes exposed by 
+ this assembly, and where to find them.
+
+ Nested classes found in external modules should also be located in 
+ this table, suitably nested inside another &quot;ILExportedTypeOrForwarder&quot;
+ definition.
  these are only found in the &quot;Nested&quot; field of ILExportedTypeOrForwarder objects 
 </summary>
 </member>
@@ -12946,6 +12981,8 @@
 </member>
 <member name="P:FSharp.Compiler.AbstractIL.IL.ILType.TypeSpec">
 <summary>
+ True if modifier is &quot;required&quot;. 
+ The class of the custom modifier. 
  The type being modified. 
 </summary>
 </member>
@@ -13992,6 +14029,7 @@
 </member>
 <member name="M:FSharp.Compiler.AbstractIL.ILBinaryReader.OpenILModuleReader(System.String,FSharp.Compiler.AbstractIL.ILBinaryReader.ILReaderOptions)">
 <summary>
+ ILModuleReader objects only need to be explicitly disposed if memory mapping is used, i.e. reduceMemoryUsage = false
  Open a binary reader, except first copy the entire contents of the binary into 
  memory, close the file and ensure any subsequent reads happen from the in-memory store. 
  PDB files may not be read with this option. 
@@ -17237,6 +17275,7 @@ Emit comparison instructions.
 </member>
 <member name="T:FSharp.Compiler.TypedTree.CcuThunk">
 <summary>
+ A relinkable handle to the contents of a compilation unit. Relinking is performed by mutation.
  A compilation unit is, more or less, the new material created in one
  invocation of the compiler. Due to static linking assemblies may hold more 
  than one compilation unit (i.e. when two assemblies are merged into a compilation
@@ -17352,6 +17391,8 @@ Emit comparison instructions.
 </member>
 <member name="P:FSharp.Compiler.TypedTree.ModuleOrNamespaceBinding.DebugText">
 <summary>
+ This ModuleOrNamespace that represents the compilation of a module as a class. 
+ The same set of tycons etc. are bound in the ModuleOrNamespace as in the ModuleOrNamespaceExpr
  This is the body of the module/namespace 
 </summary>
 </member>
@@ -17853,6 +17894,7 @@ Emit comparison instructions.
 </member>
 <member name="T:FSharp.Compiler.TypedTree.Expr.Lambda">
 <summary>
+ Lambda expressions. 
  Why multiple vspecs? A Expr.Lambda taking multiple arguments really accepts a tuple. 
  But it is in a convenient form to be compile accepting multiple 
  arguments, e.g. if compiled as a toplevel static method. 
@@ -24638,6 +24680,7 @@ Get the signature for the value&apos;s XML documentation
 </member>
 <member name="P:FSharp.Compiler.Infos.ILFieldInfo.FieldName">
 <summary>
+ GENERIC TYPE PROVIDERS
  Get the name of the field
 </summary>
 </member>
@@ -25980,6 +26023,11 @@ Get the signature for the value&apos;s XML documentation
 </member>
 <member name="M:FSharp.Compiler.InfoReader.IsStandardEventInfo(FSharp.Compiler.InfoReader.InfoReader,FSharp.Compiler.Range.range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Infos.EventInfo)">
 <summary>
+ Indicates if an event info is associated with a delegate type that is a &quot;standard&quot; .NET delegate type
+ with a sender parameter.
+ In the F# design, we take advantage of the following idiom to simplify away the bogus &quot;object&quot; parameter of the 
+ of the &quot;Add&quot; methods associated with events.  If you want to access it you
+ can use AddHandler instead.
  The .NET Framework guidelines indicate that the delegate type used for
  an event should take two parameters, an &quot;object source&quot; parameter
  indicating the source of the event, and an &quot;e&quot; parameter that
@@ -26063,6 +26111,7 @@ Get the signature for the value&apos;s XML documentation
 </member>
 <member name="M:FSharp.Compiler.InfoReader.FilterOverridesOfMethInfos(FSharp.Compiler.InfoReader.FindMemberFlag,FSharp.Compiler.TcGlobals.TcGlobals,FSharp.Compiler.Import.ImportMap,FSharp.Compiler.Range.range,Microsoft.FSharp.Collections.FSharpList{Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Infos.MethInfo}})">
 <summary>
+      (a) not virtual
  Filter the overrides of methods, either keeping the overrides or keeping the dispatch slots.
 </summary>
 </member>
@@ -27431,11 +27480,6 @@ Get the signature for the value&apos;s XML documentation
  Primary logic related to method overrides.
 </summary>
 </member>
-<member name="F:FSharp.Compiler.MethodCalls.CalledMeth`1.g">
-<summary>
- method parameters
-</summary>
-</member>
 <member name="P:FSharp.Compiler.MethodCalls.CalledMeth`1.UnnamedCalledOutArgs">
 <summary>
  unnamed called out args: return these as part of the return tuple
@@ -27504,6 +27548,22 @@ Get the signature for the value&apos;s XML documentation
 <member name="P:FSharp.Compiler.MethodCalls.CalledMeth`1.ArgSets">
 <summary>
  The argument analysis for each set of curried arguments
+</summary>
+</member>
+<member name="M:FSharp.Compiler.MethodCalls.CalledMeth`1.#ctor(FSharp.Compiler.InfoReader.InfoReader,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.NameResolution.NameResolutionEnv},System.Boolean,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.Range.range,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.Infos.MethInfo,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.TType}}},FSharp.Compiler.Range.range,FSharp.Compiler.AccessibilityLogic.AccessorDomain,FSharp.Compiler.Infos.MethInfo,Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.TType},Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.TType},Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.Infos.PropInfo},Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.TypedTree.TType},FSharp.Compiler.MethodCalls.CallerArgs{`0},System.Boolean,System.Boolean,Microsoft.FSharp.Core.FSharpOption{FSharp.Compiler.TypedTree.TType})">
+<summary>
+ a function to help generate fresh type variables the property setters methods in generic classes
+ range
+ the access domain of the place where the call is taking place
+ the method we&apos;re attempting to call
+ the &apos;called type arguments&apos;, i.e. the fresh generic instantiation of the method we&apos;re attempting to call
+ the &apos;caller type arguments&apos;, i.e. user-given generic instantiation of the method we&apos;re attempting to call
+ the property related to the method we&apos;re attempting to call, if any
+ the types of the actual object argument, if any
+ the &apos;caller method arguments&apos;, i.e. a list of user-given parameter expressions, split between unnamed and named arguments
+ do we allow the use of a param args method in its &quot;expanded&quot; form?
+ do we allow the use of the transformation that converts out arguments as tuple returns?
+ method parameters
 </summary>
 </member>
 <member name="T:FSharp.Compiler.MethodCalls.CalledMeth`1">
@@ -29587,6 +29647,8 @@ Get the signature for the value&apos;s XML documentation
 </member>
 <member name="M:FSharp.Compiler.ScriptClosure.LoadClosure.ComputeClosureOfScriptText(FSharp.Compiler.AbstractIL.Internal.Library.CompilationThreadToken,FSharp.Compiler.ReferenceResolver.Resolver,System.String,System.String,FSharp.Compiler.Text.ISourceText,FSharp.Compiler.ScriptClosure.CodeContext,System.Boolean,System.Boolean,System.Boolean,FSharp.Compiler.Lexhelp.LexResourceManager,Microsoft.FSharp.Core.FSharpFunc{FSharp.Compiler.CompilerConfig.TcConfigBuilder,Microsoft.FSharp.Core.Unit},System.Boolean,Microsoft.FSharp.Core.FSharpFunc{System.Tuple{System.String,System.DateTime},Microsoft.FSharp.Core.FSharpOption{System.Tuple{System.Object,System.IntPtr,System.Int32}}},FSharp.Compiler.AbstractIL.ILBinaryReader.ReduceMemoryFlag,Microsoft.DotNet.DependencyManager.DependencyProvider)">
 <summary>
+ Analyze a script text and find the closure of its references. 
+ Used from FCS, when editing a script file.  
  A temporary TcConfig is created along the way, is why this routine takes so many arguments. We want to be sure to use exactly the
  same arguments as the rest of the application.
 </summary>
@@ -33839,11 +33901,6 @@ Get the signature for the value&apos;s XML documentation
  (if not already done before), or fetch them from cache. Returns partial project results,
  up to and including the file requested. Returns parse and typecheck results containing
  name resolutions and symbol uses for the file requested only, so intellisense etc. works.
-</summary>
-</member>
-<member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.ErrorsByFile(System.String[],Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.SourceCodeServices.FSharpErrorInfo[]})">
-<summary>
- Errors grouped by file, sorted by line, column
 </summary>
 </member>
 <member name="M:FSharp.Compiler.SourceCodeServices.InteractiveChecker.ClearCache">
