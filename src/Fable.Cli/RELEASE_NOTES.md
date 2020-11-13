@@ -1,3 +1,8 @@
+### 3.0.0-nagareyama-rc-006
+
+* Fix #2136: Type Provider invalidation @zanaptak
+* Support Nullables
+
 ### 3.0.0-nagareyama-rc-005
 
 * Fix #2267: Allow direct console output preserving colors @zanaptak
