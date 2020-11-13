@@ -1938,8 +1938,16 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
     |> Option.map (fun meth ->
         Helper.LibCall(com, "Choice", meth, t, args, i.SignatureArgTypes, ?loc=r))
 
+let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", None -> List.tryHead args
+    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValueOptionValue) doesn't do a null check
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
+    | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
+    | _ -> None
+
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
-let options (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let options (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Value", Some c, _ -> Get(c, OptionValue, t, r) |> Some
     | "get_IsSome", Some c, _ -> Test(c, OptionTest true, r) |> Some
@@ -3012,6 +3020,7 @@ let private replacedModules =
     Types.iset, hashSets
     Types.option, options
     Types.valueOption, options
+    "System.Nullable`1", nullables
     "Microsoft.FSharp.Core.OptionModule", optionModule
     "Microsoft.FSharp.Core.ResultModule", results
     Types.bigint, bigints

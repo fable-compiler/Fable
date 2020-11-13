@@ -282,6 +282,16 @@ let tests =
         Some (box null) |> Option.isSome |> equal true
         Some (null) |> Option.isSome |> equal true
 
+    testCase "Nullable works" <| fun () ->
+        let x = Nullable 5
+        x.HasValue |> equal true
+        x.Value |> equal 5
+
+        let y: Nullable<int> = Nullable()
+        y.HasValue |> equal false
+        let errorThrown = try y.Value |> ignore; false with _ -> true
+        equal true errorThrown
+
 #if FABLE_COMPILER
     testCase "None and unit compile to JS undefined" <| fun () ->
         let isActualJsNull (x: obj) = emitJsExpr<bool> x "$0 === null"
