@@ -81,7 +81,7 @@ let private loadDllEntitiesAndPlugins getPlugin (checkResults: FSharpCheckProjec
                     r, e)
             | _ -> entities)
         |> Seq.map (fun (r, e) -> entityRefToString r, FSharp2Fable.FsEnt e :> Fable.Entity)
-        |> Map
+        |> dict
 
     // printfn "MEMORY %i" (System.GC.GetTotalMemory(true))
 
@@ -93,6 +93,13 @@ let private loadDllEntitiesAndPlugins getPlugin (checkResults: FSharpCheckProjec
             else acc)
 
     dllEntities, plugins
+
+type ImplFile =
+    {
+        Ast: FSharpImplementationFileContents
+        RootModule: string
+        Entities: IDictionary<string, Fable.Entity>
+    }
 
 type Project(checkResults: FSharpCheckProjectResults,
              ?getPlugin: PluginRef -> System.Type,
@@ -111,34 +118,27 @@ type Project(checkResults: FSharpCheckProjectResults,
     let implFiles =
         (if optimizeFSharpAst then checkResults.GetOptimizedAssemblyContents().ImplementationFiles
          else checkResults.AssemblyContents.ImplementationFiles)
-        |> Seq.map (fun file -> Path.normalizePathAndEnsureFsExtension file.FileName, file)
+        |> Seq.map (fun file ->
+            let key = Path.normalizePathAndEnsureFsExtension file.FileName
+            let rootModule = FSharp2Fable.Compiler.getRootModule file
+            let entities =
+                FSharp2Fable.Compiler.getRootFSharpEntities file
+                |> Seq.collect (withNestedEntities true)
+                |> Seq.map (fun (r, e) -> entityRefToString r, FSharp2Fable.FsEnt e :> Fable.Entity)
+                |> dict
+            key, { Ast = file
+                   RootModule = rootModule
+                   Entities = entities })
         |> dict
 
-    // TODO: Save root modules of unchanged files from previous compilation?
-    let rootModules =
-        implFiles |> Seq.map (fun kv ->
-            kv.Key, FSharp2Fable.Compiler.getRootModule kv.Value) |> dict
-
-    let entities =
-        // Read entities in current project
-        checkResults.AssemblyContents.ImplementationFiles
-        |> Seq.collect (fun file ->
-            FSharp2Fable.Compiler.getRootFSharpEntities file
-            |> Seq.collect (withNestedEntities true))
-        |> Seq.fold (fun entities (r, e) ->
-            let r = entityRefToString r
-            let e = FSharp2Fable.FsEnt e :> Fable.Entity
-            Map.add r e entities) dllEntities
-
-    member _.Update(checkResults) =
+    member _.Update(checkResults: FSharpCheckProjectResults) =
         Project(checkResults,
                 optimizeFSharpAst=optimizeFSharpAst,
                 dllEntitiesAndPlugins=(dllEntities, plugins))
 
     member _.Plugins = plugins
     member _.ImplementationFiles = implFiles
-    member _.RootModules = rootModules
-    member _.Entities = entities
+    member _.DllEntities = dllEntities
     member _.InlineExprs = inlineExprs
     member _.Errors = checkResults.Errors
 
@@ -180,23 +180,33 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.GetImplementationFile(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
             match project.ImplementationFiles.TryGetValue(fileName) with
-            | true, rootModule -> rootModule
+            | true, file -> file.Ast
             | false, _ -> failwith ("Cannot find implementation file " + fileName)
 
         member this.GetRootModule(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName
-            match project.RootModules.TryGetValue(fileName) with
-            | true, rootModule -> rootModule
+            match project.ImplementationFiles.TryGetValue(fileName) with
+            | true, file -> file.RootModule
             | false, _ ->
                 let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
                 (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
                 "" // failwith msg
 
-        member _.GetEntity(entityRef) =
+        member _.GetEntity(entityRef: Fable.EntityRef) =
             let fullName = entityRefToString entityRef
-            match Map.tryFind fullName project.Entities with
-            | Some e -> e
-            | None -> failwithf "Cannot find entity %s" fullName
+            match entityRef.SourcePath with
+            | None ->
+                match project.DllEntities.TryGetValue(fullName) with
+                | true, e -> e
+                | false, _ -> failwithf "Cannot find dll entity %s" fullName
+            | Some fileName ->
+                // let fileName = Path.normalizePathAndEnsureFsExtension fileName
+                match project.ImplementationFiles.TryGetValue(fileName) with
+                | true, file ->
+                    match file.Entities.TryGetValue(fullName) with
+                    | true, e -> e
+                    | false, _ -> failwithf "Cannot find entity %s in %s" fullName fileName
+                | false, _ -> failwithf "Cannot find project entity %s" fullName
 
         member _.GetOrAddInlineExpr(fullName, generate) =
             project.InlineExprs.GetOrAdd(fullName, fun _ -> generate())
