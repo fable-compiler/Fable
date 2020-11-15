@@ -28,9 +28,6 @@ export class TypeInfo implements IEquatable<TypeInfo> {
     public enumCases?: EnumCase[]) {
   }
   public toString() {
-    return this.ToString();
-  }
-  public ToString() {
     return fullName(this);
   }
   public GetHashCode() {

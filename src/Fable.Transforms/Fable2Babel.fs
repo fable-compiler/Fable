@@ -631,12 +631,11 @@ module Util =
        StringLiteral(s) :> Expression
 
     let memberFromName (memberName: string): Expression * bool =
-        if memberName.StartsWith("Symbol.") then
-            upcast MemberExpression(Identifier "Symbol", Identifier memberName.[7..], false), true
-        elif Naming.hasIdentForbiddenChars memberName then
-            upcast StringLiteral(memberName), true
-        else
-            upcast Identifier(memberName), false
+        match memberName with
+        | "ToString" -> upcast Identifier("toString"), false
+        | n when n.StartsWith("Symbol.") -> upcast MemberExpression(Identifier "Symbol", Identifier n.[7..], false), true
+        | n when Naming.hasIdentForbiddenChars n -> upcast StringLiteral(n), true
+        | n -> upcast Identifier(n), false
 
     let memberFromExpr (com: IBabelCompiler) ctx memberExpr: Expression * bool =
         match memberExpr with
@@ -964,10 +963,6 @@ module Util =
             let values = (ofInt tag)::values |> List.toArray
             upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
 
-    let callToString com ctx =
-        let toString = CallExpression(get None (Identifier "this") "ToString", [||]) :> Expression
-        BlockStatement [|ReturnStatement(toString)|]
-
     let enumerator2iterator com ctx =
         let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
         BlockStatement [|ReturnStatement(libCall com ctx None "Seq" "toIterator" [|enumerator|])|]
@@ -1021,13 +1016,6 @@ module Util =
                         let body = enumerator2iterator com ctx
                         ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) :> ObjectMember
                     [method; iterator]
-                elif memb.Name = "ToString" then
-                    let method = makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body
-                    let method2 =
-                        let prop, computed = memberFromName "toString"
-                        let body = callToString com ctx
-                        ObjectMethod(ObjectMeth, prop, [||], body, computed_=computed) :> ObjectMember
-                    [method; method2]
                 else
                     [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]
             )
@@ -1872,8 +1860,6 @@ module Util =
             getMemberArgsAndBody com ctx Attached memb.Info.HasSpread memb.Args memb.Body
         [|
             yield makeMethod memb.Name args body
-            if memb.Name = "ToString" then
-                yield makeMethod "toString" args (callToString com ctx)
             if memb.Info.IsEnumerator then
                 yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
         |]

@@ -669,7 +669,7 @@ module Patterns =
                                                             (TypeTest(tt, Value vv), _, _)), _))
                     when var.FullName = "matchValue" && memb.FullName = "Microsoft.FSharp.Core.Operators.box"
                         && vv.FullName = "matchValue" && (getFsTypeFullName tt) = "System.IFormattable" ->
-                Some(memb, None, "ToString", membArgTypes, membArgs)
+                Some(memb, None, "toString", membArgTypes, membArgs)
             // work-around for optimized hash operator (Operators.hash)
             | Call(Some expr, memb, _, [], [Call(None, comp, [], [], [])])
                     when memb.FullName.EndsWith(".GetHashCode") &&
