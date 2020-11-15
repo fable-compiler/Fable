@@ -304,7 +304,7 @@ export function isRecord(t: any): boolean {
 }
 
 export function isTuple(t: TypeInfo): boolean {
-  return t.fullname.startsWith("System.Tuple");
+  return t.fullname.startsWith("System.Tuple") && !isArray(t);
 }
 
 // In .NET this is false for delegates

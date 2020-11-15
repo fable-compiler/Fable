@@ -371,6 +371,11 @@ let reflectionTests = [
     let all = isTuple && matchTupleFields && matchIndividualTupleFields && canMakeSameTuple
     all |> equal true
 
+  testCase "FSharp.Reflection: Array of tuples is not classified as a tuple" <| fun () ->
+    let typ = typeof<(string * int * int)[]>
+    equal true typ.IsArray
+    FSharpType.IsTuple typ |> equal false
+
   testCase "FSharp.Reflection: MakeTupleType" <| fun () ->
     let t = FSharpType.MakeTupleType [|typeof<float>; typeof<string>; typeof<int[]>|]
     FSharpValue.MakeTuple([|5.; "foo"; [|2;3|]|], t)
