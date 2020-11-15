@@ -304,7 +304,7 @@ module AST =
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
-        | Import _ -> false
+        | Import(i,_,_) -> not i.IsCompilerGenerated
         | Lambda _ | Delegate _ -> false
         | TypeCast(e,_,_) -> canHaveSideEffects e
         | Value(value,_) ->
