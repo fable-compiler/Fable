@@ -1,9 +1,10 @@
 {
   "private": true,
   "scripts": {
-    "build": "fable build.fsx --run",
-    "publish": "fable build.fsx --run publish",
-    "test": "fable build.fsx --run test",
+    "postinstall": "dotnet tool restore",
+    "build": "dotnet fable build.fsx --runScript",
+    "publish": "dotnet fable build.fsx --runScript publish",
+    "test": "dotnet fable build.fsx --runScript test",
     "build-compiler-js": "fable src/fable-compiler-js/src/fable-compiler-js.fsproj build/fable-compiler-js/out",
     "postbuild-compiler-js": "rollup build/fable-compiler-js/out/app.js --file src/fable-compiler-js/dist/app.js --format umd --name Fable",
     "minify-compiler-js": "terser src/fable-compiler-js/dist/app.js -o src/fable-compiler-js/dist/app.min.js --mangle --compress",
@@ -17,7 +18,6 @@
     "concurrently": "^5.1.0",
     "download-cli": "^1.1.1",
     "esm": "^3.2.25",
-    "fable-compiler-js": "^1.3.1",
     "ghreleases": "^3.0.2",
     "mocha": "^7.1.1",
     "nyc": "^15.0.1",

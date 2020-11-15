@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "fable": {
+      "version": "3.0.0-nagareyama-rc-006",
+      "commands": [
+        "fable"
+      ]
+    }
+  }
+}
