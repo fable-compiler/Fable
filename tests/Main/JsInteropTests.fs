@@ -89,7 +89,9 @@ type TextStyle =
 
 type InnerRecord = {
     Float: float
-}
+} with
+    override this.ToString() =
+        sprintf "%.0fx" (this.Float * 5.)
 
 type Record = {
     String: string
@@ -430,6 +432,14 @@ let tests =
             o.bar <- 5)
         opts.foo |> equal "bar"
         opts.bar |> equal 5
+
+    testCase "Stringifying a JS object works" <| fun () ->
+        let fooOptional = importMember "./js/1foo.js"
+        string fooOptional |> equal "much foo, much awesome"
+
+    testCase "Stringifying an F# type in JS works" <| fun () ->
+        let addFooString (x: obj) = importMember "./js/1foo.js"
+        { Float = 7. } |> addFooString |> equal "35x foo"
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
