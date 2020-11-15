@@ -8,7 +8,14 @@ let argValue key (args: string list) =
     args
     |> List.windowed 2
     |> List.tryPick (function
-        | [key2; value] when key = key2 && not(value.StartsWith("-")) -> Some value
+        | [key2; value] when not(value.StartsWith("-")) && key = key2 -> Some value
+        | _ -> None)
+
+let argValueMulti keys (args: string list) =
+    args
+    |> List.windowed 2
+    |> List.tryPick (function
+        | [key2; value] when not(value.StartsWith("-")) && List.exists ((=) key2) keys -> Some value
         | _ -> None)
 
 let tryFlag flag (args: string list) =
@@ -44,7 +51,7 @@ Commands:
 
 Arguments:
   --cwd             Working directory
-  --outDir          Redirect compilation output to a directory
+  -o|--outDir       Redirect compilation output to a directory
   --extension       Extension for generated JS files (default .fs.js)
 
   --define          Defines a symbol for use in conditional compilation
@@ -68,7 +75,7 @@ Arguments:
 
 let defaultFileExt isTypescript args =
     let fileExt =
-        match argValue "--outDir" args with
+        match argValueMulti ["-o"; "--outDir"] args with
         | Some _ -> ".js"
         | None -> CompilerOptionsHelper.DefaultExtension
     if isTypescript then Path.replaceExtension ".ts" fileExt else fileExt
@@ -139,7 +146,7 @@ type Runner =
             { ProjectFile = Path.normalizeFullPath projFile
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
-              OutDir = argValue "--outDir" args |> Option.map makeAbsolute
+              OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map makeAbsolute
               ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
               Exclude = argValue "--exclude" args
@@ -173,6 +180,7 @@ let clean args dir =
     Console.WriteLine("This will recursively delete all *{0} files in {1}.", fileExt, dir)
     Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
     let keyInfo = Console.ReadKey()
+    Console.WriteLine()
     if keyInfo.Key <> ConsoleKey.Y then
         Console.WriteLine("Clean was cancelled.")
         exit 0
