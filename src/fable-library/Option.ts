@@ -26,12 +26,8 @@ export class Some<T> {
     return this.value;
   }
 
-  public toString() {
-    return this.ToString();
-  }
-
   // Don't add "Some" for consistency with erased options
-  public ToString() {
+  public toString() {
     return String(this.value);
   }
 

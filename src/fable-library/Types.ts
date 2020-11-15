@@ -19,8 +19,8 @@ export function seqToString<T>(self: Iterable<T>): string {
 
 export function toString(x: any, callStack = 0): string {
   if (x != null && typeof x === "object") {
-    if (typeof x.ToString === "function") {
-      return x.ToString();
+    if (typeof x.toString === "function") {
+      return x.toString();
     } else if (Symbol.iterator in x) {
       return seqToString(x);
     } else { // TODO: Date?
@@ -74,8 +74,7 @@ export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Itera
   }
 
   public toJSON() { return Array.from(this); }
-  public toString() { return this.ToString(); }
-  public ToString() { return seqToString(this); }
+  public toString() { return seqToString(this); }
   public GetHashCode() { return combineHashCodes(Array.from(this).map(structuralHash)); }
   public Equals(other: List<T>): boolean { return compareList(this, other) === 0; }
   public CompareTo(other: List<T>): number { return compareList(this, other); }
@@ -95,10 +94,6 @@ export abstract class Union implements IEquatable<Union>, IComparable<Union> {
   }
 
   public toString() {
-    return this.ToString();
-  }
-
-  public ToString() {
     if (this.fields.length === 0) {
       return this.name;
     } else {
@@ -200,8 +195,7 @@ function recordCompareTo<T>(self: T, other: T) {
 
 export abstract class Record implements IEquatable<Record>, IComparable<Record> {
   toJSON() { return recordToJSON(this); }
-  toString() { return this.ToString(); }
-  ToString() { return recordToString(this); }
+  toString() { return recordToString(this); }
   GetHashCode() { return recordGetHashCode(this); }
   Equals(other: Record) { return recordEquals(this, other); }
   CompareTo(other: Record) { return recordCompareTo(this, other); }
@@ -244,8 +238,7 @@ export function isException(x: any) {
 export abstract class FSharpException extends Exception
   implements IEquatable<FSharpException>, IComparable<FSharpException> {
   toJSON() { return recordToJSON(this); }
-  toString() { return this.ToString(); }
-  ToString() { return recordToString(this); }
+  toString() { return recordToString(this); }
   GetHashCode() { return recordGetHashCode(this); }
   Equals(other: FSharpException) { return recordEquals(this, other); }
   CompareTo(other: FSharpException) { return recordCompareTo(this, other); }

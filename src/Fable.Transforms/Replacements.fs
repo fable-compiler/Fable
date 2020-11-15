@@ -410,7 +410,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Array _ | List _ ->
             Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
-        //     Helper.InstanceCall(head, "ToString", String, [], ?loc=r)
+        //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
         | _ -> Helper.LibCall(com, "Types", "toString", String, [head], ?loc=r)
 
