@@ -432,25 +432,38 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         |> Array.distinct
 
     let logs = getFSharpErrorLogs parsed.Project
+    let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
 
-    let! (logs, watchDependencies), ms = measureTimeAsync <| fun () ->
-        filesToCompile
-        |> Array.map (fun file ->
-            cracked.MakeCompiler(file, parsed.Project)
-            |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
-        |> Async.Parallel
-        |> Async.map (fun results ->
-            ((logs, state.WatchDependencies), results) ||> Array.fold (fun (logs, deps) -> function
-                | Ok res ->
-                    let logs = Array.append logs res.Logs
-                    let deps = Map.add res.File res.WatchDependencies deps
-                    logs, deps
-                | Error e ->
-                    let log = Log.MakeError(e.Exception.Message, fileName=e.File, tag="EXCEPTION")
-                    Array.append logs [|log|], deps))
+    let! logs, watchDependencies, ms = async {
+        // Skip Fable compilation if there are F# errors
+        if hasFSharpError then
+            return logs, state.WatchDependencies, 0L
+        else
+            let! results, ms = measureTimeAsync <| fun () ->
+                filesToCompile
+                |> Array.map (fun file ->
+                    cracked.MakeCompiler(file, parsed.Project)
+                    |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
+                |> Async.Parallel
 
-    Log.always(sprintf "Fable compilation finished in %ims" ms)
-    let logs = Array.distinct logs // Sometimes errors are duplicated
+            Log.always(sprintf "Fable compilation finished in %ims" ms)
+
+            let logs, watchDependencies =
+                ((logs, state.WatchDependencies), results)
+                ||> Array.fold (fun (logs, deps) -> function
+                    | Ok res ->
+                        let logs = Array.append logs res.Logs
+                        let deps = Map.add res.File res.WatchDependencies deps
+                        logs, deps
+                    | Error e ->
+                        let log = Log.MakeError(e.Exception.Message, fileName=e.File, tag="EXCEPTION")
+                        Array.append logs [|log|], deps)
+
+            return logs, watchDependencies, ms
+    }
+
+    // Sometimes errors are duplicated
+    let logs = Array.distinct logs
 
     logs
     |> Array.filter (fun x -> x.Severity = Severity.Info)
