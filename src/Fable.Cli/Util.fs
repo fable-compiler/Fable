@@ -77,7 +77,7 @@ module File =
         tryFindPackageJsonDir workingDir
         |> Option.bind (fun pkgJsonDir ->
             let nodeModulesBin = Path.Join(pkgJsonDir, "node_modules", ".bin", exeFile)
-            if File.Exists(nodeModulesBin) then Some nodeModulesBin
+            if File.Exists(nodeModulesBin) then Path.GetRelativePath(workingDir, nodeModulesBin) |> Some
             else None)
 
 [<RequireQualifiedAccess>]
@@ -99,7 +99,7 @@ module Process =
     let private startProcess workingDir exePath args =
         let args = String.concat " " args
         let exePath, args =
-            if isWindows() then "cmd", ("/C \"" + exePath + "\" " + args)
+            if isWindows() then "cmd", ("/C " + exePath + " " + args)
             else exePath, args
 
         Log.always(File.getRelativePathFromCwd(workingDir) + "> " + exePath + " " + args)
