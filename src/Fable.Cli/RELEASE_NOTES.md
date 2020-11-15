@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-rc-007
+
+* Always lower case ToString
+
 ### 3.0.0-nagareyama-rc-006
 
 * Fix #2136: Type Provider invalidation @zanaptak
