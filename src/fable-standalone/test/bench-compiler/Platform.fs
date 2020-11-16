@@ -2,7 +2,7 @@ module Fable.Compiler.Platform
 
 type CmdLineOptions = {
     outDir: string option
-    // fableDir: string option
+    libDir: string option
     benchmark: bool
     optimize: bool
     // sourceMaps: bool

@@ -59,8 +59,8 @@ module Imports =
             let importPath =
                 if importPath.StartsWith("${outDir}")
                 // NOTE: Path.Combine in Fable Prelude trims / at the start
-                // of the 2nd argument, unline .NET IO.Path.Combine
-                then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
+                // of the 2nd argument, unlike .NET IO.Path.Combine
+                then Path.Combine(outDir, importPath.Replace("${outDir}", "")) |> normalizeFullPath
                 else importPath
             let sourceDir = Path.GetDirectoryName(sourcePath)
             let targetDir = Path.GetDirectoryName(targetPath)
@@ -151,7 +151,7 @@ let parseFiles projectFileName options =
 
     // Fable (F# to JS)
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
-    let libDir = getFableLibDir() |> normalizeFullPath
+    let libDir = options.libDir |> Option.defaultValue (getFableLibDir()) |> normalizeFullPath
     let parseFable (res, fileName) =
         fable.CompileToBabelAst(libDir, res, fileName,
             typedArrays = options.typedArrays,
@@ -201,15 +201,15 @@ let parseFiles projectFileName options =
             writeAllText outPath writer.Result
     } |> runAsync
 
-let argValue key (args: string[]) =
+let argValue keys (args: string[]) =
     args
     |> Array.pairwise
     |> Array.tryPick (fun (k, v) ->
-        if k = key && not (v.StartsWith("-"))
+        if (List.contains k keys) && not (v.StartsWith("-"))
         then Some v else None)
 
 let tryFlag flag (args: string[]) =
-    match argValue flag args with
+    match argValue [flag] args with
     | Some flag ->
         match System.Boolean.TryParse(flag) with
         | true, flag -> Some flag
@@ -231,8 +231,8 @@ let run opts projectFileName outDir =
             let runArgs = opts.[i+1..] |> String.concat " "
             sprintf "node %s %s" scriptFile runArgs)
     let options = {
-        outDir = opts |> argValue "--outDir" |> Option.orElse outDir
-        // fableDir = opts |> argValue "--fableDir"
+        outDir = opts |> argValue ["--outDir"; "-o"] |> Option.orElse outDir
+        libDir = opts |> argValue ["--fableLib"]
         benchmark = opts |> hasFlag "--benchmark"
         optimize = opts |> hasFlag "--optimize"
         // sourceMaps = opts |> hasFlag "--sourceMaps"
