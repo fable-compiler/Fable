@@ -341,6 +341,7 @@ type TestInfo private (current, iterations, times: int64 list) =
 type State =
     { CliArgs: CliArgs
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
+      FableCompilationMs: int64
       WatchDependencies: Map<string, string[]>
       ErroredFiles: Set<string>
       DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
@@ -378,32 +379,39 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     true, oldFiles, ProjectCracked.Init(state.CliArgs)
                 else false, Set.empty, cracked
 
-            cracked.SourceFiles
-            |> Array.choose (fun file ->
-                let path = file.NormalizedFullPath
-                if Set.contains path changes
-                    || (fsprojChanged && not(Set.contains path oldFiles))
-                    then Some path
-                else None)
-            |> function
-                | [||] -> cracked, parsed, [||]
-                | dirtyFiles ->
-                    let dirtyFiles = set dirtyFiles
-                    let cracked = cracked.MapSourceFiles(fun file ->
-                        if Set.contains file.NormalizedFullPath dirtyFiles then
-                            File(file.NormalizedFullPath) // Clear the cached source hash
-                        else file)
-                    let parsed =
-                        if fsprojChanged then ProjectParsed.Init(cracked, parsed.Checker)
-                        else parsed.Update(cracked)
-                    let filesToCompile =
-                        cracked.SourceFiles
-                        |> Array.choose (fun file ->
-                            let path = file.NormalizedFullPath
-                            if Set.contains path dirtyFiles
-                                || hasWatchDependency path dirtyFiles state.WatchDependencies then Some path
-                            else None)
-                    cracked, parsed, filesToCompile
+            let dirtyFiles =
+                // If the project had F# errors the Fable compilation didn't happen
+                if state.FableCompilationMs = 0L then
+                    cracked.SourceFiles
+                    |> Array.map (fun f -> f.NormalizedFullPath)
+                else
+                    cracked.SourceFiles
+                    |> Array.choose (fun file ->
+                        let path = file.NormalizedFullPath
+                        if Set.contains path changes
+                            || (fsprojChanged && not(Set.contains path oldFiles))
+                            then Some path
+                        else None)
+
+            if Array.isEmpty dirtyFiles then
+                cracked, parsed, [||]
+            else
+                let dirtyFiles = set dirtyFiles
+                let cracked = cracked.MapSourceFiles(fun file ->
+                    if Set.contains file.NormalizedFullPath dirtyFiles then
+                        File(file.NormalizedFullPath) // Clear the cached source hash
+                    else file)
+                let parsed =
+                    if fsprojChanged then ProjectParsed.Init(cracked, parsed.Checker)
+                    else parsed.Update(cracked)
+                let filesToCompile =
+                    cracked.SourceFiles
+                    |> Array.choose (fun file ->
+                        let path = file.NormalizedFullPath
+                        if Set.contains path dirtyFiles
+                            || hasWatchDependency path dirtyFiles state.WatchDependencies then Some path
+                        else None)
+                cracked, parsed, filesToCompile
         | None ->
             let cracked = ProjectCracked.Init(state.CliArgs)
             let parsed = ProjectParsed.Init(cracked)
@@ -434,10 +442,10 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
     let logs = getFSharpErrorLogs parsed.Project
     let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
 
-    let! logs, watchDependencies, ms = async {
+    let! logs, watchDependencies, state = async {
         // Skip Fable compilation if there are F# errors
         if hasFSharpError then
-            return logs, state.WatchDependencies, 0L
+            return logs, state.WatchDependencies, state
         else
             let! results, ms = measureTimeAsync <| fun () ->
                 filesToCompile
@@ -459,7 +467,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         let log = Log.MakeError(e.Exception.Message, fileName=e.File, tag="EXCEPTION")
                         Array.append logs [|log|], deps)
 
-            return logs, watchDependencies, ms
+            return logs, watchDependencies, { state with FableCompilationMs = ms }
     }
 
     // Sometimes errors are duplicated
@@ -547,7 +555,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
         return match errorMsg with Some e -> Error e | None -> Ok()
 
     | None, Some info ->
-        let info = info.NextIteration(ms)
+        let info = info.NextIteration(state.FableCompilationMs)
         if info.CurrentIteration < info.TotalIterations then
             return!
                 { state with ProjectCrackedAndParsed = Some(cracked, parsed)

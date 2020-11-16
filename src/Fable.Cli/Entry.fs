@@ -164,6 +164,7 @@ type Runner =
           WatchDependencies = Map.empty
           Watcher = if watch then Some(FsWatcher()) else None
           DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
+          FableCompilationMs = 0L
           ErroredFiles = Set.empty
           TestInfo = testInfo }
         |> startCompilation Set.empty
