@@ -216,6 +216,8 @@ type BabelResult(program: Babel.Program, errors) =
 
 let init () =
   { new IFableManager with
+        member __.Version = Fable.Literals.VERSION
+
         member __.CreateChecker(references, readAllBytes, otherOptions) =
             InteractiveChecker.Create(references, readAllBytes, otherOptions)
             |> CheckerImpl :> IChecker

@@ -88,7 +88,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, otherFSharpOptions) ->
         try
             let! fable = makeFableState (Init(refsDirUrl, extraRefs, refsExtraSuffix)) otherFSharpOptions
-            state.Worker.Post Loaded
+            state.Worker.Post(Loaded fable.Manager.Version)
             return! loop box { state with Fable = Some fable }
         with err ->
             JS.console.error("Cannot create F# checker", err)

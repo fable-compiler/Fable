@@ -53,6 +53,7 @@ type IWriter =
     abstract Write: string -> Async<unit>
 
 type IFableManager =
+    abstract Version: string
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker
     abstract ClearParseCaches: checker: IChecker -> unit
     abstract ParseFSharpScript: checker: IChecker * fileName: string * source: string * ?otherFSharpOptions: string[] -> IParseResults

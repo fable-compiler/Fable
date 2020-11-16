@@ -1,3 +1,7 @@
+### 3.0.0-nagareyama-rc-008
+
+* Fable.Transforms 3.0.0-nagareyama-rc-007
+
 ### 1.3.18
 
 * fable-compiler 2.13.0

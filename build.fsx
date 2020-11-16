@@ -449,7 +449,7 @@ let packages =
      "fable-compiler-js", fun () -> buildCompilerJs true
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
-     "fable-standalone", downloadStandalone
+     "fable-standalone", fun () -> buildStandalone true
     ]
 
 let publishPackages restArgs =

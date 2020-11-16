@@ -24,7 +24,7 @@ type CompileStats =
       Babel_generation : float }
 
 type WorkerAnswer =
-    | Loaded
+    | Loaded of version: string
     | LoadFailed
     | ParsedCode of errors: Fable.Standalone.Error[]
     | CompilationFinished of jsCode: string * errors: Fable.Standalone.Error[] * stats: CompileStats
