@@ -230,7 +230,7 @@ module Imports =
             let importPath =
                 if importPath.StartsWith("${outDir}")
                 // NOTE: Path.Combine in Fable Prelude trims / at the start
-                // of the 2nd argument, unline .NET IO.Path.Combine
+                // of the 2nd argument, unlike .NET IO.Path.Combine
                 then Path.Combine(outDir, importPath.Replace("${outDir}", ""))
                 else importPath
             let sourceDir = Path.GetDirectoryName(sourcePath)
