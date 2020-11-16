@@ -1,3 +1,7 @@
+### 3.0.0-rc
+
+* Nagareyama RC
+
 ### 3.0.0-alpha
 
 * Nagareyama
