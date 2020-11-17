@@ -67,6 +67,9 @@ let watchFableWithArgs projectDir args =
 let runFableWithArgs projectDir args =
     run ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
+let runNpx command args =
+    run ("npx " + command + " " + (String.concat " " args))
+
 let runFable projectDir =
     runFableWithArgs projectDir []
 
@@ -171,20 +174,37 @@ let testJsFast() =
     run ("npx mocha " + buildDir + " -r esm --reporter dot -t 10000")
 
 
-let buildStandalone(minify: bool) =
-    printfn "Building standalone%s..." (if minify then "" else " (no minification)")
+let buildStandalone (opts: {| minify: bool; watch: bool |}) =
+    printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
     let projectDir = "src/fable-standalone/src"
     let libraryDir = "build/fable-library"
     let buildDir = "build/fable-standalone"
     let distDir = "src/fable-standalone/dist"
 
+    let rollupTarget =
+        match opts.watch, opts.minify with
+        | true, _ ->
+            match args with
+            | _::rollupTarget::_ -> rollupTarget
+            | _ -> failwith "Pass the bundle output, e.g.: npm run build watch-standalone ../repl3/public/js/repl/bundle.min.js"
+        | false, true -> buildDir </> "bundle.js"
+        | false, false -> distDir </> "bundle.min.js"
+
+    let rollupArgs = [
+        buildDir + "/bundle/Main.js"
+        "-o " + rollupTarget
+        "--format umd"
+        "--name __FABLE_STANDALONE__"
+    ]
+
     if not (pathExists libraryDir) then
         buildLibrary()
 
     // cleanup
-    cleanDirs [buildDir; distDir]
-    makeDirRecursive distDir
+    if not opts.watch then
+        cleanDirs [buildDir; distDir]
+        makeDirRecursive distDir
 
     // build standalone bundle
     runFableWithArgs projectDir [
@@ -198,18 +218,27 @@ let buildStandalone(minify: bool) =
         "--define NO_COMPILER_BACKEND"
         "--define NO_EXTENSIONTYPING"
         "--define NO_INLINE_IL_PARSER"
+        if opts.watch then
+            "--watch"
+            "--run rollup"
+            yield! rollupArgs
+            "--watch"
     ]
+
+    // make standalone bundle dist
+    runNpx "rollup" rollupArgs
+    if opts.minify then
+        runNpx "terser" [
+            buildDir + "/bundle.js"
+            sprintf "-o %s/bundle.min.js" distDir
+            "--mangle"
+            "--compress"
+        ]
 
     // build standalone worker
     runFableWithArgs (projectDir + "/Worker") [
         "--outDir " + buildDir + "/worker"
     ]
-
-    // make standalone bundle dist
-    let rollupTarget = if minify then buildDir </> "bundle.js" else distDir </> "bundle.min.js"
-    run (sprintf "npx rollup %s/bundle/Main.js -o %s --format umd --name __FABLE_STANDALONE__" buildDir rollupTarget)
-    if minify then
-        run (sprintf "npx terser %s/bundle.js -o %s/bundle.min.js --mangle --compress" buildDir distDir)
 
     // make standalone worker dist
     run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
@@ -249,7 +278,7 @@ let buildCompilerJs(minify: bool) =
     let distDir = "src/fable-compiler-js/dist"
 
     if not (pathExists "build/fable-standalone") then
-        buildStandalone(minify)
+        buildStandalone {|minify=minify; watch=false|}
 
     cleanDirs [buildDir; distDir]
     makeDirRecursive distDir
@@ -449,7 +478,7 @@ let packages =
      "fable-compiler-js", fun () -> buildCompilerJs true
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
-     "fable-standalone", fun () -> buildStandalone true
+     "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
     ]
 
 let publishPackages restArgs =
@@ -480,7 +509,8 @@ match argsLower with
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
-| ("fable-standalone"|"standalone")::_ -> buildStandalone(minify)
+| ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
+| "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
 | "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->

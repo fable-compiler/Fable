@@ -257,8 +257,8 @@ let main argv =
             | ["test"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, testInfo=TestInfo())
             | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
             | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
-            | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path)
-            | [] -> return! Runner.Run(args, rootDir, runProc)
+            | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=flagEnabled "--watch" args)
+            | [] -> return! Runner.Run(args, rootDir, runProc, watch=flagEnabled "--watch" args)
             | _ -> return Log.always "Unexpected arguments. Use `fable --help` to see available options."
     }
     |> function
