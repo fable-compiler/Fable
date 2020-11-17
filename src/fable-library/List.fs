@@ -12,24 +12,31 @@ module SR =
     let listsHadDifferentLengths = "The lists had different lengths."
     let notEnoughElements = "The input sequence has an insufficient number of elements."
 
-// [<Struct>]
-[<CustomEquality; CustomComparison>]
-[<CompiledName("FSharpList")>]
-type ResizeList<'T> =
-    { Count: int; Values: ResizeArray<'T> }
+[<Emit("new Array($0)")>]
+let private allocate (i: int): ResizeArray<'T> = jsNative
 
-    member inline internal xs.Add(x: 'T) =
+// [<Struct>]
+// [<CustomEquality; CustomComparison>]
+[<CompiledName("FSharpList")>]
+type ResizeList<'T>(count, values) =
+    member _.Count: int = count
+    member _.Values: ResizeArray<'T> = values
+
+    member internal xs.Add(x: 'T) =
         let values =
             if xs.Count = xs.Values.Count
             then xs.Values
             else xs.Values.GetRange(0, xs.Count)
         values.Add(x)
-        { Count = values.Count; Values = values }
+        ResizeList<'T>.NewList(values)
 
-    member inline internal xs.Reverse() =
-        let values = xs.Values.GetRange(0, xs.Count)
-        values.Reverse()
-        { Count = values.Count; Values = values }
+    member internal xs.Reverse() =
+        let values = allocate xs.Count
+        let mutable j = 0
+        for i = xs.Count - 1 downto 0 do
+            values.[j] <- xs.Values.[i]
+            j <- j + 1
+        ResizeList<'T>.NewList(values)
 
     // This is a destructive internal optimization that
     // can only be performed on newly constructed lists.
@@ -38,15 +45,16 @@ type ResizeList<'T> =
         xs
 
     static member inline Singleton(x: 'T) =
-        let values = ResizeArray<'T>()
-        values.Add(x)
-        { Count = 1; Values = values }
+        ResizeList<'T>.NewList(ResizeArray [|x|])
 
     static member inline NewList (values: ResizeArray<'T>) =
-        { Count = values.Count; Values = values }
+        ResizeList(values.Count, values)
 
-    static member inline Empty =
-        { Count = 0; Values = ResizeArray<'T>() }
+    static member inline NewList (count, values) =
+        ResizeList(count, values)
+
+    static member inline Empty: ResizeList<'T> =
+        ResizeList<'T>.NewList(ResizeArray())
 
     static member inline Cons (x: 'T, xs: 'T list) = xs.Add(x)
 
@@ -54,14 +62,14 @@ type ResizeList<'T> =
 
     member inline xs.Length = xs.Count
 
-    member inline xs.Head =
+    member xs.Head =
         if xs.Count > 0
         then xs.Values.[xs.Count - 1]
         else invalidArg "list" SR.inputListWasEmpty
 
-    member inline xs.Tail =
+    member xs.Tail =
         if xs.Count > 0
-        then { Count = xs.Count - 1; Values = xs.Values }
+        then ResizeList<'T>.NewList(xs.Count - 1, xs.Values)
         else invalidArg "list" SR.inputListWasEmpty
 
     member inline xs.Item with get (index: int) =
@@ -121,7 +129,7 @@ and 'T list = ResizeList<'T>
 
 let inline indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
-let newList values = ResizeList.NewList (values)
+let newList values = ResizeList<'T>.NewList (values)
 
 let empty () = ResizeList.Empty
 
@@ -174,22 +182,24 @@ let foldBack (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc) =
 let reverse (xs: 'a list) =
     xs.Reverse()
 
-let inline reverseInPlace (xs: 'a list) =
-    xs.ReverseInPlace()
+let ofResizeArrayInPlace (xs: ResizeArray<'a>) =
+    xs.Reverse()
+    ResizeList.NewList xs
 
 let toSeq (xs: 'a list): 'a seq =
     xs :> System.Collections.Generic.IEnumerable<'a>
 
 let ofSeq (xs: 'a seq): 'a list =
     // Seq.fold (fun acc x -> cons x acc) ResizeList.Empty xs
-    // |> reverseInPlace
+    // |> ofResizeArrayInPlace
     let values = ResizeArray(xs)
     values.Reverse()
     values |> newList
 
 let concat (lists: seq<'a list>) =
-    Seq.fold (fold (fun acc x -> cons x acc)) ResizeList.Empty lists
-    |> reverseInPlace
+    (ResizeArray(), lists)
+    ||> Seq.fold (fold (fun acc x -> acc.Add(x); acc))
+    |> ofResizeArrayInPlace
 
 let fold2 f (state: 'acc) (xs: 'a list) (ys: 'b list) =
     Seq.fold2 f state xs ys
@@ -200,9 +210,9 @@ let foldBack2 f (xs: 'a list) (ys: 'b list) (state: 'acc) =
 let unfold (gen: 'acc -> ('T * 'acc) option) (state: 'acc) =
     let rec loop st acc =
         match gen st with
-        | None -> reverseInPlace acc
-        | Some (x, st) -> loop st (cons x acc)
-    loop state ResizeList.Empty
+        | None -> ofResizeArrayInPlace acc
+        | Some (x, st) -> acc.Add(x); loop st acc
+    loop state (ResizeArray())
 
 let scan f (state: 'acc) (xs: 'a list) =
     Seq.scan f state xs |> ofSeq
@@ -211,21 +221,24 @@ let scanBack f (xs: 'a list) (state: 'acc) =
     Seq.scanBack f xs state |> ofSeq
 
 let append (xs: 'a list) (ys: 'a list) =
-    // foldBack cons xs ys
-    let mutable acc = ys
-    for i = xs.Length - 1 downto 0 do
-        acc <- cons xs.[i] acc
-    acc
+    let ylen = ys.Count
+    let values = allocate (xs.Count + ys.Count)
+    for i = xs.Count - 1 downto 0 do
+        values.[i + ylen] <- xs.Values.[i]
+    for i = ys.Count - 1 downto 0 do
+        values.[i] <- ys.Values.[i]
+    ResizeList<'a>.NewList(values)
 
 let collect (f: 'a -> 'b list) (xs: 'a list) =
     Seq.collect f xs |> ofSeq
 
 let mapIndexed (f: int -> 'a -> 'b) (xs: 'a list) =
-    let rec loop i acc =
-        if i < xs.Length
-        then loop (i + 1) (cons (f i xs.[i]) acc)
-        else reverseInPlace acc
-    loop 0 ResizeList.Empty
+    let values = allocate xs.Count
+    let mutable j = 0
+    for i = xs.Count - 1 downto 0 do
+        values.[i] <- f j xs.Values.[i]
+        j <- j + 1
+    ResizeList<'b>.NewList(values)
 
 let map (f: 'a -> 'b) (xs: 'a list) =
     mapIndexed (fun _i x -> f x) xs
@@ -243,11 +256,12 @@ let map3 f xs ys zs =
     Seq.map3 f xs ys zs |> ofSeq
 
 let mapFold (f: 'S -> 'T -> 'R * 'S) s xs =
-    let folder (nxs, fs) x =
+    let folder (nxs: ResizeArray<_>, fs) x =
         let nx, fs = f fs x
-        cons nx nxs, fs
-    let nxs, s = fold folder (ResizeList.Empty, s) xs
-    reverseInPlace nxs, s
+        nxs.Add(nx)
+        nxs, fs
+    let nxs, s = fold folder (ResizeArray(), s) xs
+    ofResizeArrayInPlace nxs, s
 
 let mapFoldBack (f: 'T -> 'S -> 'R * 'S) xs s =
     mapFold (fun s v -> f v s) s (reverse xs)
@@ -265,10 +279,10 @@ let iterateIndexed2 f xs ys =
     fold2 (fun i x y -> f i x y; i + 1) 0 xs ys |> ignore
 
 let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
-    let mutable res = tail
+    let values = tail.Values
     for i = xs.Length - 1 downto 0 do
-        res <- cons xs.[i] res
-    res
+        values.Add(xs.[i])
+    newList values
 
 // let ofArray (xs: 'T[]) =
 //     ofArrayWithTail xs ResizeList.Empty
@@ -369,53 +383,26 @@ let tryItem index (xs: 'a list) =
     else None
 
 let filter f xs =
-    fold (fun acc x ->
+    (ResizeArray(), xs)
+    ||> fold (fun acc x ->
         if f x
-        then cons x acc
-        else acc) ResizeList.Empty xs
-    |> reverseInPlace
+        then acc.Add(x); acc
+        else acc)
+    |> ofResizeArrayInPlace
 
+// TODO: Optimize this
 let partition f xs =
     fold (fun (lacc, racc) x ->
         if f x then cons x lacc, racc
         else lacc, cons x racc) (ResizeList.Empty, ResizeList.Empty) (reverse xs)
 
-let tryItem n (xs: 'T list) =
-    let rec loop i (xs: 'T list) =
-        if xs.IsEmpty then None
-        else
-            if i = n then Some xs.Head
-            else loop (i + 1) xs.Tail
-    loop 0 xs
-
-let item n (xs: 'T list) = xs.Item(n)
-
-let filter f (xs: 'T list) =
-    let root = List.Empty
-    let folder (acc: 'T list) x =
-        if f x then acc.AppendConsNoTail x else acc
-    let node = fold folder root xs
-    node.SetConsTail List.Empty
-    root.Tail
-
-let partition f (xs: 'T list) =
-    let root1, root2 = List.Empty, List.Empty
-    let folder (lacc: 'T list, racc: 'T list) x =
-        if f x
-        then lacc.AppendConsNoTail x, racc
-        else lacc, racc.AppendConsNoTail x
-    let node1, node2 = fold folder (root1, root2) xs
-    node1.SetConsTail List.Empty
-    node2.SetConsTail List.Empty
-    root1.Tail, root2.Tail
-
-let choose f (xs: 'T list) =
-    let root = List.Empty
-    let folder (acc: 'T list) x =
+let choose f xs =
+    (ResizeArray(), xs)
+    ||> fold (fun acc x ->
         match f x with
-        | Some y -> cons y acc
-        | None -> acc) ResizeList.Empty xs
-    |> reverseInPlace
+        | Some y -> acc.Add(y); acc
+        | None -> acc)
+    |> ofResizeArrayInPlace
 
 let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
     tryFindIndex (fun v -> eq.Equals (value, v)) xs |> Option.isSome
@@ -427,10 +414,12 @@ let except (itemsToExclude: seq<'t>) (xs: 't list) ([<Inject>] eq: System.Collec
         xs |> filter cached.Add
 
 let initialize n f =
-    let mutable res = ResizeList.Empty
-    for i = 0 to n - 1 do
-        res <- cons (f i) res
-    res |> reverseInPlace
+    let mutable j = 0
+    let values = allocate n
+    for i = n - 1 downto 0 do
+        values.[i] <- f j
+        j <- j + 1
+    values |> newList
 
 let replicate n x =
     initialize n (fun _ -> x)
@@ -458,6 +447,7 @@ let rec exists2 f xs ys =
     | x, y when x = y -> f (head xs) (head ys) || exists2 f (tail xs) (tail ys)
     | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
+// TODO: Optimize this
 let unzip xs =
     foldBack (fun (x, y) (lacc, racc) -> cons x lacc, cons y racc) xs (ResizeList.Empty, ResizeList.Empty)
 
@@ -473,7 +463,7 @@ let zip3 xs ys zs =
 let sortWith (comparison: 'T -> 'T -> int) (xs: 'T list): 'T list =
     let values = ResizeArray(xs)
     values.Sort(System.Comparison<_>(comparison)) // should be a stable sort in JS
-    values |> newList |> reverseInPlace
+    values |> ofResizeArrayInPlace
 
 let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T list =
     sortWith (fun x y -> comparer.Compare(x, y)) xs
@@ -545,8 +535,11 @@ let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
         let startIndex = if startIndex < 0 then 0 else startIndex
         let endIndex = if endIndex >= xs.Length then xs.Length - 1 else endIndex
         // take (endIndex - startIndex + 1) (skip startIndex xs)
-        let values = ResizeArray(endIndex - startIndex + 1)
-        for i = endIndex downto startIndex do values.Add(xs.[i])
+        let values = allocate (endIndex - startIndex + 1)
+        let mutable j = 0
+        for i = endIndex downto startIndex do
+            values.[j] <- xs.[i]
+            j <- j + 1
         values |> newList
 
 let splitAt index (xs: 'T list) =
@@ -567,6 +560,7 @@ let exactlyOne (xs: 'T list) =
     | 0 -> invalidArg "list" SR.inputSequenceEmpty
     | _ -> invalidArg "list" SR.inputSequenceTooLong
 
+// TODO: Optimize this
 let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>): ('Key * 'T list) list =
     let dict = System.Collections.Generic.Dictionary<'Key, 'T list>(eq)
     let mutable keys = ResizeList.Empty
@@ -579,7 +573,7 @@ let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collect
             dict.Add(key, cons v ResizeList.Empty)
             keys <- cons key keys )
     let mutable result = ResizeList.Empty
-    keys |> iterate (fun key -> result <- cons (key, reverseInPlace dict.[key]) result)
+    keys |> iterate (fun key -> result <- cons (key, dict.[key].ReverseInPlace()) result)
     result
 
 let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>) =
