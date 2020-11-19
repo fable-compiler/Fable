@@ -447,6 +447,12 @@ let tests =
         ("1".GetHashCode(), "1".GetHashCode()) ||> equal
         ("2".GetHashCode(), "1".GetHashCode()) ||> notEqual
 
+    // This is going to give different results in .NET and JS
+    // Just check no exception is thrown
+    testCase "hash works with JS objects" <| fun () -> // See #2281
+        let _ = obj () |> hash
+        ()
+
     testCase "hash with arrays works" <| fun () ->
         (hash [|1; 2|], hash [|1; 2|]) ||> equal
         (hash [|2; 1|], hash [|1; 2|]) ||> notEqual

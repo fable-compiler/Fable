@@ -270,8 +270,8 @@ export function structuralHash<T>(x: T): number {
       } else if (x instanceof Date) {
         return x.getTime();
       } else if (Object.getPrototypeOf(x).constructor === Object) {
-        // TODO: check call-stack to prevernt cyclic objects?
-        const hashes = Object.values(self).map((v) => structuralHash(v));
+        // TODO: check call-stack to prevent cyclic objects?
+        const hashes = Object.values(x).map((v) => structuralHash(v));
         return combineHashCodes(hashes);
       } else {
         return stringHash(String(x));
