@@ -121,23 +121,28 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             let! fable = makeFableState (Initialized fable) otherFSharpOptions
             let (parseResults, parsingTime) = measureTime (fun () ->
                 fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
-            let (res, fableTransformTime) = measureTime (fun () ->
-                fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME,
-                                                typedArrays = Array.contains "--typedArrays" fableOptions,
-                                                typescript = Array.contains "--typescript" fableOptions)) ()
-            // Print Babel AST
-            let writer = new SourceWriter()
-            do! fable.Manager.PrintBabelAst(res, writer)
-            let jsCode = writer.Result
-            let babelTime = 0.
+
+            let! jsCode, errors, fableTransformTime = async {
+                if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
+                    return "", parseResults.Errors, 0.
+                else
+                    let (res, fableTransformTime) = measureTime (fun () ->
+                        fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME,
+                                                        typedArrays = Array.contains "--typedArrays" fableOptions,
+                                                        typescript = Array.contains "--typescript" fableOptions)) ()
+                    // Print Babel AST
+                    let writer = new SourceWriter()
+                    do! fable.Manager.PrintBabelAst(res, writer)
+                    let jsCode = writer.Result
+
+                    return jsCode, Array.append parseResults.Errors res.FableErrors, fableTransformTime
+            }
 
             let stats : CompileStats =
                 { FCS_checker = fable.LoadTime
                   FCS_parsing = parsingTime
-                  Fable_transform = fableTransformTime
-                  Babel_generation = babelTime }
+                  Fable_transform = fableTransformTime }
 
-            let errors = Array.concat [parseResults.Errors; res.FableErrors]
             CompilationFinished (jsCode, errors, stats) |> state.Worker.Post
         with er ->
             JS.console.error er

@@ -20,8 +20,7 @@ type WorkerRequest =
 type CompileStats =
     { FCS_checker : float
       FCS_parsing : float
-      Fable_transform : float
-      Babel_generation : float }
+      Fable_transform : float }
 
 type WorkerAnswer =
     | Loaded of version: string
