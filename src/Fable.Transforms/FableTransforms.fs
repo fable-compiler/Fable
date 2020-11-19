@@ -429,6 +429,11 @@ module private Transforms =
 
     let uncurryReceivedArgs (_: Compiler) e =
         match e with
+        // TODO: This breaks cases when we actually need to import a curried function
+        // // Sometimes users type imports as lambdas but if they come from JS they're not curried
+        // | ExprTypeAs(NestedLambdaType(argTypes, retType), (Import(info, t, r) as e))
+        //             when not info.IsCompilerGenerated && List.isMultiple argTypes ->
+        //     Curry(e, List.length argTypes, t, r)
         | Lambda(arg, body, name) ->
             let body = uncurryIdentsAndReplaceInBody [arg] body
             Lambda(arg, body, name)

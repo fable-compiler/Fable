@@ -220,6 +220,7 @@ module AST =
     open Fable.AST.Fable
 
     let inline (|ExprType|) (e: Expr) = e.Type
+    let inline (|ExprTypeAs|) (e: Expr) = e.Type, e
     let inline (|IdentType|) (id: Ident) = id.Type
 
     let (|NestedLambdaType|_|) t =

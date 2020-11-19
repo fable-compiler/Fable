@@ -28,7 +28,22 @@ type FooOptional =
     abstract Foo3: x: int * y: string -> int
 
 let square: int -> int = JsInterop.importMember "./js/1foo.js"
-// let add: int -> int -> int = JsInterop.importMember "./js/1foo.js"
+// let addWithSurprise: int -> int -> int = JsInterop.importMember "./js/1foo.js"
+let inline add (x: int) (y: int): int = JsInterop.import "addWithSurprise" "../../tests/Main/js/1foo.js "
+
+type Adder = delegate of int * int -> int
+
+let addWithDelegate (adder: Adder) (arg1: int) (arg2: int): int =
+    adder.Invoke(arg1, arg2)
+
+let inline addWithImported (importMember: string) (importPath: string) (arg1: int) (arg2: int): int =
+    addWithDelegate (JsInterop.import importMember importPath) arg1 arg2
+
+let addWithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
+    adder arg1 arg2
+
+let inline addWithImported2 (importMember: string) (importPath: string) (arg1: int) (arg2: int): int =
+    addWithLambda (JsInterop.import importMember importPath) arg1 arg2
 
 [<Import("MyJsClass", from="./js/1foo.js")>]
 [<AbstractClass>]
@@ -40,9 +55,6 @@ type MyJsClass(x: int) =
 type MyFSharpClass() =
     inherit MyJsClass(3)
     override _.bar() = 4
-
-let inline ofImport<'P> (importMember: string) (importPath: string) =
-    JsInterop.import importMember importPath
 #endif
 
 let tests =
@@ -158,14 +170,17 @@ let tests =
     testCase "Importing curried functions via `importMember` without naming arguments works" <| fun () -> // See #1185
         square 2 |> equal 4
 
-    // TODO: Importing like `let add: int->int->int = import ...` doesn't work in Fable 2
-    // Fix it or leave the warning as it's now?
-    // testCase "Importing curried functions with multiple arguments via `importMember` without naming arguments works" <| fun () ->
-    //     add 40 2 |> equal 42
+    // We can try to fix this (see commented code in FableTransforms.uncurryReceivedArgs) but then we break
+    // cases when the function is actually curried (see test: Import with curried signatures works)
+    // testCase "Importing functions as curried lambdas works" <| fun () ->
+    //     addWithSurprise 40 2 |> equal 45
 
     testCase "ofImport should inline properly" <| fun () ->
-        let f = ofImport "add4" "./js/1foo.js"
-        f 5 |> equal 9
+        addWithImported "addWithSurprise" "../../tests/Main/js/1foo.js" 8 9 |> equal 20
+        addWithImported2 "addWithSurprise" "../../tests/Main/js/1foo.js" 4 5 |> equal 12
+
+    testCase "Inline import expressions work" <| fun () -> // See #2280
+        add 3 2 |> equal 8
     #endif
 
     testCase "Module mutable values work" <| fun () -> // See #986

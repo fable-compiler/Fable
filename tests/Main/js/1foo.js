@@ -18,6 +18,10 @@ export function add4(x) {
     return x + 4;
 }
 
+export function addWithSurprise(x, y) {
+    return x + y + 3;
+}
+
 export class MyClass {
     constructor(v) {
         this.__value = typeof v === "string" ? v : "haha";

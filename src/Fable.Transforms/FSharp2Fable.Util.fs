@@ -1398,7 +1398,7 @@ module Util =
             | None, _ -> None
         | _ -> None
 
-    let inlineExpr (com: IFableCompiler) (ctx: Context) r (genArgs: Lazy<_>) callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee (info: Fable.CallInfo) (memb: FSharpMemberOrFunctionOrValue) =
         let rec foldArgs acc = function
             | argIdent::restArgIdents, argExpr::restArgExprs ->
                 foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
@@ -1415,8 +1415,8 @@ module Util =
         | _ ->
             let args: Fable.Expr list =
                 match callee with
-                | Some c -> c::args
-                | None -> args
+                | Some c -> c::info.Args
+                | None -> info.Args
 
             let inExpr = com.GetInlineExpr(memb)
 
@@ -1442,12 +1442,17 @@ module Util =
                                                 FromFile = fromFile
                                                 FromRange = fromRange }::ctx.InlinePath }
 
-            (com.Transform(ctx, inExpr.Body), bindings)
-            ||> List.fold (fun body binding -> Fable.Let([binding], body))
+            match com.Transform(ctx, inExpr.Body) with
+            // If this is an import expression, apply the arguments, see #2280
+            | Fable.Import(importInfo, _, r) as importExpr when not importInfo.IsCompilerGenerated ->
+                if List.isEmpty info.Args then importExpr
+                else makeCall r t info importExpr
+            | body ->
+                List.fold (fun body binding -> Fable.Let([binding], body)) body bindings
 
-    let (|Inlined|_|) (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue) =
+    let (|Inlined|_|) (com: IFableCompiler) ctx r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
         if isInline memb
-        then inlineExpr com ctx r genArgs callee args memb |> Some
+        then inlineExpr com ctx r t genArgs callee info memb |> Some
         else None
 
     /// Removes optional arguments set to None in tail position and calls the injector if necessary
@@ -1479,11 +1484,19 @@ module Util =
         | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ genArgs callInfo replaced -> replaced
-        | Inlined com ctx r genArgs callee callInfo.Args expr, _ -> expr
+        | Inlined com ctx r typ genArgs callee callInfo expr, _ -> expr
 
         | Try (tryGetIdentFromScope ctx r) funcExpr, Some entity ->
             if isModuleValueForCalls entity memb then funcExpr
             else makeCall r typ callInfo funcExpr
+
+        | _, Some entity when entity.IsDelegate ->
+            match callInfo.ThisArg, memb.DisplayName with
+            | Some callee, "Invoke" ->
+                let callInfo = { callInfo with ThisArg = None }
+                makeCall r typ callInfo callee
+            | _ -> "Only Invoke is supported in delegates"
+                   |> addErrorAndReturnNull com ctx.InlinePath r
 
         // Check if this is an interface or abstract/overriden method
         | _, Some entity when entity.IsInterface
