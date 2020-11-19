@@ -1,3 +1,12 @@
+### 3.0.0-nagareyama-rc-008
+
+* Fix FSharpType.IsTuple for array of tuples @kerams
+* In watch mode, recompile all files if F# failed previously
+* Fix #2281: Hashing JS pojos @inosik
+* Fix #2280: Inlined imports
+* Fix #2278: Optimize `createObj`
+* Fix #2276: Formatting Decimals
+
 ### 3.0.0-nagareyama-rc-007
 
 * Always lower case ToString
