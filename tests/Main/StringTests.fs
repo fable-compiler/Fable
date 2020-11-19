@@ -279,7 +279,7 @@ let tests =
           sprintf "%5d" -5L |> equal "   -5"
           sprintf "%- 4i" 5 |> equal " 5  "
 
-      testCase "String.Format combingin padding and zeroes pattern works" <| fun () ->
+      testCase "String.Format combining padding and zeroes pattern works" <| fun () ->
           String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
           String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
           String.Format("{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
@@ -301,6 +301,10 @@ let tests =
       testCase "String.Format {0:x} with precision works" <| fun () ->
             String.Format("#{0:X3}", 0xC149D) |> equal "#C149D"
             String.Format("#{0:X6}", 0xC149D) |> equal "#0C149D"
+
+      testCase "ToString formatted works with decimals" <| fun () -> // See #2276
+          let decimal = 78.6M
+          decimal.ToString("0.000") |> equal "78.600"
 
       testCase "Printf works with generic argument" <| fun () ->
           spr "bar %s" "a" |> equal "bar a"
