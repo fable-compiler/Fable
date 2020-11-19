@@ -874,12 +874,26 @@ module Util =
         com.GetImportExpr(ctx, selector, path)
         |> getParts parts
 
-    let transformCast (com: IBabelCompiler) (ctx: Context) t e: Expression =
-        match t with
+    let transformCast (com: IBabelCompiler) (ctx: Context) t tag e: Expression =
+        // HACK: Try to optimize some patterns after FableTransforms
+        let optimized =
+            match tag with
+            | Some (Naming.StartsWith "optimizable:" optimization) ->
+                match optimization, e with
+                | "pojo", Fable.Call(_,info,_,_) ->
+                    match info.Args with
+                    | keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
+                    | keyValueList::_ -> Replacements.makePojo com None keyValueList
+                    | _ -> None
+                | _ -> None
+            | _ -> None
+
+        match optimized, t with
+        | Some e, _ -> com.TransformAsExpr(ctx, e)
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
-        | Fable.DeclaredType(ent,[_]) ->
+        | None, Fable.DeclaredType(ent,[_]) ->
             match ent.FullName, e with
             | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
@@ -1094,21 +1108,12 @@ module Util =
         |> emitExpression range macro
 
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
-        let optimized =
-            match callee, callInfo.ThisArg, callInfo.Args with
-            // HACK: Try to optimize keyValueList after the FableTransforms
-            | Fable.Import({ Selector = "keyValueList"; Path = path },_,_), None, keyValueList::caseRule::_
-                when path.EndsWith("/MapUtil.js") ->
-                Replacements.makePojo com caseRule keyValueList |> Option.map (transformAsExpr com ctx)
-            | _ -> None
-
-        optimized |> Option.defaultWith (fun () ->
-            let callee = com.TransformAsExpr(ctx, callee)
-            let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
-            match callInfo.ThisArg with
-            | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-            | None when callInfo.IsJsConstructor -> NewExpression(callee, List.toArray args, ?loc=range) :> Expression
-            | None -> callFunction range callee args)
+        let callee = com.TransformAsExpr(ctx, callee)
+        let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
+        match callInfo.ThisArg with
+        | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
+        | None when callInfo.IsJsConstructor -> NewExpression(callee, List.toArray args, ?loc=range) :> Expression
+        | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx false args with
@@ -1480,7 +1485,7 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.TypeCast(e,t,_) -> transformCast com ctx t e
+        | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
 
         | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
 
@@ -1553,8 +1558,8 @@ module Util =
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
-        | Fable.TypeCast(e, t, _) ->
-            [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
+        | Fable.TypeCast(e, t, tag) ->
+            [|transformCast com ctx t tag e |> resolveExpr t returnStrategy|]
 
         | Fable.Curry(e, arity, t, r) ->
             [|transformCurry com ctx r e arity |> resolveExpr t returnStrategy|]

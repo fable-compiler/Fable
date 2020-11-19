@@ -58,6 +58,9 @@ module Helpers =
                 |> Option.defaultValue t
             | t -> t)
 
+    let asOptimizable optimization e =
+        TypeCast(e, e.Type, Some("optimizable:" + optimization))
+
     let objValue (k, v): MemberDecl =
         {
             Name = k
@@ -933,28 +936,30 @@ let makePojo (com: Compiler) caseRule keyValueList =
     //             | _ -> None
     //         else findKeyValueList prevScope identName
 
-    match caseRule with
-    | Value(NumberConstant(rule, _),_)
-    | Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_) -> Some rule
-    | _ -> None
-    |> Option.bind(fun rule ->
-        let caseRule = enum(int rule)
-        match keyValueList with
-        | ArrayOrListLiteral(kvs,_) -> Some kvs
-        // | MaybeCasted(IdentExpr ident) -> findKeyValueList ctx.Scope ident.Name
+    let caseRule =
+        match caseRule with
+        | Some(Value(NumberConstant(rule, _),_))
+        | Some(Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_)) -> Some rule
         | _ -> None
-        |> Option.bind (fun kvs ->
-            (kvs, Some []) ||> List.foldBack (fun m acc ->
-                match acc, m with
-                // Try to get the member key and value at compile time for unions and tuples
-                | Some acc, MaybeCasted(Value(NewUnion(values, uci, ent, _),_)) ->
-                    let uci = com.GetEntity(ent).UnionCases |> List.item uci
-                    let name = defaultArg uci.CompiledName uci.Name
-                    makeObjMember caseRule name values::acc |> Some
-                | Some acc, Value(NewTuple((StringConst name)::values),_) ->
-                    // Don't change the case for tuples in disguise
-                    makeObjMember Core.CaseRules.None name values::acc |> Some
-                | _ -> None)))
+        |> Option.map (fun rule -> enum(int rule))
+        |> Option.defaultValue Fable.Core.CaseRules.None
+
+    match keyValueList with
+    | ArrayOrListLiteral(kvs,_) -> Some kvs
+    // | MaybeCasted(IdentExpr ident) -> findKeyValueList ctx.Scope ident.Name
+    | _ -> None
+    |> Option.bind (fun kvs ->
+        (kvs, Some []) ||> List.foldBack (fun m acc ->
+            match acc, m with
+            // Try to get the member key and value at compile time for unions and tuples
+            | Some acc, MaybeCasted(Value(NewUnion(values, uci, ent, _),_)) ->
+                let uci = com.GetEntity(ent).UnionCases |> List.item uci
+                let name = defaultArg uci.CompiledName uci.Name
+                makeObjMember caseRule name values::acc |> Some
+            | Some acc, Value(NewTuple((StringConst name)::values),_) ->
+                // Don't change the case for tuples in disguise
+                makeObjMember Core.CaseRules.None name values::acc |> Some
+            | _ -> None))
     |> Option.map (fun members -> ObjectExpr(members, Any, None))
 
 let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type) list) args =
@@ -1207,11 +1212,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
         | "createObj", _ ->
-            Helper.LibCall(com, "Util", "createObj", Any, args) |> Some
+            Helper.LibCall(com, "Util", "createObj", Any, args) |> asOptimizable "pojo" |> Some
          | "keyValueList", [caseRule; keyValueList] ->
             // makePojo com ctx caseRule keyValueList
             let args = [keyValueList; caseRule]
-            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> Some
+            Helper.LibCall(com, "MapUtil", "keyValueList", Any, args) |> asOptimizable "pojo" |> Some
         | "toPlainJsObj", _ ->
             let emptyObj = ObjectExpr([], t, None)
             Helper.GlobalCall("Object", Any, emptyObj::args, memb="assign", ?loc=r) |> Some
