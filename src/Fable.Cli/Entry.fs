@@ -127,6 +127,7 @@ type Runner =
             argValues "--define" args
             |> List.append [
                 "FABLE_COMPILER"
+                "FABLE_COMPILER_3"
                 if watch then "DEBUG"
             ]
             |> List.distinct

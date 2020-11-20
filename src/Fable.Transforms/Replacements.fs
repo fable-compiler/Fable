@@ -1125,6 +1125,14 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         Helper.LibCall(com, "Reflection", meth, t, args, ?loc=r) |> Some
     | "Fable.Core.Compiler", meth ->
         match meth with
+        | "version" -> makeStrConst Literals.VERSION |> Some
+        | "majorMinorVersion" ->
+            try
+                let m = System.Text.RegularExpressions.Regex.Match(Literals.VERSION, @"^\d+\.\d+")
+                float m.Value |> makeFloatConst |> Some
+            with _ ->
+                "Cannot parse compiler version"
+                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | "debugMode" -> makeBoolConst com.Options.DebugMode |> Some
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | _ -> None

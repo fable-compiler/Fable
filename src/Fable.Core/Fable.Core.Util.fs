@@ -35,5 +35,7 @@ module Reflection =
     let getCaseFields (x: obj): obj[] = jsNative
 
 module Compiler =
+    let version: string = jsNative
+    let majorMinorVersion: float = jsNative
     let debugMode: bool = jsNative
     let typedArrays: bool = jsNative
