@@ -2,6 +2,11 @@
 
 export const foo = "foo";
 
+export default {
+    myKey: "a secret"
+}
+
+
 export function apply(f, x, y) {
     return f(x, y);
 }

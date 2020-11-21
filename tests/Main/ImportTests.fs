@@ -29,7 +29,7 @@ type FooOptional =
 
 let square: int -> int = JsInterop.importMember "./js/1foo.js"
 // let addWithSurprise: int -> int -> int = JsInterop.importMember "./js/1foo.js"
-let inline add (x: int) (y: int): int = JsInterop.import "addWithSurprise" "../../tests/Main/js/1foo.js "
+let inline add (x: int) (y: int): int = JsInterop.import "addWithSurprise" "./js/1foo.js "
 
 type Adder = delegate of int * int -> int
 
@@ -44,6 +44,14 @@ let addWithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
 
 let inline addWithImported2 (importMember: string) (importPath: string) (arg1: int) (arg2: int): int =
     addWithLambda (JsInterop.import importMember importPath) arg1 arg2
+
+module Stylesheet =
+    type IStylesheet =
+        [<Emit "$0[$1]">]
+        abstract Item : className:string -> string
+
+    /// Loads a CSS module and makes the classes within available
+    let inline load (path: string) = JsInterop.importDefault<IStylesheet> path
 
 [<Import("MyJsClass", from="./js/1foo.js")>]
 [<AbstractClass>]
@@ -176,11 +184,15 @@ let tests =
     //     addWithSurprise 40 2 |> equal 45
 
     testCase "ofImport should inline properly" <| fun () ->
-        addWithImported "addWithSurprise" "../../tests/Main/js/1foo.js" 8 9 |> equal 20
-        addWithImported2 "addWithSurprise" "../../tests/Main/js/1foo.js" 4 5 |> equal 12
+        addWithImported "addWithSurprise" "./js/1foo.js" 8 9 |> equal 20
+        addWithImported2 "addWithSurprise" "./js/1foo.js" 4 5 |> equal 12
 
     testCase "Inline import expressions work" <| fun () -> // See #2280
         add 3 2 |> equal 8
+
+    testCase "Inline import expressions can absorb arguments" <| fun _ -> // See #2284
+        let stylesheet = Stylesheet.load "./js/1foo.js"
+        stylesheet.["myKey"] |> equal "a secret"
     #endif
 
     testCase "Module mutable values work" <| fun () -> // See #986

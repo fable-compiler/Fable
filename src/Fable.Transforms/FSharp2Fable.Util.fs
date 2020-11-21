@@ -1445,7 +1445,14 @@ module Util =
             match com.Transform(ctx, inExpr.Body) with
             // If this is an import expression, apply the arguments, see #2280
             | Fable.Import(importInfo, _, r) as importExpr when not importInfo.IsCompilerGenerated ->
-                if List.isEmpty info.Args then importExpr
+                // Check if import has absorbed the arguments, see #2284
+                let args =
+                    let path = importInfo.Path
+                    match importInfo.Selector, info.Args with
+                    | sel, (StringConst selArg)::(StringConst pathArg)::args when sel = selArg && path = pathArg -> args
+                    | ("default"|"*"), (StringConst pathArg)::args when path = pathArg -> args
+                    | _, args -> args
+                if List.isEmpty args then importExpr
                 else makeCall r t info importExpr
             | body ->
                 List.fold (fun body binding -> Fable.Let([binding], body)) body bindings

@@ -347,7 +347,10 @@ type State =
       DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
       Watcher: FsWatcher option
       TestInfo: TestInfo option }
-    member this.GetOrAddDeduplicateTargetDir importDir addTargetDir =
+    member this.GetOrAddDeduplicateTargetDir (importDir: string) addTargetDir =
+        // importDir must be trimmed and normalized by now, but lower it just in case
+        // as some OS use case insensitive paths
+        let importDir = importDir.ToLower()
         this.DeduplicateDic.GetOrAdd(importDir, fun _ ->
             set this.DeduplicateDic.Values
             |> addTargetDir)
