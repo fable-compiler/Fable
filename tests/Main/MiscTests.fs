@@ -387,6 +387,7 @@ type Order =
         customer : string<customerId>
         quantity : int<kg>
     }
+type OrderId = Guid<orderId>
 
 let tests =
   testList "Miscellaneous" [
@@ -506,6 +507,10 @@ let tests =
         lookupById orders order.id
         |> Option.map (fun o -> UMX.untag o.quantity)
         |> equal (Some 50)
+
+        let orderId:OrderId = % Guid.NewGuid()
+        % orderId |> notEqual (Guid.NewGuid())
+
 
     testCase "FSharp.UMX: reflection info" <| fun () ->
         let fields = Reflection.FSharpType.GetRecordFields typeof<Order>
