@@ -175,7 +175,7 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * Cra
                 dllRefs, path::srcFiles
             | _ -> dllRefs, srcFiles)
 
-    let coreDllDir = IO.Path.GetDirectoryName(typeof<System.Array>.Assembly.Location) |> Path.normalizePath
+    let coreDllDir = IO.Path.GetDirectoryName(typeof<Array>.Assembly.Location) |> Path.normalizePath
     let fsharpCoreDll = typeof<obj list>.Assembly.Location |> Path.normalizePath
 
     let coreDlls =
@@ -433,7 +433,7 @@ let createFableDir (opts: CrackerOptions) =
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
     let newInfo =
         Map [
-            "version", Fable.Literals.VERSION
+            "version", Literals.VERSION
             "define", opts.FableOptions.Define |> List.sort |> String.concat ","
             "typedArrays", opts.FableOptions.TypedArrays.ToString()
             "clampByteArrays", opts.FableOptions.ClampByteArrays.ToString()

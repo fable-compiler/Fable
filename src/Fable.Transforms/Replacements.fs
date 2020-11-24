@@ -268,14 +268,13 @@ let (|IEnumerable|IEqualityComparer|Other|) = function
         | _ -> Other
     | _ -> Other
 
-let (|NewAnonymousRecord|_|) e =
-    let rec inner bindings = function
-        // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
-        | Let(newBindings, body) -> inner (bindings @ newBindings) body
-        | Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r) ->
-            Some(List.rev bindings, exprs, fieldNames, genArgs, r)
-        | _ -> None
-    inner [] e
+let (|NewAnonymousRecord|_|) = function
+    // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
+    | NestedRevLets(bindings, Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r)) ->
+        Some(List.rev bindings, exprs, fieldNames, genArgs, r)
+    | Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r) ->
+        Some([], exprs, fieldNames, genArgs, r)
+    | _ -> None
 
 let coreModFor = function
     | BclGuid -> "Guid"
@@ -711,6 +710,10 @@ let identityHashMethod (com: ICompiler) = function
 
 let structuralHashMethod (com: ICompiler) = function
     | MetaType -> "Reflection", "getHashCode"
+    | Builtin (BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
+    | Builtin (BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
+    | Builtin (FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
+        "Util", "structuralHash"
     | DeclaredType(ent, _) ->
         let ent = com.GetEntity(ent)
         if not ent.IsInterface then getEntityHashMethod ent

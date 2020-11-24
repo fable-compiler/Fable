@@ -118,6 +118,7 @@ type Project(checkResults: FSharpCheckProjectResults,
         match assemblies with
         | Some assemblies -> assemblies
         | None -> Assemblies(getPlugin, checkResults)
+//    do printfn "MEMORY %i" (System.GC.GetTotalMemory(true))
 
     let inlineExprs = ConcurrentDictionary<string, InlineExpr>()
 

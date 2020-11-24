@@ -146,6 +146,8 @@ type FsEnt(ent: FSharpEntity) =
     static member Ref (ent: FSharpEntity): Fable.EntityRef =
         let path =
             match ent.Assembly.FileName with
+            // When compiling with netcoreapp target, netstandard only contains redirects
+            // Find the actual assembly name from the entity qualified name
             | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
                 ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
             | Some asmPath -> Path.normalizePath asmPath |> Fable.AssemblyPath
@@ -1450,7 +1452,7 @@ module Util =
                 if List.isEmpty args then importExpr
                 else makeCall r t info importExpr
             | body ->
-                List.fold (fun body binding -> Fable.Let([binding], body)) body bindings
+                List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
     let (|Inlined|_|) (com: IFableCompiler) ctx r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
         if isInline memb

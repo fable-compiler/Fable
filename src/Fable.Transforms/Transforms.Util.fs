@@ -291,6 +291,14 @@ module AST =
             |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type), r))
         | _ -> uncurryLambdaInner None [] arity expr
 
+    let (|NestedRevLets|_|) expr =
+        let rec inner bindings = function
+            | Let(i,v, body) -> inner ((i,v)::bindings) body
+            | body -> bindings, body
+        match expr with
+        | Let(i, v, body) -> inner [i, v] body |> Some
+        | _ -> None
+
     let (|MaybeCasted|) = function
         | TypeCast(e,_,_) -> e
         | e -> e

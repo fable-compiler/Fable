@@ -63,9 +63,10 @@ let visit f e =
         | UnionField _ | ByKey(FieldKey _) -> Get(f e, kind, t, r)
         | ByKey(ExprKey e2) -> Get(f e, ByKey(ExprKey(f e2)), t, r)
     | Sequential exprs -> Sequential(List.map f exprs)
-    | Let(bs, body) ->
+    | Let(ident, value, body) -> Let(ident, f value, f body)
+    | LetRec(bs, body) ->
         let bs = bs |> List.map (fun (i,e) -> i, f e)
-        Let(bs, f body)
+        LetRec(bs, f body)
     | IfThenElse(cond, thenExpr, elseExpr, r) ->
         IfThenElse(f cond, f thenExpr, f elseExpr, r)
     | Set(e, kind, v, r) ->
@@ -134,7 +135,8 @@ let getSubExpressions = function
         | UnionField _ | ByKey(FieldKey _) -> [e]
         | ByKey(ExprKey e2) -> [e; e2]
     | Sequential exprs -> exprs
-    | Let(bs, body) -> (List.map snd bs) @ [body]
+    | Let(_, value, body) -> [value; body]
+    | LetRec(bs, body) -> (List.map snd bs) @ [body]
     | IfThenElse(cond, thenExpr, elseExpr, _) -> [cond; thenExpr; elseExpr]
     | Set(e, kind, v, _) ->
         match kind with
@@ -167,6 +169,23 @@ let isIdentUsed identName expr =
         | IdentExpr i -> i.Name = identName
         | _ -> false)
 
+let isIdentCaptured identName expr =
+    let rec loop isClosure exprs =
+        match exprs with
+        | [] -> false
+        | expr::restExprs ->
+            match expr with
+            | IdentExpr i when i.Name = identName -> isClosure
+            | Lambda(_,body,_) -> loop true [body] || loop isClosure restExprs
+            | Delegate(_,body,_) -> loop true [body] || loop isClosure restExprs
+            | ObjectExpr(members, _, baseCall) ->
+                let memberExprs = members |> List.map (fun m -> m.Body)
+                loop true memberExprs || loop isClosure (Option.toList baseCall @ restExprs)
+            | e ->
+                let sub = getSubExpressions e
+                loop isClosure (sub @ restExprs)
+    loop false [expr]
+
 let replaceValues replacements expr =
     if Map.isEmpty replacements
     then expr
@@ -196,9 +215,24 @@ let countReferences limit identName body =
         | _ -> false) |> ignore
     count
 
+let noSideEffectBeforeIdent identName exprs =
+    exprs
+    |> List.takeWhile (function
+        | IdentExpr i -> i.Name <> identName
+        | _ -> true)
+    |> List.forall (canHaveSideEffects >> not)
+
 let canInlineArg identName value body =
-    not(canHaveSideEffects value)
-    && countReferences 1 identName body <= 1
+    (not(canHaveSideEffects value) && countReferences 1 identName body <= 1)
+     || ((match body with
+          | NestedApply(callee, args, _, _) -> callee::args |> noSideEffectBeforeIdent identName
+          | Call(e1, info, _, _) -> e1 :: (Option.toList info.ThisArg) @ info.Args |> noSideEffectBeforeIdent identName
+          | Operation(Binary(_, left, right), _, _) -> [left; right] |> noSideEffectBeforeIdent identName
+          | Operation(Logical(_, left, right), _, _) -> [left; right] |> noSideEffectBeforeIdent identName
+          | _ -> false)
+        && not(isIdentCaptured identName body)
+        // Make sure is at least referenced once so the expression is not erased
+        && countReferences 1 identName body = 1)
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -208,24 +242,15 @@ module private Transforms =
 
     let (|FieldType|) (fi: Field) = fi.FieldType
 
-    let lambdaBetaReduction (com: Compiler) e =
-        // Sometimes the F# compiler creates a lot of binding closures, as with printfn
-        let (|NestedLetsAndLambdas|_|) expr =
-            let rec inner accBindings accArgs body name =
-                match body with
-                | Lambda(arg, body, None) ->
-                    inner accBindings (arg::accArgs) body name
-                | Let(bindings, body) ->
-                    inner (accBindings @ bindings) accArgs body name
-                | _ when not(List.isEmpty accArgs) ->
-                    Some(List.rev accArgs, Let(accBindings, body), name)
-                | _ -> None
-            match expr with
-            | Let(bindings, body) ->
-                inner bindings [] body None
-            | Lambda(arg, body, name) ->
-                inner [] [arg] body name
-            | _ -> None
+    let (|ImmediatelyApplicable|_|) = function
+        | Lambda(arg, body, _) -> Some(arg, body)
+        // If the lambda is immediately applied we don't need the closures
+        | NestedRevLets(bindings, Lambda(arg, body, _)) ->
+            let body = List.fold (fun body (i,v) -> Let(i, v, body)) body bindings
+            Some(arg, body)
+        | _ -> None
+
+    let lambdaBetaReduction (_com: Compiler) e =
         let applyArgs (args: Ident list) argExprs body =
             let bindings, replacements =
                 (([], Map.empty), args, argExprs)
@@ -235,28 +260,26 @@ module private Transforms =
                     else (ident, expr)::bindings, replacements)
             match bindings with
             | [] -> replaceValues replacements body
-            | bindings -> Let(List.rev bindings, replaceValues replacements body)
+            | bindings ->
+                let body = replaceValues replacements body
+                bindings |> List.fold (fun body (i, v) -> Let(i, v, body)) body
         match e with
         // TODO: Other binary operations and numeric types, also recursive?
         | Operation(Binary(AST.BinaryPlus, Value(StringConstant str1, r1), Value(StringConstant str2, r2)),_,_) ->
             Value(StringConstant(str1 + str2), addRanges [r1; r2])
         | Call(Delegate(args, body, _), info, _, _) when List.sameLength args info.Args ->
             applyArgs args info.Args body
-        | NestedApply(NestedLetsAndLambdas(lambdaArgs, body, _) as lambda, argExprs,_,_) ->
-            if List.sameLength lambdaArgs argExprs then
-                applyArgs lambdaArgs argExprs body
-            else
-                // Partial apply
-                match List.length argExprs, lambda with
-                | 1, Lambda(arg, body, _) ->
-                    applyArgs [arg] argExprs body
-                | 2, Lambda(arg1, Lambda(arg2, body,_),_) ->
-                    applyArgs [arg1; arg2] argExprs body
-                | 3, Lambda(arg1, Lambda(arg2, Lambda(arg3, body,_),_),_) ->
-                    applyArgs [arg1; arg2; arg3] argExprs body
-                | 4, Lambda(arg1, Lambda(arg2, Lambda(arg3, Lambda(arg4, body,_),_),_),_) ->
-                    applyArgs [arg1; arg2; arg3; arg4] argExprs body
-                | _ -> e
+        | CurriedApply(applied, argExprs, t, r) ->
+            let rec tryImmediateApplication r t applied argExprs =
+                match argExprs with
+                | [] -> applied
+                | argExpr::restArgs ->
+                    match applied with
+                    | ImmediatelyApplicable(arg, body) ->
+                        let applied = applyArgs [arg] [argExpr] body
+                        tryImmediateApplication r t applied restArgs
+                    | _ -> CurriedApply(applied, argExprs, t, r)
+            tryImmediateApplication r t applied argExprs
         | e -> e
 
     let bindingBetaReduction (com: Compiler) e =
@@ -264,8 +287,7 @@ module private Transforms =
         let isErasingCandidate (ident: Ident) =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
         match e with
-        // Don't try to optimize bindings with multiple ident-value pairs as they can reference each other
-        | Let([ident, value], letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
+        | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             let canEraseBinding =
                 match value with
                 | NestedLambda(_, lambdaBody, _) ->
@@ -393,10 +415,10 @@ module private Transforms =
         let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
-        | Let([ident, NestedLambdaWithSameArity(args, fnBody, _)], letBody) when List.isMultiple args ->
+        | Let(ident, NestedLambdaWithSameArity(args, fnBody, _), letBody) when List.isMultiple args ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
-            Let([ident, Delegate(args, fnBody, None)], letBody)
+            Let(ident, Delegate(args, fnBody, None), letBody)
         // Anonymous lambda immediately applied
         | CurriedApply(NestedLambdaWithSameArity(args, fnBody, Some name), argExprs, t, r)
                         when List.isMultiple args && List.sameLength args argExprs ->
@@ -407,20 +429,21 @@ module private Transforms =
         | e -> e
 
     let propagateUncurryingThroughLets (_: Compiler) = function
-        | Let(identsAndValues, body) ->
-            let identsAndValues, replacements =
-                (identsAndValues, ([], Map.empty)) ||> List.foldBack (fun (id, value) (identsAndValues, replacements) ->
-                    match value with
-                    | Curry(innerExpr, arity,_,_) ->
-                        (id, innerExpr)::identsAndValues, Map.add id.Name arity replacements
-                    | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
-                        (id, Get(innerExpr, OptionValue, t, r))::identsAndValues, Map.add id.Name arity replacements
-                    | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
-                        (id, Value(NewOption(Some(innerExpr),r1),r2))::identsAndValues, Map.add id.Name arity replacements
-                    | _ -> (id, value)::identsAndValues, replacements)
-            if Map.isEmpty replacements
-            then Let(identsAndValues, body)
-            else Let(identsAndValues, curryIdentsInBody replacements body)
+        | Let(ident, value, body) ->
+            let ident, value, arity =
+                match value with
+                | Curry(innerExpr, arity,_,_) ->
+                    ident, innerExpr, Some arity
+                | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
+                    ident, Get(innerExpr, OptionValue, t, r), Some arity
+                | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
+                    ident, Value(NewOption(Some(innerExpr),r1),r2), Some arity
+                | _ -> ident, value, None
+            match arity with
+            | None -> Let(ident, value, body)
+            | Some arity ->
+                let replacements = Map [ident.Name, arity]
+                Let(ident, value, curryIdentsInBody replacements body)
         | e -> e
 
     let uncurryMemberArgs (m: MemberDecl) =
@@ -514,10 +537,12 @@ open Transforms
 
 // ATTENTION: Order of transforms matters
 // TODO: Optimize binary operations with numerical or string literals
-let getTransformations (com: Compiler) =
+let getTransformations (_com: Compiler) =
     [ // First apply beta reduction
       fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       fun com e -> visitFromInsideOut (lambdaBetaReduction com) e
+      // Make an extra binding reduction pass after applying lambdas
+      fun com e -> visitFromInsideOut (bindingBetaReduction com) e
       // Then apply uncurry optimizations
       fun com e -> visitFromInsideOut (uncurryReceivedArgs com) e
       fun com e -> visitFromInsideOut (uncurryInnerFunctions com) e
