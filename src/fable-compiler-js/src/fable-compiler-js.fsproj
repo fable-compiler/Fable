@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../fable-standalone/src/Interfaces.fs" />
-    <Compile Include="../../fable-standalone/src/Metadata.fs" />
     <Compile Include="Platform.fs" />
     <Compile Include="ProjectParser.fs" />
     <Compile Include="app.fs" />

@@ -61,6 +61,7 @@ module Types =
     let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
     let [<Literal>] dictionary = "System.Collections.Generic.Dictionary`2"
     let [<Literal>] idictionary = "System.Collections.Generic.IDictionary`2"
+    let [<Literal>] ireadonlydictionary = "System.Collections.Generic.IReadOnlyDictionary`2"
     let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
     let [<Literal>] iset = "System.Collections.Generic.ISet`1"
     let [<Literal>] keyValuePair = "System.Collections.Generic.KeyValuePair`2"

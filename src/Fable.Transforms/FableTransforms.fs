@@ -527,7 +527,7 @@ let getTransformations (com: Compiler) =
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
     ]
 
-let transformDeclaration transformations (com: Compiler) decl =
+let transformDeclaration transformations (com: Compiler) file decl =
     let transformExpr (com: Compiler) e =
         List.fold (fun e f -> f com e) e transformations
 
@@ -540,7 +540,7 @@ let transformDeclaration transformations (com: Compiler) decl =
         |> ActionDeclaration
 
     | MemberDeclaration m ->
-        com.ApplyMemberDeclarationPlugin(m)
+        com.ApplyMemberDeclarationPlugin(file, m)
         |> uncurryMemberArgs
         |> transformMemberBody com
         |> MemberDeclaration
@@ -573,5 +573,5 @@ let transformDeclaration transformations (com: Compiler) decl =
 
 let transformFile (com: Compiler) (file: File) =
     let transformations = getTransformations com
-    let newDecls = List.map (transformDeclaration transformations com) file.Declarations
+    let newDecls = List.map (transformDeclaration transformations com file) file.Declarations
     File(newDecls, usedRootNames=file.UsedNamesInRootScope)

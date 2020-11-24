@@ -1,6 +1,6 @@
-module Fable.Standalone.Metadata
+module Fable.Metadata
 
-let references_core = [|
+let coreAssemblies = [|
     "Fable.Core"
     "FSharp.Core"
     "mscorlib"

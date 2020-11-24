@@ -3017,6 +3017,7 @@ let private replacedModules =
     "System.Collections.Generic.EqualityComparer`1", bclType
     Types.dictionary, dictionaries
     Types.idictionary, dictionaries
+    Types.ireadonlydictionary, dictionaries
     Types.ienumerableGeneric, enumerables
     Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables

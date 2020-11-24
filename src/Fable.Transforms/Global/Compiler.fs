@@ -93,9 +93,9 @@ module CompilerExt =
                         let helper = com.ToPluginHelper()
                         transform pluginInstance helper input)
 
-        member com.ApplyMemberDeclarationPlugin(decl: Fable.MemberDecl) =
+        member com.ApplyMemberDeclarationPlugin(file: Fable.File, decl: Fable.MemberDecl) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
-                (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, i))
+                (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, file, i))
 
         member com.ApplyMemberCallPlugin(memb: Fable.MemberFunctionOrValue, expr: Fable.Expr) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>

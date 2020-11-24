@@ -2,15 +2,19 @@ namespace rec Fable.AST.Fable
 
 open Fable.AST
 
+type EntityPath =
+    | SourcePath of string
+    | AssemblyPath of string
+    /// Only used to reference entities in core assemblies without a path
+    | CoreAssemblyName of string
+
 type EntityRef =
-    { QualifiedName: string
-      SourcePath: string option }
-    member this.FullName =
-        let fullName =
-            match this.QualifiedName.IndexOf(",") with
-            | i when i > 0 -> this.QualifiedName.[..i-1]
-            | _ -> this.QualifiedName
-        fullName.Replace("+", ".")
+    { FullName: string
+      Path: EntityPath }
+    member this.SourcePath =
+        match this.Path with
+        | SourcePath p -> Some p
+        | AssemblyPath _ | CoreAssemblyName _ -> None
 
 type DeclaredType =
     abstract Entity: EntityRef

@@ -59,7 +59,7 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
             let getBlobUrl name =
                 refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
             let manager = FableInit.init()
-            let references = Array.append Metadata.references_core extraRefs
+            let references = Array.append Fable.Metadata.coreAssemblies extraRefs
             let! reader = getAssemblyReader(getBlobUrl, references) |> Async.AwaitPromise
             let (checker, checkerTime) = measureTime (fun () ->
                 manager.CreateChecker(references, reader, otherFSharpOptions)) ()

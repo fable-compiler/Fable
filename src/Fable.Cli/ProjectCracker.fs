@@ -179,7 +179,7 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * Cra
     let fsharpCoreDll = typeof<obj list>.Assembly.Location |> Path.normalizePath
 
     let coreDlls =
-        Standalone.Metadata.references_core
+        Metadata.coreAssemblies
         |> Array.filter (function
             | "FSharp.Core" | "Fable.Core" -> false
             | _ -> true)
@@ -543,7 +543,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             |> List.toArray
 
         let otherOptions =
-            let coreRefs = HashSet Standalone.Metadata.references_core
+            let coreRefs = HashSet Metadata.coreAssemblies
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
                "WindowsBase"

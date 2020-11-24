@@ -1225,7 +1225,7 @@ type FableCompiler(com: Compiler) =
                 // The entity name is not included in the member unique name for type extensions, see #1667
                 let entRef = FsEnt.Ref ent
                 match entRef.SourcePath with
-                | None -> failwith ("Cannot access source path of %s" + entRef.QualifiedName)
+                | None -> failwith ("Cannot access source path of %s" + entRef.FullName)
                 | Some fileName ->
                     com.AddWatchDependency(fileName)
                     com.GetOrAddInlineExpr(membUniqueName, fun () ->

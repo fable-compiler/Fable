@@ -28,6 +28,10 @@ type PluginHelper =
     abstract GetRootModule: fileName: string -> string
     abstract GetEntity: EntityRef -> Entity
 
+[<System.AttributeUsage(System.AttributeTargets.Assembly)>]
+type ScanForPluginsAttribute() =
+    inherit System.Attribute()
+
 [<AbstractClass>]
 type PluginAttribute() =
     inherit System.Attribute()
@@ -36,5 +40,5 @@ type PluginAttribute() =
 [<AbstractClass>]
 type MemberDeclarationPluginAttribute() =
     inherit PluginAttribute()
-    abstract Transform: PluginHelper * MemberDecl -> MemberDecl
+    abstract Transform: PluginHelper * File * MemberDecl -> MemberDecl
     abstract TransformCall: PluginHelper * member_: MemberFunctionOrValue * expr: Expr -> Expr

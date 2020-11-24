@@ -18,6 +18,7 @@
     <Compile Include="../../Fable.AST/Babel.fs" />
     <Compile Include="../../Fable.AST/Plugins.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
+    <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />
     <Compile Include="../../Fable.Transforms/MonadicTrampoline.fs" />
@@ -34,7 +35,6 @@
     <Compile Include="../../Fable.Transforms/State.fs" />
 
     <Compile Include="Interfaces.fs"/>
-    <Compile Include="Metadata.fs"/>
     <Compile Include="Lexer.fs"/>
     <Compile Include="Main.fs"/>
   </ItemGroup>
