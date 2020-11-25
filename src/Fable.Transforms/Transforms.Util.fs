@@ -61,6 +61,7 @@ module Types =
     let [<Literal>] resizeArray = "System.Collections.Generic.List`1"
     let [<Literal>] dictionary = "System.Collections.Generic.Dictionary`2"
     let [<Literal>] idictionary = "System.Collections.Generic.IDictionary`2"
+    let [<Literal>] ireadonlydictionary = "System.Collections.Generic.IReadOnlyDictionary`2"
     let [<Literal>] hashset = "System.Collections.Generic.HashSet`1"
     let [<Literal>] iset = "System.Collections.Generic.ISet`1"
     let [<Literal>] keyValuePair = "System.Collections.Generic.KeyValuePair`2"
@@ -289,6 +290,14 @@ module AST =
             uncurryLambdaInner None [] arity expr
             |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type), r))
         | _ -> uncurryLambdaInner None [] arity expr
+
+    let (|NestedRevLets|_|) expr =
+        let rec inner bindings = function
+            | Let(i,v, body) -> inner ((i,v)::bindings) body
+            | body -> bindings, body
+        match expr with
+        | Let(i, v, body) -> inner [i, v] body |> Some
+        | _ -> None
 
     let (|MaybeCasted|) = function
         | TypeCast(e,_,_) -> e

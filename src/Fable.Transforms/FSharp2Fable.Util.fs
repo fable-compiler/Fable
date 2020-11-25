@@ -130,14 +130,6 @@ type FsEnt(ent: FSharpEntity) =
     static member IsPublic (ent: FSharpEntity) =
         not ent.Accessibility.IsPrivate
 
-    static member QualifiedName (ent: FSharpEntity): string =
-        let ent = Helpers.nonAbbreviatedDefinition ent
-        match tryArrayFullName ent with
-        | Some fullName -> fullName
-        | None ->
-            try ent.QualifiedName
-            with _ -> ent.LogicalName
-
     static member FullName (ent: FSharpEntity): string =
         let ent = Helpers.nonAbbreviatedDefinition ent
         match tryArrayFullName ent with
@@ -152,16 +144,16 @@ type FsEnt(ent: FSharpEntity) =
             | None -> ent.LogicalName
 
     static member Ref (ent: FSharpEntity): Fable.EntityRef =
-        let sourcePath =
-            if Option.isSome ent.Assembly.FileName
-            then None
-            else Some(FsEnt.SourcePath ent)
-        { QualifiedName = FsEnt.QualifiedName ent
-          SourcePath = sourcePath }
-
-    static member Ref (assemblyEntityQualifiedName: string): Fable.EntityRef =
-        { QualifiedName = assemblyEntityQualifiedName
-          SourcePath = None }
+        let path =
+            match ent.Assembly.FileName with
+            // When compiling with netcoreapp target, netstandard only contains redirects
+            // Find the actual assembly name from the entity qualified name
+            | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
+                ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
+            | Some asmPath -> Path.normalizePath asmPath |> Fable.AssemblyPath
+            | None -> FsEnt.SourcePath ent |> Fable.SourcePath
+        { FullName = FsEnt.FullName ent
+          Path = path }
 
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
@@ -775,11 +767,11 @@ module TypeHelpers =
         dict ["bool`1", Choice1Of2 Fable.Boolean
               "byte`1", Choice1Of2 (Fable.Number UInt8)
               "string`1", Choice1Of2 Fable.String
-              "uint64`1", Choice2Of2 Types.uint64
-              "Guid`1", Choice2Of2 Types.guid
-              "TimeSpan`1", Choice2Of2 Types.timespan
-              "DateTime`1", Choice2Of2 Types.datetime
-              "DateTimeOffset`1", Choice2Of2 Types.datetimeOffset]
+              "uint64`1", Choice2Of2("System.Runtime", Types.uint64)
+              "Guid`1", Choice2Of2("System.Runtime", Types.guid)
+              "TimeSpan`1", Choice2Of2("System.Runtime", Types.timespan)
+              "DateTime`1", Choice2Of2("System.Runtime", Types.datetime)
+              "DateTimeOffset`1", Choice2Of2("System.Runtime", Types.datetimeOffset)]
 
     let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
@@ -808,7 +800,11 @@ module TypeHelpers =
             | Naming.StartsWith "FSharp.UMX." (DicContains fsharpUMX choice) ->
                 match choice with
                 | Choice1Of2 t -> t
-                | Choice2Of2 qualifiedName -> Fable.DeclaredType(FsEnt.Ref qualifiedName, [])
+                | Choice2Of2(dllName, fullName) ->
+                    let r: Fable.EntityRef =
+                        { FullName = fullName
+                          Path = Fable.CoreAssemblyName dllName }
+                    Fable.DeclaredType(r, [])
             | _ ->
                 // Special attributes
                 tdef.Attributes |> tryPickAttribute [
@@ -857,7 +853,7 @@ module TypeHelpers =
         | _ -> ()
     }
 
-    let getArgTypes com (memb: FSharpMemberOrFunctionOrValue) =
+    let getArgTypes _com (memb: FSharpMemberOrFunctionOrValue) =
         // FSharpParameters don't contain the `this` arg
         Seq.concat memb.CurriedParameterGroups
         // The F# compiler "untuples" the args in methods
@@ -878,7 +874,7 @@ module TypeHelpers =
             if t.HasTypeDefinition then Some t.TypeDefinition else None
         else None
 
-    let tryFindMember com (entity: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
+    let tryFindMember _com (entity: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
         let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
                 let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
                 if args1Length = args2Length then
@@ -898,7 +894,7 @@ module TypeHelpers =
                 else false)
         | _ -> None
 
-    let fitsAnonRecordInInterface com (argExprs: Fable.Expr list) fieldNames (interface_: Fable.Entity) =
+    let fitsAnonRecordInInterface _com (argExprs: Fable.Expr list) fieldNames (interface_: Fable.Entity) =
         match interface_ with
         | :? FsEnt as fsEnt ->
             let interface_ = fsEnt.FSharpEntity
@@ -931,7 +927,7 @@ module TypeHelpers =
 
 
 
-    let inline (|FableType|) com (ctx: Context) t = makeType ctx.GenericArgs t
+    let inline (|FableType|) _com (ctx: Context) t = makeType ctx.GenericArgs t
 
 module Identifiers =
     open Helpers
@@ -940,7 +936,7 @@ module Identifiers =
     let putIdentInScope (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) (ident: Fable.Ident) value =
         { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
 
-    let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
+    let makeIdentFrom (_com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
                             ||> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UseNamesInDeclarationScope.Add(sanitizedName) |> ignore
@@ -1153,7 +1149,9 @@ module Util =
             | _ -> false)
 
     let isFromDllRef (ent: Fable.Entity) =
-        Option.isNone ent.Ref.SourcePath
+        match ent.Ref.Path with
+        | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> true
+        | Fable.SourcePath _ -> false
 
     let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
         if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
@@ -1162,8 +1160,7 @@ module Util =
         else entFullName.StartsWith("Fable.Core.")
 
     let isReplacementCandidate (ent: Fable.Entity) =
-        let isFromDllRef = Option.isNone ent.Ref.SourcePath
-        isReplacementCandidatePrivate isFromDllRef ent.FullName
+        isReplacementCandidatePrivate (isFromDllRef ent) ent.FullName
 
     let isReplacementCandidateFrom (ent: FSharpEntity) =
         let isFromDllRef = Option.isSome ent.Assembly.FileName
@@ -1272,7 +1269,7 @@ module Util =
         let entityName = defaultArg ent.TryFullName ""
         entityName + "." + memberName + overloadHash
 
-    let callInstanceMember com r typ (callInfo: Fable.CallInfo)
+    let callInstanceMember _com r typ (callInfo: Fable.CallInfo)
                     (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callInfo, callee =
             match callInfo.ThisArg with
@@ -1455,7 +1452,7 @@ module Util =
                 if List.isEmpty args then importExpr
                 else makeCall r t info importExpr
             | body ->
-                List.fold (fun body binding -> Fable.Let([binding], body)) body bindings
+                List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
     let (|Inlined|_|) (com: IFableCompiler) ctx r t genArgs callee info (memb: FSharpMemberOrFunctionOrValue) =
         if isInline memb

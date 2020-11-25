@@ -175,11 +175,11 @@ let getProjectOptionsFromScript (opts: CrackerOptions): CrackedFsproj list * Cra
                 dllRefs, path::srcFiles
             | _ -> dllRefs, srcFiles)
 
-    let coreDllDir = IO.Path.GetDirectoryName(typeof<System.Array>.Assembly.Location) |> Path.normalizePath
+    let coreDllDir = IO.Path.GetDirectoryName(typeof<Array>.Assembly.Location) |> Path.normalizePath
     let fsharpCoreDll = typeof<obj list>.Assembly.Location |> Path.normalizePath
 
     let coreDlls =
-        Standalone.Metadata.references_core
+        Metadata.coreAssemblies
         |> Array.filter (function
             | "FSharp.Core" | "Fable.Core" -> false
             | _ -> true)
@@ -278,7 +278,7 @@ let private isUsefulOption (opt : string) =
         [ "--define"
           "--nowarn"
           "--warnon"
-          "--warnaserror"
+        //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
         //   "--langversion" // See getBasicCompilerArgs
         ]
         |> List.exists opt.StartsWith
@@ -433,7 +433,7 @@ let createFableDir (opts: CrackerOptions) =
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
     let newInfo =
         Map [
-            "version", Fable.Literals.VERSION
+            "version", Literals.VERSION
             "define", opts.FableOptions.Define |> List.sort |> String.concat ","
             "typedArrays", opts.FableOptions.TypedArrays.ToString()
             "clampByteArrays", opts.FableOptions.ClampByteArrays.ToString()
@@ -543,7 +543,7 @@ let getFullProjectOpts (opts: CrackerOptions) =
             |> List.toArray
 
         let otherOptions =
-            let coreRefs = HashSet Standalone.Metadata.references_core
+            let coreRefs = HashSet Metadata.coreAssemblies
             coreRefs.Add("System.Private.CoreLib") |> ignore
             let ignoredRefs = HashSet [
                "WindowsBase"

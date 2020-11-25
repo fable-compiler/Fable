@@ -1,3 +1,12 @@
+### 3.0.0-nagareyama-rc-009
+
+* Improve lambda beta reduction
+* Fix #1962: Find entities by core assembly name
+* Fix #2283: FABLE_COMPILER_3 constant
+* Fix #2284: Inline import can absorb arguments
+* Fix #2288: Ignore --warnaserror from project references
+* Fix #2291: Default hashing for classes
+
 ### 3.0.0-nagareyama-rc-008
 
 * Fix FSharpType.IsTuple for array of tuples @kerams

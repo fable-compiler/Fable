@@ -2,7 +2,7 @@ module Bench.App
 
 open Bench.Platform
 
-let references = Fable.Standalone.Metadata.references_core
+let references = Fable.Metadata.coreAssemblies
 let metadataPath = "../../../fable-metadata/lib/" // .NET BCL binaries
 
 // // Note: importing babel-core has 30% performance impact on the bench

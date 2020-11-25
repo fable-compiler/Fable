@@ -5,8 +5,8 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../Interfaces.fs" />
-    <Compile Include="../Metadata.fs" />
     <Compile Include="Shared.fs" />
     <Compile Include="Worker.fs" />
     <Content Include="util.js" />

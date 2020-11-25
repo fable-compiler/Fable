@@ -2,15 +2,19 @@ namespace rec Fable.AST.Fable
 
 open Fable.AST
 
+type EntityPath =
+    | SourcePath of string
+    | AssemblyPath of string
+    /// Only used to reference entities in core assemblies without a path
+    | CoreAssemblyName of string
+
 type EntityRef =
-    { QualifiedName: string
-      SourcePath: string option }
-    member this.FullName =
-        let fullName =
-            match this.QualifiedName.IndexOf(",") with
-            | i when i > 0 -> this.QualifiedName.[..i-1]
-            | _ -> this.QualifiedName
-        fullName.Replace("+", ".")
+    { FullName: string
+      Path: EntityPath }
+    member this.SourcePath =
+        match this.Path with
+        | SourcePath p -> Some p
+        | AssemblyPath _ | CoreAssemblyName _ -> None
 
 type DeclaredType =
     abstract Entity: EntityRef
@@ -305,7 +309,8 @@ type Expr =
     | DecisionTreeSuccess of targetIndex: int * boundValues: Expr list * Type
 
     // Getters, setters and bindings
-    | Let of bindings: (Ident * Expr) list * body: Expr
+    | Let of Ident * Expr * body: Expr
+    | LetRec of bindings: (Ident * Expr) list * body: Expr
     | Get of Expr * GetKind * typ: Type * range: SourceLocation option
     | Set of Expr * key: KeyKind option * value: Expr * range: SourceLocation option
 
@@ -335,7 +340,8 @@ type Expr =
         | WhileLoop _
         | ForLoop _-> Unit
         | Sequential exprs -> List.tryLast exprs |> Option.map (fun e -> e.Type) |> Option.defaultValue Unit
-        | Let (_, expr)
+        | Let (_, _, expr)
+        | LetRec (_, expr)
         | TryCatch (expr, _, _, _)
         | IfThenElse (_, expr, _, _)
         | DecisionTree (expr, _) -> expr.Type
@@ -347,6 +353,7 @@ type Expr =
         | ObjectExpr _
         | Sequential _
         | Let _
+        | LetRec _
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
         | Lambda (_, e, _)

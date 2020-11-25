@@ -18,7 +18,7 @@ let getVersion(): string = importMember "./util.js"
 let initFable (): Fable.Standalone.IFableManager = import "init" "fable-standalone"
 #endif
 
-let references = Fable.Standalone.Metadata.references_core
+let references = Fable.Metadata.coreAssemblies
 let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)
 
 module Imports =

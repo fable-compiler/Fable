@@ -8,7 +8,7 @@ let getFableLibDir(): string = "../../../../build/fable-library"
 let getVersion(): string = ".next"
 let initFable (): Fable.Standalone.IFableManager = Fable.Standalone.Main.init ()
 
-let references = Fable.Standalone.Metadata.references_core
+let references = Fable.Metadata.coreAssemblies
 let metadataPath = getMetadataDir().TrimEnd('\\', '/') + "/" // .NET BCL binaries (metadata)
 
 module Imports =

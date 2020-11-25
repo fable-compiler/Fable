@@ -1,7 +1,7 @@
 namespace Fable
 
 module Literals =
-    let [<Literal>] VERSION = "3.0.0-nagareyama-rc-008"
+    let [<Literal>] VERSION = "3.0.0-nagareyama-rc-009"
 
 type CompilerOptionsHelper =
     static member DefaultExtension = ".fs.js"
@@ -93,9 +93,9 @@ module CompilerExt =
                         let helper = com.ToPluginHelper()
                         transform pluginInstance helper input)
 
-        member com.ApplyMemberDeclarationPlugin(decl: Fable.MemberDecl) =
+        member com.ApplyMemberDeclarationPlugin(file: Fable.File, decl: Fable.MemberDecl) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>
-                (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, i))
+                (com.Plugins.MemberDeclarationPlugins, decl.Info.Attributes, decl, fun p h i -> p.Transform(h, file, i))
 
         member com.ApplyMemberCallPlugin(memb: Fable.MemberFunctionOrValue, expr: Fable.Expr) =
             com.ApplyPlugin<MemberDeclarationPluginAttribute,_>

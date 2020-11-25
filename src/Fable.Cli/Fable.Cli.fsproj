@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <Version>3.0.0</Version>
-    <PackageVersion>3.0.0-nagareyama-rc-008</PackageVersion>
+    <PackageVersion>3.0.0-nagareyama-rc-009</PackageVersion>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -18,9 +18,6 @@
     <Content Include="..\..\build\fable-library\**\*.js" PackagePath="fable-library\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\fable-standalone\src\Metadata.fs">
-      <Link>Metadata.fs</Link>
-    </Compile>
     <Compile Include="Util.fs" />
     <Compile Include="Contributors.fs" />
     <Compile Include="Globbing.fs" />

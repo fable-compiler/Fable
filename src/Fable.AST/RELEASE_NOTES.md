@@ -1,3 +1,9 @@
+### 3.0.0-nagareyama-rc-001
+
+* Add `Expr.LetRec`
+* Add `ScanForPluginsAttribute`
+* Add `AST.Fable.File` argument to `MemberDeclarationPlugin.Transform`
+
 ### 3.0.0-nagareyama-beta-002
 
 * Add `MemberDecl.ExportDefault`

@@ -67,6 +67,9 @@ type Status =
 | GetSignature
 | Done
 
+type MyClass(v) =
+    member val Value: int = v with get, set
+
 let tests =
   testList "Comparison" [
     testCase "Typed array equality works" <| fun () ->
@@ -397,6 +400,16 @@ let tests =
         isNull s1 |> equal true
         let s2: String = "hello"
         isNull s2 |> equal false
+
+    testCase "Classes must use identity hashing by default" <| fun () -> // See #2291
+        let x = MyClass(5)
+        let y = MyClass(5)
+        let h1 = hash(box x)
+        let h2 = hash(box y)
+        x.Value <- 8
+        let h3 = hash(box x)
+        h1 = h2 |> equal false
+        h1 = h3 |> equal true
 
     testCase "GetHashCode with arrays works" <| fun () ->
         ([|1; 2|].GetHashCode(), [|1; 2|].GetHashCode()) ||> notEqual

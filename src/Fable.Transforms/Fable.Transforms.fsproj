@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Global/Fable.Core.fs" />
+    <Compile Include="Global/Metadata.fs" />
     <Compile Include="Global/Prelude.fs" />
     <Compile Include="Global/Compiler.fs" />
     <Compile Include="MonadicTrampoline.fs" />

@@ -268,14 +268,13 @@ let (|IEnumerable|IEqualityComparer|Other|) = function
         | _ -> Other
     | _ -> Other
 
-let (|NewAnonymousRecord|_|) e =
-    let rec inner bindings = function
-        // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
-        | Let(newBindings, body) -> inner (bindings @ newBindings) body
-        | Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r) ->
-            Some(List.rev bindings, exprs, fieldNames, genArgs, r)
-        | _ -> None
-    inner [] e
+let (|NewAnonymousRecord|_|) = function
+    // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
+    | NestedRevLets(bindings, Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r)) ->
+        Some(List.rev bindings, exprs, fieldNames, genArgs, r)
+    | Value(NewAnonymousRecord(exprs, fieldNames, genArgs), r) ->
+        Some([], exprs, fieldNames, genArgs, r)
+    | _ -> None
 
 let coreModFor = function
     | BclGuid -> "Guid"
@@ -696,34 +695,40 @@ let isCompatibleWithJsComparison = function
 // * `.GetHashCode` called directly defaults to identity hash (for reference types except string) if not implemented.
 // * `LanguagePrimitive.PhysicalHash` creates an identity hash no matter whether GetHashCode is implemented or not.
 
-let getEntityHashMethod (ent: Entity) =
-    if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then "Util", "hashSafe"
-    else "Util", "identityHash"
-
-let identityHashMethod (com: ICompiler) = function
-    | Boolean | Char | String | Number _ | Enum _ | Option _ | Tuple _ | List _
-    | Builtin (BclInt64 | BclUInt64 | BclDecimal | BclBigInt)
-    | Builtin (BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset)
-    | Builtin (FSharpSet _ | FSharpMap _ | FSharpChoice _ | FSharpResult _) ->
-        "Util", "structuralHash"
-    | DeclaredType(ent, _) -> com.GetEntity(ent) |> getEntityHashMethod
-    | _ -> "Util", "identityHash"
-
-let structuralHashMethod (com: ICompiler) = function
-    | MetaType -> "Reflection", "getHashCode"
-    | DeclaredType(ent, _) ->
-        let ent = com.GetEntity(ent)
-        if not ent.IsInterface then getEntityHashMethod ent
-        else "Util", "structuralHash"
-    | _ -> "Util", "structuralHash"
-
 let identityHash com r (arg: Expr) =
-    let moduleName, methodName = identityHashMethod com arg.Type
-    Helper.LibCall(com, moduleName, methodName, Number Int32, [arg], ?loc=r)
+    let methodName =
+        match arg.Type with
+        // These are the same for identity/structural hashing
+        | Char | String | Builtin BclGuid -> "stringHash"
+        | Number _ | Enum _ | Builtin BclTimeSpan -> "numberHash"
+        | List _ -> "safeHash"
+        | Tuple _ -> "arrayHash" // F# tuples must use structural hashing
+        // These are only used for structural hashing
+        // | Array _ -> "arrayHash"
+        // | Builtin (BclDateTime|BclDateTimeOffset) -> "dateHash"
+        // | Builtin (BclInt64|BclUInt64|BclDecimal) -> "fastStructuralHash"
+        | DeclaredType _ -> "safeHash"
+        | _ -> "identityHash"
+    Helper.LibCall(com, "Util", methodName, Number Int32, [arg], ?loc=r)
 
-let structuralHash com r (arg: Expr) =
-    let moduleName, methodName = structuralHashMethod com arg.Type
-    Helper.LibCall(com, moduleName, methodName, Number Int32, [arg], ?loc=r)
+let structuralHash (com: ICompiler) r (arg: Expr) =
+    let methodName =
+        match arg.Type with
+        | Char | String | Builtin BclGuid -> "stringHash"
+        | Number _ | Enum _ | Builtin BclTimeSpan -> "numberHash"
+        | List _ -> "safeHash"
+        // TODO: Get hash functions of the generic arguments
+        // for better performance when using tuples as map keys
+        | Tuple _
+        | Array _ -> "arrayHash"
+        | Builtin (BclDateTime|BclDateTimeOffset) -> "dateHash"
+        | Builtin (BclInt64|BclUInt64|BclDecimal) -> "fastStructuralHash"
+        | DeclaredType(ent, _) ->
+            let ent = com.GetEntity(ent)
+            if not ent.IsInterface then "safeHash"
+            else "structuralHash"
+        | _ -> "structuralHash"
+    Helper.LibCall(com, "Util", methodName, Number Int32, [arg], ?loc=r)
 
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -806,11 +811,8 @@ and makeComparer (com: ICompiler) ctx typArg =
 let makeEqualityComparer (com: ICompiler) ctx typArg =
     let x = makeUniqueIdent ctx typArg "x"
     let y = makeUniqueIdent ctx typArg "y"
-    let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
-    let f = Delegate([x; y], body, None)
-    let moduleName, methodName = structuralHashMethod com typArg
-    objExpr ["Equals", f
-             "GetHashCode", makeImportLib com Any methodName moduleName]
+    objExpr ["Equals",  Delegate([x; y], equals com ctx None true (IdentExpr x) (IdentExpr y), None)
+             "GetHashCode", Delegate([x], structuralHash com None (IdentExpr x), None)]
 
 // TODO: Try to detect at compile-time if the object already implements `Compare`?
 let inline makeComparerFromEqualityComparer e =
@@ -852,9 +854,8 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
 let rec getZero (com: ICompiler) ctx (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
-    | Number _ -> makeIntConst 0
     | Char | String -> makeStrConst "" // TODO: Use null for string?
-    | Builtin BclTimeSpan -> makeIntConst 0
+    | Number _ | Builtin BclTimeSpan -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin (FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
@@ -3017,6 +3018,7 @@ let private replacedModules =
     "System.Collections.Generic.EqualityComparer`1", bclType
     Types.dictionary, dictionaries
     Types.idictionary, dictionaries
+    Types.ireadonlydictionary, dictionaries
     Types.ienumerableGeneric, enumerables
     Types.ienumerable, enumerables
     "System.Collections.Generic.Dictionary`2.ValueCollection", enumerables

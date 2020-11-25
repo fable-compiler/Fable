@@ -456,7 +456,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let value = get None Fable.Any value eventName
             let ctx, ident = putBindingInScope com ctx var value
             let! body = transformExpr com ctx body
-            return Fable.Let([ident, value], body)
+            return Fable.Let(ident, value, body)
 
         | value, body ->
             if isInline var then
@@ -466,7 +466,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let! value = transformExpr com ctx value
                 let ctx, ident = putBindingInScope com ctx var value
                 let! body = transformExpr com ctx body
-                return Fable.Let([ident, value], body)
+                return Fable.Let(ident, value, body)
 
     | BasicPatterns.LetRec(recBindings, body) ->
         // First get a context containing all idents and use it compile the values
@@ -478,7 +478,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! exprs = transformExprList com ctx bindingExprs
         let bindings = List.zip idents exprs
         let! body = transformExpr com ctx body
-        return Fable.Let(bindings, body)
+        match bindings with
+        // If there's only one binding compile as Let to play better with optimizations
+        | [ident, value] -> return Fable.Let(ident, value, body)
+        | bindings -> return Fable.LetRec(bindings, body)
 
     // `argTypes2` is always empty
     | BasicPatterns.TraitCall(sourceTypes, traitName, flags, argTypes, _argTypes2, argExprs) ->
@@ -749,7 +752,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let thisValue = Fable.Value(Fable.ThisValue Fable.Any, None)
             let ctx = { ctx with BoundConstructorThis = Some thisArg }
             let! objExpr = transformObjExpr com ctx objType baseCall overrides otherOverrides
-            return Fable.Let([thisArg, thisValue], objExpr)
+            return Fable.Let(thisArg, thisValue, objExpr)
         | _ -> return! transformObjExpr com ctx objType baseCall overrides otherOverrides
 
     | BasicPatterns.NewObject(memb, genArgs, args) ->
@@ -1225,7 +1228,7 @@ type FableCompiler(com: Compiler) =
                 // The entity name is not included in the member unique name for type extensions, see #1667
                 let entRef = FsEnt.Ref ent
                 match entRef.SourcePath with
-                | None -> failwith ("Cannot access source path of %s" + entRef.QualifiedName)
+                | None -> failwith ("Cannot access source path of %s" + entRef.FullName)
                 | Some fileName ->
                     com.AddWatchDependency(fileName)
                     com.GetOrAddInlineExpr(membUniqueName, fun () ->

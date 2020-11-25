@@ -789,24 +789,23 @@ let tests =
         equal 2. a.Value
 
     // Test ported from https://github.com/fable-compiler/Fable/pull/1336/files
-    testCase "default value attributes works" <| fun _ ->
-        let withDefaultValue = TestTypeWithDefaultValue()
-
-        withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
-        withDefaultValue.IntValue |> equal 0
-
-        withDefaultValue.StringValue |> equal Unchecked.defaultof<string>
-        withDefaultValue.StringValue |> equal null
-
-        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
-        withDefaultValue.ObjValue |> equal null
+//    testCase "default value attributes works" <| fun _ ->
+//        let withDefaultValue = TestTypeWithDefaultValue()
+//
+//        withDefaultValue.IntValue |> equal Unchecked.defaultof<int>
+//        withDefaultValue.IntValue |> equal 0
+//
+//        withDefaultValue.StringValue |> equal Unchecked.defaultof<string>
+//        withDefaultValue.StringValue |> equal null
+//
+//        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
+//        withDefaultValue.ObjValue |> equal null
 
     testCase "Private fields don't conflict with parent classes" <| fun _ -> // See #2070
         let a1 = InfoBClass({ InfoA = { Foo = "foo" }; Bar = "bar" }) :> InfoAClass
         let a2 = a1.WithFoo("foo2")
         a1.Foo |> equal "foo"
         a2.Foo |> equal "foo2"
-
 
     // See #2084
     testCase "Non-mangled interfaces work with object expressions" <| fun _ ->

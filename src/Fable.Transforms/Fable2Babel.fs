@@ -359,7 +359,7 @@ module Annotation =
         | None, Some _ -> decl2
         | None, None -> None
 
-    let getGenericTypeAnnotation com ctx name genParams =
+    let getGenericTypeAnnotation _com _ctx name genParams =
         let typeParamInst = makeTypeParamInst genParams
         GenericTypeAnnotation(Identifier name, ?typeParameters=typeParamInst) :> TypeAnnotationInfo
         |> TypeAnnotation |> Some
@@ -395,7 +395,7 @@ module Annotation =
     let makeGenTypeParamInst com ctx genArgs =
         match genArgs with
         | [] -> None
-        | xs -> genArgs |> List.map (typeAnnotation com ctx)
+        | _  -> genArgs |> List.map (typeAnnotation com ctx)
                         |> List.toArray |> TypeParameterInstantiation |> Some
 
     let makeGenericTypeAnnotation com ctx genArgs id =
@@ -465,7 +465,7 @@ module Annotation =
         | Replacements.FSharpChoice genArgs -> makeImportTypeAnnotation com ctx genArgs "Fable.Core" "FSharpChoice$2"
         | Replacements.FSharpReference genArg -> makeImportTypeAnnotation com ctx [genArg] "Types" "FSharpRef"
 
-    let makeFunctionTypeAnnotation com ctx typ argTypes returnType =
+    let makeFunctionTypeAnnotation com ctx _typ argTypes returnType =
         let funcTypeParams =
             argTypes
             |> List.mapi (fun i argType ->
@@ -509,7 +509,7 @@ module Annotation =
                     | _ -> upcast AnyTypeAnnotation()
                 | None -> upcast AnyTypeAnnotation()
 
-    let makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs =
+    let makeAnonymousRecordTypeAnnotation _com _ctx _fieldNames _genArgs =
          upcast AnyTypeAnnotation() // TODO:
 
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
@@ -548,6 +548,11 @@ module Util =
         | Fable.Delegate(args, body, _) -> Some(args, body)
         | _ -> None
 
+    let (|Lets|_|) = function
+        | Fable.Let(ident, value, body) -> Some([ident, value], body)
+        | Fable.LetRec(bindings, body) -> Some(bindings, body)
+        | _ -> None
+
     let discardUnitArg (args: Fable.Ident list) =
         match args with
         | [] -> []
@@ -568,7 +573,7 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
 
-    type NamedTailCallOpportunity(com: Compiler, ctx, name, args: Fable.Ident list) =
+    type NamedTailCallOpportunity(_com: Compiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
         // TODO: Local unique ident names
@@ -593,7 +598,7 @@ module Util =
         | Fable.Get _ | Fable.Test _ | Fable.TypeCast _ -> false
 
         | Fable.TryCatch _
-        | Fable.Sequential _ | Fable.Let _ | Fable.Set _
+        | Fable.Sequential _ | Fable.Let _ | Fable.LetRec _ | Fable.Set _
         | Fable.ForLoop _ | Fable.WhileLoop _ -> true
 
         | Fable.Emit(i,_,_) -> i.IsJsStatement
@@ -703,7 +708,7 @@ module Util =
     let makeJsObject pairs =
         pairs |> Seq.map (fun (name, value) ->
             let prop, computed = memberFromName name
-            ObjectProperty(prop, value) :> ObjectMember)
+            ObjectProperty(prop, value, computed_=computed) :> ObjectMember)
         |> Seq.toArray
         |> ObjectExpression :> Expression
 
@@ -721,7 +726,7 @@ module Util =
         let varDeclarators =
             // TODO: Log error if there're duplicated non-empty var declarations
             variables
-            |> List.distinctBy (fun (id, value) -> id.Name)
+            |> List.distinctBy (fun (id, _value) -> id.Name)
             |> List.mapToArray (fun (id, value) ->
                 VariableDeclarator(id, ?init=value))
         VariableDeclaration(kind, varDeclarators) :> Statement
@@ -784,7 +789,7 @@ module Util =
                 let body =
                     if FableTransforms.isIdentUsed thisArg.Name body then
                         let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
-                        Fable.Let([thisArg, thisKeyword], body)
+                        Fable.Let(thisArg, thisKeyword, body)
                     else body
                 None, genTypeParams, args, body
             | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
@@ -829,7 +834,7 @@ module Util =
     let wrapExprInBlockWithReturn e =
         BlockStatement [|ReturnStatement(e)|]
 
-    let makeArrowFunctionExpression name (args, (body: BlockStatement), returnType, typeParamDecl): Expression =
+    let makeArrowFunctionExpression _name (args, (body: BlockStatement), returnType, typeParamDecl): Expression =
         upcast ArrowFunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
     let makeFunctionExpression name (args, (body: Expression), returnType, typeParamDecl): Expression =
@@ -867,7 +872,7 @@ module Util =
             yield upcast ContinueStatement(Identifier tc.Label, ?loc=range)
         |]
 
-    let transformImport (com: IBabelCompiler) ctx r (selector: string) (path: string) =
+    let transformImport (com: IBabelCompiler) ctx _r (selector: string) (path: string) =
         let selector, parts =
             let parts = Array.toList(selector.Split('.'))
             parts.Head, parts.Tail
@@ -900,7 +905,7 @@ module Util =
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
-    let transformCurry (com: IBabelCompiler) (ctx: Context) r expr arity: Expression =
+    let transformCurry (com: IBabelCompiler) (ctx: Context) _r expr arity: Expression =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
@@ -962,7 +967,7 @@ module Util =
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             upcast NewExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
-        | Fable.NewAnonymousRecord(values, fieldNames, genArgs) ->
+        | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values
             |> makeJsObject
@@ -1320,7 +1325,9 @@ module Util =
         let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
         match bindings with
         | [] -> com.TransformAsExpr(ctx, target)
-        | bindings -> com.TransformAsExpr(ctx, Fable.Let(bindings, target))
+        | bindings ->
+            let target = List.rev bindings |> List.fold (fun e (i,v) -> Fable.Let(i,v,e)) target
+            com.TransformAsExpr(ctx, target)
 
     let transformDecisionTreeSuccessAsStatements (com: IBabelCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Statement[] =
         match returnStrategy with
@@ -1536,7 +1543,13 @@ module Util =
         | Fable.Set(var, setKind, value, range) ->
             transformSet com ctx range var value setKind
 
-        | Fable.Let(bindings, body) ->
+        | Fable.Let(ident, value, body) ->
+            if ctx.HoistVars [ident] then
+                let assignment = transformBindingAsExpr com ctx ident value
+                upcast SequenceExpression [|assignment; com.TransformAsExpr(ctx, body)|]
+            else upcast iife com ctx expr
+
+        | Fable.LetRec(bindings, body) ->
             if ctx.HoistVars(List.map fst bindings) then
                 let values = bindings |> List.mapToArray (fun (id, value) ->
                     transformBindingAsExpr com ctx id value)
@@ -1607,7 +1620,11 @@ module Util =
         | Fable.Get(expr, getKind, t, range) ->
             [|transformGet com ctx range t expr getKind |> resolveExpr t returnStrategy|]
 
-        | Fable.Let(bindings, body) ->
+        | Fable.Let(ident, value, body) ->
+            let binding = transformBindingAsStatements com ctx ident value
+            Array.append binding (transformAsStatements com ctx returnStrategy body)
+
+        | Fable.LetRec(bindings, body) ->
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
             Array.append bindings (transformAsStatements com ctx returnStrategy body)
 
@@ -1738,7 +1755,7 @@ module Util =
         if not isPublic then PrivateModuleDeclaration(decl) :> ModuleDeclaration
         else ExportNamedDeclaration(decl) :> _
 
-    let makeEntityTypeParamDecl (com: IBabelCompiler) ctx (ent: Fable.Entity) =
+    let makeEntityTypeParamDecl (com: IBabelCompiler) _ctx (ent: Fable.Entity) =
         if com.Options.Typescript then
             getEntityGenParams ent |> makeTypeParamDecl
         else
@@ -1749,10 +1766,10 @@ module Util =
             let id = Identifier(typeName)
             let typeParamInst = makeGenTypeParamInst com ctx genArgs
             ClassImplements(id, ?typeParameters=typeParamInst) |> Some
-        let mkImport genArgs moduleName typeName =
-            let id = makeImportTypeId com ctx moduleName typeName
-            let typeParamInst = makeGenTypeParamInst com ctx genArgs
-            ClassImplements(id, ?typeParameters=typeParamInst) |> Some
+//        let mkImport genArgs moduleName typeName =
+//            let id = makeImportTypeId com ctx moduleName typeName
+//            let typeParamInst = makeGenTypeParamInst com ctx genArgs
+//            ClassImplements(id, ?typeParameters=typeParamInst) |> Some
         ent.AllInterfaces |> Seq.choose (fun ifc ->
             match ifc.Entity.FullName with
             | "Fable.Core.JS.Set`1" -> mkNative ifc.GenericArgs "Set"
@@ -1760,12 +1777,12 @@ module Util =
             | _ -> None
         )
 
-    let getUnionFieldsAsIdents (com: IBabelCompiler) ctx (ent: Fable.Entity) =
+    let getUnionFieldsAsIdents (_com: IBabelCompiler) _ctx (_ent: Fable.Entity) =
         let tagId = makeTypedIdent (Fable.Number Int32) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
 
-    let getEntityFieldsAsIdents com (ent: Fable.Entity) =
+    let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
             let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
@@ -1850,7 +1867,7 @@ module Util =
 
     let transformAttachedProperty (com: IBabelCompiler) ctx (memb: Fable.MemberDecl) =
         let kind = if memb.Info.IsGetter then ClassGetter else ClassSetter
-        let args, body, returnType, typeParamDecl =
+        let args, body, _returnType, _typeParamDecl =
             getMemberArgsAndBody com ctx Attached false memb.Args memb.Body
         let key, computed = memberFromName memb.Name
         ClassMethod(kind, key, args, body, computed_=computed)
@@ -1861,7 +1878,7 @@ module Util =
         let makeMethod name args body =
             let key, computed = memberFromName name
             ClassMethod(ClassFunction, key, args, body, computed_=computed) :> ClassMember
-        let args, body, returnType, typeParamDecl =
+        let args, body, _returnType, _typeParamDecl =
             getMemberArgsAndBody com ctx Attached memb.Info.HasSpread memb.Args memb.Body
         [|
             yield makeMethod memb.Name args body
