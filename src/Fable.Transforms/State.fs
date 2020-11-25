@@ -57,7 +57,7 @@ type Assemblies(getPlugin, checkResults: FSharpCheckProjectResults) =
                 let isCoreAssembly = coreAssemblyNames.Contains(asmName)
                 try
                     let scanForPlugins =
-                        isCoreAssembly && asm.Contents.Attributes |> Seq.exists (fun attr ->
+                        not isCoreAssembly && asm.Contents.Attributes |> Seq.exists (fun attr ->
                             attr.AttributeType.TryFullName = Some "Fable.ScanForPluginsAttribute")
                     if scanForPlugins then
                        for e in asm.Contents.Entities do

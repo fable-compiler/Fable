@@ -246,6 +246,19 @@ export function identityHash<T>(x: T): number {
   }
 }
 
+export function dateHash(x: Date): number {
+  return x.getTime();
+}
+
+export function arrayHash<T>(x: ArrayLike<T>): number {
+  const len = x.length;
+  const hashes: number[] = new Array(len);
+  for (let i = 0; i < len; i++) {
+    hashes[i] = structuralHash(x[i]);
+  }
+  return combineHashCodes(hashes);
+}
+
 export function structuralHash<T>(x: T): number {
   if (x == null) {
     return 0;
@@ -261,27 +274,30 @@ export function structuralHash<T>(x: T): number {
       if (isHashable(x)) {
         return x.GetHashCode();
       } else if (isArrayLike(x)) {
-        const len = x.length;
-        const hashes: number[] = new Array(len);
-        for (let i = 0; i < len; i++) {
-          hashes[i] = structuralHash(x[i]);
-        }
-        return combineHashCodes(hashes);
+        return arrayHash(x);
       } else if (x instanceof Date) {
-        return x.getTime();
+        return dateHash(x);
       } else if (Object.getPrototypeOf(x).constructor === Object) {
         // TODO: check call-stack to prevent cyclic objects?
         const hashes = Object.values(x).map((v) => structuralHash(v));
         return combineHashCodes(hashes);
       } else {
-        return stringHash(String(x));
+        // Classes don't implement GetHashCode by default, but must use identity hashing
+        return numberHash(ObjectRef.id(x));
+        // return stringHash(String(x));
       }
     }
   }
 }
 
-export function hashSafe<T>(x: IEquatable<T> | undefined): number {
-  return x?.GetHashCode() ?? 0;
+// Intended for custom numeric types, like long or decimal
+export function fastStructuralHash<T>(x: T): number {
+  return stringHash(String(x));
+}
+
+// Intended for declared types that may or may not implement GetHashCode
+export function safeHash<T>(x: IEquatable<T> | undefined): number {
+  return x == null ? 0 : isHashable(x) ? x.GetHashCode() : numberHash(ObjectRef.id(x));
 }
 
 export function equalArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, eq: (x: T, y: T) => boolean): boolean {

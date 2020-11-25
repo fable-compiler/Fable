@@ -82,15 +82,17 @@ let defaultFileExt isTypescript args =
 
 type Runner =
   static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
-    let makeAbsolute (path: string) =
-        if IO.Path.IsPathRooted(path) then path
-        else IO.Path.Combine(rootDir, path)
+    let normalizeAbsolutePath (path: string) =
+        (if IO.Path.IsPathRooted(path) then path
+         else IO.Path.Combine(rootDir, path))
+        // Use GetFullPath to remove things like: myrepo/./build/
+        |> Path.normalizeFullPath
 
     let watch = defaultArg watch false
 
     let fsprojPath =
         fsprojPath
-        |> Option.map makeAbsolute
+        |> Option.map normalizeAbsolutePath
         |> Option.defaultValue rootDir
 
     if IO.Directory.Exists(fsprojPath) then
@@ -147,7 +149,7 @@ type Runner =
             { ProjectFile = Path.normalizeFullPath projFile
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
-              OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map makeAbsolute
+              OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
               ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
               Exclude = argValue "--exclude" args

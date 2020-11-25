@@ -278,7 +278,7 @@ let private isUsefulOption (opt : string) =
         [ "--define"
           "--nowarn"
           "--warnon"
-          "--warnaserror"
+        //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
         //   "--langversion" // See getBasicCompilerArgs
         ]
         |> List.exists opt.StartsWith
