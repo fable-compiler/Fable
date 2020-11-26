@@ -957,7 +957,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
                 let uci = com.GetEntity(ent).UnionCases |> List.item uci
                 let name = defaultArg uci.CompiledName uci.Name
                 makeObjMember caseRule name values::acc |> Some
-            | Some acc, Value(NewTuple((StringConst name)::values),_) ->
+            | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values),_)) ->
                 // Don't change the case for tuples in disguise
                 makeObjMember Core.CaseRules.None name values::acc |> Some
             | _ -> None))
@@ -1725,7 +1725,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ExprType(Number _)] ->
         makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [MaybeCasted(ArrayOrListLiteral(vals,_))] ->
+    | ".ctor", _, [ArrayOrListLiteral(vals,_)] ->
         makeArray Any vals |> Some
     | ".ctor", _, args ->
         Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
