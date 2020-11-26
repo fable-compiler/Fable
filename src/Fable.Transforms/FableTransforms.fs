@@ -226,6 +226,11 @@ let noSideEffectBeforeIdent identName expr =
     let rec findIdentOrSideEffect = function
         | IdentExpr id -> id.Name = identName
         | Import _ | Lambda _ | Delegate _ -> false
+        // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
+        | TypeCast(Call(_,i,_,_),_,Some "optimizable:pojo") ->
+            match i.Args with
+            | IdentExpr i::_ -> i.Name = identName
+            | _ -> false
         | CurriedApply(callee, args, _, _) ->
             callee::args |> findIdentOrSideEffectInList |> orSideEffect
         | Call(e1, info, _, _) ->
