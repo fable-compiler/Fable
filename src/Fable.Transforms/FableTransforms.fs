@@ -215,24 +215,70 @@ let countReferences limit identName body =
         | _ -> false) |> ignore
     count
 
-let noSideEffectBeforeIdent identName exprs =
-    exprs
-    |> List.takeWhile (function
-        | IdentExpr i -> i.Name <> identName
-        | _ -> true)
-    |> List.forall (canHaveSideEffects >> not)
+let noSideEffectBeforeIdent identName expr =
+    let mutable sideEffect = false
+    let orSideEffect found =
+        if found then true
+        else
+            sideEffect <- true
+            true
+
+    let rec findIdentOrSideEffect = function
+        | IdentExpr id -> id.Name = identName
+        | Import _ | Lambda _ | Delegate _ -> false
+        | CurriedApply(callee, args, _, _) ->
+            callee::args |> findIdentOrSideEffectInList |> orSideEffect
+        | Call(e1, info, _, _) ->
+            e1 :: (Option.toList info.ThisArg) @ info.Args
+            |> findIdentOrSideEffectInList |> orSideEffect
+        | Operation(kind, _, _) ->
+            match kind with
+            | Unary(_, operand) -> findIdentOrSideEffect operand
+            | Binary(_, left, right)
+            | Logical(_, left, right) -> findIdentOrSideEffect left || findIdentOrSideEffect right
+        | Value(value,_) ->
+            match value with
+            | ThisValue _ | BaseValue _
+            | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
+            | CharConstant _ | StringConstant _ | RegexConstant _  -> false
+            | EnumConstant(e, _) -> findIdentOrSideEffect e
+            | NewList(None,_) | NewOption(None,_) -> false
+            | NewArrayFrom(e,_)
+            | NewOption(Some e,_) -> findIdentOrSideEffect e
+            | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
+            | NewArray(exprs,_)
+            | NewTuple exprs
+            | NewUnion(exprs,_,_,_)
+            | NewRecord(exprs,_,_)
+            | NewAnonymousRecord(exprs,_,_) -> findIdentOrSideEffectInList exprs
+        | Sequential exprs -> findIdentOrSideEffectInList exprs
+        | Let(_,v,b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
+        | TypeCast(e,_,_)
+        | Get(e,_,_,_)
+        | Test(e,_,_)
+        | Curry(e,_,_,_) -> findIdentOrSideEffect e
+        | IfThenElse(cond, thenExpr, elseExpr,_) ->
+            findIdentOrSideEffect cond || findIdentOrSideEffect thenExpr || findIdentOrSideEffect elseExpr
+        // TODO: Check member bodies in ObjectExpr
+        | ObjectExpr _ | LetRec _ | Emit _ | Set _
+        | DecisionTree _ | DecisionTreeSuccess _ // Check sub expressions here?
+        | WhileLoop _ | ForLoop _ | TryCatch _ ->
+            sideEffect <- true
+            true
+
+    and findIdentOrSideEffectInList exprs =
+        (false, exprs) ||> List.fold (fun result e ->
+            result || findIdentOrSideEffect e)
+
+    findIdentOrSideEffect expr && not sideEffect
+
 
 let canInlineArg identName value body =
-    (not(canHaveSideEffects value) && countReferences 1 identName body <= 1)
-     || ((match body with
-          | NestedApply(callee, args, _, _) -> callee::args |> noSideEffectBeforeIdent identName
-          | Call(e1, info, _, _) -> e1 :: (Option.toList info.ThisArg) @ info.Args |> noSideEffectBeforeIdent identName
-          | Operation(Binary(_, left, right), _, _) -> [left; right] |> noSideEffectBeforeIdent identName
-          | Operation(Logical(_, left, right), _, _) -> [left; right] |> noSideEffectBeforeIdent identName
-          | _ -> false)
-        && not(isIdentCaptured identName body)
-        // Make sure is at least referenced once so the expression is not erased
-        && countReferences 1 identName body = 1)
+    (canHaveSideEffects value |> not && countReferences 1 identName body <= 1)
+     || (noSideEffectBeforeIdent identName body
+         && isIdentCaptured identName body |> not
+         // Make sure is at least referenced once so the expression is not erased
+         && countReferences 1 identName body = 1)
 
 module private Transforms =
     let (|LambdaOrDelegate|_|) = function
@@ -290,9 +336,10 @@ module private Transforms =
         | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             let canEraseBinding =
                 match value with
+                | Import(i,_,_) -> i.IsCompilerGenerated
                 | NestedLambda(_, lambdaBody, _) ->
                     match lambdaBody with
-                    | Import _ -> false
+                    | Import(i,_,_) -> i.IsCompilerGenerated
                     // Check the lambda doesn't reference itself recursively
                     | _ -> countReferences 0 ident.Name lambdaBody = 0
                            && canInlineArg ident.Name value letBody

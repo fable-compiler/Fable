@@ -299,9 +299,11 @@ module AST =
         | Let(i, v, body) -> inner [i, v] body |> Some
         | _ -> None
 
-    let (|MaybeCasted|) = function
-        | TypeCast(e,_,_) -> e
-        | e -> e
+    let (|MaybeCasted|) e =
+        let rec inner = function
+            | TypeCast(e,_,_) -> inner e
+            | e -> e
+        inner e
 
     /// Try to uncurry lambdas at compile time in dynamic assignments
     let (|MaybeLambdaUncurriedAtCompileTime|) = function
@@ -314,7 +316,7 @@ module AST =
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
-        | Import(i,_,_) -> not i.IsCompilerGenerated
+        | Import _ -> false
         | Lambda _ | Delegate _ -> false
         | TypeCast(e,_,_) -> canHaveSideEffects e
         | Value(value,_) ->
