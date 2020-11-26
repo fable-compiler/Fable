@@ -986,22 +986,31 @@ module Util =
         let enumerator = CallExpression(get None (Identifier "this") "GetEnumerator", [||]) :> Expression
         BlockStatement [|ReturnStatement(libCall com ctx None "Seq" "toIterator" [|enumerator|])|]
 
-    let extractBaseExprFromBaseCall com ctx baseCall =
-        let baseRef, args, hasSpread =
-            match baseCall with
-            | Fable.Call(baseRef, info, _, _) ->
-                baseRef, info.Args, info.HasSpread
-            | _ ->
-                "Unexpected base call expression, please report"
-                |> addError com [] baseCall.Range
-                Fable.Value(Fable.UnitConstant, None), [], false
-
-        let baseExpr =
-            match baseRef with
-            | Fable.IdentExpr id -> typedIdent com ctx id :> Expression
-            | _ -> transformAsExpr com ctx baseRef
-        let args = transformCallArgs com ctx hasSpread args
-        baseExpr, args
+    let extractBaseExprFromBaseCall (com: IBabelCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
+        match baseCall, baseType with
+        | Some (Fable.Call(baseRef, info, _, _)), _ ->
+            let baseExpr =
+                match baseRef with
+                | Fable.IdentExpr id -> typedIdent com ctx id :> Expression
+                | _ -> transformAsExpr com ctx baseRef
+            let args = transformCallArgs com ctx info.HasSpread info.Args
+            Some (baseExpr, args)
+        | Some (Fable.Value _), Some baseType ->
+            // let baseEnt = com.GetEntity(baseType.Entity)
+            // let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com baseType.Entity
+            // let entityType = FSharp2Fable.Util.getEntityType baseEnt
+            // let baseRefId = makeTypedIdent entityType entityName
+            // let baseExpr = (baseRefId |> typedIdent com ctx) :> Expression
+            // Some (baseExpr, []) // default base constructor
+            let range = baseCall |> Option.bind (fun x -> x.Range)
+            sprintf "Ignoring base call for %s" baseType.Entity.FullName |> addWarning com [] range
+            None
+        | Some _, _ ->
+            let range = baseCall |> Option.bind (fun x -> x.Range)
+            "Unexpected base call expression, please report" |> addError com [] range
+            None
+        | None, _ ->
+            None
 
     let transformObjectExpr (com: IBabelCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression =
         let compileAsClass =
@@ -1058,7 +1067,7 @@ module Util =
 
             let baseExpr, classMembers =
                 baseCall
-                |> Option.map (extractBaseExprFromBaseCall com ctx)
+                |> extractBaseExprFromBaseCall com ctx None
                 |> Option.map (fun (baseExpr, baseArgs) ->
                     let consBody = BlockStatement [|callSuperAsStatement baseArgs|]
                     let cons = makeClassConstructor [||]  consBody
@@ -1964,7 +1973,7 @@ module Util =
 
         let baseExpr, consBody =
             classDecl.BaseCall
-            |> Option.map (extractBaseExprFromBaseCall com ctx)
+            |> extractBaseExprFromBaseCall com ctx classEnt.BaseType
             |> Option.orElseWith (fun () ->
                 if classEnt.IsValueType then Some(libValue com ctx "Types" "Record", [])
                 else None)
