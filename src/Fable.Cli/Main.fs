@@ -422,7 +422,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
                 |> fun files ->
-                    if not state.CliArgs.CompilerOptions.DebugMode then files
+                    if Option.isNone state.Watcher then files
                     else
                         // Skip files that have a more recent JS version
                         let skipped =
