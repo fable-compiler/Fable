@@ -164,7 +164,9 @@ let parseFiles projectFileName options =
 
     let getOrAddDeduplicateTargetDir =
         let dedupDic = System.Collections.Generic.Dictionary()
-        fun importDir addTargetDir ->
+        fun (importDir: string) addTargetDir ->
+            // Lower importDir as some OS use case insensitive paths
+            let importDir = JS.path.resolve(importDir).ToLower()
             match dedupDic.TryGetValue(importDir) with
             | true, v -> v
             | false, _ ->
