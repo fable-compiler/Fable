@@ -323,6 +323,10 @@ let testJs(minify) =
     runInDir fableDir "npm unlink ../fable-metadata && cd ../fable-metadata && npm unlink"
     runInDir fableDir "npm unlink ../fable-standalone && cd ../fable-standalone && npm unlink"
 
+let testReact() =
+    runFableWithArgs "tests/React" []
+    run "npx jest"
+
 let test() =
     let projectDir = "tests/Main"
     let libraryDir = "build/fable-library"
@@ -340,11 +344,18 @@ let test() =
     run (sprintf "npx mocha %s -r esm --reporter dot -t 10000" buildDir)
 
     runInDir projectDir "dotnet run"
+
+    testReact()
+
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
 
 let testRepos() =
     let repos = [
+        "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
+        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore  && npm i && dotnet fable tests -o tests/bin && npx mocha -r esm tests/bin"
+        "https://github.com/alfonsogarciacaro/FSharp.Control.AsyncSeq:nagareyama", "cd tests/fable && npm i && npm test"
+        "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama", "dotnet paket restore && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"
         "https://github.com/Zaid-Ajaj/Fable.SimpleJson:master", "npm i && npm run test-nagareyama"
     ]
@@ -499,6 +510,7 @@ match argsLower with
 | "test"::_ -> test()
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
+| "test-react"::_ -> testReact()
 | "coverage"::_ -> coverage()
 | "quicktest"::_ -> quicktest()
 // | "check-sourcemaps"::_ ->

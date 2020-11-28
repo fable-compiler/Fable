@@ -1,0 +1,20 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`React tests ReactComponent renders correctly 1`] = `
+<div>
+  <div
+    style="padding: 10px;"
+  >
+    <h1
+      data-testid="header"
+    >
+      0
+    </h1>
+    <button
+      data-testid="button-increment"
+    >
+      Increment
+    </button>
+  </div>
+</div>
+`;

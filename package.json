@@ -12,15 +12,22 @@
     "posttest-js": "mocha build/tests-js --reporter dot -t 10000"
   },
   "dependencies": {
+    "@babel/plugin-transform-modules-commonjs": "^7.12.1",
     "@matthid/source-map-visualization": "^0.5.0",
+    "@testing-library/jest-dom": "^5.11.6",
+    "@testing-library/react": "^11.2.2",
+    "@testing-library/user-event": "^12.2.2",
     "@types/node": "^14.0.5",
     "chokidar": "^3.4.2",
     "concurrently": "^5.1.0",
     "download-cli": "^1.1.1",
     "esm": "^3.2.25",
     "ghreleases": "^3.0.2",
+    "jest": "^26.6.3",
     "mocha": "^7.1.1",
     "nyc": "^15.0.1",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
     "rollup": "^2.10.8",
     "source-map-support": "^0.5.16",
     "terser": "^4.7.0",
@@ -28,6 +35,11 @@
     "typescript": "^3.9.3",
     "webpack": "^4.44.1",
     "webpack-cli": "^3.3.12"
+  },
+  "babel": {
+    "plugins": [
+      "@babel/plugin-transform-modules-commonjs"
+    ]
   },
   "nyc": {
     "extension": [
