@@ -1049,9 +1049,11 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
                 let declaringEntity = FsEnt declaringEntity :> Fable.Entity
                 if isGlobalOrImportedEntity declaringEntity then ()
                 elif isErasedOrStringEnumEntity declaringEntity then
-                    let r = makeRange memb.DeclarationLocation |> Some
-                    "Erased types cannot implement abstract members"
-                    |> addError com ctx.InlinePath r
+                    // Ignore abstract members for classes, see #2295
+                    if declaringEntity.IsFSharpUnion || declaringEntity.IsFSharpRecord then
+                        let r = makeRange memb.DeclarationLocation |> Some
+                        "Erased unions/records cannot implement abstract members"
+                        |> addError com ctx.InlinePath r
                 else
                     // Not sure when it's possible that a member implements multiple abstract signatures
                     memb.ImplementedAbstractSignatures
@@ -1096,7 +1098,8 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
             | sub ->
                 getUsedRootNames com usedNames sub
         | MemberOrFunctionOrValue(memb,_,_) ->
-            if memb.IsOverrideOrExplicitInterfaceImplementation then usedNames
+            if memb.IsOverrideOrExplicitInterfaceImplementation
+                || isInline memb || isEmittedOrImportedMember memb then usedNames
             else
                 let memberName, _ = getMemberDeclarationName com memb
                 addUsedRootName com memberName usedNames
