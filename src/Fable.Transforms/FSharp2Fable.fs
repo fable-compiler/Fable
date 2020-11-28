@@ -85,6 +85,9 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
     | DiscriminatedUnion(tdef, genArgs) ->
         let genArgs = makeGenArgs ctx.GenericArgs genArgs
         let tag = unionCaseTag tdef unionCase
+        // If the order of cases changes in the declaration, the tag has to change too
+        // mark all files calling the union constructor as watch dependencies
+        com.AddWatchDependency(FsEnt.SourcePath tdef)
         Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type list) traitName (flags: MemberFlags) (argTypes: Fable.Type list) (argExprs: Fable.Expr list) =
