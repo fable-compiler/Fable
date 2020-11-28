@@ -1148,6 +1148,12 @@ module Util =
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
             | _ -> false)
 
+    let isEmittedOrImportedMember (memb: FSharpMemberOrFunctionOrValue) =
+        memb.Attributes |> Seq.exists (fun att ->
+            match att.AttributeType.TryFullName with
+            | Some(Naming.StartsWith Atts.emit _ | Atts.global_ | Naming.StartsWith Atts.import _) -> true
+            | _ -> false)
+
     let isFromDllRef (ent: Fable.Entity) =
         match ent.Ref.Path with
         | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> true
