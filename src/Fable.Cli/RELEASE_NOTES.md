@@ -1,3 +1,11 @@
+### 3.0.0-nagareyama-rc-010
+
+* Moar beta reduction improvements
+* Use caching only in watch mode
+* Ignore base constructor calls causing errors @ncave
+* Fix watch dependencies when order of union cases changes
+* Fix #2295: Disable errors affecting Fable 2-compliant code
+
 ### 3.0.0-nagareyama-rc-009
 
 * Improve lambda beta reduction
