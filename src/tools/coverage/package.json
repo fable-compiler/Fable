@@ -1,0 +1,26 @@
+{
+  "private": true,
+  "dependencies": {
+    "nyc": "^15.0.1"
+  },
+  "nyc": {
+    "extension": [
+      ".ts",
+      ".fs",
+      ".tsx"
+    ],
+    "exclude": [
+      "**/*.d.ts"
+    ],
+    "reporter": [
+      "lcov",
+      "cobertura",
+      "text"
+    ],
+    "report-dir": "./build/coverage/nyc",
+    "temp-dir": "./build/coverage/nyc/temp",
+    "sourceMap": true,
+    "produce-source-map": true,
+    "all": true
+  }
+}

@@ -15,7 +15,7 @@ module private Helpers =
     let [<Global("process")>] nodeProcess = obj()
 
     let inline (!>) x = ignore x
-    let inline (~%) xs = createObj xs |> unbox
+    let inline (~%) xs = createObj xs
 
     type SingleObservable<'T>(?onDispose: unit->unit) =
         let mutable disposed = false
@@ -57,7 +57,7 @@ module private Helpers =
 open Helpers
 
 let (</>) (p1: string) (p2: string): string =
-    path?join.Invoke(p1, p2)
+    path?join(p1, p2)
 
 let args: string list =
     nodeProcess?argv
@@ -176,9 +176,9 @@ let readLines (filePath: string): IObservable<string> =
         "crlfDelay" ==> System.Double.PositiveInfinity
     ]
     let obs = SingleObservable(fun () -> rl?close())
-    rl?on.Invoke("line", fun line ->
+    rl?on("line", fun line ->
         obs.Trigger(line))
-    rl?on.Invoke("close", fun _line ->
+    rl?on("close", fun _line ->
         obs.Dispose())
     obs :> _
 
@@ -201,22 +201,36 @@ let takeLinesWhile (predicate: string->bool) (filePath: string) = async {
             else false)
     return lines.ToArray()
 }
+
 let run cmd: unit =
     printfn "> %s" cmd
-    childProcess?execSync.Invoke(cmd, %[
+    childProcess?execSync(cmd, %[
         "stdio" ==> "inherit"
     ])
 
 let runInDir cwd cmd: unit =
     printfn "> %s" cmd
-    childProcess?execSync.Invoke(cmd, %[
+    childProcess?execSync(cmd, %[
         "stdio" ==> "inherit"
         "cwd" ==> cwd
     ])
 
+let runAsync cmd: unit =
+    printfn "> %s" cmd
+    childProcess?exec(cmd, %[
+        "stdout" ==> "inherit"
+    ])
+
+let runAsyncInDir cwd cmd: unit =
+    printfn "> %s" cmd
+    childProcess?exec(cmd, %[
+        "cwd" ==> cwd
+    ])
+
+
 let tryRunForOutput (cmd: string): string option =
     try
-        childProcess?execSync.Invoke(cmd).ToString().Trim() |> Some
+        childProcess?execSync(cmd).ToString().Trim() |> Some
     with _ -> None
 
 let runList cmdParts =

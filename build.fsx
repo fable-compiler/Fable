@@ -23,97 +23,127 @@ let FCS_REPO_LOCAL = "../fsharp_fable"
 let FCS_REPO_FABLE_BRANCH = "fable"
 let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
-type GhRealeases =
-    [<Emit("""new Promise((succeed, fail) =>
-        $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
-            err != null ? fail(err) : succeed(res)))""")>]
-    abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
+module Util =
+    type GhRealeases =
+        [<Emit("""new Promise((succeed, fail) =>
+            $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
+                err != null ? fail(err) : succeed(res)))""")>]
+        abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
 
-type Chokidar =
-    abstract watch: path: string -> Chokidar
-    abstract on: event: string * (string -> unit) -> Chokidar
+    let cleanDirs dirs =
+        for dir in dirs do
+            removeDirRecursive dir
 
-let concurrently(commands: string[]): unit = importDefault "concurrently"
-let chokidar: Chokidar = importDefault "chokidar"
+    let updateVersionInFableTransforms version =
+        let filePath = "src/Fable.Transforms/Global/Compiler.fs"
+        // printfn "VERSION %s" version
+        Regex.Replace(
+            readFile filePath,
+            @"let \[<Literal>] VERSION = "".*?""",
+            sprintf "let [<Literal>] VERSION = \"%s\"" version)
+        |> writeFile filePath
 
-let cleanDirs dirs =
-    for dir in dirs do
-        removeDirRecursive dir
+    let updatePkgVersionInFsproj projFile version =
+        readFile projFile
+        |> replaceRegex Publish.NUGET_PACKAGE_VERSION ["$1"; version; "$3"]
+        |> writeFile projFile
 
-let updateVersionInFableTransforms version =
-    let filePath = "src/Fable.Transforms/Global/Compiler.fs"
-    // printfn "VERSION %s" version
-    Regex.Replace(
-        readFile filePath,
-        @"let \[<Literal>] VERSION = "".*?""",
-        sprintf "let [<Literal>] VERSION = \"%s\"" version)
-    |> writeFile filePath
+    let runTypescript projectDir =
+        // run ("npx tslint --project " + projectDir)
+        run ("npm run tsc -- --project " + projectDir)
 
-let updatePkgVersionInFsproj projFile version =
-    readFile projFile
-    |> replaceRegex Publish.NUGET_PACKAGE_VERSION ["$1"; version; "$3"]
-    |> writeFile projFile
+    let runFableWithArgs projectDir args =
+        run ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
-let downloadAndExtractTo (url: string) (targetDir: string) =
-    sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
+    let runFableWithArgsAsync projectDir args =
+        runAsync ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
 
-let runTypescript projectDir =
-    // run ("npx tslint --project " + projectDir)
-    run ("npx tsc --project " + projectDir)
+    let runNpx command args =
+        run ("npx " + command + " " + (String.concat " " args))
 
-let watchFableWithArgs projectDir args =
-    run ("dotnet watch run -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
+    let runNpmScriptAsync script args =
+        runAsync ("npm run " + script + " -- " + (String.concat " " args))
 
-let runFableWithArgs projectDir args =
-    run ("dotnet run -c Release -p src/Fable.Cli -- " + projectDir + " " + String.concat " " args)
+    let runFable projectDir =
+        runFableWithArgs projectDir []
 
-let runNpx command args =
-    run ("npx " + command + " " + (String.concat " " args))
+open Util
 
-let runFable projectDir =
-    runFableWithArgs projectDir []
+module Unused =
+    // type Chokidar =
+    //     abstract watch: path: string -> Chokidar
+    //     abstract on: event: string * (string -> unit) -> Chokidar
 
-let buildLibrary() =
+    // let chokidar: Chokidar = importDefault "chokidar"
+
+    // let concurrently(commands: string[]): unit = importDefault "concurrently"
+
+    let downloadAndExtractTo (url: string) (targetDir: string) =
+        sprintf "npx download --extract --out %s \"%s\"" targetDir url |> run
+
+    let downloadStandalone() =
+        let targetDir = "src/fable-standalone/dist"
+        cleanDirs [targetDir]
+        downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
+
+    let coverage() =
+        // report converter
+        // https://github.com/danielpalme/ReportGenerator
+        // dotnet tool install dotnet-reportgenerator-globaltool --tool-path tools
+        if not (pathExists "./bin/tools/reportgenerator") && not (pathExists "./bin/tools/reportgenerator.exe") then
+            runInDir "." "dotnet tool install dotnet-reportgenerator-globaltool --tool-path bin/tools"
+        let reportGen =
+            if pathExists "./bin/tools/reportgenerator" then "bin/tools/reportgenerator"
+            else "bin\\tools\\reportgenerator.exe"
+
+        // if not (pathExists "build/fable-library") then
+        //     buildLibrary()
+
+        cleanDirs ["build/tests"]
+        runFable "tests"
+
+        // JS
+        run "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
+        runInDir "." (reportGen + " \"-reports:build/coverage/nyc/lcov.info\" -reporttypes:Html \"-targetdir:build/coverage/nyc/html\" ")
+
+        // .NET
+        //runInDir "tests/Main" "dotnet build /t:Collect_Coverage"
+        cleanDirs ["build/coverage/netcoreapp2.0/out"]
+        runInDir "." (reportGen + " \"-reports:build/coverage/netcoreapp2.0/coverage.xml\" -reporttypes:Html \"-targetdir:build/coverage/netcoreapp2.0/html\" ")
+
+// TARGETS ---------------------------
+
+let buildLibraryWithOptions (opts: {| watch: bool |}) =
     let projectDir = fullPath "src/fable-library"
     let buildDir = fullPath "build/fable-library"
-
-    cleanDirs [buildDir]
-
-    runTypescript projectDir
-
-    runFableWithArgs projectDir [
+    let fableOpts = [
         "--outDir " + buildDir
         "--fableLib " + buildDir
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
         "--define FABLE_LIBRARY"
+        if opts.watch then "--watch"
     ]
 
-    // // Move js files to build folder
-    // let moveJsFile oldDir newDir (file: string) =
-    //     if file.EndsWith(".js") then
-    //         let newPath = newDir </> file
-    //         let newDir = dirname newPath
-    //         if not(pathExists newDir) then
-    //             makeDirRecursive(newDir)
-    //         moveFile (oldDir </> file) newPath
+    cleanDirs [buildDir]
+    if opts.watch then
+        runNpmScriptAsync "tsc" [
+            "--project " + projectDir
+            "--watch"
+        ]
+        runFableWithArgsAsync projectDir fableOpts
+    else
+        runTypescript projectDir
+        runFableWithArgs projectDir fableOpts
 
-    // for file in dirFiles projectDir do
-    //     if isDirectory (projectDir </> file) then
-    //         let dir = file
-    //         if not(List.contains dir ["lib"; "bin"; "obj"]) then
-    //             for file in dirFiles (projectDir </> dir) do
-    //                 moveJsFile projectDir buildDir (dir </> file)
-    //     else
-    //         moveJsFile projectDir buildDir file
-
-let watchLibrary() =
-    let libDir = "src/fable-library"
-    printfn "Watching %s..." libDir
-    chokidar
-        .watch(libDir)
-        .on("change", fun _ -> buildLibrary())
-        |> ignore
+let buildLibrary() = buildLibraryWithOptions {| watch = false |}
+let watchLibrary() = buildLibraryWithOptions {| watch = true |}
+    // let libDir = "src/fable-library"
+    // printfn "Watching %s..." libDir
+    // chokidar
+    //     .watch(libDir)
+    //     .on("change", fun _ -> buildLibrary())
+    //     |> ignore
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
@@ -132,8 +162,8 @@ let buildLibraryTs() =
     ]
     // TODO: cleanDirs [buildDirTs </> "fable-library"]
     // TODO: copy *.ts/*.js from projectDir to buildDir
-    runInDir buildDirTs "npx tsc --init --target es2020 --module es2020 --allowJs"
-    runInDir buildDirTs ("npx tsc --outDir ../../" + buildDirJs)
+    runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
+    runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
 
 let quicktest () =
     if not (pathExists "build/fable-library") then
@@ -241,8 +271,9 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     ]
 
     // make standalone worker dist
-    run (sprintf "npx rollup %s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir)
-    run (sprintf "npx webpack --entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir)
+    runNpx "rollup" [sprintf "%s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir]
+    // runNpx "webpack" [sprintf "--entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir]
+    runNpx "terser" [sprintf "%s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir]
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
@@ -325,7 +356,7 @@ let testJs(minify) =
 
 let testReact() =
     runFableWithArgs "tests/React" []
-    run "npx jest"
+    runInDir "tests/React" "npm i && npm test"
 
 let test() =
     let projectDir = "tests/Main"
@@ -380,36 +411,6 @@ let testRepos() =
         runInDir repoDir (sprintf "dotnet tool install fable --version \"%s\" --add-source %s"
                             version (".." </> pkgDir))
         runInDir repoDir command
-
-let coverage() =
-    // report converter
-    // https://github.com/danielpalme/ReportGenerator
-    // dotnet tool install dotnet-reportgenerator-globaltool --tool-path tools
-    if not (pathExists "./bin/tools/reportgenerator") && not (pathExists "./bin/tools/reportgenerator.exe") then
-        runInDir "." "dotnet tool install dotnet-reportgenerator-globaltool --tool-path bin/tools"
-    let reportGen =
-        if pathExists "./bin/tools/reportgenerator" then "bin/tools/reportgenerator"
-        else "bin\\tools\\reportgenerator.exe"
-
-    if not (pathExists "build/fable-library") then
-        buildLibrary()
-
-    cleanDirs ["build/tests"]
-    runFable "tests"
-
-    // JS
-    run "npx nyc mocha build/tests --require source-map-support/register --reporter dot -t 10000"
-    runInDir "." (reportGen + " \"-reports:build/coverage/nyc/lcov.info\" -reporttypes:Html \"-targetdir:build/coverage/nyc/html\" ")
-
-    // .NET
-    //runInDir "tests/Main" "dotnet build /t:Collect_Coverage"
-    cleanDirs ["build/coverage/netcoreapp2.0/out"]
-    runInDir "." (reportGen + " \"-reports:build/coverage/netcoreapp2.0/coverage.xml\" -reporttypes:Html \"-targetdir:build/coverage/netcoreapp2.0/html\" ")
-
-let downloadStandalone() =
-    let targetDir = "src/fable-standalone/dist"
-    cleanDirs [targetDir]
-    downloadAndExtractTo APPVEYOR_REPL_ARTIFACT_URL targetDir
 
 let githubRelease() =
     match envVarOrNone "GITHUB_USER", envVarOrNone "GITHUB_TOKEN" with
@@ -507,23 +508,23 @@ let minify<'T> =
     argsLower |> List.contains "--no-minify" |> not
 
 match argsLower with
-| "test"::_ -> test()
-| "test-js"::_ -> testJs(minify)
-| "test-js-fast"::_ -> testJsFast()
-| "test-react"::_ -> testReact()
-| "coverage"::_ -> coverage()
-| "quicktest"::_ -> quicktest()
 // | "check-sourcemaps"::_ ->
 //     ("src/quicktest/Quicktest.fs", "src/quicktest/bin/Quicktest.js", "src/quicktest/bin/Quicktest.js.map")
 //     |||> sprintf "nodemon --watch src/quicktest/bin/Quicktest.js --exec 'source-map-visualization --sm=\"%s;%s;%s\"'"
 //     |> List.singleton |> quicktest
-| ("fable-library"|"library")::_ -> buildLibrary()
+// | "download-standalone"::_ -> downloadStandalone()
+// | "coverage"::_ -> coverage()
+| "test"::_ -> test()
+| "test-js"::_ -> testJs(minify)
+| "test-js-fast"::_ -> testJsFast()
+| "test-react"::_ -> testReact()
+| "quicktest"::_ -> quicktest()
 | ("watch-library")::_ -> watchLibrary()
+| ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
 | ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
-| "download-standalone"::_ -> downloadStandalone()
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->
     publishPackages []

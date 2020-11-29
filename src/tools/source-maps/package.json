@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "@matthid/source-map-visualization": "^0.5.0",
+    "source-map-support": "^0.5.16"
+  }
+}
