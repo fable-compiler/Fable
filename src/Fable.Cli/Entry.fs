@@ -71,6 +71,12 @@ Arguments:
 
   --optimize        Compile with optimized F# AST (experimental)
   --typescript      Compile to TypeScript (experimental)
+
+  Environment variables:
+   DOTNET_USE_POLLING_FILE_WATCHER
+   When set to '1' or 'true', Fable watch will poll the file system for
+   changes. This is required for some file systems, such as network shares,
+   Docker mounted volumes, and other virtual file systems.
 """
 
 let defaultFileExt isTypescript args =

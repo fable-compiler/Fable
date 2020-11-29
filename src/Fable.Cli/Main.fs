@@ -203,6 +203,7 @@ module private Util =
                 getCommonDir dir
 
 open Util
+open PollingFileWatcher
 
 let caseInsensitiveSet(items: string seq): ISet<string> =
     let s = HashSet(items)
@@ -210,25 +211,59 @@ let caseInsensitiveSet(items: string seq): ISet<string> =
     s :> _
 
 type FsWatcher() =
-    let watcher = new IO.FileSystemWatcher(EnableRaisingEvents=false)
-    let observable = Observable.SingleObservable(fun () ->
-        watcher.EnableRaisingEvents <- false)
+    let filters = [ ".fs"; ".fsx"; ".fsproj" ]
+    let dotnetFSWFilters = filters |> List.map (fun filter -> "*" + filter)
 
-    do
-        watcher.Filters.Add("*.fs")
-        watcher.Filters.Add("*.fsx")
-        watcher.Filters.Add("*.fsproj")
-        watcher.IncludeSubdirectories <- true
-        // watcher.NotifyFilter <- NotifyFilters.LastWrite
+    let getObservableWatcher dirPath =
+        let usePolling =
+            // This is the same variable used by dotnet watch
+            let envVar = Environment.GetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER")
+            not (isNull envVar) &&
+                (envVar.Equals("1", StringComparison.OrdinalIgnoreCase)
+                || envVar.Equals("true", StringComparison.OrdinalIgnoreCase))
 
-        watcher.Changed.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
-        watcher.Created.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
-        watcher.Deleted.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
-        watcher.Renamed.Add(fun ev -> observable.Trigger(ev.ChangeType, ev.FullPath))
-        watcher.Error.Add(fun ev ->
-            Log.always("Watcher found and error, some events may have been lost.")
-            Log.verbose(lazy ev.GetException().Message)
-        )
+        if usePolling then
+            Log.always("Using polling watcher.")
+            let watcher = new PollingFileWatcher(dirPath, EnableRaisingEvents = false)
+            Log.always($"Polling watcher: tracking {watcher.KnownEntitiesCount} file system entities.")
+            let observable = Observable.SingleObservable(fun () ->
+                watcher.EnableRaisingEvents <- false
+                (watcher :> IDisposable).Dispose())
+
+            let filteredEvent =
+                watcher.OnFileChange
+                |> Event.filter (fun fullPath ->
+                    filters
+                    |> List.exists (fun filter -> fullPath.EndsWith filter))
+
+            filteredEvent.Add(fun fullPath -> observable.Trigger(fullPath))
+
+            watcher.EnableRaisingEvents <- true
+            observable
+        else
+            Log.verbose(lazy "Using FS watcher.")
+            let watcher = new IO.FileSystemWatcher(EnableRaisingEvents = false)
+            let observable = Observable.SingleObservable(fun () ->
+                watcher.EnableRaisingEvents <- false
+                watcher.Dispose())
+
+            dotnetFSWFilters
+            |> List.iter (fun filter -> watcher.Filters.Add(filter))
+
+            watcher.IncludeSubdirectories <- true
+            // watcher.NotifyFilter <- NotifyFilters.LastWrite
+
+            watcher.Changed.Add(fun ev -> observable.Trigger(ev.FullPath))
+            watcher.Created.Add(fun ev -> observable.Trigger(ev.FullPath))
+            watcher.Deleted.Add(fun ev -> observable.Trigger(ev.FullPath))
+            watcher.Renamed.Add(fun ev -> observable.Trigger(ev.FullPath))
+            watcher.Error.Add(fun ev ->
+                Log.always("Watcher found and error, some events may have been lost.")
+                Log.verbose(lazy ev.GetException().Message)
+            )
+            watcher.Path <- dirPath
+            watcher.EnableRaisingEvents <- true
+            observable
 
     member _.Observe(filesToWatch: string list) =
         let commonBaseDir = getCommonBaseDir filesToWatch
@@ -237,11 +272,9 @@ type FsWatcher() =
         // It may happen we get the same path with different case in case-insensitive file systems
         // https://github.com/fable-compiler/Fable/issues/2277#issuecomment-737748220
         let filePaths = caseInsensitiveSet filesToWatch
-        watcher.Path <- commonBaseDir
-        watcher.EnableRaisingEvents <- true
 
-        observable
-        |> Observable.choose (fun (_, fullPath) ->
+        getObservableWatcher commonBaseDir
+        |> Observable.choose (fun fullPath ->
             let fullPath = Path.normalizePath fullPath
             if filePaths.Contains(fullPath)
             then Some fullPath

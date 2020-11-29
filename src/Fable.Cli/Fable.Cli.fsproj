@@ -24,6 +24,7 @@
     <Compile Include="ProjectCoreCracker.fs" />
     <Compile Include="ProjectCracker.fs" />
     <Compile Include="Printers.fs" />
+    <Compile Include="PollingFileWatcher.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="Entry.fs" />
   </ItemGroup>
