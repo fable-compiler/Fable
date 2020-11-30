@@ -224,7 +224,9 @@ type FsWatcher() =
 
         if usePolling then
             Log.always("Using polling watcher.")
-            let watcher = new PollingFileWatcher(dirPath, EnableRaisingEvents = false)
+            // Ignored for performance reasons:
+            let ignoredDirectoryNamesRegex = [| "(?i)node_modules"; "(?i)bin"; "(?i)obj"; "\..+" |]
+            let watcher = new PollingFileWatcher(dirPath, (*enableRaisingEvents*) false, ignoredDirectoryNamesRegex)
             Log.always($"Polling watcher: tracking {watcher.KnownEntitiesCount} file system entities.")
             let observable = Observable.SingleObservable(fun () ->
                 watcher.EnableRaisingEvents <- false

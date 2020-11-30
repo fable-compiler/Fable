@@ -11,6 +11,7 @@ open System.Runtime.CompilerServices
 open System.Threading
 open System.Collections.Generic
 open System.Diagnostics
+open System.Text.RegularExpressions
 
 [<IsReadOnly; Struct>]
 type FileMeta = {
@@ -18,7 +19,9 @@ type FileMeta = {
     FoundAgain: bool
     }
 
-type PollingFileWatcher (watchedDirectoryPath: string, EnableRaisingEvents) =
+/// An alternative file watcher based on polling.
+/// ignoredDirectoryNamesRegex is a list of regex patterns.
+type PollingFileWatcher (watchedDirectoryPath, enableRaisingEvents, ignoredDirectoryNamesRegex) =
     // The minimum interval to rerun the scan
     let minRunInternal = TimeSpan.FromSeconds(0.5)
 
@@ -30,23 +33,32 @@ type PollingFileWatcher (watchedDirectoryPath: string, EnableRaisingEvents) =
     let mutable knownEntitiesCount = 0
 
     let onFileChange = new Event<string>()
-    let mutable raiseEvents = EnableRaisingEvents
+    let mutable raiseEvents = enableRaisingEvents
     let mutable disposed = false
+
+    let compiledIgnoredDirNames =
+        ignoredDirectoryNamesRegex
+        |> Array.map (fun (regex: string) ->
+            Regex( "^" + regex + "$", RegexOptions.Compiled ||| RegexOptions.CultureInvariant))
 
     let notifyChanges () =
         for path in changes do
             if not disposed && raiseEvents
             then onFileChange.Trigger(path)
 
+    let isIgnored (dirInfo: DirectoryInfo) =
+        compiledIgnoredDirNames
+        |> Array.exists (fun regex -> regex.IsMatch(dirInfo.Name))
+
     let rec foreachEntityInDirectory (dirInfo: DirectoryInfo) fileAction =
-        if dirInfo.Exists then
-            let entitiesOption =
+        if dirInfo.Exists && not (isIgnored dirInfo) then
+            let entities =
                 // If the directory is deleted after the exists check
                 // this will throw and could crash the process
                 try Some (dirInfo.EnumerateFileSystemInfos("*.*"))
                 with | :? DirectoryNotFoundException -> None
-            if Option.isSome entitiesOption then
-                for entity in entitiesOption.Value do
+            if Option.isSome entities then
+                for entity in entities.Value do
                     fileAction entity
                     match entity with
                     | :? DirectoryInfo as subdirInfo -> foreachEntityInDirectory subdirInfo fileAction
