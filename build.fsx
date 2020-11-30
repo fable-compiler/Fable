@@ -1,14 +1,8 @@
-// This script is compiled by fable-compiler-js and runs entirely on node.js
-// You can execute it by typing: npx fable build.fsx --run [ARGUMENTS]
-
-#r "src/fable-metadata/lib/Fable.Core.dll"
 #load "src/fable-publish-utils/PublishUtils.fs"
 
 open PublishUtils
 open System
 open System.Text.RegularExpressions
-open Fable.Core
-open Fable.Core.JsInterop
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
@@ -24,12 +18,6 @@ let FCS_REPO_FABLE_BRANCH = "fable"
 let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
 module Util =
-    type GhRealeases =
-        [<Emit("""new Promise((succeed, fail) =>
-            $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
-                err != null ? fail(err) : succeed(res)))""")>]
-        abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
-
     let cleanDirs dirs =
         for dir in dirs do
             removeDirRecursive dir
@@ -114,6 +102,8 @@ module Unused =
 // TARGETS ---------------------------
 
 let buildLibraryWithOptions (opts: {| watch: bool |}) =
+    run "npm install"
+
     let projectDir = fullPath "src/fable-library"
     let buildDir = fullPath "build/fable-library"
     let fableOpts = [
@@ -127,11 +117,13 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
 
     cleanDirs [buildDir]
     if opts.watch then
-        runNpmScriptAsync "tsc" [
-            "--project " + projectDir
-            "--watch"
-        ]
-        runFableWithArgsAsync projectDir fableOpts
+        Async.Parallel [
+            runNpmScriptAsync "tsc" [
+                "--project " + projectDir
+                "--watch"
+            ]
+            runFableWithArgsAsync projectDir fableOpts
+        ] |> runAsyncWorkflow
     else
         runTypescript projectDir
         runFableWithArgs projectDir fableOpts
@@ -168,11 +160,6 @@ let buildLibraryTs() =
 let quicktest () =
     if not (pathExists "build/fable-library") then
         buildLibrary()
-
-    // Nodemon will terminate if file doesn't exist
-    let quicktestJsPath = "src/quicktest/Quicktest.fs.js"
-    if pathExists quicktestJsPath |> not then
-        writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
 
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
@@ -222,7 +209,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
         | false, false -> distDir </> "bundle.min.js"
 
     let rollupArgs = [
-        buildDir + "/bundle/Main.js"
+        buildDir </> "bundle/Main.js"
         "-o " + rollupTarget
         "--format umd"
         "--name __FABLE_STANDALONE__"
@@ -238,7 +225,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
 
     // build standalone bundle
     runFableWithArgs projectDir [
-        "--outDir " + buildDir + "/bundle"
+        "--outDir " + buildDir </> "bundle"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"
@@ -250,25 +237,26 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
         "--define NO_INLINE_IL_PARSER"
         if opts.watch then
             "--watch"
-            "--run rollup"
-            yield! rollupArgs
-            "--watch"
+            if opts.minify then
+                "--run rollup"
+                yield! rollupArgs
+                "--watch"
+    ]
+
+    // build standalone worker
+    runFableWithArgs (projectDir + "/Worker") [
+        "--outDir " + buildDir + "/worker"
     ]
 
     // make standalone bundle dist
     runNpx "rollup" rollupArgs
     if opts.minify then
         runNpx "terser" [
-            buildDir + "/bundle.js"
-            sprintf "-o %s/bundle.min.js" distDir
+            buildDir </> "bundle.js"
+            "-o " + distDir </> "bundle.min.js"
             "--mangle"
             "--compress"
         ]
-
-    // build standalone worker
-    runFableWithArgs (projectDir + "/Worker") [
-        "--outDir " + buildDir + "/worker"
-    ]
 
     // make standalone worker dist
     runNpx "rollup" [sprintf "%s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir]
@@ -276,8 +264,8 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     runNpx "terser" [sprintf "%s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir]
 
     // print bundle size
-    fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
-    fileSizeInBytes (distDir </> "worker.min.js") / 1000 |> printfn "Worker size: %iKB"
+    fileSizeInBytes (distDir </> "bundle.min.js") / 1000. |> printfn "Bundle size: %fKB"
+    fileSizeInBytes (distDir </> "worker.min.js") / 1000. |> printfn "Worker size: %fKB"
 
     // Put fable-library files next to bundle
     let libraryTarget = distDir </> "fable-library"
@@ -418,14 +406,28 @@ let githubRelease() =
     | Some user, Some token ->
         async {
             try
-                let ghreleases: GhRealeases = JsInterop.importAll "ghreleases"
                 let! version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
-                run <| sprintf "git commit -am \"Release %s\" && git push" version
-                let! res = ghreleases.create(user, token, "fable-compiler", "Fable", version, String.concat "\n" notes) |> Async.AwaitPromise
+                // TODO: escape single quotes
+                let notes = notes |> Array.map (sprintf "'%s'") |> String.concat ","
+                run $"git commit -am \"Release {version}\" && git push"
+                runSilent $"""
+node --eval "require('ghreleases').create({{
+    user: '{user}',
+    token: '{token}',
+}}, 'fable-compiler', 'Fable', {{
+    tag_name: '{version}',
+    name: '{version}',
+    body: [{notes}].join('\n'),
+}}, (err, res) => {{
+    if (err != null) {{
+        console.error(err)
+    }}
+}})"
+"""
                 printfn "Github release %s created successfully" version
             with ex ->
                 printfn "Github release failed: %s" ex.Message
-        } |> Async.StartImmediate
+        } |> runAsyncWorkflow
     | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
 let copyFcsRepo sourceDir =
@@ -520,6 +522,15 @@ match argsLower with
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
 | "quicktest"::_ -> quicktest()
+| "run"::_ ->
+    let baseDir = __SOURCE_DIRECTORY__
+    if not (pathExists (baseDir </> "build/fable-library")) then
+        buildLibrary()
+
+    // Don't take it from pattern matching as that one uses lowered args
+    let restArgs = args |> List.skip 1 |> String.concat " "
+    run $"""dotnet run -p {baseDir </> "src/Fable.Cli"} -- {restArgs}"""
+
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
@@ -528,7 +539,7 @@ match argsLower with
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
 | "publish"::restArgs -> publishPackages restArgs
 | "github-release"::_ ->
-    publishPackages []
+    // publishPackages []
     githubRelease ()
 | "sync-fcs-repo"::_ -> syncFcsRepo()
 | "copy-fcs-repo"::_ -> copyFcsRepo "../fsharp"
@@ -536,4 +547,4 @@ match argsLower with
 | _ ->
     printfn "Please pass a target name"
 
-printf "Build finished successfully"
+printfn "Build finished successfully"
