@@ -468,6 +468,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                         logs, deps
                     | Error e ->
                         let log = Log.MakeError(e.Exception.Message, fileName=e.File, tag="EXCEPTION")
+                        Log.verbose(lazy e.Exception.StackTrace)
                         Array.append logs [|log|], deps)
 
             return logs, watchDependencies, { state with FableCompilationMs = ms }

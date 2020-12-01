@@ -5,6 +5,45 @@ open Fable.Core
 open Util.Testing
 open Util2.Extensions
 
+let [<Literal>] LITERAL_JSON = """{
+    "widget": {
+        "debug": true,
+        "window": {
+            "title": "Sample Konfabulator Widget",
+            "name": "main_window",
+            "width": 500,
+            "height": 500
+        },
+        "image": {
+            "src": "Images/Sun.png",
+            "name": "sun1",
+            "hOffset": 250,
+            "vOffset": 250,
+            "alignment": "center"
+        },
+        "text": {
+            "data": "Click Here",
+            "size": [{ "width": 36, "height": 40 }],
+            "style": "bold",
+            "name": "text1",
+            "vOffset": 100,
+            "alignment": "center",
+            "onMouseUp": "sun1.opacity = (sun1.opacity / 100) * 90;"
+        }
+    }
+}"""
+
+let ANOTHER_JSON = """{
+    "widget": {
+        "debug": false,
+        "text": {
+            "data": "lots of",
+            "size": [{"width": 5}, { "height": 80 }],
+            "vOffset": 500
+        }
+    }
+}"""
+
 // We can have aliases with same name in same file #1662
 module One =
     type Id = System.Guid
@@ -388,10 +427,23 @@ type Order =
         quantity : int<kg>
     }
 
+#if !FABLE_COMPILER_JS
+type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
+#endif
+
 let tests =
   testList "Miscellaneous" [
 
 #if FABLE_COMPILER
+#if !FABLE_COMPILER_JS
+    testCase "Fable.JsonProvider works" <| fun _ ->
+        let parsed = LiteralJson(ANOTHER_JSON)
+        parsed.widget.debug |> equal false
+        parsed.widget.text.data |> equal "lots of"
+        parsed.widget.text.size.[1].height |> equal 80.
+        parsed.widget.text.vOffset |> equal 500.
+#endif
+
     testCase "Can check compiler version with constant" <| fun _ ->
         let mutable x = 0
         #if FABLE_COMPILER

@@ -138,6 +138,10 @@ type FsEnt(ent: FSharpEntity) =
             match ent.Namespace with
             | Some ns -> ns + "." + ent.CompiledName
             | None -> ent.CompiledName
+#if !FABLE_COMPILER
+        | None when ent.IsProvided ->
+            ent.LogicalName
+#endif
         | None ->
             match ent.TryFullName with
             | Some n -> n
