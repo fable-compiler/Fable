@@ -88,10 +88,10 @@ export const Directory = {
         return process.cwd();
     },
     GetFiles(p) {
-        return fs.readdirSync(p).filter(p => fs.lstatSync(p).isFile());
+        return fs.readdirSync(p).map(f => path.join(p, f)).filter(f => fs.lstatSync(f).isFile());
     },
     GetDirectories(p) {
-        return fs.readdirSync(p).filter(p => fs.lstatSync(p).isDirectory());
+        return fs.readdirSync(p).map(d => path.join(p, d)).filter(d => fs.lstatSync(d).isDirectory())
     },
     Exists(p) {
         return fs.existsSync(p) && fs.lstatSync(p).isDirectory();

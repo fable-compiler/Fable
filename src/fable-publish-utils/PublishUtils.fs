@@ -292,9 +292,9 @@ let removeFile (p: string): unit =
 let getFullPathsInDirectoryRecursively (p: string) =
     let rec inner p =
         [| for file in IO.Directory.GetFiles p do
-                yield p </> file
+                yield file
            for dir in IO.Directory.GetDirectories p do
-                yield! inner (p </> dir) |]
+                yield! inner dir |]
     inner p
 
 let filenameWithoutExtension (p: string) =
@@ -305,9 +305,9 @@ let filenameWithoutExtension (p: string) =
 let rec removeDirRecursive (p: string): unit =
     if IO.Directory.Exists(p) then
         for file in IO.Directory.GetFiles p do
-            IO.File.Delete(p </> file)
+            IO.File.Delete(file)
         for dir in IO.Directory.GetDirectories p do
-            removeDirRecursive (p </> dir)
+            removeDirRecursive dir
 
 let makeDirRecursive (p: string): unit =
     IO.Directory.CreateDirectory(p)
@@ -316,13 +316,11 @@ let rec copyDir (source: string) (target: string) (recursive: bool): unit =
     if IO.Directory.Exists(target) |> not then
         makeDirRecursive target
     for file in IO.Directory.GetFiles(source) do
-        let source = source </> file
-        let target = target </> file
-        IO.File.Copy(source, target, true)
+        let target = target </> filename file
+        IO.File.Copy(file, target, true)
     if recursive then
         for dir in IO.Directory.GetDirectories(source) do
-            let source = source </> dir
-            let target = target </> dir
+            let target = target </> filename dir
             copyDir source target recursive
 
 let copyDirNonRecursive (source: string) (target: string): unit =
