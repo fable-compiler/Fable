@@ -1,6 +1,6 @@
 module QuickTest
 
-// Run `npm run build quicktest` and then add tests to this file,
+// Run `dotnet fsi build.fsx quicktest` and then add tests to this file,
 // when you save they will be run automatically with latest changes in compiler.
 // When everything works, move the tests to the appropriate file in tests/Main.
 // Please don't add this file to your commits.

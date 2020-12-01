@@ -449,8 +449,8 @@ let (|Regex|_|) (pattern: string) (input: string) =
         Some groups
     else None
 
-let replaceRegex (pattern: string) (replacement: string list) (input: string) =
-    Regex.Replace(input, pattern, String.concat "" replacement)
+let replaceRegex (pattern: string) (evaluator: Match -> string) (input: string) =
+    Regex.Replace(input, pattern, evaluator)
 
 module Publish =
     let NUGET_VERSION = @"(<Version>)(.*?)(<\/Version>)"
@@ -550,8 +550,10 @@ module Publish =
             runList ["dotnet restore"; projDir]
             // Update the project file
             readFile projFile
-            |> replaceRegex NUGET_VERSION ["$1"; splitPrerelease releaseVersion |> fst; "$3"]
-            |> replaceRegex NUGET_PACKAGE_VERSION ["$1"; releaseVersion; "$3"]
+            |> replaceRegex NUGET_VERSION (fun m ->
+                m.Groups.[1].Value + (splitPrerelease releaseVersion |> fst) + m.Groups.[3].Value)
+            |> replaceRegex NUGET_PACKAGE_VERSION (fun m ->
+                m.Groups.[1].Value + releaseVersion + m.Groups.[3].Value)
             |> writeFile projFile
             try
                 let tempDir = fullPath(projDir </> "temp")

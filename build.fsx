@@ -33,7 +33,8 @@ module Util =
 
     let updatePkgVersionInFsproj projFile version =
         readFile projFile
-        |> replaceRegex Publish.NUGET_PACKAGE_VERSION ["$1"; version; "$3"]
+        |> replaceRegex Publish.NUGET_PACKAGE_VERSION (fun m ->
+            m.Groups.[1].Value + version + m.Groups.[3].Value)
         |> writeFile projFile
 
     let runTypescript projectDir =
@@ -130,12 +131,12 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
 
 let buildLibrary() = buildLibraryWithOptions {| watch = false |}
 let watchLibrary() = buildLibraryWithOptions {| watch = true |}
-    // let libDir = "src/fable-library"
-    // printfn "Watching %s..." libDir
-    // chokidar
-    //     .watch(libDir)
-    //     .on("change", fun _ -> buildLibrary())
-    //     |> ignore
+
+let buildLibraryIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    printfn "%s" (baseDir </> "build/fable-library")
+    if not (pathExists (baseDir </> "build/fable-library")) then
+        buildLibrary()
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
@@ -156,12 +157,6 @@ let buildLibraryTs() =
     // TODO: copy *.ts/*.js from projectDir to buildDir
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
-
-let quicktest () =
-    if not (pathExists "build/fable-library") then
-        buildLibrary()
-
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -192,6 +187,8 @@ let testJsFast() =
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
+    buildLibraryIfNotExists()
+
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
     let projectDir = "src/fable-standalone/src"
@@ -214,9 +211,6 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
         "--format umd"
         "--name __FABLE_STANDALONE__"
     ]
-
-    if not (pathExists libraryDir) then
-        buildLibrary()
 
     // cleanup
     if not opts.watch then
@@ -347,12 +341,10 @@ let testReact() =
     runInDir "tests/React" "npm i && npm test"
 
 let test() =
-    let projectDir = "tests/Main"
-    let libraryDir = "build/fable-library"
-    let buildDir = "build/tests"
+    buildLibraryIfNotExists()
 
-    if not (pathExists libraryDir) then
-        buildLibrary()
+    let projectDir = "tests/Main"
+    let buildDir = "build/tests"
 
     cleanDirs [buildDir]
     runFableWithArgs projectDir [
@@ -369,6 +361,18 @@ let test() =
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
 
+let buildLocalPackage pkgDir =
+    buildLibraryIfNotExists()
+
+    let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
+    updateVersionInFableTransforms version
+    updatePkgVersionInFsproj "src/Fable.Cli/Fable.Cli.fsproj" version
+    run $"dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o {pkgDir}"
+
+    // Return install command
+    $"""dotnet tool install fable --version "{version}" --add-source {fullPath pkgDir}"""
+
+
 let testRepos() =
     let repos = [
         "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
@@ -379,15 +383,12 @@ let testRepos() =
         "https://github.com/Zaid-Ajaj/Fable.SimpleJson:master", "npm i && npm run test-nagareyama"
     ]
 
-    let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     let testDir = "temp"
     let pkgDir = "pkg"
 
     cleanDirs [testDir]
     makeDirRecursive testDir
-    updateVersionInFableTransforms version
-    updatePkgVersionInFsproj "src/Fable.Cli/Fable.Cli.fsproj" version
-    run (sprintf "dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o %s" (testDir </> pkgDir))
+    let pkgInstallCmd = buildLocalPackage (testDir </> pkgDir)
 
     for (repo, command) in repos do
         let url, branch = let i = repo.LastIndexOf(":") in repo.[..i-1], repo.[i+1..]
@@ -396,8 +397,7 @@ let testRepos() =
         let repoDir = testDir </> name
         runInDir repoDir ("git checkout " + branch)
         runInDir repoDir "dotnet tool uninstall fable"
-        runInDir repoDir (sprintf "dotnet tool install fable --version \"%s\" --add-source %s"
-                            version (".." </> pkgDir))
+        runInDir repoDir pkgInstallCmd
         runInDir repoDir "dotnet tool restore"
         runInDir repoDir command
 
@@ -521,15 +521,20 @@ match argsLower with
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
-| "quicktest"::_ -> quicktest()
-| "run"::_ ->
-    let baseDir = __SOURCE_DIRECTORY__
-    if not (pathExists (baseDir </> "build/fable-library")) then
-        buildLibrary()
+| "quicktest"::_ ->
+    buildLibraryIfNotExists()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
+| "run"::_ ->
+    buildLibraryIfNotExists()
+    let baseDir = __SOURCE_DIRECTORY__
     // Don't take it from pattern matching as that one uses lowered args
     let restArgs = args |> List.skip 1 |> String.concat " "
-    run $"""dotnet run -p {baseDir </> "src/Fable.Cli"} -- {restArgs}"""
+    run $"""dotnet run -c Release -p {baseDir </> "src/Fable.Cli"} -- {restArgs}"""
+
+| "package"::_ ->
+    let pkgInstallCmd = buildLocalPackage "temp/pkg"
+    printfn $"\nPackage has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library"|"library")::_ -> buildLibrary()
@@ -545,6 +550,19 @@ match argsLower with
 | "copy-fcs-repo"::_ -> copyFcsRepo "../fsharp"
 | "test-repos"::_ -> testRepos()
 | _ ->
-    printfn "Please pass a target name"
+    printfn """Please pass a target name. Examples:
+
+- Use `test` to run tests:
+    dotnet fsi build.fsx test
+
+- Use `package` to build a local package:
+    dotnet fsi build.fsx package
+
+- Use `run` to compile a project with development version:
+    dotnet fsi build.fsx run ../path/to/my/project [Fable options]
+
+- Use `quicktest` to quickly test development version with src/quicktest project:
+    dotnet fsi build.fsx quicktest
+"""
 
 printfn "Build finished successfully"
