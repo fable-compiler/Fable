@@ -14,5 +14,5 @@
     },
     "files.trimTrailingWhitespace": true,
     "files.trimFinalNewlines": true,
-    "gitlens.codeLens.enabled": false,
+    "gitlens.codeLens.enabled": false
 }
