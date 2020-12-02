@@ -410,6 +410,7 @@ let testRepos() =
         runInDir repoDir "dotnet tool uninstall fable"
         runInDir repoDir (sprintf "dotnet tool install fable --version \"%s\" --add-source %s"
                             version (".." </> pkgDir))
+        runInDir repoDir "dotnet tool restore"
         runInDir repoDir command
 
 let githubRelease() =

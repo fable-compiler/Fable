@@ -1,3 +1,8 @@
+### 3.0.0-nagareyama-rc-011
+
+* Fix #2303: spreading complex expressions
+* Fix #2302: Fable.JsonProvider
+
 ### 3.0.0-nagareyama-rc-010
 
 * Moar beta reduction improvements
