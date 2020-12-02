@@ -758,7 +758,7 @@ type SpreadElement(argument, ?loc) =
     interface Expression with
         member _.Print(printer) =
             printer.Print("...", ?loc=loc)
-            argument.Print(printer)
+            printer.ComplexExpressionWithParens(argument)
 
 type ArrayExpression(elements, ?loc) =
     // member _.Elements: Choice<Expression, SpreadElement> option array = elements

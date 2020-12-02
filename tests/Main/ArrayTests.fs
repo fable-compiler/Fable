@@ -62,6 +62,11 @@ let tests =
     testCase "Passing an array to ParamArrayAttribute from another function works" <| fun () ->
         add [|5;-7|] |> equal -2
 
+    testCase "Can spread a complex expression" <| fun _ ->
+        let sideEffect (ar: int[]) = ar.[1] <- 5
+        ParamArrayTest.Add(let ar = [|1;2;3|] in sideEffect ar; ar)
+        |> equal 9
+
 #if FABLE_COMPILER && FABLE_TYPED_ARRAYS
     testCase "Typed Arrays work" <| fun () ->
         let xs = [| 1; 2; 3; |]
