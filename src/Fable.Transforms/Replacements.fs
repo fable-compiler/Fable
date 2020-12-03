@@ -1185,7 +1185,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             | "Default", [RequireStringConst path]     -> makeImportUserGenerated r t "default" path |> Some
             | "SideEffects", [RequireStringConst path] -> makeImportUserGenerated r t "" path |> Some
             | "All", [RequireStringConst path]         -> makeImportUserGenerated r t "*" path |> Some
-            | _, [RequireStringConst selector; RequireStringConst path] -> makeImportUserGenerated r t (selector) path |> Some
+            | _, [RequireStringConst selector; RequireStringConst path] -> makeImportUserGenerated r t selector path |> Some
             | _ -> None
         // Dynamic casting, erase
         | "op_BangHat", [arg] -> Some arg

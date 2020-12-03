@@ -111,6 +111,10 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
 
+let private resolveImportMemberBinding (ident: Fable.Ident) (info: Fable.ImportInfo) =
+    if info.Selector = Naming.placeholder then { info with Selector = ident.Name }
+    else info
+
 let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                 (declaringEntityName: string option) (sign: FSharpAbstractSignature) attributes =
     let declaringEntityName = defaultArg declaringEntityName ""
@@ -469,7 +473,15 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 let! value = transformExpr com ctx value
                 let ctx, ident = putBindingInScope com ctx var value
                 let! body = transformExpr com ctx body
-                return Fable.Let(ident, value, body)
+                match value with
+                | Fable.Import(info, t, r) when not info.IsCompilerGenerated ->
+                    return Fable.Let(ident, Fable.Import(resolveImportMemberBinding ident info, t, r), body)
+                // Unwrap lambdas for user-generated imports, as in: `let add (x:int) (y:int): int = importMember "./util.js"`
+                | AST.NestedLambda(args, Fable.Import(info,_,r), _) when not info.IsCompilerGenerated ->
+                    let t = value.Type
+                    let info = resolveImportMemberBinding ident info
+                    return Fable.Let(ident, Fable.Curry(Fable.Import(info,t,r), List.length args, t, None), body)
+                | _ -> return Fable.Let(ident, value, body)
 
     | BasicPatterns.LetRec(recBindings, body) ->
         // First get a context containing all idents and use it compile the values

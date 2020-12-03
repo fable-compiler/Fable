@@ -38,7 +38,7 @@ type Context =
 type IBabelCompiler =
     inherit Compiler
     abstract GetAllImports: unit -> seq<Import>
-    abstract GetImportExpr: Context * selector: string * path: string -> Expression
+    abstract GetImportExpr: Context * selector: string * path: string * SourceLocation option -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string -> Expression
@@ -408,7 +408,7 @@ module Annotation =
         |> makeGenericTypeAnnotation com ctx genArgs
 
     let makeImportTypeId (com: IBabelCompiler) ctx moduleName typeName =
-        let expr = com.GetImportExpr(ctx, typeName, getLibPath com moduleName)
+        let expr = com.GetImportExpr(ctx, typeName, getLibPath com moduleName, None)
         match expr with
         | :? Identifier as id -> id
         | _ -> Identifier(typeName)
@@ -872,11 +872,11 @@ module Util =
             yield upcast ContinueStatement(Identifier tc.Label, ?loc=range)
         |]
 
-    let transformImport (com: IBabelCompiler) ctx _r (selector: string) (path: string) =
+    let transformImport (com: IBabelCompiler) ctx r (selector: string) (path: string) =
         let selector, parts =
             let parts = Array.toList(selector.Split('.'))
             parts.Head, parts.Tail
-        com.GetImportExpr(ctx, selector, path)
+        com.GetImportExpr(ctx, selector, path, r)
         |> getParts parts
 
     let transformCast (com: IBabelCompiler) (ctx: Context) t tag e: Expression =
@@ -1238,13 +1238,8 @@ module Util =
             | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None var e
         assign range var value
 
-    let transformBindingExprBody (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+    let transformBindingExprBody (com: IBabelCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
-        // Check imports with name placeholder
-        | Fable.Import({ Selector = Naming.placeholder; Path = path }, _, r) ->
-            transformImport com ctx r var.Name path
-        | Function(_,Fable.Import({ Selector = Naming.placeholder; Path = path }, _, r)) ->
-            transformImport com ctx r var.Name path
         | Function(args, body) ->
             let name = Some var.Name
             transformFunctionWithAnnotations com ctx name args body
@@ -2106,7 +2101,7 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.GetImportExpr(ctx, selector, path) =
+            member _.GetImportExpr(ctx, selector, path, r) =
                 let cachedName = path + "::" + selector
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
@@ -2118,8 +2113,8 @@ module Compiler =
                     let i =
                       { Selector =
                             if selector = Naming.placeholder then
-                                 "`importMember` must be assigned to a variable"
-                                 |> addError com [] None; selector
+                                     "`importMember` must be assigned to a variable"
+                                     |> addError com [] r; selector
                             else selector
                         Path = path
                         LocalIdent = localId }
