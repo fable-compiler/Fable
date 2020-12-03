@@ -1,3 +1,7 @@
+### 2.0.0
+
+* Compatibility both with dotnet and nodejs
+
 ### 1.2.1
 
 * Update to Fable.Core 3.1.5

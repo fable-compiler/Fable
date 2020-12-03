@@ -1,14 +1,8 @@
-// This script is compiled by fable-compiler-js and runs entirely on node.js
-// You can execute it by typing: npx fable build.fsx --run [ARGUMENTS]
-
-#r "src/fable-metadata/lib/Fable.Core.dll"
 #load "src/fable-publish-utils/PublishUtils.fs"
 
 open PublishUtils
 open System
 open System.Text.RegularExpressions
-open Fable.Core
-open Fable.Core.JsInterop
 
 // Appveyor artifact
 let FABLE_BRANCH = "master"
@@ -24,12 +18,6 @@ let FCS_REPO_FABLE_BRANCH = "fable"
 let FCS_REPO_SERVICE_SLIM_BRANCH = "service_slim"
 
 module Util =
-    type GhRealeases =
-        [<Emit("""new Promise((succeed, fail) =>
-            $0.create({user: $1, token: $2}, $3, $4, { tag_name: $5, name: $5, body: $6 }, (err, res) =>
-                err != null ? fail(err) : succeed(res)))""")>]
-        abstract create: user: string * token: string * owner: string * repo: string * name: string * msg: string -> JS.Promise<obj>
-
     let cleanDirs dirs =
         for dir in dirs do
             removeDirRecursive dir
@@ -45,7 +33,8 @@ module Util =
 
     let updatePkgVersionInFsproj projFile version =
         readFile projFile
-        |> replaceRegex Publish.NUGET_PACKAGE_VERSION ["$1"; version; "$3"]
+        |> replaceRegex Publish.NUGET_PACKAGE_VERSION (fun m ->
+            m.Groups.[1].Value + version + m.Groups.[3].Value)
         |> writeFile projFile
 
     let runTypescript projectDir =
@@ -114,6 +103,8 @@ module Unused =
 // TARGETS ---------------------------
 
 let buildLibraryWithOptions (opts: {| watch: bool |}) =
+    run "npm install"
+
     let projectDir = fullPath "src/fable-library"
     let buildDir = fullPath "build/fable-library"
     let fableOpts = [
@@ -127,23 +118,25 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
 
     cleanDirs [buildDir]
     if opts.watch then
-        runNpmScriptAsync "tsc" [
-            "--project " + projectDir
-            "--watch"
-        ]
-        runFableWithArgsAsync projectDir fableOpts
+        Async.Parallel [
+            runNpmScriptAsync "tsc" [
+                "--project " + projectDir
+                "--watch"
+            ]
+            runFableWithArgsAsync projectDir fableOpts
+        ] |> runAsyncWorkflow
     else
         runTypescript projectDir
         runFableWithArgs projectDir fableOpts
 
 let buildLibrary() = buildLibraryWithOptions {| watch = false |}
 let watchLibrary() = buildLibraryWithOptions {| watch = true |}
-    // let libDir = "src/fable-library"
-    // printfn "Watching %s..." libDir
-    // chokidar
-    //     .watch(libDir)
-    //     .on("change", fun _ -> buildLibrary())
-    //     |> ignore
+
+let buildLibraryIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    printfn "%s" (baseDir </> "build/fable-library")
+    if not (pathExists (baseDir </> "build/fable-library")) then
+        buildLibrary()
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
@@ -164,17 +157,6 @@ let buildLibraryTs() =
     // TODO: copy *.ts/*.js from projectDir to buildDir
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
-
-let quicktest () =
-    if not (pathExists "build/fable-library") then
-        buildLibrary()
-
-    // Nodemon will terminate if file doesn't exist
-    let quicktestJsPath = "src/quicktest/Quicktest.fs.js"
-    if pathExists quicktestJsPath |> not then
-        writeFile quicktestJsPath "console.log('Getting ready, hold tight')"
-
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
 
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -205,6 +187,8 @@ let testJsFast() =
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
+    buildLibraryIfNotExists()
+
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
     let projectDir = "src/fable-standalone/src"
@@ -222,14 +206,11 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
         | false, false -> distDir </> "bundle.min.js"
 
     let rollupArgs = [
-        buildDir + "/bundle/Main.js"
+        buildDir </> "bundle/Main.js"
         "-o " + rollupTarget
         "--format umd"
         "--name __FABLE_STANDALONE__"
     ]
-
-    if not (pathExists libraryDir) then
-        buildLibrary()
 
     // cleanup
     if not opts.watch then
@@ -238,7 +219,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
 
     // build standalone bundle
     runFableWithArgs projectDir [
-        "--outDir " + buildDir + "/bundle"
+        "--outDir " + buildDir </> "bundle"
         "--define FX_NO_CORHOST_SIGNER"
         "--define FX_NO_LINKEDRESOURCES"
         "--define FX_NO_PDB_READER"
@@ -250,25 +231,26 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
         "--define NO_INLINE_IL_PARSER"
         if opts.watch then
             "--watch"
-            "--run rollup"
-            yield! rollupArgs
-            "--watch"
+            if opts.minify then
+                "--run rollup"
+                yield! rollupArgs
+                "--watch"
+    ]
+
+    // build standalone worker
+    runFableWithArgs (projectDir + "/Worker") [
+        "--outDir " + buildDir + "/worker"
     ]
 
     // make standalone bundle dist
     runNpx "rollup" rollupArgs
     if opts.minify then
         runNpx "terser" [
-            buildDir + "/bundle.js"
-            sprintf "-o %s/bundle.min.js" distDir
+            buildDir </> "bundle.js"
+            "-o " + distDir </> "bundle.min.js"
             "--mangle"
             "--compress"
         ]
-
-    // build standalone worker
-    runFableWithArgs (projectDir + "/Worker") [
-        "--outDir " + buildDir + "/worker"
-    ]
 
     // make standalone worker dist
     runNpx "rollup" [sprintf "%s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir]
@@ -276,8 +258,8 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     runNpx "terser" [sprintf "%s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir]
 
     // print bundle size
-    fileSizeInBytes (distDir </> "bundle.min.js") / 1000 |> printfn "Bundle size: %iKB"
-    fileSizeInBytes (distDir </> "worker.min.js") / 1000 |> printfn "Worker size: %iKB"
+    fileSizeInBytes (distDir </> "bundle.min.js") / 1000. |> printfn "Bundle size: %fKB"
+    fileSizeInBytes (distDir </> "worker.min.js") / 1000. |> printfn "Worker size: %fKB"
 
     // Put fable-library files next to bundle
     let libraryTarget = distDir </> "fable-library"
@@ -359,12 +341,10 @@ let testReact() =
     runInDir "tests/React" "npm i && npm test"
 
 let test() =
-    let projectDir = "tests/Main"
-    let libraryDir = "build/fable-library"
-    let buildDir = "build/tests"
+    buildLibraryIfNotExists()
 
-    if not (pathExists libraryDir) then
-        buildLibrary()
+    let projectDir = "tests/Main"
+    let buildDir = "build/tests"
 
     cleanDirs [buildDir]
     runFableWithArgs projectDir [
@@ -381,6 +361,18 @@ let test() =
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
 
+let buildLocalPackage pkgDir =
+    buildLibraryIfNotExists()
+
+    let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
+    updateVersionInFableTransforms version
+    updatePkgVersionInFsproj "src/Fable.Cli/Fable.Cli.fsproj" version
+    run $"dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o {pkgDir}"
+
+    // Return install command
+    $"""dotnet tool install fable --version "{version}" --add-source {fullPath pkgDir}"""
+
+
 let testRepos() =
     let repos = [
         "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
@@ -391,15 +383,12 @@ let testRepos() =
         "https://github.com/Zaid-Ajaj/Fable.SimpleJson:master", "npm i && npm run test-nagareyama"
     ]
 
-    let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     let testDir = "temp"
     let pkgDir = "pkg"
 
     cleanDirs [testDir]
     makeDirRecursive testDir
-    updateVersionInFableTransforms version
-    updatePkgVersionInFsproj "src/Fable.Cli/Fable.Cli.fsproj" version
-    run (sprintf "dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o %s" (testDir </> pkgDir))
+    let pkgInstallCmd = buildLocalPackage (testDir </> pkgDir)
 
     for (repo, command) in repos do
         let url, branch = let i = repo.LastIndexOf(":") in repo.[..i-1], repo.[i+1..]
@@ -408,8 +397,7 @@ let testRepos() =
         let repoDir = testDir </> name
         runInDir repoDir ("git checkout " + branch)
         runInDir repoDir "dotnet tool uninstall fable"
-        runInDir repoDir (sprintf "dotnet tool install fable --version \"%s\" --add-source %s"
-                            version (".." </> pkgDir))
+        runInDir repoDir pkgInstallCmd
         runInDir repoDir "dotnet tool restore"
         runInDir repoDir command
 
@@ -418,14 +406,28 @@ let githubRelease() =
     | Some user, Some token ->
         async {
             try
-                let ghreleases: GhRealeases = JsInterop.importAll "ghreleases"
                 let! version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
-                run <| sprintf "git commit -am \"Release %s\" && git push" version
-                let! res = ghreleases.create(user, token, "fable-compiler", "Fable", version, String.concat "\n" notes) |> Async.AwaitPromise
+                // TODO: escape single quotes
+                let notes = notes |> Array.map (sprintf "'%s'") |> String.concat ","
+                run $"git commit -am \"Release {version}\" && git push"
+                runSilent $"""
+node --eval "require('ghreleases').create({{
+    user: '{user}',
+    token: '{token}',
+}}, 'fable-compiler', 'Fable', {{
+    tag_name: '{version}',
+    name: '{version}',
+    body: [{notes}].join('\n'),
+}}, (err, res) => {{
+    if (err != null) {{
+        console.error(err)
+    }}
+}})"
+"""
                 printfn "Github release %s created successfully" version
             with ex ->
                 printfn "Github release failed: %s" ex.Message
-        } |> Async.StartImmediate
+        } |> runAsyncWorkflow
     | _ -> failwith "Expecting GITHUB_USER and GITHUB_TOKEN enviromental variables"
 
 let copyFcsRepo sourceDir =
@@ -519,7 +521,21 @@ match argsLower with
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
-| "quicktest"::_ -> quicktest()
+| "quicktest"::_ ->
+    buildLibraryIfNotExists()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
+
+| "run"::_ ->
+    buildLibraryIfNotExists()
+    let baseDir = __SOURCE_DIRECTORY__
+    // Don't take it from pattern matching as that one uses lowered args
+    let restArgs = args |> List.skip 1 |> String.concat " "
+    run $"""dotnet run -c Release -p {baseDir </> "src/Fable.Cli"} -- {restArgs}"""
+
+| "package"::_ ->
+    let pkgInstallCmd = buildLocalPackage "temp/pkg"
+    printfn $"\nPackage has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
+
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
@@ -534,6 +550,19 @@ match argsLower with
 | "copy-fcs-repo"::_ -> copyFcsRepo "../fsharp"
 | "test-repos"::_ -> testRepos()
 | _ ->
-    printfn "Please pass a target name"
+    printfn """Please pass a target name. Examples:
 
-printf "Build finished successfully"
+- Use `test` to run tests:
+    dotnet fsi build.fsx test
+
+- Use `package` to build a local package:
+    dotnet fsi build.fsx package
+
+- Use `run` to compile a project with development version:
+    dotnet fsi build.fsx run ../path/to/my/project [Fable options]
+
+- Use `quicktest` to quickly test development version with src/quicktest project:
+    dotnet fsi build.fsx quicktest
+"""
+
+printfn "Build finished successfully"

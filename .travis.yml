@@ -24,4 +24,4 @@ before_script:
 script:
   - dotnet --version
   - node --version
-  - npm install && npm test
+  - dotnet fsi build.fsx test
