@@ -228,13 +228,19 @@ type FsWatcher() =
         let commonBaseDir = getCommonBaseDir filesToWatch
         Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
 
-        let filePaths = set filesToWatch
+        let filePaths =
+            filesToWatch
+            |> List.map (fun f -> f.ToLower())
+            |> set
+
         watcher.Path <- commonBaseDir
         watcher.EnableRaisingEvents <- true
 
         observable
         |> Observable.choose (fun (_, fullPath) ->
-            let fullPath = Path.normalizePath fullPath
+            // It may happen we get the same path with different case in case-insensitive file systems
+            // https://github.com/fable-compiler/Fable/issues/2277#issuecomment-737748220
+            let fullPath = (Path.normalizePath fullPath).ToLower()
             if Set.contains fullPath filePaths
             then Some fullPath
             else None)
