@@ -325,15 +325,15 @@ let makeDirRecursive (p: string): unit =
     IO.Directory.CreateDirectory(p)
 
 let rec copyDir (source: string) (target: string) (recursive: bool): unit =
-    if IO.Directory.Exists(target) |> not then
+    if not(IO.Directory.Exists(target)) then
         makeDirRecursive target
     for file in IO.Directory.GetFiles(source) do
         let target = target </> filename file
         IO.File.Copy(file, target, true)
     if recursive then
-        for dir in IO.Directory.GetDirectories(source) do
-            let target = target </> filename dir
-            copyDir source target recursive
+        for sourceDir in IO.Directory.GetDirectories(source) do
+            let target = target </> filename sourceDir
+            copyDir sourceDir target recursive
 
 let copyDirNonRecursive (source: string) (target: string): unit =
     copyDir source target false

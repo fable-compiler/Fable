@@ -158,20 +158,24 @@ let buildLibraryTs() =
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
 
+let standaloneFlags() = [
+    "--define FX_NO_CORHOST_SIGNER"
+    "--define FX_NO_LINKEDRESOURCES"
+    "--define FX_NO_PDB_READER"
+    "--define FX_NO_PDB_WRITER"
+    "--define FX_NO_WEAKTABLE"
+    "--define FX_REDUCED_EXCEPTIONS"
+    "--define NO_COMPILER_BACKEND"
+    "--define NO_EXTENSIONTYPING"
+    "--define NO_INLINE_IL_PARSER"
+]
+
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
 let testJsFast() =
     runFableWithArgs "src/fable-standalone/src" [
         "--forcePkgs"
-        "--define FX_NO_CORHOST_SIGNER"
-        "--define FX_NO_LINKEDRESOURCES"
-        "--define FX_NO_PDB_READER"
-        "--define FX_NO_PDB_WRITER"
-        "--define FX_NO_WEAKTABLE"
-        "--define FX_REDUCED_EXCEPTIONS"
-        "--define NO_COMPILER_BACKEND"
-        "--define NO_EXTENSIONTYPING"
-        "--define NO_INLINE_IL_PARSER"
+        yield! standaloneFlags()
     ]
 
     runFableWithArgs "src/fable-compiler-js/src" [
@@ -220,15 +224,7 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     // build standalone bundle
     runFableWithArgs projectDir [
         "--outDir " + buildDir </> "bundle"
-        "--define FX_NO_CORHOST_SIGNER"
-        "--define FX_NO_LINKEDRESOURCES"
-        "--define FX_NO_PDB_READER"
-        "--define FX_NO_PDB_WRITER"
-        "--define FX_NO_WEAKTABLE"
-        "--define FX_REDUCED_EXCEPTIONS"
-        "--define NO_COMPILER_BACKEND"
-        "--define NO_EXTENSIONTYPING"
-        "--define NO_INLINE_IL_PARSER"
+        yield! standaloneFlags()
         if opts.watch then
             "--watch"
             if opts.minify then
@@ -253,9 +249,9 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
         ]
 
     // make standalone worker dist
-    runNpx "rollup" [sprintf "%s/worker/Worker.js -o %s/worker.js --format esm" buildDir buildDir]
+    runNpx "rollup" [$"{buildDir}/worker/Worker.js -o {buildDir}/worker.js --format iife"]
     // runNpx "webpack" [sprintf "--entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir]
-    runNpx "terser" [sprintf "%s/worker.js -o %s/worker.min.js --mangle --compress" buildDir distDir]
+    runNpx "terser" [$"{buildDir}/worker.js -o {distDir}/worker.min.js --mangle --compress"]
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000. |> printfn "Bundle size: %fKB"
