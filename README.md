@@ -19,7 +19,7 @@ Make sure the following **requirements** are installed in your system:
 - [dotnet SDK 5](https://www.microsoft.com/net/download/core)
 - [node.js](https://nodejs.org) with npm
 
-Then run `dotnet fsi build.fsx` at the root folder see the build options.
+Then run `dotnet fsi build.fsx` at the root folder to see the build options.
 
 ## Contributing
 
