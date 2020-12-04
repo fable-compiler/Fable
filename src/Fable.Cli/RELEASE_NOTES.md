@@ -1,3 +1,10 @@
+### 3.0.0
+
+* Official release
+* Fix #2293: Fix case of path passed as cli argument @tomcl
+* Fix #2277: Make FsWatcher case-insensitive @reinux
+* Fix local imports with `import` function helpers
+
 ### 3.0.0-nagareyama-rc-011
 
 * Fix #2303: spreading complex expressions

@@ -29,8 +29,10 @@ type IPath =
     abstract GetFullPath: string -> string
     abstract GetDirectoryName: string -> string
     abstract GetFileName: string -> string
+    abstract GetTempPath: unit -> string
 
 type IDirectory =
+    abstract DeleteEmpty: string -> unit
     abstract Exists: string -> bool
     abstract GetFiles: string -> string[]
     abstract GetDirectories: string -> string[]
@@ -150,6 +152,9 @@ module Platform =
 
             member _.GetFileName(p: string): string =
                 System.IO.Path.GetFileName(p)
+
+            member _.GetTempPath(): string =
+                System.IO.Path.GetTempPath()
         }
 
         let Directory = { new IDirectory with
@@ -167,6 +172,9 @@ module Platform =
 
             member _.CreateDirectory(p: string): unit =
                 System.IO.Directory.CreateDirectory(p) |> ignore
+
+            member _.DeleteEmpty(p: string) =
+                System.IO.Directory.Delete(p)
         }
 
     let Environment = { new IEnvironment with
@@ -251,7 +259,7 @@ module Platform =
             p.WaitForExit()
             match p.ExitCode with
             | 0 -> ()
-            | c -> sprintf "Process exited with code %i" c |> System.Console.Error.WriteLine
+            | c -> failwith "Process exited with code %i{c}"
     }
 
 #endif
@@ -269,6 +277,9 @@ let argsLower<'T> =
 
 let isWindows =
     Environment.IsWindows()
+
+let tempPath (): string =
+    IO.Path.GetTempPath()
 
 let fullPath (p: string): string =
     IO.Path.GetFullPath(p)
@@ -308,6 +319,7 @@ let rec removeDirRecursive (p: string): unit =
             IO.File.Delete(file)
         for dir in IO.Directory.GetDirectories p do
             removeDirRecursive dir
+        IO.Directory.DeleteEmpty(p)
 
 let makeDirRecursive (p: string): unit =
     IO.Directory.CreateDirectory(p)
