@@ -80,6 +80,25 @@ module File =
             if File.Exists(nodeModulesBin) then Path.GetRelativePath(workingDir, nodeModulesBin) |> Some
             else None)
 
+    /// System.IO.GetFullPath doesn't change the case of the argument in case insensitive file systems
+    /// even if it doesn't match the actual path, causing unexpected issues when comparing files later.
+    // From https://stackoverflow.com/a/326153
+    // See https://github.com/fable-compiler/Fable/issues/2277#issuecomment-737748220
+    // and https://github.com/fable-compiler/Fable/issues/2293#issuecomment-738134611
+    let getExactFullPath (pathName: string) =
+        let rec getExactPath (pathName: string) =
+            if not(File.Exists pathName || Directory.Exists pathName) then pathName
+            else
+                let di = DirectoryInfo(pathName)
+                if not(isNull di.Parent) then
+                    Path.Combine(
+                        getExactPath di.Parent.FullName,
+                        di.Parent.GetFileSystemInfos(di.Name).[0].Name
+                    )
+                else
+                    di.Name.ToUpper()
+        Path.GetFullPath(pathName) |> getExactPath
+
 [<RequireQualifiedAccess>]
 module Process =
     open System.Runtime
@@ -265,16 +284,16 @@ module Observable =
                     member _.Dispose() = dispose() }
 
     let throttle ms (obs: IObservable<'T>) =
-        { new IObservable<Set<'T>> with
+        { new IObservable<'T[]> with
             member _.Subscribe w =
-                let events = Collections.Generic.HashSet<'T>()
+                let events = Collections.Concurrent.ConcurrentBag()
                 let timer = new Timers.Timer(ms, AutoReset=false)
                 timer.Elapsed.Add(fun _ ->
-                    set events |> w.OnNext
+                    events.ToArray() |> w.OnNext
                     timer.Dispose())
                 let disp = obs.Subscribe(Observer(fun v ->
-                    if events.Add(v) then
-                        timer.Stop()
-                        timer.Start()))
+                    events.Add(v)
+                    timer.Stop()
+                    timer.Start()))
                 { new IDisposable with
                     member _.Dispose() = disp.Dispose() } }

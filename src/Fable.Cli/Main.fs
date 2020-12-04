@@ -1,6 +1,7 @@
 module Fable.Cli.Main
 
 open System
+open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
 
 open Fable
@@ -203,6 +204,11 @@ module private Util =
 
 open Util
 
+let caseInsensitiveSet(items: string seq): ISet<string> =
+    let s = HashSet(items)
+    for i in items do s.Add(i) |> ignore
+    s :> _
+
 type FsWatcher() =
     let watcher = new IO.FileSystemWatcher(EnableRaisingEvents=false)
     let observable = Observable.SingleObservable(fun () ->
@@ -228,23 +234,20 @@ type FsWatcher() =
         let commonBaseDir = getCommonBaseDir filesToWatch
         Log.always("Watching " + File.getRelativePathFromCwd commonBaseDir)
 
-        let filePaths =
-            filesToWatch
-            |> List.map (fun f -> f.ToLower())
-            |> set
-
+        // It may happen we get the same path with different case in case-insensitive file systems
+        // https://github.com/fable-compiler/Fable/issues/2277#issuecomment-737748220
+        let filePaths = caseInsensitiveSet filesToWatch
         watcher.Path <- commonBaseDir
         watcher.EnableRaisingEvents <- true
 
         observable
         |> Observable.choose (fun (_, fullPath) ->
-            // It may happen we get the same path with different case in case-insensitive file systems
-            // https://github.com/fable-compiler/Fable/issues/2277#issuecomment-737748220
-            let fullPath = (Path.normalizePath fullPath).ToLower()
-            if Set.contains fullPath filePaths
+            let fullPath = Path.normalizePath fullPath
+            if filePaths.Contains(fullPath)
             then Some fullPath
             else None)
         |> Observable.throttle 200.
+        |> Observable.map caseInsensitiveSet
 
 // TODO: Check the path is actually normalized?
 type File(normalizedFullPath: string) =
@@ -361,7 +364,7 @@ type State =
             set this.DeduplicateDic.Values
             |> addTargetDir)
 
-let rec startCompilation (changes: Set<string>) (state: State) = async {
+let rec startCompilation (changes: ISet<string>) (state: State) = async {
     let state =
         match state.CliArgs.RunProcess with
         | Some runProc when runProc.IsFast ->
@@ -397,7 +400,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
                     cracked.SourceFiles
                     |> Array.choose (fun file ->
                         let path = file.NormalizedFullPath
-                        if Set.contains path changes
+                        if changes.Contains(path)
                             || (fsprojChanged && not(Set.contains path oldFiles))
                             then Some path
                         else None)
@@ -570,7 +573,7 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             return!
                 { state with ProjectCrackedAndParsed = Some(cracked, parsed)
                              TestInfo = Some info }
-                |> startCompilation (set filesToCompile)
+                |> startCompilation (caseInsensitiveSet filesToCompile)
         else
             let log = sprintf "Completed %i iterations, average: %ims, median: %ims"
                         info.TotalIterations
@@ -581,3 +584,6 @@ let rec startCompilation (changes: Set<string>) (state: State) = async {
             IO.File.AppendAllText(perfLog, log + "\n")
             return Ok()
 }
+
+let startFirstCompilation state =
+    startCompilation (HashSet() :> ISet<_>) state

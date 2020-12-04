@@ -85,8 +85,10 @@ type Runner =
     let normalizeAbsolutePath (path: string) =
         (if IO.Path.IsPathRooted(path) then path
          else IO.Path.Combine(rootDir, path))
-        // Use GetFullPath to remove things like: myrepo/./build/
-        |> Path.normalizeFullPath
+        // Use getExactFullPath to remove things like: myrepo/./build/
+        // and get proper casing (see `getExactFullPath` comment)
+        |> File.getExactFullPath
+        |> Path.normalizePath
 
     let watch = defaultArg watch false
 
@@ -170,7 +172,7 @@ type Runner =
           FableCompilationMs = 0L
           ErroredFiles = Set.empty
           TestInfo = testInfo }
-        |> startCompilation Set.empty
+        |> startFirstCompilation
         |> Async.RunSynchronously)
 
 
@@ -237,7 +239,7 @@ let main argv =
 
         let rootDir =
             match argValue "--cwd" argv with
-            | Some rootDir -> IO.Path.GetFullPath(rootDir)
+            | Some rootDir -> File.getExactFullPath rootDir
             | None -> IO.Directory.GetCurrentDirectory()
 
         do
