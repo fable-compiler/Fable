@@ -1,5 +1,5 @@
 set -e
 rm -rf build
-npm test
-npm run build test-js-fast
-npm run build test-repos
+dotnet fsi build.fsx test
+dotnet fsi build.fsx test-js-fast
+dotnet fsi build.fsx test-repos

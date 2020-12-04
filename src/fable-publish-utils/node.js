@@ -1,7 +1,8 @@
 // @ts-check
 
-import * as fs from "fs";
-import * as path from "path";
+const os = require("os");
+const fs = require("fs");
+const path = require("path");
 
 class SingleObservable {
     constructor(onDispose) {
@@ -81,6 +82,9 @@ export const Path = {
     GetFileName(p) {
         return path.basename(p);
     },
+    GetTempPath() {
+        return os.tmpdir();
+    }
 }
 
 export const Directory = {
@@ -95,6 +99,9 @@ export const Directory = {
     },
     Exists(p) {
         return fs.existsSync(p) && fs.lstatSync(p).isDirectory();
+    },
+    DeleteEmpty(p) {
+        fs.rmdirSync(p);
     },
     CreateDirectory(p) {
         fs.mkdirSync(p, {

@@ -9,6 +9,6 @@
   <ItemGroup>
     <PackageReference Include="Fable.Jester" Version="0.29.1" />
     <PackageReference Include="Fable.ReactTestingLibrary" Version="0.29.1" />
-    <PackageReference Include="Feliz" Version="1.20.0" />
+    <PackageReference Include="Feliz" Version="1.22.0" />
   </ItemGroup>
 </Project>

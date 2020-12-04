@@ -3,7 +3,7 @@ module App
 open Feliz
 
 [<ReactComponent>]
-let counter() =
+let Counter() =
     let (count, setCount) = React.useState(0)
     Html.div [
         prop.style [ style.padding 10 ]

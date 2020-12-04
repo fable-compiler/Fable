@@ -1,3 +1,7 @@
+### 3.0.0
+
+* Official release
+
 ### 3.0.0-nagareyama-rc-001
 
 * Add `Expr.LetRec`

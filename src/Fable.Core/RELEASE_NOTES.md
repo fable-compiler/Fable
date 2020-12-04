@@ -1,6 +1,10 @@
-### 4.0.0-nagareyama-alpha-001
+### 3.2.0
 
-* Nagareyama
+* New helpers for Fable 3
+* `Mangle` attribute
+* `isStatement` parameter for `Emit` attribute
+* `emitJsExpr` and `emitJsStatement` helpers
+* Access compiler options in `Compiler` module
 
 ### 3.1.6
 

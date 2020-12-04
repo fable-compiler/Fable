@@ -103,10 +103,10 @@ module Unused =
 // TARGETS ---------------------------
 
 let buildLibraryWithOptions (opts: {| watch: bool |}) =
-    run "npm install"
+    let baseDir = __SOURCE_DIRECTORY__
 
-    let projectDir = fullPath "src/fable-library"
-    let buildDir = fullPath "build/fable-library"
+    let projectDir = baseDir </> "src/fable-library"
+    let buildDir = baseDir </> "build/fable-library"
     let fableOpts = [
         "--outDir " + buildDir
         "--fableLib " + buildDir
@@ -117,6 +117,7 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
     ]
 
     cleanDirs [buildDir]
+    runInDir baseDir "npm install"
     if opts.watch then
         Async.Parallel [
             runNpmScriptAsync "tsc" [
@@ -134,7 +135,6 @@ let watchLibrary() = buildLibraryWithOptions {| watch = true |}
 
 let buildLibraryIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
-    printfn "%s" (baseDir </> "build/fable-library")
     if not (pathExists (baseDir </> "build/fable-library")) then
         buildLibrary()
 
@@ -362,7 +362,7 @@ let test() =
         testJsFast()
 
 let buildLocalPackage pkgDir =
-    buildLibraryIfNotExists()
+    buildLibrary()
 
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     updateVersionInFableTransforms version
@@ -376,24 +376,24 @@ let buildLocalPackage pkgDir =
 let testRepos() =
     let repos = [
         "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
-        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore  && npm i && dotnet fable tests -o tests/bin && npx mocha -r esm tests/bin"
+        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "./fake.sh build -t MochaTest"
         "https://github.com/alfonsogarciacaro/FSharp.Control.AsyncSeq:nagareyama", "cd tests/fable && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama", "dotnet paket restore && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"
         "https://github.com/Zaid-Ajaj/Fable.SimpleJson:master", "npm i && npm run test-nagareyama"
     ]
 
-    let testDir = "temp"
-    let pkgDir = "pkg"
+    let testDir = tempPath() </> "fable-repos"
+    printfn $"Cloning repos to: {testDir}"
 
     cleanDirs [testDir]
     makeDirRecursive testDir
-    let pkgInstallCmd = buildLocalPackage (testDir </> pkgDir)
+    let pkgInstallCmd = buildLocalPackage (testDir </> "pkg")
 
     for (repo, command) in repos do
         let url, branch = let i = repo.LastIndexOf(":") in repo.[..i-1], repo.[i+1..]
         let name = url.[url.LastIndexOf("/") + 1..]
-        runInDir testDir (sprintf "git clone %s %s" url name)
+        runInDir testDir $"git clone {url} {name}"
         let repoDir = testDir </> name
         runInDir repoDir ("git checkout " + branch)
         runInDir repoDir "dotnet tool uninstall fable"
@@ -527,13 +527,12 @@ match argsLower with
 
 | "run"::_ ->
     buildLibraryIfNotExists()
-    let baseDir = __SOURCE_DIRECTORY__
     // Don't take it from pattern matching as that one uses lowered args
     let restArgs = args |> List.skip 1 |> String.concat " "
-    run $"""dotnet run -c Release -p {baseDir </> "src/Fable.Cli"} -- {restArgs}"""
+    run $"""dotnet run -c Release -p {__SOURCE_DIRECTORY__ </> "src/Fable.Cli"} -- {restArgs}"""
 
 | "package"::_ ->
-    let pkgInstallCmd = buildLocalPackage "temp/pkg"
+    let pkgInstallCmd = buildLocalPackage (__SOURCE_DIRECTORY__ </> "temp/pkg")
     printfn $"\nPackage has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
 | ("watch-library")::_ -> watchLibrary()
