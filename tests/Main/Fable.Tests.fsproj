@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <RollForward>Major</RollForward>
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -20,6 +20,7 @@
     <ProjectReference Include="../DllRef/Fable.Tests.DllRef.fsproj" />
     <ProjectReference Include="../../tests_external/Fable.Tests.External.fsproj" />
     <ProjectReference Include="../Project With Spaces/Fable.Tests.Spaces.fsproj" />
+    <ProjectReference Include="..\..\src\Fable.Cli\Fable.Cli.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Globs/*.fs" />
@@ -46,6 +47,7 @@
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
     <Compile Include="EventTests.fs" />
+    <Compile Include="FileWatcherTests.fs" />
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
     <Compile Include="JsInteropTests.fs" />

@@ -3,7 +3,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-module FileWatcher
+module Fable.Cli.FileWatcher
 
 open System
 open System.IO
@@ -69,7 +69,7 @@ type PollingFileWatcher (watchedDirectoryPath, ignoredDirectoryNameRegexes) =
             let entities =
                 // If the directory is deleted after the exists check
                 // this will throw and could crash the process
-                try Some (dirInfo.EnumerateFileSystemInfos("*.*"))
+                try Some (dirInfo.EnumerateFileSystemInfos())
                 with | :? DirectoryNotFoundException -> None
             if Option.isSome entities then
                 for entity in entities.Value do
@@ -196,8 +196,11 @@ type ResetablePollingFileWatcher (fileNameGlobFilters, ignoredDirectoryNameRegex
             | None -> false // Defaults to EnableRaisingEvents = false to be consistent
 
         let watcherChangeHandler e =
-            let filtered = fileNameGlobFilters |> List.exists (fun filter -> Glob.isMatch filter e)
-            if not filtered then onFileChange.Trigger(e)
+            let name = Path.GetFileName(e: string) // Should also work for directories
+            let matchesFilter =
+                List.isEmpty fileNameGlobFilters
+                || fileNameGlobFilters |> List.exists (fun filter -> Glob.isMatch filter name)
+            if matchesFilter then onFileChange.Trigger(e)
 
         newInstance.EnableRaisingEvents <- previousEnableRaisingEvents
 

@@ -20,6 +20,7 @@ let allTests =
     Enumerable.tests
     Enum.tests
     Event.tests
+    FileWatcher.tests
     HashSets.tests
     Import.tests
     JsInterop.tests
