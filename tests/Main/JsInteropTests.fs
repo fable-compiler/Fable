@@ -375,7 +375,7 @@ let tests =
         style.FontSize(true) |> equal "foo"
         style.FontSize(false) |> equal "bar"
 
-    testCase "Emit wors with ParamArray" <| fun () ->
+    testCase "Emit works with ParamArray" <| fun () ->
         let style = createEmpty<TextStyle>
         style.Sum(1.5, 2, 3, 4) |> equal 10.5
 
@@ -442,6 +442,13 @@ let tests =
     testCase "Stringifying an F# type in JS works" <| fun () ->
         let addFooString (x: obj) = importMember "./js/1foo.js"
         { Float = 7. } |> addFooString |> equal "35x foo"
+
+    testCase "JsFunc.Invoke call with param array is spreaded in JS" <| fun () ->
+      let fn : Fable.Core.JsInterop.JsFunc = !!(fun (arg:int) -> arg+1) // actual implementation is not important
+      let arg = [|box 1|] // invoke wants an obj array
+      fn.Invoke(arg)  // fable compiler will spread this argument
+      |> unbox 
+      |> equal 2
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
