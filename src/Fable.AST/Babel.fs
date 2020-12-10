@@ -195,6 +195,7 @@ module PrinterExtensions =
             | :? CallExpression
             | :? ThisExpression
             | :? Super
+            | :? SpreadElement
             | :? ArrayExpression -> expr.Print(printer)
             | :? ObjectExpression ->
                 match objExpr with
