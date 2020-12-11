@@ -15,8 +15,8 @@
     <!-- Fable.Transforms -->
     <Compile Include="../../Fable.AST/Common.fs" />
     <Compile Include="../../Fable.AST/Fable.fs" />
-    <Compile Include="../../Fable.AST/Babel.fs" />
     <Compile Include="../../Fable.AST/Plugins.fs" />
+    <Compile Include="../../Fable.Transforms/Global/Babel.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
