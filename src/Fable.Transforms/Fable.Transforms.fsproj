@@ -5,6 +5,7 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Global/Babel.fs" />
     <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Metadata.fs" />
     <Compile Include="Global/Prelude.fs" />
