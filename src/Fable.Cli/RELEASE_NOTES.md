@@ -1,3 +1,9 @@
+### 3.0.1
+
+* Fix spread wrapped by parens @do-wa
+* Add runtime check for Option.Value
+* Remove equals/compare "fast" helper (sometimes fails)
+
 ### 3.0.0
 
 * Official release
