@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`React tests ReactComponent renders correctly 1`] = `
+exports[`React tests Counter renders correctly 1`] = `
 <div>
   <div
     style="padding: 10px;"
@@ -16,5 +16,622 @@ exports[`React tests ReactComponent renders correctly 1`] = `
       Increment
     </button>
   </div>
+</div>
+`;
+
+exports[`React tests SpreadSheet renders correctly 1`] = `
+<div>
+  <table>
+    <thead>
+      <tr>
+        <td />
+        <th>
+          A
+        </th>
+        <th>
+          B
+        </th>
+        <th>
+          C
+        </th>
+        <th>
+          D
+        </th>
+        <th>
+          E
+        </th>
+        <th>
+          F
+        </th>
+        <th>
+          G
+        </th>
+        <th>
+          H
+        </th>
+        <th>
+          I
+        </th>
+        <th>
+          J
+        </th>
+        <th>
+          K
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>
+          1
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          2
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          3
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          4
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          5
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          6
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          7
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          8
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          9
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          10
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          11
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          12
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          13
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          14
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+      <tr>
+        <th>
+          15
+        </th>
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+        <td
+          style="background: white;"
+        />
+      </tr>
+    </tbody>
+  </table>
 </div>
 `;

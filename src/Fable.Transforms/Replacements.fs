@@ -1961,11 +1961,11 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
     | _ -> None
 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
-let options (_: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | "get_Value", Some c, _ -> Get(c, OptionValue, t, r) |> Some
-    | "get_IsSome", Some c, _ -> Test(c, OptionTest true, r) |> Some
-    | "get_IsNone", Some c, _ -> Test(c, OptionTest false, r) |> Some
+let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
+    | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
+    | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
 
 let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -1973,7 +1973,8 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, "Option", "toArray", Array t, [arg], ?loc=r)
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t) |> makeValue r |> Some
-    | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
+    | "GetValue", [c] ->
+        Helper.LibCall(com, "Option", "value", t, args, ?loc=r) |> Some
     | ("OfObj" | "OfNullable"), _ ->
         Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
     | ("ToObj" | "ToNullable"), _ ->

@@ -1,4 +1,4 @@
-module App
+module Counter
 
 open Feliz
 
