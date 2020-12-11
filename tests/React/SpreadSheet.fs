@@ -238,8 +238,6 @@ let update msg state =
           if value = ""
               then Map.remove pos state.Cells
               else Map.add pos value state.Cells
-      let evaluation = parse value |> Option.bind (evaluate Set.empty newCells)
-      printfn $"Updating {pos} --> {value} --> {evaluation}"
       { state with Cells = newCells }
 
 // ----------------------------------------------------------------------------

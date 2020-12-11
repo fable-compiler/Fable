@@ -330,10 +330,6 @@ function equalObjects(x: { [k: string]: any }, y: { [k: string]: any }): boolean
   return true;
 }
 
-export function equalsSafe<T>(x: IEquatable<T> | undefined, y: T): boolean {
-  return x?.Equals(y) ?? y == null;
-}
-
 export function equals<T>(x: T, y: T): boolean {
   if (x === y) {
     return true;
@@ -409,10 +405,6 @@ function compareObjects(x: { [k: string]: any }, y: { [k: string]: any }): numbe
     }
   }
   return 0;
-}
-
-export function compareSafe<T>(x: IComparable<T> | undefined, y: T): number {
-  return x?.CompareTo(y) ?? (y == null ? 0 : -1);
 }
 
 export function compare<T>(x: T, y: T): number {

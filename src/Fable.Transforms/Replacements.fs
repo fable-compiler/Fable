@@ -745,12 +745,8 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | DeclaredType(ent, _) ->
-        let ent = com.GetEntity(ent)
-        if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then
-            Helper.LibCall(com, "Util", "equalsSafe", Boolean, [left; right], ?loc=r) |> is equal
-        else
-            Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    | DeclaredType _ ->
+        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
@@ -773,12 +769,8 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Date", "compare", Number Int32, [left; right], ?loc=r)
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number Int32, [left; right], ?loc=r)
-    | DeclaredType(ent, _) ->
-        let ent = com.GetEntity(ent)
-        if ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType then
-            Helper.LibCall(com, "Util", "compareSafe", Number Int32, [left; right], ?loc=r)
-        else
-            Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
+    | DeclaredType _ ->
+        Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "compareWith", Number Int32, [f; left; right], ?loc=r)
