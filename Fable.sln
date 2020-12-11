@@ -34,6 +34,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.AST", "src\Fable.AST\
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PublishUtils", "src\fable-publish-utils\PublishUtils.fsproj", "{83FF0D5A-9B00-4975-83EF-E399D4466FE4}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.React", "tests\React\Fable.Tests.React.fsproj", "{54276AEF-340A-4178-B7C3-CB834D4317BB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -200,6 +202,18 @@ Global
 		{83FF0D5A-9B00-4975-83EF-E399D4466FE4}.Release|x64.Build.0 = Release|Any CPU
 		{83FF0D5A-9B00-4975-83EF-E399D4466FE4}.Release|x86.ActiveCfg = Release|Any CPU
 		{83FF0D5A-9B00-4975-83EF-E399D4466FE4}.Release|x86.Build.0 = Release|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Debug|x64.Build.0 = Debug|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Debug|x86.Build.0 = Debug|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|x64.ActiveCfg = Release|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|x64.Build.0 = Release|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|x86.ActiveCfg = Release|Any CPU
+		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
