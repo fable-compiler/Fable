@@ -32,11 +32,11 @@ Jest.describe("React tests", (fun () ->
         let input = spreadsheet.getByAltText("cell editor")
         RTL.fireEvent.input(input, [
             event.target [
-                Feliz.prop.value "=5"
+                Feliz.prop.value "=4+3"
             ]
         ])
         // Click another cell to remove the editor
         RTL.fireEvent.click(cells.[8])
-        Jest.expect(cell).toHaveTextContent("5")
+        Jest.expect(cell).toHaveTextContent("7")
     ))
 ))

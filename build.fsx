@@ -158,24 +158,11 @@ let buildLibraryTs() =
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
 
-let standaloneFlags() = [
-    "--define FX_NO_CORHOST_SIGNER"
-    "--define FX_NO_LINKEDRESOURCES"
-    "--define FX_NO_PDB_READER"
-    "--define FX_NO_PDB_WRITER"
-    "--define FX_NO_WEAKTABLE"
-    "--define FX_REDUCED_EXCEPTIONS"
-    "--define NO_COMPILER_BACKEND"
-    "--define NO_EXTENSIONTYPING"
-    "--define NO_INLINE_IL_PARSER"
-]
-
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
 let testJsFast() =
     runFableWithArgs "src/fable-standalone/src" [
         "--forcePkgs"
-        yield! standaloneFlags()
     ]
 
     runFableWithArgs "src/fable-compiler-js/src" [
@@ -224,13 +211,11 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     // build standalone bundle
     runFableWithArgs projectDir [
         "--outDir " + buildDir </> "bundle"
-        yield! standaloneFlags()
         if opts.watch then
             "--watch"
-            if opts.minify then
-                "--run rollup"
-                yield! rollupArgs
-                "--watch"
+            "--run rollup"
+            yield! rollupArgs
+            "--watch"
     ]
 
     // build standalone worker
