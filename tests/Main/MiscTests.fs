@@ -431,11 +431,11 @@ type Order =
 type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 #endif
 
-let tests =
-  testList "Miscellaneous" [
-
 let inline inlineLambdaWithAnonRecord callback =
     fun () -> {| A = 1 |} |> callback
+
+let tests =
+  testList "Miscellaneous" [
 
 #if FABLE_COMPILER
 #if !FABLE_COMPILER_JS
