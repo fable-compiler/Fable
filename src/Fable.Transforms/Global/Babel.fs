@@ -159,7 +159,13 @@ module PrinterExtensions =
                     printer.Print(" => ")
                     match body.Body with
                     | [|:? ReturnStatement as r |] ->
-                        printer.ComplexExpressionWithParens(r.Argument, objExpr=true)
+                        match r.Argument with
+                        | :? ObjectExpression as e -> printer.WithParens(e)
+                        | :? MemberExpression as e ->
+                            match e.Object with
+                            | :? ObjectExpression -> e.Print(printer, objectWithParens=true)
+                            | _ -> e.Print(printer)
+                        | _ -> printer.ComplexExpressionWithParens(r.Argument)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
                 else
                     printer.Print("function ")
@@ -183,7 +189,7 @@ module PrinterExtensions =
             | _ -> printer.Print(expr)
 
         /// Surround with parens anything that can potentially conflict with operator precedence
-        member printer.ComplexExpressionWithParens(expr: Expression, ?objExpr) =
+        member printer.ComplexExpressionWithParens(expr: Expression) =
             match expr with
             | :? Undefined
             | :? NullLiteral
@@ -196,11 +202,8 @@ module PrinterExtensions =
             | :? ThisExpression
             | :? Super
             | :? SpreadElement
-            | :? ArrayExpression -> expr.Print(printer)
-            | :? ObjectExpression ->
-                match objExpr with
-                | Some true -> printer.WithParens(expr)
-                | _ -> expr.Print(printer)
+            | :? ArrayExpression
+            | :? ObjectExpression -> expr.Print(printer)
             | _ -> printer.WithParens(expr)
 
         member printer.PrintOperation(left, operator, right, loc) =
@@ -840,23 +843,24 @@ type MemberExpression(object, property, ?computed_, ?loc) =
     member _.Object: Expression = object
     member _.Property: Expression = property
     member _.Computed: bool = computed
+    member _.Print(printer, ?objectWithParens: bool) =
+        printer.AddLocation(loc)
+        match objectWithParens, object with
+        | Some true, _ | _, :? NumericLiteral -> printer.WithParens(object)
+        | _ -> printer.ComplexExpressionWithParens(object)
+        if computed then
+            printer.Print("[")
+            property.Print(printer)
+            printer.Print("]")
+        else
+            printer.Print(".")
+            property.Print(printer)
     interface PatternExpression with
         member _.Name =
             match property with
             | :? Identifier as i -> i.Name
             | _ -> ""
-        member _.Print(printer) =
-            printer.AddLocation(loc)
-            match object with
-            | :? NumericLiteral -> printer.WithParens(object)
-            | _ -> printer.ComplexExpressionWithParens(object)
-            if computed then
-                printer.Print("[")
-                property.Print(printer)
-                printer.Print("]")
-            else
-                printer.Print(".")
-                property.Print(printer)
+        member this.Print(printer) = this.Print(printer)
 
 type ObjectExpression(properties, ?loc) =
     member _.Properties: ObjectMember array = properties

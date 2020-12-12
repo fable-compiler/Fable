@@ -434,6 +434,9 @@ type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 let tests =
   testList "Miscellaneous" [
 
+let inline inlineLambdaWithAnonRecord callback =
+    fun () -> {| A = 1 |} |> callback
+
 #if FABLE_COMPILER
 #if !FABLE_COMPILER_JS
     testCase "Fable.JsonProvider works" <| fun _ ->
@@ -443,6 +446,10 @@ let tests =
         parsed.widget.text.size.[1].height |> equal 80.
         parsed.widget.text.vOffset |> equal 500.
 #endif
+
+    testCase "Lambdas returning member expression accessing JS object work" <| fun () -> // #2311
+        let x = inlineLambdaWithAnonRecord (fun x -> x.A)
+        x() |> equal 1
 
     testCase "Can check compiler version with constant" <| fun _ ->
         let mutable x = 0
