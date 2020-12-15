@@ -276,7 +276,8 @@ module Helpers =
     let rec nonAbbreviatedDefinition (ent: FSharpEntity): FSharpEntity =
         if ent.IsFSharpAbbreviation then
             let t = ent.AbbreviatedType
-            if t.HasTypeDefinition then nonAbbreviatedDefinition t.TypeDefinition
+            if t.HasTypeDefinition && t.TypeDefinition <> ent
+            then nonAbbreviatedDefinition t.TypeDefinition
             else ent
         else ent
 
@@ -285,8 +286,6 @@ module Helpers =
             t1.HasTypeDefinition && t2.HasTypeDefinition && (t1.TypeDefinition = t2.TypeDefinition)
         if t.IsAbbreviation && not (isSameType t t.AbbreviatedType) then
             nonAbbreviatedType t.AbbreviatedType
-        // TODO!!! Do we still need to make a special check for units of measure
-        // or can we just hardcode the names? We may need to do it anyway to fix #1962
         elif t.HasTypeDefinition then
             let abbr = t.AbbreviatedType
             // .IsAbbreviation doesn't eval to true for generic numbers

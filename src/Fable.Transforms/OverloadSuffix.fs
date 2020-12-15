@@ -17,8 +17,18 @@ module private Types =
     let [<Literal>] unit = "Microsoft.FSharp.Core.Unit"
 
 // NOTE: These helper functions are (more or less) duplicated from FSharp2Fable.Util
-let rec private nonAbbreviatedType (t: FSharpType) =
-    if t.IsAbbreviation then nonAbbreviatedType t.AbbreviatedType else t
+let rec nonAbbreviatedType (t: FSharpType): FSharpType =
+    let isSameType (t1: FSharpType) (t2: FSharpType) =
+        t1.HasTypeDefinition && t2.HasTypeDefinition && (t1.TypeDefinition = t2.TypeDefinition)
+    if t.IsAbbreviation && not (isSameType t t.AbbreviatedType) then
+        nonAbbreviatedType t.AbbreviatedType
+    elif t.HasTypeDefinition then
+        let abbr = t.AbbreviatedType
+        // .IsAbbreviation doesn't eval to true for generic numbers
+        // See https://github.com/Microsoft/visualfsharp/issues/5992
+        if t.GenericArguments.Count = abbr.GenericArguments.Count then t
+        else abbr
+    else t
 
 let private isUnit (typ: FSharpType) =
     let typ = nonAbbreviatedType typ

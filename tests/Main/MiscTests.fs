@@ -92,6 +92,12 @@ let execMaybe a = maybe {
 [<Measure>] type mi           // as simple types decorated
 [<Measure>] type h            // with Measure attribute
 
+[<Measure>] type Measure1
+[<Measure>] type Measure2 = Measure1
+
+type MeasureTest() =
+    member _.Method(x: float<Measure2>) = x
+
 // Can be used in a generic way
 type Vector3D<[<Measure>] 'u> =
     { x: float<'u>; y: float<'u>; z: float<'u> }
@@ -548,6 +554,10 @@ let tests =
     testCase "Units of measure work with decimals" <| fun () ->
         3M<km/h> + 2M<km/h> |> equal 5M<km/h>
 
+    testCase "Abbreviated measures work" <| fun () -> // #2313
+        let x = 5.<Measure1>
+        let c = MeasureTest()
+        c.Method(5.<Measure2>) |> equal x
 
     testCase "FSharp.UMX works" <| fun () ->
         let lookupById (orders : Order list) (id : string<orderId>) =
