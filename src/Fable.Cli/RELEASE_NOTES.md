@@ -1,3 +1,8 @@
+### 3.0.2
+
+* Fix #2313: Measure abbreviations
+* Fix #2311: Arrow function printing
+
 ### 3.0.1
 
 * Fix spread wrapped by parens @do-wa
