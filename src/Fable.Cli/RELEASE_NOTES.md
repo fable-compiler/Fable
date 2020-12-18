@@ -1,3 +1,9 @@
+### 3.0.3
+
+* Fix #2318: char ranges @inosik
+* Fix #2320: `--yes` CLI arg
+* Fix (partially) #2321: `System.Type.GetInterface`
+
 ### 3.0.2
 
 * Fix #2313: Measure abbreviations
