@@ -198,13 +198,7 @@ let (|NumberExt|_|) = function
 let genericTypeInfoError name =
     sprintf "Cannot get type info of generic parameter %s, please inline or inject a type resolver" name
 
-let getTypeName com (ctx: Context) r t =
-    match t with
-    | GenericParam name ->
-        genericTypeInfoError name
-        |> addError com ctx.InlinePath r
-    | _ -> ()
-    let fullname = getTypeFullName false t
+let getTypeNameFromFullName (fullname: string) =
     let fullname =
         match fullname.IndexOf("[") with
         | -1 -> fullname
@@ -212,6 +206,14 @@ let getTypeName com (ctx: Context) r t =
     match fullname.LastIndexOf(".") with
     | -1 -> fullname
     | i -> fullname.Substring(i + 1)
+
+let getTypeName com (ctx: Context) r t =
+    match t with
+    | GenericParam name ->
+        genericTypeInfoError name
+        |> addError com ctx.InlinePath r
+    | _ -> ()
+    getTypeFullName false t |> getTypeNameFromFullName
 
 let (|Nameof|_|) com ctx = function
     | IdentExpr ident -> Some ident.DisplayName
@@ -2873,6 +2875,26 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
             | _ -> ()
             match i.CompiledName with
+            | "GetInterface" ->
+                match exprType, args with
+                | DeclaredType(e, genArgs), [StringConst name] -> Some(e, genArgs, name, false)
+                | DeclaredType(e, genArgs), [StringConst name; BoolConst ignoreCase] -> Some(e, genArgs, name, ignoreCase)
+                | _ -> None
+                |> Option.map (fun (e, genArgs, name, ignoreCase) ->
+                    let e = com.GetEntity(e)
+                    let genMap = List.zip (e.GenericParameters |> List.map (fun p -> p.Name)) genArgs |> Map
+                    let comp = if ignoreCase then System.StringComparison.OrdinalIgnoreCase else System.StringComparison.Ordinal
+                    e.AllInterfaces |> Seq.tryPick (fun ifc ->
+                        let ifcName = getTypeNameFromFullName ifc.Entity.FullName
+                        if ifcName.Equals(name, comp) then
+                            let genArgs = ifc.GenericArgs |> List.map (function
+                                | GenericParam name as gen -> Map.tryFind name genMap |> Option.defaultValue gen
+                                | gen -> gen)
+                            Some(ifc.Entity, genArgs)
+                        else None)
+                    |> function
+                        | Some(ifcEnt, genArgs) -> Value(TypeInfo(DeclaredType(ifcEnt, genArgs)), r)
+                        | None -> Value(Null t, r))
             | "get_FullName" -> getTypeFullName false exprType |> returnString r
             | "get_Namespace" ->
                 let fullname = getTypeFullName false exprType

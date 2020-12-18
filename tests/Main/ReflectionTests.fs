@@ -34,11 +34,18 @@ type MyEnum =
     | Bar = 5y
     | Baz = 8y
 
+type MyInterface<'T> =
+     abstract Value: 'T
+
 type MyClass() =
     class end
 
 type MyClass2() =
     class end
+
+type MyClass3<'T>(v) =
+    interface MyInterface<'T> with
+        member _.Value = v
 
 type MyClass<'T1, 'T2>(v1: 'T1, v2: 'T2) =
     inherit MyClass()
@@ -488,6 +495,14 @@ let reflectionTests = [
     t3.IsSubclassOf(t1) |> equal false
     t2.IsSubclassOf(t1) |> equal true
     t1.IsSubclassOf(t2) |> equal false
+
+  testCase ".GetInterface works when types are know at compile time" <| fun () -> // #2321
+    let t = typeof<MyClass3<int>>.GetInterface("MyInterface`1")
+    t.GetGenericArguments().[0] = typeof<int> |> equal true
+    t.GetGenericArguments().[0] = typeof<string> |> equal false
+    typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
+    typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
+    typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
 ]
 
 #if FABLE_COMPILER

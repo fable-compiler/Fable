@@ -314,6 +314,10 @@ module AST =
         | MaybeCasted(Value(StringConstant str, _)) -> Some str
         | _ -> None
 
+    let (|BoolConst|_|) = function
+        | MaybeCasted(Value(BoolConstant v, _)) -> Some v
+        | _ -> None
+
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     let rec canHaveSideEffects = function
         | Import _ -> false
