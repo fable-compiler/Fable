@@ -64,6 +64,7 @@ Arguments:
   --runScript       Runs the generated script for last file with node
                     (Requires "esm" npm package)
 
+  --yes             Automatically reply 'yes' (e.g. with `clean` command)
   --noRestore       Skip `dotnet restore`
   --forcePkgs       Force a new copy of package sources into `.fable` folder
   --exclude         Don't merge sources of referenced projects with specified pattern
@@ -189,13 +190,14 @@ let clean args dir =
         argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
 
     // clean is a potentially destructive operation, we need a permission before proceeding
-    Console.WriteLine("This will recursively delete all *{0} files in {1}.", fileExt, dir)
-    Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
-    let keyInfo = Console.ReadKey()
-    Console.WriteLine()
-    if keyInfo.Key <> ConsoleKey.Y then
-        Console.WriteLine("Clean was cancelled.")
-        exit 0
+    Console.WriteLine("This will recursively delete all *{0} files in {1}", fileExt, dir)
+    if not(flagEnabled "--yes" args) then
+        Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
+        let keyInfo = Console.ReadKey()
+        Console.WriteLine()
+        if keyInfo.Key <> ConsoleKey.Y then
+            Console.WriteLine("Clean was cancelled.")
+            exit 0
 
     let mutable fileCount = 0
     let rec recClean dir =
