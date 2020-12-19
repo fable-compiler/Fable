@@ -56,6 +56,9 @@ module Util =
     let runFable projectDir =
         runFableWithArgs projectDir []
 
+    let resolveDir dir =
+        __SOURCE_DIRECTORY__ </> dir
+
 open Util
 
 module Unused =
@@ -347,17 +350,21 @@ let test() =
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
 
-let buildLocalPackage pkgDir =
-    buildLibrary()
-
+let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
-    updateVersionInFableTransforms version
-    updatePkgVersionInFsproj "src/Fable.Cli/Fable.Cli.fsproj" version
-    run $"dotnet pack src/Fable.Cli/ -p:Pack=true -c Release -o {pkgDir}"
+    action version
+    updatePkgVersionInFsproj fsproj version
+    run $"dotnet pack {fsproj} -p:Pack=true -c Release -o {pkgDir}"
 
     // Return install command
-    $"""dotnet tool install fable --version "{version}" --add-source {fullPath pkgDir}"""
+    $"""dotnet {pkgCommand} --version "{version}" --add-source {fullPath pkgDir}"""
 
+let buildLocalPackage pkgDir =
+    buildLocalPackageWith pkgDir
+        "tool install fable"
+        (resolveDir "src/Fable.Cli/Fable.Cli.fsproj") (fun version ->
+            buildLibrary()
+            updateVersionInFableTransforms version)
 
 let testRepos() =
     let repos = [
@@ -516,11 +523,15 @@ match argsLower with
     buildLibraryIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
     let restArgs = args |> List.skip 1 |> String.concat " "
-    run $"""dotnet run -c Release -p {__SOURCE_DIRECTORY__ </> "src/Fable.Cli"} -- {restArgs}"""
+    run $"""dotnet run -c Release -p {resolveDir "src/Fable.Cli"} -- {restArgs}"""
 
 | "package"::_ ->
-    let pkgInstallCmd = buildLocalPackage (__SOURCE_DIRECTORY__ </> "temp/pkg")
+    let pkgInstallCmd = buildLocalPackage (resolveDir "temp/pkg")
     printfn $"\nPackage has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
+
+| "package-core"::_ ->
+    let pkgInstallCmd = buildLocalPackageWith (resolveDir "temp/pkg") "add package Fable.Core" (resolveDir "src/Fable.Core/Fable.Core.fsproj") ignore
+    printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library"|"library")::_ -> buildLibrary()
