@@ -131,7 +131,7 @@ let tests =
         "New file",
         fun usePolling tempFolder ->
             async {
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -154,7 +154,7 @@ let tests =
         "New directory",
         fun usePolling tempFolder ->
             async {
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -180,7 +180,7 @@ let tests =
                 let testFilePath = Path.Combine(tempFolder, "testFile")
                 File.WriteAllText(testFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -214,7 +214,7 @@ let tests =
                 let testFilePath = Path.Combine(tempFolder, "testFile")
                 File.WriteAllText(testFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -241,7 +241,7 @@ let tests =
 
                 File.WriteAllText(srcFile, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -285,7 +285,7 @@ let tests =
                     dstForRenamedFilePath
                     ]
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -336,7 +336,7 @@ let tests =
                 File.WriteAllText(deletedFilePath, "content")
                 File.WriteAllText(srcForRenamedFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -391,7 +391,7 @@ let tests =
                 File.WriteAllText(deletedFilePath, "content")
                 File.WriteAllText(srcForRenamedFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -454,7 +454,7 @@ let tests =
                     testFilePath3
                     ]
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -489,7 +489,7 @@ let tests =
                 let expectedChanges = [ shouldMatchPath1; shouldMatchPath2 ]
                 let ignoredChanges = [ shouldIgnorePath1; shouldIgnorePath2 ]
 
-                let watcher = createWatcher tempFolder usePolling filters
+                use watcher = createWatcher tempFolder usePolling filters
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -535,7 +535,7 @@ let tests =
 
                 let results = [ new HashSet<string>(); new HashSet<string>(); new HashSet<string>() ]
 
-                let watcher = createWatcherWithoutPath usePolling []
+                use watcher = createWatcherWithoutPath usePolling []
 
                 for i in 0..2 do
                     let dir = subDirs.[i]

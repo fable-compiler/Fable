@@ -163,7 +163,7 @@ type PollingFileWatcher (watchedDirectoryPath, ignoredDirectoryNameRegexes) =
 
     interface IDisposable with
         member this.Dispose () =
-            this.EnableRaisingEvents <- false
+            if not disposed then this.EnableRaisingEvents <- false
             disposed <- true
 
 type private WatcherInstance = {
