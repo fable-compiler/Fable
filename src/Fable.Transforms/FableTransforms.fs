@@ -449,14 +449,16 @@ module private Transforms =
                 | head1::tail1, head2::tail2 ->
                     let x = f head1 head2
                     mapArgsInner f (x::acc) tail1 tail2
+                | [], head2::tail2 when autoUncurrying ->
+                    let x = f Any head2
+                    mapArgsInner f (x::acc) [] tail2
                 | [], args2 -> (List.rev acc)@args2
                 | _, [] -> List.rev acc
             mapArgsInner f [] argTypes args
-        match argTypes with
-        | _ when autoUncurrying -> List.map (uncurryExpr com None) args
-        | [] -> args // Do nothing
-        | argTypes ->
-            (argTypes, args) ||> mapArgs (fun expectedType arg ->
+        (argTypes, args) ||> mapArgs (fun expectedType arg ->
+            match expectedType with
+            | Any when autoUncurrying -> uncurryExpr com None arg
+            | _ ->
                 let arg = checkSubArguments com expectedType arg
                 let arity = getLambdaTypeArity expectedType
                 if arity > 1
@@ -543,16 +545,14 @@ module private Transforms =
                 CurriedApply(callee, uncurryArgs com false argTypes args, t, r)
             | _ -> e
         | Emit({ CallInfo = callInfo } as emitInfo, t, r) ->
-            let autoUncurrying = List.isEmpty callInfo.SignatureArgTypes
-            let args = uncurryArgs com autoUncurrying callInfo.SignatureArgTypes callInfo.Args
+            let args = uncurryArgs com true callInfo.SignatureArgTypes callInfo.Args
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
             let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs), r) ->
-            // TODO: Use field types instead of auto-uncurrying?
-            let args = uncurryArgs com true [] args
+            let args = uncurryArgs com false genArgs args
             Value(NewAnonymousRecord(args, fieldNames, genArgs), r)
         | Value(NewUnion(args, tag, ent, genArgs), r) ->
             let uci = com.GetEntity(ent).UnionCases.[tag]

@@ -86,6 +86,8 @@ type TextStyle =
     abstract FontSize : bool -> string
     [<Emit("$1 + [].concat($2...).reduce((x, y) => x + y)")>]
     abstract Sum: f: float * [<ParamArray>] ints: int[] -> float
+    [<Emit("$1($2...)")>]
+    abstract Apply: f: obj * [<ParamArray>] args: obj[] -> obj
 
 type InnerRecord = {
     Float: float
@@ -341,6 +343,10 @@ let tests =
         style.Bar |> equal "foo"
         style.Add(3,5) |> equal 8
 
+    testCase "Emit uncurries lambdas passed as obj" <| fun () -> // #2323
+        let helper = createEmpty<TextStyle>
+        helper.Apply((fun x y -> x + y), 5, 4) :?> int |> equal 9
+
     testCase "emitJsExpr works" <| fun () ->
         let x = 4
         let y = 8
@@ -447,7 +453,7 @@ let tests =
       let fn : Fable.Core.JsInterop.JsFunc = !!(fun (arg:int) -> arg+1) // actual implementation is not important
       let arg = [|box 1|] // invoke wants an obj array
       fn.Invoke(arg)  // fable compiler will spread this argument
-      |> unbox 
+      |> unbox
       |> equal 2
 #endif
 
