@@ -321,6 +321,9 @@ let testReact() =
     runFableWithArgs "tests/React" []
     runInDir "tests/React" "npm i && npm test"
 
+let testIntegration() =
+    runInDir "tests/Integration" "dotnet run -c Release"
+
 let test() =
     buildLibraryIfNotExists()
 
@@ -338,6 +341,7 @@ let test() =
     runInDir projectDir "dotnet run"
 
     testReact()
+    testIntegration()
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
@@ -502,6 +506,7 @@ match argsLower with
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
+| "test-integration"::_ -> testIntegration()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
