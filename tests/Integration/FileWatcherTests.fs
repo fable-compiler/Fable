@@ -23,7 +23,7 @@ let oneSecond = TimeSpan.FromSeconds(1.0)
 
 let usingTempDirectoryAsync f =
     async {
-        let folderName = $"FileWatcherTests-{DateTime.UtcNow:o}-{Guid.NewGuid()}"
+        let folderName = $"""FileWatcherTests-{DateTime.UtcNow.ToString("yyyy-MM-ddTHH_mm_ss_fffffff")}-{Guid.NewGuid()}"""
         let tempFolder = Path.GetFullPath(Path.Combine(Path.GetTempPath(), folderName))
         if Directory.Exists(tempFolder)
         then Directory.Delete(tempFolder, true (*recursive*))
