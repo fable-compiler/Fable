@@ -1,3 +1,8 @@
+### 3.0.4
+
+* Opt-in polling watcher @mlaily
+* Fix #2323: Uncurrying Emit obj args
+
 ### 3.0.3
 
 * Fix #2318: char ranges @inosik
