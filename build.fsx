@@ -342,8 +342,7 @@ let test() =
 
     testReact()
 
-    // Integration tests are failing in CI
-    // testIntegration()
+    testIntegration()
 
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
