@@ -23,7 +23,7 @@ let oneSecond = TimeSpan.FromSeconds(1.0)
 
 let usingTempDirectoryAsync f =
     async {
-        let folderName = $"FileWatcherTests-{DateTime.UtcNow:o}-{Guid.NewGuid()}"
+        let folderName = $"""FileWatcherTests-{DateTime.UtcNow.ToString("yyyy-MM-ddTHH_mm_ss_fffffff")}-{Guid.NewGuid()}"""
         let tempFolder = Path.GetFullPath(Path.Combine(Path.GetTempPath(), folderName))
         if Directory.Exists(tempFolder)
         then Directory.Delete(tempFolder, true (*recursive*))
@@ -131,7 +131,7 @@ let tests =
         "New file",
         fun usePolling tempFolder ->
             async {
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -140,7 +140,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 let testFilePath = Path.Combine(tempFolder, "testFile")
@@ -154,7 +154,7 @@ let tests =
         "New directory",
         fun usePolling tempFolder ->
             async {
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -163,7 +163,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 let testDirectoryPath = Path.Combine(tempFolder, "testDirectory")
@@ -180,7 +180,7 @@ let tests =
                 let testFilePath = Path.Combine(tempFolder, "testFile")
                 File.WriteAllText(testFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -189,7 +189,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 // On Unix the file write time is in 1s increments;
@@ -214,7 +214,7 @@ let tests =
                 let testFilePath = Path.Combine(tempFolder, "testFile")
                 File.WriteAllText(testFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -223,7 +223,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 File.Delete(testFilePath)
@@ -241,7 +241,7 @@ let tests =
 
                 File.WriteAllText(srcFile, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -251,7 +251,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 File.Move(srcFile, dstFile)
@@ -285,7 +285,7 @@ let tests =
                     dstForRenamedFilePath
                     ]
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -295,7 +295,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // On Unix the file write time is in 1s increments;
@@ -308,7 +308,6 @@ let tests =
                 System.Threading.Thread.Sleep(oneSecond)
 
                 File.WriteAllText(newFilePath, "")
-                File.WriteAllText(newFilePath + "2", "")
                 File.WriteAllText(changedFilePath, "changed content")
                 File.Delete(deletedFilePath)
                 File.Move(srcForRenamedFilePath, dstForRenamedFilePath)
@@ -337,7 +336,7 @@ let tests =
                 File.WriteAllText(deletedFilePath, "content")
                 File.WriteAllText(srcForRenamedFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -346,7 +345,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // Disable
@@ -392,7 +391,7 @@ let tests =
                 File.WriteAllText(deletedFilePath, "content")
                 File.WriteAllText(srcForRenamedFilePath, "content")
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -401,7 +400,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // Dispose
@@ -455,7 +454,7 @@ let tests =
                     testFilePath3
                     ]
 
-                let watcher = createWatcher tempFolder usePolling []
+                use watcher = createWatcher tempFolder usePolling []
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
 
@@ -465,7 +464,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 Directory.Delete(subDirPath, true (*recursive*))
@@ -490,7 +489,7 @@ let tests =
                 let expectedChanges = [ shouldMatchPath1; shouldMatchPath2 ]
                 let ignoredChanges = [ shouldIgnorePath1; shouldIgnorePath2 ]
 
-                let watcher = createWatcher tempFolder usePolling filters
+                use watcher = createWatcher tempFolder usePolling filters
                 let tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)
                 let filesChanged = new HashSet<string>()
                
@@ -500,7 +499,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 File.WriteAllText(shouldMatchPath1, "")
@@ -536,7 +535,7 @@ let tests =
 
                 let results = [ new HashSet<string>(); new HashSet<string>(); new HashSet<string>() ]
 
-                let watcher = createWatcherWithoutPath usePolling []
+                use watcher = createWatcherWithoutPath usePolling []
 
                 for i in 0..2 do
                     let dir = subDirs.[i]
@@ -554,7 +553,7 @@ let tests =
                         tcs.TrySetResult(true) |> ignore
                
                     let eventSubscription = watcher.OnFileChange.Subscribe(onFileChange)
-                    watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                    watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                     watcher.EnableRaisingEvents <- true
 
                     File.WriteAllText(file, "")

@@ -163,7 +163,7 @@ type PollingFileWatcher (watchedDirectoryPath, ignoredDirectoryNameRegexes) =
 
     interface IDisposable with
         member this.Dispose () =
-            this.EnableRaisingEvents <- false
+            if not disposed then this.EnableRaisingEvents <- false
             disposed <- true
 
 type private WatcherInstance = {
@@ -254,12 +254,15 @@ type DotnetFileWatcher (globFilters: string list) =
             fileSystemWatcher.Filters.Add(filter)
 
         let watcherChangeHandler (e: FileSystemEventArgs) = onFileChange.Trigger(e.FullPath)
+        let watcherRenameHandler (e: RenamedEventArgs) =
+            onFileChange.Trigger(e.OldFullPath)
+            onFileChange.Trigger(e.FullPath)
         let watcherErrorHandler e = onError.Trigger(e)
 
         fileSystemWatcher.Created.Subscribe(watcherChangeHandler) |> ignore
         fileSystemWatcher.Deleted.Subscribe(watcherChangeHandler) |> ignore
         fileSystemWatcher.Changed.Subscribe(watcherChangeHandler) |> ignore
-        fileSystemWatcher.Renamed.Subscribe(watcherChangeHandler) |> ignore
+        fileSystemWatcher.Renamed.Subscribe(watcherRenameHandler) |> ignore
         fileSystemWatcher.Error.Subscribe(watcherErrorHandler) |> ignore
 
         fileSystemWatcher.IncludeSubdirectories <- true

@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26124.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Quicktest", "src\quicktest\QuickTest.fsproj", "{661A1972-0D06-46E8-958C-55325E5D520C}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "QuickTest", "src\quicktest\QuickTest.fsproj", "{661A1972-0D06-46E8-958C-55325E5D520C}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Transforms", "src\Fable.Transforms\Fable.Transforms.fsproj", "{E55F3DA2-86B7-4E73-9700-EC6490043268}"
 EndProject
@@ -35,6 +35,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PublishUtils", "src\fable-publish-utils\PublishUtils.fsproj", "{83FF0D5A-9B00-4975-83EF-E399D4466FE4}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.React", "tests\React\Fable.Tests.React.fsproj", "{54276AEF-340A-4178-B7C3-CB834D4317BB}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Integration", "tests\Integration\Fable.Tests.Integration.fsproj", "{7E9173E4-8875-4336-9E76-C87FCC833D50}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -214,6 +216,18 @@ Global
 		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|x64.Build.0 = Release|Any CPU
 		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|x86.ActiveCfg = Release|Any CPU
 		{54276AEF-340A-4178-B7C3-CB834D4317BB}.Release|x86.Build.0 = Release|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Debug|x64.Build.0 = Debug|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Debug|x86.Build.0 = Debug|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Release|x64.ActiveCfg = Release|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Release|x64.Build.0 = Release|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Release|x86.ActiveCfg = Release|Any CPU
+		{7E9173E4-8875-4336-9E76-C87FCC833D50}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
