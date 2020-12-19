@@ -308,7 +308,6 @@ let tests =
                 System.Threading.Thread.Sleep(oneSecond)
 
                 File.WriteAllText(newFilePath, "")
-                File.WriteAllText(newFilePath + "2", "")
                 File.WriteAllText(changedFilePath, "changed content")
                 File.Delete(deletedFilePath)
                 File.Move(srcForRenamedFilePath, dstForRenamedFilePath)
