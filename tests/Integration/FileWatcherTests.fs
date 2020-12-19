@@ -140,7 +140,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 let testFilePath = Path.Combine(tempFolder, "testFile")
@@ -163,7 +163,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 let testDirectoryPath = Path.Combine(tempFolder, "testDirectory")
@@ -189,7 +189,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 // On Unix the file write time is in 1s increments;
@@ -223,7 +223,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 File.Delete(testFilePath)
@@ -251,7 +251,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
                
                 File.Move(srcFile, dstFile)
@@ -295,7 +295,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // On Unix the file write time is in 1s increments;
@@ -345,7 +345,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // Disable
@@ -400,7 +400,7 @@ let tests =
                     tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 // Dispose
@@ -464,7 +464,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 Directory.Delete(subDirPath, true (*recursive*))
@@ -499,7 +499,7 @@ let tests =
                     then tcs.TrySetResult(true) |> ignore
                
                 watcher.OnFileChange.Subscribe(onFileChange) |> ignore
-                watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                 watcher.EnableRaisingEvents <- true
 
                 File.WriteAllText(shouldMatchPath1, "")
@@ -553,7 +553,7 @@ let tests =
                         tcs.TrySetResult(true) |> ignore
                
                     let eventSubscription = watcher.OnFileChange.Subscribe(onFileChange)
-                    watcher.OnError.Subscribe(fun err -> printfn "Error: %A" <| err.GetException()) |> ignore
+                    watcher.OnError.Subscribe(fun err -> printfn "Watcher error: %A" <| err.GetException()) |> ignore
                     watcher.EnableRaisingEvents <- true
 
                     File.WriteAllText(file, "")
