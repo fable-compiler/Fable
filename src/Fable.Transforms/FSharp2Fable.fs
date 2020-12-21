@@ -38,13 +38,13 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
             "Only inheriting from primary constructors is supported"
             |> addWarning com [] r
         match makeCallFrom com ctx r Fable.Unit genArgs None baseArgs baseCons with
-        | Fable.Call(baseExpr, info, t, r) ->
+        | Fable.Call(_baseExpr, info, t, r) ->
+            // The baseExpr will be the exposed constructor function,
+            // replace with a direct reference to the entity
             let baseExpr =
-                match baseExpr with
-                | Fable.Import(i,_,_) when not i.IsCompilerGenerated -> baseExpr
-                // The baseExpr will be the exposed constructor function,
-                // replace with a direct reference to the entity
-                | _ -> entityRef com baseEnt
+                match tryGlobalOrImportedEntity com baseEnt with
+                | Some baseExpr -> baseExpr
+                | None -> entityRef com baseEnt
             Fable.Call(baseExpr, info, t, r)
         // Other cases, like Emit will call directly the base expression
         | e -> e

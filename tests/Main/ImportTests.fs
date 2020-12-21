@@ -13,7 +13,7 @@ open Fable.Core
 [<Import("*", "./js/1foo.js")>]
 let fooAll: IFooImported = jsNative
 
-[<Import("MyClass", "./js/1foo.js")>]
+[<ImportMember("./js/1foo.js")>]
 type MyClass() =
     new (v: string) = MyClass()
     member x.value: string = jsNative
@@ -53,8 +53,7 @@ module Stylesheet =
     /// Loads a CSS module and makes the classes within available
     let inline load (path: string) = JsInterop.importDefault<IStylesheet> path
 
-[<Import("MyJsClass", from="./js/1foo.js")>]
-[<AbstractClass>]
+[<AbstractClass; ImportMember("./js/1foo.js")>]
 type MyJsClass(x: int) =
     member this.foo(): int = jsNative
     abstract bar: unit -> int

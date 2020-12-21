@@ -9,6 +9,8 @@ open Fable.Core.JsInterop
 open Fable.Core.DynamicExtensions
 open Fable.Core.Experimental
 
+importSideEffects "./js/polyfill.js"
+
 let inline getNameofLambda (f: 'T->'U) =
     nameofLambda f
 
@@ -20,6 +22,17 @@ module GlobalModule =
     let foo: string = jsNative
 
 GlobalModule.declare()
+
+module GlobalClasses =
+    [<Global>]
+    type MyHTMLElement(v: int) =
+        member _.getMotivated(): string = jsNative
+        static member lunchTime: string = jsNative
+
+type MyCustomHTMLElement() =
+    inherit GlobalClasses.MyHTMLElement(3)
+    member this.SaySomethingNiceTo(name: string) =
+        $"Repeat with me {name}: {this.getMotivated()}"
 
 let myMeth (x: int) (y: int) = x - y
 
@@ -422,6 +435,12 @@ let tests =
     testCase "Can use values and functions from global modules" <| fun () ->
         GlobalModule.add 3 4 |> equal 7
         GlobalModule.foo |> equal "bar"
+
+    testCase "Inheriting from global classes defined in nested modules works" <| fun () -> // #2327
+        GlobalClasses.MyHTMLElement.lunchTime |> equal "13:00"
+        let x = MyCustomHTMLElement()
+        x.SaySomethingNiceTo("Mary")
+        |> equal "Repeat with me Mary: I can do it! I can do it! I can do it!"
 
     testCase "Local import with curried signatures works" <| fun () ->
         let add (x:int) (y:int): int = importMember "./js/1foo.js"
