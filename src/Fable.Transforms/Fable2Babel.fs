@@ -1732,7 +1732,7 @@ module Util =
         args |> List.mapToArray (fun a -> a :> Pattern), body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
-        let argv = emitExpression None "process.argv.slice(2)" []
+        let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
         let main = CallExpression (funcExpr, [|argv|]) :> Expression
         // Don't exit the process after leaving main, as there may be a server running
         // ExpressionStatement(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
