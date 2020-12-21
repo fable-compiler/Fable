@@ -1450,7 +1450,7 @@ module Util =
 
             match com.Transform(ctx, inExpr.Body) with
             // If this is an import expression, apply the arguments, see #2280
-            | Fable.Import(importInfo, _, r) as importExpr when not importInfo.IsCompilerGenerated ->
+            | Fable.Import(importInfo, ti, r) as importExpr when not importInfo.IsCompilerGenerated ->
                 // Check if import has absorbed the arguments, see #2284
                 let args =
                     let path = importInfo.Path
@@ -1458,12 +1458,10 @@ module Util =
                     | sel, (StringConst selArg)::(StringConst pathArg)::args when sel = selArg && path = pathArg -> args
                     | ("default"|"*"), (StringConst pathArg)::args when path = pathArg -> args
                     | _, args -> args
-                if List.isEmpty args
-                    // Don't apply args either if this is a getter, see #2329
-                    || memb.IsPropertyGetterMethod then
-                    // HACK: Wrap this in a type cast so Fable doesn't try
-                    // to remove args in surrounding function
-                    Fable.TypeCast(importExpr, t, None)
+                // Don't apply args either if this is a class getter, see #2329
+                if List.isEmpty args || memb.IsPropertyGetterMethod then
+                    // Set IsCompilerGenerated=true to prevent Fable removing args of surrounding function
+                    Fable.Import({ importInfo with IsCompilerGenerated = true }, ti, r)
                 else
                     makeCall r t info importExpr
             | body ->

@@ -945,7 +945,7 @@ let private transformImport com r typ isMutable isPublic name fullDisplayName se
     if isMutable && isPublic then // See #1314
         "Imported members cannot be mutable and public, please make it private: " + name
         |> addError com [] None
-    let info = MemberInfo(isValue=false, isPublic=isPublic, isMutable=isMutable)
+    let info = MemberInfo(isValue=true, isPublic=isPublic, isMutable=isMutable)
     transformImportWithInfo com r typ info name fullDisplayName selector path
 
 let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
