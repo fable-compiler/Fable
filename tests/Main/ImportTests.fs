@@ -63,11 +63,29 @@ type MyJsClass(x: int) =
 type MyFSharpClass() =
     inherit MyJsClass(3)
     override _.bar() = 4
+
+type ITreasure =
+    abstract myKey: string
+
+type Treasure =
+    static member keyHolder: ITreasure = JsInterop.importDefault "./js/1foo.js"
+    static member inline keyHolderInline: ITreasure = JsInterop.importDefault "./js/1foo.js"
+
+let myKeyInlineWrapper() =
+    Treasure.keyHolderInline
 #endif
 
 let tests =
   testList "Import" [
     #if FABLE_COMPILER
+    testCase "importDefault works with getters" <| fun () -> // #2329
+        Treasure.keyHolder.myKey |> equal "a secret"
+
+    testCase "importDefault works with getters when inlined" <| fun () -> // #2329
+        Treasure.keyHolderInline.myKey |> equal "a secret"
+        // Make sure Fable doesn't remove the args in the wrapper
+        myKeyInlineWrapper().myKey |> equal "a secret"
+
     testCase "Import with relative paths works" <| fun () ->
         fooAll.foo |> equal "foo"
         let fooAll2: IFooImported = JsInterop.importAll "./js/1foo.js"

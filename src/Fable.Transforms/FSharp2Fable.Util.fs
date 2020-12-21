@@ -1458,8 +1458,14 @@ module Util =
                     | sel, (StringConst selArg)::(StringConst pathArg)::args when sel = selArg && path = pathArg -> args
                     | ("default"|"*"), (StringConst pathArg)::args when path = pathArg -> args
                     | _, args -> args
-                if List.isEmpty args then importExpr
-                else makeCall r t info importExpr
+                if List.isEmpty args
+                    // Don't apply args either if this is a getter, see #2329
+                    || memb.IsPropertyGetterMethod then
+                    // HACK: Wrap this in a type cast so Fable doesn't try
+                    // to remove args in surrounding function
+                    Fable.TypeCast(importExpr, t, None)
+                else
+                    makeCall r t info importExpr
             | body ->
                 List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 

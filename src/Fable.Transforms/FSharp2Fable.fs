@@ -931,11 +931,7 @@ let private importExprSelector (memb: FSharpMemberOrFunctionOrValue) selector =
     | Naming.placeholder -> getMemberDisplayName memb
     | _ -> selector
 
-let private transformImport com r typ isMutable isPublic name fullDisplayName selector path =
-    if isMutable && isPublic then // See #1314
-        "Imported members cannot be mutable and public, please make it private: " + name
-        |> addError com [] None
-    let info = MemberInfo(isValue=true, isPublic=isPublic, isMutable=isMutable)
+let private transformImportWithInfo _com r typ info name fullDisplayName selector path =
     [Fable.MemberDeclaration
         { Name = name
           FullDisplayName = fullDisplayName
@@ -944,6 +940,13 @@ let private transformImport com r typ isMutable isPublic name fullDisplayName se
           UsedNames = Set.empty
           Info = info
           ExportDefault = false }]
+
+let private transformImport com r typ isMutable isPublic name fullDisplayName selector path =
+    if isMutable && isPublic then // See #1314
+        "Imported members cannot be mutable and public, please make it private: " + name
+        |> addError com [] None
+    let info = MemberInfo(isValue=false, isPublic=isPublic, isMutable=isMutable)
+    transformImportWithInfo com r typ info name fullDisplayName selector path
 
 let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) (value: FSharpExpr) =
     let value = transformExpr com ctx value |> run
@@ -986,7 +989,9 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
         // Use the full function type
         let typ = makeType Map.empty memb.FullType
         let selector = importExprSelector memb info.Selector
-        transformImport com r typ false isPublic name fullDisplayName selector info.Path
+        // If this is a getter, it means the imported value is an object but Fable will call it as a function, see #2329
+        let minfo = MemberInfo(isValue=not memb.IsPropertyGetterMethod, isPublic=isPublic)
+        transformImportWithInfo com r typ minfo name fullDisplayName selector info.Path
     | body ->
         // If this is a static constructor, call it immediately
         if memb.CompiledName = ".cctor" then
