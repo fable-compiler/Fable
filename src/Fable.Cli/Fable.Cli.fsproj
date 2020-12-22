@@ -3,8 +3,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>3.0.4</Version>
-    <PackageVersion>3.0.4</PackageVersion>
+    <Version>3.0.5</Version>
+    <PackageVersion>3.0.5</PackageVersion>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>

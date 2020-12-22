@@ -1,3 +1,7 @@
+### 3.2.2
+
+* `AttachMembers` attribute
+
 ### 3.2.1
 
 * Lower FSharp.Core requirement to 4.7.2

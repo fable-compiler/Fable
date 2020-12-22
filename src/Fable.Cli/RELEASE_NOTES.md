@@ -1,3 +1,11 @@
+### 3.0.5
+
+* Fixed compiler option parsing @ncave
+* Fix #2329: Class getters with import function helpers
+* Fix #2328: Check process is available in context
+* Fix #2327: Inherit global class in nested module
+* Fix #2325: `AttachMembers` attribute
+
 ### 3.0.4
 
 * Opt-in polling watcher @mlaily
