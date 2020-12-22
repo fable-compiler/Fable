@@ -7,6 +7,7 @@ open System.Threading
 open System.Threading.Tasks
 open System.Collections.Generic
 open System.Linq
+open System.Runtime.InteropServices
 open Fable.Cli.FileWatcher
 open System.Runtime.CompilerServices
 open Expecto
@@ -125,6 +126,29 @@ let tests =
             | :? TimeoutException -> () // Expected
             | ex -> failtest $"Expected TimeoutException but got {ex}"
         }
+
+    ftestList "getCommonBaseDir" [
+        let root =
+            if RuntimeInformation.IsOSPlatform OSPlatform.Windows then
+                "C:\\"
+            else "/"
+        let path parts = Path.Combine (Array.ofSeq parts)
+        let cases =
+            [
+                [path [root; "foo"; "src"; "file1.fs"]; path [root; "foo"; "src"; "file2.fs"]], path [root; "foo";"src"]
+                [path [root; "foo"; "src"; "file1.fs"]; path [root; "foo"; "src"; "subfolder"; "file2"]], path [root; "foo"; "src"]
+                [path [root; "foo"; "Src"; "SubdirA"; "file1.fs"]; path [root; "foo"; "Src"; "SubdirB"; "DeeperDir"; "file2.fs"]], path [root; "foo"; "Src"]
+                [   path [root; "MyRepo"; "src"; "MyProject.Core"; "MyProject.Core.fsproj"];
+                    path [root; "MyRepo"; "src"; "MyProject.Core.UI"; "MyProject.Core.UI.fsproj"]],
+                    path [root; "MyRepo"; "src"]
+            ]
+
+        for (inputFiles, expectedBasePath) in cases do
+            yield testCase (string inputFiles) (fun _ ->
+                let result = Fable.Cli.Main.FileWatcherUtil.getCommonBaseDir inputFiles
+                Expect.equal result expectedBasePath ""
+            )
+    ]
 
     yield! testFixtureForValuesAsync usingTempDirectoryAsync [ ("Polling", true); ("FSW", false) ] [
         
