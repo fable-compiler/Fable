@@ -186,8 +186,11 @@ module private Util =
     }
 
     let getCommonBaseDir (files: string list) =
+        let dirNameWithTrailingSep (file: string) = sprintf "%s%c" (IO.Path.GetDirectoryName file) IO.Path.DirectorySeparatorChar
+        // it's important to include a trailing separator, otherwise things like ["a/b"; "a/b.c"] won't get handled right
+        // https://github.com/fable-compiler/Fable/issues/2332
         files
-        |> List.map (IO.Path.GetDirectoryName)
+        |> List.map dirNameWithTrailingSep
         |> List.distinct
         |> List.sortBy (fun f -> f.Length)
         |> function
@@ -197,7 +200,7 @@ module private Util =
                 let rec getCommonDir (dir: string) =
                     if restDirs |> List.forall (fun d -> d.StartsWith(dir)) then dir
                     else
-                        match IO.Path.GetDirectoryName(dir) with
+                        match dirNameWithTrailingSep (IO.Path.TrimEndingDirectorySeparator dir) with
                         | null -> failwith "No common base dir"
                         | dir -> getCommonDir dir
                 getCommonDir dir
