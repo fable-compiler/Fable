@@ -1,3 +1,7 @@
+### 3.0.0
+
+* Nagareyama official release
+
 ### 3.0.0-rc
 
 * Nagareyama RC

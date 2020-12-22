@@ -486,10 +486,10 @@ let packages =
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
         buildLibrary())
-     "fable-compiler-js", fun () -> buildCompilerJs true
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
+     "fable-compiler-js", fun () -> buildCompilerJs true
     ]
 
 let publishPackages restArgs =

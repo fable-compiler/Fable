@@ -1,3 +1,7 @@
+### 3.0.0
+
+* Nagareyama official release
+
 ### 3.0.0-nagareyama-rc-008
 
 * Fable.Transforms 3.0.0-nagareyama-rc-007
