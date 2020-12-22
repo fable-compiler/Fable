@@ -1,5 +1,6 @@
 // Adapted from: https://github.com/dcodeIO/long.js/blob/master/src/long.js
 // Apache License 2.0: https://github.com/dcodeIO/long.js/blob/master/LICENSE
+/* tslint:disable */
 export default Long;
 
 /**

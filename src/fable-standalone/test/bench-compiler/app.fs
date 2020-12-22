@@ -250,7 +250,7 @@ Options:
 """
 
     let args, opts =
-        match argv |> Array.tryFindIndex (fun s -> s.StartsWith("--")) with
+        match argv |> Array.tryFindIndex (fun s -> s.StartsWith("-")) with
         | None -> argv, [||]
         | Some i -> Array.splitAt i argv
     match opts, args with

@@ -37,8 +37,10 @@ module Util =
             m.Groups.[1].Value + version + m.Groups.[3].Value)
         |> writeFile projFile
 
-    let runTypescript projectDir =
-        // run ("npx tslint --project " + projectDir)
+    let runTSLint projectDir =
+        run ("npm run tslint -- --project " + projectDir)
+
+    let runTypeScript projectDir =
         run ("npm run tsc -- --project " + projectDir)
 
     let runFableWithArgs projectDir args =
@@ -130,7 +132,8 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
             runFableWithArgsAsync projectDir fableOpts
         ] |> runAsyncWorkflow
     else
-        runTypescript projectDir
+        runTSLint projectDir
+        runTypeScript projectDir
         runFableWithArgs projectDir fableOpts
 
 let buildLibrary() = buildLibraryWithOptions {| watch = false |}
