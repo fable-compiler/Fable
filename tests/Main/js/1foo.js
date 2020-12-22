@@ -69,3 +69,9 @@ export class MyJsClass {
         return x * (i - 1);
     }
 }
+
+export function handleClass(constructor) {
+    const x = new constructor(4);
+    x.Times = 2;
+    return x.SaySomethingTo("Narumi");
+}

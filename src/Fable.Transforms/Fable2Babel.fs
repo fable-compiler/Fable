@@ -779,19 +779,21 @@ module Util =
     type MemberKind =
         | ClassConstructor
         | NonAttached of funcName: string
-        | Attached
+        | Attached of isStatic: bool
 
     let getMemberArgsAndBody (com: IBabelCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
         let funcName, genTypeParams, args, body =
             match kind, args with
-            | Attached, (thisArg::args) ->
+            | Attached(isStatic=false), (thisArg::args) ->
                 let genTypeParams = Set.difference (getGenericTypeParams [thisArg.Type]) ctx.ScopedTypeParams
                 let body =
+                    // TODO: If ident is not captured maybe we can just replace it with "this"
                     if FableTransforms.isIdentUsed thisArg.Name body then
                         let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
                         Fable.Let(thisArg, thisKeyword, body)
                     else body
                 None, genTypeParams, args, body
+            | Attached(isStatic=true), _
             | ClassConstructor, _ -> None, ctx.ScopedTypeParams, args, body
             | NonAttached funcName, _ -> Some funcName, Set.empty, args, body
             | _ -> None, Set.empty, args, body
@@ -1021,7 +1023,7 @@ module Util =
 
         let makeMethod kind prop computed hasSpread args body =
             let args, body, returnType, typeParamDecl =
-                getMemberArgsAndBody com ctx Attached hasSpread args body
+                getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
             ObjectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl) :> ObjectMember
 
@@ -1870,20 +1872,22 @@ module Util =
         else statements |> Array.mapToList (fun x -> PrivateModuleDeclaration(x) :> ModuleDeclaration)
 
     let transformAttachedProperty (com: IBabelCompiler) ctx (memb: Fable.MemberDecl) =
+        let isStatic = not memb.Info.IsInstance
         let kind = if memb.Info.IsGetter then ClassGetter else ClassSetter
         let args, body, _returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx Attached false memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key, computed = memberFromName memb.Name
-        ClassMethod(kind, key, args, body, computed_=computed)
+        ClassMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
         :> ClassMember
         |> Array.singleton
 
     let transformAttachedMethod (com: IBabelCompiler) ctx (memb: Fable.MemberDecl) =
+        let isStatic = not memb.Info.IsInstance
         let makeMethod name args body =
             let key, computed = memberFromName name
-            ClassMethod(ClassFunction, key, args, body, computed_=computed) :> ClassMember
+            ClassMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic) :> ClassMember
         let args, body, _returnType, _typeParamDecl =
-            getMemberArgsAndBody com ctx Attached memb.Info.HasSpread memb.Args memb.Body
+            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
         [|
             yield makeMethod memb.Name args body
             if memb.Info.IsEnumerator then

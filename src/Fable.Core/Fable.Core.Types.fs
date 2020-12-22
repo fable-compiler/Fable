@@ -13,7 +13,15 @@ type CaseRules =
     /// FooBar -> foo-bar
     | KebabCase = 4
 
+/// Used on interfaces to mangle member names. This allows overloading and
+/// prevents conflicts with other interfaces, but cannot be used to interact with JS.
+[<AttributeUsage(AttributeTargets.Interface)>]
 type MangleAttribute() =
+    inherit Attribute()
+
+/// Used on a class to attach all members, useful when you want to use the class from JS.
+[<AttributeUsage(AttributeTargets.Class)>]
+type AttachMembersAttribute() =
     inherit Attribute()
 
 /// Used for erased union types and to ignore modules in JS compilation.

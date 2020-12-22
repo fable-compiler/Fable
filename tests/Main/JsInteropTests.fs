@@ -155,9 +155,50 @@ type JsOptions =
     abstract foo: string with get, set
     abstract bar: int with get, set
 
+[<Fable.Core.AttachMembers>]
+type ClassWithAttachments(v, ?sign) =
+    let mutable x = v
+    member _.Times with get() = x and set(y) = x <- x + y
+    member this.SaySomethingTo(name: string, ?format) =
+        let sign = defaultArg sign "!"
+        let format = defaultArg format ClassWithAttachments.GreetingFormat
+        let format = format + ClassWithAttachments.GetGrettingEnding(this.Times, sign)
+        String.Format(format, name)
+    static member GreetingFormat = "Hello {0}"
+    static member GetGrettingEnding(times, sign) = String.replicate times sign
+
+type ClassWithAttachmentsChild() =
+    inherit ClassWithAttachments(3, "?")
+    member this.dileHola(name) = this.SaySomethingTo(name, "Hola, {0}")
+
+[<Fable.Core.AttachMembers>]
+type ClassWithAttachmentsChild2() =
+    inherit ClassWithAttachments(3, "?")
+    member this.dileHola(name) = this.SaySomethingTo(name, "Hola, {0}")
+
 let tests =
   testList "JsInterop" [
+    testCase "Class with attached members works" <| fun _ ->
+        let x = ClassWithAttachments(2)
+        equal 2 x.Times
+        x.Times <- 3
+        x.SaySomethingTo("Tanaka") |> equal "Hello Tanaka!!!!!"
+
+    testCase "Class with attached members can be inherited" <| fun _ ->
+        let x = ClassWithAttachmentsChild()
+        x.dileHola("Pepe") |> equal "Hola, Pepe???"
+
+    testCase "Class with attached members can be inherited II" <| fun _ ->
+        let x = ClassWithAttachmentsChild2()
+        x.dileHola("Pepe") |> equal "Hola, Pepe???"
+
 #if FABLE_COMPILER
+    testCase "Class with attached members can be sent to JS" <| fun _ ->
+        let handleClass (cons: obj): string = importMember "./js/1foo.js"
+        jsConstructor<ClassWithAttachments>
+        |> handleClass
+        |> equal "Hello Narumi!!!!!!"
+
     testCase "Dynamic application works" <| fun () ->
         let dynObj =
             createObj [

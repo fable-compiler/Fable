@@ -1044,6 +1044,28 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
           Info = info
           ExportDefault = false })
 
+let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context)
+            (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
+    let bodyCtx, args = bindMemberArgs com ctx args
+    let body = transformExpr com bodyCtx body |> run
+    let entFullName = declaringEntity.FullName
+    let name = Naming.removeGetSetPrefix memb.CompiledName
+    let isGetter = memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0
+    let isSetter = not isGetter && memb.IsPropertySetterMethod && countNonCurriedParams memb = 1
+    let hasSpread = not isGetter && not isSetter && hasParamArray memb
+    let info = MemberInfo(hasSpread=hasSpread ,
+                         isGetter=isGetter,
+                         isSetter=isSetter,
+                         isInstance=memb.IsInstanceMember)
+    com.AddAttachedMember(entFullName,
+        { Name = name
+          FullDisplayName = entFullName + "." + name
+          Args = args
+          Body = body
+          UsedNames = set ctx.UseNamesInDeclarationScope
+          Info = info
+          ExportDefault = false })
+
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let ctx = { ctx with EnclosingMember = Some memb
@@ -1081,7 +1103,11 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
                     |> Option.iter (fun s -> transformAttachedMember com ctx declaringEntity s memb args body)
             | None -> ()
         []
-    else transformMemberFunctionOrValue com ctx memb args body
+    else
+        match memb.DeclaringEntity with
+        | Some ent when isAttachMembersEntity ent ->
+            transformExplicitlyAttachedMember com ctx ent memb args body; []
+        | _ -> transformMemberFunctionOrValue com ctx memb args body
 
 let private addUsedRootName com name (usedRootNames: Set<string>) =
     if Set.contains name usedRootNames then

@@ -1151,6 +1151,13 @@ module Util =
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
             | _ -> false)
 
+    let isAttachMembersEntity (ent: FSharpEntity) =
+        ent.Attributes |> Seq.exists (fun att ->
+            // Should we make sure the attribute is not an alias?
+            match att.AttributeType.TryFullName with
+            | Some Atts.attachMembers -> true
+            | _ -> false)
+
     let isEmittedOrImportedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.exists (fun att ->
             match att.AttributeType.TryFullName with
@@ -1270,8 +1277,8 @@ module Util =
             | _ -> true
         // Don't mangle interfaces by default (for better JS interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> hasAttribute Atts.mangle ent.Attributes
-        // Mangle members from abstract classes unless they are global/imported
-        | _ -> not(isGlobalOrImportedEntity(FsEnt ent))
+        // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
+        | _ -> not(isGlobalOrImportedEntity(FsEnt ent) || isAttachMembersEntity ent)
 
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
         // TODO: Error if entity doesn't have fullname?
@@ -1385,7 +1392,14 @@ module Util =
 
         // The value/method is not imported, check if the declaring entity is
         | None, Some callInfo, Some e ->
-            match tryGlobalOrImportedEntity com (FsEnt e), callInfo.ThisArg with
+            let moduleOrClassExpr =
+                let fableEnt = FsEnt e
+                match tryGlobalOrImportedEntity com fableEnt with
+                | Some expr -> Some expr
+                // AttachMembers classes behave the same as global/imported classes
+                | None when isAttachMembersEntity e -> Some(entityRef com fableEnt)
+                | None -> None
+            match moduleOrClassExpr, callInfo.ThisArg with
             | Some _, Some _thisArg ->
                 callInstanceMember com r typ callInfo e memb |> Some
 
