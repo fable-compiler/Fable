@@ -185,12 +185,11 @@ module private Util =
                             Exception = e |}
     }
 
+module FileWatcherUtil =
     let getCommonBaseDir (files: string list) =
-        let dirNameWithTrailingSep (file: string) = sprintf "%s%c" (IO.Path.GetDirectoryName file) IO.Path.DirectorySeparatorChar
-        // it's important to include a trailing separator, otherwise things like ["a/b"; "a/b.c"] won't get handled right
-        // https://github.com/fable-compiler/Fable/issues/2332
+        let withTrailingSep d = sprintf "%s%c" d IO.Path.DirectorySeparatorChar
         files
-        |> List.map dirNameWithTrailingSep
+        |> List.map IO.Path.GetDirectoryName
         |> List.distinct
         |> List.sortBy (fun f -> f.Length)
         |> function
@@ -198,16 +197,20 @@ module private Util =
             | [dir] -> dir
             | dir::restDirs ->
                 let rec getCommonDir (dir: string) =
-                    if restDirs |> List.forall (fun d -> d.StartsWith(dir)) then dir
+                    // it's important to include a trailing separator when comparing, otherwise things
+                    // like ["a/b"; "a/b.c"] won't get handled right
+                    // https://github.com/fable-compiler/Fable/issues/2332
+                    let dir' = withTrailingSep dir
+                    if restDirs |> List.forall (fun d -> (withTrailingSep d).StartsWith dir') then dir
                     else
-                        match dirNameWithTrailingSep (IO.Path.TrimEndingDirectorySeparator dir) with
+                        match IO.Path.GetDirectoryName(dir) with
                         | null -> failwith "No common base dir"
                         | dir -> getCommonDir dir
                 getCommonDir dir
-                |> IO.Path.TrimEndingDirectorySeparator
 
 open Util
 open FileWatcher
+open FileWatcherUtil
 
 let caseInsensitiveSet(items: string seq): ISet<string> =
     let s = HashSet(items)
