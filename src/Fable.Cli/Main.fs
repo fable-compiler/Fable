@@ -204,6 +204,7 @@ module private Util =
                         | null -> failwith "No common base dir"
                         | dir -> getCommonDir dir
                 getCommonDir dir
+                |> IO.Path.TrimEndingDirectorySeparator
 
 open Util
 open FileWatcher
