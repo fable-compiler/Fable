@@ -396,7 +396,7 @@ let private __getExeArgs (cmd: string) =
 
 let private __runInDir silent cwd (cmd: string): unit =
     if not silent then
-        printfn "> %s" cmd
+        printfn $"{cwd}> {cmd}"
     let exe, args = __getExeArgs cmd
     Process.Run(cwd, exe, args)
 

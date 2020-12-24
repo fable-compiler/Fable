@@ -28,7 +28,7 @@ module Util =
         Regex.Replace(
             readFile filePath,
             @"let \[<Literal>] VERSION = "".*?""",
-            sprintf "let [<Literal>] VERSION = \"%s\"" version)
+            $"let [<Literal>] VERSION = \"{version}\"")
         |> writeFile filePath
 
     let updatePkgVersionInFsproj projFile version =
@@ -179,8 +179,8 @@ let testJsFast() =
     let fableJs = "./src/fable-compiler-js/src/app.fs.js"
     let testProj = "tests/Main/Fable.Tests.fsproj"
     let buildDir = "build/tests-js"
-    run (sprintf "node --eval \"require('esm')(module)('%s')\" %s %s %s" fableJs fableJs testProj buildDir)
-    run ("npx mocha " + buildDir + " -r esm --reporter dot -t 10000")
+    run $"node --eval \"require('esm')(module)('{fableJs}')\" {fableJs} {testProj} {buildDir}"
+    run $"npx mocha {buildDir} -r esm --reporter dot -t 10000"
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
@@ -289,9 +289,9 @@ let buildCompilerJs(minify: bool) =
     ]
 
     let rollupTarget = if minify then distDir </> "app.js" else distDir </> "app.min.js"
-    run (sprintf "npx rollup %s/app.js -o %s --format umd --name Fable" buildDir rollupTarget)
+    run $"npx rollup {buildDir}/app.js -o {rollupTarget} --format umd --name Fable"
     if minify then
-        run (sprintf "npx terser %s/app.js -o %s/app.min.js --mangle --compress" distDir distDir)
+        run $"npx terser {distDir}/app.js -o {distDir}/app.min.js --mangle --compress"
 
     // Copy fable-library
     copyDirRecursive ("build/fable-library") (distDir </> "fable-library")
@@ -342,7 +342,7 @@ let test() =
         "--exclude Fable.Core"
     ]
 
-    run (sprintf "npx mocha %s -r esm --reporter dot -t 10000" buildDir)
+    run $"npx mocha {buildDir} -r esm --reporter dot -t 10000"
 
     runInDir projectDir "dotnet run"
 
