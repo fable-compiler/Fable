@@ -1,62 +1,14 @@
 import { toString as dateToString } from "./Date.js";
-import Decimal from "./Decimal.js";
-import Long, * as _Long from "./Long.js";
+import { compare as numericCompare, isNumeric, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.js";
 import { escape } from "./RegExp.js";
 import { toString } from "./Types.js";
-
-type Numeric = number | Long | Decimal;
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
 const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 
-// These are used for formatting and only take longs and decimals into account (no bigint)
-function isNumeric(x: any) {
-  return typeof x === "number" || x instanceof Long || x instanceof Decimal;
-}
-
 function isLessThan(x: Numeric, y: number) {
-  if (x instanceof Long) {
-    return _Long.compare(x, y) < 0;
-  } else if (x instanceof Decimal) {
-    return x.cmp(y) < 0;
-  } else {
-    return x < y;
-  }
-}
-
-function multiply(x: Numeric, y: number) {
-  if (x instanceof Long) {
-    return _Long.op_Multiply(x, y);
-  } else if (x instanceof Decimal) {
-    return x.mul(y);
-  } else {
-    return x * y;
-  }
-}
-
-function toFixed(x: Numeric, dp?: number) {
-  if (x instanceof Long) {
-    return String(x) + (0).toFixed(dp).substr(1);
-  } else {
-    return x.toFixed(dp);
-  }
-}
-
-function toPrecision(x: Numeric, sd?: number) {
-  if (x instanceof Long) {
-    return String(x) + (0).toPrecision(sd).substr(1);
-  } else {
-    return x.toPrecision(sd);
-  }
-}
-
-function toExponential(x: Numeric, dp?: number) {
-  if (x instanceof Long) {
-    return String(x) + (0).toExponential(dp).substr(1);
-  } else {
-    return x.toExponential(dp);
-  }
+  return numericCompare(x, y) < 0;
 }
 
 const enum StringComparison {
@@ -141,14 +93,6 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
     }
   }
   return -1;
-}
-
-function toHex(x: any) {
-  if (x instanceof Long) {
-    return _Long.toString(x.unsigned ? x : _Long.fromBytes(_Long.toBytes(x), true), 16);
-  } else {
-    return (Number(x) >>> 0).toString(16);
-  }
 }
 
 export type IPrintfFormatContinuation =

@@ -3,10 +3,11 @@
 // Definitions by: Peter Kooijmans <https://github.com/peterkooijmans>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 // Definitions by: Denis Cappellin <https://github.com/cappellin>
+import { CustomNumeric } from "../Numeric";
 
 export default Long;
 
-export declare class Long {
+export declare class Long implements CustomNumeric {
     /**
      * Constructs a 64 bit two's-complement integer, given its low and high 32 bit values as signed integers. See the from* functions below for more convenient ways of constructing Longs.
      */

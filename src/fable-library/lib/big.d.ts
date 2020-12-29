@@ -4,6 +4,8 @@
 //                 Miika Hänninen <https://github.com/googol>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
+import { CustomNumeric } from "../Numeric";
+
 export type BigSource = number | string | Big;
 
 export const enum Comparison {
@@ -99,7 +101,7 @@ export interface BigConstructor {
     PE: number;
 }
 
-export interface Big {
+export interface Big implements CustomNumeric {
     /** Returns a Big number whose value is the absolute value, i.e. the magnitude, of this Big number. */
     abs(): Big;
     /**
