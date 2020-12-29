@@ -160,10 +160,15 @@ module private Util =
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
 
-            // TODO: Dummy interface until we have a dotnet port of SourceMapGenerator
-            // https://github.com/mozilla/source-map#with-sourcemapgenerator-low-level-api
+            let mapGenerator = SourceMapSharp.SourceMapGenerator(None, None, None)
             let map = { new BabelPrinter.SourceMapGenerator with
-                            member _.AddMapping(_,_,_,_,_) = () }
+                            member _.AddMapping(orLine, orCol, genLine, genCol, name) =
+                                let generated: SourceMapSharp.Util.MappingIndex =
+                                    {line = genLine; column = genCol}
+                                let original: SourceMapSharp.Util.MappingIndex =
+                                    {line = orLine; column = orCol}
+
+                                mapGenerator.AddMapping(generated, Some original, Some com.CurrentFile, name) }
 
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
@@ -176,6 +181,7 @@ module private Util =
             do! BabelPrinter.run writer map babel
 
             Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
+            printfn "%s" (mapGenerator.toString())
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
