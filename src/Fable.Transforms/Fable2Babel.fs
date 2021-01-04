@@ -745,7 +745,8 @@ module Util =
         ExpressionStatement(callSuper args) :> Statement
 
     let makeClassConstructor args body =
-        ClassMethod(ClassImplicitConstructor, Identifier "constructor", args, body) :> ClassMember
+        //let args = args |> Seq.toList |> (fun args -> (Identifier "self" :> Pattern)::args) |> Array.ofList
+        ClassMethod(ClassImplicitConstructor, Identifier "__init__", args, body) :> ClassMember
 
     let callFunction r funcExpr (args: Expression list) =
         CallExpression(funcExpr, List.toArray args, ?loc=r) :> Expression
@@ -758,8 +759,8 @@ module Util =
         EmitExpression(txt, List.toArray args, ?loc=range) :> Expression
 
     let undefined range =
-//        Undefined(?loc=range) :> Expression
-        UnaryExpression(UnaryVoid, NumericLiteral(0.), ?loc=range) :> Expression
+        Undefined(?loc=range) :> Expression
+        //UnaryExpression(UnaryVoid, NumericLiteral(1.), ?loc=range) :> Expression
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -789,7 +790,7 @@ module Util =
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
                     if FableTransforms.isIdentUsed thisArg.Name body then
-                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
+                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "self" }
                         Fable.Let(thisArg, thisKeyword, body)
                     else body
                 None, genTypeParams, args, body
@@ -1733,12 +1734,9 @@ module Util =
                 BlockStatement(Array.append [|varDeclStatement|] body.Body)
         args |> List.mapToArray (fun a -> a :> Pattern), body
 
-    let declareEntryPoint _com _ctx (funcExpr: Expression) =
+    let declareEntryPoint _com _ctx (name: string) (funcExpr: Expression) =
         let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
-        let main = CallExpression (funcExpr, [|argv|]) :> Expression
-        // Don't exit the process after leaving main, as there may be a server running
-        // ExpressionStatement(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
-        PrivateModuleDeclaration(ExpressionStatement(main)) :> ModuleDeclaration
+        PrivateMainModuleDeclaration(ExpressionStatement(funcExpr)) :> ModuleDeclaration
 
     let declareModuleMember isPublic membName isMutable (expr: Expression) =
         let membName = Identifier membName
@@ -1853,11 +1851,14 @@ module Util =
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
         let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
-        let expr = FunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) :> Expression
+
+        let id = (Identifier membName) |> Some
+        let expr = FunctionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl) :> Expression
         info.Attributes
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
-        | true -> declareEntryPoint com ctx expr
+        | true ->
+            declareEntryPoint com ctx membName expr
         | false -> declareModuleMember info.IsPublic membName false expr
 
     let transformAction (com: IBabelCompiler) ctx expr =
@@ -1920,7 +1921,7 @@ module Util =
                 |> ReturnStatement :> Statement
                 |> Array.singleton
                 |> BlockStatement
-            ClassMethod(ClassFunction, Identifier "cases", [||], body) :> ClassMember
+            ClassMethod(ClassFunction, Identifier "cases", [||], body, ``static``=true) :> ClassMember
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
         let classMembers = Array.append [|cases|] classMembers

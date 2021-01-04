@@ -423,8 +423,8 @@ module AST =
     let makeIntConst (x: int) = NumberConstant (float x, Int32) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
 
-    let getLibPath (com: Compiler) moduleName =
-        com.LibraryDir + "/" + moduleName + ".js"
+    let getLibPath (com: Compiler) (moduleName: string) =
+        $"expression.system.{moduleName.ToLower()}"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
