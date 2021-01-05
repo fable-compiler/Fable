@@ -1,3 +1,7 @@
+### 3.0.1
+
+* Reduced package dependencies
+
 ### 3.0.0
 
 * Nagareyama official release

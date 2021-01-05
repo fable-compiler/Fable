@@ -1,6 +1,6 @@
 {
   "name": "fable-compiler-js",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "main": "index.js",
   "bin": {
     "fable": "index.js"
@@ -23,7 +23,6 @@
   "homepage": "https://github.com/fable-compiler/Fable#readme",
   "dependencies": {
     "fable-metadata": "^2.0.0",
-    "fable-standalone": "^3.0.0-nagareyama-rc-008",
-    "glob": "^7.1.6"
+    "fable-standalone": "^3.0.0"
   }
 }
