@@ -215,7 +215,7 @@ module Naming =
             "return"
             "super"
             "switch"
-            "this"
+            //"this"
             "throw"
             "try"
             "typeof"
