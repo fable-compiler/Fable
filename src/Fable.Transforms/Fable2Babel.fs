@@ -1099,7 +1099,8 @@ module Util =
 
     let resolveExpr t strategy babelExpr: Statement =
         match strategy with
-        | None | Some ReturnUnit -> upcast ExpressionStatement babelExpr
+        | None -> upcast ExpressionStatement babelExpr
+        | Some ReturnUnit -> upcast ReturnStatement(wrapIntExpression t babelExpr)
         // TODO: Where to put these int wrappings? Add them also for function arguments?
         | Some Return -> upcast ReturnStatement(wrapIntExpression t babelExpr)
         | Some(Assign left) -> upcast ExpressionStatement(assign None left babelExpr)
