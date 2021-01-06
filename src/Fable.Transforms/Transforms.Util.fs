@@ -424,7 +424,7 @@ module AST =
     let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
 
     let getLibPath (com: Compiler) (moduleName: string) =
-        $"expression.system.{moduleName.ToLower()}"
+        $"expression.fable.{moduleName.ToLower()}"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
