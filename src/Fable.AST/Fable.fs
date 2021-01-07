@@ -188,6 +188,7 @@ type ValueKind =
     | EnumConstant of Expr * EntityRef
     | NewOption of value: Expr option * Type
     | NewArray of Expr list * Type
+    /// Used for array allocations
     | NewArrayFrom of Expr * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
     | NewTuple of Expr list

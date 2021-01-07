@@ -1718,11 +1718,15 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         makeArray Any [] |> Some
     | ".ctor", _, [ExprType(Number _)] ->
         makeArray Any [] |> Some
-    // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
-    | ".ctor", _, [ArrayOrListLiteral(vals,_)] ->
-        makeArray Any vals |> Some
     | ".ctor", _, args ->
-        Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
+        match args with
+        // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
+        | [ArrayOrListLiteral(vals,_)] -> makeArray Any vals |> Some
+        | [MaybeCasted(IdentExpr ident)] ->
+            match findInScope ctx.Scope ident.Name with
+            | Some(ArrayOrListLiteral(vals,_)) -> makeArray Any vals |> Some
+            | _ -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
+        | args -> Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, Some(ExprKey idx), value, r) |> Some
     | "Add", Some ar, [arg] ->
