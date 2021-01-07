@@ -887,6 +887,10 @@ module Util =
             match tag with
             | Some (Naming.StartsWith "optimizable:" optimization) ->
                 match optimization, e with
+                | "array", Fable.Call(_,info,_,_) ->
+                    match info.Args with
+                    | [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
+                    | _ -> None
                 | "pojo", Fable.Call(_,info,_,_) ->
                     match info.Args with
                     | keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
