@@ -879,6 +879,8 @@ let tests =
     //
     // The same applies to try-with expression.
 
+#if FABLE_COMPILER
+    // This test fails if the system language is set to other language than English
     testCase "Pattern-matching against discriminated unions gives proper error message" <| fun () ->
         try
             let unitCircle = Circle 1
@@ -887,6 +889,7 @@ let tests =
             | Square n -> failwith "Should not happen"
         with
             | ex -> ex.Message.StartsWith "The match cases were incomplete" |> equal true
+#endif
 
     testCase "Type of if-then-else expression is correctly determined when 'then' branch throws" <| fun () ->
         let f () =
