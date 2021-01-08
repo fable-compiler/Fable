@@ -15,6 +15,7 @@ type CliArgs =
       FableLibraryPath: string option
       ForcePkgs: bool
       NoRestore: bool
+      SourceMaps: bool
       Exclude: string option
       Replace: Map<string, string>
       RunProcess: RunProcess option
@@ -210,6 +211,10 @@ module Async =
             disp <- obs.Subscribe(fun v ->
                 disp.Dispose()
                 onSuccess(v)))
+
+    let ignore (_: 'a) = async {
+        return ()
+    }
 
 module Imports =
     open Fable
