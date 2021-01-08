@@ -53,6 +53,7 @@ Arguments:
   --cwd             Working directory
   -o|--outDir       Redirect compilation output to a directory
   --extension       Extension for generated JS files (default .fs.js)
+  -s|--sourceMaps   Enable source maps
 
   --define          Defines a symbol for use in conditional compilation
   --verbose         Print more info during compilation
@@ -159,6 +160,7 @@ type Runner =
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
               OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
+              SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
               ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
               Exclude = argValue "--exclude" args
@@ -190,7 +192,7 @@ let clean args dir =
         argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
 
     // clean is a potentially destructive operation, we need a permission before proceeding
-    Console.WriteLine("This will recursively delete all *{0} files in {1}", fileExt, dir)
+    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, dir)
     if not(flagEnabled "--yes" args) then
         Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
         let keyInfo = Console.ReadKey()
@@ -201,8 +203,11 @@ let clean args dir =
 
     let mutable fileCount = 0
     let rec recClean dir =
-        IO.Directory.GetFiles(dir, "*" + fileExt)
-        |> Array.iter (fun file ->
+        seq {
+            yield! IO.Directory.GetFiles(dir, "*" + fileExt)
+            yield! IO.Directory.GetFiles(dir, "*" + fileExt + ".map")
+        }
+        |> Seq.iter (fun file ->
             IO.File.Delete(file)
             fileCount <- fileCount + 1
             Log.verbose(lazy ("Deleted " + file)))

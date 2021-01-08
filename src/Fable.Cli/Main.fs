@@ -160,15 +160,27 @@ module private Util =
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
 
-            let mapGenerator = SourceMapSharp.SourceMapGenerator(None, None, None)
-            let map = { new BabelPrinter.SourceMapGenerator with
-                            member _.AddMapping(orLine, orCol, genLine, genCol, name) =
-                                let generated: SourceMapSharp.Util.MappingIndex =
-                                    {line = genLine; column = genCol}
-                                let original: SourceMapSharp.Util.MappingIndex =
-                                    {line = orLine; column = orCol}
+            let mapPrinter, mapGen =
+                if cliArgs.SourceMaps then
+                    let mapGenerator = SourceMapSharp.SourceMapGenerator()
 
-                                mapGenerator.AddMapping(generated, Some original, Some com.CurrentFile, name) }
+                    let print outPath = async {
+                        let mapPath = outPath + ".map"
+                        do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                        use sw = IO.File.OpenWrite(mapPath)
+                        do! Text.Json.JsonSerializer.SerializeAsync(sw, mapGenerator.toJSON()) |> Async.AwaitTask
+                    }
+
+                    print, { new BabelPrinter.SourceMapGenerator with
+                        member _.AddMapping(orLine, orCol, genLine, genCol, name) =
+                            let generated: SourceMapSharp.Util.MappingIndex =
+                                {line = genLine; column = genCol}
+                            let original: SourceMapSharp.Util.MappingIndex =
+                                {line = orLine; column = orCol}
+                            mapGenerator.AddMapping(generated, original, source=com.CurrentFile, ?name=name) }
+                else
+                    Async.ignore, { new BabelPrinter.SourceMapGenerator with
+                        member _.AddMapping(_,_,_,_,_) = () }
 
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
@@ -178,10 +190,10 @@ module private Util =
 
             // write output to file
             let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-            do! BabelPrinter.run writer map babel
+            do! BabelPrinter.run writer mapGen babel
+            do! mapPrinter outPath
 
             Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
-            printfn "%s" (mapGenerator.toString())
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
