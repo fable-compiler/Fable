@@ -1,3 +1,8 @@
+### 3.1.0-beta-001
+
+* Source map support @delneg
+* Fix #2332: watch broken for certain directory structures @jwosty
+
 ### 3.0.5
 
 * Fixed compiler option parsing @ncave
