@@ -947,7 +947,7 @@ module Util =
                 libCall com ctx r "List" "singleton" [|expr|]
             | exprs, None ->
                 [|makeArray com ctx exprs|]
-                |> libCall com ctx r "List" "ofArray"
+                |> libCall com ctx r "List" "of_seq"
             | [TransformExpr com ctx head], Some(TransformExpr com ctx tail) ->
                 libCall com ctx r "List" "cons" [|head; tail|]
             | exprs, Some(TransformExpr com ctx tail) ->

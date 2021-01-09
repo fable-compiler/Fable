@@ -317,7 +317,7 @@ type EmitExpression(value, args, ?loc) =
                     let argIndex = int m.Value.[1..]
                     match Array.tryItem argIndex args with
                     | Some e -> printer.ComplexExpressionWithParens(e)
-                    | None -> printer.Print("undefined")
+                    | None -> printer.Print("pass")
 
                 let lastMatch = matches.[matches.Count - 1]
                 printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
@@ -380,7 +380,7 @@ type Undefined(?loc) =
 type NullLiteral(?loc) =
     interface Literal with
         member _.Print(printer) =
-            printer.Print("null", ?loc=loc)
+            printer.Print("None", ?loc=loc)
 
 type StringLiteral(value, ?loc) =
     member _.Value: string = value

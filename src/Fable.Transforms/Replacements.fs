@@ -1352,7 +1352,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t, None) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", _ -> "void $0" |> emitJsExpr r t args |> Some
+    | "Ignore", _ ->
+        // "void3 $0" |> emitJsExpr r t args |> Some
+        None
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
@@ -1991,7 +1993,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         let args = args |> List.replaceLast (toArray None t)
         let moduleName, meth =
             if meth = "ToList"
-            then "List", "ofArray"
+            then "List", "of_seq"
             else "Seq", Naming.lowerFirst meth
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
