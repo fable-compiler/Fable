@@ -11,7 +11,6 @@ type Printer =
     abstract Print: string * ?loc:SourceLocation -> unit
     abstract PrintNewLine: unit -> unit
     abstract AddLocation: SourceLocation option -> unit
-    abstract EscapeJsStringLiteral: string -> string
     abstract MakeImportPath: string -> string
 
 module PrinterExtensions =
@@ -80,34 +79,34 @@ module PrinterExtensions =
 //                        (fun p -> p.PrintStatementSeparator()),
 //                        ?skipNewLineAtEnd=skipNewLineAtEnd)
 
-// member printer.PrintOptional(before: string, node: #Node option) =
-//     match node with
-//     | None -> ()
-//     | Some node ->
-//         printer.Print(before)
-//         node.Print(printer)
+        member printer.PrintOptional(before: string, node: #AST option) =
+            match node with
+            | None -> ()
+            | Some node ->
+                printer.Print(before)
+                node.Print(printer)
 
-// member printer.PrintOptional(before: string, node: #Node option, after: string) =
-//     match node with
-//     | None -> ()
-//     | Some node ->
-//         printer.Print(before)
-//         node.Print(printer)
-//         printer.Print(after)
+        member printer.PrintOptional(before: string, node: #AST option, after: string) =
+            match node with
+            | None -> ()
+            | Some node ->
+                printer.Print(before)
+                node.Print(printer)
+                printer.Print(after)
 
-// member printer.PrintOptional(node: #Node option) =
-//     match node with
-//     | None -> ()
-//     | Some node -> node.Print(printer)
+        member printer.PrintOptional(node: #AST option) =
+            match node with
+            | None -> ()
+            | Some node -> node.Print(printer)
 
-// member printer.PrintArray(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
-//     for i = 0 to nodes.Length - 1 do
-//         printNode printer nodes.[i]
-//         if i < nodes.Length - 1 then
-//             printSeparator printer
+        member printer.PrintArray(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
+            for i = 0 to nodes.Length - 1 do
+                printNode printer nodes.[i]
+                if i < nodes.Length - 1 then
+                    printSeparator printer
 
-// member printer.PrintCommaSeparatedArray(nodes: Expression array) =
-//     printer.PrintArray(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
+        member printer.PrintCommaSeparatedArray(nodes: Expression array) =
+            printer.PrintArray(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
 
 // member printer.PrintCommaSeparatedArray(nodes: #Node array) =
 //     printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
@@ -193,39 +192,39 @@ module PrinterExtensions =
 //             printer.Print(":")
 //             printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
-// member printer.WithParens(expr: Expression) =
-//     printer.Print("(")
-//     expr.Print(printer)
-//     printer.Print(")")
+        member printer.WithParens(expr: Expression) =
+            printer.Print("(")
+            expr.Print(printer)
+            printer.Print(")")
 
-// member printer.SequenceExpressionWithParens(expr: Expression) =
-//     match expr with
-//     | :? SequenceExpression -> printer.WithParens(expr)
-//     | _ -> printer.Print(expr)
+        member printer.SequenceExpressionWithParens(expr: Expression) =
+            match expr with
+            //| :? SequenceExpression -> printer.WithParens(expr)
+            | _ -> printer.Print(expr)
 
-// /// Surround with parens anything that can potentially conflict with operator precedence
-// member printer.ComplexExpressionWithParens(expr: Expression) =
-//     match expr with
-//     | :? Undefined
-//     | :? NullLiteral
-//     | :? StringLiteral
-//     | :? BooleanLiteral
-//     | :? NumericLiteral
-//     | :? Identifier
-//     | :? MemberExpression
-//     | :? CallExpression
-//     | :? ThisExpression
-//     | :? Super
-//     | :? SpreadElement
-//     | :? ArrayExpression
-//     | :? ObjectExpression -> expr.Print(printer)
-//     | _ -> printer.WithParens(expr)
+        /// Surround with parens anything that can potentially conflict with operator precedence
+        member printer.ComplexExpressionWithParens(expr: Expression) =
+            match expr with
+            // | :? Undefined
+            // | :? NullLiteral
+            // | :? StringLiteral
+            // | :? BooleanLiteral
+            // | :? NumericLiteral
+            // | :? Identifier
+            // | :? MemberExpression
+            // | :? CallExpression
+            // | :? ThisExpression
+            // | :? Super
+            // | :? SpreadElement
+            // | :? ArrayExpression
+            // | :? ObjectExpression -> expr.Print(printer)
+            | _ -> printer.WithParens(expr)
 
-// member printer.PrintOperation(left, operator, right, loc) =
-//     printer.AddLocation(loc)
-//     printer.ComplexExpressionWithParens(left)
-//     printer.Print(" " + operator + " ")
-//     printer.ComplexExpressionWithParens(right)
+        member printer.PrintOperation(left, operator, right, loc) =
+            printer.AddLocation(loc)
+            printer.ComplexExpressionWithParens(left)
+            printer.Print(" " + operator + " ")
+            printer.ComplexExpressionWithParens(right)
 
 type AST =
     //int col
@@ -275,13 +274,19 @@ type Statement () =
 type Module(body) =
     member _.Body: List<Statement> = body
 
+    interface AST with
+        member this.Print(printer) = this.Print printer
+
+    member this.Print(printer) = ()
 
 type Alias(name, asname) =
     member _.Name: Identifier = name
     member _.AsName: Identifier option = asname
 
     interface AST with
-        member _.Print(printer) = ()
+        member this.Print(printer) = this.Print printer
+
+    member this.Print(printer) = ()
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
@@ -319,6 +324,46 @@ type Arguments(?posonlyargs, ?args, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?
 
 //#region Statements
 
+/// An assignment. targets is a list of nodes, and value is a single node.
+///
+/// Multiple nodes in targets represents assigning the same value to each. Unpacking is represented by putting a Tuple
+/// or List within targets.
+///
+/// type_comment is an optional string with the type annotation as a comment.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('a = b = 1'), indent=4)) # Multiple assignment
+/// Module(
+///     body=[
+///         Assign(
+///             targets=[
+///                 Name(id='a', ctx=Store()),
+///                 Name(id='b', ctx=Store())],
+///             value=Constant(value=1))],
+///     type_ignores=[])
+///
+/// >>> print(ast.dump(ast.parse('a,b = c'), indent=4)) # Unpacking
+/// Module(
+///     body=[
+///         Assign(
+///             targets=[
+///                 Tuple(
+///                     elts=[
+///                         Name(id='a', ctx=Store()),
+///                         Name(id='b', ctx=Store())],
+///                     ctx=Store())],
+///             value=Name(id='c', ctx=Load()))],
+///     type_ignores=[])
+/// ```
+type Assign(targets, value, ?typeComment) =
+    inherit Statement ()
+
+    member _.Targets: Expression list = targets
+    member _.Value: Expression = value
+    member _.TypeComment: string option = typeComment
+
+    override _.Print(printer) = ()
+
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
 /// Lambda, a Yield or YieldFrom node.
@@ -336,6 +381,145 @@ type Expr(value) =
     inherit Statement ()
 
     member _.Value: Expression = value
+
+    override _.Print(printer) = ()
+
+/// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
+/// item to be looped over, again as a single node. body and orelse contain lists of nodes to execute. Those in orelse
+/// are executed if the loop finishes normally, rather than via a break statement.
+///
+/// type_comment is an optional string with the type annotation as a comment.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse("""
+/// ... for x in y:
+/// ...     ...
+/// ... else:
+/// ...     ...
+/// ... """), indent=4))
+/// Module(
+///     body=[
+///         For(
+///             target=Name(id='x', ctx=Store()),
+///             iter=Name(id='y', ctx=Load()),
+///             body=[
+///                 Expr(
+///                     value=Constant(value=Ellipsis))],
+///             orelse=[
+///                 Expr(
+///                     value=Constant(value=Ellipsis))])],
+///     type_ignores=[])
+///```
+type For(target, iter, body, orelse, ?typeComment) =
+    inherit Statement ()
+
+    member _.Target: Expression = target
+    member _.Iterator: Expression = iter
+    member _.Body: Statement list = body
+    member _.Else: Statement list = orelse
+    member _.TypeComment: string option = typeComment
+
+    override _.Print(printer) = ()
+
+type AsyncFor(target, iter, body, orelse, ?typeComment) =
+    inherit Statement ()
+
+    member _.Target: Expression = target
+    member _.Iterator: Expression = iter
+    member _.Body: Statement list = body
+    member _.Else: Statement list = orelse
+    member _.TypeComment: string option = typeComment
+
+    override _.Print(printer) = ()
+
+/// A while loop. test holds the condition, such as a Compare node.
+///
+/// ```py
+/// >> print(ast.dump(ast.parse("""
+/// ... while x:
+/// ...    ...
+/// ... else:
+/// ...    ...
+/// ... """), indent=4))
+/// Module(
+///     body=[
+///         While(
+///             test=Name(id='x', ctx=Load()),
+///             body=[
+///                 Expr(
+///                     value=Constant(value=Ellipsis))],
+///             orelse=[
+///                 Expr(
+///                     value=Constant(value=Ellipsis))])],
+///     type_ignores=[])
+/// ```
+type While(test, body, orelse) =
+    inherit Statement ()
+
+    member _.Test: Expression = test
+    member _.Body: Statement list = body
+    member _.Else: Statement list = orelse
+
+    override _.Print(printer) = ()
+
+/// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
+///
+/// elif clauses don’t have a special representation in the AST, but rather appear as extra If nodes within the orelse
+/// section of the previous one.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse("""
+/// ... if x:
+/// ...    ...
+/// ... elif y:
+/// ...    ...
+/// ... else:
+/// ...    ...
+/// ... """), indent=4))
+/// Module(
+///     body=[
+///         If(
+///             test=Name(id='x', ctx=Load()),
+///             body=[
+///                 Expr(
+///                     value=Constant(value=Ellipsis))],
+///             orelse=[
+///                 If(
+///                     test=Name(id='y', ctx=Load()),
+///                     body=[
+///                         Expr(
+///                             value=Constant(value=Ellipsis))],
+///                     orelse=[
+///                         Expr(
+///                             value=Constant(value=Ellipsis))])])],
+///     type_ignores=[])
+/// ```
+type If(test, body, orelse) =
+    inherit Statement ()
+
+    member _.Test: Expression = test
+    member _.Body: Statement list = body
+    member _.Else: Statement list = orelse
+
+    override _.Print(printer) = ()
+
+/// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
+/// raise. cause is the optional part for y in raise x from y.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('raise x from y'), indent=4))
+/// Module(
+///     body=[
+///         Raise(
+///             exc=Name(id='x', ctx=Load()),
+///             cause=Name(id='y', ctx=Load()))],
+///     type_ignores=[])
+/// ```
+type Raise(exc, ?cause) =
+    inherit Statement ()
+
+    member _.Exception: Expression = exc
+    member _.Cause: Expression option = cause
 
     override _.Print(printer) = ()
 
@@ -358,6 +542,73 @@ type FunctionDef(name, args, body, decoratorList, ?returns, ?typeComment) =
     member _.DecoratorList: Expression list = decoratorList
     member _.Returns: Expression option = returns
     member _.TypeComment: string option = typeComment
+
+    override _.Print(printer) = ()
+
+/// global and nonlocal statements. names is a list of raw strings.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('global x,y,z'), indent=4))
+/// Module(
+///     body=[
+///         Global(
+///             names=[
+///                 'x',
+///                 'y',
+///                 'z'])],
+///     type_ignores=[])
+///
+/// ```
+type Global(names) =
+    inherit Statement ()
+
+    member _.Names : Identifier list = names
+
+    override _.Print(printer) = ()
+
+/// global and nonlocal statements. names is a list of raw strings.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('nonlocal x,y,z'), indent=4))
+/// Module(
+///     body=[
+///         Nonlocal(
+///             names=[
+///                 'x',
+///                 'y',
+///                 'z'])],
+///     type_ignores=[])
+/// `````
+type NonLocal(names) =
+    inherit Statement ()
+
+    member _.Names : Identifier list = names
+
+    override _.Print(printer) = ()
+
+/// A pass statement.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('pass'), indent=4))
+/// Module(
+///     body=[
+///         Pass()],
+///     type_ignores=[])
+/// ```
+type Pass() =
+    inherit Statement ()
+
+    override _.Print(printer) = ()
+
+/// The break statement.
+type Break() =
+    inherit Statement ()
+
+    override _.Print(printer) = ()
+
+/// The continue statement.
+type Continue() =
+    inherit Statement ()
 
     override _.Print(printer) = ()
 
