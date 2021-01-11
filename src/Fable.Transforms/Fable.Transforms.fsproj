@@ -21,6 +21,10 @@
     <Compile Include="FableTransforms.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="BabelPrinter.fs" />
+    <Compile Include="Python/Python.fs" />
+    <Compile Include="Python/Babel2Python.fs" />
+    <Compile Include="Python/PythonPrinter.fs" />
+
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>

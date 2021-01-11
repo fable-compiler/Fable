@@ -91,7 +91,7 @@ let run writer map (program: Program): Async<unit> =
         decl.Print(printer)
 
         if printer.Column > 0 then
-            //printer.Print(";")
+            printer.Print(";")
             printer.PrintNewLine()
         if extraLine then
             printer.PrintNewLine()

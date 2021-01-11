@@ -139,11 +139,32 @@ module private Util =
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
+
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
             member _.EscapeJsStringLiteral(str) =
                 Web.HttpUtility.JavaScriptStringEncode(str)
+            member _.MakeImportPath(path) =
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
+                if path.EndsWith(".fs") then
+                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
+                    changeFsExtension isInFableHiddenDir path fileExt
+                else path
+            member _.Dispose() = stream.Dispose()
+
+    type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
+        let fileExt = ".py"
+        let targetDir = Path.GetDirectoryName(targetPath)
+        let targetPath = sourcePath + fileExt // Override
+        let stream = new IO.StreamWriter(targetPath)
+
+        do printfn $"PythonFileWriter: {sourcePath}, {targetPath}"
+
+        interface PythonPrinter.Writer with
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
                 let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
@@ -159,6 +180,9 @@ module private Util =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
+            let python =
+                babel
+                |> Babel2Python.Compiler.transformFile com
 
             // TODO: Dummy interface until we have a dotnet port of SourceMapGenerator
             // https://github.com/mozilla/source-map#with-sourcemapgenerator-low-level-api
@@ -174,6 +198,11 @@ module private Util =
             // write output to file
             let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
             do! BabelPrinter.run writer map babel
+
+            let map = { new PythonPrinter.SourceMapGenerator with
+                            member _.AddMapping(_,_,_,_,_) = () }
+            let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
+            do! PythonPrinter.run writer map python
 
             Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 

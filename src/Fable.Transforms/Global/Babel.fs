@@ -21,20 +21,20 @@ module PrinterExtensions =
 
         member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
             let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
-            printer.Print("")
+            printer.Print("{")
             printer.PrintNewLine()
             printer.PushIndentation()
             for node in nodes do
                 printNode printer node
                 printSeparator printer
             printer.PopIndentation()
-            printer.Print("")
+            printer.Print("}")
             if not skipNewLineAtEnd then
                 printer.PrintNewLine()
 
         member printer.PrintStatementSeparator() =
             if printer.Column > 0 then
-                printer.Print("")
+                printer.Print(";")
                 printer.PrintNewLine()
 
         member _.IsProductiveStatement(s: Statement) =
@@ -79,14 +79,6 @@ module PrinterExtensions =
                 printer.Print(before)
                 node.Print(printer)
 
-        member printer.PrintOptional(before: string, node: #Node option, after: string) =
-            match node with
-            | None -> ()
-            | Some node ->
-                printer.Print(before)
-                node.Print(printer)
-                printer.Print(after)
-
         member printer.PrintOptional(node: #Node option) =
             match node with
             | None -> ()
@@ -116,14 +108,14 @@ module PrinterExtensions =
             | Some (:? Identifier as id) when id.TypeAnnotation.IsSome ->
                 printer.Print(" extends ");
                 printer.Print(id.TypeAnnotation.Value.TypeAnnotation)
-            | _ -> printer.PrintOptional("(", superClass, ")")
+            | _ -> printer.PrintOptional(" extends ", superClass)
             // printer.PrintOptional(superTypeParameters)
             match implements with
             | Some implements when not (Array.isEmpty implements) ->
                 printer.Print(" implements ")
                 printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
             | _ -> ()
-            printer.Print(":")
+            printer.Print(" ")
             printer.Print(body)
 
         member printer.PrintFunction(id: Identifier option, parameters: Pattern array, body: BlockStatement,
@@ -160,10 +152,11 @@ module PrinterExtensions =
                 if isArrow then
                     // Remove parens if we only have one argument? (and no annotation)
                     printer.PrintOptional(typeParameters)
-                    printer.Print("lambda ")
+                    printer.Print("(")
                     printer.PrintCommaSeparatedArray(parameters)
+                    printer.Print(")")
                     printer.PrintOptional(returnType)
-                    printer.Print(": ")
+                    printer.Print(" => ")
                     match body.Body with
                     | [|:? ReturnStatement as r |] ->
                         match r.Argument with
@@ -175,14 +168,14 @@ module PrinterExtensions =
                         | _ -> printer.ComplexExpressionWithParens(r.Argument)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
                 else
-                    printer.Print("def ")
+                    printer.Print("function ")
                     printer.PrintOptional(id)
                     printer.PrintOptional(typeParameters)
                     printer.Print("(")
                     printer.PrintCommaSeparatedArray(parameters)
                     printer.Print(")")
                     printer.PrintOptional(returnType)
-                    printer.Print(":")
+                    printer.Print(" ")
                     printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
         member printer.WithParens(expr: Expression) =
@@ -317,7 +310,7 @@ type EmitExpression(value, args, ?loc) =
                     let argIndex = int m.Value.[1..]
                     match Array.tryItem argIndex args with
                     | Some e -> printer.ComplexExpressionWithParens(e)
-                    | None -> printer.Print("pass")
+                    | None -> printer.Print("undefined")
 
                 let lastMatch = matches.[matches.Count - 1]
                 printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
@@ -375,12 +368,12 @@ type Undefined(?loc) =
     // TODO: Use `void 0` instead? Just remove this node?
     interface Expression with
         member _.Print(printer) =
-            printer.Print("None", ?loc=loc)
+            printer.Print("undefined", ?loc=loc)
 
 type NullLiteral(?loc) =
     interface Literal with
         member _.Print(printer) =
-            printer.Print("None", ?loc=loc)
+            printer.Print("null", ?loc=loc)
 
 type StringLiteral(value, ?loc) =
     member _.Value: string = value
@@ -606,14 +599,14 @@ type VariableDeclarator(id, ?init) =
 type VariableDeclarationKind = Var | Let | Const
 
 type VariableDeclaration(kind_, declarations, ?loc) =
-    let kind = match kind_ with Var -> "" | Let -> "" | Const -> ""
+    let kind = match kind_ with Var -> "var" | Let -> "let" | Const -> "const"
     new (var, ?init, ?kind, ?loc) =
         VariableDeclaration(defaultArg kind Let, [|VariableDeclarator(var, ?init=init)|], ?loc=loc)
     member _.Declarations: VariableDeclarator array = declarations
     member _.Kind: string = kind
     interface Declaration with
         member _.Print(printer) =
-            printer.Print(kind, ?loc=loc)
+            printer.Print(kind + " ", ?loc=loc)
             let canConflict = declarations.Length > 1
             for i = 0 to declarations.Length - 1 do
                 let decl = declarations.[i]
@@ -704,7 +697,7 @@ type Super(?loc) =
 type ThisExpression(?loc) =
     interface Expression with
         member _.Print(printer) =
-            printer.Print("self", ?loc=loc)
+            printer.Print("this", ?loc=loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
 type ArrowFunctionExpression(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
@@ -839,7 +832,7 @@ type ObjectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typePa
             printer.PrintCommaSeparatedArray(``params``)
             printer.Print(")")
             printer.PrintOptional(returnType)
-            printer.Print(":")
+            printer.Print(" ")
 
             printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
@@ -921,7 +914,7 @@ type NewExpression(callee, arguments, ?typeArguments, ?loc) =
     member _.TypeArguments: TypeParameterInstantiation option = typeArguments
     interface Expression with
         member _.Print(printer) =
-            printer.Print("", ?loc=loc)
+            printer.Print("new ", ?loc=loc)
             printer.ComplexExpressionWithParens(callee)
             printer.Print("(")
             printer.PrintCommaSeparatedArray(arguments)
@@ -1034,8 +1027,8 @@ type AssignmentExpression(operator_, left, right, ?loc) =
 type LogicalExpression(operator_, left, right, ?loc) =
     let operator =
         match operator_ with
-        | LogicalOr -> "or"
-        | LogicalAnd-> "and"
+        | LogicalOr -> "||"
+        | LogicalAnd-> "&&"
     member _.Left: Expression = left
     member _.Right: Expression = right
     member _.Operator: string = operator
@@ -1070,7 +1063,7 @@ type RestElement(argument, ?typeAnnotation, ?loc) =
     interface Pattern with
         member _.Name = argument.Name
         member _.Print(printer) =
-            printer.Print("*", ?loc=loc)
+            printer.Print("...", ?loc=loc)
             argument.Print(printer)
             printer.PrintOptional(typeAnnotation)
 
@@ -1083,7 +1076,7 @@ type ClassMethodKind =
 type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) =
     let kind =
         match kind_ with
-        | ClassImplicitConstructor -> "__init__"
+        | ClassImplicitConstructor -> "constructor"
         | ClassGetter -> "get"
         | ClassSetter -> "set"
         | ClassFunction -> "method"
@@ -1104,17 +1097,14 @@ type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstr
             printer.AddLocation(loc)
 
             let keywords = [
-                if ``static`` = Some true then yield "@staticmethod"
-                if ``abstract`` = Some true then yield "@abstractmethod"
-                if kind = "get" || kind = "set" then yield "@property"
+                if ``static`` = Some true then yield "static"
+                if ``abstract`` = Some true then yield "abstract"
+                if kind = "get" || kind = "set" then yield kind
             ]
 
             if not (List.isEmpty keywords) then
-                printer.PrintNewLine()
-                printer.Print(String.concat " " keywords)
-                printer.PrintNewLine()
+                printer.Print((String.concat " " keywords) + " ")
 
-            printer.Print("def ")
             if computed then
                 printer.Print("[")
                 key.Print(printer)
@@ -1122,18 +1112,12 @@ type ClassMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstr
             else
                 key.Print(printer)
 
-            let args =
-                if ``static`` = Some true
-                then ``params``
-                else
-                    let self = Identifier "self" :> Pattern |> Array.singleton
-                    Array.concat [self; ``params``]
             printer.PrintOptional(typeParameters)
             printer.Print("(")
-            printer.PrintCommaSeparatedArray(args)
+            printer.PrintCommaSeparatedArray(``params``)
             printer.Print(")")
             printer.PrintOptional(returnType)
-            printer.Print(":")
+            printer.Print(" ")
 
             printer.Print(body)
 
@@ -1215,22 +1199,6 @@ type PrivateModuleDeclaration(statement) =
             if printer.IsProductiveStatement(statement) then
                 printer.Print(statement)
 
-
-type PrivateMainModuleDeclaration(statement) =
-    member _.Statement: Statement = statement
-    interface ModuleDeclaration with
-        member _.Print(printer) =
-            if printer.IsProductiveStatement(statement) then
-                printer.Print(statement)
-                printer.PrintNewLine()
-                printer.Print("if __name__ == '__main__':")
-                printer.PrintNewLine()
-                printer.PushIndentation()
-                printer.Print("import sys")  // FIXME: now to move this to the top of the file?
-                printer.PrintNewLine()
-                printer.Print("main(sys.argv)")
-                printer.PopIndentation()
-
 type ImportSpecifier = inherit Node
 
 /// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
@@ -1271,12 +1239,7 @@ type ImportDeclaration(specifiers, source) =
             let defaults = specifiers|> Array.choose (function :? ImportDefaultSpecifier as x -> Some x | _ -> None)
             let namespaces = specifiers |> Array.choose (function :? ImportNamespaceSpecifier as x -> Some x | _ -> None)
 
-            printer.Print("from ")
-
-            printer.Print(printer.MakeImportPath(source.Value))
-
-            if not(Array.isEmpty defaults && Array.isEmpty namespaces && Array.isEmpty members) then
-                printer.Print(" import ")
+            printer.Print("import ")
 
             if not(Array.isEmpty defaults) then
                 printer.PrintCommaSeparatedArray(defaults)
@@ -1289,9 +1252,16 @@ type ImportDeclaration(specifiers, source) =
                     printer.Print(", ")
 
             if not(Array.isEmpty members) then
-                printer.Print("(")
+                printer.Print("{ ")
                 printer.PrintCommaSeparatedArray(members)
-                printer.Print(")")
+                printer.Print(" }")
+
+            if not(Array.isEmpty defaults && Array.isEmpty namespaces && Array.isEmpty members) then
+                printer.Print(" from ")
+
+            printer.Print("\"")
+            printer.Print(printer.MakeImportPath(source.Value))
+            printer.Print("\"")
 
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
 /// The exported field refers to the name exported in the module.
@@ -1315,7 +1285,7 @@ type ExportNamedDeclaration(declaration) =
     member _.Declaration: Declaration = declaration
     interface ModuleDeclaration with
         member _.Print(printer) =
-            printer.Print("")
+            printer.Print("export ")
             printer.Print(declaration)
 
 type ExportNamedReferences(specifiers, ?source) =
@@ -1406,7 +1376,7 @@ type AnyTypeAnnotation() =
 type VoidTypeAnnotation() =
     interface TypeAnnotationInfo with
         member _.Print(printer) =
-            printer.Print("None")
+            printer.Print("void")
 
 type TupleTypeAnnotation(types) =
     member _.Types: TypeAnnotationInfo array = types
