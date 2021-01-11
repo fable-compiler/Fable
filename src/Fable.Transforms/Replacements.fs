@@ -748,20 +748,18 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
     | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "equals1", Boolean, [left; right], ?loc=r) |> is equal
+        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
         let f = makeComparerFunction com ctx t
         Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
     | List _ ->
-        Helper.LibCall(com, "Util", "equals2", Boolean, [left; right], ?loc=r) |> is equal
+        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | MetaType ->
-        Helper.LibCall(com, "Reflection", "equals3", Boolean, [left; right], ?loc=r) |> is equal
+        Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Tuple _ ->
         Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     | _ ->
-        //Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-        let op = if equal then BinaryEqual else BinaryUnequal
-        makeBinOp r Boolean left right op
+        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
@@ -1228,7 +1226,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "jsOptions", [arg] ->
             makePojoFromLambda com arg |> Some
         | "jsThis", _ ->
-            emitJsExpr r t [] "self" |> Some
+            emitJsExpr r t [] "this" |> Some
         | "jsConstructor", _ ->
             match (genArg com ctx r 0 i.GenericArgs) with
             | DeclaredType(ent, _) -> com.GetEntity(ent) |> jsConstructor com |> Some
@@ -1352,9 +1350,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t, None) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
-    | "Ignore", _ ->
-        // "void3 $0" |> emitJsExpr r t args |> Some
-        None
+    | "Ignore", _ -> "void $0" |> emitJsExpr r t args |> Some
     // Number and String conversions
     | ("ToSByte"|"ToByte"|"ToInt8"|"ToUInt8"|"ToInt16"|"ToUInt16"|"ToInt"|"ToUInt"|"ToInt32"|"ToUInt32"), _ ->
         toInt com ctx r t args |> Some
@@ -1993,7 +1989,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         let args = args |> List.replaceLast (toArray None t)
         let moduleName, meth =
             if meth = "ToList"
-            then "List", "of_seq"
+            then "List", "ofArray"
             else "Seq", Naming.lowerFirst meth
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
@@ -2439,7 +2435,7 @@ let log (com: ICompiler) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
         | [v] -> [v]
         | (StringConst _)::_ -> [Helper.LibCall(com, "String", "format", t, args, i.SignatureArgTypes)]
         | _ -> [args.Head]
-    Helper.GlobalCall("print", t, args, ?loc=r)
+    Helper.GlobalCall("console", t, args, memb="log", ?loc=r)
 
 let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
