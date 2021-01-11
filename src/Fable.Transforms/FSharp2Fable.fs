@@ -84,10 +84,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         Fable.NewList(headAndTail, typ) |> makeValue r
     | DiscriminatedUnion(tdef, genArgs) ->
         let genArgs = makeGenArgs ctx.GenericArgs genArgs
-        let tag = unionCaseTag tdef unionCase
-        // If the order of cases changes in the declaration, the tag has to change too
-        // mark all files calling the union constructor as watch dependencies
-        com.AddWatchDependency(FsEnt.SourcePath tdef)
+        let tag = unionCaseTag com tdef unionCase
         Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
 let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type list) traitName (flags: MemberFlags) (argTypes: Fable.Type list) (argExprs: Fable.Expr list) =
@@ -263,7 +260,7 @@ let private transformUnionCaseTest (com: IFableCompiler) (ctx: Context) r
     | StringEnum(_, rule) ->
         return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqualStrict
     | DiscriminatedUnion(tdef,_) ->
-        let tag = unionCaseTag tdef unionCase
+        let tag = unionCaseTag com tdef unionCase
         return Fable.Test(unionExpr, Fable.UnionCaseTest(tag), r)
   }
 
@@ -730,7 +727,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let field = FsField field :> Fable.Field |> Fable.FieldKey |> Some
         return Fable.Set(callee, field, value, makeRangeFrom fsExpr)
 
-    | BasicPatterns.UnionCaseTag(unionExpr, _unionType) ->
+    | BasicPatterns.UnionCaseTag(unionExpr, unionType) ->
+        // TODO: This is an inconsistency. For new unions and union tests we calculate
+        // the tag in this step but here we delay the calculation until Fable2Babel
+        do tryDefinition unionType
+           |> Option.iter (fun (tdef, _) -> com.AddWatchDependency(FsEnt.SourcePath tdef))
         let! unionExpr = transformExpr com ctx unionExpr
         return Fable.Get(unionExpr, Fable.UnionTag, Fable.Any, makeRangeFrom fsExpr)
 

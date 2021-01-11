@@ -436,8 +436,11 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
-    let unionCaseTag (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
+    let unionCaseTag (com: IFableCompiler) (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
         try
+            // If the order of cases changes in the declaration, the tag has to change too.
+            // Mark all files using the case tag as watch dependencies.
+            com.AddWatchDependency(FsEnt.SourcePath ent)
             ent.UnionCases |> Seq.findIndex (fun uci -> unionCase.Name = uci.Name)
         with _ ->
             failwithf "Cannot find case %s in %s" unionCase.Name (FsEnt.FullName ent)
