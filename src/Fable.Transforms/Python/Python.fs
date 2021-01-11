@@ -315,7 +315,14 @@ type Alias(name, asname) =
     interface AST with
         member this.Print(printer) = this.Print printer
 
-    member _.Print(printer) = ()
+    member _.Print(printer: Printer) =
+        printer.Print(name)
+        match asname with
+        | Some (Identifier alias) ->
+            printer.Print("as ")
+            printer.Print(alias)
+        | _ -> ()
+
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
@@ -729,14 +736,27 @@ type Import(names) =
 ///             level=0)],
 ///     type_ignores=[])
 /// ```
-type ImportFrom(``module``, names, level) =
+type ImportFrom(``module``, names, ?level) =
     inherit Statement()
 
     member _.Module: Identifier option = ``module``
     member _.Names: Alias list = names
     member _.Level: int option = level
 
-    override _.Print(printer) = ()
+    override this.Print(printer) =
+            let (Identifier path) = this.Module |> Option.defaultValue (Identifier ".")
+            printer.Print("from ")
+
+            printer.Print("\"")
+            printer.Print(printer.MakeImportPath(path))
+            printer.Print("\"")
+
+            printer.Print(" import ")
+
+            if not(List.isEmpty names) then
+                printer.Print("(")
+                printer.PrintCommaSeparatedList(names |> List.map (fun x -> x :> AST))
+                printer.Print(")")
 
 /// A return statement.
 ///

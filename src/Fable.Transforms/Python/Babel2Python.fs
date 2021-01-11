@@ -126,7 +126,18 @@ module Util =
 
                         yield FunctionDef(Identifier fd.Id.Name, arguments, body = body)
                     | a -> printfn "Declaration: %A" a
-                | a -> printfn "Module %A" a ]
+                | :? Babel.ImportDeclaration as imp ->
+                    let source = imp.Source.Value |> Identifier |> Some
+                    let mapper (expr: Babel.ImportSpecifier) =
+                        match expr with
+                        | :? Babel.ImportMemberSpecifier as im ->
+                            let a = im.Imported.Name
+                            Alias(Identifier a, None)
+
+                    let sa = imp.Specifiers |> List.ofArray |> List.map mapper
+                    yield ImportFrom(source, sa) :> _
+                | a ->
+                    failwith "Unknown module declaration: %A" a ]
 
         Module(stmt)
 
