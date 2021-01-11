@@ -136,8 +136,11 @@ module Util =
 
                     let sa = imp.Specifiers |> List.ofArray |> List.map mapper
                     yield ImportFrom(source, sa) :> _
-                | a ->
-                    failwith "Unknown module declaration: %A" a ]
+                | :? Babel.PrivateModuleDeclaration as pmd ->
+                    let st = pmd.Statement
+                    yield! transformAsStatements com ctx ReturnStrategy.Return st
+                | _ ->
+                    failwith $"Unknown module declaration: {md}" ]
 
         Module(stmt)
 
@@ -157,6 +160,8 @@ module Util =
                 match vd.Init with
                 | Some value -> Assign(targets, transformAsExpr com ctx value)
                 | None -> () ]
+        | :? Babel.ExpressionStatement as es ->
+            [ Expr(transformAsExpr com ctx es.Expression) ]
         | a -> failwith $"Unhandled statement: {a}"
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =

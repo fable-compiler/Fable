@@ -311,8 +311,8 @@ module Helpers =
         | _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
-        if name = ".ctor" then "_ctor"
-        else name.Replace('.','_').Replace('`','_')
+        if name = ".ctor" then "$ctor"
+        else name.Replace('.','_').Replace('`','$')
 
     let getEntityDeclarationName (com: Compiler) (ent: Fable.EntityRef) =
         let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
