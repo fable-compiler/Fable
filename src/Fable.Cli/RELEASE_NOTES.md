@@ -1,3 +1,9 @@
+### 3.1.0
+
+* Source map support @delneg
+* Fix #2342: recompile union tests in watch mode @tomcl
+* Fix #2332: watch broken for certain directory structures @jwosty
+
 ### 3.1.0-beta-001
 
 * Source map support @delneg
