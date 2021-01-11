@@ -215,7 +215,7 @@ module Naming =
             "return"
             "super"
             "switch"
-            //"this"
+            "this"
             "throw"
             "try"
             "typeof"
@@ -394,7 +394,7 @@ module Naming =
             | StaticMemberPart(_,o) -> o
             | NoMemberPart -> ""
 
-    let reflectionSuffix = "_reflection"
+    let reflectionSuffix = "$reflection"
 
     let private printPart sanitize separator part overloadSuffix =
         (if part = "" then "" else separator + (sanitize part)) +
