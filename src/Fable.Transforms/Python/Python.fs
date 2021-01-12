@@ -116,27 +116,6 @@ module PrinterExtensions =
         // member printer.PrintCommaSeparatedArray(nodes: #Node array) =
 //     printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
-        // // TODO: (super) type parameters, implements
-// member printer.PrintClass(id: Identifier option, superClass: Expression option,
-//         superTypeParameters: TypeParameterInstantiation option,
-//         typeParameters: TypeParameterDeclaration option,
-//         implements: ClassImplements array option, body: ClassBody, loc) =
-//     printer.Print("class", ?loc=loc)
-//     printer.PrintOptional(" ", id)
-//     printer.PrintOptional(typeParameters)
-//     match superClass with
-//     | Some (:? Identifier as id) when id.TypeAnnotation.IsSome ->
-//         printer.Print(" extends ");
-//         printer.Print(id.TypeAnnotation.Value.TypeAnnotation)
-//     | _ -> printer.PrintOptional("(", superClass, ")")
-//     // printer.PrintOptional(superTypeParameters)
-//     match implements with
-//     | Some implements when not (Array.isEmpty implements) ->
-//         printer.Print(" implements ")
-//         printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-//     | _ -> ()
-//     printer.Print(":")
-//     printer.Print(body)
 
         member printer.PrintFunction
             (
@@ -264,6 +243,10 @@ type Expression() =
 
     abstract Print: Printer -> unit
 
+    member x.AsExpr() =
+        x
+
+
 type Operator =
     inherit AST
 
@@ -377,7 +360,8 @@ type Arguments(?posonlyargs, ?args, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?
     member _.Defaults: Expression list = defaultArg defaults []
 
     interface AST with
-        member _.Print(printer) = ()
+        member _.Print(printer) =
+            printer.Print("(Arguments)")
 
 //#region Statements
 
@@ -432,7 +416,8 @@ type Assign(targets, value, ?typeComment) =
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
 /// Lambda, a Yield or YieldFrom node.
-/// ```python
+///
+/// ```py
 /// >>> print(ast.dump(ast.parse('-a'), indent=4))
 /// Module(
 ///     body=[
@@ -447,7 +432,8 @@ type Expr(value) =
 
     member _.Value: Expression = value
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(Expr)")
 
 /// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
 /// item to be looped over, again as a single node. body and orelse contain lists of nodes to execute. Those in orelse
@@ -484,7 +470,8 @@ type For(target, iter, body, orelse, ?typeComment) =
     member _.Else: Statement list = orelse
     member _.TypeComment: string option = typeComment
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(For)")
 
 type AsyncFor(target, iter, body, orelse, ?typeComment) =
     inherit Statement()
@@ -495,7 +482,8 @@ type AsyncFor(target, iter, body, orelse, ?typeComment) =
     member _.Else: Statement list = orelse
     member _.TypeComment: string option = typeComment
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(AsyncFor)")
 
 /// A while loop. test holds the condition, such as a Compare node.
 ///
@@ -525,7 +513,66 @@ type While(test, body, orelse) =
     member _.Body: Statement list = body
     member _.Else: Statement list = orelse
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(While)")
+
+/// A class definition.
+///
+/// - name is a raw string for the class name
+/// - bases is a list of nodes for explicitly specified base classes.
+/// - keywords is a list of keyword nodes, principally for ‘metaclass’. Other keywords will be passed to the metaclass,
+///   as per PEP-3115.
+/// - starargs and kwargs are each a single node, as in a function call. starargs will be expanded to join the list of
+///   base classes, and kwargs will be passed to the metaclass.
+/// - body is a list of nodes representing the code within the class definition.
+/// - decorator_list is a list of nodes, as in FunctionDef.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse("""\
+/// ... @decorator1
+/// ... @decorator2
+/// ... class Foo(base1, base2, metaclass=meta):
+/// ...     pass
+/// ... """), indent=4))
+/// Module(
+///     body=[
+///         ClassDef(
+///             name='Foo',
+///             bases=[
+///                 Name(id='base1', ctx=Load()),
+///                 Name(id='base2', ctx=Load())],
+///             keywords=[
+///                 keyword(
+///                     arg='metaclass',
+///                     value=Name(id='meta', ctx=Load()))],
+///             body=[
+///                 Pass()],
+///             decorator_list=[
+///                 Name(id='decorator1', ctx=Load()),
+///                 Name(id='decorator2', ctx=Load())])],
+///     type_ignores=[])
+///```
+type ClassDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) =
+    inherit Statement()
+
+    member _.Name: Identifier = name
+    member _.Bases: Expression list = defaultArg bases []
+    member _.Keyword: Keyword list = defaultArg keywords []
+    member _.Body: Statement list = defaultArg body []
+    member _.DecoratorList: Expression list = defaultArg decoratorList []
+
+    override this.Print(printer) =
+        let (Identifier name) = name
+        printer.Print("class ", ?loc=loc)
+        printer.Print(name)
+        //match superClass with
+        //| Some (:? Identifier as id) when id.TypeAnnotation.IsSome ->
+        //    printer.Print(" extends ");
+        //    printer.Print(id.TypeAnnotation.Value.TypeAnnotation)
+        // _ -> printer.PrintOptional("(", superClass, ")")
+        // printer.PrintOptional(superTypeParameters)
+        printer.Print(":")
+        printer.PrintProductiveStatements(this.Body)
 
 /// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
 ///
@@ -566,7 +613,8 @@ type If(test, body, orelse) =
     member _.Body: Statement list = body
     member _.Else: Statement list = orelse
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(If)")
 
 /// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
 /// raise. cause is the optional part for y in raise x from y.
@@ -586,7 +634,8 @@ type Raise(exc, ?cause) =
     member _.Exception: Expression = exc
     member _.Cause: Expression option = cause
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(Raise)")
 
 /// A function definition.
 ///
@@ -631,7 +680,8 @@ type Global(names) =
 
     member _.Names: Identifier list = names
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(Global)")
 
 /// global and nonlocal statements. names is a list of raw strings.
 ///
@@ -651,7 +701,8 @@ type NonLocal(names) =
 
     member _.Names: Identifier list = names
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(NonLocal)")
 
 /// A pass statement.
 ///
@@ -665,19 +716,22 @@ type NonLocal(names) =
 type Pass() =
     inherit Statement()
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("pass")
 
 /// The break statement.
 type Break() =
     inherit Statement()
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("break")
 
 /// The continue statement.
 type Continue() =
     inherit Statement()
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("continue")
 
 /// An async function definition.
 ///
@@ -699,10 +753,12 @@ type AsyncFunctionDef(name, args, body, decoratorList, ?returns, ?typeComment) =
     member _.Returns: Expression option = returns
     member _.TypeComment: string option = typeComment
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(AsyncFunctionDef)")
 
 /// An import statement. names is a list of alias nodes.
-/// ```python
+///
+/// ```py
 /// >>> print(ast.dump(ast.parse('import x,y,z'), indent=4))
 /// Module(
 ///     body=[
@@ -718,12 +774,14 @@ type Import(names) =
 
     member _.Names: Alias list = names
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(Import)")
 
 /// Represents from x import y. module is a raw string of the ‘from’ name, without any leading dots, or None for
 /// statements such as from . import foo. level is an integer holding the level of the relative import (0 means absolute
 /// import).
-///```python
+///
+/// ```py
 /// >>> print(ast.dump(ast.parse('from y import x,y,z'), indent=4))
 /// Module(
 ///     body=[
@@ -780,6 +838,16 @@ type Return(?value) =
 
 //#region Expressions
 
+type Attribute(value, attr, ctx) =
+    inherit Expression()
+
+    member _.Value: Expression = value
+    member _.Attr: Identifier = attr
+    member _.Ctx: ExpressionContext = ctx
+
+    override this.Print(printer) =
+        printer.Print("(Attribute)")
+
 type BinOp(left, op, right) =
     inherit Expression()
 
@@ -788,6 +856,7 @@ type BinOp(left, op, right) =
     member _.Operator: Operator = op
 
     override this.Print(printer) = printer.PrintOperation(left, op, right)
+
 
 /// A unary operation. op is the operator, and operand any expression node.
 type UnaryOp(op, operand, ?loc) =
@@ -813,7 +882,8 @@ type UnaryOp(op, operand, ?loc) =
 /// A constant value. The value attribute of the Constant literal contains the Python object it represents. The values
 /// represented can be simple types such as a number, string or None, but also immutable container types (tuples and
 /// frozensets) if all of their elements are constant.
-/// ```python
+///
+/// ```py
 /// >>> print(ast.dump(ast.parse('123', mode='eval'), indent=4))
 /// Expression(
 ///     body=Constant(value=123))
@@ -849,7 +919,8 @@ type FormattedValue(value, ?conversion, ?formatSpec) =
     member _.Conversion: int option = conversion
     member _.FormatSpec: Expression option = formatSpec
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(FormattedValue)")
 
 /// A function call. func is the function, which will often be a Name or Attribute object. Of the arguments:
 ///
@@ -937,7 +1008,7 @@ type Name(id, ctx) =
 /// A tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an assignment target
 /// (i.e. (x,y)=something), and Load otherwise.
 ///
-/// ```python
+/// ```py
 /// >>> print(ast.dump(ast.parse('(1, 2, 3)', mode='eval'), indent=4))
 /// Expression(
 ///     body=Tuple(
@@ -947,11 +1018,14 @@ type Name(id, ctx) =
 ///             Constant(value=3)],
 ///         ctx=Load()))
 ///```
-type Tuple(elts) =
+type Tuple(elts, ?loc) =
     inherit Expression()
 
     member _.Elements: Expression list = elts
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+            printer.Print("(", ?loc=loc)
+            printer.PrintCommaSeparatedList(elts)
+            printer.Print(")")
 
 /// A list or tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an
 /// assignment target (i.e. (x,y)=something), and Load otherwise.
@@ -971,11 +1045,12 @@ type List(elts) =
 
     member _.Elements: Expression list = elts
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(List)")
 
 /// A set. elts holds a list of nodes representing the set’s elements.
 ///
-/// ```python
+/// ```py
 /// >>> print(ast.dump(ast.parse('{1, 2, 3}', mode='eval'), indent=4))
 /// Expression(
 ///     body=Set(
@@ -983,13 +1058,14 @@ type List(elts) =
 ///             Constant(value=1),
 ///             Constant(value=2),
 ///             Constant(value=3)]))
-/// `````
+/// ```
 type Set(elts) =
     inherit Expression()
 
     member _.Elements: Expression list = elts
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(Set)")
 
 /// A dictionary. keys and values hold lists of nodes representing the keys and the values respectively, in matching
 /// order (what would be returned when calling dictionary.keys() and dictionary.values()).
@@ -997,7 +1073,7 @@ type Set(elts) =
 /// When doing dictionary unpacking using dictionary literals the expression to be expanded goes in the values list,
 /// with a None at the corresponding position in keys.
 ///
-/// ```python
+/// ```py
 /// >>> print(ast.dump(ast.parse('{"a":1, **d}', mode='eval'), indent=4))
 /// Expression(
 ///     body=Dict(
@@ -1014,7 +1090,8 @@ type Dict(keys, values) =
     member _.Keys: Expression list = keys
     member _.Values: Expression list = values
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(Dict)")
 
 /// A yield expression. Because these are expressions, they must be wrapped in a Expr node if the value sent back is not
 /// used.
@@ -1032,7 +1109,8 @@ type Yield(?value) =
     inherit Expression()
     member _.Value: Expression option = value
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(Yield)")
 
 /// A yield from expression. Because these are expressions, they must be wrapped in a Expr node if the value sent back
 /// is not used.
@@ -1050,7 +1128,8 @@ type YieldFrom(?value) =
     inherit Expression()
     member _.Value: Expression option = value
 
-    override _.Print(printer) = ()
+    override _.Print(printer) =
+        printer.Print("(YieldFrom)")
 
 //#endregion
 
@@ -1194,3 +1273,5 @@ type Store() =
         member this.Print(printer) = ()
 
 //#endregion
+
+

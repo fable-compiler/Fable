@@ -12,6 +12,7 @@ type Verbosity =
 type Language =
     | JavaScript
     | TypeScript
+    | Python
 
 type CompilerOptions =
       abstract TypedArrays: bool

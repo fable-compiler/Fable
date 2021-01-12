@@ -520,7 +520,7 @@ match argsLower with
 | "test-integration"::_ -> testIntegration()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs false"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --python"
 
 | "run"::_ ->
     buildLibraryIfNotExists()

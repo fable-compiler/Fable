@@ -72,6 +72,7 @@ Arguments:
 
   --optimize        Compile with optimized F# AST (experimental)
   --typescript      Compile to TypeScript (experimental)
+  --python          Compile to Python (experimental)
 
   Environment variables:
    DOTNET_USE_POLLING_FILE_WATCHER
@@ -120,14 +121,15 @@ type Runner =
     // TODO: Remove this check when typed arrays are compatible with typescript
     |> Result.bind (fun projFile ->
         let typescript = flagEnabled "--typescript" args
+        let python = flagEnabled "--python" args
         let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
         if typescript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
         else
-            Ok(projFile, typescript, typedArrays)
+            Ok(projFile, typescript, python, typedArrays)
     )
 
-    |> Result.bind (fun (projFile, typescript, typedArrays) ->
+    |> Result.bind (fun (projFile, typescript, python, typedArrays) ->
         let verbosity =
             if flagEnabled "--verbose" args then
                 Log.makeVerbose()
@@ -147,7 +149,8 @@ type Runner =
             argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
 
         let compilerOptions =
-            CompilerOptionsHelper.Make(typescript = typescript,
+            CompilerOptionsHelper.Make(python = python,
+                                       typescript = typescript,
                                        typedArrays = typedArrays,
                                        fileExtension = fileExt,
                                        define = define,
@@ -185,6 +188,7 @@ type Runner =
 
 let clean args dir =
     let typescript = flagEnabled "--typescript" args
+    let python = flagEnabled "--python" args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
     let fileExt =
         argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
