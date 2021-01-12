@@ -69,6 +69,7 @@ module Util =
         //yield ClassDef(Identifier cd.Id.Value.Name, body=body)
         body
 
+    /// Transform Babel expression as Python expression
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Babel.Expression): Expression =
         match expr with
         | :? Babel.BinaryExpression as bin ->
@@ -132,22 +133,28 @@ module Util =
         //     oe.Properties
         | a -> failwith $"Unhandled value: {a}"
 
-    let rec transformExprAsStatements (com: IPythonCompiler) ctx (returnStrategy: ReturnStrategy option) (expr: Babel.Expression): Statement list =
-     match expr with
-     | :? Babel.AssignmentExpression as ae ->
+    /// Transform Babel expressions as Python statements.
+    let rec transformExpressionAsStatements (com: IPythonCompiler) ctx (returnStrategy: ReturnStrategy option) (expr: Babel.Expression): Statement list =
+        match expr with
+        | :? Babel.AssignmentExpression as ae ->
             let value = com.TransformAsExpr(ctx, ae.Right)
             let targets: Expression list =
                 let attr =
                     match ae.Left with
-                    | :? Babel.Identifier as identifier -> identifier.Name
+                    | :? Babel.Identifier as identifier -> Identifier(identifier.Name)
+                    | :? Babel.MemberExpression as me ->
+                        match me.Property with
+                        | :? Babel.Identifier as id -> Identifier(id.Name)
+                        | _ -> failwith "transformExpressionAsStatements: unknown property {me.Property}"
                     | _ -> failwith $"AssignmentExpression, unknow expression: {ae.Left}"
-                [ Attribute(value=Name(id=Identifier("self"), ctx=Load()), attr=Identifier(attr), ctx = Store()) ]
+                [ Attribute(value=Name(id=Identifier("self"), ctx=Load()), attr=attr, ctx = Store()) ]
 
             [ Assign(targets = targets, value = value) ]
 
-     | _ -> failwith $"transformAsStatements: unknown expr: {expr}"
+        | _ -> failwith $"transformExpressionAsStatements: unknown expr: {expr}"
 
-    let rec transformStmtAsStatements (com: IPythonCompiler) ctx (returnStrategy: ReturnStrategy option) (stmt: Babel.Statement): Statement list =
+    /// Transform Babel statement as Python statements.
+    let rec transformStatementAsStatements (com: IPythonCompiler) ctx (returnStrategy: ReturnStrategy option) (stmt: Babel.Statement): Statement list =
         match stmt with
         | :? Babel.BlockStatement as bl ->
             [ for st in bl.Body do
@@ -165,10 +172,16 @@ module Util =
                 | None -> () ]
 
         | :? Babel.ExpressionStatement as es ->
-            com.TransformAsStatements(ctx, returnStrategy, es.Expression)
+            // Handle Babel expressions that needs to be transformed as Python statements
+            match es.Expression with
+            | :? Babel.AssignmentExpression ->
+                com.TransformAsStatements(ctx, returnStrategy, es.Expression)
+            | _ ->
+                [ Expr(com.TransformAsExpr(ctx, es.Expression)) ]
 
-        | _ -> failwith $"transformStmtAsStatements: Unhandled stmt: {stmt}"
+        | _ -> failwith $"transformStatementAsStatements: Unhandled stmt: {stmt}"
 
+    /// Transform Babel program to Python module.
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
         let returnStrategy = Some ReturnStrategy.Return
 
@@ -265,8 +278,8 @@ module Compiler =
             //         | None -> upcast Babel.NullLiteral ()
             //member _.GetAllImports() = upcast imports.Values
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
-            member bcom.TransformAsStatements(ctx, ret, e) = transformExprAsStatements bcom ctx ret e
-            member bcom.TransformAsStatements(ctx, ret, e) = transformStmtAsStatements bcom ctx ret e
+            member bcom.TransformAsStatements(ctx, ret, e) = transformExpressionAsStatements bcom ctx ret e
+            member bcom.TransformAsStatements(ctx, ret, e) = transformStatementAsStatements bcom ctx ret e
             member bcom.TransformAsClassDef(ctx, cls) = transformAsClassDef bcom ctx cls
         //member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
         //member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None selector path
