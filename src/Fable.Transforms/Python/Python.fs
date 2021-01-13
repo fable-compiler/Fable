@@ -45,13 +45,15 @@ module PrinterExtensions =
                 printer.PrintNewLine()
 
         member _.IsProductiveStatement(s: Statement) =
-            let rec hasNoSideEffects(e: Statement) =
+            let rec hasNoSideEffects(e: Expression) =
+                printfn "hasNoSideEffects: {e}"
                 match e with
-                //| :? Identifier -> true
-                | _ -> true
+                | :? Constant -> true
+                | :? Dict as d -> d.Keys.IsEmpty
+                | _ -> false
 
             match s with
-            //| :? Statement as e -> hasNoSideEffects e |> not
+            | :? Expr as e -> hasNoSideEffects e.Value |> not
             | _ -> true
 
         member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
@@ -433,7 +435,7 @@ type Expr(value) =
     member _.Value: Expression = value
 
     override _.Print(printer) =
-        printer.Print("(Expr)")
+        value.Print(printer)
 
 /// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
 /// item to be looped over, again as a single node. body and orelse contain lists of nodes to execute. Those in orelse
@@ -572,7 +574,10 @@ type ClassDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) =
         // _ -> printer.PrintOptional("(", superClass, ")")
         // printer.PrintOptional(superTypeParameters)
         printer.Print(":")
+        printer.PrintNewLine()
+        printer.PushIndentation()
         printer.PrintProductiveStatements(this.Body)
+        printer.PopIndentation()
 
 /// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
 ///
@@ -830,9 +835,9 @@ type Return(?value) =
     inherit Statement()
     member _.Value: Expression option = value
 
-    override _.Print(printer) =
+    override this.Print(printer) =
         printer.Print("return ")
-        printer.PrintOptional(value)
+        printer.PrintOptional(this.Value)
 
 //#endregion
 
@@ -846,7 +851,9 @@ type Attribute(value, attr, ctx) =
     member _.Ctx: ExpressionContext = ctx
 
     override this.Print(printer) =
-        printer.Print("(Attribute)")
+        printer.Print(this.Value)
+        printer.Print(".")
+        printer.Print(this.Attr)
 
 type BinOp(left, op, right) =
     inherit Expression()
@@ -857,6 +864,16 @@ type BinOp(left, op, right) =
 
     override this.Print(printer) = printer.PrintOperation(left, op, right)
 
+type Compare(left, ops, comparators) =
+    inherit Expression()
+
+    member _.Left: Expression = left
+    member _.Comparators: Expression list= comparators
+    member _.Ops: ComparisonOperator list = ops
+
+    override this.Print(printer) =
+        printer.Print("(Compare)")
+        //printer.PrintOperation(left, op, right)
 
 /// A unary operation. op is the operator, and operand any expression node.
 type UnaryOp(op, operand, ?loc) =
@@ -1091,7 +1108,12 @@ type Dict(keys, values) =
     member _.Values: Expression list = values
 
     override _.Print(printer) =
-        printer.Print("(Dict)")
+        printer.Print("{")
+        for key, value in List.zip keys values do
+            key.Print(printer)
+            printer.Print(":")
+            value.Print(printer)
+        printer.Print("}")
 
 /// A yield expression. Because these are expressions, they must be wrapped in a Expr node if the value sent back is not
 /// used.
@@ -1193,35 +1215,45 @@ type MatMult() =
 
 //#region Comparison operator tokens.
 
-type Eq =
-    inherit ComparisonOperator
+type Eq() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" = ")
 
-type NotEq =
-    inherit ComparisonOperator
+type NotEq() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" <> ")
 
-type Lt =
-    inherit ComparisonOperator
+type Lt() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" < ")
 
-type LtE =
-    inherit ComparisonOperator
+type LtE() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" <= ")
 
-type Gt =
-    inherit ComparisonOperator
+type Gt() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" > ")
 
-type GtE =
-    inherit ComparisonOperator
+type GtE() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" >= ")
 
-type Is =
-    inherit ComparisonOperator
+type Is() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" is ")
 
-type IsNot =
-    inherit ComparisonOperator
+type IsNot() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" is not ")
 
-type In =
-    inherit ComparisonOperator
+type In() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" in ")
 
-type NotIn =
-    inherit ComparisonOperator
+type NotIn() =
+    interface ComparisonOperator with
+        member _.Print(printer: Printer) = printer.Print($" not in ")
 
 //#endregion
 

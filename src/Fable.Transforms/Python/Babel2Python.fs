@@ -44,54 +44,66 @@ type IPythonCompiler =
     abstract TransformAsExpr: Context * Babel.Expression -> Expression
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Statement -> Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Expression -> Statement list
-    abstract TransformAsClassDef: Context * Babel.ClassDeclaration -> Statement list
+    abstract TransformAsClassDef: Context * Babel.ClassDeclaration -> Statement
     //abstract TransformImport: Context * selector:string * path:string -> Expression
     //abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
 
     abstract WarnOnlyOnce: string * ?range:SourceLocation -> unit
 
+
+module Helpers =
+    let cleanNameAsPythonIdentifier (name: string) =
+        name.Replace('$','_')
+
 module Util =
-    let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration) : Statement list=
+    let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration) : Statement=
+        printfn $"transformAsClassDef"
+
         let body : Statement list = [
             for mber in cls.Body.Body do
                 match mber with
                 | :? Babel.ClassMethod as cm ->
                     match cm.Kind with
                     | "constructor" ->
-                        let args = cm.Params |> List.ofArray |> List.map (fun arg -> Arg(Identifier arg.Name))
-                        let arguments = Arguments(args=args)
+                        let self = Arg(Identifier("self"))
+                        let args = cm.Params |> List.ofArray |> List.map (fun arg -> Arg(Identifier(arg.Name)))
+                        let arguments = Arguments(args=self :: args)
                         let body = com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnUnit), cm.Body)
                         FunctionDef(Identifier "__init__", arguments, body=body)
                     | _ -> failwith $"Unknown kind: {cm.Kind}"
                 | _ -> failwith $"Unhandled class member {mber}"
                 //yield! com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnUnit), stmt)
                 ]
-        //yield ClassDef(Identifier cd.Id.Value.Name, body=body)
-        body
+        ClassDef(Identifier(cls.Id.Value.Name), body=body) :> _
 
     /// Transform Babel expression as Python expression
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Babel.Expression): Expression =
+        printfn $"transformAsExpr: {expr}"
         match expr with
-        | :? Babel.BinaryExpression as bin ->
-            let left = com.TransformAsExpr(ctx, bin.Left)
-            let right = com.TransformAsExpr(ctx, bin.Right)
+        | :? Babel.BinaryExpression as be ->
+            let left = com.TransformAsExpr(ctx, be.Left)
+            let right = com.TransformAsExpr(ctx, be.Right)
 
-            let op: Operator =
-                match bin.Operator with
-                | "+" -> Add() :> _
-                | "-" -> Sub() :> _
-                | "*" -> Mult() :> _
-                | "/" -> Div() :> _
-                | "%" -> Mod() :> _
-                | "**" -> Pow() :> _
-                | "<<" -> LShift() :> _
-                | ">>" -> RShift() :> _
-                | "|" -> BitOr() :> _
-                | "^" -> BitXor() :> _
-                | "&" -> BitAnd() :> _
-                | _ -> failwith $"Unknown operator: {bin.Operator}"
+            let bin op =
+                 BinOp(left, op, right).AsExpr()
+            let cmp op =
+                Compare(left, [op], [right]).AsExpr()
 
-            BinOp(left, op, right).AsExpr()
+            match be.Operator with
+            | "+" -> Add() |> bin
+            | "-" -> Sub() |> bin
+            | "*" -> Mult() |> bin
+            | "/" -> Div() |> bin
+            | "%" -> Mod() |> bin
+            | "**" -> Pow() |> bin
+            | "<<" -> LShift() |> bin
+            | ">>" -> RShift() |> bin
+            | "|" -> BitOr() |> bin
+            | "^" -> BitXor() |> bin
+            | "&" -> BitAnd() |> bin
+            | "===" -> Eq() |> cmp
+            | _ -> failwith $"Unknown operator: {be.Operator}"
+
         | :? Babel.UnaryExpression as ue ->
             let op =
                 match ue.Operator with
@@ -122,19 +134,43 @@ module Util =
             Tuple(elems).AsExpr()
         | :? Babel.NumericLiteral as nl -> Constant(value = nl.Value).AsExpr()
         | :? Babel.StringLiteral as sl -> Constant(value = sl.Value).AsExpr()
-        | :? Babel.Identifier as ident -> Name(id = Identifier ident.Name, ctx = Load()).AsExpr()
+        | :? Babel.Identifier as ident ->
+            let name = Helpers.cleanNameAsPythonIdentifier ident.Name
+            Name(id = Identifier name, ctx = Load()).AsExpr()
         | :? Babel.NewExpression as ne -> // FIXME: use transformAsCall
             let func = com.TransformAsExpr(ctx, ne.Callee)
             let args = ne.Arguments |> List.ofArray |> List.map (fun arg -> com.TransformAsExpr(ctx, arg))
             Call(func, args).AsExpr()
         | :? Babel.Super ->
             Name(Identifier("super().__init__"), ctx = Load()).AsExpr()
-        // | :? Babel.ObjectExpression as oe ->
-        //     oe.Properties
-        | a -> failwith $"Unhandled value: {a}"
+        | :? Babel.ObjectExpression as oe ->
+             let kv = [
+                 for prop in oe.Properties do
+                    match prop with
+                    | :? Babel.ObjectProperty as op ->
+                        let key = com.TransformAsExpr(ctx, op.Key)
+                        let value = com.TransformAsExpr(ctx, op.Value)
+                        key, value
+                     | _ -> failwith $"transformAsExpr: unhandled object expression property: {prop}"
+             ]
+             let keys = kv |> List.map fst
+             let values = kv |> List.map snd
+             Dict(keys=keys, values=values).AsExpr()
+        | :? Babel.EmitExpression as ee ->
+            failwith "Not Implemented"
+        | :? Babel.MemberExpression as me ->
+            let value = com.TransformAsExpr(ctx, me.Object)
+            let attr =
+                match me.Property with
+                | :? Babel.Identifier as id -> Identifier(id.Name)
+                | _ -> failwith "transformExpressionAsStatements: unknown property {me.Property}"
+            Attribute(value=value, attr=attr, ctx=Load()).AsExpr()
+        | _ -> failwith $"Unhandled value: {expr}"
 
     /// Transform Babel expressions as Python statements.
     let rec transformExpressionAsStatements (com: IPythonCompiler) ctx (returnStrategy: ReturnStrategy option) (expr: Babel.Expression): Statement list =
+        printfn $"transformExpressionAsStatements: {expr}"
+
         match expr with
         | :? Babel.AssignmentExpression as ae ->
             let value = com.TransformAsExpr(ctx, ae.Right)
@@ -155,6 +191,8 @@ module Util =
 
     /// Transform Babel statement as Python statements.
     let rec transformStatementAsStatements (com: IPythonCompiler) ctx (returnStrategy: ReturnStrategy option) (stmt: Babel.Statement): Statement list =
+        printfn $"transformStatementAsStatements: {stmt}"
+
         match stmt with
         | :? Babel.BlockStatement as bl ->
             [ for st in bl.Body do
@@ -172,14 +210,21 @@ module Util =
                 | None -> () ]
 
         | :? Babel.ExpressionStatement as es ->
-            // Handle Babel expressions that needs to be transformed as Python statements
+            // Handle Babel expressions that we need to transforme here as Python statements
             match es.Expression with
             | :? Babel.AssignmentExpression ->
                 com.TransformAsStatements(ctx, returnStrategy, es.Expression)
             | _ ->
                 [ Expr(com.TransformAsExpr(ctx, es.Expression)) ]
-
-        | _ -> failwith $"transformStatementAsStatements: Unhandled stmt: {stmt}"
+        | :? Babel.IfStatement as iff ->
+            let test = com.TransformAsExpr(ctx, iff.Test)
+            let body = com.TransformAsStatements(ctx, returnStrategy, iff.Consequent)
+            let orElse =
+                match iff.Alternate with
+                | Some alt -> com.TransformAsStatements(ctx, returnStrategy, alt)
+                | _ -> []
+            [ If(test=test, body=body, orelse=orElse) ]
+        | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"
 
     /// Transform Babel program to Python module.
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
@@ -208,9 +253,11 @@ module Util =
                         let body =
                             com.TransformAsStatements(ctx, returnStrategy, fd.Body)
 
-                        yield FunctionDef(Identifier fd.Id.Name, arguments, body = body)
+                        let name = Helpers.cleanNameAsPythonIdentifier(fd.Id.Name)
+                        yield FunctionDef(Identifier(name), arguments, body = body)
                     | :? Babel.ClassDeclaration as cd ->
-                        yield! com.TransformAsClassDef(ctx, cd)
+                        printfn "TransformAsClassDef"
+                        yield com.TransformAsClassDef(ctx, cd)
                     | _ -> failwith $"Unhandled Declaration: {decl.Declaration}"
 
                 | :? Babel.ImportDeclaration as imp ->
