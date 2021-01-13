@@ -279,6 +279,10 @@ let tests =
           sprintf "%5d" -5L |> equal "   -5"
           sprintf "%- 4i" 5 |> equal " 5  "
 
+      testCase "parameterized padding works" <| fun () -> // See #2336
+          sprintf "[%*s][%*s]" 6 "Hello" 5 "Foo"
+          |> equal "[ Hello][  Foo]"
+
       testCase "String.Format combining padding and zeroes pattern works" <| fun () ->
           String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
           String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
