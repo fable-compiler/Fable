@@ -1,3 +1,9 @@
+### 3.1.1
+
+* Fix #2343: Remove conflicting export default
+* Fix #2336: Parameretized padding
+* Fix reflection for int64/decimal with units of measure
+
 ### 3.1.0
 
 * Source map support @delneg
