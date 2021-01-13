@@ -2878,6 +2878,20 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
             | _ -> ()
             match i.CompiledName with
+            | "GetMethod" ->
+                match exprType, args with
+                | DeclaredType(e, genArgs), [StringConst name] -> Some(e, genArgs, name, false)
+                | _ ->
+                    "GetMethod is only supported for a type known at compile time and with a single string literal argument"
+                    |> addError com ctx.InlinePath exprRange
+                    None
+                |> Option.map (fun (e, genArgs, name, ignoreCase) ->
+                    let e = com.GetEntity(e)
+                    e.MembersFunctionsAndValues
+                    // TODO: CompiledName? Check there're no other methods with same name, and this is not a property
+                    |> Seq.tryFind (fun m -> m.DisplayName = name)
+                    |> Option.map (fun m -> failwith "todo")
+                    |> Option.defaultValue (fun () -> Value(Null t, r)))
             | "GetInterface" ->
                 match exprType, args with
                 | DeclaredType(e, genArgs), [StringConst name] -> Some(e, genArgs, name, false)
@@ -3164,6 +3178,10 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 |> StringConstant |> makeValue r |> Some
             | c ->
                 Helper.LibCall(com, "Reflection", "name", t, [c], ?loc=r) |> Some
+        | _ -> None
+    | "System.Reflection.MethodInfo" ->
+        match thisArg, info.CompiledName with
+        | Some c, "Invoke" -> Helper.LibCall(com, "Reflection", "invoke", t, c::args, ?loc=r) |> Some
         | _ -> None
     | _ -> None
 

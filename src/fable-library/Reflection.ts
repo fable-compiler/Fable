@@ -3,6 +3,7 @@ import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Uti
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
+export type MethodInfo = [string, TypeInfo, Function];
 
 export type Constructor = new (...args: any[]) => any;
 
@@ -395,6 +396,15 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
 
 export function getValue(propertyInfo: PropertyInfo, v: any): any {
   return v[propertyInfo[0]];
+}
+
+export function invoke(methodInfo: MethodInfo, v: any, args: any[]): any {
+  args = v != null ? [v].concat(args) : args;
+  return methodInfo[2].apply(null, args);
+}
+
+export function methodInfo(name: string, type: TypeInfo, method: Function): MethodInfo {
+  return [name, type, method];
 }
 
 // Fable.Core.Reflection
