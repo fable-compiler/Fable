@@ -870,8 +870,11 @@ type Compare(left, ops, comparators) =
     member _.Ops: ComparisonOperator list = ops
 
     override this.Print(printer) =
-        printer.Print("(Compare)")
-        //printer.PrintOperation(left, op, right)
+        //printer.AddLocation(loc)
+        printer.ComplexExpressionWithParens(left)
+        for op, comparator in List.zip this.Ops this.Comparators do
+            printer.Print(op)
+            printer.ComplexExpressionWithParens(comparator)
 
 /// A unary operation. op is the operator, and operand any expression node.
 type UnaryOp(op, operand, ?loc) =
@@ -1219,7 +1222,7 @@ type Eq() =
 
 type NotEq() =
     interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" <> ")
+        member _.Print(printer: Printer) = printer.Print($" != ")
 
 type Lt() =
     interface ComparisonOperator with

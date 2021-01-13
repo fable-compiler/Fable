@@ -126,7 +126,14 @@ module Util =
             | "|" -> BitOr() |> bin
             | "^" -> BitXor() |> bin
             | "&" -> BitAnd() |> bin
-            | "===" -> Eq() |> cmp
+            | "==="
+            | "==" -> Eq() |> cmp
+            | "!=="
+            | "!=" -> NotEq() |> cmp
+            | ">" -> Gt() |> cmp
+            | ">=" -> GtE() |> cmp
+            | "<" -> Lt() |> cmp
+            | "<=" -> LtE() |> cmp
             | _ -> failwith $"Unknown operator: {be.Operator}"
 
         | :? Babel.UnaryExpression as ue ->
