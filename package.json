@@ -2,6 +2,9 @@
   "private": true,
   "scripts": {
     "tsc": "tsc",
+    "mocha": "mocha",
+    "rollup": "rollup",
+    "terser": "terser",
     "tslint": "tslint",
     "build": "dotnet fsi build.fsx",
     "publish": "dotnet fsi build.fsx publish",

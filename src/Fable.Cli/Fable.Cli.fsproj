@@ -3,8 +3,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>3.0.5</Version>
-    <PackageVersion>3.0.5</PackageVersion>
+    <Version>3.1.1</Version>
+    <PackageVersion>3.1.1</PackageVersion>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -37,6 +37,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
+    <PackageReference Include="source-map-sharp" Version="1.0.2" />
     <!-- <PackageReference Include="FSharp.Core" Version="5.0.0" /> -->
   </ItemGroup>
 </Project>

@@ -436,8 +436,11 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
-    let unionCaseTag (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
+    let unionCaseTag (com: IFableCompiler) (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
         try
+            // If the order of cases changes in the declaration, the tag has to change too.
+            // Mark all files using the case tag as watch dependencies.
+            com.AddWatchDependency(FsEnt.SourcePath ent)
             ent.UnionCases |> Seq.findIndex (fun uci -> unionCase.Name = uci.Name)
         with _ ->
             failwithf "Cannot find case %s in %s" unionCase.Name (FsEnt.FullName ent)
@@ -770,11 +773,17 @@ module TypeHelpers =
         dict ["bool`1", Choice1Of2 Fable.Boolean
               "byte`1", Choice1Of2 (Fable.Number UInt8)
               "string`1", Choice1Of2 Fable.String
-              "uint64`1", Choice2Of2("System.Runtime", Types.uint64)
-              "Guid`1", Choice2Of2("System.Runtime", Types.guid)
-              "TimeSpan`1", Choice2Of2("System.Runtime", Types.timespan)
-              "DateTime`1", Choice2Of2("System.Runtime", Types.datetime)
-              "DateTimeOffset`1", Choice2Of2("System.Runtime", Types.datetimeOffset)]
+              "uint64`1", Choice2Of2 Types.uint64
+              "Guid`1", Choice2Of2 Types.guid
+              "TimeSpan`1", Choice2Of2 Types.timespan
+              "DateTime`1", Choice2Of2 Types.datetime
+              "DateTimeOffset`1", Choice2Of2 Types.datetimeOffset]
+
+    let private makeSystemRuntimeType fullName =
+            let r: Fable.EntityRef =
+                { FullName = fullName
+                  Path = Fable.CoreAssemblyName "System.Runtime" }
+            Fable.DeclaredType(r, [])
 
     let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
@@ -798,16 +807,14 @@ module TypeHelpers =
             | Types.resizeArray -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
             | Types.list -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number kind
+            | "Microsoft.FSharp.Core.int64`1" -> makeSystemRuntimeType Types.int64
+            | "Microsoft.FSharp.Core.decimal`1" -> makeSystemRuntimeType Types.decimal
             // TODO: FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
             // so we need to hard-cde FSharp.UMX types
             | Naming.StartsWith "FSharp.UMX." (DicContains fsharpUMX choice) ->
                 match choice with
                 | Choice1Of2 t -> t
-                | Choice2Of2(dllName, fullName) ->
-                    let r: Fable.EntityRef =
-                        { FullName = fullName
-                          Path = Fable.CoreAssemblyName dllName }
-                    Fable.DeclaredType(r, [])
+                | Choice2Of2 fullName -> makeSystemRuntimeType fullName
             | _ ->
                 // Special attributes
                 tdef.Attributes |> tryPickAttribute [

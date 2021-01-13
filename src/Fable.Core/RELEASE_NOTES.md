@@ -1,3 +1,7 @@
+### 3.2.3
+
+* Fix incompatibility with Feliz @TIHan
+
 ### 3.2.2
 
 * `AttachMembers` attribute

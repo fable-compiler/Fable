@@ -1,9 +1,9 @@
 import { toString as dateToString } from "./Date.js";
 import { compare as numericCompare, isNumeric, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.js";
 import { escape } from "./RegExp.js";
-import { toString } from "./Types.js";
+import { FSharpRef, toString } from "./Types.js";
 
-const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)/;
+const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/;
 const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 
@@ -184,7 +184,7 @@ function formatReplacement(rep: any, prefix: any, flags: any, padLength: any, pr
   } else {
     rep = toString(rep);
   }
-  padLength = parseInt(padLength, 10);
+  padLength = typeof padLength === "number" ? padLength : parseInt(padLength, 10);
   if (!isNaN(padLength)) {
     const zeroFlag = flags.indexOf("0") >= 0; // Use '0' for left padding
     const minusFlag = flags.indexOf("-") >= 0; // Right padding
@@ -201,22 +201,33 @@ function formatReplacement(rep: any, prefix: any, flags: any, padLength: any, pr
   return prefix ? prefix + rep : rep;
 }
 
-function formatOnce(str2: string, rep: any) {
-  return str2.replace(fsFormatRegExp, (_, prefix, flags, padLength, precision, format) => {
+function formatOnce(str2: string, rep: any, padRef: FSharpRef<number|null>) {
+  return str2.replace(fsFormatRegExp, (match, prefix, flags, padLength, precision, format) => {
+    if (padRef.contents != null) {
+      padLength = padRef.contents;
+      padRef.contents = null;
+    }
+    else if (padLength === "*") {
+      if (rep < 0) {
+        throw new Error("Non-negative number required");
+      }
+      padRef.contents = rep;
+      return match;
+    }
     const once = formatReplacement(rep, prefix, flags, padLength, precision, format);
     return once.replace(/%/g, "%%");
   });
 }
 
-function createPrinter(str: string, cont: (...args: any[]) => any) {
+function createPrinter(str: string, cont: (...args: any[]) => any, padRef = new FSharpRef<number|null>(null)) {
   return (...args: any[]) => {
     // Make a copy as the function may be used several times
     let strCopy = str;
     for (const arg of args) {
-      strCopy = formatOnce(strCopy, arg);
+      strCopy = formatOnce(strCopy, arg, padRef);
     }
     return fsFormatRegExp.test(strCopy)
-      ? createPrinter(strCopy, cont)
+      ? createPrinter(strCopy, cont, padRef)
       : cont(strCopy.replace(/%%/g, "%"));
   };
 }

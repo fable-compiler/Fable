@@ -52,11 +52,17 @@ module Util =
     let runNpx command args =
         run ("npx " + command + " " + (String.concat " " args))
 
+    let runNpmScript script args =
+        run ("npm run " + script + " -- " + (String.concat " " args))
+
     let runNpmScriptAsync script args =
         runAsync ("npm run " + script + " -- " + (String.concat " " args))
 
     let runFable projectDir =
         runFableWithArgs projectDir []
+
+    let runMocha testDir =
+        runNpmScript "mocha" [$"{testDir} -r esm --reporter dot -t 10000"]
 
     let resolveDir dir =
         __SOURCE_DIRECTORY__ </> dir
@@ -180,7 +186,7 @@ let testJsFast() =
     let testProj = "tests/Main/Fable.Tests.fsproj"
     let buildDir = "build/tests-js"
     run $"node --eval \"require('esm')(module)('{fableJs}')\" {fableJs} {testProj} {buildDir}"
-    run $"npx mocha {buildDir} -r esm --reporter dot -t 10000"
+    runMocha buildDir
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
@@ -230,9 +236,9 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
     ]
 
     // make standalone bundle dist
-    runNpx "rollup" rollupArgs
+    runNpmScript "rollup" rollupArgs
     if opts.minify then
-        runNpx "terser" [
+        runNpmScript "terser" [
             buildDir </> "bundle.js"
             "-o " + distDir </> "bundle.min.js"
             "--mangle"
@@ -240,9 +246,9 @@ let buildStandalone (opts: {| minify: bool; watch: bool |}) =
         ]
 
     // make standalone worker dist
-    runNpx "rollup" [$"{buildDir}/worker/Worker.js -o {buildDir}/worker.js --format iife"]
+    runNpmScript "rollup" [$"{buildDir}/worker/Worker.js -o {buildDir}/worker.js --format iife"]
     // runNpx "webpack" [sprintf "--entry ./%s/worker.js --output ./%s/worker.min.js --config ./%s/../worker.config.js" buildDir distDir projectDir]
-    runNpx "terser" [$"{buildDir}/worker.js -o {distDir}/worker.min.js --mangle --compress"]
+    runNpmScript "terser" [$"{buildDir}/worker.js -o {distDir}/worker.min.js --mangle --compress"]
 
     // print bundle size
     fileSizeInBytes (distDir </> "bundle.min.js") / 1000. |> printfn "Bundle size: %fKB"
@@ -312,8 +318,8 @@ let testJs(minify) =
     runInDir fableDir "npm link ../fable-standalone"
 
     // Test fable-compiler-js locally
-    run ("node " + fableDir + " tests/Main/Fable.Tests.fsproj " + buildDir)
-    run ("npx mocha " + buildDir + " -r esm --reporter dot -t 10000")
+    run $"node {fableDir} tests/Main/Fable.Tests.fsproj {buildDir}"
+    runMocha buildDir
 
     // // Another local fable-compiler-js test
     // runInDir (fableDir </> "test") "node .. test_script.fsx"
@@ -342,7 +348,7 @@ let test() =
         "--exclude Fable.Core"
     ]
 
-    run $"npx mocha {buildDir} -r esm --reporter dot -t 10000"
+    runMocha buildDir
 
     runInDir projectDir "dotnet run"
 

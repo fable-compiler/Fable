@@ -1,3 +1,20 @@
+### 3.1.1
+
+* Fix #2343: Remove conflicting export default
+* Fix #2336: Parameretized padding
+* Fix reflection for int64/decimal with units of measure
+
+### 3.1.0
+
+* Source map support @delneg
+* Fix #2342: recompile union tests in watch mode @tomcl
+* Fix #2332: watch broken for certain directory structures @jwosty
+
+### 3.1.0-beta-001
+
+* Source map support @delneg
+* Fix #2332: watch broken for certain directory structures @jwosty
+
 ### 3.0.5
 
 * Fixed compiler option parsing @ncave

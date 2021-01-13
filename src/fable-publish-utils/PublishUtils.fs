@@ -259,7 +259,7 @@ module Platform =
             p.WaitForExit()
             match p.ExitCode with
             | 0 -> ()
-            | c -> failwith "Process exited with code %i{c}"
+            | c -> failwith $"Process exited with code %i{c}"
     }
 
 #endif

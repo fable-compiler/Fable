@@ -1,6 +1,7 @@
 module Fable.Tests.Reflection
 
 open Util.Testing
+open FSharp.Data.UnitSystems.SI.UnitSymbols
 
 #if !OPTIMIZE_FCS
 
@@ -469,6 +470,11 @@ let reflectionTests = [
   testCase "Generic numbers type info doesn't get into runtime" <| fun () ->
     let value = 0.7833263478179128134089M
     value.GetType().FullName |> equal "System.Decimal"
+
+  // See https://github.com/thoth-org/Thoth.Json/issues/74
+  testCase "Reflection info of int64/decimal with units of measure works" <| fun () ->
+    typeof< int64 > = typeof< int64<m> > |> equal true
+    typeof< decimal > = typeof< decimal<m> > |> equal true
 
   testCase "Reflection works with enums" <| fun () ->
       typeof<MyEnum>.IsEnum |> equal true

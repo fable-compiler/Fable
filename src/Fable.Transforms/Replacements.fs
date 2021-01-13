@@ -1716,13 +1716,16 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     // TODO: Include a value in Fable AST to indicate the Array should always be dynamic?
     | ".ctor", _, [] ->
         makeArray Any [] |> Some
+    // Don't pass the size to `new Array()` because that would fill the array with null values
     | ".ctor", _, [ExprType(Number _)] ->
         makeArray Any [] |> Some
     // Optimize expressions like `ResizeArray [|1|]` or `ResizeArray [1]`
     | ".ctor", _, [ArrayOrListLiteral(vals,_)] ->
         makeArray Any vals |> Some
     | ".ctor", _, args ->
-        Helper.GlobalCall("Array", t, args, memb="from", ?loc=r) |> Some
+        Helper.GlobalCall("Array", t, args, memb="from", ?loc=r)
+        |> asOptimizable "array"
+        |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [idx; value] -> Set(ar, Some(ExprKey idx), value, r) |> Some
     | "Add", Some ar, [arg] ->

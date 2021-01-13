@@ -34,8 +34,8 @@ module JS =
         abstract resolve: string -> string
         abstract relative: string * string -> string
 
-    type IGlob =
-        abstract sync: pattern: string * ?options: obj -> array<string>
+    // type IGlob =
+    //     abstract sync: pattern: string * ?options: obj -> array<string>
 
     type IUtil =
         abstract getDirFiles: dir: string -> string[]
@@ -48,7 +48,7 @@ module JS =
     let os: IOperSystem = importAll "os"
     let proc: IProcess = importAll "process"
     let path: IPath = importAll "path"
-    let glob: IGlob = importAll "glob"
+    // let glob: IGlob = importAll "glob"
     let util: IUtil = importAll "./util.js"
 
 let readAllBytes (filePath: string) = JS.fs.readFileSync(filePath)
@@ -88,8 +88,14 @@ let getDirFiles (path: string) (extension: string) =
     |> Array.sort
 
 let getGlobFiles (path: string) =
-    if path.Contains("*") || path.Contains("?")
-    then JS.glob.sync(path)
+    if path.Contains("*") || path.Contains("?") then
+        // JS.glob.sync(path) // commented to remove dependency
+        // replaced with fixed globbing pattern (*.fs)
+        let dirPath =
+            let normPath = path.Replace('\\', '/')
+            let i = normPath.LastIndexOf('/')
+            if i < 0 then "" else normPath.Substring(0, i)
+        getDirFiles dirPath ".fs"
     else [| path |]
 
 module Path =

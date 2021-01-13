@@ -3,8 +3,6 @@
 /* tslint:disable */
 import { symbol } from "../Numeric.js";
 
-export default Long;
-
 /**
  * wasm optimizations, to do native i64 multiplication and divide
  */

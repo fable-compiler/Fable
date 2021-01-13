@@ -87,8 +87,8 @@ module JS =
         abstract resolve: string -> string
         abstract relative: string * string -> string
 
-    type IGlob =
-        abstract sync: pattern: string * ?options: obj -> array<string>
+    // type IGlob =
+    //     abstract sync: pattern: string * ?options: obj -> array<string>
 
     type IUtil =
         abstract getDirFiles: dir: string -> string[]
@@ -150,10 +150,10 @@ let getGlobFiles (path: string) =
     if path.Contains("*") || path.Contains("?") then
         // JS.glob.sync(path) // commented to remove dependency
         // replaced with fixed globbing pattern (*.fs)
-        let normPath = path.Replace('\\', '/')
-        let i = normPath.LastIndexOf('/')
-        // let pattern = normPath.Substring(i + 1) // ignored
-        let dirPath = if i < 0 then "" else normPath.Substring(0, i)
+        let dirPath =
+            let normPath = path.Replace('\\', '/')
+            let i = normPath.LastIndexOf('/')
+            if i < 0 then "" else normPath.Substring(0, i)
         getDirFiles dirPath ".fs"
     else [| path |]
 
