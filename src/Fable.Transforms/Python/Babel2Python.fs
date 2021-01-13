@@ -2,6 +2,7 @@ module rec Fable.Transforms.Babel2Python
 
 open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 
 open Fable
 open Fable.AST
@@ -45,7 +46,7 @@ type IPythonCompiler =
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Statement -> Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Expression -> Statement list
     abstract TransformAsClassDef: Context * Babel.ClassDeclaration -> Statement
-    //abstract TransformImport: Context * selector:string * path:string -> Expression
+    abstract TransformAsImport: Context * Babel.ImportDeclaration -> Statement
     //abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
 
     abstract WarnOnlyOnce: string * ?range:SourceLocation -> unit
@@ -56,6 +57,30 @@ module Helpers =
         name.Replace('$','_')
 
 module Util =
+    let transformAsImport (com: IPythonCompiler) ctx (imp: Babel.ImportDeclaration) : Statement =
+        let reFableLib = Regex(".*\/fable-library[\.0-9]*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
+        let transform name =
+            let m = reFableLib.Match(name)
+            if m.Groups.Count > 0 then
+                let pymodule = m.Groups.["module"].Value.ToLower()
+                String.concat "." ["expression"; "fable"; pymodule]
+            else
+                name
+        let pyModule =
+            imp.Source.Value
+            |> transform
+            |> Identifier
+            |> Some
+        let mapper (expr: Babel.ImportSpecifier) =
+            match expr with
+            | :? Babel.ImportMemberSpecifier as im ->
+                let a = im.Imported.Name
+                Alias(Identifier a, None)
+            | _ -> failwith $"Unhandled import: {expr}"
+
+        let aliases = imp.Specifiers |> List.ofArray |> List.map mapper
+        ImportFrom(pyModule, aliases) :> _
+
     let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration) : Statement=
         printfn $"transformAsClassDef"
 
@@ -261,16 +286,7 @@ module Util =
                     | _ -> failwith $"Unhandled Declaration: {decl.Declaration}"
 
                 | :? Babel.ImportDeclaration as imp ->
-                    let source = imp.Source.Value |> Identifier |> Some
-                    let mapper (expr: Babel.ImportSpecifier) =
-                        match expr with
-                        | :? Babel.ImportMemberSpecifier as im ->
-                            let a = im.Imported.Name
-                            Alias(Identifier a, None)
-                        | _ -> failwith $"Unhandled import: {expr}"
-
-                    let sa = imp.Specifiers |> List.ofArray |> List.map mapper
-                    yield ImportFrom(source, sa) :> _
+                    yield com.TransformAsImport(ctx, imp)
                 | :? Babel.PrivateModuleDeclaration as pmd ->
                     let st = pmd.Statement
                     yield! com.TransformAsStatements(ctx, returnStrategy, st)
@@ -329,7 +345,7 @@ module Compiler =
             member bcom.TransformAsStatements(ctx, ret, e) = transformStatementAsStatements bcom ctx ret e
             member bcom.TransformAsClassDef(ctx, cls) = transformAsClassDef bcom ctx cls
         //member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
-        //member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None selector path
+            member bcom.TransformAsImport(ctx, imp) = transformAsImport bcom ctx imp
 
         interface Compiler with
             member _.Options = com.Options

@@ -810,9 +810,7 @@ type ImportFrom(``module``, names, ?level) =
             let (Identifier path) = this.Module |> Option.defaultValue (Identifier ".")
             printer.Print("from ")
 
-            printer.Print("\"")
             printer.Print(printer.MakeImportPath(path))
-            printer.Print("\"")
 
             printer.Print(" import ")
 
