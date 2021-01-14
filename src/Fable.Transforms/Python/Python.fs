@@ -64,8 +64,10 @@ module PrinterExtensions =
                 printSeparator |> Option.iter (fun f -> f printer)
 
         member printer.PrintProductiveStatements(statements: Statement list) =
-            for s in statements do
-                printer.PrintProductiveStatement(s, (fun p -> p.PrintStatementSeparator()))
+            let productive = statements |> List.choose (fun s -> if printer.IsProductiveStatement(s) then Some s else None)
+            let productive = if List.isEmpty productive then [ Pass() :> Statement ] else productive
+            for stmt in productive do
+                printer.PrintProductiveStatement(stmt, (fun p -> p.PrintStatementSeparator()))
 
         member printer.PrintBlock(nodes: Statement list, ?skipNewLineAtEnd) =
             printer.PrintBlock(
@@ -472,9 +474,14 @@ type For(target, iter, body, orelse, ?typeComment) =
     member _.Else: Statement list = orelse
     member _.TypeComment: string option = typeComment
 
-    override _.Print(printer) =
-        printer.Print("(For)")
-
+    override this.Print(printer) =
+        printer.Print("for ")
+        printer.Print(iter)
+        printer.Print(":")
+        printer.PrintNewLine()
+        printer.PushIndentation()
+        printer.PrintProductiveStatements(this.Body)
+        printer.PopIndentation()
 type AsyncFor(target, iter, body, orelse, ?typeComment) =
     inherit Statement()
 
@@ -515,8 +522,14 @@ type While(test, body, orelse) =
     member _.Body: Statement list = body
     member _.Else: Statement list = orelse
 
-    override _.Print(printer) =
-        printer.Print("(While)")
+    override this.Print(printer) =
+        printer.Print("while ")
+        printer.Print(test)
+        printer.Print(":")
+        printer.PrintNewLine()
+        printer.PushIndentation()
+        printer.PrintProductiveStatements(this.Body)
+        printer.PopIndentation()
 
 /// A class definition.
 ///

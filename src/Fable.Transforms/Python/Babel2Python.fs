@@ -204,6 +204,8 @@ module Util =
                     | :? Babel.Identifier as id -> Identifier(id.Name)
                     | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
                 Attribute(value=value, attr=attr, ctx=Load()).AsExpr()
+        | :? Babel.BooleanLiteral as bl ->
+            Constant(value=bl.Value).AsExpr()
         | _ -> failwith $"Unhandled value: {expr}"
 
     /// Transform Babel expressions as Python statements.
@@ -265,6 +267,11 @@ module Util =
                 | Some alt -> com.TransformAsStatements(ctx, returnStrategy, alt)
                 | _ -> []
             [ If(test=test, body=body, orelse=orElse) ]
+        | :? Babel.WhileStatement as ws ->
+            let test = com.TransformAsExpr(ctx, ws.Test)
+            let body = com.TransformAsStatements(ctx, returnStrategy, ws.Body)
+
+            [ While(test=test, body=body, orelse=[]) ]
         | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"
 
     /// Transform Babel program to Python module.
