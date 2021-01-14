@@ -1049,10 +1049,13 @@ type Lambda(args, body) =
     member _.Body: Statement list = body
 
     override _.Print(printer) =
-        printer.Print("lambda ")
+        printer.Print("lambda")
+        if (List.isEmpty >> not) args.Args then
+            printer.Print(" ")
         printer.PrintCommaSeparatedList(args.Args |> List.map (fun arg -> arg :> AST))
-        printer.Print(":")
-        printer.PrintBlock(body, skipNewLineAtEnd = true)
+        printer.Print(": ")
+        for stmt in body do
+            printer.Print(stmt)
 
 /// A variable name. id holds the name as a string, and ctx is one of the following types.
 type Name(id, ctx) =

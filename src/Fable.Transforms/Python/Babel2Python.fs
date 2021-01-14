@@ -238,7 +238,9 @@ module Util =
                 yield! com.TransformAsStatements(ctx, returnStrategy, st) ]
         | :? Babel.ReturnStatement as rtn ->
             let expr = transformAsExpr com ctx rtn.Argument
-            [ Return expr ]
+            match returnStrategy with
+            | Some ReturnStrategy.ReturnUnit -> [ Expr(expr) ]
+            | _ -> [ Return expr ]
         | :? Babel.VariableDeclaration as vd ->
             [ for vd in vd.Declarations do
                 let targets: Expression list =
