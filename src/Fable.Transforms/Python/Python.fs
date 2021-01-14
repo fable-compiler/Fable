@@ -46,7 +46,7 @@ module PrinterExtensions =
 
         member _.IsProductiveStatement(s: Statement) =
             let rec hasNoSideEffects(e: Expression) =
-                printfn "hasNoSideEffects: {e}"
+                printfn $"hasNoSideEffects: {e}"
                 match e with
                 | :? Constant -> true
                 | :? Dict as d -> d.Keys.IsEmpty
@@ -841,6 +841,17 @@ type Return(?value) =
 
 //#region Expressions
 
+/// Attribute access, e.g. d.keys. value is a node, typically a Name. attr is a bare string giving the name of the
+/// attribute, and ctx is Load, Store or Del according to how the attribute is acted on.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('snake.colour', mode='eval'), indent=4))
+/// Expression(
+///     body=Attribute(
+///         value=Name(id='snake', ctx=Load()),
+///         attr='colour',
+///         ctx=Load()))
+/// ```
 type Attribute(value, attr, ctx) =
     inherit Expression()
 
@@ -852,6 +863,37 @@ type Attribute(value, attr, ctx) =
         printer.Print(this.Value)
         printer.Print(".")
         printer.Print(this.Attr)
+
+/// A subscript, such as l[1]. value is the subscripted object (usually sequence or mapping). slice is an index, slice
+/// or key. It can be a Tuple and contain a Slice. ctx is Load, Store or Del according to the action performed with the
+/// subscript.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('l[1:2, 3]', mode='eval'), indent=4))
+/// Expression(
+///     body=Subscript(
+///         value=Name(id='l', ctx=Load()),
+///         slice=Tuple(
+///             elts=[
+///                 Slice(
+///                     lower=Constant(value=1),
+///                     upper=Constant(value=2)),
+///                 Constant(value=3)],
+///             ctx=Load()),
+///         ctx=Load()))
+/// ```
+type Subscript(value, slice, ctx) =
+    inherit Expression()
+
+    member _.Value: Expression = value
+    member _.Slice: Expression = slice
+    member _.Ctx: ExpressionContext = ctx
+
+    override this.Print(printer) =
+        printer.Print(this.Value)
+        printer.Print("[")
+        printer.Print(this.Slice)
+        printer.Print("]")
 
 type BinOp(left, op, right) =
     inherit Expression()
@@ -1218,7 +1260,7 @@ type MatMult() =
 
 type Eq() =
     interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" = ")
+        member _.Print(printer: Printer) = printer.Print($" == ")
 
 type NotEq() =
     interface ComparisonOperator with

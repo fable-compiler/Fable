@@ -192,11 +192,18 @@ module Util =
             failwith "Not Implemented"
         | :? Babel.MemberExpression as me ->
             let value = com.TransformAsExpr(ctx, me.Object)
-            let attr =
-                match me.Property with
-                | :? Babel.Identifier as id -> Identifier(id.Name)
-                | _ -> failwith "transformExpressionAsStatements: unknown property {me.Property}"
-            Attribute(value=value, attr=attr, ctx=Load()).AsExpr()
+            if me.Computed then
+                let attr =
+                    match me.Property with
+                    | :? Babel.NumericLiteral as nl -> Constant(nl.Value)
+                    | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
+                Subscript(value=value, slice=attr, ctx=Load()).AsExpr()
+            else
+                let attr =
+                    match me.Property with
+                    | :? Babel.Identifier as id -> Identifier(id.Name)
+                    | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
+                Attribute(value=value, attr=attr, ctx=Load()).AsExpr()
         | _ -> failwith $"Unhandled value: {expr}"
 
     /// Transform Babel expressions as Python statements.
