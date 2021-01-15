@@ -44,7 +44,7 @@ module PrinterExtensions =
                 printer.Print("")
                 printer.PrintNewLine()
 
-        member _.IsProductiveStatement(s: Statement) =
+        member _.IsProductiveStatement(stmt: Statement) =
             let rec hasNoSideEffects(e: Expression) =
                 printfn $"hasNoSideEffects: {e}"
 
@@ -53,40 +53,25 @@ module PrinterExtensions =
                 | :? Dict as d -> d.Keys.IsEmpty
                 | _ -> false
 
-            match s with
-            | :? Expr as e -> hasNoSideEffects e.Value |> not
+            match stmt with
+            | :? Expr as expr -> hasNoSideEffects expr.Value |> not
             | _ -> true
 
-        member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
-            printfn "PrintProductiveStatement: %A" s
+        member printer.PrintStatement(stmt: Statement, ?printSeparator) =
+            printfn "PrintStatement: %A" stmt
 
-            if printer.IsProductiveStatement(s) then
-                s.Print(printer)
-                printSeparator |> Option.iter (fun f -> f printer)
+            stmt.Print(printer)
+            printSeparator |> Option.iter (fun fn -> fn printer)
 
-        member printer.PrintProductiveStatements(statements: Statement list) =
-            let productive =
-                statements
-                |> List.choose
-                    (fun s ->
-                        if printer.IsProductiveStatement(s) then
-                            Some s
-                        else
-                            None)
+        member printer.PrintStatements(statements: Statement list) =
 
-            let productive =
-                if List.isEmpty productive then
-                    [ Pass() :> Statement ]
-                else
-                    productive
-
-            for stmt in productive do
-                printer.PrintProductiveStatement(stmt, (fun p -> p.PrintStatementSeparator()))
+            for stmt in statements do
+                printer.PrintStatement(stmt, (fun p -> p.PrintStatementSeparator()))
 
         member printer.PrintBlock(nodes: Statement list, ?skipNewLineAtEnd) =
             printer.PrintBlock(
                 nodes,
-                (fun p s -> p.PrintProductiveStatement(s)),
+                (fun p s -> p.PrintStatement(s)),
                 (fun p -> p.PrintStatementSeparator()),
                 ?skipNewLineAtEnd = skipNewLineAtEnd
             )
@@ -299,7 +284,7 @@ type Module(body) =
     interface AST with
         member this.Print(printer) = this.Print printer
 
-    member _.Print(printer: Printer) = printer.PrintProductiveStatements(body)
+    member _.Print(printer: Printer) = printer.PrintStatements(body)
 
 type Alias(name, asname) =
     member _.Name: Identifier = name
@@ -485,7 +470,7 @@ type For(target, iter, body, orelse, ?typeComment) =
         printer.Print(":")
         printer.PrintNewLine()
         printer.PushIndentation()
-        printer.PrintProductiveStatements(this.Body)
+        printer.PrintStatements(this.Body)
         printer.PopIndentation()
 
 type AsyncFor(target, iter, body, orelse, ?typeComment) =
@@ -533,7 +518,7 @@ type While(test, body, orelse) =
         printer.Print(":")
         printer.PrintNewLine()
         printer.PushIndentation()
-        printer.PrintProductiveStatements(this.Body)
+        printer.PrintStatements(this.Body)
         printer.PopIndentation()
 
 /// A class definition.
@@ -596,7 +581,7 @@ type ClassDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) =
         printer.Print(":")
         printer.PrintNewLine()
         printer.PushIndentation()
-        printer.PrintProductiveStatements(this.Body)
+        printer.PrintStatements(this.Body)
         printer.PopIndentation()
 
 /// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
@@ -1179,7 +1164,7 @@ type Dict(keys, values) =
         printer.PushIndentation()
 
         let nodes = List.zip keys values |> List.mapi (fun i n -> (i, n))
-        for (i, (key, value)) in nodes do
+        for i, (key, value) in nodes do
             printer.Print("\"")
             printer.Print(key)
             printer.Print("\"")
