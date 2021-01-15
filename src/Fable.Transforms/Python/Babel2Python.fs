@@ -53,11 +53,12 @@ type IPythonCompiler =
 
 
 module Helpers =
-    let random = Random ()
+    let index = (Seq.initInfinite id).GetEnumerator()
 
     let getIdentifier(name: string) : Identifier =
-        let rand = random.Next(9999).ToString()
-        Identifier($"{name}_{rand}")
+        do index.MoveNext() |> ignore
+        let idx = index.Current.ToString()
+        Identifier($"{name}_{idx}")
 
     /// Camel case to snake case converter.
     let camel2snake (name: string) =
