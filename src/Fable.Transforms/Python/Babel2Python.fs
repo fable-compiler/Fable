@@ -45,7 +45,7 @@ type IPythonCompiler =
     abstract TransformAsExpr: Context * Babel.Expression -> Expression * Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Statement -> Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Expression -> Statement list
-    abstract TransformAsClassDef: Context * Babel.ClassDeclaration -> Statement
+    abstract TransformAsClassDef: Context * Babel.ClassDeclaration -> Statement list
     abstract TransformAsImport: Context * Babel.ImportDeclaration -> Statement
     //abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
 
@@ -117,33 +117,45 @@ module Util =
 
         ImportFrom(pymodule |> Identifier |> Some, aliases) :> _
 
-    let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration): Statement =
+    let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration): Statement list =
         printfn $"transformAsClassDef"
-
+        let bases, stmts =
+            let entries = cls.SuperClass |> Option.map (fun expr -> com.TransformAsExpr(ctx, expr))
+            match entries with
+            | Some (expr, stmts) -> [ expr ], stmts
+            | None -> [], []
         let body: Statement list =
             [ for mber in cls.Body.Body do
                 match mber with
                 | :? Babel.ClassMethod as cm ->
+                    let self = Arg(Identifier("self"))
+                    let args =
+                        cm.Params
+                        |> List.ofArray
+                        |> List.map (fun arg -> Arg(Identifier(arg.Name)))
+                    let arguments = Arguments(args = self :: args)
+
                     match cm.Kind with
+                    | "method" ->
+                        let body =
+                            com.TransformAsStatements(ctx, (Some ReturnStrategy.Return), cm.Body)
+                        let name =
+                            match cm.Key with
+                            | :? Babel.Identifier as id -> Identifier(id.Name)
+                            | _ -> failwith "transformAsClassDef: Unknown key: {cm.Key}"
+                        FunctionDef(name, arguments, body = body)
                     | "constructor" ->
-                        let self = Arg(Identifier("self"))
-
-                        let args =
-                            cm.Params
-                            |> List.ofArray
-                            |> List.map (fun arg -> Arg(Identifier(arg.Name)))
-
-                        let arguments = Arguments(args = self :: args)
-
+                        let name = Identifier("__init__")
                         let body =
                             com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnUnit), cm.Body)
+                        FunctionDef(name, arguments, body = body)
+                    | _ -> failwith $"transformAsClassDef: Unknown kind: {cm.Kind}"
+                | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}" ]
 
-                        FunctionDef(Identifier "__init__", arguments, body = body)
-                    | _ -> failwith $"Unknown kind: {cm.Kind}"
-                | _ -> failwith $"Unhandled class member {mber}" ]
-
-        ClassDef(Identifier(cls.Id.Value.Name), body = body) :> _
-
+        [
+            yield! stmts
+            ClassDef(Identifier(cls.Id.Value.Name), body=body, bases=bases)
+        ]
     /// Transform Babel expression as Python expression
     let rec transformAsExpr (com: IPythonCompiler) (ctx: Context) (expr: Babel.Expression): Expression * list<Statement> =
         printfn $"transformAsExpr: {expr}"
@@ -443,8 +455,7 @@ module Util =
 
                         yield FunctionDef(Identifier(name), arguments, body = body)
                     | :? Babel.ClassDeclaration as cd ->
-                        printfn "TransformAsClassDef"
-                        yield com.TransformAsClassDef(ctx, cd)
+                        yield! com.TransformAsClassDef(ctx, cd)
                     | _ -> failwith $"Unhandled Declaration: {decl.Declaration}"
 
                 | :? Babel.ImportDeclaration as imp -> yield com.TransformAsImport(ctx, imp)
