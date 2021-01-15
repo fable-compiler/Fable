@@ -102,7 +102,8 @@ module Helpers =
 
             match e with
             | :? Constant -> true
-            | :? Dict as d -> d.Keys.IsEmpty
+            | :? Dict as d -> d.Keys.IsEmpty  // Empty object
+            | :? Name -> true  // E.g `void 0` is translated to Name(None)
             | _ -> false
 
         match stmt with
@@ -250,7 +251,9 @@ module Util =
 
             match op with
             | Some op -> UnaryOp(op, operand).AsExpr(), stmts
-            | _ -> operand, stmts
+            | _ ->
+                // TODO: Should be Contant(value=None) but we cannot create that in F#
+                Name(id=Identifier("None"), ctx=Load()).AsExpr(), stmts
 
         | :? Babel.ArrowFunctionExpression as afe ->
             let args =
