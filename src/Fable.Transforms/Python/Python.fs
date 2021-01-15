@@ -1175,12 +1175,22 @@ type Dict(keys, values) =
 
     override _.Print(printer) =
         printer.Print("{")
+        printer.PrintNewLine()
+        printer.PushIndentation()
 
-        for key, value in List.zip keys values do
-            key.Print(printer)
-            printer.Print(":")
-            value.Print(printer)
+        let nodes = List.zip keys values |> List.mapi (fun i n -> (i, n))
+        for (i, (key, value)) in nodes do
+            printer.Print("\"")
+            printer.Print(key)
+            printer.Print("\"")
+            printer.Print(": ")
+            printer.Print(value)
+            if i < nodes.Length - 1 then
+                printer.Print(",")
+                printer.PrintNewLine()
 
+        printer.PrintNewLine()
+        printer.PopIndentation()
         printer.Print("}")
 
 /// A yield expression. Because these are expressions, they must be wrapped in a Expr node if the value sent back is not
