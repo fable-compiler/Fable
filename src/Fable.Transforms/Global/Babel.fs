@@ -1207,7 +1207,9 @@ type ImportSpecifier = inherit Node
 /// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ImportMemberSpecifier(local: Identifier, imported) =
+    member _.Local: Identifier = local
     member _.Imported: Identifier = imported
+
     interface ImportSpecifier with
         member this.Print(printer) =
             // Don't print the braces, this will be done in the import declaration

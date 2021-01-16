@@ -156,8 +156,14 @@ module private Util =
 
     type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
         let fileExt = ".py"
+        do printfn "TargetPath: %s" targetPath
         let targetDir = Path.GetDirectoryName(targetPath)
-        let targetPath = sourcePath + fileExt // Override
+        // PEP8: Modules should have short, all-lowercase names
+        let fileName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath)).ToLower()
+        // Note that Python modules cannot contain dots or it will be impossible to import them
+        let targetPath = Path.Combine(targetDir, fileName + fileExt)
+        do printfn "TargetPath: %s" targetPath
+
         let stream = new IO.StreamWriter(targetPath)
 
         do printfn $"PythonFileWriter: {sourcePath}, {targetPath}"
@@ -170,7 +176,7 @@ module private Util =
                 let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
                 if path.EndsWith(".fs") then
                     let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    changeFsExtension isInFableHiddenDir path fileExt
+                    changeFsExtension isInFableHiddenDir path "" // Remove file extension
                 else path
             member _.Dispose() = stream.Dispose()
 

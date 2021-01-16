@@ -286,6 +286,20 @@ type Module(body) =
 
     member _.Print(printer: Printer) = printer.PrintStatements(body)
 
+/// Both parameters are raw strings of the names. asname can be None if the regular name is to be used.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('from ..foo.bar import a as b, c'), indent=4))
+/// Module(
+///     body=[
+///         ImportFrom(
+///             module='foo.bar',
+///             names=[
+///                 alias(name='a', asname='b'),
+///                 alias(name='c')],
+///             level=2)],
+///     type_ignores=[])
+/// ```
 type Alias(name, asname) =
     member _.Name: Identifier = name
     member _.AsName: Identifier option = asname
@@ -298,7 +312,7 @@ type Alias(name, asname) =
 
         match asname with
         | Some (Identifier alias) ->
-            printer.Print("as ")
+            printer.Print(" as ")
             printer.Print(alias)
         | _ -> ()
 

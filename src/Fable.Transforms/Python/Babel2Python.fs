@@ -11,14 +11,9 @@ open Fable.AST.Python
 [<RequireQualifiedAccess>]
 type ReturnStrategy =
     | Return
-    | ReturnUnit
-    | Assign of Expression
-    | Target of Identifier
-
-type Import =
-    { Selector: string
-      LocalIdent: string option
-      Path: string }
+    | ReturnNone
+    //| Assign of Expression
+    //| Target of Identifier
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -40,8 +35,8 @@ type Context =
 
 type IPythonCompiler =
     inherit Compiler
-    //abstract GetAllImports: unit -> seq<Python.Import>
-    //abstract GetImportExpr: Context * selector: string * path: string * SourceLocation option -> Expression
+    abstract GetAllImports: unit -> Statement list
+    abstract GetImportExpr: Context * selector: string * path: string * SourceLocation option -> Expression
     abstract TransformAsExpr: Context * Babel.Expression -> Expression * Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Statement -> Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Expression -> Statement list
@@ -60,16 +55,6 @@ module Helpers =
         let idx = index.Current.ToString()
         Identifier($"{name}_{idx}")
 
-    /// Camel case to snake case converter.
-    let camel2snake (name: string) =
-        name
-        |> Seq.mapi
-            (fun i n ->
-                if i > 0 && Char.IsUpper n then
-                    "_" + n.ToString().ToLower()
-                else
-                    n.ToString())
-        |> String.concat ""
 
     /// Replaces all '$' with '_'
     let cleanNameAsPythonIdentifier (name: string) = name.Replace('$', '_')
@@ -79,8 +64,8 @@ module Helpers =
             Regex(".*\/fable-library[\.0-9]*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
-
-        if m.Groups.Count > 0 then
+        printfn "Count: %d" m.Groups.Count
+        if m.Groups.Count > 1 then
             let pymodule = m.Groups.["module"].Value.ToLower()
 
             let moduleName =
@@ -88,6 +73,9 @@ module Helpers =
 
             moduleName, specifiers
         else
+            // TODO: Can we expect all modules to be lower case?
+            let moduleName = moduleName.Replace("/", "").ToLower()
+            printfn "moduleName: %s" moduleName
             moduleName, specifiers
 
     let unzipArgs (args: (Expression * Statement list) list): Expression list * Statement list =
@@ -95,7 +83,8 @@ module Helpers =
         let args = args |> List.map fst
         args, stmts
 
-    /// Moving transforms out of the printing stage.
+    /// A few statements in the generated Babel AST do not produce any effect, and will not be printet. But they are
+    /// left in the AST and we need to skip them since they are not valid for Python (either).
     let isProductiveStatement (stmt: Statement) =
         let rec hasNoSideEffects (e: Expression) =
             printfn $"hasNoSideEffects: {e}"
@@ -128,7 +117,7 @@ module Util =
 
         let specifier2string (expr: Babel.ImportSpecifier) =
             match expr with
-            | :? Babel.ImportMemberSpecifier as im -> im.Imported.Name
+            | :? Babel.ImportMemberSpecifier as im -> im.Imported.Name, im.Local.Name
             | _ -> failwith $"Unhandled import: {expr}"
 
         let specifiers =
@@ -141,8 +130,9 @@ module Util =
 
 
         let aliases =
+            let local = imp.Specifiers
             names
-            |> List.map (fun name -> Alias(Identifier name, None))
+            |> List.map (fun (name, alias) -> Alias(Identifier(name), if alias <> name then Identifier(alias) |> Some else None))
 
         ImportFrom(pymodule |> Identifier |> Some, aliases) :> _
 
@@ -186,16 +176,17 @@ module Util =
                         let name = Identifier("__init__")
 
                         let body =
-                            com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnUnit), cm.Body)
+                            com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnNone), cm.Body)
 
                         FunctionDef(name, arguments, body = body)
                     | _ -> failwith $"transformAsClassDef: Unknown kind: {cm.Kind}"
                 | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}" ]
 
         printfn $"Body length: {body.Length}: ${body}"
+        let name = Helpers.cleanNameAsPythonIdentifier(cls.Id.Value.Name)
 
         [ yield! stmts
-          ClassDef(Identifier(cls.Id.Value.Name), body = body, bases = bases) ]
+          ClassDef(Identifier(name), body = body, bases = bases) ]
     /// Transform Babel expression as Python expression
     let rec transformAsExpr
         (com: IPythonCompiler)
@@ -266,7 +257,7 @@ module Util =
             match afe.Body.Body.Length with
             | 1 ->
                 let body =
-                    com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnUnit), afe.Body)
+                    com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnNone), afe.Body)
 
                 Lambda(arguments, body).AsExpr(), []
             | _ ->
@@ -350,6 +341,21 @@ module Util =
                     | :? Babel.Identifier as id -> Identifier(id.Name)
                     | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
 
+                let value =
+                    match value with
+                    | :? Name as name ->
+                        let (Identifier id) = name.Id
+
+                        // TODO: Need to make this more generic and robust
+                        let id =
+                            if id = "Math" then
+                                //com.imports.Add("math", )
+                                "math"
+                            else
+                                id
+
+                        Name(id=Identifier(id), ctx=name.Context).AsExpr()
+                    | _ -> value
                 Attribute(value = value, attr = attr, ctx = Load())
                     .AsExpr(),
                 stmts
@@ -365,7 +371,7 @@ module Util =
             match fe.Body.Body.Length with
             | 1 ->
                 let body =
-                    com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnUnit), fe.Body)
+                    com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnNone), fe.Body)
 
                 Lambda(arguments, body).AsExpr(), []
             | _ ->
@@ -429,7 +435,7 @@ module Util =
             let expr, stmts = transformAsExpr com ctx rtn.Argument
 
             match returnStrategy with
-            | Some ReturnStrategy.ReturnUnit -> stmts @ [ Expr(expr) ]
+            | Some ReturnStrategy.ReturnNone -> stmts @ [ Expr(expr) ]
             | _ -> stmts @ [ Return(expr) ]
         | :? Babel.VariableDeclaration as vd ->
             [ for vd in vd.Declarations do
@@ -516,8 +522,8 @@ module Util =
                     let st = pmd.Statement
                     yield! com.TransformAsStatements(ctx, returnStrategy, st)
                 | _ -> failwith $"Unknown module declaration: {md}" ]
-
-        Module(stmt)
+        let imports = com.GetAllImports ()
+        Module(imports @ stmt)
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
         if String.IsNullOrEmpty selector then
@@ -542,28 +548,30 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            // member _.GetImportExpr(ctx, selector, path, r) =
-            //     let cachedName = path + "::" + selector
-            //     match imports.TryGetValue(cachedName) with
-            //     | true, i ->
-            //         match i.LocalIdent with
-            //         | Some localIdent -> upcast Babel.Identifier(localIdent)
-            //         | None -> upcast Babel.NullLiteral ()
-            //     | false, _ ->
-            //         let localId = getIdentForImport ctx path selector
-            //         let i =
-            //           { Selector =
-            //                 if selector = Naming.placeholder then
-            //                          "`importMember` must be assigned to a variable"
-            //                          |> addError com [] r; selector
-            //                 else selector
-            //             Path = path
-            //             LocalIdent = localId }
-            //         imports.Add(cachedName, i)
-            //         match localId with
-            //         | Some localId -> upcast Babel.Identifier(localId)
-            //         | None -> upcast Babel.NullLiteral ()
-            //member _.GetAllImports() = upcast imports.Values
+            member _.GetImportExpr(ctx, selector, path, r) =
+                let cachedName = path + "::" + selector
+                // match imports.TryGetValue(cachedName) with
+                // | true, i ->
+                //     match i.LocalIdent with
+                //     | Some localIdent -> upcast Babel.Identifier(localIdent)
+                //     | None -> upcast Babel.NullLiteral ()
+                // | false, _ ->
+                //     let localId = getIdentForImport ctx path selector
+                //     let i =
+                //       { Selector =
+                //             if selector = Naming.placeholder then
+                //                      "`importMember` must be assigned to a variable"
+                //                      |> addError com [] r; selector
+                //             else selector
+                //         Path = path
+                //         LocalIdent = localId }
+                //     imports.Add(cachedName, i)
+                //     match localId with
+                //     | Some localId -> upcast Babel.Identifier(localId)
+                //     | None -> upcast Babel.NullLiteral ()
+                failwith "Not implemented"
+
+            member _.GetAllImports() = imports.Values |> List.ofSeq |> List.map (fun im -> upcast im)
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
 
             member bcom.TransformAsStatements(ctx, ret, e) =
