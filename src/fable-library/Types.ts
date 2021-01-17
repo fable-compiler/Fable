@@ -34,51 +34,51 @@ export function toString(x: any, callStack = 0): string {
   return String(x);
 }
 
-function compareList<T>(self: List<T>, other: List<T>): number {
-  if (self === other) {
-    return 0;
-  } else {
-    if (other == null) {
-      return -1;
-    }
-    while (self.tail != null) {
-      if (other.tail == null) { return 1; }
-      const res = compare(self.head, other.head);
-      if (res !== 0) { return res; }
-      self = self.tail;
-      other = other.tail;
-    }
-    return other.tail == null ? 0 : -1;
-  }
-}
+// function compareList<T>(self: List<T>, other: List<T>): number {
+//   if (self === other) {
+//     return 0;
+//   } else {
+//     if (other == null) {
+//       return -1;
+//     }
+//     while (self.tail != null) {
+//       if (other.tail == null) { return 1; }
+//       const res = compare(self.head, other.head);
+//       if (res !== 0) { return res; }
+//       self = self.tail;
+//       other = other.tail;
+//     }
+//     return other.tail == null ? 0 : -1;
+//   }
+// }
 
-export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
-  public head: T;
-  public tail?: List<T>;
+// export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
+//   public head: T;
+//   public tail?: List<T>;
 
-  constructor(head?: T, tail?: List<T>) {
-    this.head = head as T;
-    this.tail = tail;
-  }
+//   constructor(head?: T, tail?: List<T>) {
+//     this.head = head as T;
+//     this.tail = tail;
+//   }
 
-  public [Symbol.iterator](): Iterator<T> {
-    let cur: List<T> | undefined = this;
-    return {
-      next: (): IteratorResult<T> => {
-        const value = cur?.head as T;
-        const done = cur?.tail == null;
-        cur = cur?.tail;
-        return { done, value };
-      },
-    };
-  }
+//   public [Symbol.iterator](): Iterator<T> {
+//     let cur: List<T> | undefined = this;
+//     return {
+//       next: (): IteratorResult<T> => {
+//         const value = cur?.head as T;
+//         const done = cur?.tail == null;
+//         cur = cur?.tail;
+//         return { done, value };
+//       },
+//     };
+//   }
 
-  public toJSON() { return Array.from(this); }
-  public toString() { return seqToString(this); }
-  public GetHashCode() { return combineHashCodes(Array.from(this).map(structuralHash)); }
-  public Equals(other: List<T>): boolean { return compareList(this, other) === 0; }
-  public CompareTo(other: List<T>): number { return compareList(this, other); }
-}
+//   public toJSON() { return Array.from(this); }
+//   public toString() { return seqToString(this); }
+//   public GetHashCode() { return combineHashCodes(Array.from(this).map(structuralHash)); }
+//   public Equals(other: List<T>): boolean { return compareList(this, other) === 0; }
+//   public CompareTo(other: List<T>): number { return compareList(this, other); }
+// }
 
 export abstract class Union implements IEquatable<Union>, IComparable<Union> {
   public tag!: number;
