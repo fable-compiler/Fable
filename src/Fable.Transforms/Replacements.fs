@@ -1080,6 +1080,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, "op_ErasedCast" -> List.tryHead args
     | _, ".ctor" -> typedObjExpr t [] |> Some
+    | _, "pyNative"
     | _, "jsNative" ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."

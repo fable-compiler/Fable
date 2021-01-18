@@ -828,9 +828,11 @@ type ImportFrom(``module``, names, ?level) =
         printer.Print(" import ")
 
         if not (List.isEmpty names) then
-            printer.Print("(")
+            if List.length names > 1 then
+                printer.Print("(")
             printer.PrintCommaSeparatedList(names |> List.map (fun x -> x :> AST))
-            printer.Print(")")
+            if List.length names > 1 then
+                printer.Print(")")
 
 /// A return statement.
 ///
@@ -1033,6 +1035,78 @@ type Call(func, ?args, ?kw) =
         printer.PrintCommaSeparatedList(this.Args)
         printer.PrintCommaSeparatedList(this.Keywords |> List.map (fun x -> x :> AST))
         printer.Print(")")
+
+type Emit(value, ?args) =
+    inherit Expression()
+
+    member _.Value: string = value
+    member _.Args: Expression list = defaultArg args []
+
+    override this.Print(printer) =
+        let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
+            System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
+
+        let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
+            let segmentLength = segmentEnd - segmentStart
+            if segmentLength > 0 then
+                let segment = value.Substring(segmentStart, segmentLength)
+                let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
+                for i = 1 to subSegments.Length do
+                    let subSegment =
+                        // Remove whitespace in front of new lines,
+                        // indent will be automatically applied
+                        if printer.Column = 0 then subSegments.[i - 1].TrimStart()
+                        else subSegments.[i - 1]
+                    if subSegment.Length > 0 then
+                        printer.Print(subSegment)
+                        if i < subSegments.Length then
+                            printer.PrintNewLine()
+
+
+        // Macro transformations
+        // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+        let value =
+            value
+            |> replace @"\$(\d+)\.\.\." (fun m ->
+                let rep = ResizeArray()
+                let i = int m.Groups.[1].Value
+                for j = i to this.Args.Length - 1 do
+                    rep.Add("$" + string j)
+                String.concat ", " rep)
+
+            |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                let i = int m.Groups.[1].Value
+                match this.Args.[i] with
+                | :? Constant as b -> m.Groups.[2].Value
+                | _ -> m.Groups.[3].Value)
+
+            |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                let i = int m.Groups.[2].Value
+                match List.tryItem i this.Args with
+                | Some _ -> m.Groups.[1].Value
+                | None -> "")
+
+        let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+        if matches.Count > 0 then
+            for i = 0 to matches.Count - 1 do
+                let m = matches.[i]
+
+                let segmentStart =
+                    if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                    else 0
+
+                printSegment printer value segmentStart m.Index
+
+                let argIndex = int m.Value.[1..]
+                match List.tryItem argIndex this.Args with
+                | Some e -> printer.ComplexExpressionWithParens(e)
+                | None -> printer.Print("None")
+
+            let lastMatch = matches.[matches.Count - 1]
+            printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
+        else
+            printSegment printer value 0 value.Length
+
 
 /// lambda is a minimal function definition that can be used inside an expression. Unlike FunctionDef, body holds a
 /// single node.
@@ -1370,8 +1444,11 @@ type Load() =
     interface AST with
         member this.Print(printer) = ()
 
-type Del =
-    inherit ExpressionContext
+type Del()=
+    interface ExpressionContext
+
+    interface AST with
+        member this.Print(printer) = ()
 
 type Store() =
     interface ExpressionContext

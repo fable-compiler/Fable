@@ -1220,12 +1220,16 @@ type ImportMemberSpecifier(local: Identifier, imported) =
 
 /// A default import specifier, e.g., foo in import foo from "mod".
 type ImportDefaultSpecifier(local) =
+    member _.Local: Identifier = local
+
     interface ImportSpecifier with
         member _.Print(printer) =
             printer.Print(local)
 
 /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
 type ImportNamespaceSpecifier(local) =
+    member _.Local: Identifier = local
+
     interface ImportSpecifier with
         member _.Print(printer) =
             printer.Print("* as ")

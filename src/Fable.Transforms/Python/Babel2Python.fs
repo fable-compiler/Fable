@@ -117,7 +117,15 @@ module Util =
 
         let specifier2string (expr: Babel.ImportSpecifier) =
             match expr with
-            | :? Babel.ImportMemberSpecifier as im -> im.Imported.Name, im.Local.Name
+            | :? Babel.ImportMemberSpecifier as im ->
+                printfn "ImportMemberSpecifier"
+                im.Imported.Name, im.Local.Name
+            | :? Babel.ImportDefaultSpecifier as ids ->
+                printfn "ImportDefaultSpecifier"
+                ids.Local.Name, ids.Local.Name
+            | :? Babel.ImportNamespaceSpecifier as ins ->
+                printfn "ImportNamespaceSpecifier"
+                ins.Local.Name, ins.Local.Name
             | _ -> failwith $"Unhandled import: {expr}"
 
         let specifiers =
@@ -322,7 +330,10 @@ module Util =
             let keys = kv |> List.map fst
             let values = kv |> List.map snd
             Dict(keys = keys, values = values).AsExpr(), []
-        | :? Babel.EmitExpression as ee -> failwith "Not Implemented"
+        | :? Babel.EmitExpression as ee ->
+            let args, stmts = ee.Args |> List.ofArray |> List.map (fun expr -> com.TransformAsExpr(ctx, expr)) |> Helpers.unzipArgs
+
+            Emit(ee.Value, args).AsExpr(), stmts
         | :? Babel.MemberExpression as me ->
             let value, stmts = com.TransformAsExpr(ctx, me.Object)
 
