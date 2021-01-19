@@ -150,6 +150,10 @@ type FsEnt(ent: FSharpEntity) =
     static member Ref (ent: FSharpEntity): Fable.EntityRef =
         let path =
             match ent.Assembly.FileName with
+            // HACK: Fable.Sveltish
+            | Some asmPath when asmPath.EndsWith("Fable.Sveltish.dll") ->
+                let sourcePath = (FsEnt.SourcePath ent).Replace("/home/alfonso/repos/Fable.Sveltish/src/Fable.Sveltish", "fable-repl-lib/sutil")
+                Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
             // When compiling with netcoreapp target, netstandard only contains redirects
             // Find the actual assembly name from the entity qualified name
             | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
@@ -1171,10 +1175,12 @@ module Util =
             | Some(Naming.StartsWith Atts.emit _ | Atts.global_ | Naming.StartsWith Atts.import _) -> true
             | _ -> false)
 
-    let isFromDllRef (ent: Fable.Entity) =
+    let private isFromDllRef (ent: Fable.Entity) =
         match ent.Ref.Path with
         | Fable.AssemblyPath _ | Fable.CoreAssemblyName _ -> true
         | Fable.SourcePath _ -> false
+        // This helper is only used for replacement candidates, so we discard precompiled libs
+        | Fable.PrecompiledLib _ -> false
 
     let private isReplacementCandidatePrivate isFromDllRef (entFullName: string) =
         if entFullName.StartsWith("System.") || entFullName.StartsWith("Microsoft.FSharp.") then isFromDllRef
@@ -1222,7 +1228,7 @@ module Util =
             then None
             else Some (entityRef com ent)
 
-    let memberRefTyped (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
+    let memberRef (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
         let file =
@@ -1243,9 +1249,6 @@ module Util =
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
             |> sprintf "Cannot reference private members from other files: %s"
             |> addErrorAndReturnNull com ctx.InlinePath r
-
-    let memberRef (com: IFableCompiler) ctx r (memb: FSharpMemberOrFunctionOrValue) =
-        memberRefTyped com ctx r Fable.Any memb
 
     let rec tryFindInTypeHierarchy (ent: FSharpEntity) filter =
         if filter ent then Some ent
@@ -1325,6 +1328,18 @@ module Util =
             Fable.Set(callee, Some key, arg, r)
         else
             getSimple callee name |> makeCall r typ callInfo
+
+    let callStaticMember com ctx r typ callInfo (memb: FSharpMemberOrFunctionOrValue) =
+        match memb.DeclaringEntity with
+        | Some entity when isModuleValueForCalls entity memb ->
+            let typ = makeType ctx.GenericArgs memb.FullType
+            memberRef com ctx r typ memb
+        | _ ->
+            let callExpr =
+                memberRef com ctx r Fable.Any memb
+                |> makeCall r typ callInfo
+            let fableMember = FsMemberFunctionOrValue(memb)
+            com.ApplyMemberCallPlugin(fableMember, callExpr)
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
@@ -1542,16 +1557,7 @@ module Util =
                 || memb.IsDispatchSlot ->
             callInstanceMember com r typ callInfo entity memb
 
-        | _, Some entity when isModuleValueForCalls entity memb ->
-            let typ = makeType ctx.GenericArgs memb.FullType
-            memberRefTyped com ctx r typ memb
-
-        | _ ->
-            let callExpr =
-                memberRef com ctx r memb
-                |> makeCall r typ callInfo
-            let fableMember = FsMemberFunctionOrValue(memb)
-            com.ApplyMemberCallPlugin(fableMember, callExpr)
+        | _ -> callStaticMember com ctx r typ callInfo memb
 
     let makeCallInfoFrom (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
         {
@@ -1579,4 +1585,4 @@ module Util =
         | Emitted com r typ None emitted, _ -> emitted
         | Imported com r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r) expr, _ -> expr
-        | _ -> memberRefTyped com ctx r typ v
+        | _ -> memberRef com ctx r typ v

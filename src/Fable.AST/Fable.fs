@@ -7,13 +7,15 @@ type EntityPath =
     | AssemblyPath of string
     /// Only used to reference entities in core assemblies without a path
     | CoreAssemblyName of string
+    | PrecompiledLib of sourcePath: string * assemblyPath: string
 
 type EntityRef =
     { FullName: string
       Path: EntityPath }
     member this.SourcePath =
         match this.Path with
-        | SourcePath p -> Some p
+        | SourcePath p
+        | PrecompiledLib(p,_) -> Some p
         | AssemblyPath _ | CoreAssemblyName _ -> None
 
 type DeclaredType =

@@ -137,6 +137,7 @@ type Project(checkResults: FSharpCheckProjectResults,
             FSharp2Fable.Compiler.getRootFSharpEntities file |> loop
             let key = Path.normalizePathAndEnsureFsExtension file.FileName
             key, { Ast = file
+                   // TODO: Compiler option to use empty string as root module
                    RootModule = FSharp2Fable.Compiler.getRootModule file
                    Entities = entities })
         |> dict
@@ -197,13 +198,14 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
             match project.ImplementationFiles.TryGetValue(fileName) with
             | true, file -> file.RootModule
             | false, _ ->
-                let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
-                (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
+                // let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
+                // (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
                 "" // failwith msg
 
         member _.GetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
             | Fable.CoreAssemblyName name -> project.Assemblies.GetEntityByCoreAssemblyName(name, entityRef)
+            | Fable.PrecompiledLib(_, path)
             | Fable.AssemblyPath path -> project.Assemblies.GetEntityByAssemblyPath(path, entityRef)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName
