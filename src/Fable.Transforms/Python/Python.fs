@@ -15,7 +15,7 @@ type Printer =
 
 module PrinterExtensions =
     type Printer with
-        member printer.Print(node: AST) = node.Print(printer)
+        member printer.Print(node: IPrint) = node.Print(printer)
 
         member printer.PrintBlock
             (
@@ -49,18 +49,18 @@ module PrinterExtensions =
                 printfn $"hasNoSideEffects: {e}"
 
                 match e with
-                | :? Constant -> true
-                | :? Dict as d -> d.Keys.IsEmpty
+                | Constant(_) -> true
+                | Dict { Keys=keys }-> keys.IsEmpty
                 | _ -> false
 
             match stmt with
-            | :? Expr as expr -> hasNoSideEffects expr.Value |> not
+            | Expr(expr) -> hasNoSideEffects expr.Value |> not
             | _ -> true
 
         member printer.PrintStatement(stmt: Statement, ?printSeparator) =
             printfn "PrintStatement: %A" stmt
 
-            stmt.Print(printer)
+            printer.Print(stmt)
             printSeparator |> Option.iter (fun fn -> fn printer)
 
         member printer.PrintStatements(statements: Statement list) =
@@ -76,14 +76,14 @@ module PrinterExtensions =
                 ?skipNewLineAtEnd = skipNewLineAtEnd
             )
 
-        member printer.PrintOptional(before: string, node: #AST option) =
+        member printer.PrintOptional(before: string, node: IPrint option) =
             match node with
             | None -> ()
             | Some node ->
                 printer.Print(before)
                 node.Print(printer)
 
-        member printer.PrintOptional(before: string, node: #AST option, after: string) =
+        member printer.PrintOptional(before: string, node: IPrint option, after: string) =
             match node with
             | None -> ()
             | Some node ->
@@ -91,7 +91,7 @@ module PrinterExtensions =
                 node.Print(printer)
                 printer.Print(after)
 
-        member printer.PrintOptional(node: #AST option) =
+        member printer.PrintOptional(node: IPrint option) =
             match node with
             | None -> ()
             | Some node -> node.Print(printer)
@@ -103,7 +103,7 @@ module PrinterExtensions =
                 if i < nodes.Length - 1 then
                     printSeparator printer
 
-        member printer.PrintCommaSeparatedList(nodes: AST list) =
+        member printer.PrintCommaSeparatedList(nodes: IPrint list) =
             printer.PrintList(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
         member printer.PrintCommaSeparatedList(nodes: Expression list) =
@@ -118,15 +118,15 @@ module PrinterExtensions =
                 id: Identifier option,
                 args: Arguments,
                 body: Statement list,
-                returnType,
+                returnType: Expression option,
                 ?isDeclaration
             ) =
             printer.Print("def ")
-            printer.PrintOptional(id)
+            printer.PrintOptional(id |> Option.map (fun x -> x :> IPrint))
             printer.Print("(")
-            printer.PrintCommaSeparatedList(args.Args |> List.map (fun arg -> arg :> AST))
+            printer.PrintCommaSeparatedList(args.Args |> List.map (fun arg -> arg :> IPrint))
             printer.Print(")")
-            printer.PrintOptional(returnType)
+            printer.PrintOptional(returnType |> Option.map (fun x -> x :> IPrint))
             printer.Print(":")
             printer.PrintBlock(body, skipNewLineAtEnd = true)
 
@@ -189,7 +189,7 @@ module PrinterExtensions =
 
         member printer.WithParens(expr: Expression) =
             printer.Print("(")
-            expr.Print(printer)
+            printer.Print(expr)
             printer.Print(")")
 
         member printer.SequenceExpressionWithParens(expr: Expression) =
@@ -204,10 +204,10 @@ module PrinterExtensions =
             match expr with
             // | :? Undefined
             // | :? NullLiteral
-            | :? Constant -> expr.Print(printer)
+            | Constant(_) -> printer.Print(expr)
             // | :? BooleanLiteral
             // | :? NumericLiteral
-            | :? Name -> expr.Print(printer)
+            | Name(_) -> printer.Print(expr)
             // | :? MemberExpression
             // | :? CallExpression
             // | :? ThisExpression
@@ -223,68 +223,252 @@ module PrinterExtensions =
             printer.Print(operator)
             printer.ComplexExpressionWithParens(right)
 
+type IPrint =
+    abstract Print: Printer -> unit
+
 type AST =
-    //int col
-    abstract Print: Printer -> unit
+    | Expression of Expression
+    | Statement of Statement
+    | Operator of Operator
+    | BoolOperator of BoolOperator
+    | ComparisonOperator of ComparisonOperator
+    | UnaryOperator of UnaryOperator
+    | ExpressionContext of ExpressionContext
+    | Alias of Alias
+    | Module of Module
+    | Arguments of Arguments
+    | Keyword of Keyword
+    | Arg of Arg
 
-[<AbstractClass>]
-type Expression() =
-    member val Lineno: int = 0 with get, set
-    member val ColOffset: int = 0 with get, set
-    member val EndLineno: int option = None with get, set
-    member val EndColOffset: int option = None with get, set
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            match x with
+            | Expression(ex) -> printer.Print(ex)
+            | Operator(op) -> printer.Print(op)
+            | BoolOperator(op) -> printer.Print(op)
+            | ComparisonOperator(op) -> printer.Print(op)
+            | UnaryOperator(op) -> printer.Print(op)
+            | ExpressionContext(ctx) -> printer.Print(ctx)
+            | Alias(al) -> printer.Print(al)
+            | Module(mod) -> printer.Print(mod)
+            | Arguments(arg) -> printer.Print(arg)
+            | Keyword(kw) -> printer.Print(kw)
+            | Arg(arg) -> printer.Print(arg)
+            | Statement(st) -> printer.Print(st)
 
-    interface AST with
-        member this.Print(printer) = this.Print printer
+type Expression =
+    | Attribute of Attribute
+    | Subscript of Subscript
+    | BinOp of BinOp
+    /// A yield from expression. Because these are expressions, they must be wrapped in a Expr node if the value sent
+    /// back is not used.
+    | YieldFrom of Expression option
+    /// A yield expression. Because these are expressions, they must be wrapped in a Expr node if the value sent back is
+    /// not used.
+    | Yield of  Expression option
+    | Emit of Emit
+    | UnaryOp of UnaryOp
+    | FormattedValue of FormattedValue
+    | Constant of Constant
+    | Call of Call
+    | Compare of Compare
+    | Lambda of Lambda
+    /// A variable name. id holds the name as a string, and ctx is one of the following types.
+    | Name of Name
+    | Dict of Dict
+    | Tuple of Tuple
 
-    abstract Print: Printer -> unit
-
-    member x.AsExpr() = x
-
+    // member val Lineno: int = 0 with get, set
+    // member val ColOffset: int = 0 with get, set
+    // member val EndLineno: int option = None with get, set
+    // member val EndColOffset: int option = None with get, set
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            match x with
+            | Attribute(ex) -> printer.Print(ex)
+            | Subscript(ex) -> printer.Print(ex)
+            | BinOp(ex) -> printer.Print(ex)
+            | Emit(ex) -> printer.Print(ex)
+            | UnaryOp(ex) -> printer.Print(ex)
+            | FormattedValue(ex) -> printer.Print(ex)
+            | Constant(ex) -> printer.Print(ex)
+            | Call(ex) -> printer.Print(ex)
+            | Lambda(ex) -> printer.Print(ex)
+            | Name(ex) -> printer.Print(ex)
+            | Yield(expr) -> printer.Print("(Yield)")
+            | YieldFrom(expr) -> printer.Print("(Yield)")
+            | Compare(cp) -> printer.Print(cp)
+            | Dict(di) -> printer.Print(di)
+            | Tuple(tu) -> printer.Print(tu)
 
 type Operator =
-    inherit AST
+    | Add
+    | Sub
+    | Mult
+    | Div
+    | FloorDiv
+    | Mod
+    | Pow
+    | LShift
+    | RShift
+    | BitOr
+    | BitXor
+    | BitAnd
+    | MatMult
+
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            let op =
+                match x with
+                | Add -> " + "
+                | Sub -> " - "
+                | Mult -> " * "
+                | Div -> " / "
+                | FloorDiv -> " // "
+                | Mod -> " % "
+                | Pow -> " ** "
+                | LShift -> " << "
+                | RShift -> " >> "
+                | BitOr -> " | "
+                | BitXor -> " ^ "
+                | BitAnd -> $" & "
+                | MatMult -> $" @ "
+            printer.Print(op)
 
 type BoolOperator =
-    inherit AST
+    | And
+    | Or
+
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            let op =
+                match x with
+                | And -> "and"
+                | Or -> "or"
+            printer.Print(op)
+
 
 type ComparisonOperator =
-    inherit AST
+    | Eq
+    | NotEq
+    | Lt
+    | LtE
+    | Gt
+    | GtE
+    | Is
+    | IsNot
+    | In
+    | NotIn
+
+    interface IPrint with
+        member x.Print(printer) =
+            let op =
+                match x with
+                | Eq -> " == "
+                | NotEq -> " != "
+                | Lt -> " < "
+                | LtE -> " <= "
+                | Gt -> " > "
+                | GtE -> " >= "
+                | Is -> " is "
+                | IsNot -> " is not "
+                | In -> " in "
+                | NotIn -> " not in "
+            printer.Print(op)
 
 type UnaryOperator =
-    inherit AST
+    | Invert
+    | Not
+    | UAdd
+    | USub
+
+    interface IPrint with
+        member this.Print(printer) =
+            let op =
+                match this with
+                | Invert -> "~"
+                | Not -> "not "
+                | UAdd -> "+"
+                | USub -> "-"
+
+            printer.Print(op)
 
 type ExpressionContext =
-    inherit AST
+    | Load
+    | Del
+    | Store
 
+    interface IPrint with
+        member this.Print(printer) = ()
 
 type Identifier =
     | Identifier of string
 
-    interface AST with
+
+    interface IPrint with
         member this.Print(printer: Printer) =
             let (Identifier id) = this
-            printer.Print id
+            printer.Print(id)
 
-[<AbstractClass>]
-type Statement() =
-    member val Lineno: int = 0 with get, set
-    member val ColOffset: int = 0 with get, set
-    member val EndLineno: int option = None with get, set
-    member val EndColOffset: int option = None with get, set
+type Statement =
+    | Assign of Assign
+    | Import of Import
+    | ImportFrom of ImportFrom
+    | Expr of Expr
+    | For of For
+    | AsyncFor of AsyncFor
+    | If of If
+    | ClassDef of ClassDef
+    | Raise of Raise
+    | Global of Global
+    | NonLocal of NonLocal
+    | AsyncFunctionDef of AsyncFunctionDef
+    | FunctionDef of FunctionDef
+    | Return of Return
+    | While of While
+    | Try of Try
+    | Pass
+    | Break
+    | Continue
 
-    interface AST with
-        member this.Print(printer) = this.Print printer
+    // member val Lineno: int = 0 with get, set
+    // member val ColOffset: int = 0 with get, set
+    // member val EndLineno: int option = None with get, set
+    // member val EndColOffset: int option = None with get, set
 
-    abstract Print: Printer -> unit
+    interface IPrint with
+        member x.Print(printer) =
+            match x with
+            | FunctionDef(def) -> printer.Print(def)
+            | AsyncFunctionDef(def) -> printer.Print(def)
+            | Assign(st) -> printer.Print(st)
+            | Expr(st) -> printer.Print(st)
+            | For(st) -> printer.Print(st)
+            | AsyncFor(st) -> printer.Print(st)
+            | If(st) -> printer.Print(st)
+            | ClassDef(st) -> printer.Print(st)
+            | Raise(st) -> printer.Print(st)
+            | Global(st) -> printer.Print(st)
+            | NonLocal(st) -> printer.Print(st)
+            | Pass -> printer.Print("pass")
+            | Break -> printer.Print("break")
+            | Continue -> printer.Print("continue")
+            | Return(rtn) -> printer.Print(rtn)
+            | Import(im) -> printer.Print(im)
+            | ImportFrom(im) -> printer.Print(im)
+            | While(wh) -> printer.Print(wh)
+            | Try(st) -> printer.Print(st)
 
-type Module(body) =
-    member _.Body: List<Statement> = body
+type Module =
+    {
+        Body: Statement list
+    }
 
-    interface AST with
-        member this.Print(printer) = this.Print printer
+    static member Create(body) =
+        { Body = body }
 
-    member _.Print(printer: Printer) = printer.PrintStatements(body)
+    interface IPrint with
+        member x.Print(printer: Printer) = printer.PrintStatements(x.Body)
 
 /// Both parameters are raw strings of the names. asname can be None if the regular name is to be used.
 ///
@@ -300,57 +484,152 @@ type Module(body) =
 ///             level=2)],
 ///     type_ignores=[])
 /// ```
-type Alias(name, asname) =
-    member _.Name: Identifier = name
-    member _.AsName: Identifier option = asname
+type Alias =
+    {
+        Name: Identifier
+        AsName: Identifier option
+    }
 
-    interface AST with
-        member this.Print(printer) = this.Print printer
+    static member Create(name, asname) =
+        {
+            Name = name
+            AsName = asname
+        }
 
-    member _.Print(printer: Printer) =
-        printer.Print(name)
+    interface IPrint with
+        member x.Print(printer) =
+            printer.Print(x.Name)
 
-        match asname with
-        | Some (Identifier alias) ->
-            printer.Print(" as ")
-            printer.Print(alias)
-        | _ -> ()
+            match x.AsName with
+            | Some (Identifier alias) ->
+                printer.Print(" as ")
+                printer.Print(alias)
+            | _ -> ()
 
+/// A single except clause. type is the exception type it will match, typically a Name node (or None for a catch-all
+/// except: clause). name is a raw string for the name to hold the exception, or None if the clause doesn’t have as foo.
+/// body is a list of nodes.
+type ExceptHandler =
+    {
+        Type: Expression option
+        Name: Identifier option
+        Body: Statement list
+        Loc: SourceLocation option
+    }
+
+    static member Create(``type``, ?name, ?body, ?loc) =
+        {
+            Type = ``type``
+            Name = name
+            Body = defaultArg body []
+            Loc = loc
+        }
+    interface IPrint with
+        member x.Print(printer) =
+            printer.Print("except ", ?loc=x.Loc)
+            printer.PrintOptional(x.Type |> Option.map (fun t -> t :> IPrint))
+            printer.PrintOptional(" as ", x.Name |> Option.map (fun t -> t :> IPrint))
+            printer.Print(":")
+            match x.Body with
+            | [] -> printer.PrintBlock([Pass])
+            | _ -> printer.PrintBlock(x.Body)
+
+
+/// try blocks. All attributes are list of nodes to execute, except for handlers, which is a list of ExceptHandler
+/// nodes.
+type Try =
+    {
+        Body: Statement list
+        Handlers: ExceptHandler list
+        OrElse: Statement list
+        FinalBody: Statement list
+        Loc: SourceLocation option
+    }
+
+    static member Create(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
+        {
+            Body = body
+            Handlers = defaultArg handlers []
+            OrElse = defaultArg orElse []
+            FinalBody = defaultArg finalBody []
+            Loc = loc
+        } |> Try
+
+    interface IPrint with
+        member x.Print(printer) =
+            printer.Print("try: ", ?loc=x.Loc)
+            printer.PrintBlock(x.Body)
+            for handler in x.Handlers do
+                printer.Print(handler)
+            if x.OrElse.Length > 0 then
+                printer.Print("else: ")
+                printer.PrintBlock(x.OrElse)
+            if x.FinalBody.Length > 0 then
+                printer.Print("finally: ")
+                printer.PrintBlock(x.FinalBody)
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
 ///
 /// - type_comment is an optional string with the type annotation as a comment
-type Arg(arg, ?annotation, ?typeComment) =
-    member val Lineno: int = 0 with get, set
-    member val ColOffset: int = 0 with get, set
-    member val EndLineno: int option = None with get, set
-    member val EndColOffset: int option = None with get, set
+type Arg =
+    {
+        Lineno: int
+        ColOffset: int
+        EndLineno: int option
+        EndColOffset: int option
 
-    member _.Arg: Identifier = arg
-    member _.Annotation: Expression option = annotation
-    member _.TypeComment: string option = typeComment
+        Arg: Identifier
+        Annotation: Expression option
+        TypeComment: string option
+    }
 
-    interface AST with
-        member _.Print(printer) =
-            let (Identifier name) = arg
+
+    static member Create(arg, ?annotation, ?typeComment) =
+        {
+            Lineno = 0
+            ColOffset = 0
+            EndLineno = None
+            EndColOffset = None
+
+            Arg = arg
+            Annotation = annotation
+            TypeComment = typeComment
+        }
+
+    interface IPrint with
+        member x.Print(printer) =
+            let (Identifier name) = x.Arg
             printer.Print(name)
 
-type Keyword(arg, value) =
-    member val Lineno: int = 0 with get, set
-    member val ColOffset: int = 0 with get, set
-    member val EndLineno: int option = None with get, set
-    member val EndColOffset: int option = None with get, set
+type Keyword =
+    {
+        Lineno: int
+        ColOffset: int
+        EndLineno: int option
+        EndColOffset: int option
 
-    member _.Arg: Identifier = arg
-    member _.Value: Expression = value
+        Arg: Identifier
+        Value: Expression
+    }
 
-    interface AST with
-        member _.Print(printer) =
-            let (Identifier name) = arg
+    static member Create(arg, value) =
+        {
+            Lineno = 0
+            ColOffset = 0
+            EndLineno = None
+            EndColOffset = None
+
+            Arg = arg
+            Value = value
+        }
+
+    interface IPrint with
+        member x.Print(printer) =
+            let (Identifier name) = x.Arg
             printer.Print(name)
             printer.Print(" = ")
-            printer.Print(value)
+            printer.Print(x.Value)
 
 /// The arguments for a function.
 ///
@@ -360,16 +639,29 @@ type Keyword(arg, value) =
 ///    required.
 ///  - defaults is a list of default values for arguments that can be passed positionally. If there are fewer defaults,
 ///    they correspond to the last n arguments.
-type Arguments(?posonlyargs, ?args, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?defaults) =
-    member _.PosOnlyArgs: Arg list = defaultArg posonlyargs []
-    member _.Args: Arg list = defaultArg args []
-    member _.VarArg: Arg option = vararg
-    member _.KwOnlyArgs: Arg list = defaultArg kwonlyargs []
-    member _.KwDefaults: Expression list = defaultArg kwDefaults []
-    member _.KwArg: Arg option = kwarg
-    member _.Defaults: Expression list = defaultArg defaults []
+type Arguments =
+    {
+        PosOnlyArgs: Arg list
+        Args: Arg list
+        VarArg: Arg option
+        KwOnlyArgs: Arg list
+        KwDefaults: Expression list
+        KwArg: Arg option
+        Defaults: Expression list
+    }
 
-    interface AST with
+    static member Create(?posonlyargs, ?args, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?defaults) =
+        {
+            PosOnlyArgs = defaultArg posonlyargs []
+            Args = defaultArg args []
+            VarArg = vararg
+            KwOnlyArgs = defaultArg kwonlyargs []
+            KwDefaults = defaultArg kwDefaults []
+            KwArg = kwarg
+            Defaults = defaultArg defaults []
+        }
+
+    interface IPrint with
         member _.Print(printer) = printer.Print("(Arguments)")
 
 //#region Statements
@@ -405,22 +697,30 @@ type Arguments(?posonlyargs, ?args, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?
 ///             value=Name(id='c', ctx=Load()))],
 ///     type_ignores=[])
 /// ```
-type Assign(targets, value, ?typeComment) =
-    inherit Statement()
+type Assign =
+    {
+        Targets: Expression list
+        Value: Expression
+        TypeComment: string option
+    }
 
-    member _.Targets: Expression list = targets
-    member _.Value: Expression = value
-    member _.TypeComment: string option = typeComment
+    static member Create(targets, value, ?typeComment) : Statement =
+        {
+            Targets = targets
+            Value = value
+            TypeComment = typeComment
+        } |> Assign
 
-    override _.Print(printer) =
-        printfn "Assign: %A" (targets, value)
-        //printer.PrintOperation(targets.[0], "=", value, None)
+    interface IPrint with
+        member x.Print(printer) =
+            printfn "Assign: %A" (x.Targets, x.Value)
+            //printer.PrintOperation(targets.[0], "=", value, None)
 
-        for target in targets do
-            printer.Print(target)
-            printer.Print(" = ")
+            for target in x.Targets do
+                printer.Print(target)
+                printer.Print(" = ")
 
-        printer.Print(value)
+            printer.Print(x.Value)
 
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
@@ -436,12 +736,18 @@ type Assign(targets, value, ?typeComment) =
 ///                 operand=Name(id='a', ctx=Load())))],
 ///     type_ignores=[])
 ///```
-type Expr(value) =
-    inherit Statement()
+type Expr =
+    {
+        Value: Expression
+    }
 
-    member _.Value: Expression = value
+    static member Create(value) : Statement =
+        {
+            Value = value
+        } |> Expr
 
-    override _.Print(printer) = value.Print(printer)
+    interface IPrint with
+        member x.Print(printer) = printer.Print(x.Value)
 
 /// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
 /// item to be looped over, again as a single node. body and orelse contain lists of nodes to execute. Those in orelse
@@ -469,34 +775,54 @@ type Expr(value) =
 ///                     value=Constant(value=Ellipsis))])],
 ///     type_ignores=[])
 ///```
-type For(target, iter, body, orelse, ?typeComment) =
-    inherit Statement()
+type For =
+    {
+        Target: Expression
+        Iterator: Expression
+        Body: Statement list
+        Else: Statement list
+        TypeComment: string option
+    }
 
-    member _.Target: Expression = target
-    member _.Iterator: Expression = iter
-    member _.Body: Statement list = body
-    member _.Else: Statement list = orelse
-    member _.TypeComment: string option = typeComment
+    static member Create(target, iter, body, orelse, ?typeComment) =
+        {
+            Target = target
+            Iterator = iter
+            Body = body
+            Else = orelse
+            TypeComment = typeComment
+        }
 
-    override this.Print(printer) =
-        printer.Print("for ")
-        printer.Print(iter)
-        printer.Print(":")
-        printer.PrintNewLine()
-        printer.PushIndentation()
-        printer.PrintStatements(this.Body)
-        printer.PopIndentation()
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            printer.Print("for ")
+            printer.Print(x.Iterator)
+            printer.Print(":")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+            printer.PrintStatements(x.Body)
+            printer.PopIndentation()
 
-type AsyncFor(target, iter, body, orelse, ?typeComment) =
-    inherit Statement()
+type AsyncFor =
+    {
+        Target: Expression
+        Iterator: Expression
+        Body: Statement list
+        Else: Statement list
+        TypeComment: string option
+    }
 
-    member _.Target: Expression = target
-    member _.Iterator: Expression = iter
-    member _.Body: Statement list = body
-    member _.Else: Statement list = orelse
-    member _.TypeComment: string option = typeComment
+    static member Create(target, iter, body, ?orelse, ?typeComment) =
+        {
+            Target = target
+            Iterator = iter
+            Body = body
+            Else = defaultArg orelse []
+            TypeComment = typeComment
+        }
 
-    override _.Print(printer) = printer.Print("(AsyncFor)")
+    interface IPrint with
+        member _.Print(printer) = printer.Print("(AsyncFor)")
 
 /// A while loop. test holds the condition, such as a Compare node.
 ///
@@ -519,21 +845,29 @@ type AsyncFor(target, iter, body, orelse, ?typeComment) =
 ///                     value=Constant(value=Ellipsis))])],
 ///     type_ignores=[])
 /// ```
-type While(test, body, orelse) =
-    inherit Statement()
+type While =
+    {
+        Test: Expression
+        Body: Statement list
+        Else: Statement list
+    }
 
-    member _.Test: Expression = test
-    member _.Body: Statement list = body
-    member _.Else: Statement list = orelse
+    static member Create(test, body, ?orelse) : Statement =
+        {
+            Test = test
+            Body = body
+            Else = defaultArg orelse []
+        } |> While
 
-    override this.Print(printer) =
-        printer.Print("while ")
-        printer.Print(test)
-        printer.Print(":")
-        printer.PrintNewLine()
-        printer.PushIndentation()
-        printer.PrintStatements(this.Body)
-        printer.PopIndentation()
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            printer.Print("while ")
+            printer.Print(x.Test)
+            printer.Print(":")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+            printer.PrintStatements(x.Body)
+            printer.PopIndentation()
 
 /// A class definition.
 ///
@@ -571,32 +905,43 @@ type While(test, body, orelse) =
 ///                 Name(id='decorator2', ctx=Load())])],
 ///     type_ignores=[])
 ///```
-type ClassDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) =
-    inherit Statement()
+type ClassDef =
+    {
+        Name: Identifier
+        Bases: Expression list
+        Keyword: Keyword list
+        Body: Statement list
+        DecoratorList: Expression list
+        Loc: SourceLocation option
+    }
+    static member Create(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) : Statement =
+        {
+            Name= name
+            Bases = defaultArg bases []
+            Keyword = defaultArg keywords []
+            Body = defaultArg body []
+            DecoratorList = defaultArg decoratorList []
+            Loc = loc
+        } |> ClassDef
 
-    member _.Name: Identifier = name
-    member _.Bases: Expression list = defaultArg bases []
-    member _.Keyword: Keyword list = defaultArg keywords []
-    member _.Body: Statement list = defaultArg body []
-    member _.DecoratorList: Expression list = defaultArg decoratorList []
+    interface IPrint with
+        member x.Print(printer) =
+            let (Identifier name) = x.Name
+            printer.Print("class ", ?loc = x.Loc)
+            printer.Print(name)
 
-    override this.Print(printer) =
-        let (Identifier name) = name
-        printer.Print("class ", ?loc = loc)
-        printer.Print(name)
+            match x.Bases with
+            | [] -> ()
+            | xs ->
+                printer.Print("(")
+                printer.PrintCommaSeparatedList(x.Bases)
+                printer.Print(")")
 
-        match this.Bases with
-        | [] -> ()
-        | xs ->
-            printer.Print("(")
-            printer.PrintCommaSeparatedList(this.Bases)
-            printer.Print(")")
-
-        printer.Print(":")
-        printer.PrintNewLine()
-        printer.PushIndentation()
-        printer.PrintStatements(this.Body)
-        printer.PopIndentation()
+            printer.Print(":")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+            printer.PrintStatements(x.Body)
+            printer.PopIndentation()
 
 /// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
 ///
@@ -630,14 +975,22 @@ type ClassDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) =
 ///                             value=Constant(value=Ellipsis))])])],
 ///     type_ignores=[])
 /// ```
-type If(test, body, orelse) =
-    inherit Statement()
+type If =
+    {
+        Test: Expression
+        Body: Statement list
+        Else: Statement list
+    }
 
-    member _.Test: Expression = test
-    member _.Body: Statement list = body
-    member _.Else: Statement list = orelse
+    static member Create(test, body, ?orelse) : Statement =
+        {
+            Test = test
+            Body = body
+            Else = defaultArg orelse []
+        } |> If
 
-    override _.Print(printer) = printer.Print("(If)")
+    interface IPrint with
+        member _.Print(printer) = printer.Print("(If)")
 
 /// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
 /// raise. cause is the optional part for y in raise x from y.
@@ -651,13 +1004,19 @@ type If(test, body, orelse) =
 ///             cause=Name(id='y', ctx=Load()))],
 ///     type_ignores=[])
 /// ```
-type Raise(exc, ?cause) =
-    inherit Statement()
+type Raise =
+    {
+        Exception: Expression
+        Cause: Expression option
+    }
+    static member Create(exc, ?cause) : Statement =
+        {
+            Exception = exc
+            Cause = cause
+        } |> Raise
 
-    member _.Exception: Expression = exc
-    member _.Cause: Expression option = cause
-
-    override _.Print(printer) = printer.Print("(Raise)")
+    interface IPrint with
+        member _.Print(printer) = printer.Print("(Raise)")
 
 /// A function definition.
 ///
@@ -668,20 +1027,30 @@ type Raise(exc, ?cause) =
 ///   applied last).
 /// - returns is the return annotation.
 /// - type_comment is an optional string with the type annotation as a comment.
-type FunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) =
+type FunctionDef =
+    {
+        Name: Identifier
+        Args: Arguments
+        Body: Statement list
+        DecoratorList: Expression list
+        Returns: Expression option
+        TypeComment: string option
+    }
 
-    inherit Statement()
+    static member Create(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement=
+        {
+            Name = name
+            Args = args
+            Body = body
+            DecoratorList = defaultArg decoratorList []
+            Returns = returns
+            TypeComment = typeComment
+        } |> FunctionDef
 
-    member _.Name: Identifier = name
-    member _.Args: Arguments = args
-    member _.Body: Statement list = body
-    member _.DecoratorList: Expression list = defaultArg decoratorList []
-    member _.Returns: Expression option = returns
-    member _.TypeComment: string option = typeComment
-
-    override _.Print(printer) =
-        printer.PrintFunction(Some name, args, body, returns, isDeclaration = true)
-        printer.PrintNewLine()
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            printer.PrintFunction(Some x.Name, x.Args, x.Body, x.Returns, isDeclaration=true)
+            printer.PrintNewLine()
 
 /// global and nonlocal statements. names is a list of raw strings.
 ///
@@ -697,12 +1066,18 @@ type FunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment) =
 ///     type_ignores=[])
 ///
 /// ```
-type Global(names) =
-    inherit Statement()
+type Global =
+    {
+        Names: Identifier list
+    }
 
-    member _.Names: Identifier list = names
+    static member Create(names) =
+        {
+            Names = names
+        }
 
-    override _.Print(printer) = printer.Print("(Global)")
+    interface IPrint with
+        member x.Print(printer) = printer.Print("(Global)")
 
 /// global and nonlocal statements. names is a list of raw strings.
 ///
@@ -717,38 +1092,19 @@ type Global(names) =
 ///                 'z'])],
 ///     type_ignores=[])
 /// `````
-type NonLocal(names) =
-    inherit Statement()
+type NonLocal =
+    {
+        Names: Identifier list
+    }
 
-    member _.Names: Identifier list = names
+    static member Create(names) =
+        {
+            Names = names
+        }
 
-    override _.Print(printer) = printer.Print("(NonLocal)")
+    interface IPrint with
+        member _.Print(printer: Printer) = printer.Print("(NonLocal)")
 
-/// A pass statement.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('pass'), indent=4))
-/// Module(
-///     body=[
-///         Pass()],
-///     type_ignores=[])
-/// ```
-type Pass() =
-    inherit Statement()
-
-    override _.Print(printer) = printer.Print("pass")
-
-/// The break statement.
-type Break() =
-    inherit Statement()
-
-    override _.Print(printer) = printer.Print("break")
-
-/// The continue statement.
-type Continue() =
-    inherit Statement()
-
-    override _.Print(printer) = printer.Print("continue")
 
 /// An async function definition.
 ///
@@ -759,18 +1115,28 @@ type Continue() =
 ///   applied last).
 /// - returns is the return annotation.
 /// - type_comment is an optional string with the type annotation as a comment.
-type AsyncFunctionDef(name, args, body, decoratorList, ?returns, ?typeComment) =
+type AsyncFunctionDef =
+    {
+        Name: Identifier
+        Args: Arguments
+        Body: Statement list
+        DecoratorList: Expression list
+        Returns: Expression option
+        TypeComment: string option
+    }
 
-    inherit Statement()
+    static member Create(name, args, body, decoratorList, ?returns, ?typeComment) =
+        {
+            Name = name
+            Args = args
+            Body = body
+            DecoratorList = decoratorList
+            Returns = returns
+            TypeComment = typeComment
+        }
 
-    member _.Name: Identifier = name
-    member _.Args: Arguments = args
-    member _.Body: Statement list = body
-    member _.DecoratorList: Expression list = decoratorList
-    member _.Returns: Expression option = returns
-    member _.TypeComment: string option = typeComment
-
-    override _.Print(printer) = printer.Print("(AsyncFunctionDef)")
+    interface IPrint with
+        member _.Print(printer: Printer) = printer.Print("(AsyncFunctionDef)")
 
 /// An import statement. names is a list of alias nodes.
 ///
@@ -785,12 +1151,16 @@ type AsyncFunctionDef(name, args, body, decoratorList, ?returns, ?typeComment) =
 ///                 alias(name='z')])],
 ///     type_ignores=[])
 /// `````
-type Import(names) =
-    inherit Statement()
+type Import =
+    {
+        Names: Alias list
+    }
 
-    member _.Names: Alias list = names
+    static member Create(names) : Statement =
+        Import { Names = names }
 
-    override _.Print(printer) = printer.Print("(Import)")
+    interface IPrint with
+        member _.Print(printer) = printer.Print("(Import)")
 
 /// Represents from x import y. module is a raw string of the ‘from’ name, without any leading dots, or None for
 /// statements such as from . import foo. level is an integer holding the level of the relative import (0 means absolute
@@ -809,30 +1179,37 @@ type Import(names) =
 ///             level=0)],
 ///     type_ignores=[])
 /// ```
-type ImportFrom(``module``, names, ?level) =
-    inherit Statement()
+type ImportFrom =
+    {
+        Module: Identifier option
+        Names: Alias list
+        Level: int option
+    }
 
-    member _.Module: Identifier option = ``module``
-    member _.Names: Alias list = names
-    member _.Level: int option = level
+    static member Create(``module``, names, ?level) : Statement =
+        {
+            Module = ``module``
+            Names = names
+            Level = level
+        }
+        |> ImportFrom
 
-    override this.Print(printer) =
-        let (Identifier path) =
-            this.Module
-            |> Option.defaultValue (Identifier ".")
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            let (Identifier path) =
+                x.Module
+                |> Option.defaultValue (Identifier ".")
 
-        printer.Print("from ")
+            printer.Print("from ")
+            printer.Print(printer.MakeImportPath(path))
+            printer.Print(" import ")
 
-        printer.Print(printer.MakeImportPath(path))
-
-        printer.Print(" import ")
-
-        if not (List.isEmpty names) then
-            if List.length names > 1 then
-                printer.Print("(")
-            printer.PrintCommaSeparatedList(names |> List.map (fun x -> x :> AST))
-            if List.length names > 1 then
-                printer.Print(")")
+            if not (List.isEmpty x.Names) then
+                if List.length x.Names > 1 then
+                    printer.Print("(")
+                printer.PrintCommaSeparatedList(x.Names |> List.map (fun x -> x :> IPrint))
+                if List.length x.Names > 1 then
+                    printer.Print(")")
 
 /// A return statement.
 ///
@@ -844,13 +1221,18 @@ type ImportFrom(``module``, names, ?level) =
 ///             value=Constant(value=4))],
 ///     type_ignores=[])
 /// ```
-type Return(?value) =
-    inherit Statement()
-    member _.Value: Expression option = value
+type Return =
+    {
+        Value: Expression option
+    }
 
-    override this.Print(printer) =
-        printer.Print("return ")
-        printer.PrintOptional(this.Value)
+    static member Create(?value) : Statement =
+        Return { Value = value }
+
+    interface IPrint with
+        member this.Print(printer) =
+            printer.Print("return ")
+            printer.PrintOptional(this.Value |> Option.map (fun x -> x :> IPrint ))
 
 //#endregion
 
@@ -867,17 +1249,26 @@ type Return(?value) =
 ///         attr='colour',
 ///         ctx=Load()))
 /// ```
-type Attribute(value, attr, ctx) =
-    inherit Expression()
+type Attribute =
+    {
+        Value: Expression
+        Attr: Identifier
+        Ctx: ExpressionContext
+    }
 
-    member _.Value: Expression = value
-    member _.Attr: Identifier = attr
-    member _.Ctx: ExpressionContext = ctx
 
-    override this.Print(printer) =
-        printer.Print(this.Value)
-        printer.Print(".")
-        printer.Print(this.Attr)
+    static member Create(value, attr, ctx) : Expression =
+        {
+            Value = value
+            Attr = attr
+            Ctx = ctx
+        } |> Attribute
+
+    interface IPrint with
+        member this.Print(printer) =
+            printer.Print(this.Value)
+            printer.Print(".")
+            printer.Print(this.Attr)
 
 /// A subscript, such as l[1]. value is the subscripted object (usually sequence or mapping). slice is an index, slice
 /// or key. It can be a Tuple and contain a Slice. ctx is Load, Store or Del according to the action performed with the
@@ -897,63 +1288,92 @@ type Attribute(value, attr, ctx) =
 ///             ctx=Load()),
 ///         ctx=Load()))
 /// ```
-type Subscript(value, slice, ctx) =
-    inherit Expression()
+type Subscript =
+    {
+        Value: Expression
+        Slice: Expression
+        Ctx: ExpressionContext
+    }
 
-    member _.Value: Expression = value
-    member _.Slice: Expression = slice
-    member _.Ctx: ExpressionContext = ctx
+    static member Create(value, slice, ctx) : Expression=
+        {
+            Value = value
+            Slice = slice
+            Ctx = ctx
+        } |> Subscript
 
-    override this.Print(printer) =
-        printer.Print(this.Value)
-        printer.Print("[")
-        printer.Print(this.Slice)
-        printer.Print("]")
+    interface IPrint with
+        member this.Print(printer: Printer) =
+            printer.Print(this.Value)
+            printer.Print("[")
+            printer.Print(this.Slice)
+            printer.Print("]")
 
-type BinOp(left, op, right) =
-    inherit Expression()
+type BinOp =
+    {
+        Left: Expression
+        Right: Expression
+        Operator: Operator
+    }
+    static member Create(left, op, right) : Expression =
+        {
+            Left = left
+            Right = right
+            Operator = op
+        } |> BinOp
 
-    member _.Left: Expression = left
-    member _.Right: Expression = right
-    member _.Operator: Operator = op
+    interface IPrint with
+        member this.Print(printer) = printer.PrintOperation(this.Left, this.Operator, this.Right)
 
-    override this.Print(printer) = printer.PrintOperation(left, op, right)
+type Compare =
+    {
+        Left: Expression
+        Comparators: Expression list
+        Ops: ComparisonOperator list
+    }
 
-type Compare(left, ops, comparators) =
-    inherit Expression()
+    static member Create(left, ops, comparators) : Expression =
+        {
+            Left = left
+            Comparators = comparators
+            Ops = ops
+        } |> Compare
 
-    member _.Left: Expression = left
-    member _.Comparators: Expression list = comparators
-    member _.Ops: ComparisonOperator list = ops
+    interface IPrint with
+        member x.Print(printer) =
+            //printer.AddLocation(loc)
+            printer.ComplexExpressionWithParens(x.Left)
 
-    override this.Print(printer) =
-        //printer.AddLocation(loc)
-        printer.ComplexExpressionWithParens(left)
-
-        for op, comparator in List.zip this.Ops this.Comparators do
-            printer.Print(op)
-            printer.ComplexExpressionWithParens(comparator)
+            for op, comparator in List.zip x.Ops x.Comparators do
+                printer.Print(op)
+                printer.ComplexExpressionWithParens(comparator)
 
 /// A unary operation. op is the operator, and operand any expression node.
-type UnaryOp(op, operand, ?loc) =
-    inherit Expression()
+type UnaryOp =
+    {
+        Op: UnaryOperator
+        Operand: Expression
+        Loc: SourceLocation option
+    }
 
-    member _.Op: UnaryOperator = op
-    member _.Operand: Expression = operand
+    static member Create(op, operand, ?loc) : Expression =
+        {
+            Op = op
+            Operand = operand
+            Loc = loc
+        } |> UnaryOp
 
-    override this.Print(printer) =
-        printer.AddLocation(loc)
+    interface IPrint with
+        override x.Print(printer) =
+            printer.AddLocation(x.Loc)
 
-        match op with
-        | :? USub
-        | :? UAdd
-        | :? Not
-        | :? Invert -> printer.Print(op)
-        | _ ->
-            printer.Print(op)
-            printer.Print(" ")
+            match x.Op with
+            | USub
+            | UAdd
+            | Not
+            | Invert -> printer.Print(x.Op)
 
-        printer.ComplexExpressionWithParens(operand)
+            printer.ComplexExpressionWithParens(x.Operand)
 
 /// A constant value. The value attribute of the Constant literal contains the Python object it represents. The values
 /// represented can be simple types such as a number, string or None, but also immutable container types (tuples and
@@ -964,18 +1384,26 @@ type UnaryOp(op, operand, ?loc) =
 /// Expression(
 ///     body=Constant(value=123))
 /// `````
-type Constant(value: obj) =
-    inherit Expression()
+type Constant =
+    {
+        Value: obj
+    }
 
-    member _.Value: obj = value
+    static member Create(value: obj) : Expression =
+        {
+            Value = value
+        } |> Constant
 
-    override _.Print(printer) =
-        match box value with
-        | :? string as str ->
-            printer.Print("\"")
-            printer.Print(string value)
-            printer.Print("\"")
-        | _ -> printer.Print(string value)
+    interface IPrint with
+        member x.Print(printer) =
+            match box x.Value with
+            | :? string as str ->
+                printer.Print("\"")
+                printer.Print(string x.Value)
+                printer.Print("\"")
+            | _ ->
+                printfn "*********** Value: %A" x.Value
+                printer.Print(string x.Value)
 
 /// Node representing a single formatting field in an f-string. If the string contains a single formatting field and
 /// nothing else the node can be isolated otherwise it appears in JoinedStr.
@@ -988,14 +1416,22 @@ type Constant(value: obj) =
 ///   -  97: !a ascii formatting
 /// - format_spec is a JoinedStr node representing the formatting of the value, or None if no format was specified. Both
 /// conversion and format_spec can be set at the same time.
-type FormattedValue(value, ?conversion, ?formatSpec) =
-    inherit Expression()
+type FormattedValue =
+    {
+        Value: Expression
+        Conversion: int option
+        FormatSpec: Expression option
+    }
 
-    member _.Value: Expression = value
-    member _.Conversion: int option = conversion
-    member _.FormatSpec: Expression option = formatSpec
+    static member Create(value, ?conversion, ?formatSpec) =
+        {
+            Value = value
+            Conversion = conversion
+            FormatSpec = formatSpec
+        }
 
-    override _.Print(printer) = printer.Print("(FormattedValue)")
+    interface IPrint with
+        member _.Print(printer) = printer.Print("(FormattedValue)")
 
 /// A function call. func is the function, which will often be a Name or Attribute object. Of the arguments:
 ///
@@ -1022,90 +1458,105 @@ type FormattedValue(value, ?conversion, ?formatSpec) =
 ///             keyword(
 ///                 value=Name(id='e', ctx=Load()))]))
 /// ```
-type Call(func, ?args, ?kw) =
-    inherit Expression()
+type Call =
+    {
+        Func: Expression
+        Args: Expression list
+        Keywords: Keyword list
+    }
 
-    member _.Func: Expression = func
-    member _.Args: Expression list = defaultArg args []
-    member _.Keywords: Keyword list = defaultArg kw []
+    static member Create(func, ?args, ?kw) : Expression =
+        {
+            Func = func
+            Args = defaultArg args []
+            Keywords = defaultArg kw []
+        } |> Call
 
-    override this.Print(printer) =
-        printer.Print(func)
-        printer.Print("(")
-        printer.PrintCommaSeparatedList(this.Args)
-        printer.PrintCommaSeparatedList(this.Keywords |> List.map (fun x -> x :> AST))
-        printer.Print(")")
+    interface IPrint with
+        member x.Print(printer) =
+            printer.Print(x.Func)
+            printer.Print("(")
+            printer.PrintCommaSeparatedList(x.Args)
+            printer.PrintCommaSeparatedList(x.Keywords |> List.map (fun x -> x :> IPrint))
+            printer.Print(")")
 
-type Emit(value, ?args) =
-    inherit Expression()
+type Emit =
+    {
+        Value: string
+        Args: Expression list
+    }
 
-    member _.Value: string = value
-    member _.Args: Expression list = defaultArg args []
+    static member Create(value, ?args) : Expression =
+        {
+            Value = value
+            Args = defaultArg args []
+        } |> Emit
 
-    override this.Print(printer) =
-        let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
-            System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
+    interface IPrint with
+        member x.Print(printer) =
+            let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
+                System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
 
-        let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
-            let segmentLength = segmentEnd - segmentStart
-            if segmentLength > 0 then
-                let segment = value.Substring(segmentStart, segmentLength)
-                let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
-                for i = 1 to subSegments.Length do
-                    let subSegment =
-                        // Remove whitespace in front of new lines,
-                        // indent will be automatically applied
-                        if printer.Column = 0 then subSegments.[i - 1].TrimStart()
-                        else subSegments.[i - 1]
-                    if subSegment.Length > 0 then
-                        printer.Print(subSegment)
-                        if i < subSegments.Length then
-                            printer.PrintNewLine()
+            let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
+                let segmentLength = segmentEnd - segmentStart
+                if segmentLength > 0 then
+                    let segment = value.Substring(segmentStart, segmentLength)
+                    let subSegments = System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
+                    for i = 1 to subSegments.Length do
+                        let subSegment =
+                            // Remove whitespace in front of new lines,
+                            // indent will be automatically applied
+                            if printer.Column = 0 then subSegments.[i - 1].TrimStart()
+                            else subSegments.[i - 1]
+                        if subSegment.Length > 0 then
+                            printer.Print(subSegment)
+                            if i < subSegments.Length then
+                                printer.PrintNewLine()
 
 
-        // Macro transformations
-        // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
-        let value =
-            value
-            |> replace @"\$(\d+)\.\.\." (fun m ->
-                let rep = ResizeArray()
-                let i = int m.Groups.[1].Value
-                for j = i to this.Args.Length - 1 do
-                    rep.Add("$" + string j)
-                String.concat ", " rep)
+            // Macro transformations
+            // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
+            let value =
+                x.Value
+                |> replace @"\$(\d+)\.\.\." (fun m ->
+                    let rep = ResizeArray()
+                    let i = int m.Groups.[1].Value
+                    for j = i to x.Args.Length - 1 do
+                        rep.Add("$" + string j)
+                    String.concat ", " rep)
 
-            |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
-                let i = int m.Groups.[1].Value
-                match this.Args.[i] with
-                | :? Constant as b -> m.Groups.[2].Value
-                | _ -> m.Groups.[3].Value)
+                |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
+                    let i = int m.Groups.[1].Value
+                    match x.Args.[i] with
+                    | Constant(c) -> m.Groups.[2].Value
+                    | _ -> m.Groups.[3].Value)
 
-            |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
-                let i = int m.Groups.[2].Value
-                match List.tryItem i this.Args with
-                | Some _ -> m.Groups.[1].Value
-                | None -> "")
+                |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
+                    let i = int m.Groups.[2].Value
+                    match List.tryItem i x.Args with
+                    | Some _ -> m.Groups.[1].Value
+                    | None -> "")
 
-        let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
-        if matches.Count > 0 then
-            for i = 0 to matches.Count - 1 do
-                let m = matches.[i]
+            let matches = System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
+            if matches.Count > 0 then
+                for i = 0 to matches.Count - 1 do
+                    let m = matches.[i]
 
-                let segmentStart =
-                    if i > 0 then matches.[i-1].Index + matches.[i-1].Length
-                    else 0
+                    let segmentStart =
+                        if i > 0 then matches.[i-1].Index + matches.[i-1].Length
+                        else 0
 
-                printSegment printer value segmentStart m.Index
+                    printSegment printer value segmentStart m.Index
 
-                let argIndex = int m.Value.[1..]
-                match List.tryItem argIndex this.Args with
-                | Some e -> printer.ComplexExpressionWithParens(e)
-                | None -> printer.Print("None")
+                    let argIndex = int m.Value.[1..]
+                    match List.tryItem argIndex x.Args with
+                    | Some e -> printer.ComplexExpressionWithParens(e)
+                    | None -> printer.Print("None")
 
-            let lastMatch = matches.[matches.Count - 1]
-            printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
-        else
-            printSegment printer value 0 value.Length
+                let lastMatch = matches.[matches.Count - 1]
+                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
+            else
+                printSegment printer value 0 value.Length
 
 
 /// lambda is a minimal function definition that can be used inside an expression. Unlike FunctionDef, body holds a
@@ -1128,35 +1579,31 @@ type Emit(value, ?args) =
 ///                 body=Constant(value=Ellipsis)))],
 ///     type_ignores=[])
 /// ```
-type Lambda(args, body) =
+type Lambda =
+    {
+        Args: Arguments
+        Body: Statement list
+    }
 
-    inherit Expression()
+    static member Create(args, body) : Expression =
+        {
+            Args = args
+            Body = body
+        } |> Lambda
 
-    member _.Args: Arguments = args
-    member _.Body: Statement list = body
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            printer.Print("lambda")
 
-    override _.Print(printer) =
-        printer.Print("lambda")
+            if (List.isEmpty >> not) x.Args.Args then
+                printer.Print(" ")
 
-        if (List.isEmpty >> not) args.Args then
-            printer.Print(" ")
+            printer.PrintCommaSeparatedList(x.Args.Args |> List.map (fun arg -> arg :> IPrint))
+            printer.Print(": ")
 
-        printer.PrintCommaSeparatedList(args.Args |> List.map (fun arg -> arg :> AST))
-        printer.Print(": ")
+            for stmt in x.Body do
+                printer.Print(stmt)
 
-        for stmt in body do
-            printer.Print(stmt)
-
-/// A variable name. id holds the name as a string, and ctx is one of the following types.
-type Name(id, ctx) =
-    inherit Expression()
-
-    member _.Id: Identifier = id
-    member _.Context: ExpressionContext = ctx
-
-    override _.Print(printer) =
-        let (Identifier name) = id
-        printer.Print(name)
 
 /// A tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an assignment target
 /// (i.e. (x,y)=something), and Load otherwise.
@@ -1171,19 +1618,27 @@ type Name(id, ctx) =
 ///             Constant(value=3)],
 ///         ctx=Load()))
 ///```
-type Tuple(elts, ?loc) =
-    inherit Expression()
+type Tuple =
+    {
+        Elements: Expression list
+        Loc: SourceLocation option
+    }
 
-    member _.Elements: Expression list = elts
+    static member Create(elts, ?loc) : Expression =
+        {
+            Elements = elts
+            Loc = loc
+        } |> Tuple
 
-    override _.Print(printer) =
-        printer.Print("(", ?loc = loc)
-        printer.PrintCommaSeparatedList(elts)
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            printer.Print("(", ?loc = x.Loc)
+            printer.PrintCommaSeparatedList(x.Elements)
 
-        if elts.Length = 1 then
-            printer.Print(",")
+            if x.Elements.Length = 1 then
+                printer.Print(",")
 
-        printer.Print(")")
+            printer.Print(")")
 
 /// A list or tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an
 /// assignment target (i.e. (x,y)=something), and Load otherwise.
@@ -1198,12 +1653,18 @@ type Tuple(elts, ?loc) =
 ///             Constant(value=3)],
 ///         ctx=Load()))
 ///```
-type List(elts) =
-    inherit Expression()
+type List =
+    {
+        Elements: Expression list
+    }
 
-    member _.Elements: Expression list = elts
+    static member Create(elts) =
+        {
+            Elements = elts
+        }
 
-    override _.Print(printer) = printer.Print("(List)")
+    interface IPrint with
+        member _.Print(printer) = printer.Print("(List)")
 
 /// A set. elts holds a list of nodes representing the set’s elements.
 ///
@@ -1217,11 +1678,10 @@ type List(elts) =
 ///             Constant(value=3)]))
 /// ```
 type Set(elts) =
-    inherit Expression()
-
     member _.Elements: Expression list = elts
 
-    override _.Print(printer) = printer.Print("(Set)")
+    interface IPrint with
+        member _.Print(printer) = printer.Print("(Set)")
 
 /// A dictionary. keys and values hold lists of nodes representing the keys and the values respectively, in matching
 /// order (what would be returned when calling dictionary.keys() and dictionary.values()).
@@ -1240,220 +1700,53 @@ type Set(elts) =
 ///             Constant(value=1),
 ///             Name(id='d', ctx=Load())]))
 /// ```
-type Dict(keys, values) =
-    inherit Expression()
+type Dict =
+    {
+        Keys: Expression list
+        Values: Expression list
+    }
 
-    member _.Keys: Expression list = keys
-    member _.Values: Expression list = values
+    static member Create(keys, values) : Expression =
+        {
+            Keys = keys
+            Values = values
+        } |> Dict
 
-    override _.Print(printer) =
-        printer.Print("{")
-        printer.PrintNewLine()
-        printer.PushIndentation()
+    interface IPrint with
+        member x.Print(printer: Printer) =
+            printer.Print("{")
+            printer.PrintNewLine()
+            printer.PushIndentation()
 
-        let nodes = List.zip keys values |> List.mapi (fun i n -> (i, n))
-        for i, (key, value) in nodes do
-            printer.Print("\"")
-            printer.Print(key)
-            printer.Print("\"")
-            printer.Print(": ")
-            printer.Print(value)
-            if i < nodes.Length - 1 then
-                printer.Print(",")
-                printer.PrintNewLine()
+            let nodes = List.zip x.Keys x.Values |> List.mapi (fun i n -> (i, n))
+            for i, (key, value) in nodes do
+                printer.Print("\"")
+                printer.Print(key)
+                printer.Print("\"")
+                printer.Print(": ")
+                printer.Print(value)
+                if i < nodes.Length - 1 then
+                    printer.Print(",")
+                    printer.PrintNewLine()
 
-        printer.PrintNewLine()
-        printer.PopIndentation()
-        printer.Print("}")
+            printer.PrintNewLine()
+            printer.PopIndentation()
+            printer.Print("}")
 
-/// A yield expression. Because these are expressions, they must be wrapped in a Expr node if the value sent back is not
-/// used.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('yield from x'), indent=4))
-/// Module(
-///     body=[
-///         Expr(
-///             value=YieldFrom(
-///                 value=Name(id='x', ctx=Load())))],
-///     type_ignores=[])
-///```
-type Yield(?value) =
-    inherit Expression()
-    member _.Value: Expression option = value
+/// A variable name. id holds the name as a string, and ctx is one of the following types.
+type Name =
+    {
+        Id: Identifier
+        Context: ExpressionContext
+    }
 
-    override _.Print(printer) = printer.Print("(Yield)")
+    static member Create(id, ctx) : Expression =
+        {
+            Id = id
+            Context = ctx
+        } |> Name
 
-/// A yield from expression. Because these are expressions, they must be wrapped in a Expr node if the value sent back
-/// is not used.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('yield from x'), indent=4))
-/// Module(
-///     body=[
-///         Expr(
-///             value=YieldFrom(
-///                 value=Name(id='x', ctx=Load())))],
-///     type_ignores=[])
-///```
-type YieldFrom(?value) =
-    inherit Expression()
-    member _.Value: Expression option = value
-
-    override _.Print(printer) = printer.Print("(YieldFrom)")
-
-//#endregion
-
-//#region Operators
-
-type Add() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" + ")
-
-type Sub() =
-    static member Pattern = "-"
-
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" - ")
-
-type Mult() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" * ")
-
-type Div() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" / ")
-
-type FloorDiv() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" // ")
-
-type Mod() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" % ")
-
-type Pow() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" ** ")
-
-type LShift() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" << ")
-
-type RShift() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" >> ")
-
-type BitOr() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" | ")
-
-type BitXor() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print(" ^ ")
-
-type BitAnd() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print($" & ")
-
-type MatMult() =
-    interface Operator with
-        member _.Print(printer: Printer) = printer.Print($" @ ")
-
-//#endregion
-
-//#region Comparison operator tokens.
-
-type Eq() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" == ")
-
-type NotEq() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" != ")
-
-type Lt() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" < ")
-
-type LtE() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" <= ")
-
-type Gt() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" > ")
-
-type GtE() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" >= ")
-
-type Is() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" is ")
-
-type IsNot() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" is not ")
-
-type In() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" in ")
-
-type NotIn() =
-    interface ComparisonOperator with
-        member _.Print(printer: Printer) = printer.Print($" not in ")
-
-//#endregion
-
-//#region  Bool Operators
-
-type And =
-    inherit BoolOperator
-
-type Or =
-    inherit BoolOperator
-
-//#region
-
-//#region Unary Operators
-
-type Invert() =
-    interface UnaryOperator with
-        member this.Print(printer) = printer.Print "~"
-
-type Not() =
-    interface UnaryOperator with
-        member this.Print(printer) = printer.Print "not "
-
-type UAdd() =
-    interface UnaryOperator with
-        member this.Print(printer) = printer.Print "+"
-
-type USub() =
-    interface UnaryOperator with
-        member this.Print(printer) = printer.Print "-"
-
-//#endregion
-
-//#region  Expression Context
-
-type Load() =
-    interface ExpressionContext
-
-    interface AST with
-        member this.Print(printer) = ()
-
-type Del()=
-    interface ExpressionContext
-
-    interface AST with
-        member this.Print(printer) = ()
-
-type Store() =
-    interface ExpressionContext
-
-    interface AST with
-        member this.Print(printer) = ()
-
-//#endregion
+    interface IPrint with
+        override x.Print(printer) =
+            let (Identifier name) = x.Id
+            printer.Print(name)

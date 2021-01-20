@@ -84,7 +84,7 @@ type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
 let run writer map (program: Module): Async<unit> =
 
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Statement) =
-        decl.Print(printer)
+        (decl :> IPrint).Print(printer)
 
         if printer.Column > 0 then
             //printer.Print(";")
@@ -97,8 +97,8 @@ let run writer map (program: Module): Async<unit> =
 
         let imports, restDecls =
             program.Body |> List.splitWhile (function
-                | :? Import
-                | :? ImportFrom -> true
+                | Import _
+                | ImportFrom _ -> true
                 | _ -> false)
 
         for decl in imports do
@@ -112,3 +112,4 @@ let run writer map (program: Module): Async<unit> =
             // TODO: Only flush every XXX lines?
             do! printer.Flush()
     }
+// If the queryItemsHandler succeeds, the queryItems will be used in a request to CDF, and the resulting aggregates will be wrapped in an OK result-type.
