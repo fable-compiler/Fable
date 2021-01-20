@@ -11,9 +11,7 @@ open Fable.AST.Python
 [<RequireQualifiedAccess>]
 type ReturnStrategy =
     | Return
-    | ReturnNone
-    //| Assign of Expression
-    //| Target of Identifier
+    | NoReturn
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -41,7 +39,7 @@ type IPythonCompiler =
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Statement -> Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Babel.Expression -> Statement list
     abstract TransformAsClassDef: Context * Babel.ClassDeclaration -> Statement list
-    abstract TransformAsImport: Context * Babel.ImportDeclaration -> Statement
+    abstract TransformAsImports: Context * Babel.ImportDeclaration -> Statement list
     //abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
 
     abstract WarnOnlyOnce: string * ?range:SourceLocation -> unit
@@ -59,7 +57,7 @@ module Helpers =
     /// Replaces all '$' with '_'
     let cleanNameAsPythonIdentifier (name: string) = name.Replace('$', '_')
 
-    let rewriteFableImport moduleName specifiers =
+    let rewriteFableImport moduleName =
         let _reFableLib =
             Regex(".*\/fable-library[\.0-9]*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
 
@@ -69,14 +67,14 @@ module Helpers =
             let pymodule = m.Groups.["module"].Value.ToLower()
 
             let moduleName =
-                String.concat "." [ "expression"; "fable"; pymodule ]
+                String.concat "." [ "fable"; pymodule ]
 
-            moduleName, specifiers
+            moduleName
         else
             // TODO: Can we expect all modules to be lower case?
             let moduleName = moduleName.Replace("/", "").ToLower()
             printfn "moduleName: %s" moduleName
-            moduleName, specifiers
+            moduleName
 
     let unzipArgs (args: (Expression * Statement list) list): Expression list * Statement list =
         let stmts = args |> List.map snd |> List.collect id
@@ -113,36 +111,40 @@ module Util =
         else
             body
 
-    let transformAsImport (com: IPythonCompiler) (ctx: Context) (imp: Babel.ImportDeclaration): Statement =
+    let transformAsImports (com: IPythonCompiler) (ctx: Context) (imp: Babel.ImportDeclaration): Statement list =
+        let pymodule =
+            imp.Source.Value
+            |> Helpers.rewriteFableImport
 
-        let specifier2string (expr: Babel.ImportSpecifier) =
+        printfn "Module: %A" pymodule
+
+        let imports: ResizeArray<Alias> = ResizeArray ()
+        let importFroms = ResizeArray<Alias> ()
+
+        for expr in imp.Specifiers do
             match expr with
             | :? Babel.ImportMemberSpecifier as im ->
                 printfn "ImportMemberSpecifier"
-                im.Imported.Name, im.Local.Name
+                let alias = Alias(Identifier(im.Imported.Name), if im.Imported.Name <> im.Local.Name then Identifier(im.Local.Name) |> Some else None)
+                importFroms.Add(alias)
             | :? Babel.ImportDefaultSpecifier as ids ->
                 printfn "ImportDefaultSpecifier"
-                ids.Local.Name, ids.Local.Name
+                let alias = Alias(Identifier(pymodule), if ids.Local.Name <> pymodule then Identifier(ids.Local.Name) |> Some else None)
+                imports.Add(alias)
             | :? Babel.ImportNamespaceSpecifier as ins ->
-                printfn "ImportNamespaceSpecifier"
-                ins.Local.Name, ins.Local.Name
+                printfn "ImportNamespaceSpecifier: %A" (ins.Local.Name, ins.Local.Name)
+                let alias = Alias(Identifier(pymodule), if pymodule <> ins.Local.Name then Identifier(ins.Local.Name) |> Some else None)
+                importFroms.Add(alias)
             | _ -> failwith $"Unhandled import: {expr}"
 
-        let specifiers =
-            imp.Specifiers
-            |> List.ofArray
-            |> List.map specifier2string
+        [
+            if imports.Count > 0 then
+                Import(imports |> List.ofSeq)
 
-        let pymodule, names =
-            Helpers.rewriteFableImport imp.Source.Value specifiers
+            if importFroms.Count > 0 then
+                ImportFrom(Some(Identifier(pymodule)), importFroms |> List.ofSeq)
+        ]
 
-
-        let aliases =
-            let local = imp.Specifiers
-            names
-            |> List.map (fun (name, alias) -> Alias(Identifier(name), if alias <> name then Identifier(alias) |> Some else None))
-
-        ImportFrom(pymodule |> Identifier |> Some, aliases) :> _
 
     let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration): Statement list =
         printfn $"transformAsClassDef"
@@ -184,7 +186,7 @@ module Util =
                         let name = Identifier("__init__")
 
                         let body =
-                            com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnNone), cm.Body)
+                            com.TransformAsStatements(ctx, (Some ReturnStrategy.NoReturn), cm.Body)
 
                         FunctionDef(name, arguments, body = body)
                     | _ -> failwith $"transformAsClassDef: Unknown kind: {cm.Kind}"
@@ -265,7 +267,7 @@ module Util =
             match afe.Body.Body.Length with
             | 1 ->
                 let body =
-                    com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnNone), afe.Body)
+                    com.TransformAsStatements(ctx, (Some ReturnStrategy.NoReturn), afe.Body)
 
                 Lambda(arguments, body).AsExpr(), []
             | _ ->
@@ -278,11 +280,11 @@ module Util =
                     FunctionDef(name = name, args = arguments, body = body)
 
                 Name(name, Load()).AsExpr(), [ func ]
-        | :? Babel.CallExpression as ce -> // FIXME: use transformAsCall
-            let func, stmts = com.TransformAsExpr(ctx, ce.Callee)
+        | Babel.Patterns.CallExpression(callee, args, loc)  -> // FIXME: use transformAsCall
+            let func, stmts = com.TransformAsExpr(ctx, callee)
 
             let args, stmtArgs =
-                ce.Arguments
+                args
                 |> List.ofArray
                 |> List.map (fun arg -> com.TransformAsExpr(ctx, arg))
                 |> Helpers.unzipArgs
@@ -298,9 +300,9 @@ module Util =
             Tuple(elems).AsExpr(), stmts
         | :? Babel.NumericLiteral as nl -> Constant(value = nl.Value).AsExpr(), []
         | :? Babel.StringLiteral as sl -> Constant(value = sl.Value).AsExpr(), []
-        | :? Babel.Identifier as ident ->
+        | Babel.Patterns.Identifier(name, _, _, _) ->
             let name =
-                Helpers.cleanNameAsPythonIdentifier ident.Name
+                Helpers.cleanNameAsPythonIdentifier name
 
             Name(id = Identifier name, ctx = Load()).AsExpr(), []
         | :? Babel.NewExpression as ne -> // FIXME: use transformAsCall
@@ -330,10 +332,10 @@ module Util =
             let keys = kv |> List.map fst
             let values = kv |> List.map snd
             Dict(keys = keys, values = values).AsExpr(), []
-        | :? Babel.EmitExpression as ee ->
-            let args, stmts = ee.Args |> List.ofArray |> List.map (fun expr -> com.TransformAsExpr(ctx, expr)) |> Helpers.unzipArgs
+        | Babel.Patterns.EmitExpression(value, args, _) ->
+            let args, stmts = args |> List.ofArray |> List.map (fun expr -> com.TransformAsExpr(ctx, expr)) |> Helpers.unzipArgs
 
-            Emit(ee.Value, args).AsExpr(), stmts
+            Emit(value, args).AsExpr(), stmts
         | :? Babel.MemberExpression as me ->
             let value, stmts = com.TransformAsExpr(ctx, me.Object)
 
@@ -344,12 +346,11 @@ module Util =
                     | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
 
                 Subscript(value = value, slice = attr, ctx = Load())
-                    .AsExpr(),
-                stmts
+                    .AsExpr(), stmts
             else
                 let attr =
                     match me.Property with
-                    | :? Babel.Identifier as id -> Identifier(id.Name)
+                    | Babel.Patterns.Identifier(name, _, _, _) -> Identifier(name)
                     | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
 
                 let value =
@@ -382,14 +383,14 @@ module Util =
             match fe.Body.Body.Length with
             | 1 ->
                 let body =
-                    com.TransformAsStatements(ctx, (Some ReturnStrategy.ReturnNone), fe.Body)
+                    com.TransformAsStatements(ctx, (Some ReturnStrategy.NoReturn), fe.Body)
 
                 Lambda(arguments, body).AsExpr(), []
             | _ ->
                 let body =
                     com.TransformAsStatements(ctx, (Some ReturnStrategy.Return), fe.Body)
 
-                let name = Helpers.getIdentifier ("lifted")
+                let name = Helpers.getIdentifier "lifted"
 
                 let func =
                     FunctionDef(name = name, args = arguments, body = body)
@@ -446,7 +447,7 @@ module Util =
             let expr, stmts = transformAsExpr com ctx rtn.Argument
 
             match returnStrategy with
-            | Some ReturnStrategy.ReturnNone -> stmts @ [ Expr(expr) ]
+            | Some ReturnStrategy.NoReturn -> stmts @ [ Expr(expr) ]
             | _ -> stmts @ [ Return(expr) ]
         | :? Babel.VariableDeclaration as vd ->
             [ for vd in vd.Declarations do
@@ -528,7 +529,7 @@ module Util =
                     | :? Babel.ClassDeclaration as cd -> yield! com.TransformAsClassDef(ctx, cd)
                     | _ -> failwith $"Unhandled Declaration: {decl.Declaration}"
 
-                | :? Babel.ImportDeclaration as imp -> yield com.TransformAsImport(ctx, imp)
+                | :? Babel.ImportDeclaration as imp -> yield! com.TransformAsImports(ctx, imp)
                 | :? Babel.PrivateModuleDeclaration as pmd ->
                     let st = pmd.Statement
                     yield! com.TransformAsStatements(ctx, returnStrategy, st)
@@ -593,7 +594,7 @@ module Compiler =
 
             member bcom.TransformAsClassDef(ctx, cls) = transformAsClassDef bcom ctx cls
             //member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
-            member bcom.TransformAsImport(ctx, imp) = transformAsImport bcom ctx imp
+            member bcom.TransformAsImports(ctx, imp) = transformAsImports bcom ctx imp
 
         interface Compiler with
             member _.Options = com.Options
