@@ -108,8 +108,10 @@ module Helpers =
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature
     [<Emit("$1.sort($0)")>]
-    let inline sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit =
-        !!array?sort(comparer)
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = jsNative //!!array?sort(comparer)
+
+    [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]
+    let copyToTypedArray (src: 'T[]) (srci: int) (trg: 'T[]) (trgi: int) (cnt: int): unit = jsNative
 
 open Helpers
 
@@ -438,6 +440,14 @@ let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
     let diff = targetIndex - sourceIndex
     for i = sourceIndex to sourceIndex + count - 1 do
         target.[i + diff] <- source.[i]
+
+// More performant method to copy arrays, see #2352
+let copyToTypedArray (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
+    try
+        Helpers.copyToTypedArray source sourceIndex target targetIndex count
+    with _ ->
+        // If these are not typed arrays (e.g. they come from JS), default to `copyTo`
+        copyTo source sourceIndex target targetIndex count
 
 let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) =
     let start = defaultArg start 0
