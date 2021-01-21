@@ -1811,10 +1811,10 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Rest", Some x -> Get(x, TupleIndex 7, t, r) |> Some
     | _ -> None
 
-let copyToArray com r t (i: CallInfo) args =
+let copyToArray (com: ICompiler) r t (i: CallInfo) args =
     let method =
         match args with
-        | ExprType(Array(Number _))::_ -> "copyToTypedArray"
+        | ExprType(Array(Number _))::_ when com.Options.TypedArrays -> "copyToTypedArray"
         | _ -> "copyTo"
     Helper.LibCall(com, "Array", method, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
