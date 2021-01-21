@@ -110,10 +110,6 @@ module PrinterExtensions =
         member printer.PrintCommaSeparatedList(nodes: Expression list) =
             printer.PrintList(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
 
-        // member printer.PrintCommaSeparatedArray(nodes: #Node array) =
-//     printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-
-
         member printer.PrintFunction
             (
                 id: Identifier option,
@@ -131,63 +127,6 @@ module PrinterExtensions =
             printer.Print(":")
             printer.PrintBlock(body, skipNewLineAtEnd = true)
 
-        //     let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
-//         Array.zip passedArgs appliedAgs
-//         |> Array.forall (function
-//             | (:? Identifier as p), (:? Identifier as a) -> p.Name = a.Name
-//             | _ -> false)
-
-        //     let isDeclaration = defaultArg isDeclaration false
-//     let isArrow = defaultArg isArrow false
-
-        //     printer.AddLocation(loc)
-
-        //     // Check if we can remove the function
-//     let skipExpr =
-//         match body.Body with
-//         | [|:? ReturnStatement as r|] when not isDeclaration ->
-//             match r.Argument with
-//             | :? CallExpression as c when parameters.Length = c.Arguments.Length ->
-//                 // To be sure we're not running side effects when deleting the function,
-//                 // check the callee is an identifier (accept non-computed member expressions too?)
-//                 match c.Callee with
-//                 | :? Identifier when areEqualPassedAndAppliedArgs parameters c.Arguments ->
-//                     Some c.Callee
-//                 | _ -> None
-//             | _ -> None
-//         | _ -> None
-
-        //     match skipExpr with
-//     | Some e -> e.Print(printer)
-//     | None ->
-//         if false then //isArrow then
-//             // Remove parens if we only have one argument? (and no annotation)
-//             printer.PrintOptional(typeParameters)
-//             printer.Print("lambda-inline ")
-//             printer.PrintCommaSeparatedArray(parameters)
-//             printer.PrintOptional(returnType)
-//             printer.Print(": ")
-//             match body.Body with
-//             | [|:? ReturnStatement as r |] ->
-//                 match r.Argument with
-//                 | :? ObjectExpression as e -> printer.WithParens(e)
-//                 | :? MemberExpression as e ->
-//                     match e.Object with
-//                     | :? ObjectExpression -> e.Print(printer, objectWithParens=true)
-//                     | _ -> e.Print(printer)
-//                 | _ -> printer.ComplexExpressionWithParens(r.Argument)
-//             | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
-//         else
-//             printer.Print("def ")
-//             printer.PrintOptional(id)
-//             printer.PrintOptional(typeParameters)
-//             printer.Print("(")
-//             printer.PrintCommaSeparatedArray(parameters)
-//             printer.Print(")")
-//             printer.PrintOptional(returnType)
-//             printer.Print(":")
-//             printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
-
         member printer.WithParens(expr: Expression) =
             printer.Print("(")
             printer.Print(expr)
@@ -203,11 +142,7 @@ module PrinterExtensions =
             printfn "Expr: %A" expr
 
             match expr with
-            // | :? Undefined
-            // | :? NullLiteral
             | Constant (_) -> printer.Print(expr)
-            // | :? BooleanLiteral
-            // | :? NumericLiteral
             | Name (_) -> printer.Print(expr)
             // | :? MemberExpression
             // | :? CallExpression
@@ -416,7 +351,6 @@ type ExpressionContext =
 
 type Identifier =
     | Identifier of string
-
 
 
     interface IPrint with
