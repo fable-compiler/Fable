@@ -1492,6 +1492,14 @@ module Util =
                 | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
                     let t = treeExpr.Type
                     let cases = groupSwitchCases t cases
+                    let cases =
+                        // Check if the last case can also be grouped with the default branch, see #2357
+                        if List.isEmpty defaultBoundValues && not(List.isEmpty cases) then
+                            match List.splitLast cases with
+                            | cases, (_, Fable.DecisionTreeSuccess(idx, [], _))
+                                when idx = defaultIndex -> cases
+                            | _ -> cases
+                        else cases
                     let ctx = { ctx with DecisionTargets = targets }
                     let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
                     [|transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)|]

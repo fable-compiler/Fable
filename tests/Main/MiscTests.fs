@@ -1009,6 +1009,17 @@ let tests =
         | _ -> failwith "never"
         |> equal "One"
 
+    testCase "Pattern matching with same result for last pattern and wildcard works" <| fun () -> // #2357
+        let x = 10
+        let y =
+            match x with
+            | 1
+            | 2
+            | 3
+            | 4
+            | _ -> 5
+        equal 5 y
+
     testCase "FSharpRef can be used in properties" <| fun () -> // See #521
         let r = ref false
         let x = TestRef r
