@@ -12,7 +12,7 @@ open Fable.AST.Python
 type ReturnStrategy =
     | Return
     | NoReturn
-    | NoBreak
+    | NoBreak    // Used in switch statement blocks
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -34,6 +34,8 @@ type Context =
         TailCallOpportunity: ITailCallOpportunity option
         OptimizeTailCall: unit -> unit
         ScopedTypeParams: Set<string>
+
+
     }
 
 type IPythonCompiler =
@@ -303,17 +305,16 @@ module Util =
 
             let stmts = afe.Body.Body // TODO: Babel AST should be fixed. Body does not have to be a BlockStatement.
 
-            if stmts.Length = 1
-               && (stmts.[0] :? Babel.ReturnStatement) then
-                let body =
-                    com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, afe.Body)
-
-                Lambda.Create(arguments, body), []
-            else
+            match stmts with
+            | [| stmt |] when (stmt :? Babel.ReturnStatement) ->
+                let rtn = stmt :?> Babel.ReturnStatement
+                let body, stmts = com.TransformAsExpr(ctx, rtn.Argument)
+                Lambda.Create(arguments, body), stmts
+            | _ ->
                 let body =
                     com.TransformAsStatements(ctx, ReturnStrategy.Return, afe.Body)
 
-                let name = Helpers.getIdentifier ("lifted")
+                let name = Helpers.getIdentifier "lifted"
 
                 let func =
                     FunctionDef.Create(name = name, args = arguments, body = body)
@@ -420,12 +421,11 @@ module Util =
 
             let arguments = Arguments.Create(args = args)
 
-            match fe.Body.Body.Length with
-            | 1 ->
-                let body =
-                    com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, fe.Body)
-
-                Lambda.Create(arguments, body), []
+            match fe.Body.Body with
+            | [| stmt |] when (stmt :? Babel.ExpressionStatement) ->
+                let expr = stmt :?> Babel.ExpressionStatement
+                let body, stmts = com.TransformAsExpr(ctx, expr.Expression)
+                Lambda.Create(arguments, body), stmts
             | _ ->
                 let body =
                     com.TransformAsStatements(ctx, ReturnStrategy.Return, fe.Body)
@@ -597,8 +597,14 @@ module Util =
                         Name.Create(Identifier("Exception"), ctx = Load)
                         |> Some
 
+                    // Insert a ex.message = str(ex) for all aliased exceptions.
                     let identifier = Identifier(cc.Param.Name)
-
+                    let idName = Name.Create(identifier, Load)
+                    let message = Identifier("message")
+                    let trg = Attribute.Create(idName, message, Store)
+                    let value = Call.Create(Name.Create(Identifier("str"), Load), [idName])
+                    let msg = Assign.Create([trg], value)
+                    let body =  msg :: body
                     let handlers =
                         [ ExceptHandler.Create(``type`` = exn, name = identifier, body = body) ]
 

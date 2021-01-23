@@ -1646,7 +1646,7 @@ type IfExp =
 type Lambda =
     {
         Args: Arguments
-        Body: Statement list
+        Body: Expression
     }
 
     static member Create(args, body): Expression = { Args = args; Body = body } |> Lambda
@@ -1661,8 +1661,7 @@ type Lambda =
             printer.PrintCommaSeparatedList(x.Args.Args |> List.map (fun arg -> arg :> IPrint))
             printer.Print(": ")
 
-            for stmt in x.Body do
-                printer.Print(stmt)
+            printer.Print(x.Body)
 
 
 /// A tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an assignment target
