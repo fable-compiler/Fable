@@ -106,16 +106,17 @@ module Helpers =
         | _ -> Some stmt
 
 module Util =
-    let transformBody (returnStrategy: ReturnStrategy) (body: Statement list) =
+    let rec transformBody (returnStrategy: ReturnStrategy) (body: Statement list) =
         let body =
             body
             |> List.choose Helpers.isProductiveStatement
-            |> List.filter (fun x -> not (returnStrategy = ReturnStrategy.NoBreak && x = Break))
 
         match body, returnStrategy with
         | [], ReturnStrategy.Return -> [ Return.Create() ]
         | [], ReturnStrategy.NoBreak
         | [], ReturnStrategy.NoReturn -> [ Pass ]
+        | xs, ReturnStrategy.NoBreak ->
+            xs |> List.filter (fun x -> x <> Break) |> transformBody ReturnStrategy.NoReturn
         | _ -> body
 
     let transformAsImports (com: IPythonCompiler) (ctx: Context) (imp: Babel.ImportDeclaration): Statement list =
@@ -556,7 +557,7 @@ module Util =
             [ Try.Create(body=body, handlers=handlers, ?finalBody=finalBody) ]
         | :? Babel.SwitchStatement as ss ->
             let value, stmts = com.TransformAsExpr(ctx, ss.Discriminant)
-            let rec caser (cases: Babel.SwitchCase list) : Statement list option =
+            let rec ifThenElse (fallThrough: Expression option) (cases: Babel.SwitchCase list) : Statement list option =
                 match cases with
                 | [] -> None
                 | case :: cases ->
@@ -564,15 +565,24 @@ module Util =
                         case.Consequent
                         |> List.ofArray
                         |> List.collect (fun x -> com.TransformAsStatements(ctx, ReturnStrategy.NoBreak, x))
-                    let expr =
-                        match case.Test with
-                        | None -> Constant.Create(true)
-                        | Some test ->
-                            let test, st = com.TransformAsExpr(ctx, test)
-                            Compare.Create(left=value, ops=[Eq], comparators=[test])
-                    [ If.Create(test=expr, body=body, ?orelse=caser cases) ] |> Some
+                    match case.Test with
+                    | None ->
+                        body |> Some
+                    | Some test ->
+                        let test, st = com.TransformAsExpr(ctx, test)
+                        let expr = Compare.Create(left=value, ops=[Eq], comparators=[test])
+                        let test =
+                            match fallThrough with
+                            | Some ft ->
+                                BoolOp.Create(op=Or, values=[ft; expr])
+                            | _ -> expr
+                        // Check for fallthrough
+                        if body.IsEmpty then
+                            ifThenElse (Some test) cases
+                        else
+                            [ If.Create(test=test, body=body, ?orelse=ifThenElse None cases) ] |> Some
 
-            let result = ss.Cases |> List.ofArray |> caser
+            let result = ss.Cases |> List.ofArray |> ifThenElse None
             match result with
             | Some ifStmt -> stmts @ ifStmt
             | None -> []

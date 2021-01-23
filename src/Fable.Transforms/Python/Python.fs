@@ -196,6 +196,7 @@ type AST =
 type Expression =
     | Attribute of Attribute
     | Subscript of Subscript
+    | BoolOp of BoolOp
     | BinOp of BinOp
     /// A yield from expression. Because these are expressions, they must be wrapped in a Expr node if the value sent
     /// back is not used.
@@ -226,6 +227,7 @@ type Expression =
             match x with
             | Attribute (ex) -> printer.Print(ex)
             | Subscript (ex) -> printer.Print(ex)
+            | BoolOp (ex) -> printer.Print(ex)
             | BinOp (ex) -> printer.Print(ex)
             | Emit (ex) -> printer.Print(ex)
             | UnaryOp (ex) -> printer.Print(ex)
@@ -286,8 +288,8 @@ type BoolOperator =
         member x.Print(printer: Printer) =
             let op =
                 match x with
-                | And -> "and"
-                | Or -> "or"
+                | And -> " and "
+                | Or -> " or "
 
             printer.Print(op)
 
@@ -943,13 +945,26 @@ type If =
 
     interface IPrint with
         member x.Print(printer) =
+            let rec printElse el =
+                match el with
+                | [] -> ()
+                | [If iff ] ->
+                    printer.Print("elif ")
+                    printer.Print(iff.Test)
+                    printer.Print(":")
+                    printer.PrintBlock(iff.Body)
+                    printElse iff.Else
+                | xs ->
+                    printer.Print("else: ")
+                    printer.PrintBlock(xs)
+
+
             printer.Print("if ")
             printer.Print(x.Test)
             printer.Print(":")
             printer.PrintBlock(x.Body)
-            if not (List.isEmpty x.Else) then
-                printer.Print("else: ")
-                printer.PrintBlock(x.Else)
+            printElse x.Else
+
 
 /// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
 /// raise. cause is the optional part for y in raise x from y.
@@ -1277,6 +1292,28 @@ type BinOp =
 
     interface IPrint with
         member this.Print(printer) = printer.PrintOperation(this.Left, this.Operator, this.Right)
+
+
+type BoolOp =
+    {
+        Values: Expression list
+        Operator: BoolOperator
+    }
+
+    static member Create(op, values): Expression =
+        {
+            Values = values
+            Operator = op
+        }
+        |> BoolOp
+
+    interface IPrint with
+
+        member this.Print(printer) =
+            for i, value in this.Values |> List.indexed do
+                printer.ComplexExpressionWithParens(value)
+                if i < this.Values.Length - 1 then
+                   printer.Print(this.Operator)
 
 /// A comparison of two or more values. left is the first value in the comparison, ops the list of operators, and
 /// comparators the list of values after the first element in the comparison.
