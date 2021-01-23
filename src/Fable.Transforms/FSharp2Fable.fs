@@ -1137,11 +1137,13 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     usedNames
                 else
-                    let entName = getEntityDeclarationName com entRef
-                    addUsedRootName com entName usedNames
-                    // Fable will inject an extra declaration for reflection,
-                    // so add also the name with the reflection suffix
-                    |> addUsedRootName com (entName + Naming.reflectionSuffix)
+                    match getEntityDeclarationName com entRef with
+                    | "" -> usedNames
+                    | entName ->
+                        addUsedRootName com entName usedNames
+                        // Fable will inject an extra declaration for reflection,
+                        // so add also the name with the reflection suffix
+                        |> addUsedRootName com (entName + Naming.reflectionSuffix)
             | sub ->
                 getUsedRootNames com usedNames sub
         | MemberOrFunctionOrValue(memb,_,_) ->
@@ -1164,12 +1166,17 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                 if isErasedOrStringEnumEntity ent || isGlobalOrImportedEntity ent then
                     []
                 else
-                    [Fable.ClassDeclaration
-                        { Name = getEntityDeclarationName com entFullName
-                          Entity = entFullName
-                          Constructor = None
-                          BaseCall = None
-                          AttachedMembers = [] }]
+                    // If the file is empty F# creates a class for the module, but Fable clears the name
+                    // because it matches the root module so it becomes invalid JS, see #2350
+                    match getEntityDeclarationName com entFullName with
+                    | "" -> []
+                    | name ->
+                        [Fable.ClassDeclaration
+                            { Name = name
+                              Entity = entFullName
+                              Constructor = None
+                              BaseCall = None
+                              AttachedMembers = [] }]
             | sub ->
                 transformDeclarations com ctx sub
         | MemberOrFunctionOrValue(meth, args, body) ->
