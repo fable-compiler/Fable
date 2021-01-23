@@ -177,6 +177,7 @@ type AST =
     | Arg of Arg
 
 
+
     interface IPrint with
         member x.Print(printer: Printer) =
             match x with
@@ -218,6 +219,7 @@ type Expression =
     | Tuple of Tuple
 
 
+
     // member val Lineno: int = 0 with get, set
     // member val ColOffset: int = 0 with get, set
     // member val EndLineno: int option = None with get, set
@@ -233,7 +235,7 @@ type Expression =
             | UnaryOp (ex) -> printer.Print(ex)
             | FormattedValue (ex) -> printer.Print(ex)
             | Constant (ex) -> printer.Print(ex)
-            | IfExp(ex) -> printer.Print(ex)
+            | IfExp (ex) -> printer.Print(ex)
             | Call (ex) -> printer.Print(ex)
             | Lambda (ex) -> printer.Print(ex)
             | Name (ex) -> printer.Print(ex)
@@ -257,6 +259,7 @@ type Operator =
     | BitXor
     | BitAnd
     | MatMult
+
 
 
     interface IPrint with
@@ -284,6 +287,7 @@ type BoolOperator =
     | Or
 
 
+
     interface IPrint with
         member x.Print(printer: Printer) =
             let op =
@@ -305,6 +309,7 @@ type ComparisonOperator =
     | IsNot
     | In
     | NotIn
+
 
 
     interface IPrint with
@@ -331,6 +336,7 @@ type UnaryOperator =
     | USub
 
 
+
     interface IPrint with
         member this.Print(printer) =
             let op =
@@ -348,11 +354,13 @@ type ExpressionContext =
     | Store
 
 
+
     interface IPrint with
         member this.Print(printer) = ()
 
 type Identifier =
     | Identifier of string
+
 
 
     interface IPrint with
@@ -380,6 +388,7 @@ type Statement =
     | Pass
     | Break
     | Continue
+
 
 
     // member val Lineno: int = 0 with get, set
@@ -535,7 +544,6 @@ type Arg =
         Annotation: Expression option
         TypeComment: string option
     }
-
 
     static member Create(arg, ?annotation, ?typeComment) =
         {
@@ -945,10 +953,11 @@ type If =
 
     interface IPrint with
         member x.Print(printer) =
-            let rec printElse el =
-                match el with
-                | [] -> ()
-                | [If iff ] ->
+            let rec printElse stmts =
+                match stmts with
+                | []
+                | [ Pass ] -> ()
+                | [ If iff ] ->
                     printer.Print("elif ")
                     printer.Print(iff.Test)
                     printer.Print(":")
@@ -1300,20 +1309,16 @@ type BoolOp =
         Operator: BoolOperator
     }
 
-    static member Create(op, values): Expression =
-        {
-            Values = values
-            Operator = op
-        }
-        |> BoolOp
+    static member Create(op, values): Expression = { Values = values; Operator = op } |> BoolOp
 
     interface IPrint with
 
         member this.Print(printer) =
             for i, value in this.Values |> List.indexed do
                 printer.ComplexExpressionWithParens(value)
+
                 if i < this.Values.Length - 1 then
-                   printer.Print(this.Operator)
+                    printer.Print(this.Operator)
 
 /// A comparison of two or more values. left is the first value in the comparison, ops the list of operators, and
 /// comparators the list of values after the first element in the comparison.
@@ -1602,12 +1607,13 @@ type IfExp =
         OrElse: Expression
     }
 
-    static member Create(test, body, orElse) : Expression =
+    static member Create(test, body, orElse): Expression =
         {
             Test = test
             Body = body
             OrElse = orElse
-        } |> IfExp
+        }
+        |> IfExp
 
     interface IPrint with
         member x.Print(printer: Printer) =

@@ -20,17 +20,21 @@ type ITailCallOpportunity =
     abstract IsRecursiveRef: Fable.Expr -> bool
 
 type UsedNames =
-    { RootScope: HashSet<string>
-      DeclarationScopes: HashSet<string>
-      CurrentDeclarationScope: HashSet<string> }
+    {
+        RootScope: HashSet<string>
+        DeclarationScopes: HashSet<string>
+        CurrentDeclarationScope: HashSet<string>
+    }
 
 type Context =
-    { //UsedNames: UsedNames
-      DecisionTargets: (Fable.Ident list * Fable.Expr) list
-      HoistVars: Fable.Ident list -> bool
-      TailCallOpportunity: ITailCallOpportunity option
-      OptimizeTailCall: unit -> unit
-      ScopedTypeParams: Set<string> }
+    {
+        //UsedNames: UsedNames
+        DecisionTargets: (Fable.Ident list * Fable.Expr) list
+        HoistVars: Fable.Ident list -> bool
+        TailCallOpportunity: ITailCallOpportunity option
+        OptimizeTailCall: unit -> unit
+        ScopedTypeParams: Set<string>
+    }
 
 type IPythonCompiler =
     inherit Compiler
@@ -107,21 +111,20 @@ module Helpers =
 
 module Util =
     let rec transformBody (returnStrategy: ReturnStrategy) (body: Statement list) =
-        let body =
-            body
-            |> List.choose Helpers.isProductiveStatement
+        let body = body |> List.choose Helpers.isProductiveStatement
 
         match body, returnStrategy with
         | [], ReturnStrategy.Return -> [ Return.Create() ]
         | [], ReturnStrategy.NoBreak
         | [], ReturnStrategy.NoReturn -> [ Pass ]
         | xs, ReturnStrategy.NoBreak ->
-            xs |> List.filter (fun x -> x <> Break) |> transformBody ReturnStrategy.NoReturn
+            xs
+            |> List.filter (fun x -> x <> Break)
+            |> transformBody ReturnStrategy.NoReturn
         | _ -> body
 
     let transformAsImports (com: IPythonCompiler) (ctx: Context) (imp: Babel.ImportDeclaration): Statement list =
-        let pymodule =
-            imp.Source.Value |> Helpers.rewriteFableImport
+        let pymodule = imp.Source.Value |> Helpers.rewriteFableImport
 
         printfn "Module: %A" pymodule
 
@@ -171,11 +174,13 @@ module Util =
                 importFroms.Add(alias)
             | _ -> failwith $"Unhandled import: {expr}"
 
-        [ if imports.Count > 0 then
-              Import.Create(imports |> List.ofSeq)
+        [
+            if imports.Count > 0 then
+                Import.Create(imports |> List.ofSeq)
 
-          if importFroms.Count > 0 then
-              ImportFrom.Create(Some(Identifier(pymodule)), importFroms |> List.ofSeq) ]
+            if importFroms.Count > 0 then
+                ImportFrom.Create(Some(Identifier(pymodule)), importFroms |> List.ofSeq)
+        ]
 
 
     let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration): Statement list =
@@ -191,46 +196,46 @@ module Util =
             | None -> [], []
 
         let body: Statement list =
-            [ for mber in cls.Body.Body do
-                match mber with
-                | :? Babel.ClassMethod as cm ->
-                    let self = Arg.Create(Identifier("self"))
+            [
+                for mber in cls.Body.Body do
+                    match mber with
+                    | :? Babel.ClassMethod as cm ->
+                        let self = Arg.Create(Identifier("self"))
 
-                    let args =
-                        cm.Params
-                        |> List.ofArray
-                        |> List.map (fun arg -> Arg.Create(Identifier(arg.Name)))
+                        let args =
+                            cm.Params
+                            |> List.ofArray
+                            |> List.map (fun arg -> Arg.Create(Identifier(arg.Name)))
 
-                    let arguments = Arguments.Create(args = self :: args)
+                        let arguments = Arguments.Create(args = self :: args)
 
-                    match cm.Kind with
-                    | "method" ->
-                        let body =
-                            com.TransformAsStatements(ctx, ReturnStrategy.Return, cm.Body)
+                        match cm.Kind with
+                        | "method" ->
+                            let body =
+                                com.TransformAsStatements(ctx, ReturnStrategy.Return, cm.Body)
 
-                        let name =
-                            match cm.Key with
-                            | :? Babel.Identifier as id -> Identifier(id.Name)
-                            | _ -> failwith "transformAsClassDef: Unknown key: {cm.Key}"
+                            let name =
+                                match cm.Key with
+                                | :? Babel.Identifier as id -> Identifier(id.Name)
+                                | _ -> failwith "transformAsClassDef: Unknown key: {cm.Key}"
 
-                        FunctionDef.Create(name, arguments, body = body)
-                    | "constructor" ->
-                        let name = Identifier("__init__")
+                            FunctionDef.Create(name, arguments, body = body)
+                        | "constructor" ->
+                            let name = Identifier("__init__")
 
-                        let body =
-                            com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, cm.Body)
+                            let body =
+                                com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, cm.Body)
 
-                        FunctionDef.Create(name, arguments, body = body)
-                    | _ -> failwith $"transformAsClassDef: Unknown kind: {cm.Kind}"
-                | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}" ]
+                            FunctionDef.Create(name, arguments, body = body)
+                        | _ -> failwith $"transformAsClassDef: Unknown kind: {cm.Kind}"
+                    | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}"
+            ]
 
         printfn $"Body length: {body.Length}: ${body}"
 
-        let name =
-            Helpers.cleanNameAsPythonIdentifier (cls.Id.Value.Name)
+        let name = Helpers.cleanNameAsPythonIdentifier (cls.Id.Value.Name)
 
-        [ yield! stmts
-          ClassDef.Create(Identifier(name), body = body, bases = bases) ]
+        [ yield! stmts; ClassDef.Create(Identifier(name), body = body, bases = bases) ]
     /// Transform Babel expression as Python expression
     let rec transformAsExpr
         (com: IPythonCompiler)
@@ -244,11 +249,9 @@ module Util =
             let left, leftStmts = com.TransformAsExpr(ctx, be.Left)
             let right, rightStmts = com.TransformAsExpr(ctx, be.Right)
 
-            let bin op =
-                BinOp.Create(left, op, right), leftStmts @ rightStmts
+            let bin op = BinOp.Create(left, op, right), leftStmts @ rightStmts
 
-            let cmp op =
-                Compare.Create(left, [ op ], [ right ]), leftStmts @ rightStmts
+            let cmp op = Compare.Create(left, [ op ], [ right ]), leftStmts @ rightStmts
 
             match be.Operator with
             | "+" -> Add |> bin
@@ -299,9 +302,12 @@ module Util =
             let arguments = Arguments.Create(args = args)
 
             let stmts = afe.Body.Body // TODO: Babel AST should be fixed. Body does not have to be a BlockStatement.
-            if stmts.Length = 1 && (stmts.[0] :? Babel.ReturnStatement) then
+
+            if stmts.Length = 1
+               && (stmts.[0] :? Babel.ReturnStatement) then
                 let body =
                     com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, afe.Body)
+
                 Lambda.Create(arguments, body), []
             else
                 let body =
@@ -349,13 +355,15 @@ module Util =
         | :? Babel.Super -> Name.Create(Identifier("super().__init__"), ctx = Load), []
         | :? Babel.ObjectExpression as oe ->
             let kv =
-                [ for prop in oe.Properties do
-                    match prop with
-                    | :? Babel.ObjectProperty as op ->
-                        let key, _ = com.TransformAsExpr(ctx, op.Key)
-                        let value, _ = com.TransformAsExpr(ctx, op.Value)
-                        key, value
-                    | _ -> failwith $"transformAsExpr: unhandled object expression property: {prop}" ]
+                [
+                    for prop in oe.Properties do
+                        match prop with
+                        | :? Babel.ObjectProperty as op ->
+                            let key, _ = com.TransformAsExpr(ctx, op.Key)
+                            let value, _ = com.TransformAsExpr(ctx, op.Value)
+                            key, value
+                        | _ -> failwith $"transformAsExpr: unhandled object expression property: {prop}"
+                ]
 
             let keys = kv |> List.map fst
             let values = kv |> List.map snd
@@ -370,8 +378,7 @@ module Util =
             match value with
             | "void $0" -> args.[0], stmts
             //| "raise %0" -> Raise.Create()
-            | _ ->
-                Emit.Create(value, args), stmts
+            | _ -> Emit.Create(value, args), stmts
         | :? Babel.MemberExpression as me ->
             let value, stmts = com.TransformAsExpr(ctx, me.Object)
 
@@ -435,10 +442,31 @@ module Util =
             let orElse, stmts3 = com.TransformAsExpr(ctx, ce.Alternate)
 
             IfExp.Create(test, body, orElse), stmts1 @ stmts2 @ stmts3
-        | :? Babel.NullLiteral -> Name.Create(Identifier("None"), ctx=Load), []
+        | :? Babel.NullLiteral -> Name.Create(Identifier("None"), ctx = Load), []
         | :? Babel.SequenceExpression as se ->
-            let exprs, stmts = se.Expressions |> List.ofArray |> List.map (fun ex -> com.TransformAsExpr(ctx, ex)) |> Helpers.unzipArgs
-            exprs.[0], stmts // FIXME
+            // Sequence expressions are tricky. We currently convert them to a function that we call w/zero arguments
+            let exprs, stmts =
+                se.Expressions
+                |> List.ofArray
+                |> List.map (fun ex -> com.TransformAsExpr(ctx, ex))
+                |> Helpers.unzipArgs
+
+            let body =
+                exprs
+                |> List.mapi
+                    (fun i n ->
+                        if i = exprs.Length - 1 then
+                            Return.Create(n) // Return the last statement
+                        else
+                            Expr.Create(n))
+
+            let name = Helpers.getIdentifier ("lifted")
+
+            let func =
+                FunctionDef.Create(name = name, args = Arguments.Create [], body = body)
+
+            let name = Name.Create(name, Load)
+            Call.Create(name), stmts @ [ func ]
         | _ -> failwith $"Unhandled value: {expr}"
 
     /// Transform Babel expressions as Python statements.
@@ -457,19 +485,27 @@ module Util =
             let targets: Expression list =
                 match ae.Left with
                 | :? Babel.Identifier as identifier ->
-                    let target = Identifier(Helpers.cleanNameAsPythonIdentifier(identifier.Name))
-                    [ Name.Create(id = target, ctx=Store) ]
+                    let target =
+                        Identifier(Helpers.cleanNameAsPythonIdentifier (identifier.Name))
+
+                    [ Name.Create(id = target, ctx = Store) ]
                 | :? Babel.MemberExpression as me ->
                     match me.Property with
                     | :? Babel.Identifier as id ->
-                        let attr = Identifier(Helpers.cleanNameAsPythonIdentifier(id.Name))
-                        [ Attribute.Create(value = Name.Create(id = Identifier("self"), ctx = Load), attr = attr, ctx = Store) ]
+                        let attr = Identifier(Helpers.cleanNameAsPythonIdentifier (id.Name))
+
+                        [
+                            Attribute.Create(
+                                value = Name.Create(id = Identifier("self"), ctx = Load),
+                                attr = attr,
+                                ctx = Store
+                            )
+                        ]
 
                     | _ -> failwith "transformExpressionAsStatements: unknown property {me.Property}"
                 | _ -> failwith $"AssignmentExpression, unknow expression: {ae.Left}"
 
-            [ yield! stmts
-              Assign.Create(targets = targets, value = value) ]
+            [ yield! stmts; Assign.Create(targets = targets, value = value) ]
 
         | _ -> failwith $"transformExpressionAsStatements: unknown expr: {expr}"
 
@@ -484,8 +520,10 @@ module Util =
 
         match stmt with
         | :? Babel.BlockStatement as bl ->
-            [ for st in bl.Body do
-                yield! com.TransformAsStatements(ctx, returnStrategy, st) ]
+            [
+                for st in bl.Body do
+                    yield! com.TransformAsStatements(ctx, returnStrategy, st)
+            ]
             |> transformBody returnStrategy
 
         | :? Babel.ReturnStatement as rtn ->
@@ -495,26 +533,30 @@ module Util =
             | ReturnStrategy.NoReturn -> stmts @ [ Expr.Create(expr) ]
             | _ -> stmts @ [ Return.Create(expr) ]
         | :? Babel.VariableDeclaration as vd ->
-            [ for vd in vd.Declarations do
-                let targets: Expression list =
-                    let name = Helpers.cleanNameAsPythonIdentifier(vd.Id.Name)
-                    [ Name.Create(id = Identifier(name), ctx = Store) ]
+            [
+                for vd in vd.Declarations do
+                    let targets: Expression list =
+                        let name = Helpers.cleanNameAsPythonIdentifier (vd.Id.Name)
+                        [ Name.Create(id = Identifier(name), ctx = Store) ]
 
-                match vd.Init with
-                | Some value ->
-                    let expr, stmts = com.TransformAsExpr(ctx, value)
-                    yield! stmts
-                    Assign.Create(targets, expr)
-                | None -> () ]
+                    match vd.Init with
+                    | Some value ->
+                        let expr, stmts = com.TransformAsExpr(ctx, value)
+                        yield! stmts
+                        Assign.Create(targets, expr)
+                    | None -> ()
+            ]
 
         | :? Babel.ExpressionStatement as es ->
             // Handle Babel expressions that we need to transforme here as Python statements
             match es.Expression with
             | :? Babel.AssignmentExpression -> com.TransformAsStatements(ctx, returnStrategy, es.Expression)
             | _ ->
-                [ let expr, stmts = com.TransformAsExpr(ctx, es.Expression)
-                  yield! stmts
-                  Expr.Create(expr) ]
+                [
+                    let expr, stmts = com.TransformAsExpr(ctx, es.Expression)
+                    yield! stmts
+                    Expr.Create(expr)
+                ]
         | :? Babel.IfStatement as iff ->
             let test, stmts = com.TransformAsExpr(ctx, iff.Test)
 
@@ -530,8 +572,7 @@ module Util =
 
                 | _ -> []
 
-            [ yield! stmts
-              If.Create(test = test, body = body, orelse = orElse) ]
+            [ yield! stmts; If.Create(test = test, body = body, orelse = orElse) ]
         | :? Babel.WhileStatement as ws ->
             let expr, stmts = com.TransformAsExpr(ctx, ws.Test)
 
@@ -539,25 +580,36 @@ module Util =
                 com.TransformAsStatements(ctx, returnStrategy, ws.Body)
                 |> transformBody ReturnStrategy.NoReturn
 
-            [ yield! stmts
-              While.Create(test = expr, body = body, orelse = []) ]
+            [ yield! stmts; While.Create(test = expr, body = body, orelse = []) ]
         | :? Babel.TryStatement as ts ->
             let body = com.TransformAsStatements(ctx, returnStrategy, ts.Block)
-            let finalBody = ts.Finalizer |> Option.map (fun f -> com.TransformAsStatements(ctx, returnStrategy, f))
+
+            let finalBody =
+                ts.Finalizer
+                |> Option.map (fun f -> com.TransformAsStatements(ctx, returnStrategy, f))
+
             let handlers =
                 match ts.Handler with
                 | Some cc ->
                     let body = com.TransformAsStatements(ctx, returnStrategy, cc.Body)
-                    let exn = Name.Create(Identifier("Exception"), ctx=Load) |> Some
+
+                    let exn =
+                        Name.Create(Identifier("Exception"), ctx = Load)
+                        |> Some
+
                     let identifier = Identifier(cc.Param.Name)
-                    let handlers = [ ExceptHandler.Create(``type``=exn, name=identifier, body=body) ]
+
+                    let handlers =
+                        [ ExceptHandler.Create(``type`` = exn, name = identifier, body = body) ]
+
                     handlers
                 | _ -> []
 
-            [ Try.Create(body=body, handlers=handlers, ?finalBody=finalBody) ]
+            [ Try.Create(body = body, handlers = handlers, ?finalBody = finalBody) ]
         | :? Babel.SwitchStatement as ss ->
             let value, stmts = com.TransformAsExpr(ctx, ss.Discriminant)
-            let rec ifThenElse (fallThrough: Expression option) (cases: Babel.SwitchCase list) : Statement list option =
+
+            let rec ifThenElse (fallThrough: Expression option) (cases: Babel.SwitchCase list): Statement list option =
                 match cases with
                 | [] -> None
                 | case :: cases ->
@@ -565,24 +617,28 @@ module Util =
                         case.Consequent
                         |> List.ofArray
                         |> List.collect (fun x -> com.TransformAsStatements(ctx, ReturnStrategy.NoBreak, x))
+
                     match case.Test with
-                    | None ->
-                        body |> Some
+                    | None -> body |> Some
                     | Some test ->
                         let test, st = com.TransformAsExpr(ctx, test)
-                        let expr = Compare.Create(left=value, ops=[Eq], comparators=[test])
+
+                        let expr =
+                            Compare.Create(left = value, ops = [ Eq ], comparators = [ test ])
+
                         let test =
                             match fallThrough with
-                            | Some ft ->
-                                BoolOp.Create(op=Or, values=[ft; expr])
+                            | Some ft -> BoolOp.Create(op = Or, values = [ ft; expr ])
                             | _ -> expr
                         // Check for fallthrough
                         if body.IsEmpty then
                             ifThenElse (Some test) cases
                         else
-                            [ If.Create(test=test, body=body, ?orelse=ifThenElse None cases) ] |> Some
+                            [ If.Create(test = test, body = body, ?orelse = ifThenElse None cases) ]
+                            |> Some
 
             let result = ss.Cases |> List.ofArray |> ifThenElse None
+
             match result with
             | Some ifStmt -> stmts @ ifStmt
             | None -> []
@@ -594,47 +650,47 @@ module Util =
         let returnStrategy = ReturnStrategy.NoReturn
 
         let stmt: Statement list =
-            [ for md in body do
-                match md with
-                | :? Babel.ExportNamedDeclaration as decl ->
-                    match decl.Declaration with
-                    | :? Babel.VariableDeclaration as decl ->
-                        for decls in decl.Declarations do
-                            let value, stmts =
-                                com.TransformAsExpr(ctx, decls.Init.Value)
+            [
+                for md in body do
+                    match md with
+                    | :? Babel.ExportNamedDeclaration as decl ->
+                        match decl.Declaration with
+                        | :? Babel.VariableDeclaration as decl ->
+                            for decls in decl.Declarations do
+                                let value, stmts = com.TransformAsExpr(ctx, decls.Init.Value)
 
-                            let targets: Expression list =
-                                let name = Helpers.cleanNameAsPythonIdentifier(decls.Id.Name)
-                                [ Name.Create(id = Identifier(name), ctx = Store) ]
+                                let targets: Expression list =
+                                    let name = Helpers.cleanNameAsPythonIdentifier (decls.Id.Name)
+                                    [ Name.Create(id = Identifier(name), ctx = Store) ]
 
-                            yield! stmts
-                            yield Assign.Create(targets = targets, value = value)
-                    | :? Babel.FunctionDeclaration as fd ->
-                        let args =
-                            fd.Params
-                            |> List.ofArray
-                            |> List.map (fun pattern ->
-                                let name = Helpers.cleanNameAsPythonIdentifier(pattern.Name)
-                                Arg.Create(Identifier(name)))
+                                yield! stmts
+                                yield Assign.Create(targets = targets, value = value)
+                        | :? Babel.FunctionDeclaration as fd ->
+                            let args =
+                                fd.Params
+                                |> List.ofArray
+                                |> List.map
+                                    (fun pattern ->
+                                        let name = Helpers.cleanNameAsPythonIdentifier (pattern.Name)
+                                        Arg.Create(Identifier(name)))
 
-                        let arguments = Arguments.Create(args = args)
+                            let arguments = Arguments.Create(args = args)
 
-                        let body =
-                            com.TransformAsStatements(ctx, returnStrategy, fd.Body)
+                            let body = com.TransformAsStatements(ctx, returnStrategy, fd.Body)
 
-                        let name =
-                            Helpers.cleanNameAsPythonIdentifier(fd.Id.Name)
+                            let name = Helpers.cleanNameAsPythonIdentifier (fd.Id.Name)
 
-                        yield FunctionDef.Create(Identifier(name), arguments, body = body)
-                    | :? Babel.ClassDeclaration as cd -> yield! com.TransformAsClassDef(ctx, cd)
-                    | _ -> failwith $"Unhandled Declaration: {decl.Declaration}"
+                            yield FunctionDef.Create(Identifier(name), arguments, body = body)
+                        | :? Babel.ClassDeclaration as cd -> yield! com.TransformAsClassDef(ctx, cd)
+                        | _ -> failwith $"Unhandled Declaration: {decl.Declaration}"
 
-                | :? Babel.ImportDeclaration as imp -> yield! com.TransformAsImports(ctx, imp)
-                | :? Babel.PrivateModuleDeclaration as pmd ->
-                    yield!
-                        com.TransformAsStatements(ctx, returnStrategy, pmd.Statement)
-                        |> transformBody returnStrategy
-                | _ -> failwith $"Unknown module declaration: {md}" ]
+                    | :? Babel.ImportDeclaration as imp -> yield! com.TransformAsImports(ctx, imp)
+                    | :? Babel.PrivateModuleDeclaration as pmd ->
+                        yield!
+                            com.TransformAsStatements(ctx, returnStrategy, pmd.Statement)
+                            |> transformBody returnStrategy
+                    | _ -> failwith $"Unknown module declaration: {md}"
+            ]
 
         let imports = com.GetAllImports()
         Module.Create(imports @ stmt)
@@ -652,7 +708,8 @@ module Util =
 
 module Compiler =
     open Util
-    type PythonCompiler(com: Compiler) =
+
+    type PythonCompiler (com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string, Import>()
 
@@ -661,21 +718,15 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.GetImportExpr(ctx, selector, path, r) =
-                failwith "Not implemented"
+            member _.GetImportExpr(ctx, selector, path, r) = failwith "Not implemented"
 
-            member _.GetAllImports() =
-                imports.Values
-                |> List.ofSeq
-                |> List.map Import
+            member _.GetAllImports() = imports.Values |> List.ofSeq |> List.map Import
 
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
 
-            member bcom.TransformAsStatements(ctx, ret, e) =
-                transformExpressionAsStatements bcom ctx ret e
+            member bcom.TransformAsStatements(ctx, ret, e) = transformExpressionAsStatements bcom ctx ret e
 
-            member bcom.TransformAsStatements(ctx, ret, e) =
-                transformStatementAsStatements bcom ctx ret e
+            member bcom.TransformAsStatements(ctx, ret, e) = transformStatementAsStatements bcom ctx ret e
 
             member bcom.TransformAsClassDef(ctx, cls) = transformAsClassDef bcom ctx cls
             //member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
@@ -690,8 +741,7 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
 
-            member _.GetOrAddInlineExpr(fullName, generate) =
-                com.GetOrAddInlineExpr(fullName, generate)
+            member _.GetOrAddInlineExpr(fullName, generate) = com.GetOrAddInlineExpr(fullName, generate)
 
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
 
@@ -704,10 +754,12 @@ module Compiler =
         let com = makeCompiler com :> IPythonCompiler
 
         let ctx =
-            { DecisionTargets = []
-              HoistVars = fun _ -> false
-              TailCallOpportunity = None
-              OptimizeTailCall = fun () -> ()
-              ScopedTypeParams = Set.empty }
+            {
+                DecisionTargets = []
+                HoistVars = fun _ -> false
+                TailCallOpportunity = None
+                OptimizeTailCall = fun () -> ()
+                ScopedTypeParams = Set.empty
+            }
 
         transformProgram com ctx program.Body
