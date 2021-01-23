@@ -359,20 +359,34 @@ module Util =
             Call.Create(func, args), stmts @ stmtArgs
         | :? Babel.Super -> Name.Create(Identifier("super().__init__"), ctx = Load), []
         | :? Babel.ObjectExpression as oe ->
-            let kv =
+            let keys, values, stmts =
                 [
                     for prop in oe.Properties do
                         match prop with
                         | :? Babel.ObjectProperty as op ->
-                            let key, _ = com.TransformAsExpr(ctx, op.Key)
-                            let value, _ = com.TransformAsExpr(ctx, op.Value)
-                            key, value
+                            let key, stmts1 = com.TransformAsExpr(ctx, op.Key)
+                            let value, stmts2 = com.TransformAsExpr(ctx, op.Value)
+                            key, value, stmts1 @ stmts2
+                        | :? Babel.ObjectMethod as om ->
+                            let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, om.Body)
+                            let key, stmts = com.TransformAsExpr(ctx, om.Key)
+                            let args =
+                                om.Params
+                                |> List.ofArray
+                                |> List.map (fun pattern -> Arg.Create(Identifier pattern.Name))
+
+                            let arguments = Arguments.Create(args = args)
+                            let name = Helpers.getIdentifier "lifted"
+
+                            let func =
+                                FunctionDef.Create(name = name, args = arguments, body = body)
+                            key, Name.Create(name, Load), stmts @ [func]
+
                         | _ -> failwith $"transformAsExpr: unhandled object expression property: {prop}"
                 ]
+                |> List.unzip3
 
-            let keys = kv |> List.map fst
-            let values = kv |> List.map snd
-            Dict.Create(keys = keys, values = values), []
+            Dict.Create(keys = keys, values = values), stmts |> List.collect id
         | Babel.Patterns.EmitExpression (value, args, _) ->
             let args, stmts =
                 args
