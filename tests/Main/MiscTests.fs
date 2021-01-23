@@ -440,6 +440,8 @@ type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 let inline inlineLambdaWithAnonRecord callback =
     fun () -> {| A = 1 |} |> callback
 
+let sideEffect() = ()
+
 let tests =
   testList "Miscellaneous" [
 
@@ -1017,7 +1019,9 @@ let tests =
             | 2
             | 3
             | 4
-            | _ -> 5
+            | _ ->
+                sideEffect()
+                5
         equal 5 y
 
     testCase "FSharpRef can be used in properties" <| fun () -> // See #521
