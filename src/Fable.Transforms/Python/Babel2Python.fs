@@ -12,6 +12,7 @@ open Fable.AST.Python
 type ReturnStrategy =
     | Return
     | NoReturn
+    | NoBreak
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -107,10 +108,13 @@ module Helpers =
 module Util =
     let transformBody (returnStrategy: ReturnStrategy) (body: Statement list) =
         let body =
-            body |> List.choose Helpers.isProductiveStatement
+            body
+            |> List.choose Helpers.isProductiveStatement
+            |> List.filter (fun x -> not (returnStrategy = ReturnStrategy.NoBreak && x = Break))
 
         match body, returnStrategy with
         | [], ReturnStrategy.Return -> [ Return.Create() ]
+        | [], ReturnStrategy.NoBreak
         | [], ReturnStrategy.NoReturn -> [ Pass ]
         | _ -> body
 
@@ -293,13 +297,12 @@ module Util =
 
             let arguments = Arguments.Create(args = args)
 
-            match afe.Body.Body.Length with
-            | 1 ->
+            let stmts = afe.Body.Body // TODO: Babel AST should be fixed. Body does not have to be a BlockStatement.
+            if stmts.Length = 1 && (stmts.[0] :? Babel.ReturnStatement) then
                 let body =
                     com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, afe.Body)
-
                 Lambda.Create(arguments, body), []
-            | _ ->
+            else
                 let body =
                     com.TransformAsStatements(ctx, ReturnStrategy.Return, afe.Body)
 
@@ -432,6 +435,9 @@ module Util =
 
             IfExp.Create(test, body, orElse), stmts1 @ stmts2 @ stmts3
         | :? Babel.NullLiteral -> Name.Create(Identifier("None"), ctx=Load), []
+        | :? Babel.SequenceExpression as se ->
+            let exprs, stmts = se.Expressions |> List.ofArray |> List.map (fun ex -> com.TransformAsExpr(ctx, ex)) |> Helpers.unzipArgs
+            exprs.[0], stmts // FIXME
         | _ -> failwith $"Unhandled value: {expr}"
 
     /// Transform Babel expressions as Python statements.
@@ -548,6 +554,29 @@ module Util =
                 | _ -> []
 
             [ Try.Create(body=body, handlers=handlers, ?finalBody=finalBody) ]
+        | :? Babel.SwitchStatement as ss ->
+            let value, stmts = com.TransformAsExpr(ctx, ss.Discriminant)
+            let rec caser (cases: Babel.SwitchCase list) : Statement list option =
+                match cases with
+                | [] -> None
+                | case :: cases ->
+                    let body =
+                        case.Consequent
+                        |> List.ofArray
+                        |> List.collect (fun x -> com.TransformAsStatements(ctx, ReturnStrategy.NoBreak, x))
+                    let expr =
+                        match case.Test with
+                        | None -> Constant.Create(true)
+                        | Some test ->
+                            let test, st = com.TransformAsExpr(ctx, test)
+                            Compare.Create(left=value, ops=[Eq], comparators=[test])
+                    [ If.Create(test=expr, body=body, ?orelse=caser cases) ] |> Some
+
+            let result = ss.Cases |> List.ofArray |> caser
+            match result with
+            | Some ifStmt -> stmts @ ifStmt
+            | None -> []
+        | :? Babel.BreakStatement -> [ Break ]
         | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"
 
     /// Transform Babel program to Python module.
@@ -623,26 +652,6 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, selector, path, r) =
-                let cachedName = path + "::" + selector
-                // match imports.TryGetValue(cachedName) with
-                // | true, i ->
-                //     match i.LocalIdent with
-                //     | Some localIdent -> upcast Babel.Identifier(localIdent)
-                //     | None -> upcast Babel.NullLiteral ()
-                // | false, _ ->
-                //     let localId = getIdentForImport ctx path selector
-                //     let i =
-                //       { Selector =
-                //             if selector = Naming.placeholder then
-                //                      "`importMember` must be assigned to a variable"
-                //                      |> addError com [] r; selector
-                //             else selector
-                //         Path = path
-                //         LocalIdent = localId }
-                //     imports.Add(cachedName, i)
-                //     match localId with
-                //     | Some localId -> upcast Babel.Identifier(localId)
-                //     | None -> upcast Babel.NullLiteral ()
                 failwith "Not implemented"
 
             member _.GetAllImports() =

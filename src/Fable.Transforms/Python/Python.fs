@@ -948,6 +948,7 @@ type If =
             printer.Print(":")
             printer.PrintBlock(x.Body)
             if not (List.isEmpty x.Else) then
+                printer.Print("else: ")
                 printer.PrintBlock(x.Else)
 
 /// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
@@ -1277,6 +1278,21 @@ type BinOp =
     interface IPrint with
         member this.Print(printer) = printer.PrintOperation(this.Left, this.Operator, this.Right)
 
+/// A comparison of two or more values. left is the first value in the comparison, ops the list of operators, and
+/// comparators the list of values after the first element in the comparison.
+///
+/// ```py
+/// >>> print(ast.dump(ast.parse('1 <= a < 10', mode='eval'), indent=4))
+/// Expression(
+///     body=Compare(
+///         left=Constant(value=1),
+///         ops=[
+///             LtE(),
+///             Lt()],
+///         comparators=[
+///             Name(id='a', ctx=Load()),
+///             Constant(value=10)]))
+/// `````
 type Compare =
     {
         Left: Expression
