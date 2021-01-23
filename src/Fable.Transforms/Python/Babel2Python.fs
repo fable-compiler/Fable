@@ -65,6 +65,7 @@ module Helpers =
     let cleanNameAsPythonIdentifier (name: string) =
         match name with
         | "this" -> "self" // TODO: Babel should use ThisExpression to avoid this hack.
+        | "async" -> "asyncio"
         | _ -> name.Replace('$', '_')
 
     let rewriteFableImport moduleName =
@@ -72,10 +73,8 @@ module Helpers =
             Regex(".*\/fable-library[\.0-9]*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
-        printfn "Count: %d" m.Groups.Count
-
         if m.Groups.Count > 1 then
-            let pymodule = m.Groups.["module"].Value.ToLower()
+            let pymodule = m.Groups.["module"].Value.ToLower() |> cleanNameAsPythonIdentifier
 
             let moduleName = String.concat "." [ "fable"; pymodule ]
 
@@ -301,7 +300,12 @@ module Util =
                 |> List.ofArray
                 |> List.map (fun pattern -> Arg.Create(Identifier pattern.Name))
 
-            let arguments = Arguments.Create(args = args)
+            let arguments =
+                let args =
+                    match args with
+                    | [] -> [ Arg.Create(Identifier("_"), Name.Create(Identifier("None"), Load)) ] // Need to receive unit
+                    | _ -> args
+                Arguments.Create(args = args)
 
             let stmts = afe.Body.Body // TODO: Babel AST should be fixed. Body does not have to be a BlockStatement.
 
@@ -653,7 +657,7 @@ module Util =
 
     /// Transform Babel program to Python module.
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
-        let returnStrategy = ReturnStrategy.NoReturn
+        let returnStrategy = ReturnStrategy.Return
 
         let stmt: Statement list =
             [

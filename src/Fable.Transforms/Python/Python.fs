@@ -561,6 +561,11 @@ type Arg =
         member x.Print(printer) =
             let (Identifier name) = x.Arg
             printer.Print(name)
+            match x.Annotation with
+            | Some ann -> 
+                printer.Print (" = ")
+                printer.Print(ann)
+            | _ -> ()
 
 type Keyword =
     {
