@@ -1812,15 +1812,20 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Rest", Some x -> Get(x, TupleIndex 7, t, r) |> Some
     | _ -> None
 
+let copyToArray (com: ICompiler) r t (i: CallInfo) args =
+    let method =
+        match args with
+        | ExprType(Array(Number _))::_ when com.Options.TypedArrays -> "copyToTypedArray"
+        | _ -> "copyTo"
+    Helper.LibCall(com, "Array", method, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ -> get r t arg "length" |> Some
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [idx; value] -> Set(arg, Some(ExprKey idx), value, r) |> Some
-    | "Copy", None, [source; target; count] ->
-        Helper.LibCall(com, "Array", "copyTo", t, [source; makeIntConst 0; target; makeIntConst 0; count], i.SignatureArgTypes, ?loc=r) |> Some
-    | "Copy", None, [source; sourceIndex; target; targetIndex; count] ->
-        Helper.LibCall(com, "Array", "copyTo", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
+    | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
     | "IndexOf", None, args ->
         Helper.LibCall(com, "Array", "indexOf", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "GetEnumerator", Some arg, _ -> getEnumerator com r t arg |> Some
@@ -1864,6 +1869,8 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let argTypes = List.take (List.length args) i.SignatureArgTypes
         let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
         Helper.InstanceCall(thisArg, "sort", t, [compareFn], argTypes, ?loc=r) |> Some
+    | "CopyTo", args ->
+        copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes

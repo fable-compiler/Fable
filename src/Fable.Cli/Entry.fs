@@ -281,8 +281,8 @@ let main argv =
             | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
             | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=flagEnabled "--watch" args)
             | [] -> return! Runner.Run(args, rootDir, runProc, watch=flagEnabled "--watch" args)
-            | _ -> return Log.always "Unexpected arguments. Use `fable --help` to see available options."
+            | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
     }
     |> function
         | Ok _ -> 0
-        | Error msg -> Log.always msg; 1
+        | Error msg -> Log.error msg; 1

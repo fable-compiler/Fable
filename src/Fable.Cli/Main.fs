@@ -194,7 +194,7 @@ module private Util =
                     let print outPath = async {
                         let mapPath = outPath + ".map"
                         do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                        use sw = IO.File.OpenWrite(mapPath)
+                        use sw = IO.File.Open(mapPath, IO.FileMode.Create)
                         do! Text.Json.JsonSerializer.SerializeAsync(sw, mapGenerator.toJSON()) |> Async.AwaitTask
                     }
 
