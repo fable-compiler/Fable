@@ -2678,7 +2678,11 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     let isGroup =
         match thisArg with
         | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
+          // access to named `groups` contains a null check
+        | Some (IfThenElse (_, _, ExprType (EntFullName "System.Text.RegularExpressions.Group"), _)) -> true
         | _ -> false
+    let isGroupCollection = i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection"
+
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
     | ".ctor"   -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2703,6 +2707,34 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // Match
     | "get_Groups" -> thisArg.Value |> Some
     // MatchCollection & GroupCollection
+    | "get_Item" when isGroupCollection ->
+        // can be group index or group name
+        //        `m.Groups.[0]` `m.Groups.["name"]`
+        match args |> List.head with
+        | Value (StringConstant name, _) ->
+            // name
+            (*
+              `groups` might not exist -> check first:
+                `thisArg.Value`.groups?.[`args.Head`]
+              or
+                if `thisArg.Value`.groups === undefined then
+                    undefined
+                else
+                    `thisArg.Value`.groups[`args.Head`]
+            *)
+            let groups = propStr "groups" thisArg.Value
+            let getItem = getExpr r t groups args.Head
+
+            IfThenElse (
+                isNull groups,
+                Value (Null Any, None),
+                getItem,
+                None
+            )
+            |> Some
+        | _ ->
+            // index
+            getExpr r t thisArg.Value args.Head |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some

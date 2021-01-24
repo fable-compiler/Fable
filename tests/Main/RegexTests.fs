@@ -255,4 +255,147 @@ let tests =
         let m = Regex.Match("ABC123", @"([A-Z]+)(\d+)")
         let group = m.Groups.[2]
         int (group.Value) |> equal 123
+
+    // see #2359
+    testCase "Regex.Replace with elevator works when regex has named capture group" <| fun _ ->
+        let r = Regex "0(?<number>\\d+)"
+        let text = "Number 012345!"
+
+        let replace (m: Match) =
+            m.Success |> equal true
+            m.Length |> equal 6
+            m.Groups.Count |> equal 2
+            m.Groups |> Seq.toList |> List.map (fun m -> m.Value) |> equal [ "012345"; "12345" ]
+
+            sprintf "%s" m.Groups.[1].Value
+
+        let actual = r.Replace(text, replace)
+
+        actual |> equal "Number 12345!"
+
+
+    testList "named capture group" [
+        testList "Match" [
+            testCase "succeeds when match" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+                m.Success |> equal true
+
+            testCase "doesn't succeed when unmatched" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Hello World"
+                m.Success |> equal false
+
+            testCase "can get value of existing group" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                m.Groups.["number"].Value |> equal "12345"
+
+            testCase "can get values of multiple existing groups" <| fun _ ->
+                let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+                let m = r.Match "Number: +49 1234!"
+
+                m.Groups.["country"].Value |> equal "49"
+                m.Groups.["num"].Value |> equal "1234"
+
+            testCase "doesn't succeed for not existing named group" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                m.Groups.["nothing"].Success |> equal false
+
+            testCase "doesn't succeed for not existing named group in regex without named group" <| fun _ ->
+                let r = Regex "\\d+"
+                let m = r.Match "Number 12345 is positive"
+
+                m.Groups.["nothing"].Success |> equal false
+        ]
+
+        testList "Matches" [
+            testCase "gets all matches with all named groups" <| fun _ ->
+                let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+                let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+                let expected = [
+                    ("1", "12")
+                    ("49", "456")
+                    ("44", "7890")
+                ]
+
+                let actual =
+                    r.Matches text
+                    |> Seq.map (fun m -> m.Groups.["country"].Value, m.Groups.["num"].Value)
+                    |> Seq.toList
+
+                actual |> equal expected
+        ]
+
+        testList "Replace" [
+            // `Replace` is different from `Match` & `Matches`:
+            // * `regex.Replace(input, replacement: string)`:
+            //      * access to named group in .Net is `${mygroup}`, but in JS it's `$<mygroup>`
+            // * `regex.Replace(input, evaluator: Match -> string)`:
+            //      * in JS: not one match object, but variable number of arguments -> `Match` object must be constructed in JS
+            //      * in JS: `groups` is optional
+
+            testList "replacement: string" [
+                testCase ".Net named group gets replaced" <| fun _ ->
+                    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+                    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+                    let replace (m: Match) =
+                        sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+                    let replace = "00${country}-${num}"
+
+                    let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+                    let actual = r.Replace(text, replace)
+
+                    actual |> equal expected
+            ]
+            testList "evaluator: Match -> string" [
+                testCase "can access named groups" <| fun _ ->
+                    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+                    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+                    let replace (m: Match) =
+                        sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+
+                    let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+                    let actual = r.Replace(text, replace)
+
+                    actual |> equal expected
+
+                testCase "doesn't succeed when not existing group" <| fun _ ->
+                    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+                    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+                    let replace (m: Match) =
+                        if m.Groups.["nothing"].Success then
+                            failwith "Shouldn't get group 'nothing'"
+                        else
+                            sprintf "00%s-%s" m.Groups.["country"].Value m.Groups.["num"].Value
+
+                    let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+                    let actual = r.Replace(text, replace)
+
+                    actual |> equal expected
+
+                testCase "doesn't succeed when not existing group without any named groups" <| fun _ ->
+                    let r = Regex "\\+(\\d{1,3}) (\\d+)"
+                    let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+                    let replace (m: Match) =
+                        if m.Groups.["nothing"].Success then
+                            failwith "Shouldn't get group 'nothing'"
+                        else
+                            sprintf "00%s-%s" m.Groups.[1].Value m.Groups.[2].Value
+
+                    let expected = "Numbers: 001-12; 0049-456; 0044-7890;"
+                    let actual = r.Replace(text, replace)
+
+                    actual |> equal expected
+            ]
+        ]
+    ]
   ]
