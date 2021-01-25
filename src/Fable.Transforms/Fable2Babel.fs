@@ -1393,7 +1393,7 @@ module Util =
         let ctx = { ctx with DecisionTargets = targets }
         com.TransformAsExpr(ctx, expr)
 
-    let groupSwitchCases t (cases: (Fable.Expr * int * Fable.Expr list) list) =
+    let groupSwitchCases t (cases: (Fable.Expr * int * Fable.Expr list) list) (defaultIndex, defaultBoundValues) =
         cases
         |> List.groupBy (fun (_,idx,boundValues) ->
             // Try to group cases with some target index and empty bound values
@@ -1407,6 +1407,15 @@ module Util =
             // (see `groupBy` above), so it doesn't mind which one we take as reference
             let boundValues = cases |> List.head |> Tuple3.item3
             caseExprs, Fable.DecisionTreeSuccess(idx, boundValues, t))
+        |> function
+            | [] -> []
+            // Check if the last case can also be grouped with the default branch, see #2357
+            | cases when List.isEmpty defaultBoundValues ->
+                match List.splitLast cases with
+                | cases, (_, Fable.DecisionTreeSuccess(idx, [], _))
+                    when idx = defaultIndex -> cases
+                | _ -> cases
+            | cases -> cases
 
     let getTargetsWithMultipleReferences expr =
         let rec findSuccess (targetRefs: Map<int,int>) = function
@@ -1448,7 +1457,7 @@ module Util =
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases = groupSwitchCases (Fable.Number Int32) cases
+            let cases = groupSwitchCases (Fable.Number Int32) cases (defaultIndex, defaultBoundValues)
             let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
             [|multiVarDecl; switch1; switch2|]
@@ -1491,7 +1500,7 @@ module Util =
                 match transformDecisionTreeAsSwitch treeExpr with
                 | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
                     let t = treeExpr.Type
-                    let cases = groupSwitchCases t cases
+                    let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
                     let ctx = { ctx with DecisionTargets = targets }
                     let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
                     [|transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)|]
