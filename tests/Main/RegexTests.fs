@@ -310,6 +310,52 @@ let tests =
                 let m = r.Match "Number 12345 is positive"
 
                 m.Groups.["nothing"].Success |> equal false
+
+            testCase "doesn't succeed for existing unmatched group" <| fun _ ->
+                let r = Regex "(?<exact>42)|(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                m.Groups.["exact"].Success |> equal false
+
+
+#if FABLE_COMPILER
+            testList "on not existing group" [
+                // tests to ensure all not existing groups return same value (`undefined`)
+                let isUndefined (x: obj) = Fable.Core.JsInterop.emitJsExpr<bool> x "$0 === undefined"
+                let equalUndefined (x: obj) = isUndefined x |> equal true
+
+                testCase "not existing indexed group" <| fun _ ->
+                    let r = Regex "\\d+"
+                    let m = r.Match "Number 12345 is positive"
+
+                    let g = m.Groups.[42]
+                    g |> equalUndefined
+
+                testCase "not existing named grouped with other named groups" <| fun _ ->
+                    let r = Regex "(?<number>\\d+)"
+                    let m = r.Match "Number 12345 is positive"
+                    // in JS: `m.groups` exists
+
+                    let g = m.Groups.["nothing"]
+                    g |> equalUndefined
+
+                testCase "not existing named grouped without named groups" <| fun _ ->
+                    let r = Regex "\\d+"
+                    let m = r.Match "Number 12345 is positive"
+                    // in JS: no `m.groups`
+
+                    let g = m.Groups.["nothing"]
+                    g |> equalUndefined
+
+                testCase "unmatched existing named group" <| fun _ ->
+                    let r = Regex "(?<exact>42)|(?<number>\\d+)"
+                    let m = r.Match "Number 12345 is positive"
+                    // in JS: `m.groups` exists, `m.groups.["exact"]` is `undefined`
+
+                    let g = m.Groups.["exact"]
+                    g |> equalUndefined
+            ]
+#endif
         ]
 
         testList "Matches" [
