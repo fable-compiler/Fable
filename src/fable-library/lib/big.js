@@ -226,7 +226,7 @@ function round(x, dp, rm, more) {
       more = xc[i] > 5 || xc[i] == 5 &&
         (more || i < 0 || xc[i + 1] !== UNDEFINED || xc[i - 1] & 1);
     } else if (rm === 3) {
-      more = more || !!xc[0];
+      more = more || !!xc[i];
     } else {
       more = false;
       if (rm !== 0) throw Error(INVALID_RM);

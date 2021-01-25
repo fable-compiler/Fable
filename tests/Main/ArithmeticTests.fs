@@ -200,10 +200,16 @@ let tests =
         abs -4M |> equal 4M
 
     testCase "Decimal round works" <| fun () ->
-        round -12.5M |> equal -12.M
-        round 1.5M |> equal 2.M
-        round 1.535M |> equal 2.M
-        round 1.525M |> equal 2.M
+        round 11.0M |> equal 11.M
+        round 11.1M |> equal 11.M
+        round 11.25M |> equal 11.M
+        round 11.50M |> equal 12.M
+        round 11.75M |> equal 12.M
+        round -11.0M |> equal -11.M
+        round -11.1M |> equal -11.M
+        round -11.25M |> equal -11.M
+        round -11.50M |> equal -12.M
+        round -11.75M |> equal -12.M
         Math.Round 1.425M |> equal 1.M
         Math.Round -1.425M |> equal -1.M
         Math.Round 1.546M |> equal 2.M
@@ -218,12 +224,24 @@ let tests =
         round -3.5M |> equal -4.M
 
     testCase "Decimal round with digits works" <| fun () ->
+        Math.Round(1.426M, 3) |> equal 1.426M
         Math.Round(1.426M, 2) |> equal 1.43M
         Math.Round(1.426M, 1) |> equal 1.4M
+        Math.Round(-1.426M, 3) |> equal -1.426M
         Math.Round(-1.426M, 2) |> equal -1.43M
         Math.Round(-1.426M, 1) |> equal -1.4M
 
     testCase "Decimal truncate works" <| fun () ->
+        truncate 11.0M |> equal 11.M
+        truncate 11.1M |> equal 11.M
+        truncate 11.25M |> equal 11.M
+        truncate 11.50M |> equal 11.M
+        truncate 11.75M |> equal 11.M
+        truncate -11.0M |> equal -11.M
+        truncate -11.1M |> equal -11.M
+        truncate -11.25M |> equal -11.M
+        truncate -11.50M |> equal -11.M
+        truncate -11.75M |> equal -11.M
         Math.Truncate -12.5M |> equal -12.M
         Math.Truncate 1.425M |> equal 1.M
         Math.Truncate -1.425M |> equal -1.M
@@ -231,14 +249,32 @@ let tests =
         Math.Truncate -1.546M |> equal -1.M
 
     testCase "Decimal ceil works" <| fun () ->
+        ceil 11.0M |> equal 11.M
+        ceil 11.1M |> equal 12.M
         ceil 11.25M |> equal 12.M
+        ceil 11.50M |> equal 12.M
+        ceil 11.75M |> equal 12.M
+        ceil -11.0M |> equal -11.M
+        ceil -11.1M |> equal -11.M
         ceil -11.25M |> equal -11.M
+        ceil -11.50M |> equal -11.M
+        ceil -11.75M |> equal -11.M
         Math.Ceiling 11.25M |> equal 12.M
+        Math.Ceiling -11.25M |> equal -11.M
 
     testCase "Decimal floor works" <| fun () ->
+        floor 11.0M |> equal 11.M
+        floor 11.1M |> equal 11.M
+        floor 11.25M |> equal 11.M
+        floor 11.50M |> equal 11.M
         floor 11.75M |> equal 11.M
+        floor -11.0M |> equal -11.M
+        floor -11.1M |> equal -12.M
+        floor -11.25M |> equal -12.M
+        floor -11.50M |> equal -12.M
         floor -11.75M |> equal -12.M
         Math.Floor 11.25M |> equal 11.M
+        Math.Floor -11.25M |> equal -12.M
 
     testCase "Decimal pown works" <| fun () ->
         pown 2.2M 3 |> equal 10.648M
