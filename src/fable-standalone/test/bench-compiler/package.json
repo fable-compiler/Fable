@@ -55,15 +55,16 @@
     "webpack": "node ../../../../node_modules/webpack-cli/bin/cli.js",
     "splitter": "node ../../../../node_modules/fable-splitter/dist/cli",
 
-    "perf": "perf record -q -e cpu-clock -F 1000 -g -- node --perf-basic-prof --interpreted-frames-native-stack dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
-    "perf2": "perf record -q -e cpu-clock -F 1000 -g -- node --perf-basic-prof --interpreted-frames-native-stack ./out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
+    "perf": "perf record -q -e cpu-clock -F 99 -g -- node --perf-basic-prof --interpreted-frames-native-stack dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
+    "perf2": "perf record -q -e cpu-clock -F 99 -g -- node --perf-basic-prof --interpreted-frames-native-stack ./out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
     "perf-report": "perf report -n --stdio -g srcline -s dso,sym,srcline --inline > perf-report.log",
     "profile": "node --prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "cpu-prof": "node --cpu-prof --cpu-prof-dir=out-prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "heap-prof": "node --heap-prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "prof-process": "node --prof-process isolate-*.log > profile.log",
     "prof-preprocess": "node --prof-process --preprocess isolate-*.log > profile.v8log.json",
-    "flamegraph": "speedscope profile.v8log.json",
+    "speedscope": "speedscope profile.v8log.json",
+    "flamegraph": "perf script | ../../../../../FlameGraph/stackcollapse-perf.pl | ../../../../../FlameGraph/flamegraph.pl > perf.svg",
     "trace": "node --trace-deopt ./out-node/app.js bench-compiler.fsproj out-node2 > deopt.log"
   }
 }
