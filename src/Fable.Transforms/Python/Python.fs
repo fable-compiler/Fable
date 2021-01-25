@@ -121,7 +121,7 @@ module PrinterExtensions =
             printer.Print("def ")
             printer.PrintOptional(id |> Option.map (fun x -> x :> IPrint))
             printer.Print("(")
-            printer.PrintCommaSeparatedList(args.Args |> List.map (fun arg -> arg :> IPrint))
+            printer.Print(args)
             printer.Print(")")
             printer.PrintOptional(returnType |> Option.map (fun x -> x :> IPrint))
             printer.Print(":")
@@ -213,6 +213,7 @@ type Expression =
     | Call of Call
     | Compare of Compare
     | Lambda of Lambda
+    | NamedExpr of NamedExpr
     /// A variable name. id holds the name as a string, and ctx is one of the following types.
     | Name of Name
     | Dict of Dict
@@ -238,6 +239,7 @@ type Expression =
             | IfExp (ex) -> printer.Print(ex)
             | Call (ex) -> printer.Print(ex)
             | Lambda (ex) -> printer.Print(ex)
+            | NamedExpr (ex) -> printer.Print(ex)
             | Name (ex) -> printer.Print(ex)
             | Yield (expr) -> printer.Print("(Yield)")
             | YieldFrom (expr) -> printer.Print("(Yield)")
@@ -562,8 +564,8 @@ type Arg =
             let (Identifier name) = x.Arg
             printer.Print(name)
             match x.Annotation with
-            | Some ann -> 
-                printer.Print (" = ")
+            | Some ann ->
+                printer.Print("=")
                 printer.Print(ann)
             | _ -> ()
 
@@ -627,7 +629,17 @@ type Arguments =
         }
 
     interface IPrint with
-        member _.Print(printer) = printer.Print("(Arguments)")
+        member x.Print(printer) =
+            match x.Args, x.VarArg with
+            | [], Some vararg ->
+                printer.Print("*")
+                printer.Print(vararg)
+            | args, Some vararg ->
+                printer.PrintCommaSeparatedList(args |> List.map (fun arg -> arg :> IPrint))
+                printer.Print(", *")
+                printer.Print(vararg)
+            | args, None ->
+                printer.PrintCommaSeparatedList(args |> List.map (fun arg -> arg :> IPrint))
 
 //#region Statements
 
@@ -1248,6 +1260,24 @@ type Attribute =
             printer.Print(this.Value)
             printer.Print(".")
             printer.Print(this.Attr)
+
+type NamedExpr =
+    {
+        Target: Expression
+        Value: Expression
+    }
+    static member Create(target, value) =
+        {
+            Target = target
+            Value = value
+        }
+        |> NamedExpr
+
+    interface IPrint with
+        member this.Print(printer) =
+            printer.Print(this.Target)
+            printer.Print(" :=")
+            printer.Print(this.Value)
 
 /// A subscript, such as l[1]. value is the subscripted object (usually sequence or mapping). slice is an index, slice
 /// or key. It can be a Tuple and contain a Slice. ctx is Load, Store or Del according to the action performed with the
