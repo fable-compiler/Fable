@@ -201,12 +201,12 @@ let tests =
 
     testCase "Decimal round works" <| fun () ->
         round 11.0M |> equal 11.M
-        round 11.1M |> equal 11.M
+        round 11.01M |> equal 11.M
         round 11.25M |> equal 11.M
         round 11.50M |> equal 12.M
         round 11.75M |> equal 12.M
         round -11.0M |> equal -11.M
-        round -11.1M |> equal -11.M
+        round -11.01M |> equal -11.M
         round -11.25M |> equal -11.M
         round -11.50M |> equal -12.M
         round -11.75M |> equal -12.M
@@ -233,12 +233,12 @@ let tests =
 
     testCase "Decimal truncate works" <| fun () ->
         truncate 11.0M |> equal 11.M
-        truncate 11.1M |> equal 11.M
+        truncate 11.01M |> equal 11.M
         truncate 11.25M |> equal 11.M
         truncate 11.50M |> equal 11.M
         truncate 11.75M |> equal 11.M
         truncate -11.0M |> equal -11.M
-        truncate -11.1M |> equal -11.M
+        truncate -11.01M |> equal -11.M
         truncate -11.25M |> equal -11.M
         truncate -11.50M |> equal -11.M
         truncate -11.75M |> equal -11.M
@@ -250,12 +250,12 @@ let tests =
 
     testCase "Decimal ceil works" <| fun () ->
         ceil 11.0M |> equal 11.M
-        ceil 11.1M |> equal 12.M
+        ceil 11.01M |> equal 12.M
         ceil 11.25M |> equal 12.M
         ceil 11.50M |> equal 12.M
         ceil 11.75M |> equal 12.M
         ceil -11.0M |> equal -11.M
-        ceil -11.1M |> equal -11.M
+        ceil -11.01M |> equal -11.M
         ceil -11.25M |> equal -11.M
         ceil -11.50M |> equal -11.M
         ceil -11.75M |> equal -11.M
@@ -264,12 +264,12 @@ let tests =
 
     testCase "Decimal floor works" <| fun () ->
         floor 11.0M |> equal 11.M
-        floor 11.1M |> equal 11.M
+        floor 11.01M |> equal 11.M
         floor 11.25M |> equal 11.M
         floor 11.50M |> equal 11.M
         floor 11.75M |> equal 11.M
         floor -11.0M |> equal -11.M
-        floor -11.1M |> equal -12.M
+        floor -11.01M |> equal -12.M
         floor -11.25M |> equal -12.M
         floor -11.50M |> equal -12.M
         floor -11.75M |> equal -12.M
