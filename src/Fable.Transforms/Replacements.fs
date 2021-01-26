@@ -107,7 +107,7 @@ module Helpers =
             Any)
 
 open Helpers
-
+open Fable.Transforms
 type BuiltinType =
     | BclGuid
     | BclTimeSpan
@@ -2680,6 +2680,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         match thisArg with
         | Some (ExprType (EntFullName "System.Text.RegularExpressions.Group")) -> true
         | _ -> false
+
     match i.CompiledName with
     // TODO: Use RegexConst if no options have been passed?
     | ".ctor"   -> Helper.LibCall(com, "RegExp", "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2704,6 +2705,30 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     // Match
     | "get_Groups" -> thisArg.Value |> Some
     // MatchCollection & GroupCollection
+    | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
+        // can be group index or group name
+        //        `m.Groups.[0]` `m.Groups.["name"]`
+        match args |> List.head with
+        | Value (StringConstant name, _) ->
+            // name
+            (* `groups` might not exist -> check first:
+                (`m`: `thisArg.Value`; `name`: `args.Head`)
+                  ```ts
+                  m.groups?.[name]
+                  ```
+                or here
+                  ```ts
+                  m.groups && m.groups[name]
+                  ```
+            *)
+            let groups = propStr "groups" thisArg.Value
+            let getItem = getExpr r t groups args.Head
+
+            Operation(Logical(LogicalAnd, groups, getItem), t, None)
+            |> Some
+        | _ ->
+            // index
+            getExpr r t thisArg.Value args.Head |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "get_Count" -> propStr "length" thisArg.Value |> Some
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some

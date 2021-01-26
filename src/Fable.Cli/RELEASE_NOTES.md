@@ -1,3 +1,12 @@
+### 3.1.2
+
+* Fast copy for typed arrays @GordonBGood
+* Return error exit code when wront arguments passed
+* Fix source map writing
+* Fix #2350: Invalid JS class for empty files
+* Fix #2355: System.Math.Ceiling() and System.Math.Floor returning incorrect values for some Decimals @ncave
+* Fix #2357: Remove duplicate switch branches
+
 ### 3.1.1
 
 * Fix #2343: Remove conflicting export default

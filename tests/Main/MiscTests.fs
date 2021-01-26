@@ -440,6 +440,8 @@ type LiteralJson = Fable.JsonProvider.Generator<LITERAL_JSON>
 let inline inlineLambdaWithAnonRecord callback =
     fun () -> {| A = 1 |} |> callback
 
+let sideEffect() = ()
+
 let tests =
   testList "Miscellaneous" [
 
@@ -1008,6 +1010,19 @@ let tests =
         | MyEnum.Two -> "Two"
         | _ -> failwith "never"
         |> equal "One"
+
+    testCase "Pattern matching with same result for last pattern and wildcard works" <| fun () -> // #2357
+        let x = 10
+        let y =
+            match x with
+            | 1
+            | 2
+            | 3
+            | 4
+            | _ ->
+                sideEffect()
+                5
+        equal 5 y
 
     testCase "FSharpRef can be used in properties" <| fun () -> // See #521
         let r = ref false
