@@ -101,7 +101,7 @@ let run writer map (program: Program): Async<unit> =
 
         let imports, restDecls =
             program.Body |> Array.splitWhile (function
-                | :? ImportDeclaration -> true
+                | ImportDeclaration(_) -> true
                 | _ -> false)
 
         for decl in imports do
