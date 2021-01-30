@@ -333,11 +333,13 @@ module AST =
             | NewList(None,_) | NewOption(None,_) -> false
             | NewOption(Some e,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
-            | NewTuple exprs
-            | NewUnion(exprs,_,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
+            | NewTuple(exprs,_)
+            | NewUnion(exprs,_,_,_)
+            | NewAnonymousRecord(exprs,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
             // Arrays can be mutable
             | NewArray _ | NewArrayFrom _ -> true
-            | NewRecord _ | NewAnonymousRecord _ -> true
+            // TODO: Check if all record fields are immutable (and whether args have side effects)?
+            | NewRecord _ -> true
         | IdentExpr id -> id.IsMutable
         | Get(e,kind,_,_) ->
             match kind with
@@ -411,6 +413,10 @@ module AST =
     let makeArray elementType arrExprs =
         NewArray(arrExprs, elementType) |> makeValue None
 
+    let makeTuple r (exprs: Expr list) =
+        let types = exprs |> List.map (fun x -> x.Type)
+        NewTuple(exprs, types) |> makeValue r
+
     let makeDelegate args body =
         Delegate(args, body, None)
 
@@ -479,7 +485,7 @@ module AST =
 
     let destructureTupleArgs = function
         | [MaybeCasted(Value(UnitConstant,_))] -> []
-        | [MaybeCasted(Value(NewTuple(args),_))] -> args
+        | [MaybeCasted(Value(NewTuple(args,_),_))] -> args
         | args -> args
 
     let makeCall r t argInfo calleeExpr =

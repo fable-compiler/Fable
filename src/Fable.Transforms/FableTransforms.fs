@@ -18,7 +18,7 @@ let visit f e =
         | NumberConstant _ | RegexConstant _ -> e
         | EnumConstant(exp, ent) -> EnumConstant(f exp, ent) |> makeValue r
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> makeValue r
-        | NewTuple exprs -> NewTuple(List.map f exprs) |> makeValue r
+        | NewTuple(exprs, genArgs) -> NewTuple(List.map f exprs, genArgs) |> makeValue r
         | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r
         | NewArrayFrom(e, t) -> NewArrayFrom(f e, t) |> makeValue r
         | NewList(ht, t) ->
@@ -106,7 +106,7 @@ let getSubExpressions = function
         | NumberConstant _ | RegexConstant _ -> []
         | EnumConstant(e, _) -> [e]
         | NewOption(e, _) -> Option.toList e
-        | NewTuple exprs -> exprs
+        | NewTuple(exprs, _) -> exprs
         | NewArray(exprs, _) -> exprs
         | NewArrayFrom(e, _) -> [e]
         | NewList(ht, _) ->
@@ -252,7 +252,7 @@ let noSideEffectBeforeIdent identName expr =
             | NewOption(Some e,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
             | NewArray(exprs,_)
-            | NewTuple exprs
+            | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_)
             | NewRecord(exprs,_,_)
             | NewAnonymousRecord(exprs,_,_) -> findIdentOrSideEffectInList exprs
@@ -367,8 +367,7 @@ module private Transforms =
                 getLambdaTypeArity (acc + 1) returnType
             | _ -> acc
         match t with
-        | LambdaType(_, returnType)
-        | Option(LambdaType(_, returnType)) ->
+        | LambdaType(_, returnType) ->
             getLambdaTypeArity 1 returnType
         | _ -> 0
 
@@ -402,10 +401,6 @@ module private Transforms =
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
         | _, Curry(innerExpr, arity2,_,_)
             when matches arity arity2 -> innerExpr
-        | _, Get(Curry(innerExpr, arity2,_,_), OptionValue, t, r)
-            when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(Curry(innerExpr, arity2,_,_)),r1),r2)
-            when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
         | _ ->
             match arity with
             | Some arity -> Replacements.uncurryExprAtRuntime com arity expr
@@ -436,7 +431,9 @@ module private Transforms =
                     actualArgs |> List.mapi (fun i _ ->
                         match Map.tryFind i replacements with
                         | Some (expectedArity, actualArity) ->
-                            NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
+                            let argTypes = [Number AST.Int32; Number AST.Int32]
+                            NewTuple([makeIntConst expectedArity; makeIntConst actualArity], argTypes)
+                            |> makeValue None
                         | None -> makeIntConst 0)
                     |> makeArray Any
                 Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])
@@ -488,10 +485,6 @@ module private Transforms =
                 match value with
                 | Curry(innerExpr, arity,_,_) ->
                     ident, innerExpr, Some arity
-                | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
-                    ident, Get(innerExpr, OptionValue, t, r), Some arity
-                | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
-                    ident, Value(NewOption(Some(innerExpr),r1),r2), Some arity
                 | _ -> ident, value, None
             match arity with
             | None -> Let(ident, value, body)
@@ -520,6 +513,11 @@ module private Transforms =
         // Uncurry also values received from getters
         | Get(_, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
             let arity = getLambdaTypeArity fieldType
+            if arity > 1
+            then Curry(e, arity, t, r)
+            else e
+        | Get(_, (ListHead | TupleIndex _ | OptionValue), t, r) ->
+            let arity = getLambdaTypeArity t
             if arity > 1
             then Curry(e, arity, t, r)
             else e
@@ -558,6 +556,16 @@ module private Transforms =
             let uci = com.GetEntity(ent).UnionCases.[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
+        | Value(NewTuple(args, genArgs), r) ->
+            let args = uncurryArgs com false genArgs args
+            Value(NewTuple(args, genArgs), r)
+        | Value(NewOption(Some(arg), t), r) ->
+            let args = uncurryArgs com false [t] [arg]
+            Value(NewOption(List.tryHead args, t), r)
+        // TODO: Array
+        | Value(NewList(Some(head, tail), t), r) ->
+            let head = uncurryArgs com false [t] [head] |> List.head
+            Value(NewList(Some(head, tail), t), r)
         | Set(e, Some(FieldKey fi), value, r) ->
             let value = uncurryArgs com false [fi.FieldType] [value]
             Set(e, Some(FieldKey fi), List.head value, r)
@@ -580,8 +588,6 @@ module private Transforms =
             match applied with
             | Curry(applied, uncurriedArity,_,_) ->
                 uncurryApply r t applied args uncurriedArity
-            | Get(Curry(applied, uncurriedArity,_,_), OptionValue, t2, r2) ->
-                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
 

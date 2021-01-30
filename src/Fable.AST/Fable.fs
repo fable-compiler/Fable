@@ -190,7 +190,7 @@ type ValueKind =
     | NewArray of Expr list * Type
     | NewArrayFrom of Expr * Type
     | NewList of headAndTail: (Expr * Expr) option * Type
-    | NewTuple of Expr list
+    | NewTuple of Expr list * genArgs: Type list
     | NewRecord of Expr list * EntityRef * genArgs: Type list
     | NewAnonymousRecord of Expr list * fieldNames: string [] * genArgs: Type list
     | NewUnion of Expr list * tag: int * EntityRef * genArgs: Type list
@@ -211,7 +211,7 @@ type ValueKind =
         | NewArray (_, t) -> Array t
         | NewArrayFrom (_, t) -> Array t
         | NewList (_, t) -> List t
-        | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
+        | NewTuple(_,genArgs) -> Tuple genArgs
         | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewAnonymousRecord (_, fieldNames, genArgs) -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)

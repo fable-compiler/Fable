@@ -51,8 +51,10 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
 
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match fsType, unionCase with
+    // TODO: Unions should be erased in the Fable2Babel step
     | ErasedUnionCase ->
-        Fable.NewTuple argExprs |> makeValue r
+        let argTypes = argExprs |> List.map (fun x -> x.Type)
+        Fable.NewTuple(argExprs, argTypes) |> makeValue r
     | ErasedUnion(tdef, _genArgs, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -60,7 +62,9 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         | _ when tdef.UnionCases.Count > 1 ->
             "Erased unions with multiple cases must have one single field: " + (getFsTypeFullName fsType)
             |> addErrorAndReturnNull com ctx.InlinePath r
-        | argExprs -> Fable.NewTuple argExprs |> makeValue r
+        | argExprs ->
+            let argTypes = argExprs |> List.map (fun x -> x.Type)
+            Fable.NewTuple(argExprs, argTypes) |> makeValue r
     | StringEnum(tdef, rule) ->
         match argExprs with
         | [] -> transformStringEnum rule unionCase
@@ -757,9 +761,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! argExprs = transformExprList com ctx argExprs
         return makeArray elTyp argExprs
 
-    | BasicPatterns.NewTuple(_tupleType, argExprs) ->
+    | BasicPatterns.NewTuple(fsType, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
-        return Fable.NewTuple(argExprs) |> makeValue (makeRangeFrom fsExpr)
+        let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+        return Fable.NewTuple(argExprs, genArgs) |> makeValue (makeRangeFrom fsExpr)
 
     | BasicPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
         match ctx.EnclosingMember with

@@ -857,7 +857,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | Builtin BclBigInt as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 0])
     | Builtin BclDecimal as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
     | Builtin (BclKeyValuePair(k,v)) ->
-        Value(NewTuple[getZero com ctx k; getZero com ctx v], None)
+        makeTuple None [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ -> Value(Null Any, None) // null
@@ -951,7 +951,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
                 let uci = com.GetEntity(ent).UnionCases |> List.item uci
                 let name = defaultArg uci.CompiledName uci.Name
                 makeObjMember caseRule name values::acc |> Some
-            | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values),_)) ->
+            | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values,_),_)) ->
                 // Don't change the case for tuples in disguise
                 makeObjMember Core.CaseRules.None name values::acc |> Some
             | _ -> None))
@@ -1091,7 +1091,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Nameof com ctx name as arg] ->
             if meth = "nameof2"
-            then NewTuple [makeStrConst name; arg] |> makeValue r |> Some
+            then makeTuple r [makeStrConst name; arg] |> Some
             else makeStrConst name |> Some
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r
@@ -1213,7 +1213,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 emitJs r t args isStatement macro |> Some
             | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
-            NewTuple [name; value] |> makeValue r |> Some
+            makeTuple r [name; value] |> Some
         | "createObj", _ ->
             Helper.LibCall(com, "Util", "createObj", Any, args) |> asOptimizable "pojo" |> Some
          | "keyValueList", [caseRule; keyValueList] ->
@@ -2295,7 +2295,7 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
 
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Value(NewTuple args, r) |> Some
+    | ".ctor", _ -> makeTuple r args |> Some
     | "get_Key", Some c -> Get(c, TupleIndex 0, t, r) |> Some
     | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
     | _ -> None

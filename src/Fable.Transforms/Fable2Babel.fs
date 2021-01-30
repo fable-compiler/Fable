@@ -934,7 +934,7 @@ module Util =
         | Fable.RegexConstant (source, flags) -> upcast RegExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
         | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
-        | Fable.NewTuple vals -> makeArray com ctx vals
+        | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
             makeList com ctx r headAndTail
         // Optimization for bundle size: compile list literals as List.ofArray
@@ -1217,7 +1217,7 @@ module Util =
         | Fable.TupleIndex index ->
             match fableExpr with
             // TODO: Check the erased expressions don't have side effects?
-            | Fable.Value(Fable.NewTuple exprs, _) ->
+            | Fable.Value(Fable.NewTuple(exprs,_), _) ->
                 com.TransformAsExpr(ctx, List.item index exprs)
             | TransformExpr com ctx expr -> getExpr range expr (ofInt index)
 
