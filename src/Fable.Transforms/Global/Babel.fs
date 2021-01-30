@@ -16,7 +16,7 @@ type Printer =
 
 module PrinterExtensions =
     type Printer with
-        member printer.Print(node: #IPrinter) =
+        member printer.Print(node: #IPrintable) =
             node.Print(printer)
 
         member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
@@ -72,14 +72,14 @@ module PrinterExtensions =
                                (fun p -> p.PrintStatementSeparator()),
                                ?skipNewLineAtEnd=skipNewLineAtEnd)
 
-        member printer.PrintOptional(before: string, node: #IPrinter option) =
+        member printer.PrintOptional(before: string, node: #IPrintable option) =
             match node with
             | None -> ()
             | Some node ->
                 printer.Print(before)
                 printer.Print(node)
 
-        member printer.PrintOptional(node: #IPrinter option) =
+        member printer.PrintOptional(node: #IPrintable option) =
             match node with
             | None -> ()
             | Some node -> printer.Print(node)
@@ -93,7 +93,7 @@ module PrinterExtensions =
         member printer.PrintCommaSeparatedArray(nodes: Expression array) =
             printer.PrintArray(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
 
-        member printer.PrintCommaSeparatedArray(nodes: #IPrinter array) =
+        member printer.PrintCommaSeparatedArray(nodes: #IPrintable array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
         // TODO: (super) type parameters, implements
@@ -178,7 +178,7 @@ module PrinterExtensions =
                     printer.Print(" ")
                     printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
 
-        member printer.WithParens(expr: IPrinter) =
+        member printer.WithParens(expr: IPrintable) =
             printer.Print("(")
             printer.Print(expr)
             printer.Print(")")
@@ -219,7 +219,7 @@ module PrinterExtensions =
 /// If the node contains no information about the source location, the field is null;
 /// otherwise it is an object consisting of a start position (the position of the first character of the parsed source region)
 /// and an end position (the position of the first character after the parsed source region):
-type IPrinter =
+type IPrintable =
     abstract Print: Printer -> unit
 
 type Node =
@@ -248,7 +248,7 @@ type Node =
     | TypeParameterDeclaration of TypeParameterDeclaration
     | TypeParameterInstantiation of TypeParameterInstantiation
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | Pattern(n) -> printer.Print(n)
@@ -302,7 +302,7 @@ type Expression =
     | ConditionalExpression of ConditionalExpression
     | ArrowFunctionExpression of ArrowFunctionExpression
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | Super(n) -> printer.Print(n)
@@ -334,7 +334,7 @@ type Pattern =
     | IdentifierPattern of Identifier
     | RestElement of RestElement
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | IdentifierPattern(p) -> printer.Print(p)
@@ -353,7 +353,7 @@ type Literal =
     | NumericLiteral of NumericLiteral
     | DirectiveLiteral of DirectiveLiteral
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | RegExp(l) -> printer.Print(l)
@@ -379,7 +379,7 @@ type Statement =
     | ContinueStatement of ContinueStatement
     | ExpressionStatement of ExpressionStatement
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | Declaration(s) -> printer.Print(s)
@@ -405,7 +405,7 @@ type Declaration =
     | FunctionDeclaration of FunctionDeclaration
     | InterfaceDeclaration of InterfaceDeclaration
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | ClassDeclaration(d) -> printer.Print(d)
@@ -423,7 +423,7 @@ type ModuleDeclaration =
     | PrivateModuleDeclaration of PrivateModuleDeclaration
     | ExportDefaultDeclaration of ExportDefaultDeclaration
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             this.Print(printer)
 
@@ -445,14 +445,14 @@ type EmitExpression =
         Loc: SourceLocation option
     }
 
-    static member Create(value, args, ?loc) : Expression =
+    static member AsExpr(value, args, ?loc) : Expression =
         {
             Value = value
             Args = args
             Loc = loc
         } |> EmitExpression
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
 
@@ -559,12 +559,12 @@ type Identifier =
             TypeAnnotation = typeAnnotation
             Loc = loc
         }
-    static member AsExpression(name, ?optional, ?typeAnnotation, ?loc) : Expression =
+    static member AsExpr(name, ?optional, ?typeAnnotation, ?loc) : Expression =
         Identifier.Create(name, ?optional=optional, ?typeAnnotation=typeAnnotation, ?loc=loc) |> Identifier
     static member AsPattern(name, ?optional, ?typeAnnotation, ?loc) : Pattern =
         Identifier.Create(name, ?optional=optional, ?typeAnnotation=typeAnnotation, ?loc=loc) |> IdentifierPattern
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Name, ?loc=this.Loc)
             if this.Optional = Some true then
@@ -578,7 +578,7 @@ type RegExpLiteral =
         Flags: string
         Loc: SourceLocation option
     }
-    static member Create(pattern, flags_, ?loc) : Literal =
+    static member AsLiteral(pattern, flags_, ?loc) : Literal =
         let flags =
             flags_ |> Seq.map (function
                 | RegexGlobal -> "g"
@@ -590,7 +590,7 @@ type RegExpLiteral =
             Flags = flags
             Loc = loc
         } |> RegExp
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("/", ?loc=this.Loc)
             printer.Print(this.Pattern)
@@ -601,13 +601,13 @@ type Undefined =
     {
         Loc: SourceLocation option
     }
-    static member Create(?loc) : Expression =
+    static member AsExpr(?loc) : Expression =
         {
             Loc = loc
         } |> Undefined
 
     // TODO: Use `void 0` instead? Just remove this node?
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("undefined", ?loc=this.Loc)
 
@@ -615,13 +615,13 @@ type NullLiteral =
     {
         Loc: SourceLocation option
     }
-    static member Create(?loc) : Literal =
+    static member AsLiteral(?loc) : Literal =
         {
             Loc = loc
         } |> NullLiteral
-    static member AsExpression(?loc) : Expression =
-        NullLiteral.Create(?loc=loc) |> Literal
-    interface IPrinter with
+    static member AsExpr(?loc) : Expression =
+        NullLiteral.AsLiteral(?loc=loc) |> Literal
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("null", ?loc=this.Loc)
 
@@ -638,9 +638,9 @@ type StringLiteral =
         }
     static member AsLiteral(value, ?loc) : Literal =
         StringLiteral.Create(value, ?loc=loc) |> StringLiteral
-    static member AsExpression(value, ?loc) : Expression =
+    static member AsExpr(value, ?loc) : Expression =
         StringLiteral.AsLiteral(value, ?loc=loc) |> Literal
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("\"", ?loc=this.Loc)
             printer.Print(printer.EscapeJsStringLiteral(this.Value))
@@ -656,9 +656,9 @@ type BooleanLiteral =
             Value = value
             Loc = loc
         } |> BooleanLiteral
-    static member AsExpression(value, ?loc) : Expression =
+    static member AsExpr(value, ?loc) : Expression =
          BooleanLiteral.Create(value, ?loc=loc) |> Literal
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print((if this.Value then "true" else "false"), ?loc=this.Loc)
 
@@ -667,14 +667,14 @@ type NumericLiteral =
         Value: float
         Loc: SourceLocation option
     }
-    static member Create(value, ?loc) : Literal =
+    static member AsLiteral(value, ?loc) : Literal =
         {
             Value =value
             Loc = loc
         } |> NumericLiteral
-    static member AsExpression(value, ?loc) : Expression =
-        NumericLiteral.Create(value, ?loc=loc) |> Literal
-    interface IPrinter with
+    static member AsExpr(value, ?loc) : Expression =
+        NumericLiteral.AsLiteral(value, ?loc=loc) |> Literal
+    interface IPrintable with
         member this.Print(printer) =
             let value =
                 match this.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
@@ -696,7 +696,7 @@ type DirectiveLiteral =
         {
             Value = value
         }
-    interface IPrinter with
+    interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 /// e.g. "use strict";
@@ -704,11 +704,11 @@ type Directive =
     {
         Value: DirectiveLiteral
     }
-    static member Create(value) : Node =
+    static member Create(value) =
         {
             Value = value
-        } |> Directive
-    interface IPrinter with
+        }
+    interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 // Program
@@ -735,11 +735,11 @@ type ExpressionStatement =
     {
         Expression: Expression
     }
-    static member Create(expression) : Statement =
+    static member AsStatement(expression) : Statement =
         {
             Expression = expression
         } |> ExpressionStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Expression)
 
@@ -757,7 +757,7 @@ type BlockStatement =
         BlockStatement.Create(body) |> BlockStatement
 //    let directives = [||] // defaultArg directives_ [||]
 //    member _.Directives: Directive array = directives
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintBlock(this.Body)
 
@@ -770,11 +770,11 @@ type DebuggerStatement =
     {
         Loc: SourceLocation option
     }
-    static member Create(?loc) : Statement =
+    static member AsStatement(?loc) : Statement =
         {
             Loc = loc
         } |> DebuggerStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("debugger", ?loc=this.Loc)
 
@@ -784,12 +784,12 @@ type LabeledStatement =
         Body: Statement
         Label: Identifier
     }
-    static member Create(label, body) : Statement =
+    static member AsStatement(label, body) : Statement =
         {
             Body = body
             Label = label
         } |> LabeledStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Label)
             printer.Print(":")
@@ -803,13 +803,13 @@ type BreakStatement =
         Label: Identifier option
         Loc: SourceLocation option
     }
-    static member Create(?label, ?loc) : Statement =
+    static member AsStatement(?label, ?loc) : Statement =
         {
             Label = label
             Loc = loc
         } |> BreakStatement
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("break", ?loc=this.Loc)
 
@@ -819,13 +819,13 @@ type ContinueStatement =
         Label: Identifier option
         Loc: SourceLocation option
     }
-    static member Create(?label, ?loc) : Statement =
+    static member AsStatement(?label, ?loc) : Statement =
         {
             Label = label
             Loc = loc
         } |> ContinueStatement
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("continue", ?loc=this.Loc)
             printer.PrintOptional(" ", this.Label)
@@ -838,12 +838,12 @@ type ReturnStatement =
         Argument: Expression
         Loc: SourceLocation option
     }
-    static member Create(argument, ?loc) : Statement =
+    static member AsStatement(argument, ?loc) : Statement =
         {
             Argument = argument
             Loc = loc
         } |> ReturnStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("return ", ?loc=this.Loc)
             printer.Print(this.Argument)
@@ -855,14 +855,14 @@ type IfStatement =
         Alternate: Statement option
         Loc: SourceLocation option
     }
-    static member Create(test, consequent, ?alternate, ?loc) : Statement =
+    static member AsStatement(test, consequent, ?alternate, ?loc) : Statement =
         {
             Test = test
             Consequent = consequent
             Alternate = alternate
             Loc = loc
         } |> IfStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             printer.Print("if (", ?loc=this.Loc)
@@ -906,7 +906,7 @@ type SwitchCase =
             Consequent = consequent
             Loc = loc
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             match this.Test with
@@ -930,13 +930,13 @@ type SwitchStatement =
         Cases: SwitchCase array
         Loc: SourceLocation option
     }
-    static member Create(discriminant, cases, ?loc) : Statement =
+    static member AsStatement(discriminant, cases, ?loc) : Statement =
         {
             Discriminant = discriminant
             Cases = cases
             Loc = loc
         } |> SwitchStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("switch (", ?loc=this.Loc)
             printer.Print(this.Discriminant)
@@ -949,12 +949,12 @@ type ThrowStatement =
         Argument: Expression
         Loc: SourceLocation option
     }
-    static member Create(argument, ?loc) : Statement =
+    static member AsStatement(argument, ?loc) : Statement =
         {
             Argument = argument
             Loc = loc
         } |> ThrowStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("throw ", ?loc=this.Loc)
             printer.Print(this.Argument)
@@ -972,7 +972,7 @@ type CatchClause =
             Body = body
             Loc = loc
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             // "catch" is being printed by TryStatement
             printer.Print("(", ?loc=this.Loc)
@@ -988,14 +988,14 @@ type TryStatement =
         Finalizer: BlockStatement option
         Loc: SourceLocation option
     }
-    static member Create(block, ?handler, ?finalizer, ?loc) : Statement =
+    static member AsStatement(block, ?handler, ?finalizer, ?loc) : Statement =
         {
             Block = block
             Handler = handler
             Finalizer = finalizer
             Loc = loc
         } |> TryStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("try ", ?loc=this.Loc)
             printer.Print(this.Block)
@@ -1013,7 +1013,7 @@ type VariableDeclarator =
             Id = id
             Init = init
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             failwith "Not implemented"
 
@@ -1043,7 +1043,7 @@ type VariableDeclaration =
     static member AsStatement(var, ?init, ?kind, ?loc) : Statement =
         VariableDeclaration.AsDeclaration(var, ?init=init, ?kind=kind, ?loc=loc) |> Declaration
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Kind + " ", ?loc=this.Loc)
             let canConflict = this.Declarations.Length > 1
@@ -1066,13 +1066,13 @@ type WhileStatement =
         Body: BlockStatement
         Loc: SourceLocation option
     }
-    static member Create(test, body, ?loc) : Statement =
+    static member AsStatement(test, body, ?loc) : Statement =
         {
             Test = test
             Body = body
             Loc = loc
         } |> WhileStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("while (", ?loc=this.Loc)
             printer.Print(this.Test)
@@ -1093,7 +1093,7 @@ type ForStatement =
         Update: Expression option
         Loc: SourceLocation option
     }
-    static member Create(body, ?init, ?test, ?update, ?loc) : Statement =
+    static member AsStatement(body, ?init, ?test, ?update, ?loc) : Statement =
         {
             Body = body
             // In JS this can be an expression too
@@ -1102,7 +1102,7 @@ type ForStatement =
             Update = update
             Loc = loc
         } |> ForStatement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("for (", ?loc=this.Loc)
             printer.PrintOptional(this.Init)
@@ -1139,7 +1139,7 @@ type FunctionDeclaration =
         TypeParameters: TypeParameterDeclaration option
         Loc: SourceLocation option
     }
-    static member Create(``params``, body, id, ?returnType, ?typeParameters, ?loc) : Declaration = // ?async_, ?generator_, ?declare,
+    static member AsDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) : Declaration = // ?async_, ?generator_, ?declare,
         {
             Params = ``params``
             Body = body
@@ -1153,7 +1153,7 @@ type FunctionDeclaration =
 //    member _.Async: bool = async
 //    member _.Generator: bool = generator
 //    member _.Declare: bool option = declare
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintFunction(Some this.Id, this.Params, this.Body, this.TypeParameters, this.ReturnType, this.Loc, isDeclaration=true)
             printer.PrintNewLine()
@@ -1165,11 +1165,11 @@ type Super =
     {
         Loc: SourceLocation option
     }
-    static member Create(?loc) : Expression =
+    static member AsExpr(?loc) : Expression =
         {
             Loc = loc
         } |> Super
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("super", ?loc=this.Loc)
 
@@ -1177,12 +1177,12 @@ type ThisExpression =
     {
         Loc: SourceLocation option
     }
-    static member Create(?loc) : Expression =
+    static member AsExpr(?loc) : Expression =
         {
             Loc = loc
         } |> ThisExpression
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("this", ?loc=this.Loc)
 
@@ -1195,7 +1195,7 @@ type ArrowFunctionExpression =
         TypeParameters: TypeParameterDeclaration option
         Loc: SourceLocation option
     }
-    static member Create(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) : Expression = //?async_, ?generator_,
+    static member AsExpr(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) : Expression = //?async_, ?generator_,
         {
             Params = ``params``
             Body = body
@@ -1203,21 +1203,15 @@ type ArrowFunctionExpression =
             TypeParameters = typeParameters
             Loc = loc
         } |> ArrowFunctionExpression
-    static member Create(``params``, body: Expression, ?returnType, ?typeParameters, ?loc) : Expression =
-        let body = { Body = [|ReturnStatement.Create(body) |] }
-        {
-            Params = ``params``
-            Body = body
-            ReturnType = returnType
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> ArrowFunctionExpression
+    static member AsExpr(``params``, body: Expression, ?returnType, ?typeParameters, ?loc) : Expression =
+        let body = { Body = [|ReturnStatement.AsStatement(body) |] }
+        ArrowFunctionExpression.AsExpr(``params``, body, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
 
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
 //    member _.Async: bool = async
 //    member _.Generator: bool = generator
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintFunction(None, this.Params, this.Body, this.TypeParameters, this.ReturnType, this.Loc, isArrow=true)
 
@@ -1230,7 +1224,7 @@ type FunctionExpression =
         TypeParameters: TypeParameterDeclaration option
         Loc: SourceLocation option
     }
-    static member Create(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) : Expression = //?generator_, ?async_
+    static member AsExpr(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) : Expression = //?generator_, ?async_
         {
             Id = id
             Params = ``params``
@@ -1243,7 +1237,7 @@ type FunctionExpression =
 //    let generator = defaultArg generator_ false
 //    member _.Async: bool = async
 //    member _.Generator: bool = generator
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintFunction(this.Id, this.Params, this.Body, this.TypeParameters, this.ReturnType, this.Loc)
 
@@ -1279,12 +1273,12 @@ type SpreadElement =
         Argument: Expression
         Loc: SourceLocation option
     }
-    static member Create(argument, ?loc) : Expression =
+    static member AsExpr(argument, ?loc) : Expression =
         {
             Argument = argument
             Loc = loc
         } |> SpreadElement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("...", ?loc=this.Loc)
             printer.ComplexExpressionWithParens(this.Argument)
@@ -1295,13 +1289,13 @@ type ArrayExpression =
         Elements: Expression array
         Loc: SourceLocation option
     }
-    static member Create(elements, ?loc) : Expression =
+    static member AsExpr(elements, ?loc) : Expression =
         {
             // Elements: Choice<Expression, SpreadElement> option array
             Elements = elements
             Loc = loc
         } |> ArrayExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("[", ?loc=this.Loc)
             printer.PrintCommaSeparatedArray(this.Elements)
@@ -1311,7 +1305,7 @@ type ObjectMember =
     | ObjectProperty of ObjectProperty
     | ObjectMethod of ObjectMethod
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | ObjectProperty(op) -> printer.Print(op)
@@ -1323,7 +1317,7 @@ type ObjectProperty =
         Value: Expression
         Computed: bool
     }
-    static member Create(key, value, ?computed_) : ObjectMember = // ?shorthand_,
+    static member AsObjectMember(key, value, ?computed_) : ObjectMember = // ?shorthand_,
         let computed = defaultArg computed_ false
         {
             Key = key
@@ -1332,7 +1326,7 @@ type ObjectProperty =
         } |> ObjectProperty
 //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             if this.Computed then
                 printer.Print("[")
@@ -1356,7 +1350,7 @@ type ObjectMethod =
         TypeParameters: TypeParameterDeclaration option
         Loc: SourceLocation option
     }
-    static member Create(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) : ObjectMember = // ?async_, ?generator_,
+    static member AsObjectMember(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) : ObjectMember = // ?async_, ?generator_,
         let kind =
             match kind_ with
             | ObjectGetter -> "get"
@@ -1377,7 +1371,7 @@ type ObjectMethod =
             TypeParameters = typeParameters
             Loc = loc
         } |> ObjectMethod
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
 
@@ -1410,13 +1404,12 @@ type MemberExpression =
         Computed: bool
         Loc: SourceLocation option
     }
-    static member Create(object, property, ?computed_, ?loc) : Expression =
+    static member AsExpr(object, property, ?computed_, ?loc) : Expression =
         let computed = defaultArg computed_ false
         let name =
             match property with
             | Identifier(id) -> id.Name
             | _ -> ""
-
         {
             Name = name
             Object = object
@@ -1425,7 +1418,7 @@ type MemberExpression =
             Loc = loc
         } |> MemberExpression
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) = this.Print(printer)
     member this.Print(printer, ?objectWithParens: bool) =
         printer.AddLocation(this.Loc)
@@ -1445,12 +1438,12 @@ type ObjectExpression =
         Properties: ObjectMember array
         Loc: SourceLocation option
     }
-    static member Create(properties, ?loc) : Expression =
+    static member AsExpr(properties, ?loc) : Expression =
         {
             Properties = properties
             Loc = loc
         } |> ObjectExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             let printSeparator (p: Printer) =
                 p.Print(",")
@@ -1468,14 +1461,14 @@ type ConditionalExpression =
         Alternate: Expression
         Loc: SourceLocation option
     }
-    static member Create(test, consequent, alternate, ?loc) : Expression =
+    static member AsExpr(test, consequent, alternate, ?loc) : Expression =
         {
             Test = test
             Consequent = consequent
             Alternate = alternate
             Loc = loc
         } |> ConditionalExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             match this.Test with
@@ -1498,13 +1491,13 @@ type CallExpression =
         Arguments: Expression array
         Loc: SourceLocation option
     }
-    static member Create(callee, arguments, ?loc) : Expression =
+    static member AsExpr(callee, arguments, ?loc) : Expression =
         {
             Callee = callee
             Arguments = arguments
             Loc = loc
         } |> CallExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             printer.ComplexExpressionWithParens(this.Callee)
@@ -1520,14 +1513,14 @@ type NewExpression =
         TypeArguments: TypeParameterInstantiation option
         Loc: SourceLocation option
     }
-    static member Create(callee, arguments, ?typeArguments, ?loc) : Expression =
+    static member AsExpr(callee, arguments, ?typeArguments, ?loc) : Expression =
         {
             Callee = callee
             Arguments = arguments
             TypeArguments = typeArguments
             Loc = loc
         } |> NewExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("new ", ?loc=this.Loc)
             printer.ComplexExpressionWithParens(this.Callee)
@@ -1541,12 +1534,12 @@ type SequenceExpression =
         Expressions: Expression array
         Loc: SourceLocation option
     }
-    static member Create(expressions, ?loc) : Expression =
+    static member AsExpr(expressions, ?loc) : Expression =
         {
             Expressions = expressions
             Loc = loc
         } |> SequenceExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             printer.PrintCommaSeparatedArray(this.Expressions)
@@ -1559,7 +1552,7 @@ type UnaryExpression =
         Operator: string
         Loc: SourceLocation option
     }
-    static member Create(operator_, argument, ?loc) : Expression =
+    static member AsExpr(operator_, argument, ?loc) : Expression =
         let prefix = true
         let operator =
             match operator_ with
@@ -1576,7 +1569,7 @@ type UnaryExpression =
             Operator = operator
             Loc = loc
         } |> UnaryExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             match this.Operator with
@@ -1591,7 +1584,7 @@ type UpdateExpression =
         Operator: string
         Loc: SourceLocation option
     }
-    static member Create(operator_, prefix, argument, ?loc) : Expression =
+    static member AsExpr(operator_, prefix, argument, ?loc) : Expression =
         let operator =
             match operator_ with
             | UpdateMinus -> "--"
@@ -1603,7 +1596,7 @@ type UpdateExpression =
             Loc = loc
         } |> UpdateExpression
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             if this.Prefix then
@@ -1621,7 +1614,7 @@ type BinaryExpression =
         Operator: string
         Loc: SourceLocation option
     }
-    static member Create(operator_, left, right, ?loc) : Expression =
+    static member AsExpr(operator_, left, right, ?loc) : Expression =
         let operator =
             match operator_ with
             | BinaryEqual -> "=="
@@ -1652,7 +1645,7 @@ type BinaryExpression =
             Operator = operator
             Loc = loc
         } |> BinaryExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintOperation(this.Left, this.Operator, this.Right, this.Loc)
 
@@ -1663,7 +1656,7 @@ type AssignmentExpression =
         Operator: string
         Loc: SourceLocation option
     }
-    static member Create(operator_, left, right, ?loc) : Expression =
+    static member AsExpr(operator_, left, right, ?loc) : Expression =
         let operator =
             match operator_ with
             | AssignEqual -> "="
@@ -1684,7 +1677,7 @@ type AssignmentExpression =
             Operator = operator
             Loc = loc
         } |> AssignmentExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintOperation(this.Left, this.Operator, this.Right, this.Loc)
 
@@ -1695,7 +1688,7 @@ type LogicalExpression =
         Operator: string
         Loc: SourceLocation option
     }
-    static member Create(operator_, left, right, ?loc) : Expression =
+    static member AsExpr(operator_, left, right, ?loc) : Expression =
         let operator =
             match operator_ with
             | LogicalOr -> "||"
@@ -1706,7 +1699,7 @@ type LogicalExpression =
             Operator = operator
             Loc = loc
         } |> LogicalExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintOperation(this.Left, this.Operator, this.Right, this.Loc)
 
@@ -1738,14 +1731,14 @@ type RestElement =
         TypeAnnotation: TypeAnnotation option
         Loc: SourceLocation option
     }
-    static member Create(argument: Pattern, ?typeAnnotation, ?loc) : Pattern =
+    static member AsPattern(argument: Pattern, ?typeAnnotation, ?loc) : Pattern =
         {
             Name = argument.Name
             Argument = argument
             TypeAnnotation = typeAnnotation
             Loc = loc
         } |> RestElement
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("...", ?loc=this.Loc)
             printer.Print(this.Argument)
@@ -1756,7 +1749,7 @@ type ClassMember =
     | ClassMethod of ClassMethod
     | ClassProperty of ClassProperty
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | ClassMethod(cm) -> printer.Print(cm)
@@ -1778,7 +1771,7 @@ type ClassMethod =
         TypeParameters: TypeParameterDeclaration option
         Loc: SourceLocation option
     }
-    static member Create(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
+    static member AsClassMember(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
         let kind =
             match kind_ with
             | ClassImplicitConstructor -> "constructor"
@@ -1800,7 +1793,7 @@ type ClassMethod =
         } |> ClassMethod
     // This appears in astexplorer.net but it's not documented
     // member _.Expression: bool = false
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
 
@@ -1842,7 +1835,7 @@ type ClassProperty =
         TypeAnnotation: TypeAnnotation option
         Loc: SourceLocation option
     }
-    static member Create(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc) : ClassMember =
+    static member AsClassMember(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc) : ClassMember =
         let computed = defaultArg computed_ false
         {
             Key = key
@@ -1853,7 +1846,7 @@ type ClassProperty =
             TypeAnnotation = typeAnnotation
             Loc = loc
         } |> ClassProperty
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             if this.Static then
@@ -1879,7 +1872,7 @@ type ClassImplements =
             Id = id
             TypeParameters = typeParameters
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Id)
             printer.PrintOptional(this.TypeParameters)
@@ -1894,7 +1887,7 @@ type ClassBody =
             Body = body
             Loc = loc
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             printer.PrintBlock(this.Body, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
@@ -1909,7 +1902,7 @@ type ClassDeclaration =
         TypeParameters: TypeParameterDeclaration option
         Loc: SourceLocation option
     }
-    static member Create(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) : Declaration =
+    static member AsDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) : Declaration =
         {
             Body = body
             Id = id
@@ -1919,7 +1912,7 @@ type ClassDeclaration =
             TypeParameters = typeParameters
             Loc = loc
         } |> ClassDeclaration
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintClass(this.Id, this.SuperClass, this.SuperTypeParameters, this.TypeParameters, this.Implements, this.Body, this.Loc)
 
@@ -1934,7 +1927,7 @@ type ClassExpression =
         TypeParameters: TypeParameterDeclaration option
         Loc: SourceLocation option
     }
-    static member Create(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) : Expression =
+    static member AsExpr(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) : Expression =
         {
             Body = body
             Id = id
@@ -1944,7 +1937,7 @@ type ClassExpression =
             TypeParameters = typeParameters
             Loc = loc
         } |> ClassExpression
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintClass(this.Id, this.SuperClass, this.SuperTypeParameters, this.TypeParameters, this.Implements, this.Body, this.Loc)
 
@@ -1958,11 +1951,11 @@ type PrivateModuleDeclaration =
     {
         Statement: Statement
     }
-    static member Create(statement) : ModuleDeclaration =
+    static member AsModuleDeclaration(statement) : ModuleDeclaration =
         {
             Statement = statement
         } |> PrivateModuleDeclaration
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             if printer.IsProductiveStatement(this.Statement) then
                 printer.Print(this.Statement)
@@ -1972,7 +1965,7 @@ type ImportSpecifier =
     | ImportDefaultSpecifier of ImportDefaultSpecifier
     | ImportNamespaceSpecifier of ImportNamespaceSpecifier
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             failwith "not implemented"
 
@@ -1986,13 +1979,13 @@ type ImportMemberSpecifier =
         Local: Identifier
         Imported: Identifier
     }
-    static member Create(local, imported) : ImportSpecifier =
+    static member AsImportSpecifier(local, imported) : ImportSpecifier =
         {
             Local = local
             Imported = imported
         } |> ImportMemberSpecifier
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             // Don't print the braces, this will be done in the import declaration
             printer.Print(this.Imported)
@@ -2005,12 +1998,12 @@ type ImportDefaultSpecifier =
     {
         Local: Identifier
     }
-    static member Create(local) : ImportSpecifier =
+    static member AsImportSpecifier(local) : ImportSpecifier =
         {
             Local = local
         } |> ImportDefaultSpecifier
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Local)
 
@@ -2019,11 +2012,11 @@ type ImportNamespaceSpecifier =
     {
         Local: Identifier
     }
-    static member Create(local) : ImportSpecifier =
+    static member AsImportSpecifier(local) : ImportSpecifier =
         {
             Local = local
         } |> ImportNamespaceSpecifier
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("* as ")
             printer.Print(this.Local)
@@ -2034,12 +2027,12 @@ type ImportDeclaration =
         Specifiers: ImportSpecifier array
         Source: StringLiteral
     }
-    static member Create(specifiers, source) : ModuleDeclaration =
+    static member AsModuleDeclaration(specifiers, source) : ModuleDeclaration =
         {
             Specifiers = specifiers
             Source = source
         } |> ImportDeclaration
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             let members = this.Specifiers |> Array.choose (function ImportMemberSpecifier(x) -> Some x | _ -> None)
             let defaults = this.Specifiers|> Array.choose (function ImportDefaultSpecifier(x) -> Some x | _ -> None)
@@ -2080,12 +2073,12 @@ type ExportSpecifier =
         Local: Identifier
         Exported: Identifier
     }
-    static member Create(local, exported) : Node =
+    static member Create(local, exported) =
         {
             Local = local
             Exported = exported
-        } |> ExportSpecifier
-    interface IPrinter with
+        }
+    interface IPrintable with
         member this.Print(printer) =
             // Don't print the braces, this will be done in the export declaration
             printer.Print(this.Local)
@@ -2099,11 +2092,11 @@ type ExportNamedDeclaration =
     {
         Declaration: Declaration
     }
-    static member Create(declaration) : ModuleDeclaration =
+    static member AsModuleDeclaration(declaration) : ModuleDeclaration =
         {
             Declaration = declaration
         } |> ExportNamedDeclaration
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("export ")
             printer.Print(this.Declaration)
@@ -2113,12 +2106,12 @@ type ExportNamedReferences =
         Specifiers: ExportSpecifier array
         Source: StringLiteral option
     }
-    static member Create(specifiers, ?source) : ModuleDeclaration =
+    static member AsModuleDeclaration(specifiers, ?source) : ModuleDeclaration =
         {
             Specifiers = specifiers
             Source = source
         } |> ExportNamedReferences
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("export ")
             printer.Print("{ ")
@@ -2131,11 +2124,11 @@ type ExportDefaultDeclaration =
     {
         Declaration: Choice<Declaration, Expression>
     }
-    static member Create(declaration) : ModuleDeclaration =
+    static member AsModuleDeclaration(declaration) : ModuleDeclaration =
         {
             Declaration = declaration
         } |> ExportDefaultDeclaration
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("export default ")
             match this.Declaration with
@@ -2148,12 +2141,12 @@ type ExportAllDeclaration =
         Source: Literal
         Loc: SourceLocation option
     }
-    static member Create(source, ?loc) : ModuleDeclaration =
+    static member AsModuleDeclaration(source, ?loc) : ModuleDeclaration =
         {
             Source = source
             Loc = loc
         } |> ExportAllDeclaration
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("export * from ", ?loc=this.Loc)
             printer.Print(this.Source)
@@ -2173,7 +2166,7 @@ type TypeAnnotationInfo =
     | GenericTypeAnnotation of GenericTypeAnnotation
     | ObjectTypeAnnotation of ObjectTypeAnnotation
 
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             match this with
             | StringTypeAnnotation -> printer.Print("string")
@@ -2197,7 +2190,7 @@ type TypeAnnotation =
         {
             TypeAnnotation = typeAnnotation
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(": ")
             printer.Print(this.TypeAnnotation)
@@ -2214,7 +2207,7 @@ type TypeParameter =
             Bound = bound
             Default = ``default``
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Name)
             // printer.PrintOptional(bound)
@@ -2228,7 +2221,7 @@ type TypeParameterDeclaration =
         {
             Params = ``params``
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("<")
             printer.PrintCommaSeparatedArray(this.Params)
@@ -2242,23 +2235,21 @@ type TypeParameterInstantiation =
         {
             Params = ``params``
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("<")
             printer.PrintCommaSeparatedArray(this.Params)
             printer.Print(">")
 
-
-
 type TupleTypeAnnotation =
     {
         Types: TypeAnnotationInfo array
     }
-    static member Create(types) : TypeAnnotationInfo =
+    static member AsTypeAnnotationInfo(types) : TypeAnnotationInfo =
         {
             Types = types
         } |> TupleTypeAnnotation
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("[")
             printer.PrintCommaSeparatedArray(this.Types)
@@ -2268,11 +2259,11 @@ type UnionTypeAnnotation =
     {
         Types: TypeAnnotationInfo array
     }
-    static member Create(types) : TypeAnnotationInfo =
+    static member AsTypeAnnotationInfo(types) : TypeAnnotationInfo =
         {
             Types = types
         } |> UnionTypeAnnotation
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintArray(this.Types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
 
@@ -2288,7 +2279,7 @@ type FunctionTypeParam =
             TypeAnnotation = typeInfo
             Optional = optional
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Name)
             if this.Optional = Some true then
@@ -2303,14 +2294,14 @@ type FunctionTypeAnnotation =
         TypeParameters: TypeParameterDeclaration option
         Rest: FunctionTypeParam option
     }
-    static member Create(``params``, returnType, ?typeParameters, ?rest) : TypeAnnotationInfo =
+    static member AsTypeAnnotationInfo(``params``, returnType, ?typeParameters, ?rest) : TypeAnnotationInfo =
         {
             Params = ``params``
             ReturnType = returnType
             TypeParameters = typeParameters
             Rest = rest
         } |> FunctionTypeAnnotation
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.PrintOptional(this.TypeParameters)
             printer.Print("(")
@@ -2325,11 +2316,11 @@ type NullableTypeAnnotation =
     {
         TypeAnnotation: TypeAnnotationInfo
     }
-    static member Create(``type``) : TypeAnnotationInfo =
+    static member AsTypeAnnotationInfo(``type``) : TypeAnnotationInfo =
         {
             TypeAnnotation = ``type``
         } |> NullableTypeAnnotation
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.TypeAnnotation)
 
@@ -2338,12 +2329,12 @@ type GenericTypeAnnotation =
         Id: Identifier
         TypeParameters: TypeParameterInstantiation option
     }
-    static member Create(id, ?typeParameters) : TypeAnnotationInfo =
+    static member AsTypeAnnotationInfo(id, ?typeParameters) : TypeAnnotationInfo =
         {
             Id = id
             TypeParameters = typeParameters
         } |> GenericTypeAnnotation
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Id)
             printer.PrintOptional(this.TypeParameters)
@@ -2371,7 +2362,7 @@ type ObjectTypeProperty =
             Proto = defaultArg proto false
             Method = defaultArg method false
         }
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             if this.Static then
                 printer.Print("static ")
@@ -2403,7 +2394,7 @@ type ObjectTypeIndexer =
             Value = value
             Static = ``static``
         } |> ObjectTypeIndexer
-    interface IPrinter with
+    interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeCallProperty =
@@ -2411,12 +2402,12 @@ type ObjectTypeCallProperty =
         Value: TypeAnnotationInfo
         Static: bool option
     }
-    static member Create(value, ?``static``) : Node =
+    static member Create(value, ?``static``)  =
         {
             Value = value
             Static = ``static``
-        } |> ObjectTypeCallProperty
-    interface IPrinter with
+        }
+    interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeInternalSlot =
@@ -2427,15 +2418,15 @@ type ObjectTypeInternalSlot =
         Static: bool
         Method: bool
     }
-    static member Create(id, value, optional, ``static``, method) : Node =
+    static member Create(id, value, optional, ``static``, method)  =
         {
             Id = id
             Value = value
             Optional = optional
             Static = ``static``
             Method = method
-        } |> ObjectTypeInternalSlot
-    interface IPrinter with
+        }
+    interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeAnnotation =
@@ -2446,7 +2437,7 @@ type ObjectTypeAnnotation =
         InternalSlots: ObjectTypeInternalSlot array
         Exact: bool
     }
-    static member Create(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) : TypeAnnotationInfo =
+    static member Create(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
         let exact = defaultArg exact_ false
         let indexers = defaultArg indexers_ [||]
         let callProperties = defaultArg callProperties_ [||]
@@ -2457,8 +2448,8 @@ type ObjectTypeAnnotation =
             CallProperties = callProperties
             InternalSlots = internalSlots
             Exact = exact
-        } |> ObjectTypeAnnotation
-    interface IPrinter with
+        }
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("{")
             printer.PrintNewLine()
@@ -2477,12 +2468,12 @@ type InterfaceExtends =
         Id: Identifier
         TypeParameters: TypeParameterInstantiation option
     }
-    static member Create(id, ?typeParameters) : Node =
+    static member Create(id, ?typeParameters) =
         {
             Id = id
             TypeParameters = typeParameters
-        } |> InterfaceExtends
-    interface IPrinter with
+        }
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Id)
             printer.PrintOptional(this.TypeParameters)
@@ -2509,7 +2500,7 @@ type InterfaceDeclaration =
         } |> InterfaceDeclaration
 //    let mixins = defaultArg mixins_ [||]
 //    member _.Mixins: InterfaceExtends array = mixins
-    interface IPrinter with
+    interface IPrintable with
         member this.Print(printer) =
             printer.Print("interface ")
             printer.Print(this.Id)
