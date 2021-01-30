@@ -439,18 +439,15 @@ type ModuleDeclaration =
 
 /// Not in Babel specs
 type EmitExpression =
-    {
-        Value: string
-        Args: Expression array
-        Loc: SourceLocation option
-    }
+    { Value: string
+      Args: Expression array
+      Loc: SourceLocation option }
 
-    static member AsExpr(value, args, ?loc) : Expression =
-        {
-            Value = value
-            Args = args
-            Loc = loc
-        } |> EmitExpression
+    static member AsExpr(value, args, ?loc): Expression =
+        { Value = value
+          Args = args
+          Loc = loc }
+        |> EmitExpression
 
     interface IPrintable with
         member this.Print(printer) =
@@ -546,23 +543,24 @@ type EmitExpression =
 // Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
-    {
-        Name: string
-        Optional: bool option
-        TypeAnnotation: TypeAnnotation option
-        Loc: SourceLocation option
-    }
-    static member Create(name, ?optional, ?typeAnnotation, ?loc) : Identifier =
-        {
-            Name = name
-            Optional = optional
-            TypeAnnotation = typeAnnotation
-            Loc = loc
-        }
-    static member AsExpr(name, ?optional, ?typeAnnotation, ?loc) : Expression =
-        Identifier.Create(name, ?optional=optional, ?typeAnnotation=typeAnnotation, ?loc=loc) |> Identifier
-    static member AsPattern(name, ?optional, ?typeAnnotation, ?loc) : Pattern =
-        Identifier.Create(name, ?optional=optional, ?typeAnnotation=typeAnnotation, ?loc=loc) |> IdentifierPattern
+    { Name: string
+      Optional: bool option
+      TypeAnnotation: TypeAnnotation option
+      Loc: SourceLocation option }
+
+    static member Create(name, ?optional, ?typeAnnotation, ?loc): Identifier =
+        { Name = name
+          Optional = optional
+          TypeAnnotation = typeAnnotation
+          Loc = loc }
+
+    static member AsExpr(name, ?optional, ?typeAnnotation, ?loc): Expression =
+        Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+        |> Identifier
+
+    static member AsPattern(name, ?optional, ?typeAnnotation, ?loc): Pattern =
+        Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+        |> IdentifierPattern
 
     interface IPrintable with
         member this.Print(printer) =
@@ -573,23 +571,21 @@ type Identifier =
 
 // Literals
 type RegExpLiteral =
-    {
-        Pattern: string
-        Flags: string
-        Loc: SourceLocation option
-    }
-    static member AsLiteral(pattern, flags_, ?loc) : Literal =
+    { Pattern: string
+      Flags: string
+      Loc: SourceLocation option }
+
+    static member AsLiteral(pattern, flags_, ?loc): Literal =
         let flags =
             flags_ |> Seq.map (function
                 | RegexGlobal -> "g"
                 | RegexIgnoreCase -> "i"
                 | RegexMultiline -> "m"
                 | RegexSticky -> "y") |> Seq.fold (+) ""
-        {
-            Pattern = pattern
-            Flags = flags
-            Loc = loc
-        } |> RegExp
+        { Pattern = pattern
+          Flags = flags
+          Loc = loc }
+          |> RegExp
     static member AsExpr(pattern, flags_, ?loc) : Expression =
         RegExpLiteral.AsLiteral(pattern, flags_, ?loc=loc) |> Literal
     interface IPrintable with
@@ -600,13 +596,9 @@ type RegExpLiteral =
             printer.Print(this.Flags)
 
 type Undefined =
-    {
-        Loc: SourceLocation option
-    }
-    static member AsExpr(?loc) : Expression =
-        {
-            Loc = loc
-        } |> Undefined
+    { Loc: SourceLocation option }
+
+    static member AsExpr(?loc): Expression = { Loc = loc } |> Undefined
 
     // TODO: Use `void 0` instead? Just remove this node?
     interface IPrintable with
@@ -614,13 +606,12 @@ type Undefined =
             printer.Print("undefined", ?loc=this.Loc)
 
 type NullLiteral =
-    {
-        Loc: SourceLocation option
-    }
+    { Loc: SourceLocation option }
+
     static member AsLiteral(?loc) : Literal =
-        {
-            Loc = loc
-        } |> NullLiteral
+        { Loc = loc }
+        |> NullLiteral
+
     static member AsExpr(?loc) : Expression =
         NullLiteral.AsLiteral(?loc=loc) |> Literal
     interface IPrintable with
@@ -628,16 +619,13 @@ type NullLiteral =
             printer.Print("null", ?loc=this.Loc)
 
 type StringLiteral =
-    {
-        Value: string
-        Loc: SourceLocation option
-    }
+    { Value: string
+      Loc: SourceLocation option }
 
     static member Create(value, ?loc) =
-        {
-            Value = value
-            Loc = loc
-        }
+        { Value = value
+          Loc = loc }
+
     static member AsLiteral(value, ?loc) : Literal =
         StringLiteral.Create(value, ?loc=loc) |> StringLiteral
     static member AsExpr(value, ?loc) : Expression =
@@ -691,25 +679,19 @@ type NumericLiteral =
 //    member _.Value = value
 //
 type DirectiveLiteral =
-    {
-        Value: string
-    }
-    static member Create(value) =
-        {
-            Value = value
-        }
+    { Value: string }
+
+    static member Create(value) = { Value = value }
+
     interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 /// e.g. "use strict";
 type Directive =
-    {
-        Value: DirectiveLiteral
-    }
-    static member Create(value) =
-        {
-            Value = value
-        }
+    { Value: DirectiveLiteral }
+
+    static member Create(value) = { Value = value }
+
     interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
@@ -719,13 +701,10 @@ type Directive =
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
 type Program =
-    {
-        Body: ModuleDeclaration array
-    }
+    { Body: ModuleDeclaration array }
+
     static member Create(body) = // ?directives_,
-        {
-            Body = body
-        }
+        { Body = body }
 
 //    let sourceType = "module" // Don't use "script"
 //    member _.Directives: Directive array = directives
@@ -734,34 +713,25 @@ type Program =
 // Statements
 /// An expression statement, i.e., a statement consisting of a single expression.
 type ExpressionStatement =
-    {
-        Expression: Expression
-    }
-    static member AsStatement(expression) : Statement =
-        {
-            Expression = expression
-        } |> ExpressionStatement
+    { Expression: Expression }
+
+    static member AsStatement(expression): Statement = { Expression = expression } |> ExpressionStatement
+
     interface IPrintable with
-        member this.Print(printer) =
-            printer.Print(this.Expression)
+        member this.Print(printer) = printer.Print(this.Expression)
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
 type BlockStatement =
-    {
-        Body: Statement array
-    }
+    { Body: Statement array }
 
     static member Create(body) = // ?directives_,
-        {
-            Body = body
-        }
-    static member AsStatement(body) =
-        BlockStatement.Create(body) |> BlockStatement
-//    let directives = [||] // defaultArg directives_ [||]
+        { Body = body }
+
+    static member AsStatement(body) = BlockStatement.Create(body) |> BlockStatement
+    //    let directives = [||] // defaultArg directives_ [||]
 //    member _.Directives: Directive array = directives
     interface IPrintable with
-        member this.Print(printer) =
-            printer.PrintBlock(this.Body)
+        member this.Print(printer) = printer.PrintBlock(this.Body)
 
 /// An empty statement, i.e., a solitary semicolon.
 //type EmptyStatement(?loc) =
@@ -769,28 +739,20 @@ type BlockStatement =
 //    member _.Print(_) = ()
 
 type DebuggerStatement =
-    {
-        Loc: SourceLocation option
-    }
-    static member AsStatement(?loc) : Statement =
-        {
-            Loc = loc
-        } |> DebuggerStatement
+    { Loc: SourceLocation option }
+
+    static member AsStatement(?loc): Statement = { Loc = loc } |> DebuggerStatement
+
     interface IPrintable with
-        member this.Print(printer) =
-            printer.Print("debugger", ?loc=this.Loc)
+        member this.Print(printer) = printer.Print("debugger", ?loc = this.Loc)
 
 /// Statement (typically loop) prefixed with a label (for continue and break)
 type LabeledStatement =
-    {
-        Body: Statement
-        Label: Identifier
-    }
-    static member AsStatement(label, body) : Statement =
-        {
-            Body = body
-            Label = label
-        } |> LabeledStatement
+    { Body: Statement
+      Label: Identifier }
+
+    static member AsStatement(label, body): Statement = { Body = body; Label = label } |> LabeledStatement
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Label)
@@ -801,31 +763,20 @@ type LabeledStatement =
 
 /// Break can optionally take a label of a loop to break
 type BreakStatement =
-    {
-        Label: Identifier option
-        Loc: SourceLocation option
-    }
-    static member AsStatement(?label, ?loc) : Statement =
-        {
-            Label = label
-            Loc = loc
-        } |> BreakStatement
+    { Label: Identifier option
+      Loc: SourceLocation option }
+
+    static member AsStatement(?label, ?loc): Statement = { Label = label; Loc = loc } |> BreakStatement
 
     interface IPrintable with
-        member this.Print(printer) =
-            printer.Print("break", ?loc=this.Loc)
+        member this.Print(printer) = printer.Print("break", ?loc = this.Loc)
 
 /// Continue can optionally take a label of a loop to continue
 type ContinueStatement =
-    {
-        Label: Identifier option
-        Loc: SourceLocation option
-    }
-    static member AsStatement(?label, ?loc) : Statement =
-        {
-            Label = label
-            Loc = loc
-        } |> ContinueStatement
+    { Label: Identifier option
+      Loc: SourceLocation option }
+
+    static member AsStatement(?label, ?loc): Statement = { Label = label; Loc = loc } |> ContinueStatement
 
     interface IPrintable with
         member this.Print(printer) =
@@ -836,34 +787,31 @@ type ContinueStatement =
 
 // Control Flow
 type ReturnStatement =
-    {
-        Argument: Expression
-        Loc: SourceLocation option
-    }
-    static member AsStatement(argument, ?loc) : Statement =
-        {
-            Argument = argument
-            Loc = loc
-        } |> ReturnStatement
+    { Argument: Expression
+      Loc: SourceLocation option }
+
+    static member AsStatement(argument, ?loc): Statement =
+        { Argument = argument; Loc = loc }
+        |> ReturnStatement
+
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print("return ", ?loc=this.Loc)
+            printer.Print("return ", ?loc = this.Loc)
             printer.Print(this.Argument)
 
 type IfStatement =
-    {
-        Test: Expression
-        Consequent: BlockStatement
-        Alternate: Statement option
-        Loc: SourceLocation option
-    }
-    static member AsStatement(test, consequent, ?alternate, ?loc) : Statement =
-        {
-            Test = test
-            Consequent = consequent
-            Alternate = alternate
-            Loc = loc
-        } |> IfStatement
+    { Test: Expression
+      Consequent: BlockStatement
+      Alternate: Statement option
+      Loc: SourceLocation option }
+
+    static member AsStatement(test, consequent, ?alternate, ?loc): Statement =
+        { Test = test
+          Consequent = consequent
+          Alternate = alternate
+          Loc = loc }
+        |> IfStatement
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
@@ -897,26 +845,27 @@ type IfStatement =
 
 /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
 type SwitchCase =
-    {
-        Test: Expression option
-        Consequent: Statement array
-        Loc: SourceLocation option
-    }
+    { Test: Expression option
+      Consequent: Statement array
+      Loc: SourceLocation option }
+
     static member Create(consequent, ?test, ?loc) =
-        {
-            Test = test
-            Consequent = consequent
-            Loc = loc
-        }
+        { Test = test
+          Consequent = consequent
+          Loc = loc }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
+
             match this.Test with
             | None -> printer.Print("default")
             | Some test ->
                 printer.Print("case ")
                 printer.Print(test)
+
             printer.Print(":")
+
             match this.Consequent.Length with
             | 0 -> printer.PrintNewLine()
             | 1 ->
@@ -927,17 +876,16 @@ type SwitchCase =
                 printer.PrintBlock(this.Consequent)
 
 type SwitchStatement =
-    {
-        Discriminant: Expression
-        Cases: SwitchCase array
-        Loc: SourceLocation option
-    }
-    static member AsStatement(discriminant, cases, ?loc) : Statement =
-        {
-            Discriminant = discriminant
-            Cases = cases
-            Loc = loc
-        } |> SwitchStatement
+    { Discriminant: Expression
+      Cases: SwitchCase array
+      Loc: SourceLocation option }
+
+    static member AsStatement(discriminant, cases, ?loc): Statement =
+        { Discriminant = discriminant
+          Cases = cases
+          Loc = loc }
+        |> SwitchStatement
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("switch (", ?loc=this.Loc)
@@ -947,114 +895,120 @@ type SwitchStatement =
 
 // Exceptions
 type ThrowStatement =
-    {
-        Argument: Expression
-        Loc: SourceLocation option
-    }
-    static member AsStatement(argument, ?loc) : Statement =
-        {
-            Argument = argument
-            Loc = loc
-        } |> ThrowStatement
+    { Argument: Expression
+      Loc: SourceLocation option }
+
+    static member AsStatement(argument, ?loc): Statement =
+        { Argument = argument; Loc = loc }
+        |> ThrowStatement
+
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print("throw ", ?loc=this.Loc)
+            printer.Print("throw ", ?loc = this.Loc)
             printer.Print(this.Argument)
 
 /// A catch clause following a try block.
 type CatchClause =
-    {
-        Param: Pattern
-        Body: BlockStatement
-        Loc: SourceLocation option
-    }
+    { Param: Pattern
+      Body: BlockStatement
+      Loc: SourceLocation option }
+
     static member Create(param, body, ?loc) =
-        {
-            Param = param
-            Body = body
-            Loc = loc
-        }
+        { Param = param
+          Body = body
+          Loc = loc }
+
     interface IPrintable with
         member this.Print(printer) =
             // "catch" is being printed by TryStatement
-            printer.Print("(", ?loc=this.Loc)
+            printer.Print("(", ?loc = this.Loc)
             printer.Print(this.Param)
             printer.Print(") ")
             printer.Print(this.Body)
 
 /// If handler is null then finalizer must be a BlockStatement.
 type TryStatement =
-    {
-        Block: BlockStatement
-        Handler: CatchClause option
-        Finalizer: BlockStatement option
-        Loc: SourceLocation option
-    }
-    static member AsStatement(block, ?handler, ?finalizer, ?loc) : Statement =
-        {
-            Block = block
-            Handler = handler
-            Finalizer = finalizer
-            Loc = loc
-        } |> TryStatement
+    { Block: BlockStatement
+      Handler: CatchClause option
+      Finalizer: BlockStatement option
+      Loc: SourceLocation option }
+
+    static member AsStatement(block, ?handler, ?finalizer, ?loc): Statement =
+        { Block = block
+          Handler = handler
+          Finalizer = finalizer
+          Loc = loc }
+        |> TryStatement
+
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print("try ", ?loc=this.Loc)
+            printer.Print("try ", ?loc = this.Loc)
             printer.Print(this.Block)
             printer.PrintOptional("catch ", this.Handler)
             printer.PrintOptional("finally ", this.Finalizer)
 
 // Declarations
 type VariableDeclarator =
-    {
-        Id: Pattern
-        Init: Expression option
-    }
-    static member Create(id, ?init)  =
-        {
-            Id = id
-            Init = init
-        }
-    interface IPrintable with
-        member this.Print(printer) =
-            failwith "Not implemented"
+    { Id: Pattern
+      Init: Expression option }
 
-type VariableDeclarationKind = Var | Let | Const
+    static member Create(id, ?init) = { Id = id; Init = init }
+
+    interface IPrintable with
+        member this.Print(printer) = failwith "Not implemented"
+
+type VariableDeclarationKind =
+    | Var
+    | Let
+    | Const
 
 type VariableDeclaration =
-    {
-        Declarations: VariableDeclarator array
-        Kind: string
-        Loc: SourceLocation option
-    }
+    { Declarations: VariableDeclarator array
+      Kind: string
+      Loc: SourceLocation option }
 
     static member Create(kind, declarations, ?loc) =
-        let kind = match kind with Var -> "var" | Let -> "let" | Const -> "const"
-        {
-            Declarations = declarations
-            Kind = kind
-            Loc = loc
-        }
+        let kind =
+            match kind with
+            | Var -> "var"
+            | Let -> "let"
+            | Const -> "const"
+
+        { Declarations = declarations
+          Kind = kind
+          Loc = loc }
+
     static member Create(var, ?init, ?kind, ?loc) =
-        VariableDeclaration.Create(defaultArg kind Let, [|VariableDeclarator.Create(var, ?init=init)|], ?loc=loc)
-    static member AsDeclaration(kind, declarations, ?loc) : Declaration =
-        VariableDeclaration.Create(kind, declarations, ?loc=loc)
+        VariableDeclaration.Create(defaultArg kind Let, [| VariableDeclarator.Create(var, ?init = init) |], ?loc = loc)
+
+    static member AsDeclaration(kind, declarations, ?loc): Declaration =
+        VariableDeclaration.Create(kind, declarations, ?loc = loc)
         |> VariableDeclaration
-    static member AsStatement(kind, declarations, ?loc) : Statement =
-        VariableDeclaration.AsDeclaration(kind, declarations, ?loc=loc)
+
+    static member AsStatement(kind, declarations, ?loc): Statement =
+        VariableDeclaration.AsDeclaration(kind, declarations, ?loc = loc)
         |> Declaration
-    static member AsDeclaration(var, ?init, ?kind, ?loc) : Declaration =
-        VariableDeclaration.AsDeclaration(defaultArg kind Let, [|VariableDeclarator.Create(var, ?init=init)|], ?loc=loc)
-    static member AsStatement(var, ?init, ?kind, ?loc) : Statement =
-        VariableDeclaration.AsDeclaration(var, ?init=init, ?kind=kind, ?loc=loc) |> Declaration
+
+    static member AsDeclaration(var, ?init, ?kind, ?loc): Declaration =
+        VariableDeclaration.AsDeclaration(
+            defaultArg kind Let,
+            [| VariableDeclarator.Create(var, ?init = init) |],
+            ?loc = loc
+        )
+
+    static member AsStatement(var, ?init, ?kind, ?loc): Statement =
+        VariableDeclaration.AsDeclaration(var, ?init = init, ?kind = kind, ?loc = loc)
+        |> Declaration
 
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print(this.Kind + " ", ?loc=this.Loc)
+            printer.Print(this.Kind + " ", ?loc = this.Loc)
             let canConflict = this.Declarations.Length > 1
+
             for i = 0 to this.Declarations.Length - 1 do
                 let decl = this.Declarations.[i]
                 printer.Print(decl.Id)
+
                 match decl.Init with
                 | None -> ()
                 | Some e ->
@@ -1066,20 +1020,17 @@ type VariableDeclaration =
 
 // Loops
 type WhileStatement =
-    {
-        Test: Expression
-        Body: BlockStatement
-        Loc: SourceLocation option
-    }
-    static member AsStatement(test, body, ?loc) : Statement =
-        {
-            Test = test
-            Body = body
-            Loc = loc
-        } |> WhileStatement
+    { Test: Expression
+      Body: BlockStatement
+      Loc: SourceLocation option }
+
+    static member AsStatement(test, body, ?loc): Statement =
+        { Test = test; Body = body; Loc = loc }
+        |> WhileStatement
+
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print("while (", ?loc=this.Loc)
+            printer.Print("while (", ?loc = this.Loc)
             printer.Print(this.Test)
             printer.Print(") ")
             printer.Print(this.Body)
@@ -1090,26 +1041,25 @@ type WhileStatement =
 //    member _.Test: Expression = test
 
 type ForStatement =
-    {
-        Body: BlockStatement
-        // In JS this can be an expression too
-        Init: VariableDeclaration option
-        Test: Expression option
-        Update: Expression option
-        Loc: SourceLocation option
-    }
-    static member AsStatement(body, ?init, ?test, ?update, ?loc) : Statement =
-        {
-            Body = body
-            // In JS this can be an expression too
-            Init = init
-            Test = test
-            Update = update
-            Loc = loc
-        } |> ForStatement
+    { Body: BlockStatement
+      // In JS this can be an expression too
+      Init: VariableDeclaration option
+      Test: Expression option
+      Update: Expression option
+      Loc: SourceLocation option }
+
+    static member AsStatement(body, ?init, ?test, ?update, ?loc): Statement =
+        { Body = body
+          // In JS this can be an expression too
+          Init = init
+          Test = test
+          Update = update
+          Loc = loc }
+        |> ForStatement
+
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print("for (", ?loc=this.Loc)
+            printer.Print("for (", ?loc = this.Loc)
             printer.PrintOptional(this.Init)
             printer.Print("; ")
             printer.PrintOptional(this.Test)
@@ -1136,24 +1086,22 @@ type ForStatement =
 
 /// A function declaration. Note that id cannot be null.
 type FunctionDeclaration =
-    {
-        Params: Pattern array
-        Body: BlockStatement
-        Id: Identifier
-        ReturnType: TypeAnnotation option
-        TypeParameters: TypeParameterDeclaration option
-        Loc: SourceLocation option
-    }
-    static member AsDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) : Declaration = // ?async_, ?generator_, ?declare,
-        {
-            Params = ``params``
-            Body = body
-            Id = id
-            ReturnType = returnType
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> FunctionDeclaration
-//    let async = defaultArg async_ false
+    { Params: Pattern array
+      Body: BlockStatement
+      Id: Identifier
+      ReturnType: TypeAnnotation option
+      TypeParameters: TypeParameterDeclaration option
+      Loc: SourceLocation option }
+
+    static member AsDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc): Declaration = // ?async_, ?generator_, ?declare,
+        { Params = ``params``
+          Body = body
+          Id = id
+          ReturnType = returnType
+          TypeParameters = typeParameters
+          Loc = loc }
+        |> FunctionDeclaration
+    //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
 //    member _.Async: bool = async
 //    member _.Generator: bool = generator
@@ -1167,50 +1115,40 @@ type FunctionDeclaration =
 
 /// A super pseudo-expression.
 type Super =
-    {
-        Loc: SourceLocation option
-    }
-    static member AsExpr(?loc) : Expression =
-        {
-            Loc = loc
-        } |> Super
+    { Loc: SourceLocation option }
+
+    static member AsExpr(?loc): Expression = { Loc = loc } |> Super
+
     interface IPrintable with
-        member this.Print(printer) =
-            printer.Print("super", ?loc=this.Loc)
+        member this.Print(printer) = printer.Print("super", ?loc = this.Loc)
 
 type ThisExpression =
-    {
-        Loc: SourceLocation option
-    }
-    static member AsExpr(?loc) : Expression =
-        {
-            Loc = loc
-        } |> ThisExpression
+    { Loc: SourceLocation option }
+
+    static member AsExpr(?loc): Expression = { Loc = loc } |> ThisExpression
 
     interface IPrintable with
-        member this.Print(printer) =
-            printer.Print("this", ?loc=this.Loc)
+        member this.Print(printer) = printer.Print("this", ?loc = this.Loc)
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
 type ArrowFunctionExpression =
-    {
-        Params: Pattern array
-        Body: BlockStatement
-        ReturnType: TypeAnnotation option
-        TypeParameters: TypeParameterDeclaration option
-        Loc: SourceLocation option
-    }
-    static member AsExpr(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) : Expression = //?async_, ?generator_,
-        {
-            Params = ``params``
-            Body = body
-            ReturnType = returnType
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> ArrowFunctionExpression
-    static member AsExpr(``params``, body: Expression, ?returnType, ?typeParameters, ?loc) : Expression =
-        let body = { Body = [|ReturnStatement.AsStatement(body) |] }
-        ArrowFunctionExpression.AsExpr(``params``, body, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
+    { Params: Pattern array
+      Body: BlockStatement
+      ReturnType: TypeAnnotation option
+      TypeParameters: TypeParameterDeclaration option
+      Loc: SourceLocation option }
+
+    static member AsExpr(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc): Expression = //?async_, ?generator_,
+        { Params = ``params``
+          Body = body
+          ReturnType = returnType
+          TypeParameters = typeParameters
+          Loc = loc }
+        |> ArrowFunctionExpression
+
+    static member AsExpr(``params``, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
+        let body = { Body = [| ReturnStatement.AsStatement(body) |] }
+        ArrowFunctionExpression.AsExpr(``params``, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
 
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
@@ -1218,26 +1156,33 @@ type ArrowFunctionExpression =
 //    member _.Generator: bool = generator
     interface IPrintable with
         member this.Print(printer) =
-            printer.PrintFunction(None, this.Params, this.Body, this.TypeParameters, this.ReturnType, this.Loc, isArrow=true)
+            printer.PrintFunction(
+                None,
+                this.Params,
+                this.Body,
+                this.TypeParameters,
+                this.ReturnType,
+                this.Loc,
+                isArrow = true
+            )
 
 type FunctionExpression =
-    {
-        Id: Identifier option
-        Params: Pattern array
-        Body: BlockStatement
-        ReturnType: TypeAnnotation option
-        TypeParameters: TypeParameterDeclaration option
-        Loc: SourceLocation option
-    }
-    static member AsExpr(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) : Expression = //?generator_, ?async_
-        {
-            Id = id
-            Params = ``params``
-            Body = body
-            ReturnType = returnType
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> FunctionExpression
+    { Id: Identifier option
+      Params: Pattern array
+      Body: BlockStatement
+      ReturnType: TypeAnnotation option
+      TypeParameters: TypeParameterDeclaration option
+      Loc: SourceLocation option }
+
+    static member AsExpr(``params``, body, ?id, ?returnType, ?typeParameters, ?loc): Expression = //?generator_, ?async_
+        { Id = id
+          Params = ``params``
+          Body = body
+          ReturnType = returnType
+          TypeParameters = typeParameters
+          Loc = loc }
+        |> FunctionExpression
+
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
 //    member _.Async: bool = async
@@ -1274,35 +1219,32 @@ type FunctionExpression =
 
 // Should derive from Node, but make it an expression for simplicity
 type SpreadElement =
-    {
-        Argument: Expression
-        Loc: SourceLocation option
-    }
-    static member AsExpr(argument, ?loc) : Expression =
-        {
-            Argument = argument
-            Loc = loc
-        } |> SpreadElement
+    { Argument: Expression
+      Loc: SourceLocation option }
+
+    static member AsExpr(argument, ?loc): Expression =
+        { Argument = argument; Loc = loc }
+        |> SpreadElement
+
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print("...", ?loc=this.Loc)
+            printer.Print("...", ?loc = this.Loc)
             printer.ComplexExpressionWithParens(this.Argument)
 
 type ArrayExpression =
-    {
-        // Elements: Choice<Expression, SpreadElement> option array
-        Elements: Expression array
-        Loc: SourceLocation option
-    }
-    static member AsExpr(elements, ?loc) : Expression =
-        {
-            // Elements: Choice<Expression, SpreadElement> option array
-            Elements = elements
-            Loc = loc
-        } |> ArrayExpression
+    { // Elements: Choice<Expression, SpreadElement> option array
+      Elements: Expression array
+      Loc: SourceLocation option }
+
+    static member AsExpr(elements, ?loc): Expression =
+        { // Elements: Choice<Expression, SpreadElement> option array
+          Elements = elements
+          Loc = loc }
+        |> ArrayExpression
+
     interface IPrintable with
         member this.Print(printer) =
-            printer.Print("[", ?loc=this.Loc)
+            printer.Print("[", ?loc = this.Loc)
             printer.PrintCommaSeparatedArray(this.Elements)
             printer.Print("]")
 
@@ -1317,19 +1259,18 @@ type ObjectMember =
             | ObjectMethod(op) -> printer.Print(op)
 
 type ObjectProperty =
-    {
-        Key: Expression
-        Value: Expression
-        Computed: bool
-    }
-    static member AsObjectMember(key, value, ?computed_) : ObjectMember = // ?shorthand_,
+    { Key: Expression
+      Value: Expression
+      Computed: bool }
+
+    static member AsObjectMember(key, value, ?computed_): ObjectMember = // ?shorthand_,
         let computed = defaultArg computed_ false
-        {
-            Key = key
-            Value = value
-            Computed = computed
-        } |> ObjectProperty
-//    let shorthand = defaultArg shorthand_ false
+
+        { Key = key
+          Value = value
+          Computed = computed }
+        |> ObjectProperty
+    //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
     interface IPrintable with
         member this.Print(printer) =
@@ -1345,16 +1286,15 @@ type ObjectProperty =
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
 
 type ObjectMethod =
-    {
-        Kind: string
-        Key: Expression
-        Params: Pattern array
-        Body: BlockStatement
-        Computed: bool
-        ReturnType: TypeAnnotation option
-        TypeParameters: TypeParameterDeclaration option
-        Loc: SourceLocation option
-    }
+    { Kind: string
+      Key: Expression
+      Params: Pattern array
+      Body: BlockStatement
+      Computed: bool
+      ReturnType: TypeAnnotation option
+      TypeParameters: TypeParameterDeclaration option
+      Loc: SourceLocation option }
+
     static member AsObjectMember(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) : ObjectMember = // ?async_, ?generator_,
         let kind =
             match kind_ with
@@ -1362,20 +1302,20 @@ type ObjectMethod =
             | ObjectSetter -> "set"
             | ObjectMeth -> "method"
         let computed = defaultArg computed_ false
-    //    let async = defaultArg async_ false
-    //    let generator = defaultArg generator_ false
-    //    member _.Async: bool = async
-    //    member _.Generator: bool = generator
-        {
-            Kind = kind
-            Key = key
-            Params = ``params``
-            Body = body
-            Computed = computed
-            ReturnType = returnType
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> ObjectMethod
+        //    let async = defaultArg async_ false
+        //    let generator = defaultArg generator_ false
+        //    member _.Async: bool = async
+        //    member _.Generator: bool = generator
+        { Kind = kind
+          Key = key
+          Params = ``params``
+          Body = body
+          Computed = computed
+          ReturnType = returnType
+          TypeParameters = typeParameters
+          Loc = loc }
+        |> ObjectMethod
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
@@ -1402,26 +1342,25 @@ type ObjectMethod =
 /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
 /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
 type MemberExpression =
-    {
-        Name: string
-        Object: Expression
-        Property: Expression
-        Computed: bool
-        Loc: SourceLocation option
-    }
+    { Name: string
+      Object: Expression
+      Property: Expression
+      Computed: bool
+      Loc: SourceLocation option }
+
     static member AsExpr(object, property, ?computed_, ?loc) : Expression =
         let computed = defaultArg computed_ false
         let name =
             match property with
             | Identifier(id) -> id.Name
             | _ -> ""
-        {
-            Name = name
-            Object = object
-            Property = property
-            Computed = computed
-            Loc = loc
-        } |> MemberExpression
+
+        { Name = name
+          Object = object
+          Property = property
+          Computed = computed
+          Loc = loc }
+        |> MemberExpression
 
     interface IPrintable with
         member this.Print(printer) = this.Print(printer)
@@ -1439,18 +1378,16 @@ type MemberExpression =
             printer.Print(this.Property)
 
 type ObjectExpression =
-    {
-        Properties: ObjectMember array
-        Loc: SourceLocation option
-    }
-    static member AsExpr(properties, ?loc) : Expression =
-        {
-            Properties = properties
-            Loc = loc
-        } |> ObjectExpression
+    { Properties: ObjectMember array
+      Loc: SourceLocation option }
+
+    static member AsExpr(properties, ?loc): Expression =
+        { Properties = properties; Loc = loc }
+        |> ObjectExpression
+
     interface IPrintable with
         member this.Print(printer) =
-            let printSeparator (p: Printer) =
+            let printSeparator(p: Printer) =
                 p.Print(",")
                 p.PrintNewLine()
 
@@ -1460,19 +1397,18 @@ type ObjectExpression =
 
 /// A conditional expression, i.e., a ternary ?/: expression.
 type ConditionalExpression =
-    {
-        Test: Expression
-        Consequent: Expression
-        Alternate: Expression
-        Loc: SourceLocation option
-    }
-    static member AsExpr(test, consequent, alternate, ?loc) : Expression =
-        {
-            Test = test
-            Consequent = consequent
-            Alternate = alternate
-            Loc = loc
-        } |> ConditionalExpression
+    { Test: Expression
+      Consequent: Expression
+      Alternate: Expression
+      Loc: SourceLocation option }
+
+    static member AsExpr(test, consequent, alternate, ?loc): Expression =
+        { Test = test
+          Consequent = consequent
+          Alternate = alternate
+          Loc = loc }
+        |> ConditionalExpression
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
@@ -1490,18 +1426,17 @@ type ConditionalExpression =
 
 /// A function or method call expression.
 type CallExpression =
-    {
-        Callee: Expression
-        // Arguments: Choice<Expression, SpreadElement> array
-        Arguments: Expression array
-        Loc: SourceLocation option
-    }
-    static member AsExpr(callee, arguments, ?loc) : Expression =
-        {
-            Callee = callee
-            Arguments = arguments
-            Loc = loc
-        } |> CallExpression
+    { Callee: Expression
+      // Arguments: Choice<Expression, SpreadElement> array
+      Arguments: Expression array
+      Loc: SourceLocation option }
+
+    static member AsExpr(callee, arguments, ?loc): Expression =
+        { Callee = callee
+          Arguments = arguments
+          Loc = loc }
+        |> CallExpression
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
@@ -1511,20 +1446,19 @@ type CallExpression =
             printer.Print(")")
 
 type NewExpression =
-    {
-        Callee: Expression
-        // Arguments: Choice<Expression, SpreadElement> array = arguments
-        Arguments: Expression array
-        TypeArguments: TypeParameterInstantiation option
-        Loc: SourceLocation option
-    }
-    static member AsExpr(callee, arguments, ?typeArguments, ?loc) : Expression =
-        {
-            Callee = callee
-            Arguments = arguments
-            TypeArguments = typeArguments
-            Loc = loc
-        } |> NewExpression
+    { Callee: Expression
+      // Arguments: Choice<Expression, SpreadElement> array = arguments
+      Arguments: Expression array
+      TypeArguments: TypeParameterInstantiation option
+      Loc: SourceLocation option }
+
+    static member AsExpr(callee, arguments, ?typeArguments, ?loc): Expression =
+        { Callee = callee
+          Arguments = arguments
+          TypeArguments = typeArguments
+          Loc = loc }
+        |> NewExpression
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("new ", ?loc=this.Loc)
@@ -1535,15 +1469,13 @@ type NewExpression =
 
 /// A comma-separated sequence of expressions.
 type SequenceExpression =
-    {
-        Expressions: Expression array
-        Loc: SourceLocation option
-    }
-    static member AsExpr(expressions, ?loc) : Expression =
-        {
-            Expressions = expressions
-            Loc = loc
-        } |> SequenceExpression
+    { Expressions: Expression array
+      Loc: SourceLocation option }
+
+    static member AsExpr(expressions, ?loc): Expression =
+        { Expressions = expressions; Loc = loc }
+        |> SequenceExpression
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
@@ -1551,12 +1483,11 @@ type SequenceExpression =
 
 // Unary Operations
 type UnaryExpression =
-    {
-        Prefix: bool
-        Argument: Expression
-        Operator: string
-        Loc: SourceLocation option
-    }
+    { Prefix: bool
+      Argument: Expression
+      Operator: string
+      Loc: SourceLocation option }
+
     static member AsExpr(operator_, argument, ?loc) : Expression =
         let prefix = true
         let operator =
@@ -1568,12 +1499,13 @@ type UnaryExpression =
             | UnaryTypeof -> "typeof"
             | UnaryVoid -> "void"
             | UnaryDelete -> "delete"
-        {
-            Prefix = prefix
-            Argument = argument
-            Operator = operator
-            Loc = loc
-        } |> UnaryExpression
+
+        { Prefix = prefix
+          Argument = argument
+          Operator = operator
+          Loc = loc }
+        |> UnaryExpression
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
@@ -1583,23 +1515,22 @@ type UnaryExpression =
             printer.ComplexExpressionWithParens(this.Argument)
 
 type UpdateExpression =
-    {
-        Prefix: bool
-        Argument: Expression
-        Operator: string
-        Loc: SourceLocation option
-    }
+    { Prefix: bool
+      Argument: Expression
+      Operator: string
+      Loc: SourceLocation option }
+
     static member AsExpr(operator_, prefix, argument, ?loc) : Expression =
         let operator =
             match operator_ with
             | UpdateMinus -> "--"
             | UpdatePlus -> "++"
-        {
-            Prefix = prefix
-            Argument = argument
-            Operator = operator
-            Loc = loc
-        } |> UpdateExpression
+
+        { Prefix = prefix
+          Argument = argument
+          Operator = operator
+          Loc = loc }
+        |> UpdateExpression
 
     interface IPrintable with
         member this.Print(printer) =
@@ -1613,13 +1544,12 @@ type UpdateExpression =
 
 // Binary Operations
 type BinaryExpression =
-    {
-        Left: Expression
-        Right: Expression
-        Operator: string
-        Loc: SourceLocation option
-    }
-    static member AsExpr(operator_, left, right, ?loc) : Expression =
+    { Left: Expression
+      Right: Expression
+      Operator: string
+      Loc: SourceLocation option }
+
+    static member AsExpr(operator_, left, right, ?loc): Expression =
         let operator =
             match operator_ with
             | BinaryEqual -> "=="
@@ -1644,24 +1574,23 @@ type BinaryExpression =
             | BinaryAndBitwise -> "&"
             | BinaryIn -> "in"
             | BinaryInstanceOf -> "instanceof"
-        {
-            Left = left
-            Right = right
-            Operator = operator
-            Loc = loc
-        } |> BinaryExpression
+
+        { Left = left
+          Right = right
+          Operator = operator
+          Loc = loc }
+        |> BinaryExpression
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintOperation(this.Left, this.Operator, this.Right, this.Loc)
 
 type AssignmentExpression =
-    {
-        Left: Expression
-        Right: Expression
-        Operator: string
-        Loc: SourceLocation option
-    }
-    static member AsExpr(operator_, left, right, ?loc) : Expression =
+    { Left: Expression
+      Right: Expression
+      Operator: string
+      Loc: SourceLocation option }
+
+    static member AsExpr(operator_, left, right, ?loc): Expression =
         let operator =
             match operator_ with
             | AssignEqual -> "="
@@ -1676,34 +1605,33 @@ type AssignmentExpression =
             | AssignOrBitwise -> "|="
             | AssignXorBitwise -> "^="
             | AssignAndBitwise -> "&="
-        {
-            Left = left
-            Right = right
-            Operator = operator
-            Loc = loc
-        } |> AssignmentExpression
+
+        { Left = left
+          Right = right
+          Operator = operator
+          Loc = loc }
+        |> AssignmentExpression
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintOperation(this.Left, this.Operator, this.Right, this.Loc)
 
 type LogicalExpression =
-    {
-        Left: Expression
-        Right: Expression
-        Operator: string
-        Loc: SourceLocation option
-    }
-    static member AsExpr(operator_, left, right, ?loc) : Expression =
+    { Left: Expression
+      Right: Expression
+      Operator: string
+      Loc: SourceLocation option }
+
+    static member AsExpr(operator_, left, right, ?loc): Expression =
         let operator =
             match operator_ with
             | LogicalOr -> "||"
-            | LogicalAnd-> "&&"
-        {
-            Left = left
-            Right = right
-            Operator = operator
-            Loc = loc
-        } |> LogicalExpression
+            | LogicalAnd -> "&&"
+
+        { Left = left
+          Right = right
+          Operator = operator
+          Loc = loc }
+        |> LogicalExpression
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintOperation(this.Left, this.Operator, this.Right, this.Loc)
@@ -1730,19 +1658,17 @@ type LogicalExpression =
 //    member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
 
 type RestElement =
-    {
-        Name: string
-        Argument: Pattern
-        TypeAnnotation: TypeAnnotation option
-        Loc: SourceLocation option
-    }
-    static member AsPattern(argument: Pattern, ?typeAnnotation, ?loc) : Pattern =
-        {
-            Name = argument.Name
-            Argument = argument
-            TypeAnnotation = typeAnnotation
-            Loc = loc
-        } |> RestElement
+    { Name: string
+      Argument: Pattern
+      TypeAnnotation: TypeAnnotation option
+      Loc: SourceLocation option }
+
+    static member AsPattern(argument: Pattern, ?typeAnnotation, ?loc): Pattern =
+        { Name = argument.Name
+          Argument = argument
+          TypeAnnotation = typeAnnotation
+          Loc = loc }
+        |> RestElement
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("...", ?loc=this.Loc)
@@ -1784,18 +1710,18 @@ type ClassMethod =
             | ClassSetter -> "set"
             | ClassFunction -> "method"
         let computed = defaultArg computed_ false
-        {
-            Kind = kind
-            Key = key
-            Params = ``params``
-            Body = body
-            Computed = computed
-            Static = ``static``
-            Abstract = ``abstract``
-            ReturnType = returnType
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> ClassMethod
+
+        { Kind = kind
+          Key = key
+          Params = ``params``
+          Body = body
+          Computed = computed
+          Static = ``static``
+          Abstract = ``abstract``
+          ReturnType = returnType
+          TypeParameters = typeParameters
+          Loc = loc }
+        |> ClassMethod
     // This appears in astexplorer.net but it's not documented
     // member _.Expression: bool = false
     interface IPrintable with
@@ -1831,26 +1757,26 @@ type ClassMethod =
 /// https://github.com/jeffmo/es-class-fields-and-static-properties
 /// e.g, class MyClass { static myStaticProp = 5; myProp /* = 10 */; }
 type ClassProperty =
-    {
-        Key: Expression
-        Value: Expression option
-        Computed: bool
-        Static: bool
-        Optional: bool
-        TypeAnnotation: TypeAnnotation option
-        Loc: SourceLocation option
-    }
-    static member AsClassMember(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc) : ClassMember =
+    { Key: Expression
+      Value: Expression option
+      Computed: bool
+      Static: bool
+      Optional: bool
+      TypeAnnotation: TypeAnnotation option
+      Loc: SourceLocation option }
+
+    static member AsClassMember(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc): ClassMember =
         let computed = defaultArg computed_ false
-        {
-            Key = key
-            Value = value
-            Computed = computed
-            Static = defaultArg ``static`` false
-            Optional = defaultArg optional false
-            TypeAnnotation = typeAnnotation
-            Loc = loc
-        } |> ClassProperty
+
+        { Key = key
+          Value = value
+          Computed = computed
+          Static = defaultArg ``static`` false
+          Optional = defaultArg optional false
+          TypeAnnotation = typeAnnotation
+          Loc = loc }
+        |> ClassProperty
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
@@ -1923,25 +1849,23 @@ type ClassDeclaration =
 
 /// Anonymous class: e.g., var myClass = class { }
 type ClassExpression =
-    {
-        Body: ClassBody
-        Id: Identifier option
-        SuperClass: Expression option
-        Implements: ClassImplements array option
-        SuperTypeParameters: TypeParameterInstantiation option
-        TypeParameters: TypeParameterDeclaration option
-        Loc: SourceLocation option
-    }
-    static member AsExpr(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) : Expression =
-        {
-            Body = body
-            Id = id
-            SuperClass = superClass
-            Implements = implements
-            SuperTypeParameters = superTypeParameters
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> ClassExpression
+    { Body: ClassBody
+      Id: Identifier option
+      SuperClass: Expression option
+      Implements: ClassImplements array option
+      SuperTypeParameters: TypeParameterInstantiation option
+      TypeParameters: TypeParameterDeclaration option
+      Loc: SourceLocation option }
+
+    static member AsExpr(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc): Expression =
+        { Body = body
+          Id = id
+          SuperClass = superClass
+          Implements = implements
+          SuperTypeParameters = superTypeParameters
+          TypeParameters = typeParameters
+          Loc = loc }
+        |> ClassExpression
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintClass(this.Id, this.SuperClass, this.SuperTypeParameters, this.TypeParameters, this.Implements, this.Body, this.Loc)
@@ -1953,13 +1877,11 @@ type ClassExpression =
 
 // Modules
 type PrivateModuleDeclaration =
-    {
-        Statement: Statement
-    }
-    static member AsModuleDeclaration(statement) : ModuleDeclaration =
-        {
-            Statement = statement
-        } |> PrivateModuleDeclaration
+    { Statement: Statement }
+
+    static member AsModuleDeclaration(statement): ModuleDeclaration =
+        { Statement = statement }
+        |> PrivateModuleDeclaration
     interface IPrintable with
         member this.Print(printer) =
             if printer.IsProductiveStatement(this.Statement) then
@@ -1980,15 +1902,12 @@ type ImportSpecifier =
 /// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ImportMemberSpecifier =
-    {
-        Local: Identifier
-        Imported: Identifier
-    }
-    static member AsImportSpecifier(local, imported) : ImportSpecifier =
-        {
-            Local = local
-            Imported = imported
-        } |> ImportMemberSpecifier
+    { Local: Identifier
+      Imported: Identifier }
+
+    static member AsImportSpecifier(local, imported): ImportSpecifier =
+        { Local = local; Imported = imported }
+        |> ImportMemberSpecifier
 
     interface IPrintable with
         member this.Print(printer) =
@@ -2000,13 +1919,9 @@ type ImportMemberSpecifier =
 
 /// A default import specifier, e.g., foo in import foo from "mod".
 type ImportDefaultSpecifier =
-    {
-        Local: Identifier
-    }
-    static member AsImportSpecifier(local) : ImportSpecifier =
-        {
-            Local = local
-        } |> ImportDefaultSpecifier
+    { Local: Identifier }
+
+    static member AsImportSpecifier(local): ImportSpecifier = { Local = local } |> ImportDefaultSpecifier
 
     interface IPrintable with
         member this.Print(printer) =
@@ -2014,13 +1929,10 @@ type ImportDefaultSpecifier =
 
 /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
 type ImportNamespaceSpecifier =
-    {
-        Local: Identifier
-    }
-    static member AsImportSpecifier(local) : ImportSpecifier =
-        {
-            Local = local
-        } |> ImportNamespaceSpecifier
+    { Local: Identifier }
+
+    static member AsImportSpecifier(local): ImportSpecifier = { Local = local } |> ImportNamespaceSpecifier
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("* as ")
@@ -2028,15 +1940,14 @@ type ImportNamespaceSpecifier =
 
 /// e.g., import foo from "mod";.
 type ImportDeclaration =
-    {
-        Specifiers: ImportSpecifier array
-        Source: StringLiteral
-    }
-    static member AsModuleDeclaration(specifiers, source) : ModuleDeclaration =
-        {
-            Specifiers = specifiers
-            Source = source
-        } |> ImportDeclaration
+    { Specifiers: ImportSpecifier array
+      Source: StringLiteral }
+
+    static member AsModuleDeclaration(specifiers, source): ModuleDeclaration =
+        { Specifiers = specifiers
+          Source = source }
+        |> ImportDeclaration
+
     interface IPrintable with
         member this.Print(printer) =
             let members = this.Specifiers |> Array.choose (function ImportMemberSpecifier(x) -> Some x | _ -> None)
@@ -2074,15 +1985,10 @@ type ImportDeclaration =
 /// in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo},
 /// the exported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ExportSpecifier =
-    {
-        Local: Identifier
-        Exported: Identifier
-    }
-    static member Create(local, exported) =
-        {
-            Local = local
-            Exported = exported
-        }
+    { Local: Identifier
+      Exported: Identifier }
+
+    static member Create(local, exported) = { Local = local; Exported = exported }
     interface IPrintable with
         member this.Print(printer) =
             // Don't print the braces, this will be done in the export declaration
@@ -2094,28 +2000,26 @@ type ExportSpecifier =
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
 type ExportNamedDeclaration =
-    {
-        Declaration: Declaration
-    }
-    static member AsModuleDeclaration(declaration) : ModuleDeclaration =
-        {
-            Declaration = declaration
-        } |> ExportNamedDeclaration
+    { Declaration: Declaration }
+
+    static member AsModuleDeclaration(declaration): ModuleDeclaration =
+        { Declaration = declaration }
+        |> ExportNamedDeclaration
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("export ")
             printer.Print(this.Declaration)
 
 type ExportNamedReferences =
-    {
-        Specifiers: ExportSpecifier array
-        Source: StringLiteral option
-    }
-    static member AsModuleDeclaration(specifiers, ?source) : ModuleDeclaration =
-        {
-            Specifiers = specifiers
-            Source = source
-        } |> ExportNamedReferences
+    { Specifiers: ExportSpecifier array
+      Source: StringLiteral option }
+
+    static member AsModuleDeclaration(specifiers, ?source): ModuleDeclaration =
+        { Specifiers = specifiers
+          Source = source }
+        |> ExportNamedReferences
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("export ")
@@ -2126,13 +2030,12 @@ type ExportNamedReferences =
 
 /// An export default declaration, e.g., export default function () {}; or export default 1;.
 type ExportDefaultDeclaration =
-    {
-        Declaration: Choice<Declaration, Expression>
-    }
-    static member AsModuleDeclaration(declaration) : ModuleDeclaration =
-        {
-            Declaration = declaration
-        } |> ExportDefaultDeclaration
+    { Declaration: Choice<Declaration, Expression> }
+
+    static member AsModuleDeclaration(declaration): ModuleDeclaration =
+        { Declaration = declaration }
+        |> ExportDefaultDeclaration
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("export default ")
@@ -2142,15 +2045,13 @@ type ExportDefaultDeclaration =
 
 /// An export batch declaration, e.g., export * from "mod";.
 type ExportAllDeclaration =
-    {
-        Source: Literal
-        Loc: SourceLocation option
-    }
-    static member AsModuleDeclaration(source, ?loc) : ModuleDeclaration =
-        {
-            Source = source
-            Loc = loc
-        } |> ExportAllDeclaration
+    { Source: Literal
+      Loc: SourceLocation option }
+
+    static member AsModuleDeclaration(source, ?loc): ModuleDeclaration =
+        { Source = source; Loc = loc }
+        |> ExportAllDeclaration
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("export * from ", ?loc=this.Loc)
@@ -2188,30 +2089,25 @@ type TypeAnnotationInfo =
             | ObjectTypeAnnotation(an) -> printer.Print(an)
 
 type TypeAnnotation =
-    {
-        TypeAnnotation: TypeAnnotationInfo
-    }
-    static member Create(typeAnnotation) =
-        {
-            TypeAnnotation = typeAnnotation
-        }
+    { TypeAnnotation: TypeAnnotationInfo }
+
+    static member Create(typeAnnotation) = { TypeAnnotation = typeAnnotation }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(": ")
             printer.Print(this.TypeAnnotation)
 
 type TypeParameter =
-    {
-        Name: string
-        Bound: TypeAnnotation option
-        Default: TypeAnnotationInfo option
-    }
+    { Name: string
+      Bound: TypeAnnotation option
+      Default: TypeAnnotationInfo option }
+
     static member Create(name, ?bound, ?``default``) =
-        {
-            Name = name
-            Bound = bound
-            Default = ``default``
-        }
+        { Name = name
+          Bound = bound
+          Default = ``default`` }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Name)
@@ -2219,13 +2115,9 @@ type TypeParameter =
             // printer.PrintOptional(``default``)
 
 type TypeParameterDeclaration =
-    {
-        Params: TypeParameter array
-    }
-    static member Create(``params``) =
-        {
-            Params = ``params``
-        }
+    { Params: TypeParameter array }
+
+    static member Create(``params``) = { Params = ``params`` }
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("<")
@@ -2233,13 +2125,9 @@ type TypeParameterDeclaration =
             printer.Print(">")
 
 type TypeParameterInstantiation =
-    {
-        Params: TypeAnnotationInfo array
-    }
-    static member Create(``params``) =
-        {
-            Params = ``params``
-        }
+    { Params: TypeAnnotationInfo array }
+
+    static member Create(``params``) = { Params = ``params`` }
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("<")
@@ -2247,13 +2135,9 @@ type TypeParameterInstantiation =
             printer.Print(">")
 
 type TupleTypeAnnotation =
-    {
-        Types: TypeAnnotationInfo array
-    }
-    static member AsTypeAnnotationInfo(types) : TypeAnnotationInfo =
-        {
-            Types = types
-        } |> TupleTypeAnnotation
+    { Types: TypeAnnotationInfo array }
+
+    static member AsTypeAnnotationInfo(types): TypeAnnotationInfo = { Types = types } |> TupleTypeAnnotation
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("[")
@@ -2261,29 +2145,23 @@ type TupleTypeAnnotation =
             printer.Print("]")
 
 type UnionTypeAnnotation =
-    {
-        Types: TypeAnnotationInfo array
-    }
-    static member AsTypeAnnotationInfo(types) : TypeAnnotationInfo =
-        {
-            Types = types
-        } |> UnionTypeAnnotation
+    { Types: TypeAnnotationInfo array }
+
+    static member AsTypeAnnotationInfo(types): TypeAnnotationInfo = { Types = types } |> UnionTypeAnnotation
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintArray(this.Types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
 
 type FunctionTypeParam =
-    {
-        Name: Identifier
-        TypeAnnotation: TypeAnnotationInfo
-        Optional: bool option
-    }
+    { Name: Identifier
+      TypeAnnotation: TypeAnnotationInfo
+      Optional: bool option }
+
     static member Create(name, typeInfo, ?optional) =
-        {
-            Name = name
-            TypeAnnotation = typeInfo
-            Optional = optional
-        }
+        { Name = name
+          TypeAnnotation = typeInfo
+          Optional = optional }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Name)
@@ -2293,19 +2171,18 @@ type FunctionTypeParam =
             printer.Print(this.TypeAnnotation)
 
 type FunctionTypeAnnotation =
-    {
-        Params: FunctionTypeParam array
-        ReturnType: TypeAnnotationInfo
-        TypeParameters: TypeParameterDeclaration option
-        Rest: FunctionTypeParam option
-    }
-    static member AsTypeAnnotationInfo(``params``, returnType, ?typeParameters, ?rest) : TypeAnnotationInfo =
-        {
-            Params = ``params``
-            ReturnType = returnType
-            TypeParameters = typeParameters
-            Rest = rest
-        } |> FunctionTypeAnnotation
+    { Params: FunctionTypeParam array
+      ReturnType: TypeAnnotationInfo
+      TypeParameters: TypeParameterDeclaration option
+      Rest: FunctionTypeParam option }
+
+    static member AsTypeAnnotationInfo(``params``, returnType, ?typeParameters, ?rest): TypeAnnotationInfo =
+        { Params = ``params``
+          ReturnType = returnType
+          TypeParameters = typeParameters
+          Rest = rest }
+        |> FunctionTypeAnnotation
+
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintOptional(this.TypeParameters)
@@ -2318,55 +2195,52 @@ type FunctionTypeAnnotation =
             printer.Print(this.ReturnType)
 
 type NullableTypeAnnotation =
-    {
-        TypeAnnotation: TypeAnnotationInfo
-    }
-    static member AsTypeAnnotationInfo(``type``) : TypeAnnotationInfo =
-        {
-            TypeAnnotation = ``type``
-        } |> NullableTypeAnnotation
+    { TypeAnnotation: TypeAnnotationInfo }
+
+    static member AsTypeAnnotationInfo(``type``): TypeAnnotationInfo =
+        { TypeAnnotation = ``type`` }
+        |> NullableTypeAnnotation
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.TypeAnnotation)
 
 type GenericTypeAnnotation =
-    {
-        Id: Identifier
-        TypeParameters: TypeParameterInstantiation option
-    }
-    static member AsTypeAnnotationInfo(id, ?typeParameters) : TypeAnnotationInfo =
-        {
-            Id = id
-            TypeParameters = typeParameters
-        } |> GenericTypeAnnotation
+    { Id: Identifier
+      TypeParameters: TypeParameterInstantiation option }
+
+    static member AsTypeAnnotationInfo(id, ?typeParameters): TypeAnnotationInfo =
+        { Id = id
+          TypeParameters = typeParameters }
+        |> GenericTypeAnnotation
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Id)
             printer.PrintOptional(this.TypeParameters)
 
 type ObjectTypeProperty =
-    {
-        Key: Expression
-        Value: TypeAnnotationInfo
-        Kind: string option
-        Computed: bool
-        Static: bool
-        Optional: bool
-        Proto: bool
-        Method: bool
-    }
+    { Key: Expression
+      Value: TypeAnnotationInfo
+      Kind: string option
+      Computed: bool
+      Static: bool
+      Optional: bool
+      Proto: bool
+      Method: bool }
+
     static member Create(key, value, ?computed_, ?kind, ?``static``, ?optional, ?proto, ?method) =
         let computed = defaultArg computed_ false
-        {
-            Key = key
-            Value = value
-            Kind = kind
-            Computed = computed
-            Static = defaultArg ``static`` false
-            Optional = defaultArg optional false
-            Proto = defaultArg proto false
-            Method = defaultArg method false
-        }
+
+        { Key = key
+          Value = value
+          Kind = kind
+          Computed = computed
+          Static = defaultArg ``static`` false
+          Optional = defaultArg optional false
+          Proto = defaultArg proto false
+          Method = defaultArg method false }
+
     interface IPrintable with
         member this.Print(printer) =
             if this.Static then
@@ -2386,74 +2260,65 @@ type ObjectTypeProperty =
             printer.Print(this.Value)
 
 type ObjectTypeIndexer =
-    {
-        Id: Identifier option
-        Key: Identifier
-        Value: TypeAnnotationInfo
-        Static: bool option
-    }
-    static member Create(key, value, ?id, ?``static``) : Node =
-        {
-            Id = id
-            Key = key
-            Value = value
-            Static = ``static``
-        } |> ObjectTypeIndexer
+    { Id: Identifier option
+      Key: Identifier
+      Value: TypeAnnotationInfo
+      Static: bool option }
+
+    static member Create(key, value, ?id, ?``static``): Node =
+        { Id = id
+          Key = key
+          Value = value
+          Static = ``static`` }
+        |> ObjectTypeIndexer
+
     interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeCallProperty =
-    {
-        Value: TypeAnnotationInfo
-        Static: bool option
-    }
-    static member Create(value, ?``static``)  =
-        {
-            Value = value
-            Static = ``static``
-        }
+    { Value: TypeAnnotationInfo
+      Static: bool option }
+
+    static member Create(value, ?``static``) = { Value = value; Static = ``static`` }
+
     interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeInternalSlot =
-    {
-        Id: Identifier
-        Value: TypeAnnotationInfo
-        Optional: bool
-        Static: bool
-        Method: bool
-    }
-    static member Create(id, value, optional, ``static``, method)  =
-        {
-            Id = id
-            Value = value
-            Optional = optional
-            Static = ``static``
-            Method = method
-        }
+    { Id: Identifier
+      Value: TypeAnnotationInfo
+      Optional: bool
+      Static: bool
+      Method: bool }
+
+    static member Create(id, value, optional, ``static``, method) =
+        { Id = id
+          Value = value
+          Optional = optional
+          Static = ``static``
+          Method = method }
     interface IPrintable with
         member _.Print(_) = failwith "not implemented"
 
 type ObjectTypeAnnotation =
-    {
-        Properties: ObjectTypeProperty array
-        Indexers: ObjectTypeIndexer array
-        CallProperties: ObjectTypeCallProperty array
-        InternalSlots: ObjectTypeInternalSlot array
-        Exact: bool
-    }
+    { Properties: ObjectTypeProperty array
+      Indexers: ObjectTypeIndexer array
+      CallProperties: ObjectTypeCallProperty array
+      InternalSlots: ObjectTypeInternalSlot array
+      Exact: bool }
+
     static member Create(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
         let exact = defaultArg exact_ false
         let indexers = defaultArg indexers_ [||]
         let callProperties = defaultArg callProperties_ [||]
         let internalSlots = defaultArg internalSlots_ [||]
-        {
-            Properties = properties
-            Indexers = indexers
-            CallProperties = callProperties
-            InternalSlots = internalSlots
-            Exact = exact
-        }
+
+        { Properties = properties
+          Indexers = indexers
+          CallProperties = callProperties
+          InternalSlots = internalSlots
+          Exact = exact }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("{")
@@ -2469,40 +2334,36 @@ type ObjectTypeAnnotation =
             printer.PrintNewLine()
 
 type InterfaceExtends =
-    {
-        Id: Identifier
-        TypeParameters: TypeParameterInstantiation option
-    }
+    { Id: Identifier
+      TypeParameters: TypeParameterInstantiation option }
+
     static member Create(id, ?typeParameters) =
-        {
-            Id = id
-            TypeParameters = typeParameters
-        }
+        { Id = id
+          TypeParameters = typeParameters }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Id)
             printer.PrintOptional(this.TypeParameters)
 
 type InterfaceDeclaration =
-    {
-        Id: Identifier
-        Body: ObjectTypeAnnotation
-        Extends: InterfaceExtends array
-        Implements: ClassImplements array
+    { Id: Identifier
+      Body: ObjectTypeAnnotation
+      Extends: InterfaceExtends array
+      Implements: ClassImplements array
+      TypeParameters: TypeParameterDeclaration option }
 
-        TypeParameters: TypeParameterDeclaration option
-    }
-    static member Create(id, body, ?extends_, ?typeParameters, ?implements_) : Declaration = // ?mixins_,
+    static member Create(id, body, ?extends_, ?typeParameters, ?implements_): Declaration = // ?mixins_,
         let extends = defaultArg extends_ [||]
         let implements = defaultArg implements_ [||]
-        {
-            Id = id
-            Body = body
-            Extends = extends
-            Implements = implements
 
-            TypeParameters = typeParameters
-        } |> InterfaceDeclaration
+        { Id = id
+          Body = body
+          Extends = extends
+          Implements = implements
+          TypeParameters = typeParameters }
+        |> InterfaceDeclaration
+
 //    let mixins = defaultArg mixins_ [||]
 //    member _.Mixins: InterfaceExtends array = mixins
     interface IPrintable with
@@ -2510,12 +2371,14 @@ type InterfaceDeclaration =
             printer.Print("interface ")
             printer.Print(this.Id)
             printer.PrintOptional(this.TypeParameters)
+
             if not (Array.isEmpty this.Extends) then
                 printer.Print(" extends ")
                 printer.PrintArray(this.Extends, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
             if not (Array.isEmpty this.Implements) then
                 printer.Print(" implements ")
                 printer.PrintArray(this.Implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+
             printer.Print(" ")
             printer.Print(this.Body)
-
