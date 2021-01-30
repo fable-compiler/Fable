@@ -16,7 +16,7 @@ type Printer =
 
 module PrinterExtensions =
     type Printer with
-        member printer.Print(node: #IPrintable) =
+        member printer.Print(node: IPrintable) =
             node.Print(printer)
 
         member printer.PrintBlock(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit, ?skipNewLineAtEnd) =
@@ -397,7 +397,6 @@ type Statement =
             | ContinueStatement(s) -> printer.Print(s)
             | ExpressionStatement(s) -> printer.Print(s)
 
-
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
     | ClassDeclaration of ClassDeclaration
@@ -412,7 +411,6 @@ type Declaration =
             | VariableDeclaration(d) -> printer.Print(d)
             | FunctionDeclaration(d) -> printer.Print(d)
             | InterfaceDeclaration(d) -> printer.Print(d)
-
 
 /// A module import or export declaration.
 type ModuleDeclaration =
@@ -435,7 +433,6 @@ type ModuleDeclaration =
             | ExportNamedDeclaration(d) -> printer.Print(d)
             | PrivateModuleDeclaration(d) -> printer.Print(d)
             | ExportDefaultDeclaration(d) -> printer.Print(d)
-
 
 /// Not in Babel specs
 type EmitExpression =
@@ -637,33 +634,34 @@ type StringLiteral =
             printer.Print("\"")
 
 type BooleanLiteral =
-    {
-        Value: bool
-        Loc: SourceLocation option
-    }
+    { Value: bool
+      Loc: SourceLocation option }
+
     static member Create(value, ?loc) : Literal =
-        {
-            Value = value
-            Loc = loc
-        } |> BooleanLiteral
+        { Value = value
+          Loc = loc }
+        |> BooleanLiteral
+
     static member AsExpr(value, ?loc) : Expression =
          BooleanLiteral.Create(value, ?loc=loc) |> Literal
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print((if this.Value then "true" else "false"), ?loc=this.Loc)
 
 type NumericLiteral =
-    {
-        Value: float
-        Loc: SourceLocation option
-    }
+    { Value: float
+      Loc: SourceLocation option }
+
     static member AsLiteral(value, ?loc) : Literal =
-        {
-            Value =value
-            Loc = loc
-        } |> NumericLiteral
+        { Value =value
+          Loc = loc }
+        |> NumericLiteral
+
     static member AsExpr(value, ?loc) : Expression =
-        NumericLiteral.AsLiteral(value, ?loc=loc) |> Literal
+        NumericLiteral.AsLiteral(value, ?loc=loc)
+        |> Literal
+
     interface IPrintable with
         member this.Print(printer) =
             let value =
@@ -1270,7 +1268,7 @@ type ObjectProperty =
           Value = value
           Computed = computed }
         |> ObjectProperty
-    //    let shorthand = defaultArg shorthand_ false
+//    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
     interface IPrintable with
         member this.Print(printer) =
@@ -1690,18 +1688,17 @@ type ClassMethodKind =
     | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
 
 type ClassMethod =
-    {
-        Kind: string
-        Key: Expression
-        Params: Pattern array
-        Body: BlockStatement
-        Computed: bool
-        Static: bool option
-        Abstract: bool option
-        ReturnType: TypeAnnotation option
-        TypeParameters: TypeParameterDeclaration option
-        Loc: SourceLocation option
-    }
+    { Kind: string
+      Key: Expression
+      Params: Pattern array
+      Body: BlockStatement
+      Computed: bool
+      Static: bool option
+      Abstract: bool option
+      ReturnType: TypeAnnotation option
+      TypeParameters: TypeParameterDeclaration option
+      Loc: SourceLocation option }
+
     static member AsClassMember(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
         let kind =
             match kind_ with
@@ -1794,55 +1791,50 @@ type ClassProperty =
             printer.PrintOptional(": ", this.Value)
 
 type ClassImplements =
-    {
-        Id: Identifier
-        TypeParameters: TypeParameterInstantiation option
-    }
+    { Id: Identifier
+      TypeParameters: TypeParameterInstantiation option }
+
     static member Create(id, ?typeParameters) =
-        {
-            Id = id
-            TypeParameters = typeParameters
-        }
+        { Id = id
+          TypeParameters = typeParameters }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print(this.Id)
             printer.PrintOptional(this.TypeParameters)
 
 type ClassBody =
-    {
-        Body: ClassMember array
-        Loc: SourceLocation option
-    }
+    { Body: ClassMember array
+      Loc: SourceLocation option }
+
     static member Create(body, ?loc) =
-        {
-            Body = body
-            Loc = loc
-        }
+        { Body = body
+          Loc = loc }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.AddLocation(this.Loc)
             printer.PrintBlock(this.Body, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
 
 type ClassDeclaration =
-    {
-        Body: ClassBody
-        Id: Identifier option
-        SuperClass: Expression option
-        Implements: ClassImplements array option
-        SuperTypeParameters: TypeParameterInstantiation option
-        TypeParameters: TypeParameterDeclaration option
-        Loc: SourceLocation option
-    }
+    { Body: ClassBody
+      Id: Identifier option
+      SuperClass: Expression option
+      Implements: ClassImplements array option
+      SuperTypeParameters: TypeParameterInstantiation option
+      TypeParameters: TypeParameterDeclaration option
+      Loc: SourceLocation option }
+
     static member AsDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) : Declaration =
-        {
-            Body = body
-            Id = id
-            SuperClass = superClass
-            Implements = implements
-            SuperTypeParameters = superTypeParameters
-            TypeParameters = typeParameters
-            Loc = loc
-        } |> ClassDeclaration
+        { Body = body
+          Id = id
+          SuperClass = superClass
+          Implements = implements
+          SuperTypeParameters = superTypeParameters
+          TypeParameters = typeParameters
+          Loc = loc }
+        |> ClassDeclaration
+
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintClass(this.Id, this.SuperClass, this.SuperTypeParameters, this.TypeParameters, this.Implements, this.Body, this.Loc)
@@ -1866,6 +1858,7 @@ type ClassExpression =
           TypeParameters = typeParameters
           Loc = loc }
         |> ClassExpression
+
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintClass(this.Id, this.SuperClass, this.SuperTypeParameters, this.TypeParameters, this.Implements, this.Body, this.Loc)
@@ -1882,6 +1875,7 @@ type PrivateModuleDeclaration =
     static member AsModuleDeclaration(statement): ModuleDeclaration =
         { Statement = statement }
         |> PrivateModuleDeclaration
+
     interface IPrintable with
         member this.Print(printer) =
             if printer.IsProductiveStatement(this.Statement) then
@@ -2118,6 +2112,7 @@ type TypeParameterDeclaration =
     { Params: TypeParameter array }
 
     static member Create(``params``) = { Params = ``params`` }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("<")
@@ -2128,6 +2123,7 @@ type TypeParameterInstantiation =
     { Params: TypeAnnotationInfo array }
 
     static member Create(``params``) = { Params = ``params`` }
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("<")
@@ -2138,6 +2134,7 @@ type TupleTypeAnnotation =
     { Types: TypeAnnotationInfo array }
 
     static member AsTypeAnnotationInfo(types): TypeAnnotationInfo = { Types = types } |> TupleTypeAnnotation
+
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("[")
@@ -2148,6 +2145,7 @@ type UnionTypeAnnotation =
     { Types: TypeAnnotationInfo array }
 
     static member AsTypeAnnotationInfo(types): TypeAnnotationInfo = { Types = types } |> UnionTypeAnnotation
+
     interface IPrintable with
         member this.Print(printer) =
             printer.PrintArray(this.Types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
