@@ -590,6 +590,8 @@ type RegExpLiteral =
             Flags = flags
             Loc = loc
         } |> RegExp
+    static member AsExpr(pattern, flags_, ?loc) : Expression =
+        RegExpLiteral.AsLiteral(pattern, flags_, ?loc=loc) |> Literal
     interface IPrintable with
         member this.Print(printer) =
             printer.Print("/", ?loc=this.Loc)
@@ -1038,6 +1040,9 @@ type VariableDeclaration =
     static member AsDeclaration(kind, declarations, ?loc) : Declaration =
         VariableDeclaration.Create(kind, declarations, ?loc=loc)
         |> VariableDeclaration
+    static member AsStatement(kind, declarations, ?loc) : Statement =
+        VariableDeclaration.AsDeclaration(kind, declarations, ?loc=loc)
+        |> Declaration
     static member AsDeclaration(var, ?init, ?kind, ?loc) : Declaration =
         VariableDeclaration.AsDeclaration(defaultArg kind Let, [|VariableDeclarator.Create(var, ?init=init)|], ?loc=loc)
     static member AsStatement(var, ?init, ?kind, ?loc) : Statement =

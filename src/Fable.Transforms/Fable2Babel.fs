@@ -136,7 +136,7 @@ module Reflection =
             | Some t -> t
             | None ->
                 Replacements.genericTypeInfoError name |> addError com [] r
-                NullLiteral.AsLiteral() |> Literal
+                NullLiteral.AsExpr()
         | Fable.Unit    -> primitiveTypeInfo "unit"
         | Fable.Boolean -> primitiveTypeInfo "bool"
         | Fable.Char    -> primitiveTypeInfo "char"
@@ -263,8 +263,7 @@ module Reflection =
         let warnAndEvalToFalse msg =
             "Cannot type test (evals to false): " + msg
             |> addWarning com [] range
-            BooleanLiteral.Create(false)
-            |> Literal
+            BooleanLiteral.AsExpr(false)
 
         let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx expr): Expression =
             let typeof = UnaryExpression.AsExpr(UnaryTypeof, expr)
@@ -274,7 +273,7 @@ module Reflection =
             BinaryExpression.AsExpr(BinaryInstanceOf, expr, consExpr, ?loc=range)
 
         match typ with
-        | Fable.Any -> BooleanLiteral.Create(true) |> Literal
+        | Fable.Any -> BooleanLiteral.AsExpr(true)
         | Fable.Unit -> BinaryExpression.AsExpr(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
         | Fable.Char | Fable.String _ -> jsTypeof "string" expr
@@ -297,7 +296,7 @@ module Reflection =
                 match expr with
                 | MaybeCasted(ExprType(Fable.DeclaredType (ent2, _)))
                         when com.GetEntity(ent2) |> FSharp2Fable.Util.hasInterface Types.idisposable ->
-                    BooleanLiteral.Create(true) |> Literal
+                    BooleanLiteral.AsExpr(true)
                 | _ -> libCall com ctx None "Util" "isDisposable" [|com.TransformAsExpr(ctx, expr)|]
             | Types.ienumerable ->
                 [|com.TransformAsExpr(ctx, expr)|]
@@ -614,7 +613,7 @@ module Util =
 
     let addErrorAndReturnNull (com: Compiler) (range: SourceLocation option) (error: string) =
         addError com [] range error
-        NullLiteral.AsLiteral()
+        NullLiteral.AsExpr()
 
     let ident (id: Fable.Ident) =
         Identifier.Create(id.Name, ?loc=id.Range)
@@ -629,7 +628,7 @@ module Util =
         ThisExpression.AsExpr()
 
     let ofInt i =
-        NumericLiteral.AsLiteral(float i) |> Literal
+        NumericLiteral.AsExpr(float i)
 
     let ofString s =
        StringLiteral.AsExpr(s)
@@ -728,7 +727,7 @@ module Util =
             |> List.distinctBy (fun (id, _value) -> id.Name)
             |> List.mapToArray (fun (id, value) ->
                 VariableDeclarator.Create(id |> IdentifierPattern, ?init=value))
-        VariableDeclaration.AsDeclaration(kind, varDeclarators)
+        VariableDeclaration.AsStatement(kind, varDeclarators)
 
     let varDeclaration (var: Pattern) (isMutable: bool) value =
         let kind = if isMutable then Let else Const
@@ -758,7 +757,7 @@ module Util =
 
     let undefined range =
 //        Undefined(?loc=range) :> Expression
-        UnaryExpression.AsExpr(UnaryVoid, NumericLiteral.AsLiteral(0.) |> Literal, ?loc=range)
+        UnaryExpression.AsExpr(UnaryVoid, NumericLiteral.AsExpr(0.), ?loc=range)
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -829,7 +828,7 @@ module Util =
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number(Int8 | Int16 | Int32)
         | _, Fable.Enum _ ->
-            BinaryExpression.AsExpr(BinaryOrBitwise, e, NumericLiteral.AsLiteral(0.) |> Literal)
+            BinaryExpression.AsExpr(BinaryOrBitwise, e, NumericLiteral.AsExpr(0.))
         | _ -> e
 
     let wrapExprInBlockWithReturn e =
@@ -924,13 +923,13 @@ module Util =
             //     let ta = typeAnnotation com ctx t |> TypeAnnotation |> Some
             //     upcast Identifier("null", ?typeAnnotation=ta, ?loc=r)
             // else
-                NullLiteral.AsLiteral(?loc=r) |> Literal
+                NullLiteral.AsExpr(?loc=r)
         | Fable.UnitConstant -> undefined r
-        | Fable.BoolConstant x -> BooleanLiteral.Create(x, ?loc=r)  |> Literal
+        | Fable.BoolConstant x -> BooleanLiteral.AsExpr(x, ?loc=r)
         | Fable.CharConstant x -> StringLiteral.AsExpr(string x, ?loc=r)
         | Fable.StringConstant x -> StringLiteral.AsExpr(x, ?loc=r)
-        | Fable.NumberConstant (x,_) -> NumericLiteral.AsLiteral(x, ?loc=r) |> Literal
-        | Fable.RegexConstant (source, flags) -> RegExpLiteral.AsLiteral(source, flags, ?loc=r) |> Literal
+        | Fable.NumberConstant (x,_) -> NumericLiteral.AsExpr(x, ?loc=r)
+        | Fable.RegexConstant (source, flags) -> RegExpLiteral.AsExpr(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
         | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
         | Fable.NewTuple vals -> makeArray com ctx vals
@@ -1446,7 +1445,6 @@ module Util =
             let boundIdents = targets |> List.collect (fun (idents,_) ->
                 idents |> List.map (fun id -> typedIdent com ctx id, None))
             multiVarDeclaration Let ((typedIdent com ctx targetId, None)::boundIdents)
-            |> Declaration
         // Transform targets as switch
         let switch2 =
             // TODO: Declare the last case as the default case?
@@ -1736,7 +1734,7 @@ module Util =
                     |> List.map (fun (id, tcArg) ->
                         id |> typedIdent com ctx, Some (Identifier.AsExpr(tcArg)))
                     |> multiVarDeclaration Const
-                let body = BlockStatement.Create(Array.append [|varDecls |> Declaration |] body.Body)
+                let body = BlockStatement.Create(Array.append [|varDecls|] body.Body)
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = BlockStatement.Create(Array.append body.Body [|BreakStatement.AsStatement()|])
                 args', LabeledStatement.AsStatement(Identifier.Create(tc.Label), WhileStatement.AsStatement(BooleanLiteral.AsExpr(true), body))
@@ -1745,7 +1743,7 @@ module Util =
         let body =
             if declaredVars.Count = 0 then body
             else
-                let varDeclStatement = multiVarDeclaration Let [for v in declaredVars -> typedIdent com ctx v, None] |> Declaration
+                let varDeclStatement = multiVarDeclaration Let [for v in declaredVars -> typedIdent com ctx v, None]
                 BlockStatement.Create(Array.append [|varDeclStatement|] body.Body)
         args |> List.mapToArray IdentifierPattern, body
 
