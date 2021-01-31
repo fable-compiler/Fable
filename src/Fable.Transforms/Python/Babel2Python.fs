@@ -430,22 +430,22 @@ module Util =
             | "void $0" -> args.[0], stmts
             //| "raise %0" -> Raise.Create()
             | _ -> Emit.Create(value, args), stmts
-        | Babel.MemberExpression(me) ->
-            let value, stmts = com.TransformAsExpr(ctx, me.Object)
+        | Babel.MemberExpression { Computed=computed; Object=object; Property=property } ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
 
-            if me.Computed then
+            if computed then
                 let attr =
-                    match me.Property with
+                    match property with
                     | Babel.Literal(Babel.NumericLiteral(nl)) -> Constant.Create(nl.Value)
                     | Babel.Literal(Babel.StringLiteral(literal)) -> Constant.Create(literal.Value)
-                    | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
+                    | _ -> failwith $"transformExpressionAsStatements: unknown property {property}"
 
                 Subscript.Create(value = value, slice = attr, ctx = Load), stmts
             else
                 let attr =
-                    match me.Property with
+                    match property with
                     | Babel.Identifier { Name=name } -> Identifier(name)
-                    | _ -> failwith $"transformExpressionAsStatements: unknown property {me.Property}"
+                    | _ -> failwith $"transformExpressionAsStatements: unknown property {property}"
 
                 let value =
                     match value with
@@ -589,13 +589,13 @@ module Util =
                         Assign.Create(targets, expr)
                     | None -> ()
             ]
-        | Babel.ExpressionStatement(es) ->
+        | Babel.ExpressionStatement { Expression=expression } ->
             // Handle Babel expressions that we need to transforme here as Python statements
-            match es.Expression with
+            match expression with
             | Babel.AssignmentExpression(ae) -> com.TransformAsStatements(ctx, returnStrategy, ae |> Babel.AssignmentExpression)
             | _ ->
                 [
-                    let expr, stmts = com.TransformAsExpr(ctx, es.Expression)
+                    let expr, stmts = com.TransformAsExpr(ctx, expression)
                     yield! stmts
                     Expr.Create(expr)
                 ]
@@ -615,11 +615,11 @@ module Util =
                 | _ -> []
 
             [ yield! stmts; If.Create(test = test, body = body, orelse = orElse) ]
-        | Babel.WhileStatement(ws) ->
-            let expr, stmts = com.TransformAsExpr(ctx, ws.Test)
+        | Babel.WhileStatement { Test=test; Body=body } ->
+            let expr, stmts = com.TransformAsExpr(ctx, test)
 
             let body =
-                com.TransformAsStatements(ctx, returnStrategy, ws.Body)
+                com.TransformAsStatements(ctx, returnStrategy, body)
                 |> transformBody ReturnStrategy.NoReturn
 
             [ yield! stmts; While.Create(test = expr, body = body, orelse = []) ]
@@ -654,8 +654,8 @@ module Util =
                 | _ -> []
 
             [ Try.Create(body = body, handlers = handlers, ?finalBody = finalBody) ]
-        | Babel.SwitchStatement(ss) ->
-            let value, stmts = com.TransformAsExpr(ctx, ss.Discriminant)
+        | Babel.SwitchStatement { Discriminant=discriminant; Cases=cases } ->
+            let value, stmts = com.TransformAsExpr(ctx, discriminant)
 
             let rec ifThenElse (fallThrough: Expression option) (cases: Babel.SwitchCase list): Statement list option =
                 match cases with
@@ -685,7 +685,7 @@ module Util =
                             [ If.Create(test = test, body = body, ?orelse = ifThenElse None cases) ]
                             |> Some
 
-            let result = ss.Cases |> List.ofArray |> ifThenElse None
+            let result = cases |> List.ofArray |> ifThenElse None
             match result with
             | Some ifStmt -> stmts @ ifStmt
             | None -> []
@@ -703,13 +703,11 @@ module Util =
         (com: IPythonCompiler)
         (ctx: Context)
         (returnStrategy: ReturnStrategy)
-        (stmt: Babel.BlockStatement)
+        (block: Babel.BlockStatement)
         : list<Statement> =
 
-        [
-            for stmt in stmt.Body do
-                yield! com.TransformAsStatements(ctx, returnStrategy, stmt)
-        ]
+        [ for stmt in block.Body do
+            yield! transformStatementAsStatements com ctx returnStrategy stmt ]
 
     /// Transform Babel program to Python module.
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
