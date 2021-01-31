@@ -751,7 +751,7 @@ module Util =
         CallExpression(funcExpr, List.toArray args, ?loc=r) :> Expression
 
     let callFunctionWithThisContext r funcExpr (args: Expression list) =
-        let args = (Identifier "this" :> Expression)::args |> List.toArray
+        let args = thisExpr::args |> List.toArray
         CallExpression(get None funcExpr "call", args, ?loc=r) :> Expression
 
     let emitExpression range (txt: string) args =
