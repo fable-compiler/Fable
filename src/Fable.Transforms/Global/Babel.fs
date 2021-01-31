@@ -242,7 +242,6 @@ type ModuleDeclaration = inherit Node
 type EmitExpression(value, args, ?loc) =
     member _.Value: string = value
     member _.Args: Expression array = args
-    member _.Loc: SourceLocation option = loc
     interface Expression with
         member _.Print(printer) =
             printer.AddLocation(loc)
@@ -340,7 +339,6 @@ type Identifier(name, ?optional, ?typeAnnotation, ?loc) =
     member _.Name: string = name
     member _.Optional: bool option = optional
     member _.TypeAnnotation: TypeAnnotation option = typeAnnotation
-    member _.Loc: SourceLocation option = loc
     interface PatternExpression with
         member _.Name = name
         member _.Print(printer) =
@@ -359,7 +357,6 @@ type RegExpLiteral(pattern, flags_, ?loc) =
             | RegexSticky -> "y") |> Seq.fold (+) ""
     member _.Pattern: string = pattern
     member _.Flags: string = flags
-    member _.Loc: SourceLocation option = loc
     interface Literal with
         member _.Print(printer) =
             printer.Print("/", ?loc=loc)
@@ -684,7 +681,6 @@ type FunctionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?lo
     member _.Id: Identifier = id
     member _.ReturnType: TypeAnnotation option = returnType
     member _.TypeParameters: TypeParameterDeclaration option = typeParameters
-    member _.Loc: SourceLocation option = loc
     interface Declaration with
         member _.Print(printer) =
             printer.PrintFunction(Some id, ``params``, body, typeParameters, returnType, loc, isDeclaration=true)
@@ -903,7 +899,6 @@ type CallExpression(callee, arguments, ?loc) =
     member _.Callee: Expression = callee
     // member _.Arguments: Choice<Expression, SpreadElement> array = arguments
     member _.Arguments: Expression array = arguments
-    member _.Loc: SourceLocation option = loc
     interface Expression with
         member _.Print(printer) =
             printer.AddLocation(loc)
@@ -1212,9 +1207,7 @@ type ImportSpecifier = inherit Node
 /// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ImportMemberSpecifier(local: Identifier, imported) =
-    member _.Local: Identifier = local
     member _.Imported: Identifier = imported
-
     interface ImportSpecifier with
         member this.Print(printer) =
             // Don't print the braces, this will be done in the import declaration
@@ -1225,16 +1218,12 @@ type ImportMemberSpecifier(local: Identifier, imported) =
 
 /// A default import specifier, e.g., foo in import foo from "mod".
 type ImportDefaultSpecifier(local) =
-    member _.Local: Identifier = local
-
     interface ImportSpecifier with
         member _.Print(printer) =
             printer.Print(local)
 
 /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
 type ImportNamespaceSpecifier(local) =
-    member _.Local: Identifier = local
-
     interface ImportSpecifier with
         member _.Print(printer) =
             printer.Print("* as ")
@@ -1551,39 +1540,3 @@ type InterfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_) = 
                 printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
             printer.Print(" ")
             printer.Print(body)
-
-module Patterns =
-    let (|EmitExpression|_|) (expr: Expression) =
-        match expr with
-        | :? EmitExpression as ex -> Some (ex.Value, ex.Args, ex.Loc)
-        | _ -> None
-
-    let (|Identifier|_|) (expr: Expression) =
-        match expr with
-        | :? Identifier as ex -> Some (ex.Name, ex.Optional, ex.TypeAnnotation, ex.Loc)
-        | _ -> None
-
-    let (|RegExpLiteral|_|) (literal: Literal) =
-        match literal with
-        | :? RegExpLiteral as lit -> Some (lit.Pattern, lit.Flags, lit.Loc)
-        | _ -> None
-
-    let (|CallExpression|_|) (expr: Expression) =
-        match expr with
-        | :? CallExpression as ex -> Some (ex.Callee, ex.Arguments, ex.Loc)
-        | _ -> None
-
-    let (|ObjectTypeAnnotation|_|) (typ: TypeAnnotationInfo) =
-        match typ with
-        | :? ObjectTypeAnnotation as ann -> Some (ann.Properties, ann.Indexers, ann.CallProperties, ann.InternalSlots, ann.Exact)
-        | _ -> None
-
-    let (|InterfaceExtends|_|) (node: Node) =
-        match node with
-        | :? InterfaceExtends as n -> Some (n.Id, n.TypeParameters)
-        | _ -> None
-
-    let (|InterfaceDeclaration|_|) (decl: Declaration) =
-        match decl with
-        | :? InterfaceDeclaration as decl -> Some (decl.Id, decl.Body, decl.Extends, decl.Implements, decl.TypeParameters)
-        | _ -> None
