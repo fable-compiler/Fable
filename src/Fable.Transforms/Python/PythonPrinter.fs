@@ -84,7 +84,7 @@ type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
 let run writer map (program: Module): Async<unit> =
 
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: Statement) =
-        (decl :> IPrint).Print(printer)
+        (decl :> IPrintable).Print(printer)
 
         if printer.Column > 0 then
             //printer.Print(";")

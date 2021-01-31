@@ -653,7 +653,7 @@ module Util =
                     handlers
                 | _ -> []
 
-            [ Try.Create(body = body, handlers = handlers, ?finalBody = finalBody) ]
+            [ Try.AsStatement(body = body, handlers = handlers, ?finalBody = finalBody) ]
         | Babel.SwitchStatement { Discriminant=discriminant; Cases=cases } ->
             let value, stmts = com.TransformAsExpr(ctx, discriminant)
 
@@ -693,10 +693,18 @@ module Util =
         | Babel.Declaration(Babel.FunctionDeclaration(fd)) ->
             [ com.TransformFunction(ctx, fd.Id, fd.Params, fd.Body) ]
         | Babel.Declaration(Babel.ClassDeclaration(cd)) -> com.TransformAsClassDef(ctx, cd)
-        // | :? Babel.ForStatement as fs ->
-        //     let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, fs.Body)
-        //     let test = fs.Test
-        //     For.Create(body=body)
+        | Babel.ForStatement
+            { Init=Some({ Declarations= [| { Id=id; Init=Some(init)} |] })
+              Test=Some(Babel.BinaryExpression { Left=left; Right=right; Operator="<="})
+              Body=body } ->
+            let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
+            let name = Name.Create(Identifier id.Name, Load)
+            let start, _ = com.TransformAsExpr(ctx, init)
+            let stop, _ = com.TransformAsExpr(ctx, right)
+            let iter = Call.Create(Name.Create(Identifier "range", Load), args=[start; stop])
+            [ For.AsStatement(target=name, iter=iter, body=body) ]
+        | Babel.LabeledStatement { Body=body } -> com.TransformAsStatements(ctx, returnStrategy, body)
+        | Babel.ContinueStatement(_) -> [ Continue ]
         | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"
 
     let transformBlockStatementAsStatements
