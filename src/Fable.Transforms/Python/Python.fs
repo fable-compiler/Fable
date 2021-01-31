@@ -176,8 +176,6 @@ type AST =
     | Keyword of Keyword
     | Arg of Arg
 
-
-
     interface IPrint with
         member x.Print(printer: Printer) =
             match x with
@@ -759,12 +757,12 @@ type For =
         TypeComment: string option
     }
 
-    static member Create(target, iter, body, orelse, ?typeComment) =
+    static member Create(target, iter, ?body, ?orelse, ?typeComment) =
         {
             Target = target
             Iterator = iter
-            Body = body
-            Else = orelse
+            Body = defaultArg body []
+            Else = defaultArg orelse []
             TypeComment = typeComment
         }
 
