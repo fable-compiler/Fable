@@ -112,4 +112,3 @@ let run writer map (program: Module): Async<unit> =
             // TODO: Only flush every XXX lines?
             do! printer.Flush()
     }
-// If the queryItemsHandler succeeds, the queryItems will be used in a request to CDF, and the resulting aggregates will be wrapped in an OK result-type.

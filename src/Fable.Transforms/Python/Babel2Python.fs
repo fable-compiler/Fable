@@ -430,38 +430,46 @@ module Util =
             | "void $0" -> args.[0], stmts
             //| "raise %0" -> Raise.Create()
             | _ -> Emit.Create(value, args), stmts
-        | Babel.MemberExpression { Computed=computed; Object=object; Property=property } ->
+        | Babel.MemberExpression { Computed=true; Object=object; Property=Babel.Literal(literal) } ->
             let value, stmts = com.TransformAsExpr(ctx, object)
 
-            if computed then
-                let attr =
-                    match property with
-                    | Babel.Literal(Babel.NumericLiteral(nl)) -> Constant.Create(nl.Value)
-                    | Babel.Literal(Babel.StringLiteral(literal)) -> Constant.Create(literal.Value)
-                    | _ -> failwith $"transformExpressionAsStatements: unknown property {property}"
+            let attr =
+                match literal with
+                | Babel.NumericLiteral(nl) -> Constant.Create(nl.Value)
+                | Babel.StringLiteral(literal) -> Constant.Create(literal.Value)
+                | _ -> failwith $"transformExpressionAsStatements: unknown literal {literal}"
 
-                Subscript.Create(value = value, slice = attr, ctx = Load), stmts
-            else
-                let attr =
-                    match property with
-                    | Babel.Identifier { Name=name } -> Identifier(name)
-                    | _ -> failwith $"transformExpressionAsStatements: unknown property {property}"
+            Subscript.Create(value = value, slice = attr, ctx = Load), stmts
+         | Babel.MemberExpression { Computed=false; Object=object; Property=Babel.Identifier { Name="length" } } ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
+            let func = Name.Create(Identifier "len", Load)
+            Call.Create(func, [value]), stmts
+         | Babel.MemberExpression { Computed=false; Object=object; Property=Babel.Identifier { Name="message" } } ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
+            let func = Name.Create(Identifier "str", Load)
+            Call.Create(func, [value]), stmts
+         | Babel.MemberExpression { Computed=false; Object=object; Property=property } ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
+            let attr =
+                match property with
+                | Babel.Identifier { Name=name } -> Identifier(name)
+                | _ -> failwith $"transformExpressionAsStatements: unknown property {property}"
 
-                let value =
-                    match value with
-                    | Name { Id = Identifier (id); Context = ctx } ->
-                        // TODO: Need to make this more generic and robust
-                        let id =
-                            if id = "Math" then
-                                //com.imports.Add("math", )
-                                "math"
-                            else
-                                id
+            let value =
+                match value with
+                | Name { Id = Identifier (id); Context = ctx } ->
+                    // TODO: Need to make this more generic and robust
+                    let id =
+                        if id = "Math" then
+                            //com.imports.Add("math", )
+                            "math"
+                        else
+                            id
 
-                        Name.Create(id = Identifier(id), ctx = ctx)
-                    | _ -> value
+                    Name.Create(id = Identifier(id), ctx = ctx)
+                | _ -> value
 
-                Attribute.Create(value = value, attr = attr, ctx = Load), stmts
+            Attribute.Create(value = value, attr = attr, ctx = Load), stmts
         | Babel.Literal(Babel.BooleanLiteral { Value=value }) -> Constant.Create(value = value), []
         | Babel.FunctionExpression(fe) ->
             let args =
@@ -641,12 +649,12 @@ module Util =
 
                     // Insert a ex.message = str(ex) for all aliased exceptions.
                     let identifier = Identifier(cc.Param.Name)
-                    let idName = Name.Create(identifier, Load)
-                    let message = Identifier("message")
-                    let trg = Attribute.Create(idName, message, Store)
-                    let value = Call.Create(Name.Create(Identifier("str"), Load), [idName])
-                    let msg = Assign.Create([trg], value)
-                    let body =  msg :: body
+                    // let idName = Name.Create(identifier, Load)
+                    // let message = Identifier("message")
+                    // let trg = Attribute.Create(idName, message, Store)
+                    // let value = Call.Create(Name.Create(Identifier("str"), Load), [idName])
+                    // let msg = Assign.Create([trg], value)
+                    // let body =  msg :: body
                     let handlers =
                         [ ExceptHandler.Create(``type`` = exn, name = identifier, body = body) ]
 
@@ -701,6 +709,7 @@ module Util =
             let target = Name.Create(Identifier id.Name, Load)
             let start, stmts1 = com.TransformAsExpr(ctx, init)
             let stop, stmts2 = com.TransformAsExpr(ctx, right)
+            let stop = BinOp.Create(stop, Add, Constant.Create(1)) // Python `range` has exclusive end.
             let iter = Call.Create(Name.Create(Identifier "range", Load), args=[start; stop])
             stmts1 @ stmts2 @ [ For.AsStatement(target=target, iter=iter, body=body) ]
         | Babel.LabeledStatement { Body=body } -> com.TransformAsStatements(ctx, returnStrategy, body)

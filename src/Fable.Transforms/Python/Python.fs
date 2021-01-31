@@ -355,25 +355,25 @@ type Identifier =
             printer.Print(id)
 
 type Statement =
-    | Assign of Assign
-    | Import of Import
-    | ImportFrom of ImportFrom
-    | Expr of Expr
-    | For of For
-    | AsyncFor of AsyncFor
-    | If of If
-    | ClassDef of ClassDef
-    | Raise of Raise
-    | Global of Global
-    | NonLocal of NonLocal
     | AsyncFunctionDef of AsyncFunctionDef
     | FunctionDef of FunctionDef
+    | ImportFrom of ImportFrom
+    | AsyncFor of AsyncFor
+    | ClassDef of ClassDef
+    | NonLocal of NonLocal
+    | Global of Global
     | Return of Return
+    | Assign of Assign
+    | Import of Import
+    | Raise of Raise
     | While of While
+    | Expr of Expr
     | Try of Try
-    | Pass
-    | Break
+    | For of For
+    | If of If
     | Continue
+    | Break
+    | Pass
 
     // member val Lineno: int = 0 with get, set
     // member val ColOffset: int = 0 with get, set
@@ -383,25 +383,25 @@ type Statement =
     interface IPrintable with
         member x.Print(printer) =
             match x with
-            | FunctionDef (def) -> printer.Print(def)
             | AsyncFunctionDef (def) -> printer.Print(def)
+            | FunctionDef (def) -> printer.Print(def)
+            | ImportFrom (im) -> printer.Print(im)
+            | NonLocal (st) -> printer.Print(st)
+            | ClassDef (st) -> printer.Print(st)
+            | AsyncFor (st) -> printer.Print(st)
+            | Return (rtn) -> printer.Print(rtn)
+            | Global (st) -> printer.Print(st)
+            | Import (im) -> printer.Print(im)
             | Assign (st) -> printer.Print(st)
+            | While (wh) -> printer.Print(wh)
+            | Raise (st) -> printer.Print(st)
             | Expr (st) -> printer.Print(st)
             | For (st) -> printer.Print(st)
-            | AsyncFor (st) -> printer.Print(st)
+            | Try (st) -> printer.Print(st)
             | If (st) -> printer.Print(st)
-            | ClassDef (st) -> printer.Print(st)
-            | Raise (st) -> printer.Print(st)
-            | Global (st) -> printer.Print(st)
-            | NonLocal (st) -> printer.Print(st)
             | Pass -> printer.Print("pass")
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
-            | Return (rtn) -> printer.Print(rtn)
-            | Import (im) -> printer.Print(im)
-            | ImportFrom (im) -> printer.Print(im)
-            | While (wh) -> printer.Print(wh)
-            | Try (st) -> printer.Print(st)
 
 type Module =
     {
