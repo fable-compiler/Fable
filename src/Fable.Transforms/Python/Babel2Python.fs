@@ -698,11 +698,11 @@ module Util =
               Test=Some(Babel.BinaryExpression { Left=left; Right=right; Operator="<="})
               Body=body } ->
             let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
-            let name = Name.Create(Identifier id.Name, Load)
-            let start, _ = com.TransformAsExpr(ctx, init)
-            let stop, _ = com.TransformAsExpr(ctx, right)
+            let target = Name.Create(Identifier id.Name, Load)
+            let start, stmts1 = com.TransformAsExpr(ctx, init)
+            let stop, stmts2 = com.TransformAsExpr(ctx, right)
             let iter = Call.Create(Name.Create(Identifier "range", Load), args=[start; stop])
-            [ For.AsStatement(target=name, iter=iter, body=body) ]
+            stmts1 @ stmts2 @ [ For.AsStatement(target=target, iter=iter, body=body) ]
         | Babel.LabeledStatement { Body=body } -> com.TransformAsStatements(ctx, returnStrategy, body)
         | Babel.ContinueStatement(_) -> [ Continue ]
         | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"

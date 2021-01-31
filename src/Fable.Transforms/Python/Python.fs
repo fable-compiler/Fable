@@ -184,7 +184,7 @@ type AST =
             | BoolOperator (op) -> printer.Print(op)
             | ComparisonOperator (op) -> printer.Print(op)
             | UnaryOperator (op) -> printer.Print(op)
-            | ExpressionContext (ctx) -> printer.Print(ctx)
+            | ExpressionContext (_) -> ()
             | Alias (al) -> printer.Print(al)
             | Module ``mod`` -> printer.Print(``mod``)
             | Arguments (arg) -> printer.Print(arg)
@@ -260,8 +260,6 @@ type Operator =
     | BitAnd
     | MatMult
 
-
-
     interface IPrintable with
         member x.Print(printer: Printer) =
             let op =
@@ -286,8 +284,6 @@ type BoolOperator =
     | And
     | Or
 
-
-
     interface IPrintable with
         member x.Print(printer: Printer) =
             let op =
@@ -309,8 +305,6 @@ type ComparisonOperator =
     | IsNot
     | In
     | NotIn
-
-
 
     interface IPrintable with
         member x.Print(printer) =
@@ -335,8 +329,6 @@ type UnaryOperator =
     | UAdd
     | USub
 
-
-
     interface IPrintable with
         member this.Print(printer) =
             let op =
@@ -354,14 +346,8 @@ type ExpressionContext =
     | Store
 
 
-
-    interface IPrintable with
-        member this.Print(printer) = ()
-
 type Identifier =
     | Identifier of string
-
-
 
     interface IPrintable with
         member this.Print(printer: Printer) =
@@ -388,8 +374,6 @@ type Statement =
     | Pass
     | Break
     | Continue
-
-
 
     // member val Lineno: int = 0 with get, set
     // member val ColOffset: int = 0 with get, set
@@ -490,7 +474,6 @@ type ExceptHandler =
             match x.Body with
             | [] -> printer.PrintBlock([ Pass ])
             | _ -> printer.PrintBlock(x.Body)
-
 
 /// try blocks. All attributes are list of nodes to execute, except for handlers, which is a list of ExceptHandler
 /// nodes.
@@ -979,12 +962,12 @@ type If =
                 match stmts with
                 | []
                 | [ Pass ] -> ()
-                | [ If iff ] ->
+                | [ If { Test=test; Body=body; Else=els } ] ->
                     printer.Print("elif ")
-                    printer.Print(iff.Test)
+                    printer.Print(test)
                     printer.Print(":")
-                    printer.PrintBlock(iff.Body)
-                    printElse iff.Else
+                    printer.PrintBlock(body)
+                    printElse els
                 | xs ->
                     printer.Print("else: ")
                     printer.PrintBlock(xs)
