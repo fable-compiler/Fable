@@ -49,6 +49,8 @@ module JS =
         abstract isFrozen: o: obj -> bool
         abstract isExtensible: o: obj -> bool
         abstract keys: o: obj -> ResizeArray<string>
+        abstract values: o: obj -> ResizeArray<obj>
+        abstract entries: o: obj -> ResizeArray<string * obj>
         abstract assign: target: 'T * source: 'U -> obj
         abstract assign: target: 'T * source1: 'U * source2: 'V -> obj
         abstract assign: target: 'T * source1: 'U * source2: 'V * source3: 'W -> obj
