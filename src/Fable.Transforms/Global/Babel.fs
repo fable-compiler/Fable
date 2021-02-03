@@ -136,7 +136,6 @@ module PrinterExtensions =
             printer.PrintArray(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
 
 
-
         // TODO: (super) type parameters, implements
         member printer.PrintClass(id: Identifier option, superClass: Expression option,
                 superTypeParameters: TypeParameterInstantiation option,
@@ -195,8 +194,6 @@ module PrinterExtensions =
                     printer.PrintOptional(typeParameters)
                     printer.Print("(")
                     printer.PrintCommaSeparatedArray(parameters)
-                    printer.PrintArray(parameters, (fun p x -> x.Print(p)), (fun p -> p.Print(", ")))
-
                     printer.Print(")")
                     printer.PrintOptional(returnType)
                     printer.Print(" => ")
@@ -366,7 +363,6 @@ type Expression =
         | AssignmentExpression(n) -> n.Print(printer)
         | ConditionalExpression(n) -> n.Print(printer)
         | ArrowFunctionExpression(n) -> n.Print(printer)
-
 
 type Pattern =
     | IdentifierPattern of Identifier
