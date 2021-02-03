@@ -6,6 +6,25 @@ open Util.Testing
 type R = { i: int; s: string }
 type R2 = { kv: KeyValuePair<string,int> }
 
+[<CustomEquality; CustomComparison>]
+type R3 =
+    { Bar: string
+      Foo: int }
+    interface System.IComparable with
+        member this.CompareTo(x) =
+            match x with
+            | :? R3 as x -> compare this.Bar x.Bar
+            | _ -> -1
+    override this.GetHashCode() = hash this.Bar
+    override this.Equals(x) =
+        match x with
+        | :? R3 as x -> this.Bar = x.Bar
+        | _ -> false
+
+type R4 =
+    { Bar: string
+      Baz: int }
+
 let tests =
     testList "Maps" [
         testCase "Map construction from lists works" <| fun () ->
@@ -234,4 +253,16 @@ let tests =
             m |> Map.change "c" (Option.map (fun v -> v + 1)) |> equal m
             m |> Map.change "b" (Option.map (fun v -> v + 1)) |> equal m2
 
+        testCase "Map works with keys with custom comparison" <| fun () ->
+            Map.empty
+            |> Map.add { Bar = "a"; Baz = 5 } 1
+            |> Map.add { Bar = "a"; Baz = 10 } 2
+            |> Map.count
+            |> equal 2
+
+            Map.empty
+            |> Map.add { Bar = "a"; Foo = 5 } 1
+            |> Map.add { Bar = "a"; Foo = 10 } 2
+            |> Map.count
+            |> equal 1
     ]
