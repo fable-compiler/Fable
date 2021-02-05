@@ -679,7 +679,7 @@ module PrinterExtensions =
 
         member printer.Print(node: Super) = printer.Print("super", ?loc = node.Loc)
 
-        member printer.Print(node: ThisExpression) = printer.Print("node", ?loc = node.Loc)
+        member printer.Print(node: ThisExpression) = printer.Print("this", ?loc = node.Loc)
 
         /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
         member printer.Print(node: ArrowFunctionExpression) =
