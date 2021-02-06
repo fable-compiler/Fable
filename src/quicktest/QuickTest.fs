@@ -12,7 +12,7 @@ open Fable.Core.JsInterop
 open Fable.Core.Testing
 
 let log (o: obj) =
-   printfn "%O" o
+   printfn "%A" o
 
 let equal expected actual =
    let areEqual = expected = actual
@@ -66,27 +66,3 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-let numloops = 10000
-
-do
-    let src: uint8[] = Array.zeroCreate 16384
-    let trg: uint8[] = Array.zeroCreate 131072
-
-    measureTime <| fun () ->
-        for _ in 1 .. numloops do
-          let rec loopi i =
-            if i < trg.Length then
-              Array.blit src 0 trg i src.Length
-              loopi (i + src.Length) in loopi 0
-
-do
-    let src: char[] = Array.zeroCreate 16384
-    let trg: char[] = Array.zeroCreate 131072
-
-    measureTime <| fun () ->
-        for _ in 1 .. numloops do
-          let rec loopi i =
-            if i < trg.Length then
-              Array.blit src 0 trg i src.Length
-              loopi (i + src.Length) in loopi 0

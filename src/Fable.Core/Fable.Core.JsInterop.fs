@@ -61,6 +61,12 @@ let createEmpty<'T> : 'T = jsNative
 /// Get the JS function constructor for class types
 let jsConstructor<'T> : obj = jsNative
 
+[<Emit("typeof $0")>]
+let jsTypeof (x: obj): string = jsNative
+
+[<Emit("$0 instanceof $1")>]
+let jsInstanceof (x: obj) (cons: obj): bool = jsNative
+
 /// Makes an expression the default export for the JS module.
 /// Used to interact with JS tools that require a default export.
 /// ATTENTION: This statement must appear on the root level of the file module.

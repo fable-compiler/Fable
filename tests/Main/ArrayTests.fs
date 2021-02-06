@@ -582,6 +582,30 @@ let tests =
         xs |> Array.reduce (-)
         |> equal -8.
 
+    testCase "Array.reduce Array.append works" <| fun _ -> // See #2372
+        let nums =
+            [|
+                [| 0 |]
+                [| 1 |]
+            |]
+        Array.reduce Array.append nums |> equal [|0; 1|]
+
+        let nums2d =
+            [|
+                [| [| 0 |] |]
+                [| [| 1 |] |]
+            |]
+        Array.reduce Array.append nums2d
+        |> equal [|[|0|]; [|1|]|]
+
+        let strs =
+            [|
+                [| "a" |]
+                [| "b" |]
+            |]
+        Array.reduce Array.append strs
+        |> equal [|"a"; "b"|]
+
     testCase "Array.reduceBack works" <| fun () ->
         let xs = [|1.; 2.; 3.; 4.|]
         xs |> Array.reduceBack (-)

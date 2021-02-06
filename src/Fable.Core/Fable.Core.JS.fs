@@ -20,7 +20,9 @@ module JS =
         abstract set: v: obj -> unit
 
     and [<AllowNullLiteral>] ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> 'T[]
         abstract isArray: arg: obj -> bool
+        abstract from: arg: obj -> 'T[]
 
     and [<AllowNullLiteral>] NumberConstructor =
         abstract isNaN: float -> bool
