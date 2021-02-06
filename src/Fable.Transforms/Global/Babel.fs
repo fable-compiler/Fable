@@ -55,8 +55,8 @@ type Expression =
     | Undefined of Loc: SourceLocation option
     | NewExpression of NewExpression
     | SpreadElement of SpreadElement
-    | ThisExpression of ThisExpression
-    | CallExpression of CallExpression
+    | ThisExpression of loc: SourceLocation option
+    | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
     | ArrayExpression of ArrayExpression
     | ClassExpression of ClassExpression
     | ClassImplements of ClassImplements
@@ -65,10 +65,10 @@ type Expression =
     | ObjectExpression of ObjectExpression
     | BinaryExpression of BinaryExpression
     | MemberExpression of MemberExpression
-    | LogicalExpression of LogicalExpression
-    | SequenceExpression of SequenceExpression
+    | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
+    | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | FunctionExpression of FunctionExpression
-    | AssignmentExpression of AssignmentExpression
+    | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | ConditionalExpression of ConditionalExpression
     | ArrowFunctionExpression of ArrowFunctionExpression
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
@@ -92,6 +92,35 @@ type Expression =
         |> Identifier
     static member regExpLiteral(pattern, flags_, ?loc) : Expression =
         Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
+    /// A function or method call expression.
+    static member callExpression(callee, arguments, ?loc) = CallExpression(callee, arguments, loc)
+    static member assignmentExpression(operator_, left, right, ?loc): Expression =
+        let operator =
+            match operator_ with
+            | AssignEqual -> "="
+            | AssignMinus -> "-="
+            | AssignPlus -> "+="
+            | AssignMultiply -> "*="
+            | AssignDivide -> "/="
+            | AssignModulus -> "%="
+            | AssignShiftLeft -> "<<="
+            | AssignShiftRightSignPropagating -> ">>="
+            | AssignShiftRightZeroFill -> ">>>="
+            | AssignOrBitwise -> "|="
+            | AssignXorBitwise -> "^="
+            | AssignAndBitwise -> "&="
+        AssignmentExpression(left, right, operator, loc)
+    /// A super pseudo-expression.
+    static member thisExpression(?loc) = ThisExpression loc
+    /// A comma-separated sequence of expressions.
+    static member sequenceExpression(expressions, ?loc) = SequenceExpression(expressions, loc)
+    static member logicalExpression(left, operator_, right, ?loc) =
+        let operator =
+            match operator_ with
+            | LogicalOr -> "||"
+            | LogicalAnd -> "&&"
+
+        LogicalExpression(left, operator, right, loc)
 
 type Pattern =
     | IdentifierPattern of Identifier
@@ -109,7 +138,7 @@ type Pattern =
         RestElement.Create(argument, ?typeAnnotation=typeAnnotation, ?loc=loc) |> RestElement
 
 type Literal =
-    | RegExp of RegExpLiteral
+    | RegExp of pattern: string * flags: string * loc: SourceLocation option
     | NullLiteral of loc: SourceLocation option
     | StringLiteral of StringLiteral
     | BooleanLiteral of value: bool * loc: SourceLocation option
@@ -120,13 +149,20 @@ type Literal =
     static member numericLiteral(value, ?loc) = NumericLiteral (value, loc)
     static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc)
     static member stringLiteral(value, ?loc) = StringLiteral.Create (value, ?loc=loc) |> StringLiteral
-    static member regExpLiteral(pattern, flags_, ?loc) = RegExpLiteral.Create(pattern, flags_, ?loc=loc) |> RegExp
+    static member regExpLiteral(pattern, flags_, ?loc) =
+        let flags =
+            flags_ |> Seq.map (function
+                | RegexGlobal -> "g"
+                | RegexIgnoreCase -> "i"
+                | RegexMultiline -> "m"
+                | RegexSticky -> "y") |> Seq.fold (+) ""
+        RegExp(pattern, flags, loc)
 
 type Statement =
     | Declaration of Declaration
     | IfStatement of test: Expression * consequent: BlockStatement * alternate: Statement option * loc: SourceLocation option
     | TryStatement of block: BlockStatement * handler: CatchClause option * finalizer: BlockStatement option * loc: SourceLocation option
-    | ForStatement of ForStatement
+    | ForStatement of body: BlockStatement * init: VariableDeclaration option * test: Expression option * update: Expression option * loc: SourceLocation option
     | BreakStatement of label: Identifier option * loc: SourceLocation option
     | WhileStatement of test: Expression * body: BlockStatement * loc: SourceLocation option
     | ThrowStatement of ThrowStatement
@@ -150,13 +186,14 @@ type Statement =
     static member whileStatement(test, body, ?loc) = WhileStatement(test, body, loc)
     static member debuggerStatement(?loc) = DebuggerStatement loc
     static member switchStatement(discriminant, cases, ?loc) = SwitchStatement(discriminant, cases, loc)
-
     static member variableDeclaration(kind, declarations, ?loc): Statement =
         Declaration.variableDeclaration(kind, declarations, ?loc = loc)
         |> Declaration
     static member variableDeclaration(var, ?init, ?kind, ?loc): Statement =
         Declaration.variableDeclaration(var, ?init = init, ?kind = kind, ?loc = loc)
         |> Declaration
+    static member forStatement(body, ?init, ?test, ?update, ?loc) = ForStatement(body, init, test, update, loc)
+
 
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
@@ -178,11 +215,14 @@ type Declaration =
 /// A module import or export declaration.
 type ModuleDeclaration =
     | ImportDeclaration of ImportDeclaration
-    | ExportAllDeclaration of ExportAllDeclaration
+    | ExportAllDeclaration of source: Literal * loc: SourceLocation option
     | ExportNamedReferences of ExportNamedReferences
     | ExportNamedDeclaration of ExportNamedDeclaration
     | PrivateModuleDeclaration of PrivateModuleDeclaration
     | ExportDefaultDeclaration of ExportDefaultDeclaration
+
+    /// An export batch declaration, e.g., export * from "mod";.
+    static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
 
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
@@ -215,21 +255,6 @@ type Identifier =
           Loc = loc }
 
 // Literals
-type RegExpLiteral =
-    { Pattern: string
-      Flags: string
-      Loc: SourceLocation option }
-
-    static member Create(pattern, flags_, ?loc) =
-        let flags =
-            flags_ |> Seq.map (function
-                | RegexGlobal -> "g"
-                | RegexIgnoreCase -> "i"
-                | RegexMultiline -> "m"
-                | RegexSticky -> "y") |> Seq.fold (+) ""
-        { Pattern = pattern
-          Flags = flags
-          Loc = loc }
 
 type StringLiteral =
     { Value: string
@@ -363,24 +388,6 @@ type VariableDeclaration =
 //    member _.Body: BlockStatement = body
 //    member _.Test: Expression = test
 
-type ForStatement =
-    { Body: BlockStatement
-      // In JS this can be an expression too
-      Init: VariableDeclaration option
-      Test: Expression option
-      Update: Expression option
-      Loc: SourceLocation option }
-
-    static member AsStatement(body, ?init, ?test, ?update, ?loc): Statement =
-        { Body = body
-          // In JS this can be an expression too
-          Init = init
-          Test = test
-          Update = update
-          Loc = loc }
-        |> ForStatement
-
-
 /// When passing a VariableDeclaration, the bound value must go through
 /// the `right` parameter instead of `init` property in VariableDeclarator
 //type ForInStatement(left, right, body, ?loc) =
@@ -422,11 +429,6 @@ type FunctionDeclaration =
 
 // Expressions
 
-/// A super pseudo-expression.
-type ThisExpression =
-    { Loc: SourceLocation option }
-
-    static member AsExpr(?loc): Expression = { Loc = loc } |> ThisExpression
 
 /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
 type ArrowFunctionExpression =
@@ -617,18 +619,6 @@ type ConditionalExpression =
           Loc = loc }
         |> ConditionalExpression
 
-/// A function or method call expression.
-type CallExpression =
-    { Callee: Expression
-      // Arguments: Choice<Expression, SpreadElement> array
-      Arguments: Expression array
-      Loc: SourceLocation option }
-
-    static member AsExpr(callee, arguments, ?loc): Expression =
-        { Callee = callee
-          Arguments = arguments
-          Loc = loc }
-        |> CallExpression
 
 type NewExpression =
     { Callee: Expression
@@ -644,14 +634,6 @@ type NewExpression =
           Loc = loc }
         |> NewExpression
 
-/// A comma-separated sequence of expressions.
-type SequenceExpression =
-    { Expressions: Expression array
-      Loc: SourceLocation option }
-
-    static member AsExpr(expressions, ?loc): Expression =
-        { Expressions = expressions; Loc = loc }
-        |> SequenceExpression
 
 // Unary Operations
 type UnaryExpression =
@@ -732,53 +714,6 @@ type BinaryExpression =
           Right = right
           Operator = operator
           Loc = loc }
-
-type AssignmentExpression =
-    { Left: Expression
-      Right: Expression
-      Operator: string
-      Loc: SourceLocation option }
-
-    static member AsExpr(operator_, left, right, ?loc): Expression =
-        let operator =
-            match operator_ with
-            | AssignEqual -> "="
-            | AssignMinus -> "-="
-            | AssignPlus -> "+="
-            | AssignMultiply -> "*="
-            | AssignDivide -> "/="
-            | AssignModulus -> "%="
-            | AssignShiftLeft -> "<<="
-            | AssignShiftRightSignPropagating -> ">>="
-            | AssignShiftRightZeroFill -> ">>>="
-            | AssignOrBitwise -> "|="
-            | AssignXorBitwise -> "^="
-            | AssignAndBitwise -> "&="
-
-        { Left = left
-          Right = right
-          Operator = operator
-          Loc = loc }
-        |> AssignmentExpression
-
-type LogicalExpression =
-    { Left: Expression
-      Right: Expression
-      Operator: string
-      Loc: SourceLocation option }
-
-    static member AsExpr(operator_, left, right, ?loc): Expression =
-        let operator =
-            match operator_ with
-            | LogicalOr -> "||"
-            | LogicalAnd -> "&&"
-
-        { Left = left
-          Right = right
-          Operator = operator
-          Loc = loc }
-        |> LogicalExpression
-
 // Patterns
 // type AssignmentProperty(key, value, ?loc) =
 //     inherit ObjectProperty("AssignmentProperty", ?loc = loc)
@@ -1025,14 +960,6 @@ type ExportDefaultDeclaration =
         { Declaration = declaration }
         |> ExportDefaultDeclaration
 
-/// An export batch declaration, e.g., export * from "mod";.
-type ExportAllDeclaration =
-    { Source: Literal
-      Loc: SourceLocation option }
-
-    static member AsModuleDeclaration(source, ?loc): ModuleDeclaration =
-        { Source = source; Loc = loc }
-        |> ExportAllDeclaration
 
 // Type Annotations
 type TypeAnnotationInfo =

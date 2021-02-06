@@ -253,12 +253,12 @@ module PrinterExtensions =
                 match body.Body with
                 | [| ReturnStatement(argument, loc) |] when not isDeclaration ->
                     match argument with
-                    | CallExpression(c) when parameters.Length = c.Arguments.Length ->
+                    | CallExpression(callee, arguments, loc) when parameters.Length = arguments.Length ->
                         // To be sure we're not running side effects when deleting the function,
                         // check the callee is an identifier (accept non-computed member expressions too?)
-                        match c.Callee with
-                        | Identifier(id) when areEqualPassedAndAppliedArgs parameters c.Arguments ->
-                            Some c.Callee
+                        match callee with
+                        | Identifier(id) when areEqualPassedAndAppliedArgs parameters arguments ->
+                            Some callee
                         | _ -> None
                     | _ -> None
                 | _ -> None
@@ -364,8 +364,8 @@ module PrinterExtensions =
             | Identifier(n) -> printer.Print(n)
             | NewExpression(n) -> printer.Print(n)
             | SpreadElement(n) -> printer.Print(n)
-            | ThisExpression(n) -> printer.Print(n)
-            | CallExpression(n) -> printer.Print(n)
+            | ThisExpression(loc) -> printer.Print("this", ?loc = loc)
+            | CallExpression(callee, arguments, loc) -> printer.PrintCallExpression(callee, arguments, loc)
             | EmitExpression(value, args, loc) -> printer.PrintEmitExpression(value, args, loc)
             | ArrayExpression(n) -> printer.Print(n)
             | ClassExpression(n) -> printer.Print(n)
@@ -375,10 +375,13 @@ module PrinterExtensions =
             | ObjectExpression(n) -> printer.Print(n)
             | BinaryExpression(n) -> printer.Print(n)
             | MemberExpression(n) -> printer.Print(n)
-            | LogicalExpression(n) -> printer.Print(n)
-            | SequenceExpression(n) -> printer.Print(n)
+            | LogicalExpression(left, operator, right, loc) -> printer.PrintOperation(left, operator, right, loc)
+            | SequenceExpression(expressions, loc) ->
+                // A comma-separated sequence of expressions.
+                printer.AddLocation(loc)
+                printer.PrintCommaSeparatedArray(expressions)
             | FunctionExpression(n) -> printer.Print(n)
-            | AssignmentExpression(n) -> printer.Print(n)
+            | AssignmentExpression(left, right, operator, loc) -> printer.PrintOperation(left, operator, right, loc)
             | ConditionalExpression(n) -> printer.Print(n)
             | ArrowFunctionExpression(n) -> printer.Print(n)
 
@@ -389,7 +392,7 @@ module PrinterExtensions =
 
         member printer.Print(literal: Literal) =
             match literal with
-            | RegExp(l) -> printer.Print(l)
+            | RegExp(pattern, flags, loc) -> printer.PrintRegExp(pattern, flags, loc)
             | NullLiteral(loc) -> printer.Print("null", ?loc=loc)
             | StringLiteral(l) -> printer.Print(l)
             | BooleanLiteral(value, loc) -> printer.Print((if value then "true" else "false"), ?loc=loc)
@@ -401,7 +404,7 @@ module PrinterExtensions =
             | Declaration(s) -> printer.Print(s)
             | IfStatement(test, consequent, alternate, loc) -> printer.PrintIfStatment(test, consequent, alternate, loc)
             | TryStatement(block, handler, finalizer, loc) -> printer.PrintTryStatement(block, handler, finalizer, loc)
-            | ForStatement(s) -> printer.Print(s)
+            | ForStatement(body, init, test, update, loc) -> printer.PrintForStatement(body, init, test, update, loc)
             | BreakStatement(label, loc) -> printer.Print("break", ?loc = loc)
             | WhileStatement(test, body, loc) -> printer.PrintWhileStatment(test, body, loc)
             | ThrowStatement(s) -> printer.Print(s)
@@ -430,7 +433,9 @@ module PrinterExtensions =
             | ImportDeclaration(d) -> printer.Print(d)
             | ExportNamedReferences(d) -> printer.Print(d)
             | ExportNamedDeclaration(d) -> printer.Print(d)
-            | ExportAllDeclaration(d) -> printer.Print(d)
+            | ExportAllDeclaration(source, loc) ->
+                printer.Print("export * from ", ?loc=loc)
+                printer.Print(source)
             | PrivateModuleDeclaration(d) -> printer.Print(d)
             | ExportDefaultDeclaration(d) -> printer.Print(d)
 
@@ -514,11 +519,11 @@ module PrinterExtensions =
                 printer.Print("?")
             printer.PrintOptional(identifier.TypeAnnotation)
 
-        member printer.Print(re: RegExpLiteral) =
-            printer.Print("/", ?loc=re.Loc)
-            printer.Print(re.Pattern)
+        member printer.PrintRegExp(pattern, flags, loc) =
+            printer.Print("/", ?loc=loc)
+            printer.Print(pattern)
             printer.Print("/")
-            printer.Print(re.Flags)
+            printer.Print(flags)
 
         member printer.Print(node: StringLiteral)=
             printer.Print("\"", ?loc=node.Loc)
@@ -542,8 +547,6 @@ module PrinterExtensions =
             printer.PrintNewLine()
             // Don't push indent
             printer.Print(body)
-
-// type WithStatement
 
 // Control Flow
         member printer.PrintIfStatment(test, consequent, alternate, loc) =
@@ -646,21 +649,19 @@ module PrinterExtensions =
             printer.Print(") ")
             printer.Print(body)
 
-        member printer.Print(node: ForStatement) =
-            printer.Print("for (", ?loc = node.Loc)
-            printer.PrintOptional(node.Init)
+        member printer.PrintForStatement(body, init, test, update, loc) =
+            printer.Print("for (", ?loc = loc)
+            printer.PrintOptional(init)
             printer.Print("; ")
-            printer.PrintOptional(node.Test)
+            printer.PrintOptional(test)
             printer.Print("; ")
-            printer.PrintOptional(node.Update)
+            printer.PrintOptional(update)
             printer.Print(") ")
-            printer.Print(node.Body)
+            printer.Print(body)
 
         member printer.Print(node: FunctionDeclaration) =
             printer.PrintFunction(Some node.Id, node.Params, node.Body, node.TypeParameters, node.ReturnType, node.Loc, isDeclaration=true)
             printer.PrintNewLine()
-
-        member printer.Print(node: ThisExpression) = printer.Print("this", ?loc = node.Loc)
 
         /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
         member printer.Print(node: ArrowFunctionExpression) =
@@ -759,11 +760,11 @@ module PrinterExtensions =
                 printer.Print(" : ")
                 printer.ComplexExpressionWithParens(node.Alternate)
 
-        member printer.Print(node: CallExpression) =
-            printer.AddLocation(node.Loc)
-            printer.ComplexExpressionWithParens(node.Callee)
+        member printer.PrintCallExpression(callee, arguments, loc) =
+            printer.AddLocation(loc)
+            printer.ComplexExpressionWithParens(callee)
             printer.Print("(")
-            printer.PrintCommaSeparatedArray(node.Arguments)
+            printer.PrintCommaSeparatedArray(arguments)
             printer.Print(")")
 
         member printer.Print(node: NewExpression) =
@@ -772,11 +773,6 @@ module PrinterExtensions =
             printer.Print("(")
             printer.PrintCommaSeparatedArray(node.Arguments)
             printer.Print(")")
-
-        /// A comma-separated sequence of expressions.
-        member printer.Print(node: SequenceExpression) =
-            printer.AddLocation(node.Loc)
-            printer.PrintCommaSeparatedArray(node.Expressions)
 
         member printer.Print(node: UnaryExpression) =
             printer.AddLocation(node.Loc)
@@ -797,12 +793,6 @@ module PrinterExtensions =
 // Binary Operations
 
         member printer.Print(node: BinaryExpression) =
-            printer.PrintOperation(node.Left, node.Operator, node.Right, node.Loc)
-
-        member printer.Print(node: AssignmentExpression) =
-            printer.PrintOperation(node.Left, node.Operator, node.Right, node.Loc)
-
-        member printer.Print(node: LogicalExpression) =
             printer.PrintOperation(node.Left, node.Operator, node.Right, node.Loc)
 
         member printer.Print(node: RestElement) =
@@ -943,9 +933,6 @@ module PrinterExtensions =
             | Choice1Of2 x -> printer.Print(x)
             | Choice2Of2 x -> printer.Print(x)
 
-        member printer.Print(node: ExportAllDeclaration) =
-            printer.Print("export * from ", ?loc=node.Loc)
-            printer.Print(node.Source)
 
         member printer.Print(node: TypeAnnotationInfo) =
             match node with
