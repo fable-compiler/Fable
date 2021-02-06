@@ -62,7 +62,7 @@ type Expression =
     | ClassImplements of ClassImplements
     | UnaryExpression of UnaryExpression
     | UpdateExpression of UpdateExpression
-    | ObjectExpression of ObjectExpression
+    | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
     | BinaryExpression of BinaryExpression
     | MemberExpression of MemberExpression
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
@@ -75,7 +75,6 @@ type Expression =
 
     static member super(?loc) = Super loc
     static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
-    // Lifted
     static member nullLiteral(?loc) = NullLiteral loc |> Literal
     static member numericLiteral(value, ?loc) = NumericLiteral (value, loc) |> Literal
     static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
@@ -114,13 +113,14 @@ type Expression =
     static member thisExpression(?loc) = ThisExpression loc
     /// A comma-separated sequence of expressions.
     static member sequenceExpression(expressions, ?loc) = SequenceExpression(expressions, loc)
-    static member logicalExpression(left, operator_, right, ?loc) =
+    static member logicalExpression(left, operator, right, ?loc) =
         let operator =
-            match operator_ with
+            match operator with
             | LogicalOr -> "||"
             | LogicalAnd -> "&&"
 
         LogicalExpression(left, operator, right, loc)
+    static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
 
 type Pattern =
     | IdentifierPattern of Identifier
@@ -149,9 +149,9 @@ type Literal =
     static member numericLiteral(value, ?loc) = NumericLiteral (value, loc)
     static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc)
     static member stringLiteral(value, ?loc) = StringLiteral.Create (value, ?loc=loc) |> StringLiteral
-    static member regExpLiteral(pattern, flags_, ?loc) =
+    static member regExpLiteral(pattern, flags, ?loc) =
         let flags =
-            flags_ |> Seq.map (function
+            flags |> Seq.map (function
                 | RegexGlobal -> "g"
                 | RegexIgnoreCase -> "i"
                 | RegexMultiline -> "m"
@@ -165,7 +165,7 @@ type Statement =
     | ForStatement of body: BlockStatement * init: VariableDeclaration option * test: Expression option * update: Expression option * loc: SourceLocation option
     | BreakStatement of label: Identifier option * loc: SourceLocation option
     | WhileStatement of test: Expression * body: BlockStatement * loc: SourceLocation option
-    | ThrowStatement of ThrowStatement
+    | ThrowStatement of argument: Expression * loc: SourceLocation option
     | BlockStatement of BlockStatement
     | ReturnStatement of argument: Expression * loc: SourceLocation option
     | SwitchStatement of discriminant: Expression * cases: SwitchCase array * loc: SourceLocation option
@@ -193,7 +193,7 @@ type Statement =
         Declaration.variableDeclaration(var, ?init = init, ?kind = kind, ?loc = loc)
         |> Declaration
     static member forStatement(body, ?init, ?test, ?update, ?loc) = ForStatement(body, init, test, update, loc)
-
+    static member throwStatement(argument, ?loc) = ThrowStatement(argument, loc)
 
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
@@ -330,13 +330,6 @@ type SwitchCase =
 
 
 // Exceptions
-type ThrowStatement =
-    { Argument: Expression
-      Loc: SourceLocation option }
-
-    static member AsStatement(argument, ?loc): Statement =
-        { Argument = argument; Loc = loc }
-        |> ThrowStatement
 
 /// A catch clause following a try block.
 type CatchClause =
@@ -522,21 +515,12 @@ type ArrayExpression =
           Loc = loc }
 
 type ObjectMember =
-    | ObjectProperty of ObjectProperty
+    | ObjectProperty of key: Expression * value: Expression * computed: bool
     | ObjectMethod of ObjectMethod
 
-type ObjectProperty =
-    { Key: Expression
-      Value: Expression
-      Computed: bool }
-
-    static member AsObjectMember(key, value, ?computed_): ObjectMember = // ?shorthand_,
+    static member objectProperty(key, value, ?computed_): ObjectMember = // ?shorthand_,
         let computed = defaultArg computed_ false
-
-        { Key = key
-          Value = value
-          Computed = computed }
-        |> ObjectProperty
+        ObjectProperty(key, value, computed)
 //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
 
@@ -596,13 +580,6 @@ type MemberExpression =
           Loc = loc }
         |> MemberExpression
 
-type ObjectExpression =
-    { Properties: ObjectMember array
-      Loc: SourceLocation option }
-
-    static member AsExpr(properties, ?loc): Expression =
-        { Properties = properties; Loc = loc }
-        |> ObjectExpression
 
 
 /// A conditional expression, i.e., a ternary ?/: expression.
@@ -882,29 +859,18 @@ type PrivateModuleDeclaration =
         { Statement = statement }
         |> PrivateModuleDeclaration
 
-type ImportSpecifier =
-    | ImportMemberSpecifier of ImportMemberSpecifier
-    | ImportDefaultSpecifier of ImportDefaultSpecifier
-    | ImportNamespaceSpecifier of ImportNamespaceSpecifier
-
 /// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
 /// The imported field refers to the name of the export imported from the module.
 /// The local field refers to the binding imported into the local module scope.
 /// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
-type ImportMemberSpecifier =
-    { Local: Identifier
-      Imported: Identifier }
+type ImportSpecifier =
+    | ImportMemberSpecifier of local: Identifier * imported: Identifier
+    | ImportDefaultSpecifier of local: Identifier
+    | ImportNamespaceSpecifier of ImportNamespaceSpecifier
 
-    static member AsImportSpecifier(local, imported): ImportSpecifier =
-        { Local = local; Imported = imported }
-        |> ImportMemberSpecifier
 
 /// A default import specifier, e.g., foo in import foo from "mod".
-type ImportDefaultSpecifier =
-    { Local: Identifier }
-
-    static member AsImportSpecifier(local): ImportSpecifier = { Local = local } |> ImportDefaultSpecifier
 
 /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
 type ImportNamespaceSpecifier =
@@ -969,7 +935,7 @@ type TypeAnnotationInfo =
     | BooleanTypeAnnotation
     | AnyTypeAnnotation
     | VoidTypeAnnotation
-    | TupleTypeAnnotation of TupleTypeAnnotation
+    | TupleTypeAnnotation of types: TypeAnnotationInfo array
     | UnionTypeAnnotation of UnionTypeAnnotation
     | FunctionTypeAnnotation of FunctionTypeAnnotation
     | NullableTypeAnnotation of NullableTypeAnnotation
@@ -1003,10 +969,6 @@ type TypeParameterInstantiation =
 
     static member Create(``params``) = { Params = ``params`` }
 
-type TupleTypeAnnotation =
-    { Types: TypeAnnotationInfo array }
-
-    static member AsTypeAnnotationInfo(types): TypeAnnotationInfo = { Types = types } |> TupleTypeAnnotation
 
 type UnionTypeAnnotation =
     { Types: TypeAnnotationInfo array }

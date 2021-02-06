@@ -123,7 +123,7 @@ module PrinterExtensions =
                 | Literal(BooleanLiteral(_))
                 | Literal(NumericLiteral(_)) -> true
                 // Constructors of classes deriving from System.Object add an empty object at the end
-                | ObjectExpression(expr) -> expr.Properties.Length = 0
+                | ObjectExpression(properties, loc) -> properties.Length = 0
                 | UnaryExpression(expr) when expr.Operator = "void" -> hasNoSideEffects expr.Argument
                 // Some identifiers may be stranded as the result of imports
                 // intended only for side effects, see #2228
@@ -194,12 +194,15 @@ module PrinterExtensions =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-        member printer.PrintCommaSeparatedArray(nodes: ImportDefaultSpecifier array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: ImportNamespaceSpecifier array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-        member printer.PrintCommaSeparatedArray(nodes: ImportMemberSpecifier array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+        member printer.PrintCommaSeparatedArray(nodes: ImportSpecifier array) =
+            printer.PrintArray(nodes, (fun p x ->
+                match x with
+                | ImportMemberSpecifier(local, imported) -> p.PrintImportMemberSpecific(local, imported)
+                | ImportDefaultSpecifier(local) -> printer.Print(local)
+                | _ -> failwith "not implemented"
+            ), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: ExportSpecifier array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: FunctionTypeParam array) =
@@ -277,10 +280,10 @@ module PrinterExtensions =
                     match body.Body with
                     | [| ReturnStatement(argument, loc) |] ->
                         match argument with
-                        | ObjectExpression(e) -> printer.WithParens(e |> ObjectExpression)
+                        | ObjectExpression(_) -> printer.WithParens(argument)
                         | MemberExpression(e) ->
                             match e.Object with
-                            | ObjectExpression(o) -> printer.Print(e, objectWithParens=true)
+                            | ObjectExpression(_) -> printer.Print(e, objectWithParens=true)
                             | _ -> printer.Print(e)
                         | _ -> printer.ComplexExpressionWithParens(argument)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
@@ -372,7 +375,7 @@ module PrinterExtensions =
             | ClassImplements(n) -> printer.Print(n)
             | UnaryExpression(n) -> printer.Print(n)
             | UpdateExpression(n) -> printer.Print(n)
-            | ObjectExpression(n) -> printer.Print(n)
+            | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
             | BinaryExpression(n) -> printer.Print(n)
             | MemberExpression(n) -> printer.Print(n)
             | LogicalExpression(left, operator, right, loc) -> printer.PrintOperation(left, operator, right, loc)
@@ -407,7 +410,9 @@ module PrinterExtensions =
             | ForStatement(body, init, test, update, loc) -> printer.PrintForStatement(body, init, test, update, loc)
             | BreakStatement(label, loc) -> printer.Print("break", ?loc = loc)
             | WhileStatement(test, body, loc) -> printer.PrintWhileStatment(test, body, loc)
-            | ThrowStatement(s) -> printer.Print(s)
+            | ThrowStatement(argument, loc) ->
+                printer.Print("throw ", ?loc = loc)
+                printer.Print(argument)
             | BlockStatement(s) -> printer.Print(s)
             | ReturnStatement(argument, loc) ->
                 printer.Print("return ", ?loc = loc)
@@ -607,10 +612,6 @@ module PrinterExtensions =
             printer.PrintBlock(cases, (fun p x -> p.Print(x)), fun _ -> ())
 
 // Exceptions
-        member printer.Print(node: ThrowStatement) =
-            printer.Print("throw ", ?loc = node.Loc)
-            printer.Print(node.Argument)
-
         member printer.Print(node: CatchClause) =
             // "catch" is being printed by TryStatement
             printer.Print("(", ?loc = node.Loc)
@@ -689,18 +690,18 @@ module PrinterExtensions =
 
         member printer.Print(node: ObjectMember) =
             match node with
-            | ObjectProperty(op) -> printer.Print(op)
+            | ObjectProperty(key, value, computed) -> printer.PrintObjectProperty(key, value, computed)
             | ObjectMethod(op) -> printer.Print(op)
 
-        member printer.Print(node: ObjectProperty) =
-            if node.Computed then
+        member printer.PrintObjectProperty(key, value, computed) =
+            if computed then
                 printer.Print("[")
-                printer.Print(node.Key)
+                printer.Print(key)
                 printer.Print("]")
             else
-                printer.Print(node.Key)
+                printer.Print(key)
             printer.Print(": ")
-            printer.SequenceExpressionWithParens(node.Value)
+            printer.SequenceExpressionWithParens(value)
 
         member printer.Print(node: ObjectMethod)=
             printer.AddLocation(node.Loc)
@@ -737,14 +738,14 @@ module PrinterExtensions =
                 printer.Print(".")
                 printer.Print(node.Property)
 
-        member printer.Print(node: ObjectExpression) =
+        member printer.PrintObjectExpression(properties, loc) =
             let printSeparator(p: Printer) =
                 p.Print(",")
                 p.PrintNewLine()
 
-            printer.AddLocation(node.Loc)
-            if Array.isEmpty node.Properties then printer.Print("{}")
-            else printer.PrintBlock(node.Properties, (fun p x -> p.Print(x)), printSeparator, skipNewLineAtEnd=true)
+            printer.AddLocation(loc)
+            if Array.isEmpty properties then printer.Print("{}")
+            else printer.PrintBlock(properties, (fun p x -> p.Print(x)), printSeparator, skipNewLineAtEnd=true)
 
         member printer.Print(node: ConditionalExpression) =
             printer.AddLocation(node.Loc)
@@ -866,23 +867,21 @@ module PrinterExtensions =
             if printer.IsProductiveStatement(node.Statement) then
                 printer.Print(node.Statement)
 
-        member printer.Print(node: ImportMemberSpecifier) =
+        member printer.PrintImportMemberSpecific(local, imported) =
             // Don't print the braces, node will be done in the import declaration
-            printer.Print(node.Imported)
-            if node.Imported.Name <> node.Local.Name then
+            printer.Print(imported)
+            if imported.Name <> local.Name then
                 printer.Print(" as ")
-                printer.Print(node.Local)
+                printer.Print(local)
 
-        member printer.Print(node: ImportDefaultSpecifier) =
-            printer.Print(node.Local)
 
         member printer.Print(node: ImportNamespaceSpecifier) =
             printer.Print("* as ")
             printer.Print(node.Local)
 
         member printer.Print(node: ImportDeclaration) =
-            let members = node.Specifiers |> Array.choose (function ImportMemberSpecifier(x) -> Some x | _ -> None)
-            let defaults = node.Specifiers|> Array.choose (function ImportDefaultSpecifier(x) -> Some x | _ -> None)
+            let members = node.Specifiers |> Array.choose (function ImportMemberSpecifier(local, imported) -> Some (ImportMemberSpecifier(local, imported)) | _ -> None)
+            let defaults = node.Specifiers|> Array.choose (function ImportDefaultSpecifier(local) -> Some (ImportDefaultSpecifier(local)) | _ -> None)
             let namespaces = node.Specifiers |> Array.choose (function ImportNamespaceSpecifier(x) -> Some x | _ -> None)
 
             printer.Print("import ")
@@ -942,7 +941,10 @@ module PrinterExtensions =
             | BooleanTypeAnnotation -> printer.Print("boolean")
             | AnyTypeAnnotation -> printer.Print("any")
             | VoidTypeAnnotation -> printer.Print("void")
-            | TupleTypeAnnotation(an) -> printer.Print(an)
+            | TupleTypeAnnotation(types) ->
+                printer.Print("[")
+                printer.PrintCommaSeparatedArray(types)
+                printer.Print("]")
             | UnionTypeAnnotation(an) -> printer.Print(an)
             | FunctionTypeAnnotation(an) -> printer.Print(an)
             | NullableTypeAnnotation(an) -> printer.Print(an)
@@ -967,11 +969,6 @@ module PrinterExtensions =
             printer.Print("<")
             printer.PrintCommaSeparatedArray(node.Params)
             printer.Print(">")
-
-        member printer.Print(node: TupleTypeAnnotation) =
-            printer.Print("[")
-            printer.PrintCommaSeparatedArray(node.Types)
-            printer.Print("]")
 
         member printer.Print(node: UnionTypeAnnotation) =
             printer.PrintArray(node.Types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))

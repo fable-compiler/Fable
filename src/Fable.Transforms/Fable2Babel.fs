@@ -424,7 +424,7 @@ module Annotation =
 
     let makeTupleTypeAnnotation com ctx genArgs =
         List.map (typeAnnotation com ctx) genArgs
-        |> List.toArray |> TupleTypeAnnotation.AsTypeAnnotationInfo
+        |> List.toArray |> TupleTypeAnnotation
 
     let makeArrayTypeAnnotation com ctx genArg =
         match genArg with
@@ -708,9 +708,9 @@ module Util =
     let makeJsObject pairs =
         pairs |> Seq.map (fun (name, value) ->
             let prop, computed = memberFromName name
-            ObjectProperty.AsObjectMember(prop, value, computed_=computed))
+            ObjectMember.objectProperty(prop, value, computed_=computed))
         |> Seq.toArray
-        |> ObjectExpression.AsExpr
+        |> Expression.objectExpression
 
     let assign range left right =
         Expression.assignmentExpression(AssignEqual, left, right, ?loc=range)
@@ -1037,7 +1037,7 @@ module Util =
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
                 if info.IsValue || (not compileAsClass && info.IsGetter) then
-                    [ObjectProperty.AsObjectMember(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
+                    [ObjectMember.objectProperty(prop, com.TransformAsExpr(ctx, memb.Body), computed_=computed)]
                 elif info.IsGetter then
                     [makeMethod ObjectGetter prop computed false memb.Args memb.Body]
                 elif info.IsSetter then
@@ -1054,12 +1054,12 @@ module Util =
             )
 
         if not compileAsClass then
-            ObjectExpression.AsExpr(List.toArray  members)
+            Expression.objectExpression(List.toArray  members)
         else
             let classMembers =
                 members |> List.choose (function
-                    | ObjectProperty(m) ->
-                        ClassProperty.AsClassMember(m.Key, m.Value, computed_=m.Computed) |> Some
+                    | ObjectProperty(key, value, computed) ->
+                        ClassProperty.AsClassMember(key, value, computed_=computed) |> Some
                     | ObjectMethod(m) ->
                         let kind =
                             match m.Kind with
@@ -2065,8 +2065,8 @@ module Util =
                     let localId = Identifier.Create(localId)
                     match import.Selector with
                     | "*" -> ImportNamespaceSpecifier.AsImportSpecifier(localId)
-                    | "default" | "" -> ImportDefaultSpecifier.AsImportSpecifier(localId)
-                    | memb -> ImportMemberSpecifier.AsImportSpecifier(localId, Identifier.Create(memb)))
+                    | "default" | "" -> ImportDefaultSpecifier(localId)
+                    | memb -> ImportMemberSpecifier(localId, Identifier.Create(memb)))
             import.Path, specifier)
         |> Seq.groupBy fst
         |> Seq.collect (fun (path, specifiers) ->
