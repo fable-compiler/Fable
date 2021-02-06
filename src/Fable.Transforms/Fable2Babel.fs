@@ -1027,7 +1027,7 @@ module Util =
         let makeMethod kind prop computed hasSpread args body =
             let args, body, returnType, typeParamDecl =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
-            ObjectMethod.AsObjectMember(kind, prop, args, body, computed_=computed,
+            ObjectMember.objectMethod(kind, prop, args, body, computed_=computed,
                 ?returnType=returnType, ?typeParameters=typeParamDecl)
 
         let members =
@@ -1047,7 +1047,7 @@ module Util =
                     let iterator =
                         let prop, computed = memberFromName "Symbol.iterator"
                         let body = enumerator2iterator com ctx
-                        ObjectMethod.AsObjectMember(ObjectMeth, prop, [||], body, computed_=computed)
+                        ObjectMember.objectMethod(ObjectMeth, prop, [||], body, computed_=computed)
                     [method; iterator]
                 else
                     [makeMethod ObjectMeth prop computed info.HasSpread memb.Args memb.Body]

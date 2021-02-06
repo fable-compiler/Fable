@@ -36,7 +36,6 @@ type Node =
     | TypeParameterDeclaration of TypeParameterDeclaration
     | TypeParameterInstantiation of TypeParameterInstantiation
 
-
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
     | Literal of Literal
@@ -96,7 +95,6 @@ type Statement =
     | TryStatement of block: BlockStatement * handler: CatchClause option * finalizer: BlockStatement option * loc: SourceLocation option
     | ForStatement of body: BlockStatement * init: VariableDeclaration option * test: Expression option * update: Expression option * loc: SourceLocation option
 
-
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
     | ClassDeclaration of ClassDeclaration
@@ -114,8 +112,6 @@ type ModuleDeclaration =
     | ExportDefaultDeclaration of ExportDefaultDeclaration
 
     /// An export batch declaration, e.g., export * from "mod";.
-
-
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
 //    inherit Node("TemplateElement", ?loc = loc)
@@ -191,7 +187,6 @@ type BlockStatement =
     static member Create(body) = // ?directives_,
         { Body = body }
 
-
 //    let directives = [||] // defaultArg directives_ [||]
 //    member _.Directives: Directive array = directives
 
@@ -259,7 +254,6 @@ type VariableDeclaration =
     static member Create(var, ?init, ?kind, ?loc) =
         VariableDeclaration.Create(defaultArg kind Let, [| VariableDeclarator.Create(var, ?init = init) |], ?loc = loc)
 
-
 // Loops
 
 //type DoWhileStatement(body, test, ?loc) =
@@ -307,7 +301,6 @@ type FunctionDeclaration =
 //    member _.Declare: bool option = declare
 
 // Expressions
-
 
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
@@ -388,7 +381,7 @@ type ObjectMethod =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member AsObjectMember(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) : ObjectMember = // ?async_, ?generator_,
+    static member Create(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_,
         let kind =
             match kind_ with
             | ObjectGetter -> "get"
@@ -407,7 +400,6 @@ type ObjectMethod =
           ReturnType = returnType
           TypeParameters = typeParameters
           Loc = loc }
-        |> ObjectMethod
 
 
 /// A conditional expression, i.e., a ternary ?/: expression.
@@ -1037,6 +1029,9 @@ module Helpers =
         static member objectProperty(key, value, ?computed_) = // ?shorthand_,
             let computed = defaultArg computed_ false
             ObjectProperty(key, value, computed)
+        static member objectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) =
+            ObjectMethod.Create(kind_, key, ``params``, body, ?computed_=computed_, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
+            |> ObjectMethod
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
