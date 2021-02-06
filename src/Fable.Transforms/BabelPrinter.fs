@@ -194,13 +194,12 @@ module PrinterExtensions =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: Pattern array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-        member printer.PrintCommaSeparatedArray(nodes: ImportNamespaceSpecifier array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: ImportSpecifier array) =
             printer.PrintArray(nodes, (fun p x ->
                 match x with
                 | ImportMemberSpecifier(local, imported) -> p.PrintImportMemberSpecific(local, imported)
                 | ImportDefaultSpecifier(local) -> printer.Print(local)
+                | ImportNamespaceSpecifier(local) -> printer.PrintImportNamespaceSpecifier(local)
                 | _ -> failwith "not implemented"
             ), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: ExportSpecifier array) =
@@ -365,12 +364,15 @@ module PrinterExtensions =
             | Literal(n) -> printer.Print(n)
             | Undefined(loc) -> printer.Print("undefined", ?loc=loc)
             | Identifier(n) -> printer.Print(n)
-            | NewExpression(n) -> printer.Print(n)
+            | NewExpression(callee, arguments, typeArguments, loc) -> printer.PrintNewExpression(callee, arguments, typeArguments, loc)
             | SpreadElement(n) -> printer.Print(n)
             | ThisExpression(loc) -> printer.Print("this", ?loc = loc)
             | CallExpression(callee, arguments, loc) -> printer.PrintCallExpression(callee, arguments, loc)
             | EmitExpression(value, args, loc) -> printer.PrintEmitExpression(value, args, loc)
-            | ArrayExpression(n) -> printer.Print(n)
+            | ArrayExpression(elements, loc) ->
+                printer.Print("[", ?loc = loc)
+                printer.PrintCommaSeparatedArray(elements)
+                printer.Print("]")
             | ClassExpression(n) -> printer.Print(n)
             | ClassImplements(n) -> printer.Print(n)
             | UnaryExpression(n) -> printer.Print(n)
@@ -386,7 +388,7 @@ module PrinterExtensions =
             | FunctionExpression(n) -> printer.Print(n)
             | AssignmentExpression(left, right, operator, loc) -> printer.PrintOperation(left, operator, right, loc)
             | ConditionalExpression(n) -> printer.Print(n)
-            | ArrowFunctionExpression(n) -> printer.Print(n)
+            | ArrowFunctionExpression(``params``, body, returnType, typeParameters, loc) -> printer.PrintArrowFunctionExpression(``params``, body, returnType, typeParameters, loc)
 
         member printer.Print(pattern: Pattern) =
             match pattern with
@@ -441,7 +443,10 @@ module PrinterExtensions =
             | ExportAllDeclaration(source, loc) ->
                 printer.Print("export * from ", ?loc=loc)
                 printer.Print(source)
-            | PrivateModuleDeclaration(d) -> printer.Print(d)
+            | PrivateModuleDeclaration(statement) ->
+                if printer.IsProductiveStatement(statement) then
+                    printer.Print(statement)
+
             | ExportDefaultDeclaration(d) -> printer.Print(d)
 
         member printer.PrintEmitExpression(value, args, loc) =
@@ -665,14 +670,14 @@ module PrinterExtensions =
             printer.PrintNewLine()
 
         /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-        member printer.Print(node: ArrowFunctionExpression) =
+        member printer.PrintArrowFunctionExpression(``params``, body, returnType, typeParameters, loc) =
             printer.PrintFunction(
                 None,
-                node.Params,
-                node.Body,
-                node.TypeParameters,
-                node.ReturnType,
-                node.Loc,
+                ``params``,
+                body,
+                typeParameters,
+                returnType,
+                loc,
                 isArrow = true
             )
 
@@ -682,11 +687,6 @@ module PrinterExtensions =
         member printer.Print(node: SpreadElement) =
             printer.Print("...", ?loc = node.Loc)
             printer.ComplexExpressionWithParens(node.Argument)
-
-        member printer.Print(node: ArrayExpression) =
-            printer.Print("[", ?loc = node.Loc)
-            printer.PrintCommaSeparatedArray(node.Elements)
-            printer.Print("]")
 
         member printer.Print(node: ObjectMember) =
             match node with
@@ -768,11 +768,11 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedArray(arguments)
             printer.Print(")")
 
-        member printer.Print(node: NewExpression) =
-            printer.Print("new ", ?loc=node.Loc)
-            printer.ComplexExpressionWithParens(node.Callee)
+        member printer.PrintNewExpression(callee, arguments, typeArguments, loc) =
+            printer.Print("new ", ?loc=loc)
+            printer.ComplexExpressionWithParens(callee)
             printer.Print("(")
-            printer.PrintCommaSeparatedArray(node.Arguments)
+            printer.PrintCommaSeparatedArray(arguments)
             printer.Print(")")
 
         member printer.Print(node: UnaryExpression) =
@@ -863,10 +863,6 @@ module PrinterExtensions =
         member printer.Print(node: ClassExpression) =
             printer.PrintClass(node.Id, node.SuperClass, node.SuperTypeParameters, node.TypeParameters, node.Implements, node.Body, node.Loc)
 
-        member printer.Print(node: PrivateModuleDeclaration) =
-            if printer.IsProductiveStatement(node.Statement) then
-                printer.Print(node.Statement)
-
         member printer.PrintImportMemberSpecific(local, imported) =
             // Don't print the braces, node will be done in the import declaration
             printer.Print(imported)
@@ -875,14 +871,14 @@ module PrinterExtensions =
                 printer.Print(local)
 
 
-        member printer.Print(node: ImportNamespaceSpecifier) =
+        member printer.PrintImportNamespaceSpecifier(local) =
             printer.Print("* as ")
-            printer.Print(node.Local)
+            printer.Print(local)
 
         member printer.Print(node: ImportDeclaration) =
             let members = node.Specifiers |> Array.choose (function ImportMemberSpecifier(local, imported) -> Some (ImportMemberSpecifier(local, imported)) | _ -> None)
             let defaults = node.Specifiers|> Array.choose (function ImportDefaultSpecifier(local) -> Some (ImportDefaultSpecifier(local)) | _ -> None)
-            let namespaces = node.Specifiers |> Array.choose (function ImportNamespaceSpecifier(x) -> Some x | _ -> None)
+            let namespaces = node.Specifiers |> Array.choose (function ImportNamespaceSpecifier(local) -> Some (ImportNamespaceSpecifier(local)) | _ -> None)
 
             printer.Print("import ")
 

@@ -3,17 +3,6 @@ namespace rec Fable.AST.Babel
 
 open Fable.AST
 
-type Printer =
-    abstract Line: int
-    abstract Column: int
-    abstract PushIndentation: unit -> unit
-    abstract PopIndentation: unit -> unit
-    abstract Print: string * ?loc: SourceLocation -> unit
-    abstract PrintNewLine: unit -> unit
-    abstract AddLocation: SourceLocation option -> unit
-    abstract EscapeJsStringLiteral: string -> string
-    abstract MakeImportPath: string -> string
-
 /// The type field is a string representing the AST variant type.
 /// Each subtype of Node is documented below with the specific string of its type field.
 /// You can use this field to determine which interface a node implements.
@@ -25,7 +14,7 @@ type Node =
     | Pattern of Pattern
     | Program of Program
     | Statement of Statement
-    | Directive of Directive
+    | Directive of value: DirectiveLiteral // e.g. "use strict";
     | ClassBody of ClassBody
     | Expression of Expression
     | SwitchCase of SwitchCase
@@ -47,17 +36,18 @@ type Node =
     | TypeParameterDeclaration of TypeParameterDeclaration
     | TypeParameterInstantiation of TypeParameterInstantiation
 
+
 /// Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
 type Expression =
     | Literal of Literal
     | Identifier of Identifier
     | Super of loc: SourceLocation option
     | Undefined of Loc: SourceLocation option
-    | NewExpression of NewExpression
+    | NewExpression of callee: Expression * arguments: Expression array * typeArguments: TypeParameterInstantiation option * loc: SourceLocation option
     | SpreadElement of SpreadElement
     | ThisExpression of loc: SourceLocation option
     | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
-    | ArrayExpression of ArrayExpression
+    | ArrayExpression of elements: Expression array * loc: SourceLocation option
     | ClassExpression of ClassExpression
     | ClassImplements of ClassImplements
     | UnaryExpression of UnaryExpression
@@ -70,57 +60,8 @@ type Expression =
     | FunctionExpression of FunctionExpression
     | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | ConditionalExpression of ConditionalExpression
-    | ArrowFunctionExpression of ArrowFunctionExpression
+    | ArrowFunctionExpression of ``params``: Pattern array * body: BlockStatement * returnType: TypeAnnotation option * typeParameters: TypeParameterDeclaration option * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
-
-    static member super(?loc) = Super loc
-    static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
-    static member nullLiteral(?loc) = NullLiteral loc |> Literal
-    static member numericLiteral(value, ?loc) = NumericLiteral (value, loc) |> Literal
-    static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
-    static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal
-    static member binaryExpression(operator_, left, right, ?loc) =
-        BinaryExpression.Create(operator_, left, right, ?loc=loc)
-        |> BinaryExpression
-    static member arrayExpression(elements, ?loc) = ArrayExpression.Create(elements, ?loc=loc) |> ArrayExpression
-    static member unaryExpression(operator_, argument, ?loc) =
-        UnaryExpression.Create(operator_, argument, ?loc=loc)
-        |> UnaryExpression
-    static member identifier(name, ?optional, ?typeAnnotation, ?loc): Expression =
-        Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
-        |> Identifier
-    static member regExpLiteral(pattern, flags_, ?loc) : Expression =
-        Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
-    /// A function or method call expression.
-    static member callExpression(callee, arguments, ?loc) = CallExpression(callee, arguments, loc)
-    static member assignmentExpression(operator_, left, right, ?loc): Expression =
-        let operator =
-            match operator_ with
-            | AssignEqual -> "="
-            | AssignMinus -> "-="
-            | AssignPlus -> "+="
-            | AssignMultiply -> "*="
-            | AssignDivide -> "/="
-            | AssignModulus -> "%="
-            | AssignShiftLeft -> "<<="
-            | AssignShiftRightSignPropagating -> ">>="
-            | AssignShiftRightZeroFill -> ">>>="
-            | AssignOrBitwise -> "|="
-            | AssignXorBitwise -> "^="
-            | AssignAndBitwise -> "&="
-        AssignmentExpression(left, right, operator, loc)
-    /// A super pseudo-expression.
-    static member thisExpression(?loc) = ThisExpression loc
-    /// A comma-separated sequence of expressions.
-    static member sequenceExpression(expressions, ?loc) = SequenceExpression(expressions, loc)
-    static member logicalExpression(left, operator, right, ?loc) =
-        let operator =
-            match operator with
-            | LogicalOr -> "||"
-            | LogicalAnd -> "&&"
-
-        LogicalExpression(left, operator, right, loc)
-    static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
 
 type Pattern =
     | IdentifierPattern of Identifier
@@ -131,11 +72,6 @@ type Pattern =
         | IdentifierPattern(id) -> id.Name
         | RestElement(el) -> el.Name
 
-    static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
-        Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
-        |> IdentifierPattern
-    static member restElement(argument: Pattern, ?typeAnnotation, ?loc) =
-        RestElement.Create(argument, ?typeAnnotation=typeAnnotation, ?loc=loc) |> RestElement
 
 type Literal =
     | RegExp of pattern: string * flags: string * loc: SourceLocation option
@@ -145,18 +81,6 @@ type Literal =
     | NumericLiteral of value: float * loc: SourceLocation option
     | DirectiveLiteral of DirectiveLiteral
 
-    static member nullLiteral(?loc) = NullLiteral loc
-    static member numericLiteral(value, ?loc) = NumericLiteral (value, loc)
-    static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc)
-    static member stringLiteral(value, ?loc) = StringLiteral.Create (value, ?loc=loc) |> StringLiteral
-    static member regExpLiteral(pattern, flags, ?loc) =
-        let flags =
-            flags |> Seq.map (function
-                | RegexGlobal -> "g"
-                | RegexIgnoreCase -> "i"
-                | RegexMultiline -> "m"
-                | RegexSticky -> "y") |> Seq.fold (+) ""
-        RegExp(pattern, flags, loc)
 
 type Statement =
     | Declaration of Declaration
@@ -174,26 +98,6 @@ type Statement =
     | ContinueStatement of label: Identifier option * loc: SourceLocation option
     | ExpressionStatement of expr: Expression /// An expression statement, i.e., a statement consisting of a single expression.
 
-    static member returnStatement(argument, ?loc) = ReturnStatement(argument, loc)
-    static member continueStatement(label, ?loc) = ContinueStatement(Some label, loc)
-    static member tryStatement(block, ?handler, ?finalizer, ?loc) = TryStatement(block, handler, finalizer, loc)
-    static member ifStatement(test, consequent, ?alternate, ?loc): Statement = IfStatement(test, consequent, alternate, loc)
-    static member blockStatement(body) = BlockStatement.Create(body) |> BlockStatement
-    /// Break can optionally take a label of a loop to break
-    static member breakStatement(?label, ?loc) = BreakStatement(label, loc)
-    /// Statement (typically loop) prefixed with a label (for continue and break)
-    static member labeledStatement(label, body): Statement = LabeledStatement (body, label)
-    static member whileStatement(test, body, ?loc) = WhileStatement(test, body, loc)
-    static member debuggerStatement(?loc) = DebuggerStatement loc
-    static member switchStatement(discriminant, cases, ?loc) = SwitchStatement(discriminant, cases, loc)
-    static member variableDeclaration(kind, declarations, ?loc): Statement =
-        Declaration.variableDeclaration(kind, declarations, ?loc = loc)
-        |> Declaration
-    static member variableDeclaration(var, ?init, ?kind, ?loc): Statement =
-        Declaration.variableDeclaration(var, ?init = init, ?kind = kind, ?loc = loc)
-        |> Declaration
-    static member forStatement(body, ?init, ?test, ?update, ?loc) = ForStatement(body, init, test, update, loc)
-    static member throwStatement(argument, ?loc) = ThrowStatement(argument, loc)
 
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
@@ -202,27 +106,17 @@ type Declaration =
     | FunctionDeclaration of FunctionDeclaration
     | InterfaceDeclaration of InterfaceDeclaration
 
-    static member variableDeclaration(kind, declarations, ?loc): Declaration =
-        VariableDeclaration.Create(kind, declarations, ?loc = loc)
-        |> VariableDeclaration
-    static member variableDeclaration(var, ?init, ?kind, ?loc): Declaration =
-        Declaration.variableDeclaration(
-            defaultArg kind Let,
-            [| VariableDeclarator.Create(var, ?init = init) |],
-            ?loc = loc
-        )
-
 /// A module import or export declaration.
 type ModuleDeclaration =
     | ImportDeclaration of ImportDeclaration
     | ExportAllDeclaration of source: Literal * loc: SourceLocation option
     | ExportNamedReferences of ExportNamedReferences
     | ExportNamedDeclaration of ExportNamedDeclaration
-    | PrivateModuleDeclaration of PrivateModuleDeclaration
+    | PrivateModuleDeclaration of statement: Statement
     | ExportDefaultDeclaration of ExportDefaultDeclaration
 
     /// An export batch declaration, e.g., export * from "mod";.
-    static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
+
 
 // Template Literals
 //type TemplateElement(value: string, tail, ?loc) =
@@ -274,11 +168,6 @@ type DirectiveLiteral =
 
     static member Create(value) = { Value = value }
 
-/// e.g. "use strict";
-type Directive =
-    { Value: DirectiveLiteral }
-
-    static member Create(value) = { Value = value }
 
 // Program
 
@@ -327,7 +216,6 @@ type SwitchCase =
         { Test = test
           Consequent = consequent
           Loc = loc }
-
 
 // Exceptions
 
@@ -423,26 +311,6 @@ type FunctionDeclaration =
 // Expressions
 
 
-/// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
-type ArrowFunctionExpression =
-    { Params: Pattern array
-      Body: BlockStatement
-      ReturnType: TypeAnnotation option
-      TypeParameters: TypeParameterDeclaration option
-      Loc: SourceLocation option }
-
-    static member AsExpr(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc): Expression = //?async_, ?generator_,
-        { Params = ``params``
-          Body = body
-          ReturnType = returnType
-          TypeParameters = typeParameters
-          Loc = loc }
-        |> ArrowFunctionExpression
-
-    static member AsExpr(``params``, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
-        let body = { Body = [| Statement.returnStatement(body) |] }
-        ArrowFunctionExpression.AsExpr(``params``, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
-
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
 //    member _.Async: bool = async
@@ -504,23 +372,10 @@ type SpreadElement =
         { Argument = argument; Loc = loc }
         |> SpreadElement
 
-type ArrayExpression =
-    { // Elements: Choice<Expression, SpreadElement> option array
-      Elements: Expression array
-      Loc: SourceLocation option }
-
-    static member Create(elements, ?loc) =
-        { // Elements: Choice<Expression, SpreadElement> option array
-          Elements = elements
-          Loc = loc }
-
 type ObjectMember =
     | ObjectProperty of key: Expression * value: Expression * computed: bool
     | ObjectMethod of ObjectMethod
 
-    static member objectProperty(key, value, ?computed_): ObjectMember = // ?shorthand_,
-        let computed = defaultArg computed_ false
-        ObjectProperty(key, value, computed)
 //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
 
@@ -595,21 +450,6 @@ type ConditionalExpression =
           Alternate = alternate
           Loc = loc }
         |> ConditionalExpression
-
-
-type NewExpression =
-    { Callee: Expression
-      // Arguments: Choice<Expression, SpreadElement> array = arguments
-      Arguments: Expression array
-      TypeArguments: TypeParameterInstantiation option
-      Loc: SourceLocation option }
-
-    static member AsExpr(callee, arguments, ?typeArguments, ?loc): Expression =
-        { Callee = callee
-          Arguments = arguments
-          TypeArguments = typeArguments
-          Loc = loc }
-        |> NewExpression
 
 
 // Unary Operations
@@ -852,12 +692,6 @@ type ClassExpression =
 //     member _.Property: Expression = property
 
 // Modules
-type PrivateModuleDeclaration =
-    { Statement: Statement }
-
-    static member AsModuleDeclaration(statement): ModuleDeclaration =
-        { Statement = statement }
-        |> PrivateModuleDeclaration
 
 /// An imported variable binding, e.g., {foo} in import {foo} from "mod" or {foo as bar} in import {foo as bar} from "mod".
 /// The imported field refers to the name of the export imported from the module.
@@ -865,20 +699,14 @@ type PrivateModuleDeclaration =
 /// If it is a basic named import, such as in import {foo} from "mod", both imported and local are equivalent Identifier nodes; in this case an Identifier node representing foo.
 /// If it is an aliased import, such as in import {foo as bar} from "mod", the imported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ImportSpecifier =
+    /// e.g., import foo from "mod";.
     | ImportMemberSpecifier of local: Identifier * imported: Identifier
+    /// A default import specifier, e.g., foo in import foo from "mod".
     | ImportDefaultSpecifier of local: Identifier
-    | ImportNamespaceSpecifier of ImportNamespaceSpecifier
+    /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
+    | ImportNamespaceSpecifier of local: Identifier
 
 
-/// A default import specifier, e.g., foo in import foo from "mod".
-
-/// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
-type ImportNamespaceSpecifier =
-    { Local: Identifier }
-
-    static member AsImportSpecifier(local): ImportSpecifier = { Local = local } |> ImportNamespaceSpecifier
-
-/// e.g., import foo from "mod";.
 type ImportDeclaration =
     { Specifiers: ImportSpecifier array
       Source: StringLiteral }
@@ -929,19 +757,18 @@ type ExportDefaultDeclaration =
 
 // Type Annotations
 type TypeAnnotationInfo =
-    | StringTypeAnnotation
-    | NumberTypeAnnotation
-    | TypeAnnotationInfo of TypeAnnotationInfo
-    | BooleanTypeAnnotation
     | AnyTypeAnnotation
     | VoidTypeAnnotation
-    | TupleTypeAnnotation of types: TypeAnnotationInfo array
+    | StringTypeAnnotation
+    | NumberTypeAnnotation
+    | BooleanTypeAnnotation
+    | TypeAnnotationInfo of TypeAnnotationInfo
     | UnionTypeAnnotation of UnionTypeAnnotation
+    | ObjectTypeAnnotation of ObjectTypeAnnotation
+    | GenericTypeAnnotation of GenericTypeAnnotation
     | FunctionTypeAnnotation of FunctionTypeAnnotation
     | NullableTypeAnnotation of NullableTypeAnnotation
-    | GenericTypeAnnotation of GenericTypeAnnotation
-    | ObjectTypeAnnotation of ObjectTypeAnnotation
-
+    | TupleTypeAnnotation of types: TypeAnnotationInfo array
 
 type TypeAnnotation =
     { TypeAnnotation: TypeAnnotationInfo }
@@ -1068,6 +895,7 @@ type ObjectTypeInternalSlot =
           Optional = optional
           Static = ``static``
           Method = method }
+
 type ObjectTypeAnnotation =
     { Properties: ObjectTypeProperty array
       Indexers: ObjectTypeIndexer array
@@ -1115,3 +943,124 @@ type InterfaceDeclaration =
 
 //    let mixins = defaultArg mixins_ [||]
 //    member _.Mixins: InterfaceExtends array = mixins
+
+[<AutoOpen>]
+module Extensions =
+    type Expression with
+        static member super(?loc) = Super loc
+        static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
+        static member nullLiteral(?loc) = NullLiteral loc |> Literal
+        static member numericLiteral(value, ?loc) = NumericLiteral (value, loc) |> Literal
+        static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
+        static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal
+        static member binaryExpression(operator_, left, right, ?loc) =
+            BinaryExpression.Create(operator_, left, right, ?loc=loc)
+            |> BinaryExpression
+        static member arrayExpression(elements, ?loc) = ArrayExpression(elements, ?loc=loc)
+        static member unaryExpression(operator_, argument, ?loc) =
+            UnaryExpression.Create(operator_, argument, ?loc=loc)
+            |> UnaryExpression
+        static member identifier(name, ?optional, ?typeAnnotation, ?loc): Expression =
+            Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+            |> Identifier
+        static member regExpLiteral(pattern, flags_, ?loc) : Expression =
+            Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
+        /// A function or method call expression.
+        static member callExpression(callee, arguments, ?loc) = CallExpression(callee, arguments, loc)
+        static member assignmentExpression(operator_, left, right, ?loc): Expression =
+            let operator =
+                match operator_ with
+                | AssignEqual -> "="
+                | AssignMinus -> "-="
+                | AssignPlus -> "+="
+                | AssignMultiply -> "*="
+                | AssignDivide -> "/="
+                | AssignModulus -> "%="
+                | AssignShiftLeft -> "<<="
+                | AssignShiftRightSignPropagating -> ">>="
+                | AssignShiftRightZeroFill -> ">>>="
+                | AssignOrBitwise -> "|="
+                | AssignXorBitwise -> "^="
+                | AssignAndBitwise -> "&="
+            AssignmentExpression(left, right, operator, loc)
+        /// A super pseudo-expression.
+        static member thisExpression(?loc) = ThisExpression loc
+        /// A comma-separated sequence of expressions.
+        static member sequenceExpression(expressions, ?loc) = SequenceExpression(expressions, loc)
+        static member logicalExpression(left, operator, right, ?loc) =
+            let operator =
+                match operator with
+                | LogicalOr -> "||"
+                | LogicalAnd -> "&&"
+
+            LogicalExpression(left, operator, right, loc)
+        static member objectExpression(properties, ?loc) = ObjectExpression(properties, loc)
+        static member newExpression(callee, arguments, ?typeArguments, ?loc) = NewExpression(callee, arguments, typeArguments, loc)
+        /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
+        static member arrowFunctionExpression(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
+            ArrowFunctionExpression(``params``, body, returnType, typeParameters, loc)
+        static member arrowFunctionExpression(``params``, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
+            let body = { Body = [| Statement.returnStatement(body) |] }
+            Expression.arrowFunctionExpression(``params``, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
+
+    type Statement with
+        static member returnStatement(argument, ?loc) = ReturnStatement(argument, loc)
+        static member continueStatement(label, ?loc) = ContinueStatement(Some label, loc)
+        static member tryStatement(block, ?handler, ?finalizer, ?loc) = TryStatement(block, handler, finalizer, loc)
+        static member ifStatement(test, consequent, ?alternate, ?loc): Statement = IfStatement(test, consequent, alternate, loc)
+        static member blockStatement(body) = BlockStatement.Create(body) |> BlockStatement
+        /// Break can optionally take a label of a loop to break
+        static member breakStatement(?label, ?loc) = BreakStatement(label, loc)
+        /// Statement (typically loop) prefixed with a label (for continue and break)
+        static member labeledStatement(label, body): Statement = LabeledStatement (body, label)
+        static member whileStatement(test, body, ?loc) = WhileStatement(test, body, loc)
+        static member debuggerStatement(?loc) = DebuggerStatement loc
+        static member switchStatement(discriminant, cases, ?loc) = SwitchStatement(discriminant, cases, loc)
+        static member variableDeclaration(kind, declarations, ?loc): Statement =
+            Declaration.variableDeclaration(kind, declarations, ?loc = loc)
+            |> Declaration
+        static member variableDeclaration(var, ?init, ?kind, ?loc): Statement =
+            Declaration.variableDeclaration(var, ?init = init, ?kind = kind, ?loc = loc)
+            |> Declaration
+        static member forStatement(body, ?init, ?test, ?update, ?loc) = ForStatement(body, init, test, update, loc)
+        static member throwStatement(argument, ?loc) = ThrowStatement(argument, loc)
+
+    type Pattern with
+        static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
+            Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+            |> IdentifierPattern
+        static member restElement(argument: Pattern, ?typeAnnotation, ?loc) =
+            RestElement.Create(argument, ?typeAnnotation=typeAnnotation, ?loc=loc) |> RestElement
+
+    type Declaration with
+        static member variableDeclaration(kind, declarations, ?loc): Declaration =
+            VariableDeclaration.Create(kind, declarations, ?loc = loc)
+            |> VariableDeclaration
+        static member variableDeclaration(var, ?init, ?kind, ?loc): Declaration =
+            Declaration.variableDeclaration(
+                defaultArg kind Let,
+                [| VariableDeclarator.Create(var, ?init = init) |],
+                ?loc = loc
+            )
+
+    type Literal with
+        static member nullLiteral(?loc) = NullLiteral loc
+        static member numericLiteral(value, ?loc) = NumericLiteral (value, loc)
+        static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc)
+        static member stringLiteral(value, ?loc) = StringLiteral.Create (value, ?loc=loc) |> StringLiteral
+        static member regExpLiteral(pattern, flags, ?loc) =
+            let flags =
+                flags |> Seq.map (function
+                    | RegexGlobal -> "g"
+                    | RegexIgnoreCase -> "i"
+                    | RegexMultiline -> "m"
+                    | RegexSticky -> "y") |> Seq.fold (+) ""
+            RegExp(pattern, flags, loc)
+
+    type ObjectMember with
+        static member objectProperty(key, value, ?computed_): ObjectMember = // ?shorthand_,
+            let computed = defaultArg computed_ false
+            ObjectProperty(key, value, computed)
+
+    type ModuleDeclaration with
+        static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
