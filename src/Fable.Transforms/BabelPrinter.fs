@@ -131,7 +131,7 @@ module PrinterExtensions =
                 | _ -> false
 
             match s with
-            | ExpressionStatement(stmt) -> hasNoSideEffects stmt.Expression |> not
+            | ExpressionStatement(expr) -> hasNoSideEffects expr |> not
             | _ -> true
 
         member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
@@ -251,8 +251,8 @@ module PrinterExtensions =
             // Check if we can remove the function
             let skipExpr =
                 match body.Body with
-                | [| ReturnStatement(r) |] when not isDeclaration ->
-                    match r.Argument with
+                | [| ReturnStatement(argument, loc) |] when not isDeclaration ->
+                    match argument with
                     | CallExpression(c) when parameters.Length = c.Arguments.Length ->
                         // To be sure we're not running side effects when deleting the function,
                         // check the callee is an identifier (accept non-computed member expressions too?)
@@ -275,14 +275,14 @@ module PrinterExtensions =
                     printer.PrintOptional(returnType)
                     printer.Print(" => ")
                     match body.Body with
-                    | [| ReturnStatement(r) |] ->
-                        match r.Argument with
+                    | [| ReturnStatement(argument, loc) |] ->
+                        match argument with
                         | ObjectExpression(e) -> printer.WithParens(e |> ObjectExpression)
                         | MemberExpression(e) ->
                             match e.Object with
                             | ObjectExpression(o) -> printer.Print(e, objectWithParens=true)
                             | _ -> printer.Print(e)
-                        | _ -> printer.ComplexExpressionWithParens(r.Argument)
+                        | _ -> printer.ComplexExpressionWithParens(argument)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
                 else
                     printer.Print("function ")
@@ -358,15 +358,15 @@ module PrinterExtensions =
 
         member printer.Print(expr: Expression) =
             match expr with
-            | Super(n) -> printer.Print(n)
+            | Super(loc) ->  printer.Print("super", ?loc = loc)
             | Literal(n) -> printer.Print(n)
-            | Undefined(n) -> printer.Print(n)
+            | Undefined(loc) -> printer.Print("undefined", ?loc=loc)
             | Identifier(n) -> printer.Print(n)
             | NewExpression(n) -> printer.Print(n)
             | SpreadElement(n) -> printer.Print(n)
             | ThisExpression(n) -> printer.Print(n)
             | CallExpression(n) -> printer.Print(n)
-            | EmitExpression(n) -> printer.Print(n)
+            | EmitExpression(value, args, loc) -> printer.PrintEmitExpression(value, args, loc)
             | ArrayExpression(n) -> printer.Print(n)
             | ClassExpression(n) -> printer.Print(n)
             | ClassImplements(n) -> printer.Print(n)
@@ -390,28 +390,33 @@ module PrinterExtensions =
         member printer.Print(literal: Literal) =
             match literal with
             | RegExp(l) -> printer.Print(l)
-            | NullLiteral(l) -> printer.Print(l)
+            | NullLiteral(loc) -> printer.Print("null", ?loc=loc)
             | StringLiteral(l) -> printer.Print(l)
-            | BooleanLiteral(l) -> printer.Print(l)
-            | NumericLiteral(l) -> printer.Print(l)
+            | BooleanLiteral(value, loc) -> printer.Print((if value then "true" else "false"), ?loc=loc)
+            | NumericLiteral(value, loc) -> printer.PrintNumeric(value, loc)
             | DirectiveLiteral(l) -> failwith "not implemented"
 
         member printer.Print(stmt: Statement) =
             match stmt with
             | Declaration(s) -> printer.Print(s)
-            | IfStatement(s) -> printer.Print(s)
-            | TryStatement(s) -> printer.Print(s)
+            | IfStatement(test, consequent, alternate, loc) -> printer.PrintIfStatment(test, consequent, alternate, loc)
+            | TryStatement(block, handler, finalizer, loc) -> printer.PrintTryStatement(block, handler, finalizer, loc)
             | ForStatement(s) -> printer.Print(s)
-            | BreakStatement(s) -> printer.Print("break", ?loc = s.Loc)
-            | WhileStatement(s) -> printer.Print(s)
+            | BreakStatement(label, loc) -> printer.Print("break", ?loc = loc)
+            | WhileStatement(test, body, loc) -> printer.PrintWhileStatment(test, body, loc)
             | ThrowStatement(s) -> printer.Print(s)
             | BlockStatement(s) -> printer.Print(s)
-            | ReturnStatement(s) -> printer.Print(s)
-            | SwitchStatement(s) -> printer.Print(s)
-            | LabeledStatement(s) -> printer.Print(s)
-            | DebuggerStatement(s) -> printer.Print(s)
-            | ContinueStatement(s) -> printer.Print(s)
-            | ExpressionStatement(s) -> printer.Print(s)
+            | ReturnStatement(argument, loc) ->
+                printer.Print("return ", ?loc = loc)
+                printer.Print(argument)
+            | SwitchStatement(discriminant, cases, loc) -> printer.PrintSwitchStatement(discriminant, cases, loc)
+            | LabeledStatement(body, label) -> printer.PrintLabeledStatement(body, label)
+            | DebuggerStatement(loc) -> printer.Print("debugger", ?loc = loc)
+            | ContinueStatement(label, loc) ->
+                printer.Print("continue", ?loc=loc)
+                printer.PrintOptional(label, " ")
+
+            | ExpressionStatement(expr) -> printer.Print(expr)
 
         member printer.Print(decl: Declaration) =
             match decl with
@@ -429,8 +434,8 @@ module PrinterExtensions =
             | PrivateModuleDeclaration(d) -> printer.Print(d)
             | ExportDefaultDeclaration(d) -> printer.Print(d)
 
-        member printer.Print(emit: EmitExpression) =
-            printer.AddLocation(emit.Loc)
+        member printer.PrintEmitExpression(value, args, loc) =
+            printer.AddLocation(loc)
 
             let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
                 System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
@@ -454,23 +459,23 @@ module PrinterExtensions =
             // Macro transformations
             // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
             let value =
-                emit.Value
+                value
                 |> replace @"\$(\d+)\.\.\." (fun m ->
                     let rep = ResizeArray()
                     let i = int m.Groups.[1].Value
-                    for j = i to emit.Args.Length - 1 do
+                    for j = i to args.Length - 1 do
                         rep.Add("$" + string j)
                     String.concat ", " rep)
 
                 |> replace @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}" (fun m ->
                     let i = int m.Groups.[1].Value
-                    match emit.Args.[i] with
-                    | Literal(BooleanLiteral(b)) when b.Value -> m.Groups.[2].Value
+                    match args.[i] with
+                    | Literal(BooleanLiteral(value=value)) when value -> m.Groups.[2].Value
                     | _ -> m.Groups.[3].Value)
 
                 |> replace @"\{\{([^\}]*\$(\d+).*?)\}\}" (fun m ->
                     let i = int m.Groups.[2].Value
-                    match Array.tryItem i emit.Args with
+                    match Array.tryItem i args with
                     | Some _ -> m.Groups.[1].Value
                     | None -> "")
 
@@ -494,7 +499,7 @@ module PrinterExtensions =
                     printSegment printer value segmentStart m.Index
 
                     let argIndex = int m.Value.[1..]
-                    match Array.tryItem argIndex emit.Args with
+                    match Array.tryItem argIndex args with
                     | Some e -> printer.ComplexExpressionWithParens(e)
                     | None -> printer.Print("undefined")
 
@@ -515,68 +520,46 @@ module PrinterExtensions =
             printer.Print("/")
             printer.Print(re.Flags)
 
-        member printer.Print(undef: Undefined) =
-            printer.Print("undefined", ?loc=undef.Loc)
-
-        member printer.Print(nl: NullLiteral) =
-            printer.Print("null", ?loc=nl.Loc)
-
         member printer.Print(node: StringLiteral)=
             printer.Print("\"", ?loc=node.Loc)
             printer.Print(printer.EscapeJsStringLiteral(node.Value))
             printer.Print("\"")
 
-        member printer.Print(node: BooleanLiteral) =
-            printer.Print((if node.Value then "true" else "false"), ?loc=node.Loc)
-
-        member printer.Print(node: NumericLiteral) =
+        member printer.PrintNumeric(value, loc) =
             let value =
-                match node.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
+                match value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
                 | "∞" -> "Infinity"
                 | "-∞" -> "-Infinity"
                 | value -> value
-            printer.Print(value, ?loc=node.Loc)
+            printer.Print(value, ?loc=loc)
 
         member printer.Print(node: BlockStatement) =
             printer.PrintBlock(node.Body)
 
-        member printer.Print(node:ExpressionStatement) =
-            printer.Print(node.Expression)
-
-        member printer.Print(node: DebuggerStatement) = printer.Print("debugger", ?loc = node.Loc)
-
-        member printer.Print(node: LabeledStatement) =
-            printer.Print(node.Label)
+        member printer.PrintLabeledStatement(body, label) =
+            printer.Print(label)
             printer.Print(":")
             printer.PrintNewLine()
             // Don't push indent
-            printer.Print(node.Body)
-
-        member printer.Print(node: ContinueStatement) =
-            printer.Print("continue", ?loc=node.Loc)
-            printer.PrintOptional(node.Label, " ")
+            printer.Print(body)
 
 // type WithStatement
 
 // Control Flow
-        member printer.Print(node: ReturnStatement)=
-            printer.Print("return ", ?loc = node.Loc)
-            printer.Print(node.Argument)
-
-        member printer.Print(node: IfStatement) =
-            printer.AddLocation(node.Loc)
-            printer.Print("if (", ?loc=node.Loc)
-            printer.Print(node.Test)
+        member printer.PrintIfStatment(test, consequent, alternate, loc) =
+            printer.AddLocation(loc)
+            printer.Print("if (", ?loc=loc)
+            printer.Print(test)
             printer.Print(") ")
-            printer.Print(node.Consequent)
-            match node.Alternate with
+            printer.Print(consequent)
+            match alternate with
             | None -> ()
             | Some alternate ->
                 if printer.Column > 0 then printer.Print(" ")
                 match alternate with
-                | IfStatement(iff) ->
+                | IfStatement(test, consequent, alternate, loc) ->
                     printer.Print("else ")
-                    printer.Print(iff)
+                    printer.PrintIfStatment(test, consequent, alternate, loc)
                 | alternate ->
                     let statements =
                         match alternate with
@@ -614,11 +597,11 @@ module PrinterExtensions =
                 printer.Print(" ")
                 printer.PrintBlock(node.Consequent)
 
-        member printer.Print(node: SwitchStatement) =
-            printer.Print("switch (", ?loc=node.Loc)
-            printer.Print(node.Discriminant)
+        member printer.PrintSwitchStatement(discriminant, cases, loc) =
+            printer.Print("switch (", ?loc=loc)
+            printer.Print(discriminant)
             printer.Print(") ")
-            printer.PrintBlock(node.Cases, (fun p x -> p.Print(x)), fun _ -> ())
+            printer.PrintBlock(cases, (fun p x -> p.Print(x)), fun _ -> ())
 
 // Exceptions
         member printer.Print(node: ThrowStatement) =
@@ -632,11 +615,11 @@ module PrinterExtensions =
             printer.Print(") ")
             printer.Print(node.Body)
 
-        member printer.Print(node: TryStatement) =
-            printer.Print("try ", ?loc = node.Loc)
-            printer.Print(node.Block)
-            printer.PrintOptional(node.Handler, "catch ")
-            printer.PrintOptional(node.Finalizer, "finally ")
+        member printer.PrintTryStatement(block, handler, finalizer, loc) =
+            printer.Print("try ", ?loc = loc)
+            printer.Print(block)
+            printer.PrintOptional(handler, "catch ")
+            printer.PrintOptional(finalizer, "finally ")
 
 // Declarations
 
@@ -657,11 +640,11 @@ module PrinterExtensions =
                 if i < node.Declarations.Length - 1 then
                     printer.Print(", ")
 
-        member printer.Print(node: WhileStatement) =
-            printer.Print("while (", ?loc = node.Loc)
-            printer.Print(node.Test)
+        member printer.PrintWhileStatment(test, body, loc) =
+            printer.Print("while (", ?loc = loc)
+            printer.Print(test)
             printer.Print(") ")
-            printer.Print(node.Body)
+            printer.Print(body)
 
         member printer.Print(node: ForStatement) =
             printer.Print("for (", ?loc = node.Loc)
@@ -676,8 +659,6 @@ module PrinterExtensions =
         member printer.Print(node: FunctionDeclaration) =
             printer.PrintFunction(Some node.Id, node.Params, node.Body, node.TypeParameters, node.ReturnType, node.Loc, isDeclaration=true)
             printer.PrintNewLine()
-
-        member printer.Print(node: Super) = printer.Print("super", ?loc = node.Loc)
 
         member printer.Print(node: ThisExpression) = printer.Print("this", ?loc = node.Loc)
 
@@ -768,8 +749,8 @@ module PrinterExtensions =
             printer.AddLocation(node.Loc)
             match node.Test with
             // TODO: Move node optimization to Fable2Babel as with IfStatement?
-            | Literal(BooleanLiteral(b)) ->
-                if b.Value then printer.Print(node.Consequent)
+            | Literal(BooleanLiteral(value=value)) ->
+                if value then printer.Print(node.Consequent)
                 else printer.Print(node.Alternate)
             | _ ->
                 printer.ComplexExpressionWithParens(node.Test)
