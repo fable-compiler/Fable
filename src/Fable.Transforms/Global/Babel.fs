@@ -294,14 +294,14 @@ type FunctionDeclaration =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member AsDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc): Declaration = // ?async_, ?generator_, ?declare,
+    static member Create(``params``, body, id, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_, ?declare,
         { Params = ``params``
           Body = body
           Id = id
           ReturnType = returnType
           TypeParameters = typeParameters
           Loc = loc }
-        |> FunctionDeclaration
+
     //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
 //    member _.Async: bool = async
@@ -763,12 +763,14 @@ type TypeAnnotationInfo =
     | NumberTypeAnnotation
     | BooleanTypeAnnotation
     | TypeAnnotationInfo of TypeAnnotationInfo
-    | UnionTypeAnnotation of UnionTypeAnnotation
+    | UnionTypeAnnotation of types: TypeAnnotationInfo array
     | ObjectTypeAnnotation of ObjectTypeAnnotation
-    | GenericTypeAnnotation of GenericTypeAnnotation
+    | GenericTypeAnnotation of id: Identifier * typeParameters: TypeParameterInstantiation option
     | FunctionTypeAnnotation of FunctionTypeAnnotation
-    | NullableTypeAnnotation of NullableTypeAnnotation
+    | NullableTypeAnnotation of typeAnnotation: TypeAnnotationInfo
     | TupleTypeAnnotation of types: TypeAnnotationInfo array
+
+
 
 type TypeAnnotation =
     { TypeAnnotation: TypeAnnotationInfo }
@@ -797,10 +799,6 @@ type TypeParameterInstantiation =
     static member Create(``params``) = { Params = ``params`` }
 
 
-type UnionTypeAnnotation =
-    { Types: TypeAnnotationInfo array }
-
-    static member AsTypeAnnotationInfo(types): TypeAnnotationInfo = { Types = types } |> UnionTypeAnnotation
 
 type FunctionTypeParam =
     { Name: Identifier
@@ -825,21 +823,6 @@ type FunctionTypeAnnotation =
           Rest = rest }
         |> FunctionTypeAnnotation
 
-type NullableTypeAnnotation =
-    { TypeAnnotation: TypeAnnotationInfo }
-
-    static member AsTypeAnnotationInfo(``type``): TypeAnnotationInfo =
-        { TypeAnnotation = ``type`` }
-        |> NullableTypeAnnotation
-
-type GenericTypeAnnotation =
-    { Id: Identifier
-      TypeParameters: TypeParameterInstantiation option }
-
-    static member AsTypeAnnotationInfo(id, ?typeParameters): TypeAnnotationInfo =
-        { Id = id
-          TypeParameters = typeParameters }
-        |> GenericTypeAnnotation
 
 type ObjectTypeProperty =
     { Key: Expression
@@ -869,12 +852,11 @@ type ObjectTypeIndexer =
       Value: TypeAnnotationInfo
       Static: bool option }
 
-    static member Create(key, value, ?id, ?``static``): Node =
+    static member Create(key, value, ?id, ?``static``) =
         { Id = id
           Key = key
           Value = value
           Static = ``static`` }
-        |> ObjectTypeIndexer
 
 type ObjectTypeCallProperty =
     { Value: TypeAnnotationInfo
@@ -1042,6 +1024,9 @@ module Extensions =
                 [| VariableDeclarator.Create(var, ?init = init) |],
                 ?loc = loc
             )
+        static member functionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) =
+            FunctionDeclaration.Create(``params``, body, id, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
+            |> FunctionDeclaration
 
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
@@ -1064,3 +1049,7 @@ module Extensions =
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
+
+    type TypeAnnotationInfo with
+        static member genericTypeAnnotation(id, ?typeParameters) =
+            GenericTypeAnnotation (id, typeParameters)

@@ -343,7 +343,7 @@ module Annotation =
         else
             genParams
             |> Set.toArray
-            |> Array.map (Identifier.Create >> GenericTypeAnnotation.AsTypeAnnotationInfo)
+            |> Array.map (Identifier.Create >> TypeAnnotationInfo.genericTypeAnnotation)
             |> TypeParameterInstantiation.Create |> Some
 
     let mergeTypeParamDecls (decl1: TypeParameterDeclaration option) (decl2: TypeParameterDeclaration option) =
@@ -361,7 +361,7 @@ module Annotation =
 
     let getGenericTypeAnnotation _com _ctx name genParams =
         let typeParamInst = makeTypeParamInst genParams
-        GenericTypeAnnotation.AsTypeAnnotationInfo(Identifier.Create(name), ?typeParameters=typeParamInst)
+        GenericTypeAnnotation(Identifier.Create(name), ?typeParameters=typeParamInst)
         |> TypeAnnotation.Create |> Some
 
     let typeAnnotation com ctx typ: TypeAnnotationInfo =
@@ -389,7 +389,7 @@ module Annotation =
             makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs
 
     let makeSimpleTypeAnnotation _com _ctx name =
-        GenericTypeAnnotation.AsTypeAnnotationInfo(Identifier.Create(name))
+        TypeAnnotationInfo.genericTypeAnnotation(Identifier.Create(name))
 
     let makeGenTypeParamInst com ctx genArgs =
         match genArgs with
@@ -399,7 +399,7 @@ module Annotation =
 
     let makeGenericTypeAnnotation com ctx genArgs id =
         let typeParamInst = makeGenTypeParamInst com ctx genArgs
-        GenericTypeAnnotation.AsTypeAnnotationInfo(id, ?typeParameters=typeParamInst)
+        GenericTypeAnnotation(id, ?typeParameters=typeParamInst)
 
     let makeNativeTypeAnnotation com ctx genArgs typeName =
         Identifier.Create(typeName)
@@ -439,7 +439,7 @@ module Annotation =
 
     let makeUnionTypeAnnotation com ctx genArgs =
         List.map (typeAnnotation com ctx) genArgs
-        |> List.toArray |> UnionTypeAnnotation.AsTypeAnnotationInfo
+        |> List.toArray |> UnionTypeAnnotation
 
     let makeBuiltinTypeAnnotation com ctx kind =
         match kind with
@@ -1769,7 +1769,7 @@ module Util =
                     ?superTypeParameters = e.SuperTypeParameters,
                     ?typeParameters = e.TypeParameters)
             | FunctionExpression(e) ->
-                FunctionDeclaration.AsDeclaration(
+                Declaration.functionDeclaration(
                     e.Params, e.Body, membName,
                     ?returnType = e.ReturnType,
                     ?typeParameters = e.TypeParameters)

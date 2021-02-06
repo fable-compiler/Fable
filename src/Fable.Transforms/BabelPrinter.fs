@@ -200,7 +200,6 @@ module PrinterExtensions =
                 | ImportMemberSpecifier(local, imported) -> p.PrintImportMemberSpecific(local, imported)
                 | ImportDefaultSpecifier(local) -> printer.Print(local)
                 | ImportNamespaceSpecifier(local) -> printer.PrintImportNamespaceSpecifier(local)
-                | _ -> failwith "not implemented"
             ), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedArray(nodes: ExportSpecifier array) =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
@@ -928,7 +927,6 @@ module PrinterExtensions =
             | Choice1Of2 x -> printer.Print(x)
             | Choice2Of2 x -> printer.Print(x)
 
-
         member printer.Print(node: TypeAnnotationInfo) =
             match node with
             | StringTypeAnnotation -> printer.Print("string")
@@ -941,10 +939,13 @@ module PrinterExtensions =
                 printer.Print("[")
                 printer.PrintCommaSeparatedArray(types)
                 printer.Print("]")
-            | UnionTypeAnnotation(an) -> printer.Print(an)
+            | UnionTypeAnnotation(types) ->
+                printer.PrintArray(types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
             | FunctionTypeAnnotation(an) -> printer.Print(an)
-            | NullableTypeAnnotation(an) -> printer.Print(an)
-            | GenericTypeAnnotation(an) -> printer.Print(an)
+            | NullableTypeAnnotation(typeAnnotation) -> printer.Print(typeAnnotation)
+            | GenericTypeAnnotation(id, typeParameters) ->
+                printer.Print(id)
+                printer.PrintOptional(typeParameters)
             | ObjectTypeAnnotation(an) -> printer.Print(an)
 
         member printer.Print(node: TypeAnnotation) =
@@ -966,9 +967,6 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedArray(node.Params)
             printer.Print(">")
 
-        member printer.Print(node: UnionTypeAnnotation) =
-            printer.PrintArray(node.Types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
-
         member printer.Print(node: FunctionTypeParam) =
             printer.Print(node.Name)
             if node.Optional = Some true then
@@ -985,13 +983,6 @@ module PrinterExtensions =
                 printer.Print(node.Rest.Value)
             printer.Print(") => ")
             printer.Print(node.ReturnType)
-
-        member printer.Print(node: NullableTypeAnnotation) =
-            printer.Print(node.TypeAnnotation)
-
-        member printer.Print(node: GenericTypeAnnotation) =
-            printer.Print(node.Id)
-            printer.PrintOptional(node.TypeParameters)
 
         member printer.Print(node: ObjectTypeProperty) =
             if node.Static then
