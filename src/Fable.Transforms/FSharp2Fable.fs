@@ -113,8 +113,12 @@ let private resolveImportMemberBinding (ident: Fable.Ident) (info: Fable.ImportI
     else info
 
 let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
-                (declaringEntityName: string option) (sign: FSharpAbstractSignature) attributes =
-    let declaringEntityName = defaultArg declaringEntityName ""
+                (declaringEntity: Fable.Entity option) (sign: FSharpAbstractSignature) attributes =
+    let declaringEntityName, declaringEntityFields =
+        match declaringEntity with
+        | Some x -> x.FullName, (x.FSharpFields |> List.map (fun x -> x.Name))
+        | None   -> "", []
+
     let isGetter = sign.Name.StartsWith("get_")
     let isSetter = not isGetter && sign.Name.StartsWith("set_")
     let indexedProp = (isGetter && countNonCurriedParamsForSignature sign > 0)
@@ -148,11 +152,17 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                         if indexedProp then sign.Name, false, false
                         else Naming.removeGetSetPrefix sign.Name, isGetter, isSetter
                     // Setters can have same name as getters, assume there will always be a getter
-                    if not isSetter && nonMangledNameConflicts declaringEntityName name then
-                        sprintf "Member %s is duplicated, use Mangle attribute to prevent conflicts with interfaces" name
-                        // TODO: Temporarily emitting a warning, because this errors in old libraries,
-                        // like Fable.React.HookBindings
-                        |> addWarning com ctx.InlinePath r
+                    if not isSetter then
+                        if nonMangledNameConflicts declaringEntityName name then
+                            sprintf "Member %s is duplicated, use Mangle attribute to prevent conflicts with interfaces" name
+                            // TODO: Temporarily emitting a warning, because this errors in old libraries,
+                            // like Fable.React.HookBindings
+                            |> addWarning com ctx.InlinePath r
+
+                        if declaringEntityFields |> List.contains name then
+                            sprintf "Interface member %s.%s conflicts with existing member on type %s, add the Mangle attribute to the interface to prevent conflicts"
+                                sign.DeclaringType.TypeDefinition.FullName name declaringEntityName
+                            |> addError com ctx.InlinePath r
                     name, isGetter, isSetter
             name, isMangled, isGetter, isSetter, isEnumerator, hasSpread
         | None ->
@@ -1035,7 +1045,7 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx body |> run
     let entFullName = declaringEntity.FullName
-    let name, info = getAttachedMemberInfo com ctx body.Range com.NonMangledAttachedMemberConflicts (Some entFullName) signature memb.Attributes
+    let name, info = getAttachedMemberInfo com ctx body.Range com.NonMangledAttachedMemberConflicts (Some declaringEntity) signature memb.Attributes
     com.AddAttachedMember(entFullName,
         { Name = name
           FullDisplayName = entFullName + "." + signature.Name
