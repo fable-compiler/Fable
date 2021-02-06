@@ -366,9 +366,8 @@ type SpreadElement =
     { Argument: Expression
       Loc: SourceLocation option }
 
-    static member AsExpr(argument, ?loc): Expression =
+    static member Create(argument, ?loc) =
         { Argument = argument; Loc = loc }
-        |> SpreadElement
 
 type ObjectMember =
     | ObjectProperty of key: Expression * value: Expression * computed: bool
@@ -630,7 +629,7 @@ type ClassDeclaration =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member AsDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) : Declaration =
+    static member Create(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
         { Body = body
           Id = id
           SuperClass = superClass
@@ -638,7 +637,6 @@ type ClassDeclaration =
           SuperTypeParameters = superTypeParameters
           TypeParameters = typeParameters
           Loc = loc }
-        |> ClassDeclaration
 
 /// Anonymous class: e.g., var myClass = class { }
 type ClassExpression =
@@ -915,14 +913,14 @@ module Helpers =
         static member unaryExpression(operator_, argument, ?loc) =
             UnaryExpression.Create(operator_, argument, ?loc=loc)
             |> UnaryExpression
-        static member identifier(name, ?optional, ?typeAnnotation, ?loc): Expression =
+        static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
             Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
             |> Identifier
-        static member regExpLiteral(pattern, flags_, ?loc) : Expression =
+        static member regExpLiteral(pattern, flags_, ?loc) =
             Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
         /// A function or method call expression.
         static member callExpression(callee, arguments, ?loc) = CallExpression(callee, arguments, loc)
-        static member assignmentExpression(operator_, left, right, ?loc): Expression =
+        static member assignmentExpression(operator_, left, right, ?loc) =
             let operator =
                 match operator_ with
                 | AssignEqual -> "="
@@ -959,7 +957,7 @@ module Helpers =
             Expression.arrowFunctionExpression(``params``, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
         /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
         /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
-        static member memberExpression(object, property, ?computed_, ?loc) : Expression =
+        static member memberExpression(object, property, ?computed_, ?loc) =
             let computed = defaultArg computed_ false
             let name =
                 match property with
@@ -972,6 +970,8 @@ module Helpers =
         static member classExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
             ClassExpression.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
             |> ClassExpression
+        static member spreadElement(argument, ?loc) =
+            SpreadElement.Create(argument, ?loc=loc) |> SpreadElement
 
     type Statement with
         static member returnStatement(argument, ?loc) = ReturnStatement(argument, loc)
@@ -1003,10 +1003,10 @@ module Helpers =
             RestElement.Create(argument, ?typeAnnotation=typeAnnotation, ?loc=loc) |> RestElement
 
     type Declaration with
-        static member variableDeclaration(kind, declarations, ?loc): Declaration =
+        static member variableDeclaration(kind, declarations, ?loc) =
             VariableDeclaration.Create(kind, declarations, ?loc = loc)
             |> VariableDeclaration
-        static member variableDeclaration(var, ?init, ?kind, ?loc): Declaration =
+        static member variableDeclaration(var, ?init, ?kind, ?loc) =
             Declaration.variableDeclaration(
                 defaultArg kind Let,
                 [| VariableDeclarator.Create(var, ?init = init) |],
@@ -1015,6 +1015,9 @@ module Helpers =
         static member functionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) =
             FunctionDeclaration.Create(``params``, body, id, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
             |> FunctionDeclaration
+        static member classDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
+            ClassDeclaration.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
+            |> ClassDeclaration
 
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
@@ -1031,7 +1034,7 @@ module Helpers =
             RegExp(pattern, flags, loc)
 
     type ObjectMember with
-        static member objectProperty(key, value, ?computed_): ObjectMember = // ?shorthand_,
+        static member objectProperty(key, value, ?computed_) = // ?shorthand_,
             let computed = defaultArg computed_ false
             ObjectProperty(key, value, computed)
 

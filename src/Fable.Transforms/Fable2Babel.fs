@@ -1095,7 +1095,7 @@ module Util =
                 rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
             | last::rest ->
                 let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                rest @ [SpreadElement.AsExpr(com.TransformAsExpr(ctx, last))]
+                rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
 
     let resolveExpr t strategy babelExpr: Statement =
@@ -1761,7 +1761,7 @@ module Util =
         let decl: Declaration =
             match expr with
             | ClassExpression(e) ->
-                ClassDeclaration.AsDeclaration(
+                Declaration.classDeclaration(
                     e.Body,
                     ?id = Some membName,
                     ?superClass = e.SuperClass,
