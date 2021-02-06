@@ -54,7 +54,7 @@ type Expression =
     | UpdateExpression of UpdateExpression
     | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
     | BinaryExpression of BinaryExpression
-    | MemberExpression of MemberExpression
+    | MemberExpression of name: string * object: Expression * property: Expression * computed: bool * loc: SourceLocation option
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | FunctionExpression of FunctionExpression
@@ -62,6 +62,8 @@ type Expression =
     | ConditionalExpression of ConditionalExpression
     | ArrowFunctionExpression of ``params``: Pattern array * body: BlockStatement * returnType: TypeAnnotation option * typeParameters: TypeParameterDeclaration option * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
+
+
 
 type Pattern =
     | IdentifierPattern of Identifier
@@ -411,30 +413,6 @@ type ObjectMethod =
           TypeParameters = typeParameters
           Loc = loc }
         |> ObjectMethod
-
-/// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
-/// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
-type MemberExpression =
-    { Name: string
-      Object: Expression
-      Property: Expression
-      Computed: bool
-      Loc: SourceLocation option }
-
-    static member AsExpr(object, property, ?computed_, ?loc) : Expression =
-        let computed = defaultArg computed_ false
-        let name =
-            match property with
-            | Identifier(id) -> id.Name
-            | _ -> ""
-
-        { Name = name
-          Object = object
-          Property = property
-          Computed = computed
-          Loc = loc }
-        |> MemberExpression
-
 
 
 /// A conditional expression, i.e., a ternary ?/: expression.
@@ -984,6 +962,15 @@ module Extensions =
         static member arrowFunctionExpression(``params``, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
             let body = { Body = [| Statement.returnStatement(body) |] }
             Expression.arrowFunctionExpression(``params``, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
+        /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
+        /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
+        static member memberExpression(object, property, ?computed_, ?loc) : Expression =
+            let computed = defaultArg computed_ false
+            let name =
+                match property with
+                | Identifier(id) -> id.Name
+                | _ -> ""
+            MemberExpression(name, object, property, computed, loc)
 
     type Statement with
         static member returnStatement(argument, ?loc) = ReturnStatement(argument, loc)

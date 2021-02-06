@@ -279,10 +279,10 @@ module PrinterExtensions =
                     | [| ReturnStatement(argument, loc) |] ->
                         match argument with
                         | ObjectExpression(_) -> printer.WithParens(argument)
-                        | MemberExpression(e) ->
-                            match e.Object with
-                            | ObjectExpression(_) -> printer.Print(e, objectWithParens=true)
-                            | _ -> printer.Print(e)
+                        | MemberExpression(name, object, property, computed, loc) ->
+                            match object with
+                            | ObjectExpression(_) -> printer.PrintMemberExpression(name, object, property, computed, loc, objectWithParens=true)
+                            | _ -> printer.Print(argument)
                         | _ -> printer.ComplexExpressionWithParens(argument)
                     | _ -> printer.PrintBlock(body.Body, skipNewLineAtEnd=true)
                 else
@@ -378,7 +378,7 @@ module PrinterExtensions =
             | UpdateExpression(n) -> printer.Print(n)
             | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
             | BinaryExpression(n) -> printer.Print(n)
-            | MemberExpression(n) -> printer.Print(n)
+            | MemberExpression(name, object, property, computed, loc) -> printer.PrintMemberExpression(name, object, property, computed, loc)
             | LogicalExpression(left, operator, right, loc) -> printer.PrintOperation(left, operator, right, loc)
             | SequenceExpression(expressions, loc) ->
                 // A comma-separated sequence of expressions.
@@ -724,18 +724,18 @@ module PrinterExtensions =
 
             printer.PrintBlock(node.Body.Body, skipNewLineAtEnd=true)
 
-        member printer.Print(node: MemberExpression, ?objectWithParens: bool) =
-            printer.AddLocation(node.Loc)
-            match objectWithParens, node.Object with
-            | Some true, _ | _, Literal(NumericLiteral(_)) -> printer.WithParens(node.Object)
-            | _ -> printer.ComplexExpressionWithParens(node.Object)
-            if node.Computed then
+        member printer.PrintMemberExpression(name, object, property, computed, loc, ?objectWithParens: bool) =
+            printer.AddLocation(loc)
+            match objectWithParens, object with
+            | Some true, _ | _, Literal(NumericLiteral(_)) -> printer.WithParens(object)
+            | _ -> printer.ComplexExpressionWithParens(object)
+            if computed then
                 printer.Print("[")
-                printer.Print(node.Property)
+                printer.Print(property)
                 printer.Print("]")
             else
                 printer.Print(".")
-                printer.Print(node.Property)
+                printer.Print(property)
 
         member printer.PrintObjectExpression(properties, loc) =
             let printSeparator(p: Printer) =

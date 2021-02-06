@@ -638,7 +638,7 @@ module Util =
         match memberName with
         | "ToString" -> Expression.identifier("toString"), false
         | n when n.StartsWith("Symbol.") ->
-            MemberExpression.AsExpr(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
+            Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
         | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral(n), true
         | n -> Expression.identifier(n), false
 
@@ -649,14 +649,14 @@ module Util =
 
     let get r left memberName =
         let expr, computed = memberFromName memberName
-        MemberExpression.AsExpr(left, expr, computed, ?loc=r)
+        Expression.memberExpression(left, expr, computed, ?loc=r)
 
     let getExpr r (object: Expression) (expr: Expression) =
         let expr, computed =
             match expr with
             | Literal(StringLiteral(e)) -> memberFromName e.Value
             | e -> e, true
-        MemberExpression.AsExpr(object, expr, computed, ?loc=r)
+        Expression.memberExpression(object, expr, computed, ?loc=r)
 
     let rec getParts (parts: string list) (expr: Expression) =
         match parts with
