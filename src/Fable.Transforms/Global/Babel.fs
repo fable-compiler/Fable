@@ -41,39 +41,36 @@ type Node =
 type Expression =
     | Literal of Literal
     | Identifier of Identifier
-    | Super of loc: SourceLocation option
-    | Undefined of Loc: SourceLocation option
-    | NewExpression of callee: Expression * arguments: Expression array * typeArguments: TypeParameterInstantiation option * loc: SourceLocation option
     | SpreadElement of SpreadElement
-    | ThisExpression of loc: SourceLocation option
-    | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
-    | ArrayExpression of elements: Expression array * loc: SourceLocation option
     | ClassExpression of ClassExpression
     | ClassImplements of ClassImplements
     | UnaryExpression of UnaryExpression
     | UpdateExpression of UpdateExpression
-    | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
     | BinaryExpression of BinaryExpression
-    | MemberExpression of name: string * object: Expression * property: Expression * computed: bool * loc: SourceLocation option
-    | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
-    | SequenceExpression of expressions: Expression array * loc: SourceLocation option
+    | Super of loc: SourceLocation option
+    | Undefined of Loc: SourceLocation option
     | FunctionExpression of FunctionExpression
-    | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
+    | ThisExpression of loc: SourceLocation option
     | ConditionalExpression of ConditionalExpression
-    | ArrowFunctionExpression of ``params``: Pattern array * body: BlockStatement * returnType: TypeAnnotation option * typeParameters: TypeParameterDeclaration option * loc: SourceLocation option
+    | ArrayExpression of elements: Expression array * loc: SourceLocation option
+    | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
+    | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
-
-
+    | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
+    | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
+    | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
+    | MemberExpression of name: string * object: Expression * property: Expression * computed: bool * loc: SourceLocation option
+    | NewExpression of callee: Expression * arguments: Expression array * typeArguments: TypeParameterInstantiation option * loc: SourceLocation option
+    | ArrowFunctionExpression of ``params``: Pattern array * body: BlockStatement * returnType: TypeAnnotation option * typeParameters: TypeParameterDeclaration option * loc: SourceLocation option
 
 type Pattern =
-    | IdentifierPattern of Identifier
     | RestElement of RestElement
+    | IdentifierPattern of Identifier
 
     member this.Name =
         match this with
-        | IdentifierPattern(id) -> id.Name
         | RestElement(el) -> el.Name
-
+        | IdentifierPattern(id) -> id.Name
 
 type Literal =
     | RegExp of pattern: string * flags: string * loc: SourceLocation option
@@ -83,22 +80,21 @@ type Literal =
     | NumericLiteral of value: float * loc: SourceLocation option
     | DirectiveLiteral of DirectiveLiteral
 
-
 type Statement =
     | Declaration of Declaration
+    | BlockStatement of BlockStatement
+    | ExpressionStatement of expr: Expression /// An expression statement, i.e., a statement consisting of a single expression.
+    | DebuggerStatement of loc: SourceLocation option
+    | LabeledStatement of body: Statement * label: Identifier
+    | ThrowStatement of argument: Expression * loc: SourceLocation option
+    | ReturnStatement of argument: Expression * loc: SourceLocation option
+    | BreakStatement of label: Identifier option * loc: SourceLocation option
+    | ContinueStatement of label: Identifier option * loc: SourceLocation option
+    | WhileStatement of test: Expression * body: BlockStatement * loc: SourceLocation option
+    | SwitchStatement of discriminant: Expression * cases: SwitchCase array * loc: SourceLocation option
     | IfStatement of test: Expression * consequent: BlockStatement * alternate: Statement option * loc: SourceLocation option
     | TryStatement of block: BlockStatement * handler: CatchClause option * finalizer: BlockStatement option * loc: SourceLocation option
     | ForStatement of body: BlockStatement * init: VariableDeclaration option * test: Expression option * update: Expression option * loc: SourceLocation option
-    | BreakStatement of label: Identifier option * loc: SourceLocation option
-    | WhileStatement of test: Expression * body: BlockStatement * loc: SourceLocation option
-    | ThrowStatement of argument: Expression * loc: SourceLocation option
-    | BlockStatement of BlockStatement
-    | ReturnStatement of argument: Expression * loc: SourceLocation option
-    | SwitchStatement of discriminant: Expression * cases: SwitchCase array * loc: SourceLocation option
-    | LabeledStatement of body: Statement * label: Identifier
-    | DebuggerStatement of loc: SourceLocation option
-    | ContinueStatement of label: Identifier option * loc: SourceLocation option
-    | ExpressionStatement of expr: Expression /// An expression statement, i.e., a statement consisting of a single expression.
 
 
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
@@ -325,14 +321,14 @@ type FunctionExpression =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member AsExpr(``params``, body, ?id, ?returnType, ?typeParameters, ?loc): Expression = //?generator_, ?async_
+    static member Create(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
         { Id = id
           Params = ``params``
           Body = body
           ReturnType = returnType
           TypeParameters = typeParameters
           Loc = loc }
-        |> FunctionExpression
+
 
 //    let async = defaultArg async_ false
 //    let generator = defaultArg generator_ false
@@ -654,7 +650,7 @@ type ClassExpression =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member AsExpr(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc): Expression =
+    static member Create(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
         { Body = body
           Id = id
           SuperClass = superClass
@@ -662,7 +658,6 @@ type ClassExpression =
           SuperTypeParameters = superTypeParameters
           TypeParameters = typeParameters
           Loc = loc }
-        |> ClassExpression
 
 // type MetaProperty(meta, property, ?loc) =
 //     interface Expression with
@@ -905,7 +900,7 @@ type InterfaceDeclaration =
 //    member _.Mixins: InterfaceExtends array = mixins
 
 [<AutoOpen>]
-module Extensions =
+module Helpers =
     type Expression with
         static member super(?loc) = Super loc
         static member emitExpression(value, args, ?loc) = EmitExpression(value, args, loc)
@@ -971,6 +966,12 @@ module Extensions =
                 | Identifier(id) -> id.Name
                 | _ -> ""
             MemberExpression(name, object, property, computed, loc)
+        static member functionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
+            FunctionExpression.Create(``params``, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
+            |> FunctionExpression
+        static member classExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
+            ClassExpression.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
+            |> ClassExpression
 
     type Statement with
         static member returnStatement(argument, ?loc) = ReturnStatement(argument, loc)

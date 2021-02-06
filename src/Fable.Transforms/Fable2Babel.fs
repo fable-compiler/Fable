@@ -841,7 +841,7 @@ module Util =
     let makeFunctionExpression name (args, (body: Expression), returnType, typeParamDecl): Expression =
         let id = name |> Option.map Identifier.Create
         let body = wrapExprInBlockWithReturn body
-        FunctionExpression.AsExpr(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
+        Expression.functionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
     let optimizeTailCall (com: IBabelCompiler) (ctx: Context) range (tc: ITailCallOpportunity) args =
         let rec checkCrossRefs tempVars allArgs = function
@@ -1080,7 +1080,7 @@ module Util =
                 |> Option.defaultValue (None, classMembers)
 
             let classBody = ClassBody.Create(List.toArray classMembers)
-            let classExpr = ClassExpression.AsExpr(classBody, ?superClass=baseExpr)
+            let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 
     let transformCallArgs (com: IBabelCompiler) ctx hasSpread args =
@@ -1846,7 +1846,7 @@ module Util =
             else Array.empty
         let classMembers = Array.append [| classCons |] classMembers
         let classBody = ClassBody.Create([| yield! classFields; yield! classMembers |])
-        let classExpr = ClassExpression.AsExpr(classBody, ?superClass=baseExpr, ?typeParameters=typeParamDecl, ?implements=implements)
+        let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr, ?typeParameters=typeParamDecl, ?implements=implements)
         classExpr |> declareModuleMember ent.IsPublic entName false
 
     let declareType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) baseExpr classMembers: ModuleDeclaration list =
@@ -1869,7 +1869,7 @@ module Util =
     let transformModuleFunction (com: IBabelCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
         let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
-        let expr = FunctionExpression.AsExpr(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
+        let expr = Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
         info.Attributes
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
@@ -1883,7 +1883,7 @@ module Util =
                 | Declaration(VariableDeclaration(_)) -> true
                 | _ -> false)
         if hasVarDeclarations then
-            [ Expression.callExpression(FunctionExpression.AsExpr([||], BlockStatement.Create(statements)), [||])
+            [ Expression.callExpression(Expression.functionExpression([||], BlockStatement.Create(statements)), [||])
               |> ExpressionStatement |> PrivateModuleDeclaration ]
         else statements |> Array.mapToList (fun x -> PrivateModuleDeclaration(x))
 
