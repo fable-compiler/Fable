@@ -179,7 +179,7 @@ module PrinterExtensions =
         member printer.PrintOptional(node: Declaration option, ?before: string) =
             printer.PrintOptional(node |> Option.map Declaration, ?before=before)
         member printer.PrintOptional(node: VariableDeclaration option, ?before: string) =
-            printer.PrintOptional(node |> Option.map VariableDeclaration, ?before=before)
+            printer.PrintOptional(node |> Option.map Declaration.VariableDeclaration, ?before=before)
         member printer.PrintOptional(node: CatchClause option, ?before: string) =
             printer.PrintOptional(node |> Option.map Node.CatchClause, ?before=before)
         member printer.PrintOptional(node: BlockStatement option, ?before: string) =
@@ -340,10 +340,10 @@ module PrinterExtensions =
             | Node.SwitchCase(n) -> printer.Print(n)
             | Node.CatchClause(n) -> printer.Print(n)
             | ObjectMember(n) -> printer.Print(n)
-            | TypeParameter(n) -> printer.Print(n)
+            | Node.TypeParameter(n) -> printer.Print(n)
             | Node.TypeAnnotation(n) -> printer.Print(n)
             | ExportSpecifier(n) -> printer.Print(n)
-            | InterfaceExtends(n) -> printer.Print(n)
+            | Node.InterfaceExtends(n) -> printer.Print(n)
             | ModuleDeclaration(n) -> printer.Print(n)
             | FunctionTypeParam(n) -> printer.Print(n)
             | ObjectTypeProperty(n) -> printer.Print(n)
@@ -354,7 +354,7 @@ module PrinterExtensions =
             | Directive(_)
             | ImportSpecifier(_)
             | ObjectTypeIndexer(_)
-            | VariableDeclarator(_)
+            | Node.VariableDeclarator(_)
             | ObjectTypeCallProperty(_)
             | ObjectTypeInternalSlot(_) -> failwith "Not implemented"
 
@@ -376,7 +376,7 @@ module PrinterExtensions =
                 printer.PrintCommaSeparatedArray(elements)
                 printer.Print("]")
             | ClassExpression(n) -> printer.Print(n)
-            | ClassImplements(n) -> printer.Print(n)
+            | Expression.ClassImplements(n) -> printer.Print(n)
             | UnaryExpression(n) -> printer.Print(n)
             | UpdateExpression(n) -> printer.Print(n)
             | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
@@ -389,7 +389,7 @@ module PrinterExtensions =
                 printer.PrintCommaSeparatedArray(expressions)
             | FunctionExpression(n) -> printer.Print(n)
             | AssignmentExpression(left, right, operator, loc) -> printer.PrintOperation(left, operator, right, loc)
-            | ConditionalExpression(n) -> printer.Print(n)
+            | ConditionalExpression(test, consequent, alternate, loc) -> printer.PrintConditionalExpression(test, consequent, alternate, loc)
             | ArrowFunctionExpression(``params``, body, returnType, typeParameters, loc) -> printer.PrintArrowFunctionExpression(``params``, body, returnType, typeParameters, loc)
 
         member printer.Print(pattern: Pattern) =
@@ -433,7 +433,7 @@ module PrinterExtensions =
         member printer.Print(decl: Declaration) =
             match decl with
             | ClassDeclaration(d) -> printer.Print(d)
-            | VariableDeclaration(d) -> printer.Print(d)
+            | Declaration.VariableDeclaration(d) -> printer.Print(d)
             | FunctionDeclaration(d) -> printer.Print(d)
             | InterfaceDeclaration(d) -> printer.Print(d)
 
@@ -441,15 +441,20 @@ module PrinterExtensions =
             match md with
             | ImportDeclaration(d) -> printer.Print(d)
             | ExportNamedReferences(d) -> printer.Print(d)
-            | ExportNamedDeclaration(d) -> printer.Print(d)
+            | ExportNamedDeclaration(declaration) ->
+                printer.Print("export ")
+                printer.Print(declaration)
             | ExportAllDeclaration(source, loc) ->
                 printer.Print("export * from ", ?loc=loc)
                 printer.Print(source)
             | PrivateModuleDeclaration(statement) ->
                 if printer.IsProductiveStatement(statement) then
                     printer.Print(statement)
-
-            | ExportDefaultDeclaration(d) -> printer.Print(d)
+            | ExportDefaultDeclaration(declaration) ->
+                printer.Print("export default ")
+                match declaration with
+                | Choice1Of2 x -> printer.Print(x)
+                | Choice2Of2 x -> printer.Print(x)
 
         member printer.PrintEmitExpression(value, args, loc) =
             printer.AddLocation(loc)
@@ -639,20 +644,21 @@ module PrinterExtensions =
 // Declarations
 
         member printer.Print(node: VariableDeclaration) =
-            printer.Print(node.Kind + " ", ?loc = node.Loc)
-            let canConflict = node.Declarations.Length > 1
+            let (VariableDeclaration(declarations, kind, loc)) = node
+            printer.Print(kind + " ", ?loc = loc)
+            let canConflict = declarations.Length > 1
 
-            for i = 0 to node.Declarations.Length - 1 do
-                let decl = node.Declarations.[i]
-                printer.Print(decl.Id)
+            for i = 0 to declarations.Length - 1 do
+                let (VariableDeclarator(id, init)) = declarations.[i]
+                printer.Print(id)
 
-                match decl.Init with
+                match init with
                 | None -> ()
                 | Some e ->
                     printer.Print(" = ")
                     if canConflict then printer.ComplexExpressionWithParens(e)
                     else printer.SequenceExpressionWithParens(e)
-                if i < node.Declarations.Length - 1 then
+                if i < declarations.Length - 1 then
                     printer.Print(", ")
 
         member printer.PrintWhileStatment(test, body, loc) =
@@ -750,19 +756,19 @@ module PrinterExtensions =
             if Array.isEmpty properties then printer.Print("{}")
             else printer.PrintBlock(properties, (fun p x -> p.Print(x)), printSeparator, skipNewLineAtEnd=true)
 
-        member printer.Print(node: ConditionalExpression) =
-            printer.AddLocation(node.Loc)
-            match node.Test with
+        member printer.PrintConditionalExpression(test, consequent, alternate, loc) =
+            printer.AddLocation(loc)
+            match test with
             // TODO: Move node optimization to Fable2Babel as with IfStatement?
             | Literal(BooleanLiteral(value=value)) ->
-                if value then printer.Print(node.Consequent)
-                else printer.Print(node.Alternate)
+                if value then printer.Print(consequent)
+                else printer.Print(alternate)
             | _ ->
-                printer.ComplexExpressionWithParens(node.Test)
+                printer.ComplexExpressionWithParens(test)
                 printer.Print(" ? ")
-                printer.ComplexExpressionWithParens(node.Consequent)
+                printer.ComplexExpressionWithParens(consequent)
                 printer.Print(" : ")
-                printer.ComplexExpressionWithParens(node.Alternate)
+                printer.ComplexExpressionWithParens(alternate)
 
         member printer.PrintCallExpression(callee, arguments, loc) =
             printer.AddLocation(loc)
@@ -853,8 +859,9 @@ module PrinterExtensions =
             printer.PrintOptional(node.Value, ": ")
 
         member printer.Print(node: ClassImplements) =
-            printer.Print(node.Id)
-            printer.PrintOptional(node.TypeParameters)
+            let (ClassImplements(id, typeParameters)) = node
+            printer.Print(id)
+            printer.PrintOptional(typeParameters)
 
         member printer.Print(node: ClassBody) =
             printer.AddLocation(node.Loc)
@@ -915,22 +922,12 @@ module PrinterExtensions =
                 printer.Print(" as ")
                 printer.Print(node.Exported)
 
-        member printer.Print(node: ExportNamedDeclaration) =
-            printer.Print("export ")
-            printer.Print(node.Declaration)
-
         member printer.Print(node: ExportNamedReferences) =
             printer.Print("export ")
             printer.Print("{ ")
             printer.PrintCommaSeparatedArray(node.Specifiers)
             printer.Print(" }")
             printer.PrintOptional(node.Source, " from ")
-
-        member printer.Print(node: ExportDefaultDeclaration) =
-            printer.Print("export default ")
-            match node.Declaration with
-            | Choice1Of2 x -> printer.Print(x)
-            | Choice2Of2 x -> printer.Print(x)
 
         member printer.Print(node: TypeAnnotationInfo) =
             match node with
@@ -957,8 +954,8 @@ module PrinterExtensions =
             printer.Print(": ")
             printer.Print(info)
 
-        member printer.Print(node: TypeParameter) =
-            printer.Print(node.Name)
+        member printer.Print((TypeParameter(name=name)): TypeParameter) =
+            printer.Print(name)
             // printer.PrintOptional(bound)
             // printer.PrintOptional(``default``)
 
@@ -1020,8 +1017,9 @@ module PrinterExtensions =
             printer.PrintNewLine()
 
         member printer.Print(node: InterfaceExtends) =
-            printer.Print(node.Id)
-            printer.PrintOptional(node.TypeParameters)
+            let (InterfaceExtends(id, typeParameters)) = node
+            printer.Print(id)
+            printer.PrintOptional(typeParameters)
 
         member printer.Print(node: InterfaceDeclaration) =
             printer.Print("interface ")

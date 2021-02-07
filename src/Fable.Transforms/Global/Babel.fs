@@ -49,7 +49,6 @@ type Expression =
     | Undefined of Loc: SourceLocation option
     | FunctionExpression of FunctionExpression
     | ThisExpression of loc: SourceLocation option
-    | ConditionalExpression of ConditionalExpression
     | SpreadElement of argument: Expression * loc: SourceLocation option
     | ArrayExpression of elements: Expression array * loc: SourceLocation option
     | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
@@ -58,6 +57,7 @@ type Expression =
     | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
     | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
+    | ConditionalExpression of test: Expression * consequent: Expression * alternate: Expression * loc: SourceLocation option
     | MemberExpression of name: string * object: Expression * property: Expression * computed: bool * loc: SourceLocation option
     | NewExpression of callee: Expression * arguments: Expression array * typeArguments: TypeParameterInstantiation option * loc: SourceLocation option
     | ArrowFunctionExpression of ``params``: Pattern array * body: BlockStatement * returnType: TypeAnnotation option * typeParameters: TypeParameterDeclaration option * loc: SourceLocation option
@@ -107,9 +107,11 @@ type ModuleDeclaration =
     | ImportDeclaration of ImportDeclaration
     | ExportAllDeclaration of source: Literal * loc: SourceLocation option
     | ExportNamedReferences of ExportNamedReferences
-    | ExportNamedDeclaration of ExportNamedDeclaration
+    | ExportNamedDeclaration of declaration: Declaration
     | PrivateModuleDeclaration of statement: Statement
-    | ExportDefaultDeclaration of ExportDefaultDeclaration
+    /// An export default declaration, e.g., export default function () {}; or export default 1;.
+    | ExportDefaultDeclaration of declaration: Choice<Declaration, Expression>
+
 
     /// An export batch declaration, e.g., export * from "mod";.
 // Template Literals
@@ -192,10 +194,7 @@ type CatchClause =
 
 // Declarations
 type VariableDeclarator =
-    { Id: Pattern
-      Init: Expression option }
-
-    static member Create(id, ?init) = { Id = id; Init = init }
+    | VariableDeclarator of id: Pattern * init: Expression option
 
 type VariableDeclarationKind =
     | Var
@@ -203,23 +202,7 @@ type VariableDeclarationKind =
     | Const
 
 type VariableDeclaration =
-    { Declarations: VariableDeclarator array
-      Kind: string
-      Loc: SourceLocation option }
-
-    static member Create(kind, declarations, ?loc) =
-        let kind =
-            match kind with
-            | Var -> "var"
-            | Let -> "let"
-            | Const -> "const"
-
-        { Declarations = declarations
-          Kind = kind
-          Loc = loc }
-
-    static member Create(var, ?init, ?kind, ?loc) =
-        VariableDeclaration.Create(defaultArg kind Let, [| VariableDeclarator.Create(var, ?init = init) |], ?loc = loc)
+    | VariableDeclaration of declarations: VariableDeclarator array * kind: string * loc: SourceLocation option
 
 // Loops
 
@@ -361,20 +344,6 @@ type ObjectMethod =
           TypeParameters = typeParameters
           Loc = loc }
 
-
-/// A conditional expression, i.e., a ternary ?/: expression.
-type ConditionalExpression =
-    { Test: Expression
-      Consequent: Expression
-      Alternate: Expression
-      Loc: SourceLocation option }
-
-    static member AsExpr(test, consequent, alternate, ?loc): Expression =
-        { Test = test
-          Consequent = consequent
-          Alternate = alternate
-          Loc = loc }
-        |> ConditionalExpression
 
 
 // Unary Operations
@@ -557,12 +526,7 @@ type ClassProperty =
         |> ClassProperty
 
 type ClassImplements =
-    { Id: Identifier
-      TypeParameters: TypeParameterInstantiation option }
-
-    static member Create(id, ?typeParameters) =
-        { Id = id
-          TypeParameters = typeParameters }
+    | ClassImplements of id: Identifier * typeParameters: TypeParameterInstantiation option
 
 type ClassBody =
     { Body: ClassMember array
@@ -652,13 +616,6 @@ type ExportSpecifier =
 
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
-type ExportNamedDeclaration =
-    { Declaration: Declaration }
-
-    static member AsModuleDeclaration(declaration): ModuleDeclaration =
-        { Declaration = declaration }
-        |> ExportNamedDeclaration
-
 type ExportNamedReferences =
     { Specifiers: ExportSpecifier array
       Source: StringLiteral option }
@@ -667,15 +624,6 @@ type ExportNamedReferences =
         { Specifiers = specifiers
           Source = source }
         |> ExportNamedReferences
-
-/// An export default declaration, e.g., export default function () {}; or export default 1;.
-type ExportDefaultDeclaration =
-    { Declaration: Choice<Declaration, Expression> }
-
-    static member AsModuleDeclaration(declaration): ModuleDeclaration =
-        { Declaration = declaration }
-        |> ExportDefaultDeclaration
-
 
 // Type Annotations
 type TypeAnnotationInfo =
@@ -696,14 +644,8 @@ type TypeAnnotation =
     | TypeAnnotation of TypeAnnotationInfo
 
 type TypeParameter =
-    { Name: string
-      Bound: TypeAnnotation option
-      Default: TypeAnnotationInfo option }
+    | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotationInfo option
 
-    static member Create(name, ?bound, ?``default``) =
-        { Name = name
-          Bound = bound
-          Default = ``default`` }
 
 type TypeParameterDeclaration =
     | TypeParameterDeclaration of ``params``: TypeParameter array
@@ -811,12 +753,8 @@ type ObjectTypeAnnotation =
           Exact = exact }
 
 type InterfaceExtends =
-    { Id: Identifier
-      TypeParameters: TypeParameterInstantiation option }
+    | InterfaceExtends of id: Identifier * typeParameters: TypeParameterInstantiation option
 
-    static member Create(id, ?typeParameters) =
-        { Id = id
-          TypeParameters = typeParameters }
 
 type InterfaceDeclaration =
     { Id: Identifier
@@ -914,6 +852,9 @@ module Helpers =
             |> ClassExpression
         static member spreadElement(argument, ?loc) =
             SpreadElement(argument, ?loc=loc)
+        static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
+            ConditionalExpression(test, consequent, alternate, loc)
+
 
     type Identifier with
         member this.Name =
@@ -970,14 +911,17 @@ module Helpers =
         static member restElement(argument: Pattern, ?typeAnnotation, ?loc) =
             RestElement.Create(argument, ?typeAnnotation=typeAnnotation, ?loc=loc) |> RestElement
 
+    type ClassImplements with
+        static member classImplements(id, ?typeParameters) =
+            ClassImplements(id, typeParameters)
+
     type Declaration with
-        static member variableDeclaration(kind, declarations, ?loc) =
-            VariableDeclaration.Create(kind, declarations, ?loc = loc)
-            |> VariableDeclaration
+        static member variableDeclaration(kind, declarations, ?loc) : Declaration =
+            VariableDeclaration.variableDeclaration(kind, declarations, ?loc = loc) |> Declaration.VariableDeclaration
         static member variableDeclaration(var, ?init, ?kind, ?loc) =
             Declaration.variableDeclaration(
                 defaultArg kind Let,
-                [| VariableDeclarator.Create(var, ?init = init) |],
+                [| VariableDeclarator(var, init) |],
                 ?loc = loc
             )
         static member functionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) =
@@ -986,6 +930,24 @@ module Helpers =
         static member classDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
             ClassDeclaration.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
             |> ClassDeclaration
+
+    type VariableDeclaration with
+        static member variableDeclaration(kind, declarations, ?loc) : VariableDeclaration =
+            let kind =
+                match kind with
+                | Var -> "var"
+                | Let -> "let"
+                | Const -> "const"
+            VariableDeclaration(declarations, kind, loc)
+
+        static member variableDeclaration(var, ?init, ?kind, ?loc) =
+            VariableDeclaration.variableDeclaration(defaultArg kind Let, [| VariableDeclarator(var, init) |], ?loc = loc)
+    type VariableDeclarator with
+        static member variableDeclarator(id, ?init) = VariableDeclarator(id, init)
+
+    type InterfaceExtends with
+        static member interfaceExtends(id, ?typeParameters) =
+            InterfaceExtends(id, typeParameters)
 
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
@@ -1018,3 +980,7 @@ module Helpers =
     type TypeAnnotationInfo with
         static member genericTypeAnnotation(id, ?typeParameters) =
             GenericTypeAnnotation (id, typeParameters)
+
+    type TypeParameter with
+        static member typeParameter(name, ?bound, ?``default``) =
+            TypeParameter(name, bound, ``default``)

@@ -334,7 +334,7 @@ module Annotation =
         else
             genParams
             |> Set.toArray
-            |> Array.map TypeParameter.Create
+            |> Array.map TypeParameter.typeParameter
             |> TypeParameterDeclaration |> Some
 
     let makeTypeParamInst genParams =
@@ -350,10 +350,10 @@ module Annotation =
         match decl1, decl2 with
         | Some (TypeParameterDeclaration(``params``=p1)), Some (TypeParameterDeclaration(``params``=p2)) ->
             Array.append
-                (p1 |> Array.map (fun x -> x.Name))
-                (p2 |> Array.map (fun x -> x.Name))
+                (p1 |> Array.map (fun (TypeParameter(name=name)) -> name))
+                (p2 |> Array.map (fun (TypeParameter(name=name)) -> name))
             |> Array.distinct
-            |> Array.map TypeParameter.Create
+            |> Array.map TypeParameter.typeParameter
             |> TypeParameterDeclaration |> Some
         | Some _, None -> decl1
         | None, Some _ -> decl2
@@ -727,12 +727,12 @@ module Util =
             variables
             |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
             |> List.mapToArray (fun (id, value) ->
-                VariableDeclarator.Create(id |> IdentifierPattern, ?init=value))
+                VariableDeclarator(id |> IdentifierPattern, value))
         Statement.variableDeclaration(kind, varDeclarators)
 
     let varDeclaration (var: Pattern) (isMutable: bool) value =
         let kind = if isMutable then Let else Const
-        VariableDeclaration.Create(var, value, kind)
+        VariableDeclaration.variableDeclaration(var, value, kind)
 
     let restElement (var: Pattern) =
         Pattern.restElement(var)
@@ -863,7 +863,7 @@ module Util =
         [|
             // First declare temp variables
             for (KeyValue(argId, tempVar)) in tempVars do
-                yield varDeclaration (Pattern.identifier(tempVar)) false (Expression.identifier(argId)) |> VariableDeclaration |> Declaration
+                yield varDeclaration (Pattern.identifier(tempVar)) false (Expression.identifier(argId)) |> Declaration.VariableDeclaration |> Declaration
             // Then assign argument expressions to the original argument identifiers
             // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
             for (argId, arg) in zippedArgs do
@@ -1263,7 +1263,7 @@ module Util =
             Array.append [|decl|] body
         else
             let value = transformBindingExprBody com ctx var value
-            let decl = varDeclaration (identAsPattern var) var.IsMutable value |> VariableDeclaration |> Declaration
+            let decl = varDeclaration (identAsPattern var) var.IsMutable value |> Declaration.VariableDeclaration |> Declaration
             [|decl|]
 
     let transformTest (com: IBabelCompiler) ctx range kind expr: Expression =
@@ -1550,7 +1550,7 @@ module Util =
         | Fable.IfThenElse(TransformExpr com ctx guardExpr,
                            TransformExpr com ctx thenExpr,
                            TransformExpr com ctx elseExpr, r) ->
-            ConditionalExpression.AsExpr(guardExpr, thenExpr, elseExpr, ?loc=r)
+            Expression.conditionalExpression(guardExpr, thenExpr, elseExpr, ?loc=r)
 
         | Fable.DecisionTree(expr, targets) ->
             transformDecisionTreeAsExpr com ctx targets expr
@@ -1669,7 +1669,7 @@ module Util =
                 let guardExpr' = transformAsExpr com ctx guardExpr
                 let thenExpr' = transformAsExpr com ctx thenExpr
                 let elseExpr' = transformAsExpr com ctx elseExpr
-                [|ConditionalExpression.AsExpr(guardExpr', thenExpr', elseExpr', ?loc=r) |> resolveExpr thenExpr.Type returnStrategy|]
+                [|Expression.conditionalExpression(guardExpr', thenExpr', elseExpr', ?loc=r) |> resolveExpr thenExpr.Type returnStrategy|]
 
         | Fable.Sequential statements ->
             let lasti = (List.length statements) - 1
@@ -1774,9 +1774,9 @@ module Util =
                     e.Params, e.Body, membName,
                     ?returnType = e.ReturnType,
                     ?typeParameters = e.TypeParameters)
-            | _ -> varDeclaration membName' isMutable expr |> VariableDeclaration
+            | _ -> varDeclaration membName' isMutable expr |> Declaration.VariableDeclaration
         if not isPublic then PrivateModuleDeclaration(decl |> Declaration)
-        else ExportNamedDeclaration.AsModuleDeclaration(decl)
+        else ExportNamedDeclaration(decl)
 
     let makeEntityTypeParamDecl (com: IBabelCompiler) _ctx (ent: Fable.Entity) =
         if com.Options.Typescript then
@@ -1788,7 +1788,7 @@ module Util =
         let mkNative genArgs typeName =
             let id = Identifier.identifier(typeName)
             let typeParamInst = makeGenTypeParamInst com ctx genArgs
-            ClassImplements.Create(id, ?typeParameters=typeParamInst) |> Some
+            ClassImplements.classImplements(id, ?typeParameters=typeParamInst) |> Some
 //        let mkImport genArgs moduleName typeName =
 //            let id = makeImportTypeId com ctx moduleName typeName
 //            let typeParamInst = makeGenTypeParamInst com ctx genArgs
@@ -1881,7 +1881,7 @@ module Util =
         let statements = transformAsStatements com ctx None expr
         let hasVarDeclarations =
             statements |> Array.exists (function
-                | Declaration(VariableDeclaration(_)) -> true
+                | Declaration(Declaration.VariableDeclaration(_)) -> true
                 | _ -> false)
         if hasVarDeclarations then
             [ Expression.callExpression(Expression.functionExpression([||], BlockStatement(statements)), [||])
@@ -2032,7 +2032,7 @@ module Util =
                         [transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body]
 
                 if decl.ExportDefault then
-                    decls @ [ExportDefaultDeclaration.AsModuleDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
+                    decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
                 else decls
 
         | Fable.ClassDeclaration decl ->
