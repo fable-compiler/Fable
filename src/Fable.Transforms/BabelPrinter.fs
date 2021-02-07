@@ -125,7 +125,7 @@ module PrinterExtensions =
                 | Literal(NumericLiteral(_)) -> true
                 // Constructors of classes deriving from System.Object add an empty object at the end
                 | ObjectExpression(properties, loc) -> properties.Length = 0
-                | UnaryExpression(expr) when expr.Operator = "void" -> hasNoSideEffects expr.Argument
+                | UnaryExpression(prefix, argument, operator, loc) when operator = "void" -> hasNoSideEffects argument
                 // Some identifiers may be stranded as the result of imports
                 // intended only for side effects, see #2228
                 | Expression.Identifier(_) -> true
@@ -242,7 +242,7 @@ module PrinterExtensions =
             let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
                 Array.zip passedArgs appliedAgs
                 |> Array.forall (function
-                    | RestElement(p), Expression.Identifier(Identifier(name=name)) -> p.Name = name
+                    | RestElement(name=name), Expression.Identifier(Identifier(name=idName)) -> name = idName
                     | _ -> false)
 
             let isDeclaration = defaultArg isDeclaration false
@@ -356,7 +356,7 @@ module PrinterExtensions =
             | Node.ObjectTypeIndexer(_)
             | Node.VariableDeclarator(_)
             | Node.ObjectTypeCallProperty(_)
-            | ObjectTypeInternalSlot(_) -> failwith "Not implemented"
+            | Node.ObjectTypeInternalSlot(_) -> failwith "Not implemented"
 
         member printer.Print(expr: Expression) =
             match expr with
@@ -377,8 +377,8 @@ module PrinterExtensions =
                 printer.Print("]")
             | ClassExpression(n) -> printer.Print(n)
             | Expression.ClassImplements(n) -> printer.Print(n)
-            | UnaryExpression(n) -> printer.Print(n)
-            | UpdateExpression(n) -> printer.Print(n)
+            | UnaryExpression(prefix, argument, operator, loc) -> printer.PrintUnaryExpression(prefix, argument, operator, loc)
+            | UpdateExpression(prefix, argument, operator, loc) -> printer.PrintUpdateExpression(prefix, argument, operator, loc)
             | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
             | BinaryExpression(left, right, operator, loc) ->  printer.PrintOperation(left, operator, right, loc)
             | MemberExpression(name, object, property, computed, loc) -> printer.PrintMemberExpression(name, object, property, computed, loc)
@@ -387,16 +387,20 @@ module PrinterExtensions =
                 // A comma-separated sequence of expressions.
                 printer.AddLocation(loc)
                 printer.PrintCommaSeparatedArray(expressions)
-            | FunctionExpression(n) -> printer.Print(n)
+            | FunctionExpression(id, ``params``, body, typeParameters, returnType, loc) ->
+                printer.PrintFunction(id, ``params``, body, returnType, typeParameters, loc)
             | AssignmentExpression(left, right, operator, loc) -> printer.PrintOperation(left, operator, right, loc)
             | ConditionalExpression(test, consequent, alternate, loc) -> printer.PrintConditionalExpression(test, consequent, alternate, loc)
-            | ArrowFunctionExpression(``params``, body, returnType, typeParameters, loc) -> printer.PrintArrowFunctionExpression(``params``, body, returnType, typeParameters, loc)
+            | ArrowFunctionExpression(``params``, body, returnType, typeParameters, loc) ->
+                printer.PrintArrowFunctionExpression(``params``, body, returnType, typeParameters, loc)
 
         member printer.Print(pattern: Pattern) =
             match pattern with
             | IdentifierPattern(p) -> printer.Print(p)
-            | RestElement(e) -> printer.Print(e)
-
+            | RestElement(name, argument, typeAnnotation, loc) ->
+                printer.Print("...", ?loc=loc)
+                printer.Print(argument)
+                printer.PrintOptional(typeAnnotation)
         member printer.Print(literal: Literal) =
             match literal with
             | RegExp(pattern, flags, loc) -> printer.PrintRegExp(pattern, flags, loc)
@@ -434,8 +438,11 @@ module PrinterExtensions =
             match decl with
             | ClassDeclaration(d) -> printer.Print(d)
             | Declaration.VariableDeclaration(d) -> printer.Print(d)
-            | FunctionDeclaration(d) -> printer.Print(d)
-            | InterfaceDeclaration(d) -> printer.Print(d)
+            | FunctionDeclaration(``params``, body, id, returnType, typeParameters, loc) ->
+                printer.PrintFunction(Some id, ``params``, body, typeParameters, returnType, loc, isDeclaration=true)
+                printer.PrintNewLine()
+            | InterfaceDeclaration(id, body, extends, implements, typeParameters) ->
+                printer.PrintInterfaceDeclaration(id, body, extends, implements, typeParameters)
 
         member printer.Print(md: ModuleDeclaration) =
             match md with
@@ -682,10 +689,6 @@ module PrinterExtensions =
             printer.Print(") ")
             printer.Print(body)
 
-        member printer.Print(node: FunctionDeclaration) =
-            printer.PrintFunction(Some node.Id, node.Params, node.Body, node.TypeParameters, node.ReturnType, node.Loc, isDeclaration=true)
-            printer.PrintNewLine()
-
         /// A fat arrow function expression, e.g., let foo = (bar) => { /* body */ }.
         member printer.PrintArrowFunctionExpression(``params``, body, returnType, typeParameters, loc) =
             printer.PrintFunction(
@@ -697,10 +700,6 @@ module PrinterExtensions =
                 loc,
                 isArrow = true
             )
-
-        member printer.Print(node: FunctionExpression)=
-            printer.PrintFunction(node.Id, node.Params, node.Body, node.TypeParameters, node.ReturnType, node.Loc)
-
 
         member printer.Print(node: ObjectMember) =
             match node with
@@ -789,33 +788,28 @@ module PrinterExtensions =
             printer.PrintCommaSeparatedArray(arguments)
             printer.Print(")")
 
-        member printer.Print(node: UnaryExpression) =
-            printer.AddLocation(node.Loc)
-            match node.Operator with
-            | "-" | "+" | "!" | "~" -> printer.Print(node.Operator)
-            | _ -> printer.Print(node.Operator + " ")
-            printer.ComplexExpressionWithParens(node.Argument)
+        member printer.PrintUnaryExpression(prefix, argument, operator, loc) =
+            printer.AddLocation(loc)
+            match operator with
+            | "-" | "+" | "!" | "~" -> printer.Print(operator)
+            | _ -> printer.Print(operator + " ")
+            printer.ComplexExpressionWithParens(argument)
 
-        member printer.Print(node: UpdateExpression) =
-            printer.AddLocation(node.Loc)
-            if node.Prefix then
-                printer.Print(node.Operator)
-                printer.ComplexExpressionWithParens(node.Argument)
+        member printer.PrintUpdateExpression(prefix, argument, operator, loc) =
+            printer.AddLocation(loc)
+            if prefix then
+                printer.Print(operator)
+                printer.ComplexExpressionWithParens(argument)
             else
-                printer.ComplexExpressionWithParens(node.Argument)
-                printer.Print(node.Operator)
+                printer.ComplexExpressionWithParens(argument)
+                printer.Print(operator)
 
 // Binary Operations
-
-        member printer.Print(node: RestElement) =
-            printer.Print("...", ?loc=node.Loc)
-            printer.Print(node.Argument)
-            printer.PrintOptional(node.TypeAnnotation)
 
         member printer.Print(node: ClassMember) =
             match node with
             | ClassMethod(cm) -> printer.Print(cm)
-            | ClassProperty(cp) -> printer.Print(cp)
+            | ClassProperty(key, value, computed, ``static``, optional, typeAnnotation, loc) -> printer.PrintClassProperty(key, value, computed, ``static``, optional, typeAnnotation, loc)
 
         member printer.Print(node: ClassMethod) =
             printer.AddLocation(node.Loc)
@@ -845,20 +839,20 @@ module PrinterExtensions =
 
             printer.Print(node.Body)
 
-        member printer.Print(node: ClassProperty) =
-            printer.AddLocation(node.Loc)
-            if node.Static then
+        member printer.PrintClassProperty(key, value, computed, ``static``, optional, typeAnnotation, loc) =
+            printer.AddLocation(loc)
+            if ``static`` then
                 printer.Print("static ")
-            if node.Computed then
+            if computed then
                 printer.Print("[")
-                printer.Print(node.Key)
+                printer.Print(key)
                 printer.Print("]")
             else
-                printer.Print(node.Key)
-            if node.Optional then
+                printer.Print(key)
+            if optional then
                 printer.Print("?")
-            printer.PrintOptional(node.TypeAnnotation)
-            printer.PrintOptional(node.Value, ": ")
+            printer.PrintOptional(typeAnnotation)
+            printer.PrintOptional(value, ": ")
 
         member printer.Print(node: ClassImplements) =
             let (ClassImplements(id, typeParameters)) = node
@@ -1007,7 +1001,7 @@ module PrinterExtensions =
             printer.PrintArray(node.Properties, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintArray(node.Indexers, (fun p x -> p.Print(x |> Node.ObjectTypeIndexer)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintArray(node.CallProperties, (fun p x -> p.Print(x |> Node.ObjectTypeCallProperty)), (fun p -> p.PrintStatementSeparator()))
-            printer.PrintArray(node.InternalSlots, (fun p x -> p.Print(x |> ObjectTypeInternalSlot)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintArray(node.InternalSlots, (fun p x -> p.Print(x |> Node.ObjectTypeInternalSlot)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintNewLine()
             printer.PopIndentation()
             printer.Print("}")
@@ -1018,21 +1012,21 @@ module PrinterExtensions =
             printer.Print(id)
             printer.PrintOptional(typeParameters)
 
-        member printer.Print(node: InterfaceDeclaration) =
+        member printer.PrintInterfaceDeclaration(id, body, extends, implements, typeParameters) =
             printer.Print("interface ")
-            printer.Print(node.Id)
-            printer.PrintOptional(node.TypeParameters)
+            printer.Print(id)
+            printer.PrintOptional(typeParameters)
 
-            if not (Array.isEmpty node.Extends) then
+            if not (Array.isEmpty extends) then
                 printer.Print(" extends ")
-                printer.PrintArray(node.Extends, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+                printer.PrintArray(extends, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
-            if not (Array.isEmpty node.Implements) then
+            if not (Array.isEmpty implements) then
                 printer.Print(" implements ")
-                printer.PrintArray(node.Implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
+                printer.PrintArray(implements, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
             printer.Print(" ")
-            printer.Print(node.Body)
+            printer.Print(body)
 
 open PrinterExtensions
 

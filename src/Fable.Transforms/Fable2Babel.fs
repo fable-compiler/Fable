@@ -529,7 +529,6 @@ module Annotation =
             let args', body' = com.TransformFunction(ctx, name, args, body)
             args', body', None, None
 
-
 module Util =
     open Lib
     open Reflection
@@ -1702,7 +1701,7 @@ module Util =
                 transformBlock com ctx None body,
                 start |> varDeclaration (typedIdent com ctx var |> IdentifierPattern) true,
                 Expression.binaryExpression(op1, identAsExpr var, limit),
-                UpdateExpression.AsExpr(op2, false, identAsExpr var), ?loc=range)|]
+                Expression.updateExpression(op2, false, identAsExpr var), ?loc=range)|]
 
     let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Pattern array * BlockStatement =
         let tailcallChance =
@@ -1769,11 +1768,11 @@ module Util =
                     ?implements = e.Implements,
                     ?superTypeParameters = e.SuperTypeParameters,
                     ?typeParameters = e.TypeParameters)
-            | FunctionExpression(e) ->
+            | FunctionExpression(_, ``params``, body, returnType, typeParameters, _) ->
                 Declaration.functionDeclaration(
-                    e.Params, e.Body, membName,
-                    ?returnType = e.ReturnType,
-                    ?typeParameters = e.TypeParameters)
+                    ``params``, body, membName,
+                    ?returnType = returnType,
+                    ?typeParameters = typeParameters)
             | _ -> varDeclaration membName' isMutable expr |> Declaration.VariableDeclaration
         if not isPublic then PrivateModuleDeclaration(decl |> Declaration)
         else ExportNamedDeclaration(decl)
