@@ -104,14 +104,13 @@ type Declaration =
 
 /// A module import or export declaration.
 type ModuleDeclaration =
-    | ImportDeclaration of ImportDeclaration
+    | ImportDeclaration of specifiers: ImportSpecifier array * source: StringLiteral
     | ExportAllDeclaration of source: Literal * loc: SourceLocation option
     | ExportNamedReferences of specifiers: ExportSpecifier array * source: StringLiteral option
     | ExportNamedDeclaration of declaration: Declaration
     | PrivateModuleDeclaration of statement: Statement
     /// An export default declaration, e.g., export default function () {}; or export default 1;.
     | ExportDefaultDeclaration of declaration: Choice<Declaration, Expression>
-
 
     /// An export batch declaration, e.g., export * from "mod";.
 // Template Literals
@@ -134,7 +133,6 @@ type ModuleDeclaration =
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
     | Identifier of name: string * optional: bool option * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
-
 
 // Literals
 
@@ -434,26 +432,6 @@ type ClassMethod =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member AsClassMember(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
-        let kind =
-            match kind_ with
-            | ClassImplicitConstructor -> "constructor"
-            | ClassGetter -> "get"
-            | ClassSetter -> "set"
-            | ClassFunction -> "method"
-        let computed = defaultArg computed_ false
-
-        { Kind = kind
-          Key = key
-          Params = ``params``
-          Body = body
-          Computed = computed
-          Static = ``static``
-          Abstract = ``abstract``
-          ReturnType = returnType
-          TypeParameters = typeParameters
-          Loc = loc }
-        |> ClassMethod
     // This appears in astexplorer.net but it's not documented
     // member _.Expression: bool = false
 
@@ -469,28 +447,11 @@ type ClassProperty =
       TypeAnnotation: TypeAnnotation option
       Loc: SourceLocation option }
 
-    static member AsClassMember(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc): ClassMember =
-        let computed = defaultArg computed_ false
-
-        { Key = key
-          Value = value
-          Computed = computed
-          Static = defaultArg ``static`` false
-          Optional = defaultArg optional false
-          TypeAnnotation = typeAnnotation
-          Loc = loc }
-        |> ClassProperty
-
 type ClassImplements =
     | ClassImplements of id: Identifier * typeParameters: TypeParameterInstantiation option
 
 type ClassBody =
-    { Body: ClassMember array
-      Loc: SourceLocation option }
-
-    static member Create(body, ?loc) =
-        { Body = body
-          Loc = loc }
+    | ClassBody of body: ClassMember array * loc: SourceLocation option
 
 type ClassDeclaration =
     { Body: ClassBody
@@ -549,14 +510,6 @@ type ImportSpecifier =
     /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
     | ImportNamespaceSpecifier of local: Identifier
 
-type ImportDeclaration =
-    { Specifiers: ImportSpecifier array
-      Source: StringLiteral }
-
-    static member AsModuleDeclaration(specifiers, source): ModuleDeclaration =
-        { Specifiers = specifiers
-          Source = source }
-        |> ImportDeclaration
 
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
 /// The exported field refers to the name exported in the module.
@@ -565,10 +518,7 @@ type ImportDeclaration =
 /// in this case an Identifier node representing foo. If it is an aliased export, such as in export {bar as foo},
 /// the exported field is an Identifier node representing foo, and the local field is an Identifier node representing bar.
 type ExportSpecifier =
-    { Local: Identifier
-      Exported: Identifier }
-
-    static member Create(local, exported) = { Local = local; Exported = exported }
+    | ExportSpecifier of local: Identifier * exported: Identifier
 
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
@@ -583,7 +533,11 @@ type TypeAnnotationInfo =
     | UnionTypeAnnotation of types: TypeAnnotationInfo array
     | ObjectTypeAnnotation of ObjectTypeAnnotation
     | GenericTypeAnnotation of id: Identifier * typeParameters: TypeParameterInstantiation option
-    | FunctionTypeAnnotation of FunctionTypeAnnotation
+    | FunctionTypeAnnotation of
+        ``params``: FunctionTypeParam array *
+        returnType: TypeAnnotationInfo *
+        typeParameters: TypeParameterDeclaration option *
+        rest: FunctionTypeParam option
     | NullableTypeAnnotation of typeAnnotation: TypeAnnotationInfo
     | TupleTypeAnnotation of types: TypeAnnotationInfo array
 
@@ -593,31 +547,14 @@ type TypeAnnotation =
 type TypeParameter =
     | TypeParameter of name: string * bound: TypeAnnotation option * ``default``: TypeAnnotationInfo option
 
-
 type TypeParameterDeclaration =
     | TypeParameterDeclaration of ``params``: TypeParameter array
-
 
 type TypeParameterInstantiation =
     | TypeParameterInstantiation of ``params``: TypeAnnotationInfo array
 
-
 type FunctionTypeParam =
     | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotationInfo * optional: bool option
-
-type FunctionTypeAnnotation =
-    { Params: FunctionTypeParam array
-      ReturnType: TypeAnnotationInfo
-      TypeParameters: TypeParameterDeclaration option
-      Rest: FunctionTypeParam option }
-
-    static member AsTypeAnnotationInfo(``params``, returnType, ?typeParameters, ?rest): TypeAnnotationInfo =
-        { Params = ``params``
-          ReturnType = returnType
-          TypeParameters = typeParameters
-          Rest = rest }
-        |> FunctionTypeAnnotation
-
 
 type ObjectTypeProperty =
     { Key: Expression
@@ -863,6 +800,10 @@ module Helpers =
         static member classImplements(id, ?typeParameters) =
             ClassImplements(id, typeParameters)
 
+    type ClassBody with
+        static member classBody(body, ?loc) =
+            ClassBody(body, loc)
+
     type Declaration with
         static member variableDeclaration(kind, declarations, ?loc) : Declaration =
             VariableDeclaration.variableDeclaration(kind, declarations, ?loc = loc) |> Declaration.VariableDeclaration
@@ -904,6 +845,40 @@ module Helpers =
     type FunctionTypeParam with
         static member functionTypeParam(name, typeInfo, ?optional) =
             FunctionTypeParam(name, typeInfo, optional)
+
+    type ClassMember with
+        static member classMethod(kind_, key, ``params``, body, ?computed_, ?``static``, ?``abstract``, ?returnType, ?typeParameters, ?loc) : ClassMember =
+            let kind =
+                match kind_ with
+                | ClassImplicitConstructor -> "constructor"
+                | ClassGetter -> "get"
+                | ClassSetter -> "set"
+                | ClassFunction -> "method"
+            let computed = defaultArg computed_ false
+
+            { Kind = kind
+              Key = key
+              Params = ``params``
+              Body = body
+              Computed = computed
+              Static = ``static``
+              Abstract = ``abstract``
+              ReturnType = returnType
+              TypeParameters = typeParameters
+              Loc = loc }
+            |> ClassMethod
+        static member classProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc): ClassMember =
+            let computed = defaultArg computed_ false
+
+            { Key = key
+              Value = value
+              Computed = computed
+              Static = defaultArg ``static`` false
+              Optional = defaultArg optional false
+              TypeAnnotation = typeAnnotation
+              Loc = loc }
+            |> ClassProperty
+
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
         static member numericLiteral(value, ?loc) = NumericLiteral (value, loc)
@@ -937,6 +912,8 @@ module Helpers =
     type TypeAnnotationInfo with
         static member genericTypeAnnotation(id, ?typeParameters) =
             GenericTypeAnnotation (id, typeParameters)
+        static member functionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest): TypeAnnotationInfo =
+            FunctionTypeAnnotation(``params``,returnType, typeParameters, rest)
 
     type TypeParameter with
         static member typeParameter(name, ?bound, ?``default``) =

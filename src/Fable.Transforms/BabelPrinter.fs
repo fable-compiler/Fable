@@ -335,14 +335,14 @@ module PrinterExtensions =
             match node with
             | Pattern(n) -> printer.Print(n)
             | Statement(n) -> printer.Print(n)
-            | ClassBody(n) -> printer.Print(n)
+            | Node.ClassBody(n) -> printer.Print(n)
             | Expression(n) -> printer.Print(n)
             | Node.SwitchCase(n) -> printer.Print(n)
             | Node.CatchClause(n) -> printer.Print(n)
             | ObjectMember(n) -> printer.Print(n)
             | Node.TypeParameter(n) -> printer.Print(n)
             | Node.TypeAnnotation(n) -> printer.Print(n)
-            | ExportSpecifier(n) -> printer.Print(n)
+            | Node.ExportSpecifier(n) -> printer.Print(n)
             | Node.InterfaceExtends(n) -> printer.Print(n)
             | ModuleDeclaration(n) -> printer.Print(n)
             | Node.FunctionTypeParam(n) -> printer.Print(n)
@@ -439,7 +439,7 @@ module PrinterExtensions =
 
         member printer.Print(md: ModuleDeclaration) =
             match md with
-            | ImportDeclaration(d) -> printer.Print(d)
+            | ImportDeclaration(specifiers, source) -> printer.PrintImportDeclaration(specifiers, source)
             | ExportNamedReferences(specifiers, source) ->
                 printer.Print("export ")
                 printer.Print("{ ")
@@ -866,8 +866,9 @@ module PrinterExtensions =
             printer.PrintOptional(typeParameters)
 
         member printer.Print(node: ClassBody) =
-            printer.AddLocation(node.Loc)
-            printer.PrintBlock(node.Body, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
+            let (ClassBody(body, loc)) = node
+            printer.AddLocation(loc)
+            printer.PrintBlock(body, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
 
         member printer.Print(node: ClassDeclaration) =
             printer.PrintClass(node.Id, node.SuperClass, node.SuperTypeParameters, node.TypeParameters, node.Implements, node.Body, node.Loc)
@@ -882,15 +883,14 @@ module PrinterExtensions =
                 printer.Print(" as ")
                 printer.Print(local)
 
-
         member printer.PrintImportNamespaceSpecifier(local) =
             printer.Print("* as ")
             printer.Print(local)
 
-        member printer.Print(node: ImportDeclaration) =
-            let members = node.Specifiers |> Array.choose (function ImportMemberSpecifier(local, imported) -> Some (ImportMemberSpecifier(local, imported)) | _ -> None)
-            let defaults = node.Specifiers|> Array.choose (function ImportDefaultSpecifier(local) -> Some (ImportDefaultSpecifier(local)) | _ -> None)
-            let namespaces = node.Specifiers |> Array.choose (function ImportNamespaceSpecifier(local) -> Some (ImportNamespaceSpecifier(local)) | _ -> None)
+        member printer.PrintImportDeclaration(specifiers, source) =
+            let members = specifiers |> Array.choose (function ImportMemberSpecifier(local, imported) -> Some (ImportMemberSpecifier(local, imported)) | _ -> None)
+            let defaults = specifiers|> Array.choose (function ImportDefaultSpecifier(local) -> Some (ImportDefaultSpecifier(local)) | _ -> None)
+            let namespaces = specifiers |> Array.choose (function ImportNamespaceSpecifier(local) -> Some (ImportNamespaceSpecifier(local)) | _ -> None)
 
             printer.Print("import ")
 
@@ -913,16 +913,17 @@ module PrinterExtensions =
                 printer.Print(" from ")
 
             printer.Print("\"")
-            let (StringLiteral(value, _)) = node.Source
+            let (StringLiteral(value, _)) = source
             printer.Print(printer.MakeImportPath(value))
             printer.Print("\"")
 
         member printer.Print(node: ExportSpecifier) =
+            let (ExportSpecifier (local, exported)) = node
             // Don't print the braces, node will be done in the export declaration
-            printer.Print(node.Local)
-            if node.Exported.Name <> node.Local.Name then
+            printer.Print(local)
+            if exported.Name <> local.Name then
                 printer.Print(" as ")
-                printer.Print(node.Exported)
+                printer.Print(exported)
 
         member printer.Print(node: TypeAnnotationInfo) =
             match node with
@@ -938,7 +939,7 @@ module PrinterExtensions =
                 printer.Print("]")
             | UnionTypeAnnotation(types) ->
                 printer.PrintArray(types, (fun p x -> p.Print(x)), (fun p -> p.Print(" | ")))
-            | FunctionTypeAnnotation(an) -> printer.Print(an)
+            | FunctionTypeAnnotation(``params``, returnType, typeParameters, rest) -> printer.PrintFunctionTypeAnnotation(``params``, returnType, typeParameters, rest)
             | NullableTypeAnnotation(typeAnnotation) -> printer.Print(typeAnnotation)
             | GenericTypeAnnotation(id, typeParameters) ->
                 printer.Print(id)
@@ -972,15 +973,15 @@ module PrinterExtensions =
             printer.Print(": ")
             printer.Print(typeAnnotation)
 
-        member printer.Print(node: FunctionTypeAnnotation) =
-            printer.PrintOptional(node.TypeParameters)
+        member printer.PrintFunctionTypeAnnotation(``params``, returnType, typeParameters, rest) =
+            printer.PrintOptional(typeParameters)
             printer.Print("(")
-            printer.PrintCommaSeparatedArray(node.Params)
-            if Option.isSome node.Rest then
+            printer.PrintCommaSeparatedArray(``params``)
+            if Option.isSome rest then
                 printer.Print("...")
-                printer.Print(node.Rest.Value)
+                printer.Print(rest.Value)
             printer.Print(") => ")
-            printer.Print(node.ReturnType)
+            printer.Print(returnType)
 
         member printer.Print(node: ObjectTypeProperty) =
             if node.Static then

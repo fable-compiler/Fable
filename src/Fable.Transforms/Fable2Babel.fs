@@ -474,7 +474,7 @@ module Annotation =
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
         let returnType = typeAnnotation com ctx returnType
         let typeParamDecl = makeTypeParamDecl newTypeParams
-        FunctionTypeAnnotation.AsTypeAnnotationInfo(funcTypeParams, returnType, ?typeParameters=typeParamDecl)
+        TypeAnnotationInfo.functionTypeAnnotation(funcTypeParams, returnType, ?typeParameters=typeParamDecl)
 
     let makeEntityTypeAnnotation com ctx (ent: Fable.EntityRef) genArgs =
         match ent.FullName with
@@ -744,7 +744,7 @@ module Util =
         ExpressionStatement(callSuper args)
 
     let makeClassConstructor args body =
-        ClassMethod.AsClassMember(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
+        ClassMember.classMethod(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
 
     let callFunction r funcExpr (args: Expression list) =
         Expression.callExpression(funcExpr, List.toArray args, ?loc=r)
@@ -1059,14 +1059,14 @@ module Util =
             let classMembers =
                 members |> List.choose (function
                     | ObjectProperty(key, value, computed) ->
-                        ClassProperty.AsClassMember(key, value, computed_=computed) |> Some
+                        ClassMember.classProperty(key, value, computed_=computed) |> Some
                     | ObjectMethod(m) ->
                         let kind =
                             match m.Kind with
                             | "get" -> ClassGetter
                             | "set" -> ClassSetter
                             | _ -> ClassFunction
-                        ClassMethod.AsClassMember(kind, m.Key, m.Params, m.Body, computed_=m.Computed,
+                        ClassMember.classMethod(kind, m.Key, m.Params, m.Body, computed_=m.Computed,
                             ?returnType=m.ReturnType, ?typeParameters=m.TypeParameters) |> Some)
 
             let baseExpr, classMembers =
@@ -1079,7 +1079,7 @@ module Util =
                 )
                 |> Option.defaultValue (None, classMembers)
 
-            let classBody = ClassBody.Create(List.toArray classMembers)
+            let classBody = ClassBody.classBody(List.toArray classMembers)
             let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 
@@ -1843,10 +1843,10 @@ module Util =
                 getEntityFieldsAsProps com ctx ent
                 |> Array.map (fun prop ->
                     let ta = prop.Value |> TypeAnnotation |> Some
-                    ClassProperty.AsClassMember(prop.Key, ``static``=prop.Static, ?typeAnnotation=ta))
+                    ClassMember.classProperty(prop.Key, ``static``=prop.Static, ?typeAnnotation=ta))
             else Array.empty
         let classMembers = Array.append [| classCons |] classMembers
-        let classBody = ClassBody.Create([| yield! classFields; yield! classMembers |])
+        let classBody = ClassBody.classBody([| yield! classFields; yield! classMembers |])
         let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr, ?typeParameters=typeParamDecl, ?implements=implements)
         classExpr |> declareModuleMember ent.IsPublic entName false
 
@@ -1894,14 +1894,14 @@ module Util =
         let args, body, _returnType, _typeParamDecl =
             getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key, computed = memberFromName memb.Name
-        ClassMethod.AsClassMember(kind, key, args, body, computed_=computed, ``static``=isStatic)
+        ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
         |> Array.singleton
 
     let transformAttachedMethod (com: IBabelCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
         let makeMethod name args body =
             let key, computed = memberFromName name
-            ClassMethod.AsClassMember(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
+            ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
         let args, body, _returnType, _typeParamDecl =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
         [|
@@ -1936,7 +1936,7 @@ module Util =
                 |>  Statement.returnStatement
                 |> Array.singleton
                 |> BlockStatement
-            ClassMethod.AsClassMember(ClassFunction, Expression.identifier("cases"), [||], body)
+            ClassMember.classMethod(ClassFunction, Expression.identifier("cases"), [||], body)
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
         let classMembers = Array.append [|cases|] classMembers
@@ -2083,13 +2083,13 @@ module Util =
             [mems; defs; alls] |> List.choose (function
                 | [] -> None
                 | specifiers ->
-                    ImportDeclaration.AsModuleDeclaration(List.toArray specifiers, StringLiteral.stringLiteral(path))
+                    ImportDeclaration(List.toArray specifiers, StringLiteral.stringLiteral(path))
                     |> Some)
             |> function
                 | [] ->
                     // If there are no specifiers, this is just an import for side effects,
                     // put it after the other ones to match standard JS practices, see #2228
-                    ImportDeclaration.AsModuleDeclaration([||], StringLiteral.stringLiteral(path))
+                    ImportDeclaration([||], StringLiteral.stringLiteral(path))
                     |> statefulImports.Add
                     []
                 | decls -> decls
