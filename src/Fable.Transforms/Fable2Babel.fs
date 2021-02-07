@@ -465,7 +465,7 @@ module Annotation =
         let funcTypeParams =
             argTypes
             |> List.mapi (fun i argType ->
-                FunctionTypeParam.Create(
+                FunctionTypeParam.functionTypeParam(
                     Identifier.identifier("arg" + (string i)),
                     typeAnnotation com ctx argType))
             |> List.toArray

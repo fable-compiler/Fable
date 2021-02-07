@@ -345,7 +345,7 @@ module PrinterExtensions =
             | ExportSpecifier(n) -> printer.Print(n)
             | Node.InterfaceExtends(n) -> printer.Print(n)
             | ModuleDeclaration(n) -> printer.Print(n)
-            | FunctionTypeParam(n) -> printer.Print(n)
+            | Node.FunctionTypeParam(n) -> printer.Print(n)
             | ObjectTypeProperty(n) -> printer.Print(n)
             | Node.TypeAnnotationInfo(n) -> printer.Print(n)
             | Node.TypeParameterDeclaration(n) -> printer.Print(n)
@@ -353,7 +353,7 @@ module PrinterExtensions =
             | Node.Program(_)
             | Directive(_)
             | ImportSpecifier(_)
-            | ObjectTypeIndexer(_)
+            | Node.ObjectTypeIndexer(_)
             | Node.VariableDeclarator(_)
             | ObjectTypeCallProperty(_)
             | ObjectTypeInternalSlot(_) -> failwith "Not implemented"
@@ -380,7 +380,7 @@ module PrinterExtensions =
             | UnaryExpression(n) -> printer.Print(n)
             | UpdateExpression(n) -> printer.Print(n)
             | ObjectExpression(properties, loc) -> printer.PrintObjectExpression(properties, loc)
-            | BinaryExpression(n) -> printer.Print(n)
+            | BinaryExpression(left, right, operator, loc) ->  printer.PrintOperation(left, operator, right, loc)
             | MemberExpression(name, object, property, computed, loc) -> printer.PrintMemberExpression(name, object, property, computed, loc)
             | LogicalExpression(left, operator, right, loc) -> printer.PrintOperation(left, operator, right, loc)
             | SequenceExpression(expressions, loc) ->
@@ -802,9 +802,6 @@ module PrinterExtensions =
 
 // Binary Operations
 
-        member printer.Print(node: BinaryExpression) =
-            printer.PrintOperation(node.Left, node.Operator, node.Right, node.Loc)
-
         member printer.Print(node: RestElement) =
             printer.Print("...", ?loc=node.Loc)
             printer.Print(node.Argument)
@@ -970,11 +967,12 @@ module PrinterExtensions =
             printer.Print(">")
 
         member printer.Print(node: FunctionTypeParam) =
-            printer.Print(node.Name)
-            if node.Optional = Some true then
+            let (FunctionTypeParam(name, typeAnnotation, optional)) = node
+            printer.Print(name)
+            if optional = Some true then
                 printer.Print("?")
             printer.Print(": ")
-            printer.Print(node.TypeAnnotation)
+            printer.Print(typeAnnotation)
 
         member printer.Print(node: FunctionTypeAnnotation) =
             printer.PrintOptional(node.TypeParameters)
@@ -1008,7 +1006,7 @@ module PrinterExtensions =
             printer.PrintNewLine()
             printer.PushIndentation()
             printer.PrintArray(node.Properties, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
-            printer.PrintArray(node.Indexers, (fun p x -> p.Print(x |> ObjectTypeIndexer)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintArray(node.Indexers, (fun p x -> p.Print(x |> Node.ObjectTypeIndexer)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintArray(node.CallProperties, (fun p x -> p.Print(x |> ObjectTypeCallProperty)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintArray(node.InternalSlots, (fun p x -> p.Print(x |> ObjectTypeInternalSlot)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintNewLine()

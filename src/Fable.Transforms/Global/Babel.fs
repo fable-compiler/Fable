@@ -44,7 +44,6 @@ type Expression =
     | ClassImplements of ClassImplements
     | UnaryExpression of UnaryExpression
     | UpdateExpression of UpdateExpression
-    | BinaryExpression of BinaryExpression
     | Super of loc: SourceLocation option
     | Undefined of Loc: SourceLocation option
     | FunctionExpression of FunctionExpression
@@ -55,6 +54,7 @@ type Expression =
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
     | EmitExpression of value: string * args: Expression array * loc: SourceLocation option
     | CallExpression of callee: Expression * arguments: Expression array * loc: SourceLocation option
+    | BinaryExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | LogicalExpression of left: Expression * operator: string * right: Expression * loc: SourceLocation option
     | AssignmentExpression of left: Expression * right: Expression * operator: string * loc: SourceLocation option
     | ConditionalExpression of test: Expression * consequent: Expression * alternate: Expression * loc: SourceLocation option
@@ -344,8 +344,6 @@ type ObjectMethod =
           TypeParameters = typeParameters
           Loc = loc }
 
-
-
 // Unary Operations
 type UnaryExpression =
     { Prefix: bool
@@ -388,43 +386,6 @@ type UpdateExpression =
           Loc = loc }
         |> UpdateExpression
 
-// Binary Operations
-type BinaryExpression =
-    { Left: Expression
-      Right: Expression
-      Operator: string
-      Loc: SourceLocation option }
-
-    static member Create(operator_, left, right, ?loc) =
-        let operator =
-            match operator_ with
-            | BinaryEqual -> "=="
-            | BinaryUnequal -> "!="
-            | BinaryEqualStrict -> "==="
-            | BinaryUnequalStrict -> "!=="
-            | BinaryLess -> "<"
-            | BinaryLessOrEqual -> "<="
-            | BinaryGreater -> ">"
-            | BinaryGreaterOrEqual -> ">="
-            | BinaryShiftLeft -> "<<"
-            | BinaryShiftRightSignPropagating -> ">>"
-            | BinaryShiftRightZeroFill -> ">>>"
-            | BinaryMinus -> "-"
-            | BinaryPlus -> "+"
-            | BinaryMultiply -> "*"
-            | BinaryDivide -> "/"
-            | BinaryModulus -> "%"
-            | BinaryExponent -> "**"
-            | BinaryOrBitwise -> "|"
-            | BinaryXorBitwise -> "^"
-            | BinaryAndBitwise -> "&"
-            | BinaryIn -> "in"
-            | BinaryInstanceOf -> "instanceof"
-
-        { Left = left
-          Right = right
-          Operator = operator
-          Loc = loc }
 // Patterns
 // type AssignmentProperty(key, value, ?loc) =
 //     inherit ObjectProperty("AssignmentProperty", ?loc = loc)
@@ -656,14 +617,7 @@ type TypeParameterInstantiation =
 
 
 type FunctionTypeParam =
-    { Name: Identifier
-      TypeAnnotation: TypeAnnotationInfo
-      Optional: bool option }
-
-    static member Create(name, typeInfo, ?optional) =
-        { Name = name
-          TypeAnnotation = typeInfo
-          Optional = optional }
+    | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotationInfo * optional: bool option
 
 type FunctionTypeAnnotation =
     { Params: FunctionTypeParam array
@@ -702,16 +656,7 @@ type ObjectTypeProperty =
           Method = defaultArg method false }
 
 type ObjectTypeIndexer =
-    { Id: Identifier option
-      Key: Identifier
-      Value: TypeAnnotationInfo
-      Static: bool option }
-
-    static member Create(key, value, ?id, ?``static``) =
-        { Id = id
-          Key = key
-          Value = value
-          Static = ``static`` }
+    | ObjectTypeIndexer of id: Identifier option * key: Identifier * value: TypeAnnotationInfo * ``static``: bool option
 
 type ObjectTypeCallProperty =
     { Value: TypeAnnotationInfo
@@ -755,7 +700,6 @@ type ObjectTypeAnnotation =
 type InterfaceExtends =
     | InterfaceExtends of id: Identifier * typeParameters: TypeParameterInstantiation option
 
-
 type InterfaceDeclaration =
     { Id: Identifier
       Body: ObjectTypeAnnotation
@@ -786,9 +730,6 @@ module Helpers =
         static member numericLiteral(value, ?loc) = NumericLiteral (value, loc) |> Literal
         static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc) |> Literal
         static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal
-        static member binaryExpression(operator_, left, right, ?loc) =
-            BinaryExpression.Create(operator_, left, right, ?loc=loc)
-            |> BinaryExpression
         static member arrayExpression(elements, ?loc) = ArrayExpression(elements, ?loc=loc)
         static member unaryExpression(operator_, argument, ?loc) =
             UnaryExpression.Create(operator_, argument, ?loc=loc)
@@ -854,8 +795,32 @@ module Helpers =
             SpreadElement(argument, ?loc=loc)
         static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
             ConditionalExpression(test, consequent, alternate, loc)
-
-
+        static member binaryExpression(operator_, left, right, ?loc) =
+            let operator =
+                match operator_ with
+                | BinaryEqual -> "=="
+                | BinaryUnequal -> "!="
+                | BinaryEqualStrict -> "==="
+                | BinaryUnequalStrict -> "!=="
+                | BinaryLess -> "<"
+                | BinaryLessOrEqual -> "<="
+                | BinaryGreater -> ">"
+                | BinaryGreaterOrEqual -> ">="
+                | BinaryShiftLeft -> "<<"
+                | BinaryShiftRightSignPropagating -> ">>"
+                | BinaryShiftRightZeroFill -> ">>>"
+                | BinaryMinus -> "-"
+                | BinaryPlus -> "+"
+                | BinaryMultiply -> "*"
+                | BinaryDivide -> "/"
+                | BinaryModulus -> "%"
+                | BinaryExponent -> "**"
+                | BinaryOrBitwise -> "|"
+                | BinaryXorBitwise -> "^"
+                | BinaryAndBitwise -> "&"
+                | BinaryIn -> "in"
+                | BinaryInstanceOf -> "instanceof"
+            BinaryExpression(left, right, operator, loc)
     type Identifier with
         member this.Name =
             let (Identifier(name=name)) = this
@@ -945,10 +910,17 @@ module Helpers =
     type VariableDeclarator with
         static member variableDeclarator(id, ?init) = VariableDeclarator(id, init)
 
+    type ObjectTypeIndexer with
+        static member objectTypeIndexer(key, value, ?id, ?``static``) =
+            ObjectTypeIndexer(id, key, value, ``static``)
+
     type InterfaceExtends with
         static member interfaceExtends(id, ?typeParameters) =
             InterfaceExtends(id, typeParameters)
 
+    type FunctionTypeParam with
+        static member functionTypeParam(name, typeInfo, ?optional) =
+            FunctionTypeParam(name, typeInfo, optional)
     type Literal with
         static member nullLiteral(?loc) = NullLiteral loc
         static member numericLiteral(value, ?loc) = NumericLiteral (value, loc)
