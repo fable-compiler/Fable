@@ -355,7 +355,7 @@ module PrinterExtensions =
             | ImportSpecifier(_)
             | Node.ObjectTypeIndexer(_)
             | Node.VariableDeclarator(_)
-            | ObjectTypeCallProperty(_)
+            | Node.ObjectTypeCallProperty(_)
             | ObjectTypeInternalSlot(_) -> failwith "Not implemented"
 
         member printer.Print(expr: Expression) =
@@ -440,7 +440,12 @@ module PrinterExtensions =
         member printer.Print(md: ModuleDeclaration) =
             match md with
             | ImportDeclaration(d) -> printer.Print(d)
-            | ExportNamedReferences(d) -> printer.Print(d)
+            | ExportNamedReferences(specifiers, source) ->
+                printer.Print("export ")
+                printer.Print("{ ")
+                printer.PrintCommaSeparatedArray(specifiers)
+                printer.Print(" }")
+                printer.PrintOptional(source, " from ")
             | ExportNamedDeclaration(declaration) ->
                 printer.Print("export ")
                 printer.Print(declaration)
@@ -919,13 +924,6 @@ module PrinterExtensions =
                 printer.Print(" as ")
                 printer.Print(node.Exported)
 
-        member printer.Print(node: ExportNamedReferences) =
-            printer.Print("export ")
-            printer.Print("{ ")
-            printer.PrintCommaSeparatedArray(node.Specifiers)
-            printer.Print(" }")
-            printer.PrintOptional(node.Source, " from ")
-
         member printer.Print(node: TypeAnnotationInfo) =
             match node with
             | StringTypeAnnotation -> printer.Print("string")
@@ -1007,7 +1005,7 @@ module PrinterExtensions =
             printer.PushIndentation()
             printer.PrintArray(node.Properties, (fun p x -> p.Print(x)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintArray(node.Indexers, (fun p x -> p.Print(x |> Node.ObjectTypeIndexer)), (fun p -> p.PrintStatementSeparator()))
-            printer.PrintArray(node.CallProperties, (fun p x -> p.Print(x |> ObjectTypeCallProperty)), (fun p -> p.PrintStatementSeparator()))
+            printer.PrintArray(node.CallProperties, (fun p x -> p.Print(x |> Node.ObjectTypeCallProperty)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintArray(node.InternalSlots, (fun p x -> p.Print(x |> ObjectTypeInternalSlot)), (fun p -> p.PrintStatementSeparator()))
             printer.PrintNewLine()
             printer.PopIndentation()

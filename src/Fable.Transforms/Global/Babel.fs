@@ -106,7 +106,7 @@ type Declaration =
 type ModuleDeclaration =
     | ImportDeclaration of ImportDeclaration
     | ExportAllDeclaration of source: Literal * loc: SourceLocation option
-    | ExportNamedReferences of ExportNamedReferences
+    | ExportNamedReferences of specifiers: ExportSpecifier array * source: StringLiteral option
     | ExportNamedDeclaration of declaration: Declaration
     | PrivateModuleDeclaration of statement: Statement
     /// An export default declaration, e.g., export default function () {}; or export default 1;.
@@ -167,7 +167,6 @@ type Program =
 type BlockStatement =
     | BlockStatement of body: Statement array
 
-
 //    let directives = [||] // defaultArg directives_ [||]
 //    member _.Directives: Directive array = directives
 
@@ -184,13 +183,9 @@ type BlockStatement =
 type SwitchCase =
     | SwitchCase of test: Expression option * consequent: Statement array * loc: SourceLocation option
 
-
-// Exceptions
-
 /// A catch clause following a try block.
 type CatchClause =
     | CatchClause of param: Pattern * body: BlockStatement * loc: SourceLocation option
-
 
 // Declarations
 type VariableDeclarator =
@@ -236,7 +231,7 @@ type FunctionDeclaration =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member Create(``params``, body, id, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_, ?declare,
+    static member functionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_, ?declare,
         { Params = ``params``
           Body = body
           Id = id
@@ -264,7 +259,7 @@ type FunctionExpression =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member Create(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
+    static member functionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
         { Id = id
           Params = ``params``
           Body = body
@@ -324,7 +319,7 @@ type ObjectMethod =
       TypeParameters: TypeParameterDeclaration option
       Loc: SourceLocation option }
 
-    static member Create(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_,
+    static member objectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_,
         let kind =
             match kind_ with
             | ObjectGetter -> "get"
@@ -351,7 +346,7 @@ type UnaryExpression =
       Operator: string
       Loc: SourceLocation option }
 
-    static member Create(operator_, argument, ?loc) =
+    static member unaryExpression(operator_, argument, ?loc) =
         let prefix = true
         let operator =
             match operator_ with
@@ -577,15 +572,6 @@ type ExportSpecifier =
 
 /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
 /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
-type ExportNamedReferences =
-    { Specifiers: ExportSpecifier array
-      Source: StringLiteral option }
-
-    static member AsModuleDeclaration(specifiers, ?source): ModuleDeclaration =
-        { Specifiers = specifiers
-          Source = source }
-        |> ExportNamedReferences
-
 // Type Annotations
 type TypeAnnotationInfo =
     | AnyTypeAnnotation
@@ -659,10 +645,7 @@ type ObjectTypeIndexer =
     | ObjectTypeIndexer of id: Identifier option * key: Identifier * value: TypeAnnotationInfo * ``static``: bool option
 
 type ObjectTypeCallProperty =
-    { Value: TypeAnnotationInfo
-      Static: bool option }
-
-    static member Create(value, ?``static``) = { Value = value; Static = ``static`` }
+    | ObjectTypeCallProperty of value: TypeAnnotationInfo * ``static``: bool option
 
 type ObjectTypeInternalSlot =
     { Id: Identifier
@@ -732,7 +715,7 @@ module Helpers =
         static member stringLiteral(value, ?loc) = Literal.stringLiteral (value, ?loc=loc) |> Literal
         static member arrayExpression(elements, ?loc) = ArrayExpression(elements, ?loc=loc)
         static member unaryExpression(operator_, argument, ?loc) =
-            UnaryExpression.Create(operator_, argument, ?loc=loc)
+            UnaryExpression.unaryExpression(operator_, argument, ?loc=loc)
             |> UnaryExpression
         static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
             Identifier.identifier(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
@@ -786,7 +769,7 @@ module Helpers =
                 | _ -> ""
             MemberExpression(name, object, property, computed, loc)
         static member functionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
-            FunctionExpression.Create(``params``, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
+            FunctionExpression.functionExpression(``params``, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
             |> FunctionExpression
         static member classExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
             ClassExpression.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
@@ -890,7 +873,7 @@ module Helpers =
                 ?loc = loc
             )
         static member functionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) =
-            FunctionDeclaration.Create(``params``, body, id, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
+            FunctionDeclaration.functionDeclaration(``params``, body, id, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
             |> FunctionDeclaration
         static member classDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
             ClassDeclaration.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
@@ -943,11 +926,13 @@ module Helpers =
             let computed = defaultArg computed_ false
             ObjectProperty(key, value, computed)
         static member objectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) =
-            ObjectMethod.Create(kind_, key, ``params``, body, ?computed_=computed_, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
+            ObjectMethod.objectMethod(kind_, key, ``params``, body, ?computed_=computed_, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
             |> ObjectMethod
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
+        static member exportNamedReferences(specifiers, ?source): ModuleDeclaration =
+            ExportNamedReferences(specifiers, source)
 
     type TypeAnnotationInfo with
         static member genericTypeAnnotation(id, ?typeParameters) =
