@@ -40,7 +40,6 @@ type Node =
 type Expression =
     | Literal of Literal
     | Identifier of Identifier
-    | SpreadElement of SpreadElement
     | ClassExpression of ClassExpression
     | ClassImplements of ClassImplements
     | UnaryExpression of UnaryExpression
@@ -51,6 +50,7 @@ type Expression =
     | FunctionExpression of FunctionExpression
     | ThisExpression of loc: SourceLocation option
     | ConditionalExpression of ConditionalExpression
+    | SpreadElement of argument: Expression * loc: SourceLocation option
     | ArrayExpression of elements: Expression array * loc: SourceLocation option
     | ObjectExpression of properties: ObjectMember array * loc: SourceLocation option
     | SequenceExpression of expressions: Expression array * loc: SourceLocation option
@@ -187,14 +187,8 @@ type SwitchCase =
 
 /// A catch clause following a try block.
 type CatchClause =
-    { Param: Pattern
-      Body: BlockStatement
-      Loc: SourceLocation option }
+    | CatchClause of param: Pattern * body: BlockStatement * loc: SourceLocation option
 
-    static member Create(param, body, ?loc) =
-        { Param = param
-          Body = body
-          Loc = loc }
 
 // Declarations
 type VariableDeclarator =
@@ -327,13 +321,6 @@ type FunctionExpression =
 //    inherit Node("SpreadProperty", ?loc = loc)
 //    member _.Argument: Expression = argument
 
-// Should derive from Node, but make it an expression for simplicity
-type SpreadElement =
-    { Argument: Expression
-      Loc: SourceLocation option }
-
-    static member Create(argument, ?loc) =
-        { Argument = argument; Loc = loc }
 
 type ObjectMember =
     | ObjectProperty of key: Expression * value: Expression * computed: bool
@@ -705,12 +692,8 @@ type TypeAnnotationInfo =
     | NullableTypeAnnotation of typeAnnotation: TypeAnnotationInfo
     | TupleTypeAnnotation of types: TypeAnnotationInfo array
 
-
-
 type TypeAnnotation =
-    { TypeAnnotation: TypeAnnotationInfo }
-
-    static member Create(typeAnnotation) = { TypeAnnotation = typeAnnotation }
+    | TypeAnnotation of TypeAnnotationInfo
 
 type TypeParameter =
     { Name: string
@@ -935,7 +918,7 @@ module Helpers =
             ClassExpression.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
             |> ClassExpression
         static member spreadElement(argument, ?loc) =
-            SpreadElement.Create(argument, ?loc=loc) |> SpreadElement
+            SpreadElement(argument, ?loc=loc)
 
     type Identifier with
         member this.Name =
@@ -977,6 +960,9 @@ module Helpers =
             let (Program body) = this
             body
 
+    type CatchClause with
+        static member catchClause(param, body, ?loc) =
+            CatchClause(param, body, loc)
 
     type SwitchCase with
         static member switchCase(?consequent, ?test, ?loc) =

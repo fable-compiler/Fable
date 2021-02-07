@@ -165,7 +165,7 @@ module PrinterExtensions =
         member printer.PrintOptional(node: TypeParameterDeclaration option, ?before: string) =
             printer.PrintOptional(node |> Option.map TypeParameterDeclaration, ?before=before)
         member printer.PrintOptional(node: TypeAnnotation option, ?before: string) =
-            printer.PrintOptional(node |> Option.map TypeAnnotation, ?before=before)
+            printer.PrintOptional(node |> Option.map Node.TypeAnnotation, ?before=before)
         member printer.PrintOptional(node: Identifier option, ?before: string) =
             printer.PrintOptional(node |> Option.map Expression.Identifier, ?before=before)
         member printer.PrintOptional(node: Literal option, ?before: string) =
@@ -181,7 +181,7 @@ module PrinterExtensions =
         member printer.PrintOptional(node: VariableDeclaration option, ?before: string) =
             printer.PrintOptional(node |> Option.map VariableDeclaration, ?before=before)
         member printer.PrintOptional(node: CatchClause option, ?before: string) =
-            printer.PrintOptional(node |> Option.map CatchClause, ?before=before)
+            printer.PrintOptional(node |> Option.map Node.CatchClause, ?before=before)
         member printer.PrintOptional(node: BlockStatement option, ?before: string) =
             printer.PrintOptional(node, ?before=before)
 
@@ -224,9 +224,9 @@ module PrinterExtensions =
             printer.PrintOptional(id, " ")
             printer.PrintOptional(typeParameters |> Option.map TypeParameterDeclaration)
             match superClass with
-            | Some (Expression.Identifier(Identifier(typeAnnotation=typeAnnotation))) when typeAnnotation.IsSome ->
-                printer.Print(" extends ");
-                printer.Print(typeAnnotation.Value.TypeAnnotation)
+            | Some (Expression.Identifier(Identifier(typeAnnotation=Some(typeAnnotation)))) ->
+                printer.Print(" extends ")
+                printer.Print(typeAnnotation)
             | _ -> printer.PrintOptional(superClass, " extends ")
             // printer.PrintOptional(superTypeParameters)
             match implements with
@@ -338,10 +338,10 @@ module PrinterExtensions =
             | ClassBody(n) -> printer.Print(n)
             | Expression(n) -> printer.Print(n)
             | Node.SwitchCase(n) -> printer.Print(n)
-            | CatchClause(n) -> printer.Print(n)
+            | Node.CatchClause(n) -> printer.Print(n)
             | ObjectMember(n) -> printer.Print(n)
             | TypeParameter(n) -> printer.Print(n)
-            | TypeAnnotation(n) -> printer.Print(n)
+            | Node.TypeAnnotation(n) -> printer.Print(n)
             | ExportSpecifier(n) -> printer.Print(n)
             | InterfaceExtends(n) -> printer.Print(n)
             | ModuleDeclaration(n) -> printer.Print(n)
@@ -365,7 +365,9 @@ module PrinterExtensions =
             | Undefined(loc) -> printer.Print("undefined", ?loc=loc)
             | Expression.Identifier(n) -> printer.Print(n)
             | NewExpression(callee, arguments, typeArguments, loc) -> printer.PrintNewExpression(callee, arguments, typeArguments, loc)
-            | SpreadElement(n) -> printer.Print(n)
+            | SpreadElement(argument, loc) ->
+                printer.Print("...", ?loc = loc)
+                printer.ComplexExpressionWithParens(argument)
             | ThisExpression(loc) -> printer.Print("this", ?loc = loc)
             | CallExpression(callee, arguments, loc) -> printer.PrintCallExpression(callee, arguments, loc)
             | EmitExpression(value, args, loc) -> printer.PrintEmitExpression(value, args, loc)
@@ -621,11 +623,12 @@ module PrinterExtensions =
 
 // Exceptions
         member printer.Print(node: CatchClause) =
+            let (CatchClause(param, body, loc)) = node
             // "catch" is being printed by TryStatement
-            printer.Print("(", ?loc = node.Loc)
-            printer.Print(node.Param)
+            printer.Print("(", ?loc = loc)
+            printer.Print(param)
             printer.Print(") ")
-            printer.Print(node.Body)
+            printer.Print(body)
 
         member printer.PrintTryStatement(block, handler, finalizer, loc) =
             printer.Print("try ", ?loc = loc)
@@ -687,9 +690,6 @@ module PrinterExtensions =
         member printer.Print(node: FunctionExpression)=
             printer.PrintFunction(node.Id, node.Params, node.Body, node.TypeParameters, node.ReturnType, node.Loc)
 
-        member printer.Print(node: SpreadElement) =
-            printer.Print("...", ?loc = node.Loc)
-            printer.ComplexExpressionWithParens(node.Argument)
 
         member printer.Print(node: ObjectMember) =
             match node with
@@ -953,9 +953,9 @@ module PrinterExtensions =
                 printer.PrintOptional(typeParameters)
             | ObjectTypeAnnotation(an) -> printer.Print(an)
 
-        member printer.Print(node: TypeAnnotation) =
+        member printer.Print((TypeAnnotation info): TypeAnnotation) =
             printer.Print(": ")
-            printer.Print(node.TypeAnnotation)
+            printer.Print(info)
 
         member printer.Print(node: TypeParameter) =
             printer.Print(node.Name)

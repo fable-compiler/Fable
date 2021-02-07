@@ -362,7 +362,7 @@ module Annotation =
     let getGenericTypeAnnotation _com _ctx name genParams =
         let typeParamInst = makeTypeParamInst genParams
         GenericTypeAnnotation(Identifier.identifier(name), ?typeParameters=typeParamInst)
-        |> TypeAnnotation.Create |> Some
+        |> TypeAnnotation |> Some
 
     let typeAnnotation com ctx typ: TypeAnnotationInfo =
         match typ with
@@ -509,7 +509,7 @@ module Annotation =
 
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
         if com.Options.Typescript then
-            let ta = typeAnnotation com ctx id.Type |> TypeAnnotation.Create |> Some
+            let ta = typeAnnotation com ctx id.Type |> TypeAnnotation |> Some
             let optional = None // match id.Type with | Fable.Option _ -> Some true | _ -> None
             Identifier.identifier(id.Name, ?optional=optional, ?typeAnnotation=ta, ?loc=id.Range)
         else
@@ -522,7 +522,7 @@ module Annotation =
             let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
             let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
             let args', body' = com.TransformFunction(ctx, name, args, body)
-            let returnType = TypeAnnotation.Create(typeAnnotation com ctx body.Type) |> Some
+            let returnType = TypeAnnotation(typeAnnotation com ctx body.Type) |> Some
             let typeParamDecl = makeTypeParamDecl newTypeParams
             args', body', returnType, typeParamDecl
         else
@@ -1172,7 +1172,7 @@ module Util =
         let ctx = { ctx with TailCallOpportunity = None }
         let handler =
             catch |> Option.map (fun (param, body) ->
-                CatchClause.Create(identAsPattern param, transformBlock com ctx returnStrategy body))
+                CatchClause.catchClause(identAsPattern param, transformBlock com ctx returnStrategy body))
         let finalizer =
             finalizer |> Option.map (transformBlock com ctx None)
         [|Statement.tryStatement(transformBlock com ctx returnStrategy body,
@@ -1842,7 +1842,7 @@ module Util =
             if com.Options.Typescript then
                 getEntityFieldsAsProps com ctx ent
                 |> Array.map (fun prop ->
-                    let ta = prop.Value |> TypeAnnotation.Create |> Some
+                    let ta = prop.Value |> TypeAnnotation |> Some
                     ClassProperty.AsClassMember(prop.Key, ``static``=prop.Static, ?typeAnnotation=ta))
             else Array.empty
         let classMembers = Array.append [| classCons |] classMembers
@@ -1856,7 +1856,7 @@ module Util =
             let ta =
                 if com.Options.Typescript then
                     makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
-                    |> TypeAnnotation.Create |> Some
+                    |> TypeAnnotation |> Some
                 else None
             let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
             let generics = genArgs |> Array.map identAsExpr
