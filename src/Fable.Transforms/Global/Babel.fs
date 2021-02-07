@@ -40,7 +40,14 @@ type Node =
 type Expression =
     | Literal of Literal
     | Identifier of Identifier
-    | ClassExpression of ClassExpression
+    | ClassExpression of
+        body: ClassBody *
+        id: Identifier option *
+        superClass: Expression option *
+        implements: ClassImplements array option *
+        superTypeParameters: TypeParameterInstantiation option *
+        typeParameters: TypeParameterDeclaration option *
+        loc: SourceLocation option
     | ClassImplements of ClassImplements
     | Super of loc: SourceLocation option
     | Undefined of Loc: SourceLocation option
@@ -108,7 +115,14 @@ type Statement =
 
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
-    | ClassDeclaration of ClassDeclaration
+    | ClassDeclaration of
+        body: ClassBody *
+        id: Identifier option *
+        superClass: Expression option *
+        implements: ClassImplements array option *
+        superTypeParameters: TypeParameterInstantiation option *
+        typeParameters: TypeParameterDeclaration option *
+        loc: SourceLocation option
     | VariableDeclaration of VariableDeclaration
     | FunctionDeclaration of
         ``params``: Pattern array *
@@ -289,46 +303,22 @@ type VariableDeclaration =
 //    inherit Node("SpreadProperty", ?loc = loc)
 //    member _.Argument: Expression = argument
 
-
 type ObjectMember =
     | ObjectProperty of key: Expression * value: Expression * computed: bool
-    | ObjectMethod of ObjectMethod
+    | ObjectMethod of
+        kind: string *
+        key: Expression *
+        ``params``: Pattern array *
+        body: BlockStatement *
+        computed: bool *
+        returnType: TypeAnnotation option *
+        typeParameters: TypeParameterDeclaration option *
+        loc: SourceLocation option
 
 //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
 
 type ObjectMethodKind = ObjectGetter | ObjectSetter | ObjectMeth
-
-type ObjectMethod =
-    { Kind: string
-      Key: Expression
-      Params: Pattern array
-      Body: BlockStatement
-      Computed: bool
-      ReturnType: TypeAnnotation option
-      TypeParameters: TypeParameterDeclaration option
-      Loc: SourceLocation option }
-
-    static member objectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) = // ?async_, ?generator_,
-        let kind =
-            match kind_ with
-            | ObjectGetter -> "get"
-            | ObjectSetter -> "set"
-            | ObjectMeth -> "method"
-        let computed = defaultArg computed_ false
-        //    let async = defaultArg async_ false
-        //    let generator = defaultArg generator_ false
-        //    member _.Async: bool = async
-        //    member _.Generator: bool = generator
-        { Kind = kind
-          Key = key
-          Params = ``params``
-          Body = body
-          Computed = computed
-          ReturnType = returnType
-          TypeParameters = typeParameters
-          Loc = loc }
-
 
 // Patterns
 // type AssignmentProperty(key, value, ?loc) =
@@ -354,23 +344,28 @@ type ObjectMethod =
 
 // Classes
 type ClassMember =
-    | ClassMethod of ClassMethod
-    | ClassProperty of key: Expression * value: Expression option * computed: bool * ``static``: bool * optional: bool * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
+    | ClassMethod of
+        kind: string *
+        key: Expression *
+        ``params``: Pattern array *
+        body: BlockStatement *
+        Computed: bool *
+        ``static``: bool option *
+        ``abstract``: bool option *
+        returnType: TypeAnnotation option *
+        typeParameters: TypeParameterDeclaration option *
+        loc: SourceLocation option
+    | ClassProperty of
+        key: Expression *
+        value: Expression option *
+        computed: bool *
+        ``static``: bool *
+        optional: bool *
+        typeAnnotation: TypeAnnotation option *
+        loc: SourceLocation option
 
 type ClassMethodKind =
     | ClassImplicitConstructor | ClassFunction | ClassGetter | ClassSetter
-
-type ClassMethod =
-    { Kind: string
-      Key: Expression
-      Params: Pattern array
-      Body: BlockStatement
-      Computed: bool
-      Static: bool option
-      Abstract: bool option
-      ReturnType: TypeAnnotation option
-      TypeParameters: TypeParameterDeclaration option
-      Loc: SourceLocation option }
 
     // This appears in astexplorer.net but it's not documented
     // member _.Expression: bool = false
@@ -383,43 +378,6 @@ type ClassImplements =
 
 type ClassBody =
     | ClassBody of body: ClassMember array * loc: SourceLocation option
-
-type ClassDeclaration =
-    { Body: ClassBody
-      Id: Identifier option
-      SuperClass: Expression option
-      Implements: ClassImplements array option
-      SuperTypeParameters: TypeParameterInstantiation option
-      TypeParameters: TypeParameterDeclaration option
-      Loc: SourceLocation option }
-
-    static member Create(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-        { Body = body
-          Id = id
-          SuperClass = superClass
-          Implements = implements
-          SuperTypeParameters = superTypeParameters
-          TypeParameters = typeParameters
-          Loc = loc }
-
-/// Anonymous class: e.g., var myClass = class { }
-type ClassExpression =
-    { Body: ClassBody
-      Id: Identifier option
-      SuperClass: Expression option
-      Implements: ClassImplements array option
-      SuperTypeParameters: TypeParameterInstantiation option
-      TypeParameters: TypeParameterDeclaration option
-      Loc: SourceLocation option }
-
-    static member Create(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-        { Body = body
-          Id = id
-          SuperClass = superClass
-          Implements = implements
-          SuperTypeParameters = superTypeParameters
-          TypeParameters = typeParameters
-          Loc = loc }
 
 // type MetaProperty(meta, property, ?loc) =
 //     interface Expression with
@@ -488,26 +446,15 @@ type FunctionTypeParam =
     | FunctionTypeParam of name: Identifier * typeAnnotation: TypeAnnotationInfo * optional: bool option
 
 type ObjectTypeProperty =
-    { Key: Expression
-      Value: TypeAnnotationInfo
-      Kind: string option
-      Computed: bool
-      Static: bool
-      Optional: bool
-      Proto: bool
-      Method: bool }
-
-    static member Create(key, value, ?computed_, ?kind, ?``static``, ?optional, ?proto, ?method) =
-        let computed = defaultArg computed_ false
-
-        { Key = key
-          Value = value
-          Kind = kind
-          Computed = computed
-          Static = defaultArg ``static`` false
-          Optional = defaultArg optional false
-          Proto = defaultArg proto false
-          Method = defaultArg method false }
+    | ObjectTypeProperty of
+        key: Expression *
+        value: TypeAnnotationInfo *
+        kind: string option *
+        computed: bool *
+        ``static``: bool *
+        optional: bool *
+        proto: bool *
+        method: bool
 
 type ObjectTypeIndexer =
     | ObjectTypeIndexer of id: Identifier option * key: Identifier * value: TypeAnnotationInfo * ``static``: bool option
@@ -519,24 +466,12 @@ type ObjectTypeInternalSlot =
     | ObjectTypeInternalSlot of id: Identifier * value: TypeAnnotationInfo * optional: bool * ``static``: bool * method: bool
 
 type ObjectTypeAnnotation =
-    { Properties: ObjectTypeProperty array
-      Indexers: ObjectTypeIndexer array
-      CallProperties: ObjectTypeCallProperty array
-      InternalSlots: ObjectTypeInternalSlot array
-      Exact: bool }
-
-    static member Create(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
-        let exact = defaultArg exact_ false
-        let indexers = defaultArg indexers_ [||]
-        let callProperties = defaultArg callProperties_ [||]
-        let internalSlots = defaultArg internalSlots_ [||]
-
-        { Properties = properties
-          Indexers = indexers
-          CallProperties = callProperties
-          InternalSlots = internalSlots
-          Exact = exact }
-
+    | ObjectTypeAnnotation of
+        properties: ObjectTypeProperty array *
+        indexers: ObjectTypeIndexer array *
+        callProperties: ObjectTypeCallProperty array *
+        internalSlots: ObjectTypeInternalSlot array *
+        exact: bool
 type InterfaceExtends =
     | InterfaceExtends of id: Identifier * typeParameters: TypeParameterInstantiation option
 
@@ -608,8 +543,7 @@ module Helpers =
         static member functionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
             FunctionExpression(id, ``params``, body, returnType, typeParameters, loc)
         static member classExpression(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-            ClassExpression.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
-            |> ClassExpression
+            ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc)
         static member spreadElement(argument, ?loc) =
             SpreadElement(argument, ?loc=loc)
         static member conditionalExpression(test, consequent, alternate, ?loc): Expression =
@@ -735,8 +669,7 @@ module Helpers =
         static member functionDeclaration(``params``, body, id, ?returnType, ?typeParameters, ?loc) =
             FunctionDeclaration(``params``, body, id, returnType, typeParameters, loc)
         static member classDeclaration(body, ?id, ?superClass, ?superTypeParameters, ?typeParameters, ?implements, ?loc) =
-            ClassDeclaration.Create(body, ?id=id, ?superClass=superClass, ?superTypeParameters=superTypeParameters, ?typeParameters=typeParameters, ?implements=implements, ?loc=loc)
-            |> ClassDeclaration
+            ClassDeclaration(body, id, superClass, implements, superTypeParameters, typeParameters, loc)
         static member interfaceDeclaration(id, body, ?extends_, ?typeParameters, ?implements_): Declaration = // ?mixins_,
             let extends = defaultArg extends_ [||]
             let implements = defaultArg implements_ [||]
@@ -777,18 +710,7 @@ module Helpers =
                 | ClassSetter -> "set"
                 | ClassFunction -> "method"
             let computed = defaultArg computed_ false
-
-            { Kind = kind
-              Key = key
-              Params = ``params``
-              Body = body
-              Computed = computed
-              Static = ``static``
-              Abstract = ``abstract``
-              ReturnType = returnType
-              TypeParameters = typeParameters
-              Loc = loc }
-            |> ClassMethod
+            ClassMethod(kind, key, ``params``, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc)
         static member classProperty(key, ?value, ?computed_, ?``static``, ?optional, ?typeAnnotation, ?loc): ClassMember =
             let computed = defaultArg computed_ false
             ClassProperty(key, value, computed, defaultArg ``static`` false, defaultArg optional false, typeAnnotation, loc)
@@ -815,8 +737,22 @@ module Helpers =
             let computed = defaultArg computed_ false
             ObjectProperty(key, value, computed)
         static member objectMethod(kind_, key, ``params``, body, ?computed_, ?returnType, ?typeParameters, ?loc) =
-            ObjectMethod.objectMethod(kind_, key, ``params``, body, ?computed_=computed_, ?returnType=returnType, ?typeParameters=typeParameters, ?loc=loc)
-            |> ObjectMethod
+            let kind =
+                match kind_ with
+                | ObjectGetter -> "get"
+                | ObjectSetter -> "set"
+                | ObjectMeth -> "method"
+            let computed = defaultArg computed_ false
+            ObjectMethod(kind, key, ``params``, body, computed, returnType, typeParameters, loc)
+
+    type ObjectTypeProperty with
+        static member objectTypeProperty(key, value, ?computed_, ?kind, ?``static``, ?optional, ?proto, ?method) =
+            let computed = defaultArg computed_ false
+            let optional = defaultArg optional false
+            let method = defaultArg method false
+            let ``static`` = defaultArg ``static`` false
+            let proto = defaultArg proto false
+            ObjectTypeProperty(key, value, kind, computed, ``static``, optional, proto, method)
 
     type ModuleDeclaration with
         static member exportAllDeclaration(source, ?loc) = ExportAllDeclaration(source, loc)
@@ -828,6 +764,15 @@ module Helpers =
             GenericTypeAnnotation (id, typeParameters)
         static member functionTypeAnnotation(``params``, returnType, ?typeParameters, ?rest): TypeAnnotationInfo =
             FunctionTypeAnnotation(``params``,returnType, typeParameters, rest)
+
+    type ObjectTypeAnnotation with
+        static member objectTypeAnnotation(properties, ?indexers_, ?callProperties_, ?internalSlots_, ?exact_) =
+            let exact = defaultArg exact_ false
+            let indexers = defaultArg indexers_ [||]
+            let callProperties = defaultArg callProperties_ [||]
+            let internalSlots = defaultArg internalSlots_ [||]
+
+            ObjectTypeAnnotation(properties, indexers, callProperties, internalSlots, exact)
 
     type TypeParameter with
         static member typeParameter(name, ?bound, ?``default``) =

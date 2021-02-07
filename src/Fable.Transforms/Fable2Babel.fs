@@ -1059,14 +1059,14 @@ module Util =
                 members |> List.choose (function
                     | ObjectProperty(key, value, computed) ->
                         ClassMember.classProperty(key, value, computed_=computed) |> Some
-                    | ObjectMethod(m) ->
+                    | ObjectMethod(kind, key, ``params``, body, computed, returnType, typeParameters, _) ->
                         let kind =
-                            match m.Kind with
+                            match kind with
                             | "get" -> ClassGetter
                             | "set" -> ClassSetter
                             | _ -> ClassFunction
-                        ClassMember.classMethod(kind, m.Key, m.Params, m.Body, computed_=m.Computed,
-                            ?returnType=m.ReturnType, ?typeParameters=m.TypeParameters) |> Some)
+                        ClassMember.classMethod(kind, key, ``params``, body, computed_=computed,
+                            ?returnType=returnType, ?typeParameters=typeParameters) |> Some)
 
             let baseExpr, classMembers =
                 baseCall
@@ -1760,14 +1760,14 @@ module Util =
         let membName = Identifier.identifier(membName)
         let decl: Declaration =
             match expr with
-            | ClassExpression(e) ->
+            | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
                 Declaration.classDeclaration(
-                    e.Body,
+                    body,
                     ?id = Some membName,
-                    ?superClass = e.SuperClass,
-                    ?implements = e.Implements,
-                    ?superTypeParameters = e.SuperTypeParameters,
-                    ?typeParameters = e.TypeParameters)
+                    ?superClass = superClass,
+                    ?superTypeParameters = superTypeParameters,
+                    ?typeParameters = typeParameters,
+                    ?implements = implements)
             | FunctionExpression(_, ``params``, body, returnType, typeParameters, _) ->
                 Declaration.functionDeclaration(
                     ``params``, body, membName,
@@ -1819,14 +1819,14 @@ module Util =
             |> Array.map (fun id ->
                 let prop = identAsExpr id
                 let ta = typeAnnotation com ctx id.Type
-                ObjectTypeProperty.Create(prop, ta))
+                ObjectTypeProperty.objectTypeProperty(prop, ta))
         else
             ent.FSharpFields
             |> Seq.map (fun field ->
                 let prop, computed = memberFromName field.Name
                 let ta = typeAnnotation com ctx field.FieldType
                 let isStatic = if field.IsStatic then Some true else None
-                ObjectTypeProperty.Create(prop, ta, computed_=computed, ?``static``=isStatic))
+                ObjectTypeProperty.objectTypeProperty(prop, ta, computed_=computed, ?``static``=isStatic))
             |> Seq.toArray
 
     let declareClassType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) classMembers =
@@ -1840,9 +1840,9 @@ module Util =
         let classFields =
             if com.Options.Typescript then
                 getEntityFieldsAsProps com ctx ent
-                |> Array.map (fun prop ->
-                    let ta = prop.Value |> TypeAnnotation |> Some
-                    ClassMember.classProperty(prop.Key, ``static``=prop.Static, ?typeAnnotation=ta))
+                |> Array.map (fun (ObjectTypeProperty(key, value, _, _, ``static``, _, _, _)) ->
+                    let ta = value |> TypeAnnotation |> Some
+                    ClassMember.classProperty(key, ``static``=``static``, ?typeAnnotation=ta))
             else Array.empty
         let classMembers = Array.append [| classCons |] classMembers
         let classBody = ClassBody.classBody([| yield! classFields; yield! classMembers |])
