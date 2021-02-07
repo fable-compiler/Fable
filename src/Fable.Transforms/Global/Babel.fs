@@ -69,7 +69,7 @@ type Pattern =
     member this.Name =
         match this with
         | RestElement(el) -> el.Name
-        | IdentifierPattern(id) -> id.Name
+        | IdentifierPattern(Identifier(name=name)) -> name
 
 type Literal =
     | RegExp of pattern: string * flags: string * loc: SourceLocation option
@@ -131,26 +131,13 @@ type ModuleDeclaration =
 // Identifier
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
-    { Name: string
-      Optional: bool option
-      TypeAnnotation: TypeAnnotation option
-      Loc: SourceLocation option }
+    | Identifier of name: string * optional: bool option * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
 
-    static member Create(name, ?optional, ?typeAnnotation, ?loc): Identifier =
-        { Name = name
-          Optional = optional
-          TypeAnnotation = typeAnnotation
-          Loc = loc }
 
 // Literals
 
 type StringLiteral =
-    { Value: string
-      Loc: SourceLocation option }
-
-    static member Create(value, ?loc) =
-        { Value = value
-          Loc = loc }
+    | StringLiteral of value: string * loc: SourceLocation option
 
 // Misc
 //type Decorator(value, ?loc) =
@@ -158,10 +145,7 @@ type StringLiteral =
 //    member _.Value = value
 //
 type DirectiveLiteral =
-    { Value: string }
-
-    static member Create(value) = { Value = value }
-
+    | DirectiveLiteral of value: string
 
 // Program
 
@@ -169,10 +153,7 @@ type DirectiveLiteral =
 /// Parsers must specify sourceType as "module" if the source has been parsed as an ES6 module.
 /// Otherwise, sourceType must be "script".
 type Program =
-    { Body: ModuleDeclaration array }
-
-    static member Create(body) = // ?directives_,
-        { Body = body }
+    | Program of body: ModuleDeclaration array
 
 //    let sourceType = "module" // Don't use "script"
 //    member _.Directives: Directive array = directives
@@ -182,10 +163,8 @@ type Program =
 
 /// A block statement, i.e., a sequence of statements surrounded by braces.
 type BlockStatement =
-    { Body: Statement array }
+    | BlockStatement of body: Statement array
 
-    static member Create(body) = // ?directives_,
-        { Body = body }
 
 //    let directives = [||] // defaultArg directives_ [||]
 //    member _.Directives: Directive array = directives
@@ -201,14 +180,8 @@ type BlockStatement =
 
 /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
 type SwitchCase =
-    { Test: Expression option
-      Consequent: Statement array
-      Loc: SourceLocation option }
+    | SwitchCase of test: Expression option * consequent: Statement array * loc: SourceLocation option
 
-    static member Create(consequent, ?test, ?loc) =
-        { Test = test
-          Consequent = consequent
-          Loc = loc }
 
 // Exceptions
 
@@ -669,7 +642,6 @@ type ImportSpecifier =
     /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
     | ImportNamespaceSpecifier of local: Identifier
 
-
 type ImportDeclaration =
     { Specifiers: ImportSpecifier array
       Source: StringLiteral }
@@ -906,8 +878,8 @@ module Helpers =
             UnaryExpression.Create(operator_, argument, ?loc=loc)
             |> UnaryExpression
         static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
-            Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
-            |> Identifier
+            Identifier.identifier(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+            |> Expression.Identifier
         static member regExpLiteral(pattern, flags_, ?loc) =
             Literal.regExpLiteral(pattern, flags_, ?loc=loc) |> Literal
         /// A function or method call expression.
@@ -945,7 +917,7 @@ module Helpers =
         static member arrowFunctionExpression(``params``, body: BlockStatement, ?returnType, ?typeParameters, ?loc) = //?async_, ?generator_,
             ArrowFunctionExpression(``params``, body, returnType, typeParameters, loc)
         static member arrowFunctionExpression(``params``, body: Expression, ?returnType, ?typeParameters, ?loc): Expression =
-            let body = { Body = [| Statement.returnStatement(body) |] }
+            let body = BlockStatement [| Statement.returnStatement(body) |]
             Expression.arrowFunctionExpression(``params``, body, ?returnType = returnType, ?typeParameters = typeParameters, ?loc = loc)
         /// If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression.
         /// If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier.
@@ -953,7 +925,7 @@ module Helpers =
             let computed = defaultArg computed_ false
             let name =
                 match property with
-                | Identifier(id) -> id.Name
+                | Expression.Identifier(Identifier(name=name)) -> name
                 | _ -> ""
             MemberExpression(name, object, property, computed, loc)
         static member functionExpression(``params``, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
@@ -965,12 +937,20 @@ module Helpers =
         static member spreadElement(argument, ?loc) =
             SpreadElement.Create(argument, ?loc=loc) |> SpreadElement
 
+    type Identifier with
+        member this.Name =
+            let (Identifier(name=name)) = this
+            name
+        static member identifier(name, ?optional, ?typeAnnotation, ?loc) : Identifier =
+            Identifier(name, optional, typeAnnotation, loc)
+
     type Statement with
-        static member returnStatement(argument, ?loc) = ReturnStatement(argument, loc)
+        static member blockStatement(body) = BlockStatement body |> Statement.BlockStatement
+        static member returnStatement(argument, ?loc) : Statement = ReturnStatement(argument, loc)
         static member continueStatement(label, ?loc) = ContinueStatement(Some label, loc)
         static member tryStatement(block, ?handler, ?finalizer, ?loc) = TryStatement(block, handler, finalizer, loc)
         static member ifStatement(test, consequent, ?alternate, ?loc): Statement = IfStatement(test, consequent, alternate, loc)
-        static member blockStatement(body) = BlockStatement.Create(body) |> BlockStatement
+        ///static member blockStatement(body) = BlockStatement(body)
         /// Break can optionally take a label of a loop to break
         static member breakStatement(?label, ?loc) = BreakStatement(label, loc)
         /// Statement (typically loop) prefixed with a label (for continue and break)
@@ -987,9 +967,24 @@ module Helpers =
         static member forStatement(body, ?init, ?test, ?update, ?loc) = ForStatement(body, init, test, update, loc)
         static member throwStatement(argument, ?loc) = ThrowStatement(argument, loc)
 
+    type BlockStatement with
+        member this.Body =
+            let (BlockStatement body) = this
+            body
+
+    type Program with
+        member this.Body =
+            let (Program body) = this
+            body
+
+
+    type SwitchCase with
+        static member switchCase(?consequent, ?test, ?loc) =
+            SwitchCase(test, defaultArg consequent Array.empty, loc)
+
     type Pattern with
         static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
-            Identifier.Create(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
+            Identifier(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
             |> IdentifierPattern
         static member restElement(argument: Pattern, ?typeAnnotation, ?loc) =
             RestElement.Create(argument, ?typeAnnotation=typeAnnotation, ?loc=loc) |> RestElement
@@ -1015,7 +1010,7 @@ module Helpers =
         static member nullLiteral(?loc) = NullLiteral loc
         static member numericLiteral(value, ?loc) = NumericLiteral (value, loc)
         static member booleanLiteral(value, ?loc) = BooleanLiteral (value, loc)
-        static member stringLiteral(value, ?loc) = StringLiteral.Create (value, ?loc=loc) |> StringLiteral
+        static member stringLiteral(value, ?loc) = StringLiteral (value, loc) |> Literal.StringLiteral
         static member regExpLiteral(pattern, flags, ?loc) =
             let flags =
                 flags |> Seq.map (function
@@ -1024,6 +1019,9 @@ module Helpers =
                     | RegexMultiline -> "m"
                     | RegexSticky -> "y") |> Seq.fold (+) ""
             RegExp(pattern, flags, loc)
+
+    type StringLiteral with
+        static member stringLiteral(value, ?loc) = StringLiteral(value, loc)
 
     type ObjectMember with
         static member objectProperty(key, value, ?computed_) = // ?shorthand_,

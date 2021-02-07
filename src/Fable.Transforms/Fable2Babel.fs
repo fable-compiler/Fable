@@ -343,7 +343,7 @@ module Annotation =
         else
             genParams
             |> Set.toArray
-            |> Array.map (Identifier.Create >> TypeAnnotationInfo.genericTypeAnnotation)
+            |> Array.map (Identifier.identifier >> TypeAnnotationInfo.genericTypeAnnotation)
             |> TypeParameterInstantiation.Create |> Some
 
     let mergeTypeParamDecls (decl1: TypeParameterDeclaration option) (decl2: TypeParameterDeclaration option) =
@@ -361,7 +361,7 @@ module Annotation =
 
     let getGenericTypeAnnotation _com _ctx name genParams =
         let typeParamInst = makeTypeParamInst genParams
-        GenericTypeAnnotation(Identifier.Create(name), ?typeParameters=typeParamInst)
+        GenericTypeAnnotation(Identifier.identifier(name), ?typeParameters=typeParamInst)
         |> TypeAnnotation.Create |> Some
 
     let typeAnnotation com ctx typ: TypeAnnotationInfo =
@@ -389,7 +389,7 @@ module Annotation =
             makeAnonymousRecordTypeAnnotation com ctx fieldNames genArgs
 
     let makeSimpleTypeAnnotation _com _ctx name =
-        TypeAnnotationInfo.genericTypeAnnotation(Identifier.Create(name))
+        TypeAnnotationInfo.genericTypeAnnotation(Identifier.identifier(name))
 
     let makeGenTypeParamInst com ctx genArgs =
         match genArgs with
@@ -402,14 +402,14 @@ module Annotation =
         GenericTypeAnnotation(id, ?typeParameters=typeParamInst)
 
     let makeNativeTypeAnnotation com ctx genArgs typeName =
-        Identifier.Create(typeName)
+        Identifier.identifier(typeName)
         |> makeGenericTypeAnnotation com ctx genArgs
 
     let makeImportTypeId (com: IBabelCompiler) ctx moduleName typeName =
         let expr = com.GetImportExpr(ctx, typeName, getLibPath com moduleName, None)
         match expr with
-        | Identifier(id) -> id
-        | _ -> Identifier.Create(typeName)
+        | Expression.Identifier(id) -> id
+        | _ -> Identifier.identifier(typeName)
 
     let makeImportTypeAnnotation com ctx genArgs moduleName typeName =
         let id = makeImportTypeId com ctx moduleName typeName
@@ -466,7 +466,7 @@ module Annotation =
             argTypes
             |> List.mapi (fun i argType ->
                 FunctionTypeParam.Create(
-                    Identifier.Create("arg" + (string i)),
+                    Identifier.identifier("arg" + (string i)),
                     typeAnnotation com ctx argType))
             |> List.toArray
         let genTypeParams = Util.getGenericTypeParams (argTypes @ [returnType])
@@ -492,13 +492,13 @@ module Annotation =
                 match Lib.tryJsConstructor com ctx ent with
                 | Some entRef ->
                     match entRef with
-                    | Literal(StringLiteral(str)) ->
-                        match str.Value with
+                    | Literal(Literal.StringLiteral(StringLiteral(str, _))) ->
+                        match str with
                         | "number" -> NumberTypeAnnotation
                         | "boolean" -> BooleanTypeAnnotation
                         | "string" -> StringTypeAnnotation
                         | _ -> AnyTypeAnnotation
-                    | Identifier(id) ->
+                    | Expression.Identifier(id) ->
                         makeGenericTypeAnnotation com ctx genArgs id
                     // TODO: Resolve references to types in nested modules
                     | _ -> AnyTypeAnnotation
@@ -511,9 +511,9 @@ module Annotation =
         if com.Options.Typescript then
             let ta = typeAnnotation com ctx id.Type |> TypeAnnotation.Create |> Some
             let optional = None // match id.Type with | Fable.Option _ -> Some true | _ -> None
-            Identifier.Create(id.Name, ?optional=optional, ?typeAnnotation=ta, ?loc=id.Range)
+            Identifier.identifier(id.Name, ?optional=optional, ?typeAnnotation=ta, ?loc=id.Range)
         else
-            Identifier.Create(id.Name, ?loc=id.Range)
+            Identifier.identifier(id.Name, ?loc=id.Range)
 
     let transformFunctionWithAnnotations (com: IBabelCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
         if com.Options.Typescript then
@@ -617,7 +617,7 @@ module Util =
         Expression.nullLiteral()
 
     let ident (id: Fable.Ident) =
-        Identifier.Create(id.Name, ?loc=id.Range)
+        Identifier.identifier(id.Name, ?loc=id.Range)
 
     let identAsExpr (id: Fable.Ident) =
         Expression.identifier(id.Name, ?loc=id.Range)
@@ -654,7 +654,7 @@ module Util =
     let getExpr r (object: Expression) (expr: Expression) =
         let expr, computed =
             match expr with
-            | Literal(StringLiteral(e)) -> memberFromName e.Value
+            | Literal(Literal.StringLiteral(StringLiteral(value, _))) -> memberFromName value
             | e -> e, true
         Expression.memberExpression(object, expr, computed, ?loc=r)
 
@@ -725,7 +725,7 @@ module Util =
         let varDeclarators =
             // TODO: Log error if there're duplicated non-empty var declarations
             variables
-            |> List.distinctBy (fun (id, _value) -> id.Name)
+            |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
             |> List.mapToArray (fun (id, value) ->
                 VariableDeclarator.Create(id |> IdentifierPattern, ?init=value))
         Statement.variableDeclaration(kind, varDeclarators)
@@ -833,13 +833,13 @@ module Util =
         | _ -> e
 
     let wrapExprInBlockWithReturn e =
-        BlockStatement.Create([| Statement.returnStatement(e)|])
+        BlockStatement([| Statement.returnStatement(e)|])
 
     let makeArrowFunctionExpression _name (args, (body: BlockStatement), returnType, typeParamDecl): Expression =
         Expression.arrowFunctionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
     let makeFunctionExpression name (args, (body: Expression), returnType, typeParamDecl): Expression =
-        let id = name |> Option.map Identifier.Create
+        let id = name |> Option.map Identifier.identifier
         let body = wrapExprInBlockWithReturn body
         Expression.functionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
 
@@ -870,7 +870,7 @@ module Util =
                 let arg = FableTransforms.replaceValues tempVarReplacements arg
                 let arg = com.TransformAsExpr(ctx, arg)
                 yield assign None (Expression.identifier(argId)) arg |> ExpressionStatement
-            yield Statement.continueStatement(Identifier.Create(tc.Label), ?loc=range)
+            yield Statement.continueStatement(Identifier.identifier(tc.Label), ?loc=range)
         |]
 
     let transformImport (com: IBabelCompiler) ctx r (selector: string) (path: string) =
@@ -989,14 +989,14 @@ module Util =
 
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
-        BlockStatement.Create([| Statement.returnStatement(libCall com ctx None "Seq" "toIterator" [|enumerator|])|])
+        BlockStatement([| Statement.returnStatement(libCall com ctx None "Seq" "toIterator" [|enumerator|])|])
 
     let extractBaseExprFromBaseCall (com: IBabelCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
         match baseCall, baseType with
         | Some (Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr =
                 match baseRef with
-                | Fable.IdentExpr id -> typedIdent com ctx id |> Identifier
+                | Fable.IdentExpr id -> typedIdent com ctx id |> Expression.Identifier
                 | _ -> transformAsExpr com ctx baseRef
             let args = transformCallArgs com ctx info.HasSpread info.Args
             Some (baseExpr, args)
@@ -1073,7 +1073,7 @@ module Util =
                 baseCall
                 |> extractBaseExprFromBaseCall com ctx None
                 |> Option.map (fun (baseExpr, baseArgs) ->
-                    let consBody = BlockStatement.Create([|callSuperAsStatement baseArgs|])
+                    let consBody = BlockStatement([|callSuperAsStatement baseArgs|])
                     let cons = makeClassConstructor [||]  consBody
                     Some baseExpr, cons::classMembers
                 )
@@ -1104,7 +1104,7 @@ module Util =
         // TODO: Where to put these int wrappings? Add them also for function arguments?
         | Some Return ->  Statement.returnStatement(wrapIntExpression t babelExpr)
         | Some(Assign left) -> ExpressionStatement(assign None left babelExpr)
-        | Some(Target left) -> ExpressionStatement(assign None (left |> Identifier) babelExpr)
+        | Some(Target left) -> ExpressionStatement(assign None (left |> Expression.Identifier) babelExpr)
 
     let transformOperation com ctx range opKind: Expression =
         match opKind with
@@ -1165,7 +1165,7 @@ module Util =
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
     let transformBlock (com: IBabelCompiler) ctx ret expr: BlockStatement =
-        com.TransformAsStatements(ctx, ret, expr) |> BlockStatement.Create
+        com.TransformAsStatements(ctx, ret, expr) |> BlockStatement
 
     let transformTryCatch com ctx r returnStrategy (body, catch, finalizer) =
         // try .. catch statements cannot be tail call optimized
@@ -1293,19 +1293,19 @@ module Util =
                 | _, _, [] -> []
                 | _, _, guards ->
                     let guards, lastGuard = List.splitLast guards
-                    let guards = guards |> List.map (fun e -> SwitchCase.Create([||], com.TransformAsExpr(ctx, e)))
+                    let guards = guards |> List.map (fun e -> SwitchCase.switchCase([||], com.TransformAsExpr(ctx, e)))
                     let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
                     let caseBody =
                         match returnStrategy with
                         | Some Return -> caseBody
                         | _ -> Array.append caseBody [|Statement.breakStatement()|]
-                    guards @ [SwitchCase.Create(consequent caseBody, com.TransformAsExpr(ctx, lastGuard))]
+                    guards @ [SwitchCase.switchCase(consequent caseBody, com.TransformAsExpr(ctx, lastGuard))]
                 )
         let cases =
             match defaultCase with
             | Some expr ->
                 let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-                cases @ [SwitchCase.Create(consequent defaultCaseBody)]
+                cases @ [SwitchCase.switchCase(consequent defaultCaseBody)]
             | None -> cases
         Statement.switchStatement(com.TransformAsExpr(ctx, evalExpr), List.toArray cases)
 
@@ -1346,7 +1346,7 @@ module Util =
                 matchTargetIdentAndValues idents boundValues
                 |> List.mapToArray (fun (id, TransformExpr com ctx value) ->
                     assign None (identAsExpr id) value |> ExpressionStatement)
-            let targetAssignment = assign None (targetId |> Identifier) (ofInt targetIndex) |> ExpressionStatement
+            let targetAssignment = assign None (targetId |> Expression.Identifier) (ofInt targetIndex) |> ExpressionStatement
             Array.append [|targetAssignment|] assignments
         | ret ->
             let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
@@ -1715,7 +1715,7 @@ module Util =
             { ctx with TailCallOpportunity = tailcallChance
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true }
-        let body: BlockStatement =
+        let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
             elif isJsStatement ctx (Option.isSome tailcallChance) body then
@@ -1735,17 +1735,18 @@ module Util =
                     |> List.map (fun (id, tcArg) ->
                         id |> typedIdent com ctx, Some (Expression.identifier(tcArg)))
                     |> multiVarDeclaration Const
-                let body = BlockStatement.Create(Array.append [|varDecls|] body.Body)
+
+                let body = Array.append [|varDecls|] body.Body
                 // Make sure we don't get trapped in an infinite loop, see #1624
-                let body = BlockStatement.Create(Array.append body.Body [|Statement.breakStatement()|])
-                args', Statement.labeledStatement(Identifier.Create(tc.Label), Statement.whileStatement(Expression.booleanLiteral(true), body))
-                |> Array.singleton |> BlockStatement.Create
+                let body = BlockStatement(Array.append body [|Statement.breakStatement()|])
+                args', Statement.labeledStatement(Identifier.identifier(tc.Label), Statement.whileStatement(Expression.booleanLiteral(true), body))
+                |> Array.singleton |> BlockStatement
             | _ -> args |> List.map (typedIdent com ctx), body
         let body =
             if declaredVars.Count = 0 then body
             else
                 let varDeclStatement = multiVarDeclaration Let [for v in declaredVars -> typedIdent com ctx v, None]
-                BlockStatement.Create(Array.append [|varDeclStatement|] body.Body)
+                BlockStatement(Array.append [|varDeclStatement|] body.Body)
         args |> List.mapToArray IdentifierPattern, body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
@@ -1757,7 +1758,7 @@ module Util =
 
     let declareModuleMember isPublic membName isMutable (expr: Expression) =
         let membName' = Pattern.identifier(membName)
-        let membName = Identifier.Create(membName)
+        let membName = Identifier.identifier(membName)
         let decl: Declaration =
             match expr with
             | ClassExpression(e) ->
@@ -1785,7 +1786,7 @@ module Util =
 
     let getClassImplements com ctx (ent: Fable.Entity) =
         let mkNative genArgs typeName =
-            let id = Identifier.Create(typeName)
+            let id = Identifier.identifier(typeName)
             let typeParamInst = makeGenTypeParamInst com ctx genArgs
             ClassImplements.Create(id, ?typeParameters=typeParamInst) |> Some
 //        let mkImport genArgs moduleName typeName =
@@ -1883,7 +1884,7 @@ module Util =
                 | Declaration(VariableDeclaration(_)) -> true
                 | _ -> false)
         if hasVarDeclarations then
-            [ Expression.callExpression(Expression.functionExpression([||], BlockStatement.Create(statements)), [||])
+            [ Expression.callExpression(Expression.functionExpression([||], BlockStatement(statements)), [||])
               |> ExpressionStatement |> PrivateModuleDeclaration ]
         else statements |> Array.mapToList (fun x -> PrivateModuleDeclaration(x))
 
@@ -1915,7 +1916,7 @@ module Util =
             [| typedIdent com ctx fieldIds.[0] |> IdentifierPattern
                typedIdent com ctx fieldIds.[1] |> IdentifierPattern |> restElement |]
         let body =
-            BlockStatement.Create([|
+            BlockStatement([|
                 yield callSuperAsStatement []
                 yield! fieldIds |> Array.map (fun id ->
                     let left = get None thisExpr id.Name
@@ -1934,7 +1935,7 @@ module Util =
                 |> makeArray com ctx
                 |>  Statement.returnStatement
                 |> Array.singleton
-                |> BlockStatement.Create
+                |> BlockStatement
             ClassMethod.AsClassMember(ClassFunction, Expression.identifier("cases"), [||], body)
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
@@ -1951,7 +1952,7 @@ module Util =
             then libValue com ctx "Types" "Record" |> Some
             else None
         let body =
-            BlockStatement.Create([|
+            BlockStatement([|
                 if Option.isSome baseExpr then
                     yield callSuperAsStatement []
                 yield! ent.FSharpFields |> Seq.mapi (fun i field ->
@@ -1995,7 +1996,7 @@ module Util =
                 let consBody =
                     consBody.Body
                     |> Array.append [|callSuperAsStatement baseArgs|]
-                    |> BlockStatement.Create
+                    |> BlockStatement
                 Some baseExpr, consBody)
             |> Option.defaultValue (None, consBody)
 
@@ -2062,11 +2063,11 @@ module Util =
             let specifier =
                 import.LocalIdent
                 |> Option.map (fun localId ->
-                    let localId = Identifier.Create(localId)
+                    let localId = Identifier.identifier(localId)
                     match import.Selector with
                     | "*" -> ImportNamespaceSpecifier(localId)
                     | "default" | "" -> ImportDefaultSpecifier(localId)
-                    | memb -> ImportMemberSpecifier(localId, Identifier.Create(memb)))
+                    | memb -> ImportMemberSpecifier(localId, Identifier.identifier(memb)))
             import.Path, specifier)
         |> Seq.groupBy fst
         |> Seq.collect (fun (path, specifiers) ->
@@ -2082,13 +2083,13 @@ module Util =
             [mems; defs; alls] |> List.choose (function
                 | [] -> None
                 | specifiers ->
-                    ImportDeclaration.AsModuleDeclaration(List.toArray specifiers, StringLiteral.Create(path))
+                    ImportDeclaration.AsModuleDeclaration(List.toArray specifiers, StringLiteral.stringLiteral(path))
                     |> Some)
             |> function
                 | [] ->
                     // If there are no specifiers, this is just an import for side effects,
                     // put it after the other ones to match standard JS practices, see #2228
-                    ImportDeclaration.AsModuleDeclaration([||], StringLiteral.Create(path))
+                    ImportDeclaration.AsModuleDeclaration([||], StringLiteral.stringLiteral(path))
                     |> statefulImports.Add
                     []
                 | decls -> decls
@@ -2182,4 +2183,4 @@ module Compiler =
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports
         let body = importDecls @ rootDecls |> List.toArray
-        Program.Create(body)
+        Program(body)

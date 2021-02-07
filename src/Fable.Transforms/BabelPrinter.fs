@@ -1,3 +1,4 @@
+// fsharplint:disable InterfaceNames
 module Fable.Transforms.BabelPrinter
 
 open System
@@ -119,7 +120,7 @@ module PrinterExtensions =
                 match e with
                 | Undefined(_)
                 | Literal(NullLiteral(_))
-                | Literal(StringLiteral(_))
+                | Literal(Literal.StringLiteral(_))
                 | Literal(BooleanLiteral(_))
                 | Literal(NumericLiteral(_)) -> true
                 // Constructors of classes deriving from System.Object add an empty object at the end
@@ -127,7 +128,7 @@ module PrinterExtensions =
                 | UnaryExpression(expr) when expr.Operator = "void" -> hasNoSideEffects expr.Argument
                 // Some identifiers may be stranded as the result of imports
                 // intended only for side effects, see #2228
-                | Identifier(_) -> true
+                | Expression.Identifier(_) -> true
                 | _ -> false
 
             match s with
@@ -166,11 +167,11 @@ module PrinterExtensions =
         member printer.PrintOptional(node: TypeAnnotation option, ?before: string) =
             printer.PrintOptional(node |> Option.map TypeAnnotation, ?before=before)
         member printer.PrintOptional(node: Identifier option, ?before: string) =
-            printer.PrintOptional(node |> Option.map Identifier, ?before=before)
+            printer.PrintOptional(node |> Option.map Expression.Identifier, ?before=before)
         member printer.PrintOptional(node: Literal option, ?before: string) =
             printer.PrintOptional(node |> Option.map Literal, ?before=before)
         member printer.PrintOptional(node: StringLiteral option, ?before: string) =
-            printer.PrintOptional(node |> Option.map StringLiteral, ?before=before)
+            printer.PrintOptional(node |> Option.map Literal.StringLiteral, ?before=before)
         member printer.PrintOptional(node: TypeParameterInstantiation option, ?before: string) =
             printer.PrintOptional(node |> Option.map TypeParameterInstantiation, ?before=before)
         member printer.PrintOptional(node: Statement option, ?before: string) =
@@ -182,7 +183,7 @@ module PrinterExtensions =
         member printer.PrintOptional(node: CatchClause option, ?before: string) =
             printer.PrintOptional(node |> Option.map CatchClause, ?before=before)
         member printer.PrintOptional(node: BlockStatement option, ?before: string) =
-            printer.PrintOptional(node |> Option.map BlockStatement, ?before=before)
+            printer.PrintOptional(node, ?before=before)
 
         member printer.PrintArray(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
             for i = 0 to nodes.Length - 1 do
@@ -223,9 +224,9 @@ module PrinterExtensions =
             printer.PrintOptional(id, " ")
             printer.PrintOptional(typeParameters |> Option.map TypeParameterDeclaration)
             match superClass with
-            | Some (Identifier(id)) when id.TypeAnnotation.IsSome ->
+            | Some (Expression.Identifier(Identifier(typeAnnotation=typeAnnotation))) when typeAnnotation.IsSome ->
                 printer.Print(" extends ");
-                printer.Print(id.TypeAnnotation.Value.TypeAnnotation)
+                printer.Print(typeAnnotation.Value.TypeAnnotation)
             | _ -> printer.PrintOptional(superClass, " extends ")
             // printer.PrintOptional(superTypeParameters)
             match implements with
@@ -241,7 +242,7 @@ module PrinterExtensions =
             let areEqualPassedAndAppliedArgs (passedArgs: Pattern[]) (appliedAgs: Expression[]) =
                 Array.zip passedArgs appliedAgs
                 |> Array.forall (function
-                    | RestElement(p), Identifier(a) -> p.Name = a.Name
+                    | RestElement(p), Expression.Identifier(Identifier(name=name)) -> p.Name = name
                     | _ -> false)
 
             let isDeclaration = defaultArg isDeclaration false
@@ -258,7 +259,7 @@ module PrinterExtensions =
                         // To be sure we're not running side effects when deleting the function,
                         // check the callee is an identifier (accept non-computed member expressions too?)
                         match callee with
-                        | Identifier(id) when areEqualPassedAndAppliedArgs parameters arguments ->
+                        | Expression.Identifier(_) when areEqualPassedAndAppliedArgs parameters arguments ->
                             Some callee
                         | _ -> None
                     | _ -> None
@@ -311,10 +312,10 @@ module PrinterExtensions =
             match expr with
             | Undefined(_)
             | Literal(NullLiteral(_))
-            | Literal(StringLiteral(_))
+            | Literal(Literal.StringLiteral(_))
             | Literal(BooleanLiteral(_))
             | Literal(NumericLiteral(_))
-            | Identifier(_)
+            | Expression.Identifier(_)
             | MemberExpression(_)
             | CallExpression(_)
             | ThisExpression(_)
@@ -336,7 +337,7 @@ module PrinterExtensions =
             | Statement(n) -> printer.Print(n)
             | ClassBody(n) -> printer.Print(n)
             | Expression(n) -> printer.Print(n)
-            | SwitchCase(n) -> printer.Print(n)
+            | Node.SwitchCase(n) -> printer.Print(n)
             | CatchClause(n) -> printer.Print(n)
             | ObjectMember(n) -> printer.Print(n)
             | TypeParameter(n) -> printer.Print(n)
@@ -349,7 +350,7 @@ module PrinterExtensions =
             | Node.TypeAnnotationInfo(n) -> printer.Print(n)
             | TypeParameterDeclaration(n) -> printer.Print(n)
             | TypeParameterInstantiation(n) -> printer.Print(n)
-            | Program(_)
+            | Node.Program(_)
             | Directive(_)
             | ImportSpecifier(_)
             | ObjectTypeIndexer(_)
@@ -362,7 +363,7 @@ module PrinterExtensions =
             | Super(loc) ->  printer.Print("super", ?loc = loc)
             | Literal(n) -> printer.Print(n)
             | Undefined(loc) -> printer.Print("undefined", ?loc=loc)
-            | Identifier(n) -> printer.Print(n)
+            | Expression.Identifier(n) -> printer.Print(n)
             | NewExpression(callee, arguments, typeArguments, loc) -> printer.PrintNewExpression(callee, arguments, typeArguments, loc)
             | SpreadElement(n) -> printer.Print(n)
             | ThisExpression(loc) -> printer.Print("this", ?loc = loc)
@@ -398,10 +399,10 @@ module PrinterExtensions =
             match literal with
             | RegExp(pattern, flags, loc) -> printer.PrintRegExp(pattern, flags, loc)
             | NullLiteral(loc) -> printer.Print("null", ?loc=loc)
-            | StringLiteral(l) -> printer.Print(l)
+            | Literal.StringLiteral(l) -> printer.Print(l)
             | BooleanLiteral(value, loc) -> printer.Print((if value then "true" else "false"), ?loc=loc)
             | NumericLiteral(value, loc) -> printer.PrintNumeric(value, loc)
-            | DirectiveLiteral(l) -> failwith "not implemented"
+            | Literal.DirectiveLiteral(l) -> failwith "not implemented"
 
         member printer.Print(stmt: Statement) =
             match stmt with
@@ -414,7 +415,7 @@ module PrinterExtensions =
             | ThrowStatement(argument, loc) ->
                 printer.Print("throw ", ?loc = loc)
                 printer.Print(argument)
-            | BlockStatement(s) -> printer.Print(s)
+            | Statement.BlockStatement(s) -> printer.Print(s)
             | ReturnStatement(argument, loc) ->
                 printer.Print("return ", ?loc = loc)
                 printer.Print(argument)
@@ -523,10 +524,11 @@ module PrinterExtensions =
                 printSegment printer value 0 value.Length
 
         member printer.Print(identifier: Identifier) =
-            printer.Print(identifier.Name, ?loc=identifier.Loc)
-            if identifier.Optional = Some true then
+            let (Identifier(name, optional, typeAnnotation, loc)) = identifier
+            printer.Print(name, ?loc=loc)
+            if optional = Some true then
                 printer.Print("?")
-            printer.PrintOptional(identifier.TypeAnnotation)
+            printer.PrintOptional(typeAnnotation)
 
         member printer.PrintRegExp(pattern, flags, loc) =
             printer.Print("/", ?loc=loc)
@@ -534,9 +536,10 @@ module PrinterExtensions =
             printer.Print("/")
             printer.Print(flags)
 
-        member printer.Print(node: StringLiteral)=
-            printer.Print("\"", ?loc=node.Loc)
-            printer.Print(printer.EscapeJsStringLiteral(node.Value))
+        member printer.Print(node: StringLiteral) =
+            let (StringLiteral(value, loc)) = node
+            printer.Print("\"", ?loc=loc)
+            printer.Print(printer.EscapeJsStringLiteral(value))
             printer.Print("\"")
 
         member printer.PrintNumeric(value, loc) =
@@ -575,7 +578,7 @@ module PrinterExtensions =
                 | alternate ->
                     let statements =
                         match alternate with
-                        | BlockStatement(b) -> b.Body
+                        | Statement.BlockStatement(b) -> b.Body
                         | alternate -> [|alternate|]
                     // Get productive statements and skip `else` if they're empty
                     statements
@@ -590,9 +593,10 @@ module PrinterExtensions =
 
         /// A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
         member printer.Print(node: SwitchCase) =
-            printer.AddLocation(node.Loc)
+            let (SwitchCase(test, consequent, loc)) = node
+            printer.AddLocation(loc)
 
-            match node.Test with
+            match test with
             | None -> printer.Print("default")
             | Some test ->
                 printer.Print("case ")
@@ -600,14 +604,14 @@ module PrinterExtensions =
 
             printer.Print(":")
 
-            match node.Consequent.Length with
+            match consequent.Length with
             | 0 -> printer.PrintNewLine()
             | 1 ->
                 printer.Print(" ")
-                printer.Print(node.Consequent.[0])
+                printer.Print(consequent.[0])
             | _ ->
                 printer.Print(" ")
-                printer.PrintBlock(node.Consequent)
+                printer.PrintBlock(consequent)
 
         member printer.PrintSwitchStatement(discriminant, cases, loc) =
             printer.Print("switch (", ?loc=loc)
@@ -900,7 +904,8 @@ module PrinterExtensions =
                 printer.Print(" from ")
 
             printer.Print("\"")
-            printer.Print(printer.MakeImportPath(node.Source.Value))
+            let (StringLiteral(value, _)) = node.Source
+            printer.Print(printer.MakeImportPath(value))
             printer.Print("\"")
 
         member printer.Print(node: ExportSpecifier) =
