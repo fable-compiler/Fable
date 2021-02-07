@@ -397,7 +397,7 @@ module PrinterExtensions =
 
         member printer.Print(pattern: Pattern) =
             match pattern with
-            | IdentifierPattern(p) -> printer.Print(p)
+            | Pattern.Identifier(p) -> printer.Print(p)
             | RestElement(name, argument, typeAnnotation, loc) ->
                 printer.Print("...", ?loc=loc)
                 printer.Print(argument)

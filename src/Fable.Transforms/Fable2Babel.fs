@@ -726,7 +726,7 @@ module Util =
             variables
             |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
             |> List.mapToArray (fun (id, value) ->
-                VariableDeclarator(id |> IdentifierPattern, value))
+                VariableDeclarator(id |> Pattern.Identifier, value))
         Statement.variableDeclaration(kind, varDeclarators)
 
     let varDeclaration (var: Pattern) (isMutable: bool) value =
@@ -1695,11 +1695,11 @@ module Util =
                 then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
                 else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
 
-            let a = start |> varDeclaration (typedIdent com ctx var |> IdentifierPattern) true
+            let a = start |> varDeclaration (typedIdent com ctx var |> Pattern.Identifier) true
 
             [|Statement.forStatement(
                 transformBlock com ctx None body,
-                start |> varDeclaration (typedIdent com ctx var |> IdentifierPattern) true,
+                start |> varDeclaration (typedIdent com ctx var |> Pattern.Identifier) true,
                 Expression.binaryExpression(op1, identAsExpr var, limit),
                 Expression.updateExpression(op2, false, identAsExpr var), ?loc=range)|]
 
@@ -1746,7 +1746,7 @@ module Util =
             else
                 let varDeclStatement = multiVarDeclaration Let [for v in declaredVars -> typedIdent com ctx v, None]
                 BlockStatement(Array.append [|varDeclStatement|] body.Body)
-        args |> List.mapToArray IdentifierPattern, body
+        args |> List.mapToArray Pattern.Identifier, body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
@@ -1912,8 +1912,8 @@ module Util =
     let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
         let args =
-            [| typedIdent com ctx fieldIds.[0] |> IdentifierPattern
-               typedIdent com ctx fieldIds.[1] |> IdentifierPattern |> restElement |]
+            [| typedIdent com ctx fieldIds.[0] |> Pattern.Identifier
+               typedIdent com ctx fieldIds.[1] |> Pattern.Identifier |> restElement |]
         let body =
             BlockStatement([|
                 yield callSuperAsStatement []
@@ -1961,7 +1961,7 @@ module Util =
                 |> Seq.toArray
             |])
         let typedPattern x = typedIdent com ctx x
-        let args = fieldIds |> Array.map (typedPattern >> IdentifierPattern)
+        let args = fieldIds |> Array.map (typedPattern >> Pattern.Identifier)
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithImplicitConstructor (com: IBabelCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =

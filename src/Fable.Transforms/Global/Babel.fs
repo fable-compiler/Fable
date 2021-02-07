@@ -14,7 +14,6 @@ type Node =
     | Pattern of Pattern
     | Program of Program
     | Statement of Statement
-    | Directive of value: DirectiveLiteral // e.g. "use strict";
     | ClassBody of ClassBody
     | Expression of Expression
     | SwitchCase of SwitchCase
@@ -25,6 +24,7 @@ type Node =
     | ExportSpecifier of ExportSpecifier
     | ImportSpecifier of ImportSpecifier
     | InterfaceExtends of InterfaceExtends
+    | Directive of value: DirectiveLiteral // e.g. "use strict";
     | ObjectTypeIndexer of ObjectTypeIndexer
     | FunctionTypeParam of FunctionTypeParam
     | ModuleDeclaration of ModuleDeclaration
@@ -51,13 +51,6 @@ type Expression =
     | ClassImplements of ClassImplements
     | Super of loc: SourceLocation option
     | Undefined of Loc: SourceLocation option
-    | FunctionExpression of
-        id: Identifier option *
-        ``params``: Pattern array *
-        body: BlockStatement *
-        returnType: TypeAnnotation option *
-        typeParameters: TypeParameterDeclaration option *
-        loc: SourceLocation option
     | ThisExpression of loc: SourceLocation option
     | SpreadElement of argument: Expression * loc: SourceLocation option
     | ArrayExpression of elements: Expression array * loc: SourceLocation option
@@ -73,6 +66,13 @@ type Expression =
     | ConditionalExpression of test: Expression * consequent: Expression * alternate: Expression * loc: SourceLocation option
     | MemberExpression of name: string * object: Expression * property: Expression * computed: bool * loc: SourceLocation option
     | NewExpression of callee: Expression * arguments: Expression array * typeArguments: TypeParameterInstantiation option * loc: SourceLocation option
+    | FunctionExpression of
+        id: Identifier option *
+        ``params``: Pattern array *
+        body: BlockStatement *
+        returnType: TypeAnnotation option *
+        typeParameters: TypeParameterDeclaration option *
+        loc: SourceLocation option
     | ArrowFunctionExpression of
         ``params``: Pattern array *
         body: BlockStatement *
@@ -82,20 +82,20 @@ type Expression =
 
 type Pattern =
     | RestElement of name: string * argument: Pattern * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
-    | IdentifierPattern of Identifier
+    | Identifier of Identifier
 
     member this.Name =
         match this with
         | RestElement(name=name) -> name
-        | IdentifierPattern(Identifier(name=name)) -> name
+        | Identifier(Identifier.Identifier(name=name)) -> name
 
 type Literal =
-    | RegExp of pattern: string * flags: string * loc: SourceLocation option
-    | NullLiteral of loc: SourceLocation option
     | StringLiteral of StringLiteral
+    | DirectiveLiteral of DirectiveLiteral
+    | NullLiteral of loc: SourceLocation option
     | BooleanLiteral of value: bool * loc: SourceLocation option
     | NumericLiteral of value: float * loc: SourceLocation option
-    | DirectiveLiteral of DirectiveLiteral
+    | RegExp of pattern: string * flags: string * loc: SourceLocation option
 
 type Statement =
     | Declaration of Declaration
@@ -140,13 +140,13 @@ type Declaration =
 
 /// A module import or export declaration.
 type ModuleDeclaration =
-    | ImportDeclaration of specifiers: ImportSpecifier array * source: StringLiteral
-    | ExportAllDeclaration of source: Literal * loc: SourceLocation option
-    | ExportNamedReferences of specifiers: ExportSpecifier array * source: StringLiteral option
-    | ExportNamedDeclaration of declaration: Declaration
     | PrivateModuleDeclaration of statement: Statement
+    | ExportNamedDeclaration of declaration: Declaration
+    | ExportAllDeclaration of source: Literal * loc: SourceLocation option
     /// An export default declaration, e.g., export default function () {}; or export default 1;.
     | ExportDefaultDeclaration of declaration: Choice<Declaration, Expression>
+    | ImportDeclaration of specifiers: ImportSpecifier array * source: StringLiteral
+    | ExportNamedReferences of specifiers: ExportSpecifier array * source: StringLiteral option
 
     /// An export batch declaration, e.g., export * from "mod";.
 // Template Literals
@@ -170,8 +170,7 @@ type ModuleDeclaration =
 type Identifier =
     | Identifier of name: string * optional: bool option * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
 
-// Literals
-
+type PatternIdentifier = Identifier
 type StringLiteral =
     | StringLiteral of value: string * loc: SourceLocation option
 
@@ -645,7 +644,7 @@ module Helpers =
     type Pattern with
         static member identifier(name, ?optional, ?typeAnnotation, ?loc) =
             Identifier(name, ?optional = optional, ?typeAnnotation = typeAnnotation, ?loc = loc)
-            |> IdentifierPattern
+            |> Pattern.Identifier
         static member restElement(argument: Pattern, ?typeAnnotation, ?loc) =
             RestElement(argument.Name, argument, typeAnnotation, loc)
 
