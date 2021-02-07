@@ -335,7 +335,7 @@ module Annotation =
             genParams
             |> Set.toArray
             |> Array.map TypeParameter.Create
-            |> TypeParameterDeclaration.Create |> Some
+            |> TypeParameterDeclaration |> Some
 
     let makeTypeParamInst genParams =
         if (Set.isEmpty genParams) then
@@ -344,17 +344,17 @@ module Annotation =
             genParams
             |> Set.toArray
             |> Array.map (Identifier.identifier >> TypeAnnotationInfo.genericTypeAnnotation)
-            |> TypeParameterInstantiation.Create |> Some
+            |> TypeParameterInstantiation |> Some
 
     let mergeTypeParamDecls (decl1: TypeParameterDeclaration option) (decl2: TypeParameterDeclaration option) =
         match decl1, decl2 with
-        | Some d1, Some d2 ->
+        | Some (TypeParameterDeclaration(``params``=p1)), Some (TypeParameterDeclaration(``params``=p2)) ->
             Array.append
-                (d1.Params |> Array.map (fun x -> x.Name))
-                (d2.Params |> Array.map (fun x -> x.Name))
+                (p1 |> Array.map (fun x -> x.Name))
+                (p2 |> Array.map (fun x -> x.Name))
             |> Array.distinct
             |> Array.map TypeParameter.Create
-            |> TypeParameterDeclaration.Create |> Some
+            |> TypeParameterDeclaration |> Some
         | Some _, None -> decl1
         | None, Some _ -> decl2
         | None, None -> None
@@ -395,7 +395,7 @@ module Annotation =
         match genArgs with
         | [] -> None
         | _  -> genArgs |> List.map (typeAnnotation com ctx)
-                        |> List.toArray |> TypeParameterInstantiation.Create |> Some
+                        |> List.toArray |> TypeParameterInstantiation |> Some
 
     let makeGenericTypeAnnotation com ctx genArgs id =
         let typeParamInst = makeGenTypeParamInst com ctx genArgs

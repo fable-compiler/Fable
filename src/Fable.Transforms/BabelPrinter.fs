@@ -163,7 +163,7 @@ module PrinterExtensions =
         member printer.PrintOptional(node: Expression option, ?before: string) =
             printer.PrintOptional(node |> Option.map Expression, ?before=before)
         member printer.PrintOptional(node: TypeParameterDeclaration option, ?before: string) =
-            printer.PrintOptional(node |> Option.map TypeParameterDeclaration, ?before=before)
+            printer.PrintOptional(node |> Option.map Node.TypeParameterDeclaration, ?before=before)
         member printer.PrintOptional(node: TypeAnnotation option, ?before: string) =
             printer.PrintOptional(node |> Option.map Node.TypeAnnotation, ?before=before)
         member printer.PrintOptional(node: Identifier option, ?before: string) =
@@ -173,7 +173,7 @@ module PrinterExtensions =
         member printer.PrintOptional(node: StringLiteral option, ?before: string) =
             printer.PrintOptional(node |> Option.map Literal.StringLiteral, ?before=before)
         member printer.PrintOptional(node: TypeParameterInstantiation option, ?before: string) =
-            printer.PrintOptional(node |> Option.map TypeParameterInstantiation, ?before=before)
+            printer.PrintOptional(node |> Option.map Node.TypeParameterInstantiation, ?before=before)
         member printer.PrintOptional(node: Statement option, ?before: string) =
             printer.PrintOptional(node |> Option.map Statement, ?before=before)
         member printer.PrintOptional(node: Declaration option, ?before: string) =
@@ -183,7 +183,7 @@ module PrinterExtensions =
         member printer.PrintOptional(node: CatchClause option, ?before: string) =
             printer.PrintOptional(node |> Option.map Node.CatchClause, ?before=before)
         member printer.PrintOptional(node: BlockStatement option, ?before: string) =
-            printer.PrintOptional(node, ?before=before)
+            printer.PrintOptional(node |> Option.map Statement.BlockStatement, ?before=before)
 
         member printer.PrintArray(nodes: 'a array, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
             for i = 0 to nodes.Length - 1 do
@@ -222,7 +222,7 @@ module PrinterExtensions =
                 implements: ClassImplements array option, body: ClassBody, loc) =
             printer.Print("class", ?loc=loc)
             printer.PrintOptional(id, " ")
-            printer.PrintOptional(typeParameters |> Option.map TypeParameterDeclaration)
+            printer.PrintOptional(typeParameters)
             match superClass with
             | Some (Expression.Identifier(Identifier(typeAnnotation=Some(typeAnnotation)))) ->
                 printer.Print(" extends ")
@@ -348,8 +348,8 @@ module PrinterExtensions =
             | FunctionTypeParam(n) -> printer.Print(n)
             | ObjectTypeProperty(n) -> printer.Print(n)
             | Node.TypeAnnotationInfo(n) -> printer.Print(n)
-            | TypeParameterDeclaration(n) -> printer.Print(n)
-            | TypeParameterInstantiation(n) -> printer.Print(n)
+            | Node.TypeParameterDeclaration(n) -> printer.Print(n)
+            | Node.TypeParameterInstantiation(n) -> printer.Print(n)
             | Node.Program(_)
             | Directive(_)
             | ImportSpecifier(_)
@@ -962,14 +962,14 @@ module PrinterExtensions =
             // printer.PrintOptional(bound)
             // printer.PrintOptional(``default``)
 
-        member printer.Print(node: TypeParameterDeclaration) =
+        member printer.Print((TypeParameterDeclaration ``params``): TypeParameterDeclaration) =
             printer.Print("<")
-            printer.PrintCommaSeparatedArray(node.Params)
+            printer.PrintCommaSeparatedArray(``params``)
             printer.Print(">")
 
-        member printer.Print(node: TypeParameterInstantiation) =
+        member printer.Print((TypeParameterInstantiation ``params``) : TypeParameterInstantiation) =
             printer.Print("<")
-            printer.PrintCommaSeparatedArray(node.Params)
+            printer.PrintCommaSeparatedArray(``params``)
             printer.Print(">")
 
         member printer.Print(node: FunctionTypeParam) =

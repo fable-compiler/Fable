@@ -706,16 +706,11 @@ type TypeParameter =
           Default = ``default`` }
 
 type TypeParameterDeclaration =
-    { Params: TypeParameter array }
-
-    static member Create(``params``) = { Params = ``params`` }
+    | TypeParameterDeclaration of ``params``: TypeParameter array
 
 
 type TypeParameterInstantiation =
-    { Params: TypeAnnotationInfo array }
-
-    static member Create(``params``) = { Params = ``params`` }
-
+    | TypeParameterInstantiation of ``params``: TypeAnnotationInfo array
 
 
 type FunctionTypeParam =
