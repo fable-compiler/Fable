@@ -291,8 +291,6 @@ module private Transforms =
         | Delegate(args, body, name) -> Some(args, body, name)
         | _ -> None
 
-    let (|FieldType|) (fi: Field) = fi.FieldType
-
     let (|ImmediatelyApplicable|_|) = function
         | Lambda(arg, body, _) -> Some(arg, body)
         // If the lambda is immediately applied we don't need the closures
@@ -365,12 +363,11 @@ module private Transforms =
         let rec getLambdaTypeArity acc = function
             | LambdaType(_, returnType) ->
                 getLambdaTypeArity (acc + 1) returnType
-            | _ -> acc
+            | t -> acc, t
         match t with
-        | LambdaType(_, returnType)
-        | Option(LambdaType(_, returnType)) ->
+        | LambdaType(_, returnType) ->
             getLambdaTypeArity 1 returnType
-        | _ -> 0
+        | _ -> 0, t
 
     let curryIdentsInBody replacements body =
         visitFromInsideOut (function
@@ -383,7 +380,7 @@ module private Transforms =
     let uncurryIdentsAndReplaceInBody (idents: Ident list) body =
         let replacements =
             (Map.empty, idents) ||> List.fold (fun replacements id ->
-                let arity = getLambdaTypeArity id.Type
+                let arity, _ = getLambdaTypeArity id.Type
                 if arity > 1
                 then Map.add id.Name arity replacements
                 else replacements)
@@ -402,10 +399,6 @@ module private Transforms =
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
         | _, Curry(innerExpr, arity2,_,_)
             when matches arity arity2 -> innerExpr
-        | _, Get(Curry(innerExpr, arity2,_,_), OptionValue, t, r)
-            when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(Curry(innerExpr, arity2,_,_)),r1),r2)
-            when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
         | _ ->
             match arity with
             | Some arity -> Replacements.uncurryExprAtRuntime com arity expr
@@ -460,7 +453,7 @@ module private Transforms =
             | Any when autoUncurrying -> uncurryExpr com None arg
             | _ ->
                 let arg = checkSubArguments com expectedType arg
-                let arity = getLambdaTypeArity expectedType
+                let arity, _ = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr com (Some arity) arg
                 else arg)
@@ -488,10 +481,6 @@ module private Transforms =
                 match value with
                 | Curry(innerExpr, arity,_,_) ->
                     ident, innerExpr, Some arity
-                | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
-                    ident, Get(innerExpr, OptionValue, t, r), Some arity
-                | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
-                    ident, Value(NewOption(Some(innerExpr),r1),r2), Some arity
                 | _ -> ident, value, None
             match arity with
             | None -> Let(ident, value, body)
@@ -504,7 +493,7 @@ module private Transforms =
         if m.Info.IsValue then m
         else { m with Body = uncurryIdentsAndReplaceInBody m.Args m.Body }
 
-    let uncurryReceivedArgs (_: Compiler) e =
+    let uncurryReceivedArgs (com: Compiler) e =
         match e with
         // TODO: This breaks cases when we actually need to import a curried function
         // // Sometimes users type imports as lambdas but if they come from JS they're not curried
@@ -518,11 +507,18 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(_, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
-            let arity = getLambdaTypeArity fieldType
-            if arity > 1
-            then Curry(e, arity, t, r)
-            else e
+        | Get(_, (ByKey(FieldKey(_)) | UnionField _ |  ListHead | TupleIndex _ | OptionValue), t, r) ->
+            match getLambdaTypeArity t with
+            // If the lambda returns a generic the actual arity may be higher than expected,
+            // so we need a runtime partial application
+            | arity, GenericParam _ when arity > 0 ->
+                let callee = makeImportLib com Any "checkArity" "Util"
+                let info = makeCallInfo None [makeIntConst arity; e] []
+                let e = Call(callee, info, t, r)
+                if arity > 1 then Curry(e, arity, t, r)
+                else e
+            | arity, _ when arity > 1 -> Curry(e, arity, t, r)
+            | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
         | e -> e
@@ -558,6 +554,17 @@ module private Transforms =
             let uci = com.GetEntity(ent).UnionCases.[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
+        | Value(NewTuple args, r) ->
+            let targs = args |> List.map (fun a -> a.Type)
+            let args = uncurryArgs com false targs args
+            Value(NewTuple args, r)
+        | Value(NewOption(Some(arg), t), r) ->
+            let args = uncurryArgs com false [t] [arg]
+            Value(NewOption(List.tryHead args, t), r)
+        // TODO: Array
+        | Value(NewList(Some(head, tail), t), r) ->
+            let head = uncurryArgs com false [t] [head] |> List.head
+            Value(NewList(Some(head, tail), t), r)
         | Set(e, Some(FieldKey fi), value, r) ->
             let value = uncurryArgs com false [fi.FieldType] [value]
             Set(e, Some(FieldKey fi), List.head value, r)
@@ -580,8 +587,6 @@ module private Transforms =
             match applied with
             | Curry(applied, uncurriedArity,_,_) ->
                 uncurryApply r t applied args uncurriedArity
-            | Get(Curry(applied, uncurriedArity,_,_), OptionValue, t2, r2) ->
-                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
 

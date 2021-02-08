@@ -607,13 +607,20 @@ export function curry(arity: number, f: Function): Function | undefined {
   }
 }
 
+export function checkArity(arity: number, f: Function): Function {
+  return f.length > arity
+    ? (...args1: any[]) => (...args2: any[]) => f.apply(undefined, args1.concat(args2))
+    : f;
+}
+
+
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
     return undefined;
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
     for (let i = 0; i < args.length; i++) {
-      f = f(args[i]);
+      f = f(args[i]) ;
     }
     return f;
   } else {
