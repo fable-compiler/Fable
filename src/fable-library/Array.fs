@@ -8,7 +8,9 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
 
-type Cons<'T> = interface end
+type Cons<'T> =
+    [<Emit("new $0($1)")>]
+    abstract Allocate: len: int -> 'T[]
 
 module Helpers =
     [<Emit("Array.from($0)")>]
@@ -20,12 +22,10 @@ module Helpers =
     [<Emit("new $0.constructor($1)")>]
     let allocateArrayFrom (xs: 'T[]) (len: int): 'T[] = jsNative
 
-    [<Emit("new ($0 || Array)($1)")>]
-    let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] = jsNative
-
-    // In some functions the constructor for typed arrays will be passed as last argument
-    [<Emit("new (arguments[arguments.length - 1] || Array)($1)")>]
-    let allocateArrayFromLastArg (len: int): 'T[] = jsNative
+    let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] =
+        if jsTypeof cons = "function"
+        then cons.Allocate(len)
+        else JS.Constructors.Array.Create(len)
 
     let inline isDynamicArrayImpl arr =
         JS.Constructors.Array.isArray arr
@@ -448,6 +448,31 @@ let copyToTypedArray (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count
     with _ ->
         // If these are not typed arrays (e.g. they come from JS), default to `copyTo`
         copyTo source sourceIndex target targetIndex count
+
+// Performance test for above method
+// let numloops = 10000
+
+// do
+//     let src: uint8[] = Array.zeroCreate 16384
+//     let trg: uint8[] = Array.zeroCreate 131072
+
+//     measureTime <| fun () ->
+//         for _ in 1 .. numloops do
+//           let rec loopi i =
+//             if i < trg.Length then
+//               Array.blit src 0 trg i src.Length
+//               loopi (i + src.Length) in loopi 0
+
+// do
+//     let src: char[] = Array.zeroCreate 16384
+//     let trg: char[] = Array.zeroCreate 131072
+
+//     measureTime <| fun () ->
+//         for _ in 1 .. numloops do
+//           let rec loopi i =
+//             if i < trg.Length then
+//               Array.blit src 0 trg i src.Length
+//               loopi (i + src.Length) in loopi 0
 
 let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) =
     let start = defaultArg start 0
