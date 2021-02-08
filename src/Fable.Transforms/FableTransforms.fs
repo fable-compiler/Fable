@@ -462,7 +462,8 @@ module private Transforms =
         let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
-        | Let(ident, NestedLambdaWithSameArity(args, fnBody, _), letBody) when List.isMultiple args ->
+        | Let(ident, NestedLambdaWithSameArity(args, fnBody, _), letBody) when List.isMultiple args
+                                                                          && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
             Let(ident, Delegate(args, fnBody, None), letBody)
@@ -476,7 +477,7 @@ module private Transforms =
         | e -> e
 
     let propagateUncurryingThroughLets (_: Compiler) = function
-        | Let(ident, value, body) ->
+        | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
                 | Curry(innerExpr, arity,_,_) ->

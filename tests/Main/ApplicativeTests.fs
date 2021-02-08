@@ -687,6 +687,8 @@ module CurriedApplicative =
 
     let addModule5 h i j k l = h + i + j + k + l
 
+    let fortyTwo () () = 42
+
     let tests = [
         testCase "Option.apply (<*>) non-curried" <| fun () ->
             let f x = x + 1
@@ -1175,6 +1177,12 @@ let tests7 = [
         d 42 42 |> equal [3; 2; 1; 0; 42; 42]
         let s = Seq.fold folder state [0..3]
         s 15 20 |> equal [3; 2; 1; 0; 15; 20]
+
+    testCase "Assigning a function with arity > 1 to a scoped mutable variable #2046" <| fun _ ->
+        let mutable state = fortyTwo
+        state () () |> equal 42
+        state <- fun () () -> 32
+        state () () |> equal 32
 ]
 
 module Adaptive =
