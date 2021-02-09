@@ -7,6 +7,7 @@ open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Python
+open Fable.AST.Babel
 
 [<RequireQualifiedAccess>]
 type ReturnStrategy =
@@ -38,15 +39,15 @@ type Context =
 
 type IPythonCompiler =
     inherit Compiler
-    abstract GetAllImports: unit -> Statement list
-    abstract GetImportExpr: Context * selector:string * path:string * SourceLocation option -> Expression
-    abstract TransformAsExpr: Context * Babel.Expression -> Expression * Statement list
-    abstract TransformAsStatements: Context * ReturnStrategy * Babel.Expression -> Statement list
-    abstract TransformAsStatements: Context * ReturnStrategy * Babel.Statement -> Statement list
-    abstract TransformAsStatements: Context * ReturnStrategy * Babel.BlockStatement -> Statement list
-    abstract TransformAsClassDef: Context * Babel.ClassDeclaration -> Statement list
-    abstract TransformAsImports: Context * Babel.ImportDeclaration -> Statement list
-    abstract TransformFunction: Context * Babel.Identifier * Babel.Pattern array * Babel.BlockStatement -> Statement
+    abstract GetAllImports: unit -> Python.Statement list
+    abstract GetImportExpr: Context * selector:string * path:string * SourceLocation option -> Python.Expression
+    abstract TransformAsExpr: Context * Babel.Expression -> Python.Expression * Python.Statement list
+    abstract TransformAsStatements: Context * ReturnStrategy * Babel.Expression -> Python.Statement list
+    abstract TransformAsStatements: Context * ReturnStrategy * Babel.Statement -> Python.Statement list
+    abstract TransformAsStatements: Context * ReturnStrategy * Babel.BlockStatement -> Python.Statement list
+    abstract TransformAsClassDef: Context * Babel.ClassBody * Babel.Identifier option * Babel.Expression option * Babel.ClassImplements array option * Babel.TypeParameterInstantiation option * Babel.TypeParameterDeclaration option * SourceLocation option -> Python.Statement list
+    abstract TransformAsImports: Context * Babel.ImportSpecifier array * Babel.StringLiteral -> Python.Statement list
+    abstract TransformFunction: Context * Babel.Identifier * Babel.Pattern array * Babel.BlockStatement -> Python.Statement
 
     abstract WarnOnlyOnce: string * ?range:SourceLocation -> unit
 
@@ -54,10 +55,10 @@ type IPythonCompiler =
 module Helpers =
     let index = (Seq.initInfinite id).GetEnumerator()
 
-    let getIdentifier (name: string): Identifier =
+    let getIdentifier (name: string): Python.Identifier =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
-        Identifier($"{name}_{idx}")
+        Python.Identifier($"{name}_{idx}")
 
 
     /// Replaces all '$' with '_'
@@ -84,15 +85,15 @@ module Helpers =
             printfn "moduleName: %s" moduleName
             moduleName
 
-    let unzipArgs (args: (Expression * Statement list) list): Expression list * Statement list =
+    let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id
         let args = args |> List.map fst
         args, stmts
 
     /// A few statements in the generated Babel AST do not produce any effect, and will not be printet. But they are
     /// left in the AST and we need to skip them since they are not valid for Python (either).
-    let isProductiveStatement (stmt: Statement) =
-        let rec hasNoSideEffects (e: Expression) =
+    let isProductiveStatement (stmt: Python.Statement) =
+        let rec hasNoSideEffects (e: Python.Expression) =
             printfn $"hasNoSideEffects: {e}"
 
             match e with
@@ -110,7 +111,7 @@ module Helpers =
         | _ -> Some stmt
 
 module Util =
-    let rec transformBody (returnStrategy: ReturnStrategy) (body: Statement list) =
+    let rec transformBody (returnStrategy: ReturnStrategy) (body: Python.Statement list) =
         let body = body |> List.choose Helpers.isProductiveStatement
 
         match body, returnStrategy with
@@ -123,50 +124,51 @@ module Util =
             |> transformBody ReturnStrategy.NoReturn
         | _ -> body
 
-    let transformAsImports (com: IPythonCompiler) (ctx: Context) (imp: Babel.ImportDeclaration): Statement list =
-        let pymodule = imp.Source.Value |> Helpers.rewriteFableImport
+    let transformAsImports (com: IPythonCompiler) (ctx: Context) (specifiers: Babel.ImportSpecifier array) (source: Babel.StringLiteral) : Python.Statement list =
+        let (StringLiteral.StringLiteral(value=value)) = source
+        let pymodule = value |> Helpers.rewriteFableImport
 
         printfn "Module: %A" pymodule
 
         let imports: ResizeArray<Alias> = ResizeArray()
         let importFroms = ResizeArray<Alias>()
 
-        for expr in imp.Specifiers do
+        for expr in specifiers do
             match expr with
-            | Babel.ImportMemberSpecifier(im) ->
+            | Babel.ImportMemberSpecifier(local, imported) ->
                 printfn "ImportMemberSpecifier"
 
                 let alias =
                     Alias.Create(
-                        Identifier(im.Imported.Name),
-                        if im.Imported.Name <> im.Local.Name then
-                            Identifier(im.Local.Name) |> Some
+                        Python.Identifier(imported.Name),
+                        if imported.Name <> local.Name then
+                            Python.Identifier(local.Name) |> Some
                         else
                             None
                     )
 
                 importFroms.Add(alias)
-            | Babel.ImportDefaultSpecifier(ids) ->
+            | Babel.ImportDefaultSpecifier(local) ->
                 printfn "ImportDefaultSpecifier"
 
                 let alias =
                     Alias.Create(
-                        Identifier(pymodule),
-                        if ids.Local.Name <> pymodule then
-                            Identifier(ids.Local.Name) |> Some
+                        Python.Identifier(pymodule),
+                        if local.Name <> pymodule then
+                            Python.Identifier(local.Name) |> Some
                         else
                             None
                     )
 
                 imports.Add(alias)
-            | Babel.ImportNamespaceSpecifier { Local = { Name = name } } ->
+            | Babel.ImportNamespaceSpecifier(Identifier(name = name)) ->
                 printfn "ImportNamespaceSpecifier: %A" (name, name)
 
                 let alias =
                     Alias.Create(
-                        Identifier(pymodule),
+                        Python.Identifier(pymodule),
                         if pymodule <> name then
-                            Identifier(name) |> Some
+                            Python.Identifier(name) |> Some
                         else
                             None
                     )
@@ -177,76 +179,87 @@ module Util =
                 Import.Create(imports |> List.ofSeq)
 
             if importFroms.Count > 0 then
-                ImportFrom.Create(Some(Identifier(pymodule)), importFroms |> List.ofSeq)
+                ImportFrom.Create(Some(Python.Identifier(pymodule)), importFroms |> List.ofSeq)
         ]
 
 
-    let transformAsClassDef (com: IPythonCompiler) ctx (cls: Babel.ClassDeclaration): Statement list =
+    let transformAsClassDef
+        (com: IPythonCompiler)
+        (ctx: Context)
+        (body: Babel.ClassBody)
+        (id: Babel.Identifier option)
+        (superClass: Babel.Expression option)
+        (implements: Babel.ClassImplements array option)
+        (superTypeParameters: Babel.TypeParameterInstantiation option)
+        (typeParameters: Babel.TypeParameterDeclaration option)
+        (loc: SourceLocation option)
+        : Python.Statement list =
         printfn $"transformAsClassDef"
 
         let bases, stmts =
             let entries =
-                cls.SuperClass
+                superClass
                 |> Option.map (fun expr -> com.TransformAsExpr(ctx, expr))
 
             match entries with
             | Some (expr, stmts) -> [ expr ], stmts
             | None -> [], []
 
-        let body: Statement list =
+        let body: Python.Statement list =
             [
-                for mber in cls.Body.Body do
+                let (ClassBody(body=body)) = body
+                for mber in body do
                     match mber with
-                    | Babel.ClassMethod(cm) ->
-                        let self = Arg.Create(Identifier("self"))
+                    | Babel.ClassMember.ClassMethod(kind, key, ``params``, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc) ->
+                        let self = Arg.Create(Python.Identifier("self"))
 
                         let parms =
-                            cm.Params
+                            ``params``
                             |> List.ofArray
 
                         let args =
                             parms
                             |> List.choose (function
-                                | Babel.IdentifierPattern(id) ->
-                                    Arg.Create(Identifier(id.Name)) |> Some
+                                | Pattern.Identifier(id) ->
+                                    Arg.Create(Python.Identifier(id.Name)) |> Some
                                 | _ -> None)
 
                         let varargs =
                             parms
                             |> List.choose (function
-                                | Babel.RestElement(rest) ->
-                                    Arg.Create(Identifier(rest.Argument.Name)) |> Some
+                                | Pattern.RestElement(argument=argument) ->
+                                    Arg.Create(Python.Identifier(argument.Name)) |> Some
                                 | _ -> None)
                             |> List.tryHead
 
                         let arguments = Arguments.Create(args = self :: args, ?vararg=varargs)
 
-                        match cm.Kind with
+                        match kind with
                         | "method" ->
                             let body =
-                                com.TransformAsStatements(ctx, ReturnStrategy.Return, cm.Body |> Babel.BlockStatement)
+                                com.TransformAsStatements(ctx, ReturnStrategy.Return, body |> Statement.BlockStatement)
 
                             let name =
-                                match cm.Key with
-                                | Babel.Identifier(id) -> Identifier(id.Name)
-                                | _ -> failwith $"transformAsClassDef: Unknown key: {cm.Key}"
+                                match key with
+                                | Expression.Identifier(id) -> Python.Identifier(id.Name)
+                                | _ -> failwith $"transformAsClassDef: Unknown key: {key}"
 
                             FunctionDef.Create(name, arguments, body = body)
                         | "constructor" ->
-                            let name = Identifier("__init__")
+                            let name = Python.Identifier("__init__")
 
                             let body =
-                                com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, cm.Body |> Babel.BlockStatement)
+                                com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body |> Statement.BlockStatement)
 
                             FunctionDef.Create(name, arguments, body = body)
-                        | _ -> failwith $"transformAsClassDef: Unknown kind: {cm.Kind}"
+                        | _ -> failwith $"transformAsClassDef: Unknown kind: {kind}"
                     | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}"
             ]
 
         printfn $"Body length: {body.Length}: ${body}"
-        let name = Helpers.cleanNameAsPythonIdentifier (cls.Id.Value.Name)
+        let name = Helpers.cleanNameAsPythonIdentifier (id.Value.Name)
 
-        [ yield! stmts; ClassDef.Create(Identifier(name), body = body, bases = bases) ]
+        [ yield! stmts; ClassDef.Create(Python.Identifier(name), body = body, bases = bases) ]
 
     let transformAsFunction (com: IPythonCompiler) (ctx: Context) (name: Babel.Identifier) (parms: Babel.Pattern array) (body: Babel.BlockStatement) =
         let args =
@@ -255,38 +268,38 @@ module Util =
             |> List.map
                 (fun pattern ->
                     let name = Helpers.cleanNameAsPythonIdentifier (pattern.Name)
-                    Arg.Create(Identifier(name)))
+                    Arg.Create(Python.Identifier(name)))
 
         let arguments = Arguments.Create(args = args)
-        let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body |> Babel.BlockStatement)
+        let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body |> Statement.BlockStatement)
         let name = Helpers.cleanNameAsPythonIdentifier (name.Name)
 
-        FunctionDef.Create(Identifier(name), arguments, body = body)
+        FunctionDef.Create(Python.Identifier(name), arguments, body = body)
 
     /// Transform Babel expression as Python expression
     let rec transformAsExpr
         (com: IPythonCompiler)
         (ctx: Context)
         (expr: Babel.Expression)
-        : Expression * list<Statement> =
+        : Python.Expression * list<Python.Statement> =
         printfn $"transformAsExpr: {expr}"
 
         match expr with
-        | Babel.AssignmentExpression { Left=left; Operator=operator; Right=right } ->
+        | Expression.AssignmentExpression(left=left; operator=operator; right=right) ->
             let left, leftStmts = com.TransformAsExpr(ctx, left)
             let right, rightStmts = com.TransformAsExpr(ctx, right)
             match operator with
             | "=" -> NamedExpr.Create(left, right), leftStmts @ rightStmts
             | _ -> failwith $"Unsuppored assingment expression: {operator}"
 
-        | Babel.BinaryExpression { Left=left; Operator=operator; Right=right } ->
+        | Expression.BinaryExpression(left=left; operator=operator; right=right) ->
             let left, leftStmts = com.TransformAsExpr(ctx, left)
             let right, rightStmts = com.TransformAsExpr(ctx, right)
 
             let toBinOp op = BinOp.Create(left, op, right), leftStmts @ rightStmts
             let toCompare op = Compare.Create(left, [ op ], [ right ]), leftStmts @ rightStmts
             let toCall name =
-                let func = Name.Create(Identifier(name), Load)
+                let func = Name.Create(Python.Identifier(name), Load)
                 let args = [left; right]
                 Call.Create(func, args),leftStmts @ rightStmts
 
@@ -313,7 +326,7 @@ module Util =
             | "isinstance" -> toCall "isinstance"
             | _ -> failwith $"Unknown operator: {operator}"
 
-        | Babel.UnaryExpression { Operator=operator; Argument=arg } ->
+        | Expression.UnaryExpression(operator=operator; argument=arg) ->
             let op =
                 match operator with
                 | "-" -> USub |> Some
@@ -329,25 +342,25 @@ module Util =
             | Some op -> UnaryOp.Create(op, operand), stmts
             | _ ->
                 // TODO: Should be Contant(value=None) but we cannot create that in F#
-                Name.Create(id = Identifier("None"), ctx = Load), stmts
+                Name.Create(id = Python.Identifier("None"), ctx = Load), stmts
 
-        | Babel.ArrowFunctionExpression { Params=parms; Body=body} ->
+        | Expression.ArrowFunctionExpression(``params``=parms; body=body) ->
             let args =
                 parms
                 |> List.ofArray
-                |> List.map (fun pattern -> Arg.Create(Identifier pattern.Name))
+                |> List.map (fun pattern -> Arg.Create(Python.Identifier pattern.Name))
 
             let arguments =
                 let args =
                     match args with
-                    | [] -> [ Arg.Create(Identifier("_"), Name.Create(Identifier("None"), Load)) ] // Need to receive unit
+                    | [] -> [ Arg.Create(Python.Identifier("_"), Name.Create(Python.Identifier("None"), Load)) ] // Need to receive unit
                     | _ -> args
                 Arguments.Create(args = args)
 
             let stmts = body.Body // TODO: Babel AST should be fixed. Body does not have to be a BlockStatement.
             match stmts with
-            | [| Babel.ReturnStatement(rtn) |] ->
-                let body, stmts = com.TransformAsExpr(ctx, rtn.Argument)
+            | [| Statement.ReturnStatement(argument=argument) |] ->
+                let body, stmts = com.TransformAsExpr(ctx, argument)
                 Lambda.Create(arguments, body), stmts
             | _ ->
                 let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
@@ -357,7 +370,7 @@ module Util =
                     FunctionDef.Create(name = name, args = arguments, body = body)
 
                 Name.Create(name, Load), [ func ]
-        | Babel.CallExpression { Callee=callee; Arguments=args } -> // FIXME: use transformAsCall
+        | Expression.CallExpression(callee=callee; arguments=args) -> // FIXME: use transformAsCall
             let func, stmts = com.TransformAsExpr(ctx, callee)
 
             let args, stmtArgs =
@@ -367,20 +380,20 @@ module Util =
                 |> Helpers.unzipArgs
 
             Call.Create(func, args), stmts @ stmtArgs
-        | Babel.ArrayExpression(ae) ->
+        | Expression.ArrayExpression(elements=elements) ->
             let elems, stmts =
-                ae.Elements
+                elements
                 |> List.ofArray
                 |> List.map (fun ex -> com.TransformAsExpr(ctx, ex))
                 |> Helpers.unzipArgs
 
             Tuple.Create(elems), stmts
-        | Babel.Literal(Babel.NumericLiteral(nl)) -> Constant.Create(value = nl.Value), []
-        | Babel.Literal(Babel.StringLiteral(sl)) -> Constant.Create(value = sl.Value), []
-        | Babel.Identifier { Name=name } ->
+        | Expression.Literal(Literal.NumericLiteral(value=value)) -> Constant.Create(value = value), []
+        | Expression.Literal(Literal.StringLiteral(StringLiteral.StringLiteral(value=value))) -> Constant.Create(value = value), []
+        | Expression.Identifier(Identifier(name=name)) ->
             let name = Helpers.cleanNameAsPythonIdentifier name
-            Name.Create(id = Identifier name, ctx = Load), []
-        | Babel.NewExpression { Callee=callee; Arguments=args} -> // FIXME: use transformAsCall
+            Name.Create(id = Python.Identifier name, ctx = Load), []
+        | Expression.NewExpression(callee=callee; arguments=args) -> // FIXME: use transformAsCall
             let func, stmts = com.TransformAsExpr(ctx, callee)
 
             let args, stmtArgs =
@@ -390,23 +403,23 @@ module Util =
                 |> Helpers.unzipArgs
 
             Call.Create(func, args), stmts @ stmtArgs
-        | Babel.Super(se) -> Name.Create(Identifier("super().__init__"), ctx = Load), []
-        | Babel.ObjectExpression { Properties=properties } ->
+        | Expression.Super(se) -> Name.Create(Python.Identifier("super().__init__"), ctx = Load), []
+        | Expression.ObjectExpression(properties=properties) ->
             let keys, values, stmts =
                 [
                     for prop in properties do
                         match prop with
-                        | Babel.ObjectProperty(op) ->
-                            let key, stmts1 = com.TransformAsExpr(ctx, op.Key)
-                            let value, stmts2 = com.TransformAsExpr(ctx, op.Value)
+                        | ObjectProperty(key=key; value=value) ->
+                            let key, stmts1 = com.TransformAsExpr(ctx, key)
+                            let value, stmts2 = com.TransformAsExpr(ctx, value)
                             key, value, stmts1 @ stmts2
-                        | Babel.ObjectMethod(om) ->
-                            let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, om.Body)
-                            let key, stmts = com.TransformAsExpr(ctx, om.Key)
+                        | Babel.ObjectMethod(key=key; ``params``=parms; body=body) ->
+                            let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
+                            let key, stmts = com.TransformAsExpr(ctx, key)
                             let args =
-                                om.Params
+                                parms
                                 |> List.ofArray
-                                |> List.map (fun pattern -> Arg.Create(Identifier pattern.Name))
+                                |> List.map (fun pattern -> Arg.Create(Python.Identifier pattern.Name))
 
                             let arguments = Arguments.Create(args = args)
                             let name = Helpers.getIdentifier "lifted"
@@ -419,7 +432,7 @@ module Util =
                 |> List.unzip3
 
             Dict.Create(keys = keys, values = values), stmts |> List.collect id
-        | Babel.EmitExpression { Value=value; Args=args } ->
+        | Expression.EmitExpression(value=value; args=args) ->
             let args, stmts =
                 args
                 |> List.ofArray
@@ -430,34 +443,34 @@ module Util =
             | "void $0" -> args.[0], stmts
             //| "raise %0" -> Raise.Create()
             | _ -> Emit.Create(value, args), stmts
-        | Babel.MemberExpression { Computed=true; Object=object; Property=Babel.Literal(literal) } ->
+        | Expression.MemberExpression(computed=true; object=object; property=Expression.Literal(literal)) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
 
             let attr =
                 match literal with
-                | Babel.NumericLiteral(nl) -> Constant.Create(nl.Value)
-                | Babel.StringLiteral(literal) -> Constant.Create(literal.Value)
+                | Literal.NumericLiteral(value=value) -> Constant.Create(value)
+                | Literal.StringLiteral(StringLiteral.StringLiteral(value=value)) -> Constant.Create(value)
                 | _ -> failwith $"transformExpressionAsStatements: unknown literal {literal}"
 
             Subscript.Create(value = value, slice = attr, ctx = Load), stmts
-         | Babel.MemberExpression { Computed=false; Object=object; Property=Babel.Identifier { Name="length" } } ->
+         | Expression.MemberExpression(computed=false; object=object; property=Expression.Identifier(Identifier(name="length"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
-            let func = Name.Create(Identifier "len", Load)
+            let func = Name.Create(Python.Identifier "len", Load)
             Call.Create(func, [value]), stmts
-         | Babel.MemberExpression { Computed=false; Object=object; Property=Babel.Identifier { Name="message" } } ->
+         | Expression.MemberExpression(computed=false; object=object; property=Expression.Identifier(Identifier(name="message"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
-            let func = Name.Create(Identifier "str", Load)
+            let func = Name.Create(Python.Identifier "str", Load)
             Call.Create(func, [value]), stmts
-         | Babel.MemberExpression { Computed=false; Object=object; Property=property } ->
+         | Expression.MemberExpression(computed=false; object=object; property=property) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
             let attr =
                 match property with
-                | Babel.Identifier { Name=name } -> Identifier(name)
+                | Expression.Identifier(Identifier(name=name)) -> Python.Identifier(name)
                 | _ -> failwith $"transformExpressionAsStatements: unknown property {property}"
 
             let value =
                 match value with
-                | Name { Id = Identifier (id); Context = ctx } ->
+                | Name { Id = Python.Identifier (id); Context = ctx } ->
                     // TODO: Need to make this more generic and robust
                     let id =
                         if id = "Math" then
@@ -466,26 +479,26 @@ module Util =
                         else
                             id
 
-                    Name.Create(id = Identifier(id), ctx = ctx)
+                    Name.Create(id = Python.Identifier(id), ctx = ctx)
                 | _ -> value
 
             Attribute.Create(value = value, attr = attr, ctx = Load), stmts
-        | Babel.Literal(Babel.BooleanLiteral { Value=value }) -> Constant.Create(value = value), []
-        | Babel.FunctionExpression(fe) ->
+        | Expression.Literal(Literal.BooleanLiteral(value=value)) -> Constant.Create(value = value), []
+        | Expression.FunctionExpression(``params``=parms; body=body) ->
             let args =
-                fe.Params
+                parms
                 |> List.ofArray
-                |> List.map (fun pattern -> Arg.Create(Identifier pattern.Name))
+                |> List.map (fun pattern -> Arg.Create(Python.Identifier pattern.Name))
 
             let arguments = Arguments.Create(args = args)
 
-            match fe.Body.Body with
-            | [| Babel.ExpressionStatement(expr) |]  ->
-                let body, stmts = com.TransformAsExpr(ctx, expr.Expression)
+            match body.Body with
+            | [| Statement.ExpressionStatement(expr) |]  ->
+                let body, stmts = com.TransformAsExpr(ctx, expr)
                 Lambda.Create(arguments, body), stmts
             | _ ->
                 let body =
-                    com.TransformAsStatements(ctx, ReturnStrategy.Return, fe.Body)
+                    com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
 
                 let name = Helpers.getIdentifier "lifted"
 
@@ -493,14 +506,14 @@ module Util =
                     FunctionDef.Create(name = name, args = arguments, body = body)
 
                 Name.Create(name, Load), [ func ]
-        | Babel.ConditionalExpression { Test=test; Consequent=consequent; Alternate=alternate } ->
+        | Expression.ConditionalExpression(test=test; consequent=consequent; alternate=alternate) ->
             let test, stmts1 = com.TransformAsExpr(ctx, test)
             let body, stmts2 = com.TransformAsExpr(ctx, consequent)
             let orElse, stmts3 = com.TransformAsExpr(ctx, alternate)
 
             IfExp.Create(test, body, orElse), stmts1 @ stmts2 @ stmts3
-        | Babel.Literal(Babel.NullLiteral(nl)) -> Name.Create(Identifier("None"), ctx = Load), []
-        | Babel.SequenceExpression { Expressions=exprs } ->
+        | Expression.Literal(Literal.NullLiteral(nl)) -> Name.Create(Python.Identifier("None"), ctx = Load), []
+        | Expression.SequenceExpression(expressions=exprs) ->
             // Sequence expressions are tricky. We currently convert them to a function that we call w/zero arguments
             let exprs, stmts =
                 exprs
@@ -532,28 +545,28 @@ module Util =
         (ctx: Context)
         (returnStrategy: ReturnStrategy)
         (expr: Babel.Expression)
-        : Statement list =
+        : Python.Statement list =
 
         printfn $"transformExpressionAsStatements: {expr}"
 
         match expr with
-        | Babel.AssignmentExpression { Left=left; Right=right } ->
+        | Expression.AssignmentExpression(left=left; right=right) ->
             let value, stmts = com.TransformAsExpr(ctx, right)
 
-            let targets: Expression list =
+            let targets: Python.Expression list =
                 match left with
-                | Babel.Identifier(identifier) ->
+                | Expression.Identifier(Identifier(name=name)) ->
                     let target =
-                        Identifier(Helpers.cleanNameAsPythonIdentifier (identifier.Name))
+                        Python.Identifier(Helpers.cleanNameAsPythonIdentifier (name))
 
                     [ Name.Create(id = target, ctx = Store) ]
-                | Babel.MemberExpression({Property=property}) ->
+                | Expression.MemberExpression(property=property) ->
                     match property with
-                    | Babel.Identifier(id) ->
-                        let attr = Identifier(Helpers.cleanNameAsPythonIdentifier (id.Name))
+                    | Expression.Identifier(id) ->
+                        let attr = Python.Identifier(Helpers.cleanNameAsPythonIdentifier (id.Name))
                         [
                             Attribute.Create(
-                                value = Name.Create(id = Identifier("self"), ctx = Load),
+                                value = Name.Create(id = Python.Identifier("self"), ctx = Load),
                                 attr = attr,
                                 ctx = Store
                             )
@@ -569,45 +582,45 @@ module Util =
         (ctx: Context)
         (returnStrategy: ReturnStrategy)
         (stmt: Babel.Statement)
-        : list<Statement> =
+        : Python.Statement list =
         printfn $"transformStatementAsStatements: {stmt}, returnStrategy: {returnStrategy}"
 
         match stmt with
-        | Babel.BlockStatement(bs) ->
+        | Statement.BlockStatement(bs) ->
             [ yield! com.TransformAsStatements(ctx, returnStrategy, bs) ]
             |> transformBody returnStrategy
 
-        | Babel.ReturnStatement { Argument=arg } ->
+        | Statement.ReturnStatement(argument=arg) ->
             let expr, stmts = transformAsExpr com ctx arg
 
             match returnStrategy with
             | ReturnStrategy.NoReturn -> stmts @ [ Expr.Create(expr) ]
             | _ -> stmts @ [ Return.Create(expr) ]
-        | Babel.Declaration(Babel.VariableDeclaration(vd)) ->
+        | Statement.Declaration(Declaration.VariableDeclaration(VariableDeclaration(declarations=declarations))) ->
             [
-                for vd in vd.Declarations do
-                    let targets: Expression list =
-                        let name = Helpers.cleanNameAsPythonIdentifier (vd.Id.Name)
-                        [ Name.Create(id = Identifier(name), ctx = Store) ]
+                for (VariableDeclarator(id=id; init=init)) in declarations do
+                    let targets: Python.Expression list =
+                        let name = Helpers.cleanNameAsPythonIdentifier (id.Name)
+                        [ Name.Create(id = Python.Identifier(name), ctx = Store) ]
 
-                    match vd.Init with
+                    match init with
                     | Some value ->
                         let expr, stmts = com.TransformAsExpr(ctx, value)
                         yield! stmts
                         Assign.Create(targets, expr)
                     | None -> ()
             ]
-        | Babel.ExpressionStatement { Expression=expression } ->
+        | Statement.ExpressionStatement(expr=expression) ->
             // Handle Babel expressions that we need to transforme here as Python statements
             match expression with
-            | Babel.AssignmentExpression(ae) -> com.TransformAsStatements(ctx, returnStrategy, ae |> Babel.AssignmentExpression)
+            | Expression.AssignmentExpression(_) -> com.TransformAsStatements(ctx, returnStrategy, expression)
             | _ ->
                 [
                     let expr, stmts = com.TransformAsExpr(ctx, expression)
                     yield! stmts
                     Expr.Create(expr)
                 ]
-        | Babel.IfStatement { Test=test; Consequent=consequent; Alternate=alternate } ->
+        | Statement.IfStatement(test=test; consequent=consequent; alternate=alternate) ->
             let test, stmts = com.TransformAsExpr(ctx, test)
 
             let body =
@@ -623,7 +636,7 @@ module Util =
                 | _ -> []
 
             [ yield! stmts; If.Create(test = test, body = body, orelse = orElse) ]
-        | Babel.WhileStatement { Test=test; Body=body } ->
+        | Statement.WhileStatement(test=test; body=body) ->
             let expr, stmts = com.TransformAsExpr(ctx, test)
 
             let body =
@@ -631,24 +644,24 @@ module Util =
                 |> transformBody ReturnStrategy.NoReturn
 
             [ yield! stmts; While.Create(test = expr, body = body, orelse = []) ]
-        | Babel.TryStatement(ts) ->
-            let body = com.TransformAsStatements(ctx, returnStrategy, ts.Block)
+        | Statement.TryStatement(block=block; handler=handler; finalizer=finalizer) ->
+            let body = com.TransformAsStatements(ctx, returnStrategy, block)
 
             let finalBody =
-                ts.Finalizer
+                finalizer
                 |> Option.map (fun f -> com.TransformAsStatements(ctx, returnStrategy, f))
 
             let handlers =
-                match ts.Handler with
-                | Some cc ->
-                    let body = com.TransformAsStatements(ctx, returnStrategy, cc.Body)
+                match handler with
+                | Some (CatchClause(``param``=parm; body=body)) ->
+                    let body = com.TransformAsStatements(ctx, returnStrategy, body)
 
                     let exn =
-                        Name.Create(Identifier("Exception"), ctx = Load)
+                        Name.Create(Python.Identifier("Exception"), ctx = Load)
                         |> Some
 
                     // Insert a ex.message = str(ex) for all aliased exceptions.
-                    let identifier = Identifier(cc.Param.Name)
+                    let identifier = Python.Identifier(parm.Name)
                     // let idName = Name.Create(identifier, Load)
                     // let message = Identifier("message")
                     // let trg = Attribute.Create(idName, message, Store)
@@ -662,19 +675,19 @@ module Util =
                 | _ -> []
 
             [ Try.AsStatement(body = body, handlers = handlers, ?finalBody = finalBody) ]
-        | Babel.SwitchStatement { Discriminant=discriminant; Cases=cases } ->
+        | Statement.SwitchStatement(discriminant=discriminant; cases=cases) ->
             let value, stmts = com.TransformAsExpr(ctx, discriminant)
 
-            let rec ifThenElse (fallThrough: Expression option) (cases: Babel.SwitchCase list): Statement list option =
+            let rec ifThenElse (fallThrough: Python.Expression option) (cases: Babel.SwitchCase list): Python.Statement list option =
                 match cases with
                 | [] -> None
-                | case :: cases ->
+                | SwitchCase(test=test; consequent=consequent) :: cases ->
                     let body =
-                        case.Consequent
+                        consequent
                         |> List.ofArray
                         |> List.collect (fun x -> com.TransformAsStatements(ctx, ReturnStrategy.NoBreak, x))
 
-                    match case.Test with
+                    match test with
                     | None -> body |> Some
                     | Some test ->
                         let test, st = com.TransformAsExpr(ctx, test)
@@ -697,23 +710,24 @@ module Util =
             match result with
             | Some ifStmt -> stmts @ ifStmt
             | None -> []
-        | Babel.BreakStatement(_) -> [ Break ]
-        | Babel.Declaration(Babel.FunctionDeclaration(fd)) ->
-            [ com.TransformFunction(ctx, fd.Id, fd.Params, fd.Body) ]
-        | Babel.Declaration(Babel.ClassDeclaration(cd)) -> com.TransformAsClassDef(ctx, cd)
-        | Babel.ForStatement
-            { Init=Some({ Declarations= [| { Id=id; Init=Some(init)} |] })
-              Test=Some(Babel.BinaryExpression { Left=left; Right=right; Operator="<="})
-              Body=body } ->
+        | Statement.BreakStatement(_) -> [ Break ]
+        | Statement.Declaration(Declaration.FunctionDeclaration(``params``=parms; id=id; body=body)) ->
+            [ com.TransformFunction(ctx, id, parms, body) ]
+        | Statement.Declaration(Declaration.ClassDeclaration(body, id, superClass, implements, superTypeParameters, typeParameters, loc)) ->
+            transformAsClassDef com ctx body id superClass implements superTypeParameters typeParameters loc
+        | Statement.ForStatement
+              (init=Some(VariableDeclaration(declarations= [| VariableDeclarator(id=id; init=Some(init)) |] ))
+               test=Some(Expression.BinaryExpression(left=left; right=right; operator="<="))
+               body=body) ->
             let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
-            let target = Name.Create(Identifier id.Name, Load)
+            let target = Name.Create(Python.Identifier id.Name, Load)
             let start, stmts1 = com.TransformAsExpr(ctx, init)
             let stop, stmts2 = com.TransformAsExpr(ctx, right)
             let stop = BinOp.Create(stop, Add, Constant.Create(1)) // Python `range` has exclusive end.
-            let iter = Call.Create(Name.Create(Identifier "range", Load), args=[start; stop])
+            let iter = Call.Create(Name.Create(Python.Identifier "range", Load), args=[start; stop])
             stmts1 @ stmts2 @ [ For.AsStatement(target=target, iter=iter, body=body) ]
-        | Babel.LabeledStatement { Body=body } -> com.TransformAsStatements(ctx, returnStrategy, body)
-        | Babel.ContinueStatement(_) -> [ Continue ]
+        | Statement.LabeledStatement(body=body) -> com.TransformAsStatements(ctx, returnStrategy, body)
+        | Statement.ContinueStatement(_) -> [ Continue ]
         | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"
 
     let transformBlockStatementAsStatements
@@ -721,7 +735,7 @@ module Util =
         (ctx: Context)
         (returnStrategy: ReturnStrategy)
         (block: Babel.BlockStatement)
-        : list<Statement> =
+        : Python.Statement list =
 
         [ for stmt in block.Body do
             yield! transformStatementAsStatements com ctx returnStrategy stmt ]
@@ -730,32 +744,33 @@ module Util =
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
         let returnStrategy = ReturnStrategy.Return
 
-        let stmt: Statement list =
+        let stmt: Python.Statement list =
             [
                 for md in body do
                     match md with
                     | Babel.ExportNamedDeclaration(decl) ->
-                        match decl.Declaration with
-                        | Babel.VariableDeclaration(decl) ->
-                            for decls in decl.Declarations do
-                                let value, stmts = com.TransformAsExpr(ctx, decls.Init.Value)
+                        match decl with
+                        | Babel.VariableDeclaration(VariableDeclaration(declarations=declarations)) ->
+                            for (VariableDeclarator(id, init)) in declarations do
+                                let value, stmts = com.TransformAsExpr(ctx, init.Value)
 
-                                let targets: Expression list =
-                                    let name = Helpers.cleanNameAsPythonIdentifier (decls.Id.Name)
-                                    [ Name.Create(id = Identifier(name), ctx = Store) ]
+                                let targets: Python.Expression list =
+                                    let name = Helpers.cleanNameAsPythonIdentifier (id.Name)
+                                    [ Name.Create(id = Python.Identifier(name), ctx = Store) ]
 
                                 yield! stmts
                                 yield Assign.Create(targets = targets, value = value)
-                        | Babel.FunctionDeclaration(fd) ->
-                            yield com.TransformFunction(ctx, fd.Id, fd.Params, fd.Body)
+                        | Babel.FunctionDeclaration(``params``=``params``; body=body; id=id) ->
+                            yield com.TransformFunction(ctx, id, ``params``, body)
 
-                        | Babel.ClassDeclaration(cd) -> yield! com.TransformAsClassDef(ctx, cd)
-                        | _ -> failwith $"Unhandled Declaration: {decl.Declaration}"
+                        | Babel.ClassDeclaration(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
+                            yield! transformAsClassDef com ctx body id superClass implements superTypeParameters typeParameters loc
+                        | _ -> failwith $"Unhandled Declaration: {decl}"
 
-                    | Babel.ImportDeclaration(imp) -> yield! com.TransformAsImports(ctx, imp)
-                    | Babel.PrivateModuleDeclaration(pmd) ->
+                    | Babel.ImportDeclaration(specifiers, source) -> yield! com.TransformAsImports(ctx, specifiers, source)
+                    | Babel.PrivateModuleDeclaration(statement=statement) ->
                         yield!
-                            com.TransformAsStatements(ctx, returnStrategy, pmd.Statement)
+                            com.TransformAsStatements(ctx, returnStrategy, statement)
                             |> transformBody returnStrategy
                     | _ -> failwith $"Unknown module declaration: {md}"
             ]
@@ -793,9 +808,9 @@ module Compiler =
             member bcom.TransformAsStatements(ctx, ret, e) = transformExpressionAsStatements bcom ctx ret e
             member bcom.TransformAsStatements(ctx, ret, e) = transformStatementAsStatements bcom ctx ret e
             member bcom.TransformAsStatements(ctx, ret, e) = transformBlockStatementAsStatements bcom ctx ret e
-            member bcom.TransformAsClassDef(ctx, cls) = transformAsClassDef bcom ctx cls
+            member bcom.TransformAsClassDef(ctx, body, id, superClass, implements, superTypeParameters, typeParameters, loc) = transformAsClassDef bcom ctx body id superClass implements superTypeParameters typeParameters loc
             member bcom.TransformFunction(ctx, name, args, body) = transformAsFunction bcom ctx name args body
-            member bcom.TransformAsImports(ctx, imp) = transformAsImports bcom ctx imp
+            member bcom.TransformAsImports(ctx, specifiers, source) = transformAsImports bcom ctx specifiers source
 
         interface Compiler with
             member _.Options = com.Options
@@ -824,4 +839,5 @@ module Compiler =
                 ScopedTypeParams = Set.empty
             }
 
-        transformProgram com ctx program.Body
+        let (Program body) = program
+        transformProgram com ctx body
