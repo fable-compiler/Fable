@@ -96,7 +96,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.HasSpread = Helpers.hasParamArray m
         member _.IsPublic = Helpers.isPublicMember m
         // NOTE: Using memb.IsValue doesn't work for function values
-        // See isModuleValueForDeclarations below
+        // See isModuleValueForCalls below
         member _.IsValue = m.IsValue
         member _.IsInstance = m.IsInstanceMember
         member _.IsMutable = m.IsMutable
@@ -459,12 +459,9 @@ module Helpers =
 
     /// Using memb.IsValue doesn't work for function values
     /// (e.g. `let ADD = adder()` when adder returns a function)
-    let isModuleValueForDeclarations (memb: FSharpMemberOrFunctionOrValue) =
-        memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
-
     let isModuleValueForCalls (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
-        && isModuleValueForDeclarations memb
+        && memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
         // Mutable public values must be called as functions (see #986)
         && (not memb.IsMutable || not (isPublicMember memb))
 
@@ -1543,10 +1540,13 @@ module Util =
             callInstanceMember com r typ callInfo entity memb
 
         | _, Some entity when isModuleValueForCalls entity memb ->
-            let typ = makeType ctx.GenericArgs memb.FullType
+            let typ = makeType (Map genArgs.Value) memb.FullType
             memberRefTyped com ctx r typ memb
 
         | _ ->
+            // If member looks like a value but behaves like a function (has generic args) the type
+            // from F# AST is wrong (#2045). But I couldn't find a way to correct it and make uncurrying work.
+            // if memb.CurriedParameterGroups.Count = 0 then makeType (Map genArgs.Value) memb.FullType
             let callExpr =
                 memberRef com ctx r memb
                 |> makeCall r typ callInfo

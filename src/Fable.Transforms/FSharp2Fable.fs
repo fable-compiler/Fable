@@ -1025,9 +1025,14 @@ let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSha
         let typ = makeType Map.empty memb.FullType
         transformImport com None typ memb.IsMutable isPublic name fullDisplayName selector path
     | _ ->
-        if isModuleValueForDeclarations memb
-        then transformMemberValue com ctx isPublic name fullDisplayName memb body
-        else transformMemberFunction com ctx isPublic name fullDisplayName memb args body
+        let noArgs = memb.CurriedParameterGroups.Count = 0
+        if noArgs && memb.GenericParameters.Count = 0 then
+            transformMemberValue com ctx isPublic name fullDisplayName memb body
+        else
+            if noArgs && memb.ReturnParameter.Type.IsFunctionType then
+                "Point-free function declarations may cause issues with uncurrying: " + memb.FullName
+                |> addWarning com [] (makeRangeFrom body)
+            transformMemberFunction com ctx isPublic name fullDisplayName memb args body
 
 let private transformAttachedMember (com: FableCompiler) (ctx: Context)
             (declaringEntity: Fable.Entity) (signature: FSharpAbstractSignature)

@@ -687,8 +687,6 @@ module CurriedApplicative =
 
     let addModule5 h i j k l = h + i + j + k + l
 
-    let fortyTwo () () = 42
-
     let tests = [
         testCase "Option.apply (<*>) non-curried" <| fun () ->
             let f x = x + 1
@@ -903,6 +901,7 @@ let mul x y = x * y
 
 let addOne (add: int->int->int) x = add 1 x
 let pointFree_addOne = addOne
+let fortyTwo x y = x + "42" + y
 
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
@@ -1180,9 +1179,9 @@ let tests7 = [
 
     testCase "Assigning a function with arity > 1 to a scoped mutable variable #2046" <| fun _ ->
         let mutable state = fortyTwo
-        state () () |> equal 42
-        state <- fun () () -> 32
-        state () () |> equal 32
+        state "a" "b" |> equal "a42b"
+        state <- fun x y -> x + "32" + y
+        state "a" "b" |> equal "a32b"
 ]
 
 module Adaptive =
