@@ -365,7 +365,8 @@ module private Transforms =
                 getLambdaTypeArity (acc + 1) returnType
             | t -> acc, t
         match t with
-        | LambdaType(_, returnType) ->
+        | LambdaType(_, returnType)
+        | Option(LambdaType(_, returnType)) ->
             getLambdaTypeArity 1 returnType
         | _ -> 0, t
 
@@ -399,6 +400,10 @@ module private Transforms =
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
         | _, Curry(innerExpr, arity2,_,_)
             when matches arity arity2 -> innerExpr
+        | _, Get(Curry(innerExpr, arity2,_,_), OptionValue, t, r)
+            when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
+        | _, Value(NewOption(Some(Curry(innerExpr, arity2,_,_)),r1),r2)
+            when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
         | _ ->
             match arity with
             | Some arity -> Replacements.uncurryExprAtRuntime com arity expr
@@ -508,7 +513,7 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(_, (ByKey(FieldKey(_)) | UnionField _ |  ListHead | TupleIndex _ | OptionValue), t, r) ->
+        | Get(_, (ByKey(FieldKey(_)) | UnionField _ | TupleIndex _), t, r) ->
             match getLambdaTypeArity t with
             // If the lambda returns a generic the actual arity may be higher than expected,
             // so we need a runtime partial application
@@ -559,13 +564,6 @@ module private Transforms =
             let targs = args |> List.map (fun a -> a.Type)
             let args = uncurryArgs com false targs args
             Value(NewTuple args, r)
-        | Value(NewOption(Some(arg), t), r) ->
-            let args = uncurryArgs com false [t] [arg]
-            Value(NewOption(List.tryHead args, t), r)
-        // TODO: Array
-        | Value(NewList(Some(head, tail), t), r) ->
-            let head = uncurryArgs com false [t] [head] |> List.head
-            Value(NewList(Some(head, tail), t), r)
         | Set(e, Some(FieldKey fi), value, r) ->
             let value = uncurryArgs com false [fi.FieldType] [value]
             Set(e, Some(FieldKey fi), List.head value, r)
@@ -588,6 +586,8 @@ module private Transforms =
             match applied with
             | Curry(applied, uncurriedArity,_,_) ->
                 uncurryApply r t applied args uncurriedArity
+            | Get(Curry(applied, uncurriedArity,_,_), OptionValue, t2, r2) ->
+                uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
 
