@@ -902,6 +902,20 @@ let mul x y = x * y
 let addOne (add: int->int->int) x = add 1 x
 let pointFree_addOne = addOne
 let fortyTwo x y = x + "42" + y
+let applyFooInRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
+
+type Fn = bool -> int -> string
+type Thing =
+    | In of Fn
+    | Out of Fn
+
+let findThing (things:Thing list) =
+    let folder (a : Fn option) t =
+        match t with
+        | In x -> Some x // Found an In, set accumulator
+        | _ -> a // pass accumulator through unchanged
+
+    things |> List.fold folder None  // Searching for an "In x"
 
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
@@ -1182,6 +1196,36 @@ let tests7 = [
         state "a" "b" |> equal "a42b"
         state <- fun x y -> x + "32" + y
         state "a" "b" |> equal "a32b"
+
+    testCase "Uncurrying works with generic records returning lambdas" <| fun () ->
+        applyFooInRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
+        let f = applyFooInRecord {| foo = fun x y -> x ** y |} 5.
+        f 3. |> equal 125.
+
+    testCase "Curried functions being mangled via DU, List.fold and match combination #2356" <| fun _ ->
+        let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
+
+        let test = match findThing testData with
+                            | Some f -> f true 1
+                            | None -> "nothing"
+        test |> equal "fly"
+
+    testCase "Option uncurrying #2116" <| fun _ ->
+        let optionFn = Some (fun x y -> x + y)
+
+        let list = List.choose id [optionFn]
+        List.length list |> equal 1
+        let x =
+            match list with
+            | [f] -> f 3 4
+            | _ -> -1
+        equal 7 x
+
+    testCase "Iterating list of functions #2047" <| fun _ ->
+        let mutable s = "X"
+        for someFun in [fortyTwo] do
+            s <- s + someFun "y" "z" + s
+        equal "Xy42zX" s
 ]
 
 module Adaptive =

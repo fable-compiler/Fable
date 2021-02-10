@@ -611,7 +611,6 @@ export function checkArity(arity: number, f: Function): Function {
     : f;
 }
 
-
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
     return undefined;

@@ -291,6 +291,8 @@ module private Transforms =
         | Delegate(args, body, name) -> Some(args, body, name)
         | _ -> None
 
+    let (|FieldType|) (fi: Field) = fi.FieldType
+
     let (|ImmediatelyApplicable|_|) = function
         | Lambda(arg, body, _) -> Some(arg, body)
         // If the lambda is immediately applied we don't need the closures
@@ -487,6 +489,10 @@ module private Transforms =
                 match value with
                 | Curry(innerExpr, arity,_,_) ->
                     ident, innerExpr, Some arity
+                | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
+                    ident, Get(innerExpr, OptionValue, t, r), Some arity
+                | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
+                    ident, Value(NewOption(Some(innerExpr),r1),r2), Some arity
                 | _ -> ident, value, None
             match arity with
             | None -> Let(ident, value, body)
@@ -513,8 +519,8 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(_, (ByKey(FieldKey(_)) | UnionField _ | TupleIndex _), t, r) ->
-            match getLambdaTypeArity t with
+        | Get(_, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
+            match getLambdaTypeArity fieldType with
             // If the lambda returns a generic the actual arity may be higher than expected,
             // so we need a runtime partial application
             | arity, GenericParam _ when arity > 0 ->
@@ -560,10 +566,6 @@ module private Transforms =
             let uci = com.GetEntity(ent).UnionCases.[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
-        | Value(NewTuple args, r) ->
-            let targs = args |> List.map (fun a -> a.Type)
-            let args = uncurryArgs com false targs args
-            Value(NewTuple args, r)
         | Set(e, Some(FieldKey fi), value, r) ->
             let value = uncurryArgs com false [fi.FieldType] [value]
             Set(e, Some(FieldKey fi), List.head value, r)
