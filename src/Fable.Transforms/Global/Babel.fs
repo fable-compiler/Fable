@@ -348,7 +348,7 @@ type ClassMember =
         key: Expression *
         ``params``: Pattern array *
         body: BlockStatement *
-        Computed: bool *
+        computed: bool *
         ``static``: bool option *
         ``abstract``: bool option *
         returnType: TypeAnnotation option *
