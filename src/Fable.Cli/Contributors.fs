@@ -37,7 +37,8 @@ let getRandom() =
           "inosik";         "MangelMaxime";       "Zaid-Ajaj";
           "forki";          "ncave";              "alfonsogarciacaro"
           "do-wa";          "jwosty";             "mlaily";
-          "delneg";         "GordonBGood";        "Booksbaum"
+          "delneg";         "GordonBGood";        "Booksbaum";
+          "NickDarvey"
         |]
     Array.length contributors
     |> System.Random().Next
