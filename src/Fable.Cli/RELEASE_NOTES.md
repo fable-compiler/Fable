@@ -1,3 +1,20 @@
+### 3.1.3
+
+* Add support for named capture groups in Regexes @Booksbaum
+* Babel AST: cleanup and refactor @dbrattli
+* Fix #1343: Warning when interface name clashes with record field @BillHally
+* Fix #2376: Char.IsLetter with `“` and `”` @ncave @NickDarvey
+* Fix #2372: Array.reduce Array.append @inosik
+* Fix #2367: Using `unbox null` for callback returns `undefines`
+* Fix #2357: Fall-through to default switch case duplicates the switch case consequent code block
+* Fix #2356: Curried functions mangled via DU, List.fold and match combination
+* Fix #2355: System.Math.Ceiling/Floor returning incorrect values for some Decimals @ncave
+* Fix #2350: Empty files
+* Fix #2116: Incorrect uncurrying with list of function options
+* Fix #2047: Iterating over a list of functions with a for in loop
+* Fix #2046: Assigning a function to scoped mutable variable
+* Fix #2045: Raise warning for point-free function declarations
+
 ### 3.1.2
 
 * Fast copy for typed arrays @GordonBGood
