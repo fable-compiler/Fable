@@ -143,6 +143,8 @@ type Declaration =
 /// A module import or export declaration.
 type ModuleDeclaration =
     | PrivateModuleDeclaration of statement: Statement
+    /// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
+    /// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
     | ExportNamedDeclaration of declaration: Declaration
     | ExportAllDeclaration of source: Literal * loc: SourceLocation option
     /// An export default declaration, e.g., export default function () {}; or export default 1;.
@@ -168,11 +170,11 @@ type ModuleDeclaration =
 //    member _.Quasi: TemplateLiteral = quasi
 
 // Identifier
+
 /// Note that an identifier may be an expression or a destructuring pattern.
 type Identifier =
     | Identifier of name: string * optional: bool option * typeAnnotation: TypeAnnotation option * loc: SourceLocation option
 
-type PatternIdentifier = Identifier
 type StringLiteral =
     | StringLiteral of value: string * loc: SourceLocation option
 
@@ -209,8 +211,6 @@ type BlockStatement =
 //type EmptyStatement(?loc) =
 //    inherit Statement("EmptyStatement", ?loc = loc)
 //    member _.Print(_) = ()
-
-// type WithStatement
 
 // Control Flow
 
@@ -410,9 +410,8 @@ type ImportSpecifier =
 type ExportSpecifier =
     | ExportSpecifier of local: Identifier * exported: Identifier
 
-/// An export named declaration, e.g., export {foo, bar};, export {foo} from "mod"; or export var foo = 1;.
-/// Note: Having declaration populated with non-empty specifiers or non-null source results in an invalid state.
 // Type Annotations
+
 type TypeAnnotationInfo =
     | AnyTypeAnnotation
     | VoidTypeAnnotation
@@ -608,7 +607,6 @@ module Helpers =
         static member continueStatement(label, ?loc) = ContinueStatement(Some label, loc)
         static member tryStatement(block, ?handler, ?finalizer, ?loc) = TryStatement(block, handler, finalizer, loc)
         static member ifStatement(test, consequent, ?alternate, ?loc): Statement = IfStatement(test, consequent, alternate, loc)
-        ///static member blockStatement(body) = BlockStatement(body)
         /// Break can optionally take a label of a loop to break
         static member breakStatement(?label, ?loc) = BreakStatement(label, loc)
         /// Statement (typically loop) prefixed with a label (for continue and break)
