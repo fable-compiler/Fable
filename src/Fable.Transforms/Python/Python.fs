@@ -1,166 +1,6 @@
 namespace rec Fable.AST.Python
 
 open Fable.AST
-open PrinterExtensions
-
-type Printer =
-    abstract Line: int
-    abstract Column: int
-    abstract PushIndentation: unit -> unit
-    abstract PopIndentation: unit -> unit
-    abstract Print: string * ?loc:SourceLocation -> unit
-    abstract PrintNewLine: unit -> unit
-    abstract AddLocation: SourceLocation option -> unit
-    abstract MakeImportPath: string -> string
-
-module PrinterExtensions =
-    type Printer with
-
-        member printer.Print(node: IPrintable) = node.Print(printer)
-
-        member printer.PrintBlock
-            (
-                nodes: 'a list,
-                printNode: Printer -> 'a -> unit,
-                printSeparator: Printer -> unit,
-                ?skipNewLineAtEnd
-            ) =
-            let skipNewLineAtEnd = defaultArg skipNewLineAtEnd false
-            printer.Print("")
-            printer.PrintNewLine()
-            printer.PushIndentation()
-
-            for node in nodes do
-                printNode printer node
-                printSeparator printer
-
-            printer.PopIndentation()
-            printer.Print("")
-
-            if not skipNewLineAtEnd then
-                printer.PrintNewLine()
-
-        member printer.PrintStatementSeparator() =
-            if printer.Column > 0 then
-                printer.Print("")
-                printer.PrintNewLine()
-
-        member _.IsProductiveStatement(stmt: Statement) =
-            let rec hasNoSideEffects(e: Expression) =
-                printfn $"hasNoSideEffects: {e}"
-
-                match e with
-                | Constant (_) -> true
-                | Dict { Keys = keys } -> keys.IsEmpty
-                | _ -> false
-
-            match stmt with
-            | Expr (expr) -> hasNoSideEffects expr.Value |> not
-            | _ -> true
-
-        member printer.PrintStatement(stmt: Statement, ?printSeparator) =
-            printer.Print(stmt)
-
-            printSeparator
-            |> Option.iter (fun fn -> fn printer)
-
-        member printer.PrintStatements(statements: Statement list) =
-
-            for stmt in statements do
-                printer.PrintStatement(stmt, (fun p -> p.PrintStatementSeparator()))
-
-        member printer.PrintBlock(nodes: Statement list, ?skipNewLineAtEnd) =
-            printer.PrintBlock(
-                nodes,
-                (fun p s -> p.PrintStatement(s)),
-                (fun p -> p.PrintStatementSeparator()),
-                ?skipNewLineAtEnd = skipNewLineAtEnd
-            )
-
-        member printer.PrintOptional(before: string, node: #IPrintable option) =
-            match node with
-            | None -> ()
-            | Some node ->
-                printer.Print(before)
-                node.Print(printer)
-
-        member printer.PrintOptional(before: string, node: IPrintable option, after: string) =
-            match node with
-            | None -> ()
-            | Some node ->
-                printer.Print(before)
-                node.Print(printer)
-                printer.Print(after)
-
-        member printer.PrintOptional(node: #IPrintable option) =
-            match node with
-            | None -> ()
-            | Some node -> node.Print(printer)
-
-        member printer.PrintList(nodes: 'a list, printNode: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
-            for i = 0 to nodes.Length - 1 do
-                printNode printer nodes.[i]
-
-                if i < nodes.Length - 1 then
-                    printSeparator printer
-
-        member printer.PrintCommaSeparatedList(nodes: #IPrintable list) =
-            printer.PrintList(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
-
-        member printer.PrintCommaSeparatedList(nodes: Expression list) =
-            printer.PrintList(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
-
-        member printer.PrintFunction
-            (
-                id: Identifier option,
-                args: Arguments,
-                body: Statement list,
-                returnType: Expression option,
-                ?isDeclaration
-            ) =
-            printer.Print("def ")
-            printer.PrintOptional(id)
-            printer.Print("(")
-            printer.Print(args)
-            printer.Print(")")
-            printer.PrintOptional(returnType)
-            printer.Print(":")
-            printer.PrintBlock(body, skipNewLineAtEnd = true)
-
-        member printer.WithParens(expr: Expression) =
-            printer.Print("(")
-            printer.Print(expr)
-            printer.Print(")")
-
-        member printer.SequenceExpressionWithParens(expr: Expression) =
-            match expr with
-            //| :? SequenceExpression -> printer.WithParens(expr)
-            | _ -> printer.Print(expr)
-
-        /// Surround with parens anything that can potentially conflict with operator precedence
-        member printer.ComplexExpressionWithParens(expr: Expression) =
-            printfn "Expr: %A" expr
-
-            match expr with
-            | Constant (_) -> printer.Print(expr)
-            | Name (_) -> printer.Print(expr)
-            // | :? MemberExpression
-            // | :? CallExpression
-            // | :? ThisExpression
-            // | :? Super
-            // | :? SpreadElement
-            // | :? ArrayExpression
-            // | :? ObjectExpression -> expr.Print(printer)
-            | _ -> printer.WithParens(expr)
-
-        member printer.PrintOperation(left, operator, right, ?loc) =
-            printer.AddLocation(loc)
-            printer.ComplexExpressionWithParens(left)
-            printer.Print(operator)
-            printer.ComplexExpressionWithParens(right)
-
-type IPrintable =
-    abstract Print: Printer -> unit
 
 type AST =
     | Expression of Expression
@@ -175,22 +15,6 @@ type AST =
     | Arguments of Arguments
     | Keyword of Keyword
     | Arg of Arg
-
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            match x with
-            | Expression (ex) -> printer.Print(ex)
-            | Operator (op) -> printer.Print(op)
-            | BoolOperator (op) -> printer.Print(op)
-            | ComparisonOperator (op) -> printer.Print(op)
-            | UnaryOperator (op) -> printer.Print(op)
-            | ExpressionContext (_) -> ()
-            | Alias (al) -> printer.Print(al)
-            | Module ``mod`` -> printer.Print(``mod``)
-            | Arguments (arg) -> printer.Print(arg)
-            | Keyword (kw) -> printer.Print(kw)
-            | Arg (arg) -> printer.Print(arg)
-            | Statement (st) -> printer.Print(st)
 
 type Expression =
     | Attribute of Attribute
@@ -217,34 +41,10 @@ type Expression =
     | Dict of Dict
     | Tuple of Tuple
 
-
-
     // member val Lineno: int = 0 with get, set
     // member val ColOffset: int = 0 with get, set
     // member val EndLineno: int option = None with get, set
     // member val EndColOffset: int option = None with get, set
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            match x with
-            | Attribute (ex) -> printer.Print(ex)
-            | Subscript (ex) -> printer.Print(ex)
-            | BoolOp (ex) -> printer.Print(ex)
-            | BinOp (ex) -> printer.Print(ex)
-            | Emit (ex) -> printer.Print(ex)
-            | UnaryOp (ex) -> printer.Print(ex)
-            | FormattedValue (ex) -> printer.Print(ex)
-            | Constant (ex) -> printer.Print(ex)
-            | IfExp (ex) -> printer.Print(ex)
-            | Call (ex) -> printer.Print(ex)
-            | Lambda (ex) -> printer.Print(ex)
-            | NamedExpr (ex) -> printer.Print(ex)
-            | Name (ex) -> printer.Print(ex)
-            | Yield (expr) -> printer.Print("(Yield)")
-            | YieldFrom (expr) -> printer.Print("(Yield)")
-            | Compare (cp) -> printer.Print(cp)
-            | Dict (di) -> printer.Print(di)
-            | Tuple (tu) -> printer.Print(tu)
-
 type Operator =
     | Add
     | Sub
@@ -260,39 +60,9 @@ type Operator =
     | BitAnd
     | MatMult
 
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            let op =
-                match x with
-                | Add -> " + "
-                | Sub -> " - "
-                | Mult -> " * "
-                | Div -> " / "
-                | FloorDiv -> " // "
-                | Mod -> " % "
-                | Pow -> " ** "
-                | LShift -> " << "
-                | RShift -> " >> "
-                | BitOr -> " | "
-                | BitXor -> " ^ "
-                | BitAnd -> $" & "
-                | MatMult -> $" @ "
-
-            printer.Print(op)
-
 type BoolOperator =
     | And
     | Or
-
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            let op =
-                match x with
-                | And -> " and "
-                | Or -> " or "
-
-            printer.Print(op)
-
 
 type ComparisonOperator =
     | Eq
@@ -306,53 +76,19 @@ type ComparisonOperator =
     | In
     | NotIn
 
-    interface IPrintable with
-        member x.Print(printer) =
-            let op =
-                match x with
-                | Eq -> " == "
-                | NotEq -> " != "
-                | Lt -> " < "
-                | LtE -> " <= "
-                | Gt -> " > "
-                | GtE -> " >= "
-                | Is -> " is "
-                | IsNot -> " is not "
-                | In -> " in "
-                | NotIn -> " not in "
-
-            printer.Print(op)
-
 type UnaryOperator =
     | Invert
     | Not
     | UAdd
     | USub
 
-    interface IPrintable with
-        member this.Print(printer) =
-            let op =
-                match this with
-                | Invert -> "~"
-                | Not -> "not "
-                | UAdd -> "+"
-                | USub -> "-"
-
-            printer.Print(op)
-
 type ExpressionContext =
     | Load
     | Del
     | Store
 
-
 type Identifier =
     | Identifier of string
-
-    interface IPrintable with
-        member this.Print(printer: Printer) =
-            let (Identifier id) = this
-            printer.Print(id)
 
 type Statement =
     | AsyncFunctionDef of AsyncFunctionDef
@@ -380,38 +116,12 @@ type Statement =
     // member val EndLineno: int option = None with get, set
     // member val EndColOffset: int option = None with get, set
 
-    interface IPrintable with
-        member x.Print(printer) =
-            match x with
-            | AsyncFunctionDef (def) -> printer.Print(def)
-            | FunctionDef (def) -> printer.Print(def)
-            | ImportFrom (im) -> printer.Print(im)
-            | NonLocal (st) -> printer.Print(st)
-            | ClassDef (st) -> printer.Print(st)
-            | AsyncFor (st) -> printer.Print(st)
-            | Return (rtn) -> printer.Print(rtn)
-            | Global (st) -> printer.Print(st)
-            | Import (im) -> printer.Print(im)
-            | Assign (st) -> printer.Print(st)
-            | While (wh) -> printer.Print(wh)
-            | Raise (st) -> printer.Print(st)
-            | Expr (st) -> printer.Print(st)
-            | For (st) -> printer.Print(st)
-            | Try (st) -> printer.Print(st)
-            | If (st) -> printer.Print(st)
-            | Pass -> printer.Print("pass")
-            | Break -> printer.Print("break")
-            | Continue -> printer.Print("continue")
-
 type Module =
     {
         Body: Statement list
     }
 
     static member Create(body) = { Body = body }
-
-    interface IPrintable with
-        member x.Print(printer: Printer) = printer.PrintStatements(x.Body)
 
 /// Both parameters are raw strings of the names. asname can be None if the regular name is to be used.
 ///
@@ -435,16 +145,6 @@ type Alias =
 
     static member Create(name, asname) = { Name = name; AsName = asname }
 
-    interface IPrintable with
-        member x.Print(printer) =
-            printer.Print(x.Name)
-
-            match x.AsName with
-            | Some (Identifier alias) ->
-                printer.Print(" as ")
-                printer.Print(alias)
-            | _ -> ()
-
 /// A single except clause. type is the exception type it will match, typically a Name node (or None for a catch-all
 /// except: clause). name is a raw string for the name to hold the exception, or None if the clause doesn’t have as foo.
 /// body is a list of nodes.
@@ -463,17 +163,6 @@ type ExceptHandler =
             Body = defaultArg body []
             Loc = loc
         }
-
-    interface IPrintable with
-        member x.Print(printer) =
-            printer.Print("except ", ?loc = x.Loc)
-            printer.PrintOptional(x.Type)
-            printer.PrintOptional(" as ", x.Name)
-            printer.Print(":")
-
-            match x.Body with
-            | [] -> printer.PrintBlock([ Pass ])
-            | _ -> printer.PrintBlock(x.Body)
 
 /// try blocks. All attributes are list of nodes to execute, except for handlers, which is a list of ExceptHandler
 /// nodes.
@@ -497,21 +186,6 @@ type Try =
     static member AsStatement(body, ?handlers, ?orElse, ?finalBody, ?loc): Statement =
         Try.Create(body, ?handlers=handlers, ?orElse=orElse, ?finalBody=finalBody, ?loc=loc) |> Try
 
-    interface IPrintable with
-        member x.Print(printer) =
-            printer.Print("try: ", ?loc = x.Loc)
-            printer.PrintBlock(x.Body)
-
-            for handler in x.Handlers do
-                printer.Print(handler)
-
-            if x.OrElse.Length > 0 then
-                printer.Print("else: ")
-                printer.PrintBlock(x.OrElse)
-
-            if x.FinalBody.Length > 0 then
-                printer.Print("finally: ")
-                printer.PrintBlock(x.FinalBody)
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
@@ -541,16 +215,6 @@ type Arg =
             TypeComment = typeComment
         }
 
-    interface IPrintable with
-        member x.Print(printer) =
-            let (Identifier name) = x.Arg
-            printer.Print(name)
-            match x.Annotation with
-            | Some ann ->
-                printer.Print("=")
-                printer.Print(ann)
-            | _ -> ()
-
 type Keyword =
     {
         Lineno: int
@@ -572,13 +236,6 @@ type Keyword =
             Arg = arg
             Value = value
         }
-
-    interface IPrintable with
-        member x.Print(printer) =
-            let (Identifier name) = x.Arg
-            printer.Print(name)
-            printer.Print(" = ")
-            printer.Print(x.Value)
 
 /// The arguments for a function.
 ///
@@ -609,19 +266,6 @@ type Arguments =
             KwArg = kwarg
             Defaults = defaultArg defaults []
         }
-
-    interface IPrintable with
-        member x.Print(printer) =
-            match x.Args, x.VarArg with
-            | [], Some vararg ->
-                printer.Print("*")
-                printer.Print(vararg)
-            | args, Some vararg ->
-                printer.PrintCommaSeparatedList(args)
-                printer.Print(", *")
-                printer.Print(vararg)
-            | args, None ->
-                printer.PrintCommaSeparatedList(args)
 
 //#region Statements
 
@@ -671,17 +315,6 @@ type Assign =
         }
         |> Assign
 
-    interface IPrintable with
-        member x.Print(printer) =
-            printfn "Assign: %A" (x.Targets, x.Value)
-            //printer.PrintOperation(targets.[0], "=", value, None)
-
-            for target in x.Targets do
-                printer.Print(target)
-                printer.Print(" = ")
-
-            printer.Print(x.Value)
-
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
 /// Lambda, a Yield or YieldFrom node.
@@ -702,9 +335,6 @@ type Expr =
     }
 
     static member Create(value): Statement = { Value = value } |> Expr
-
-    interface IPrintable with
-        member x.Print(printer) = printer.Print(x.Value)
 
 /// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
 /// item to be looped over, again as a single node. body and orelse contain lists of nodes to execute. Those in orelse
@@ -754,18 +384,6 @@ type For =
         For.Create(target, iter, ?body=body, ?orelse=orelse, ?typeComment=typeComment)
         |> For
 
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            printer.Print("for ")
-            printer.Print(x.Target)
-            printer.Print(" in ")
-            printer.Print(x.Iterator)
-            printer.Print(":")
-            printer.PrintNewLine()
-            printer.PushIndentation()
-            printer.PrintStatements(x.Body)
-            printer.PopIndentation()
-
 type AsyncFor =
     {
         Target: Expression
@@ -783,9 +401,6 @@ type AsyncFor =
             Else = defaultArg orelse []
             TypeComment = typeComment
         }
-
-    interface IPrintable with
-        member _.Print(printer) = printer.Print("(AsyncFor)")
 
 /// A while loop. test holds the condition, such as a Compare node.
 ///
@@ -822,16 +437,6 @@ type While =
             Else = defaultArg orelse []
         }
         |> While
-
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            printer.Print("while ")
-            printer.Print(x.Test)
-            printer.Print(":")
-            printer.PrintNewLine()
-            printer.PushIndentation()
-            printer.PrintStatements(x.Body)
-            printer.PopIndentation()
 
 /// A class definition.
 ///
@@ -890,25 +495,6 @@ type ClassDef =
         }
         |> ClassDef
 
-    interface IPrintable with
-        member x.Print(printer) =
-            let (Identifier name) = x.Name
-            printer.Print("class ", ?loc = x.Loc)
-            printer.Print(name)
-
-            match x.Bases with
-            | [] -> ()
-            | xs ->
-                printer.Print("(")
-                printer.PrintCommaSeparatedList(x.Bases)
-                printer.Print(")")
-
-            printer.Print(":")
-            printer.PrintNewLine()
-            printer.PushIndentation()
-            printer.PrintStatements(x.Body)
-            printer.PopIndentation()
-
 /// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
 ///
 /// elif clauses don’t have a special representation in the AST, but rather appear as extra If nodes within the orelse
@@ -956,30 +542,6 @@ type If =
         }
         |> If
 
-    interface IPrintable with
-        member x.Print(printer) =
-            let rec printElse stmts =
-                match stmts with
-                | []
-                | [ Pass ] -> ()
-                | [ If { Test=test; Body=body; Else=els } ] ->
-                    printer.Print("elif ")
-                    printer.Print(test)
-                    printer.Print(":")
-                    printer.PrintBlock(body)
-                    printElse els
-                | xs ->
-                    printer.Print("else: ")
-                    printer.PrintBlock(xs)
-
-
-            printer.Print("if ")
-            printer.Print(x.Test)
-            printer.Print(":")
-            printer.PrintBlock(x.Body)
-            printElse x.Else
-
-
 /// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
 /// raise. cause is the optional part for y in raise x from y.
 ///
@@ -999,9 +561,6 @@ type Raise =
     }
 
     static member Create(exc, ?cause): Statement = { Exception = exc; Cause = cause } |> Raise
-
-    interface IPrintable with
-        member _.Print(printer) = printer.Print("(Raise)")
 
 /// A function definition.
 ///
@@ -1033,11 +592,6 @@ type FunctionDef =
         }
         |> FunctionDef
 
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            printer.PrintFunction(Some x.Name, x.Args, x.Body, x.Returns, isDeclaration = true)
-            printer.PrintNewLine()
-
 /// global and nonlocal statements. names is a list of raw strings.
 ///
 /// ```py
@@ -1059,9 +613,6 @@ type Global =
 
     static member Create(names) = { Names = names }
 
-    interface IPrintable with
-        member x.Print(printer) = printer.Print("(Global)")
-
 /// global and nonlocal statements. names is a list of raw strings.
 ///
 /// ```py
@@ -1081,10 +632,6 @@ type NonLocal =
     }
 
     static member Create(names) = { Names = names }
-
-    interface IPrintable with
-        member _.Print(printer: Printer) = printer.Print("(NonLocal)")
-
 
 /// An async function definition.
 ///
@@ -1115,9 +662,6 @@ type AsyncFunctionDef =
             TypeComment = typeComment
         }
 
-    interface IPrintable with
-        member _.Print(printer: Printer) = printer.Print("(AsyncFunctionDef)")
-
 /// An import statement. names is a list of alias nodes.
 ///
 /// ```py
@@ -1137,9 +681,6 @@ type Import =
     }
 
     static member Create(names): Statement = Import { Names = names }
-
-    interface IPrintable with
-        member _.Print(printer) = printer.Print("(Import)")
 
 /// Represents from x import y. module is a raw string of the ‘from’ name, without any leading dots, or None for
 /// statements such as from . import foo. level is an integer holding the level of the relative import (0 means absolute
@@ -1173,23 +714,6 @@ type ImportFrom =
         }
         |> ImportFrom
 
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            let (Identifier path) = x.Module |> Option.defaultValue (Identifier ".")
-
-            printer.Print("from ")
-            printer.Print(printer.MakeImportPath(path))
-            printer.Print(" import ")
-
-            if not (List.isEmpty x.Names) then
-                if List.length x.Names > 1 then
-                    printer.Print("(")
-
-                printer.PrintCommaSeparatedList(x.Names)
-
-                if List.length x.Names > 1 then
-                    printer.Print(")")
-
 /// A return statement.
 ///
 /// ```py
@@ -1206,11 +730,6 @@ type Return =
     }
 
     static member Create(?value): Statement = Return { Value = value }
-
-    interface IPrintable with
-        member this.Print(printer) =
-            printer.Print("return ")
-            printer.PrintOptional(this.Value)
 
 //#endregion
 
@@ -1234,7 +753,6 @@ type Attribute =
         Ctx: ExpressionContext
     }
 
-
     static member Create(value, attr, ctx): Expression =
         {
             Value = value
@@ -1242,12 +760,6 @@ type Attribute =
             Ctx = ctx
         }
         |> Attribute
-
-    interface IPrintable with
-        member this.Print(printer) =
-            printer.Print(this.Value)
-            printer.Print(".")
-            printer.Print(this.Attr)
 
 type NamedExpr =
     {
@@ -1260,12 +772,6 @@ type NamedExpr =
             Value = value
         }
         |> NamedExpr
-
-    interface IPrintable with
-        member this.Print(printer) =
-            printer.Print(this.Target)
-            printer.Print(" :=")
-            printer.Print(this.Value)
 
 /// A subscript, such as l[1]. value is the subscripted object (usually sequence or mapping). slice is an index, slice
 /// or key. It can be a Tuple and contain a Slice. ctx is Load, Store or Del according to the action performed with the
@@ -1300,13 +806,6 @@ type Subscript =
         }
         |> Subscript
 
-    interface IPrintable with
-        member this.Print(printer: Printer) =
-            printer.Print(this.Value)
-            printer.Print("[")
-            printer.Print(this.Slice)
-            printer.Print("]")
-
 type BinOp =
     {
         Left: Expression
@@ -1322,10 +821,6 @@ type BinOp =
         }
         |> BinOp
 
-    interface IPrintable with
-        member this.Print(printer) = printer.PrintOperation(this.Left, this.Operator, this.Right)
-
-
 type BoolOp =
     {
         Values: Expression list
@@ -1333,15 +828,6 @@ type BoolOp =
     }
 
     static member Create(op, values): Expression = { Values = values; Operator = op } |> BoolOp
-
-    interface IPrintable with
-
-        member this.Print(printer) =
-            for i, value in this.Values |> List.indexed do
-                printer.ComplexExpressionWithParens(value)
-
-                if i < this.Values.Length - 1 then
-                    printer.Print(this.Operator)
 
 /// A comparison of two or more values. left is the first value in the comparison, ops the list of operators, and
 /// comparators the list of values after the first element in the comparison.
@@ -1373,15 +859,6 @@ type Compare =
         }
         |> Compare
 
-    interface IPrintable with
-        member x.Print(printer) =
-            //printer.AddLocation(loc)
-            printer.ComplexExpressionWithParens(x.Left)
-
-            for op, comparator in List.zip x.Ops x.Comparators do
-                printer.Print(op)
-                printer.ComplexExpressionWithParens(comparator)
-
 /// A unary operation. op is the operator, and operand any expression node.
 type UnaryOp =
     {
@@ -1398,18 +875,6 @@ type UnaryOp =
         }
         |> UnaryOp
 
-    interface IPrintable with
-        override x.Print(printer) =
-            printer.AddLocation(x.Loc)
-
-            match x.Op with
-            | USub
-            | UAdd
-            | Not
-            | Invert -> printer.Print(x.Op)
-
-            printer.ComplexExpressionWithParens(x.Operand)
-
 /// A constant value. The value attribute of the Constant literal contains the Python object it represents. The values
 /// represented can be simple types such as a number, string or None, but also immutable container types (tuples and
 /// frozensets) if all of their elements are constant.
@@ -1425,15 +890,6 @@ type Constant =
     }
 
     static member Create(value: obj): Expression = { Value = value } |> Constant
-
-    interface IPrintable with
-        member x.Print(printer) =
-            match box x.Value with
-            | :? string as str ->
-                printer.Print("\"")
-                printer.Print(string x.Value)
-                printer.Print("\"")
-            | _ -> printer.Print(string x.Value)
 
 /// Node representing a single formatting field in an f-string. If the string contains a single formatting field and
 /// nothing else the node can be isolated otherwise it appears in JoinedStr.
@@ -1459,9 +915,6 @@ type FormattedValue =
             Conversion = conversion
             FormatSpec = formatSpec
         }
-
-    interface IPrintable with
-        member _.Print(printer) = printer.Print("(FormattedValue)")
 
 /// A function call. func is the function, which will often be a Name or Attribute object. Of the arguments:
 ///
@@ -1503,14 +956,6 @@ type Call =
         }
         |> Call
 
-    interface IPrintable with
-        member x.Print(printer) =
-            printer.Print(x.Func)
-            printer.Print("(")
-            printer.PrintCommaSeparatedList(x.Args)
-            printer.PrintCommaSeparatedList(x.Keywords)
-            printer.Print(")")
-
 type Emit =
     {
         Value: string
@@ -1523,95 +968,6 @@ type Emit =
             Args = defaultArg args []
         }
         |> Emit
-
-    interface IPrintable with
-        member x.Print(printer) =
-            let inline replace pattern (f: System.Text.RegularExpressions.Match -> string) input =
-                System.Text.RegularExpressions.Regex.Replace(input, pattern, f)
-
-            let printSegment (printer: Printer) (value: string) segmentStart segmentEnd =
-                let segmentLength = segmentEnd - segmentStart
-
-                if segmentLength > 0 then
-                    let segment = value.Substring(segmentStart, segmentLength)
-
-                    let subSegments =
-                        System.Text.RegularExpressions.Regex.Split(segment, @"\r?\n")
-
-                    for i = 1 to subSegments.Length do
-                        let subSegment =
-                            // Remove whitespace in front of new lines,
-                            // indent will be automatically applied
-                            if printer.Column = 0 then
-                                subSegments.[i - 1].TrimStart()
-                            else
-                                subSegments.[i - 1]
-
-                        if subSegment.Length > 0 then
-                            printer.Print(subSegment)
-
-                            if i < subSegments.Length then
-                                printer.PrintNewLine()
-
-
-            // Macro transformations
-            // https://fable.io/docs/communicate/js-from-fable.html#Emit-when-F-is-not-enough
-            let value =
-                x.Value
-                |> replace
-                    @"\$(\d+)\.\.\."
-                    (fun m ->
-                        let rep = ResizeArray()
-                        let i = int m.Groups.[1].Value
-
-                        for j = i to x.Args.Length - 1 do
-                            rep.Add("$" + string j)
-
-                        String.concat ", " rep)
-
-                |> replace
-                    @"\{\{\s*\$(\d+)\s*\?(.*?)\:(.*?)\}\}"
-                    (fun m ->
-                        let i = int m.Groups.[1].Value
-
-                        match x.Args.[i] with
-                        | Constant (c) -> m.Groups.[2].Value
-                        | _ -> m.Groups.[3].Value)
-
-                |> replace
-                    @"\{\{([^\}]*\$(\d+).*?)\}\}"
-                    (fun m ->
-                        let i = int m.Groups.[2].Value
-
-                        match List.tryItem i x.Args with
-                        | Some _ -> m.Groups.[1].Value
-                        | None -> "")
-
-            let matches =
-                System.Text.RegularExpressions.Regex.Matches(value, @"\$\d+")
-
-            if matches.Count > 0 then
-                for i = 0 to matches.Count - 1 do
-                    let m = matches.[i]
-
-                    let segmentStart =
-                        if i > 0 then
-                            matches.[i - 1].Index + matches.[i - 1].Length
-                        else
-                            0
-
-                    printSegment printer value segmentStart m.Index
-
-                    let argIndex = int m.Value.[1..]
-
-                    match List.tryItem argIndex x.Args with
-                    | Some e -> printer.ComplexExpressionWithParens(e)
-                    | None -> printer.Print("None")
-
-                let lastMatch = matches.[matches.Count - 1]
-                printSegment printer value (lastMatch.Index + lastMatch.Length) value.Length
-            else
-                printSegment printer value 0 value.Length
 
 /// An expression such as a if b else c. Each field holds a single node, so in the following example, all three are Name nodes.
 ///
@@ -1637,14 +993,6 @@ type IfExp =
             OrElse = orElse
         }
         |> IfExp
-
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            printer.Print(x.Body)
-            printer.Print(" if ")
-            printer.Print(x.Test)
-            printer.Print(" else ")
-            printer.Print(x.OrElse)
 
 /// lambda is a minimal function definition that can be used inside an expression. Unlike FunctionDef, body holds a
 /// single node.
@@ -1674,19 +1022,6 @@ type Lambda =
 
     static member Create(args, body): Expression = { Args = args; Body = body } |> Lambda
 
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            printer.Print("lambda")
-
-            if (List.isEmpty >> not) x.Args.Args then
-                printer.Print(" ")
-
-            printer.PrintCommaSeparatedList(x.Args.Args)
-            printer.Print(": ")
-
-            printer.Print(x.Body)
-
-
 /// A tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an assignment target
 /// (i.e. (x,y)=something), and Load otherwise.
 ///
@@ -1708,16 +1043,6 @@ type Tuple =
 
     static member Create(elts, ?loc): Expression = { Elements = elts; Loc = loc } |> Tuple
 
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            printer.Print("(", ?loc = x.Loc)
-            printer.PrintCommaSeparatedList(x.Elements)
-
-            if x.Elements.Length = 1 then
-                printer.Print(",")
-
-            printer.Print(")")
-
 /// A list or tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an
 /// assignment target (i.e. (x,y)=something), and Load otherwise.
 ///
@@ -1738,9 +1063,6 @@ type List =
 
     static member Create(elts) = { Elements = elts }
 
-    interface IPrintable with
-        member _.Print(printer) = printer.Print("(List)")
-
 /// A set. elts holds a list of nodes representing the set’s elements.
 ///
 /// ```py
@@ -1754,9 +1076,6 @@ type List =
 /// ```
 type Set (elts) =
     member _.Elements: Expression list = elts
-
-    interface IPrintable with
-        member _.Print(printer) = printer.Print("(Set)")
 
 /// A dictionary. keys and values hold lists of nodes representing the keys and the values respectively, in matching
 /// order (what would be returned when calling dictionary.keys() and dictionary.values()).
@@ -1783,31 +1102,6 @@ type Dict =
 
     static member Create(keys, values): Expression = { Keys = keys; Values = values } |> Dict
 
-    interface IPrintable with
-        member x.Print(printer: Printer) =
-            printer.Print("{")
-            printer.PrintNewLine()
-            printer.PushIndentation()
-
-            let nodes =
-                List.zip x.Keys x.Values
-                |> List.mapi (fun i n -> (i, n))
-
-            for i, (key, value) in nodes do
-                printer.Print("\"")
-                printer.Print(key)
-                printer.Print("\"")
-                printer.Print(": ")
-                printer.Print(value)
-
-                if i < nodes.Length - 1 then
-                    printer.Print(",")
-                    printer.PrintNewLine()
-
-            printer.PrintNewLine()
-            printer.PopIndentation()
-            printer.Print("}")
-
 /// A variable name. id holds the name as a string, and ctx is one of the following types.
 type Name =
     {
@@ -1816,8 +1110,3 @@ type Name =
     }
 
     static member Create(id, ctx): Expression = { Id = id; Context = ctx } |> Name
-
-    interface IPrintable with
-        override x.Print(printer) =
-            let (Identifier name) = x.Id
-            printer.Print(name)

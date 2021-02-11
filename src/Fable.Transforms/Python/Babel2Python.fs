@@ -125,7 +125,7 @@ module Util =
         | _ -> body
 
     let transformAsImports (com: IPythonCompiler) (ctx: Context) (specifiers: Babel.ImportSpecifier array) (source: Babel.StringLiteral) : Python.Statement list =
-        let (StringLiteral.StringLiteral(value=value)) = source
+        let (StringLiteral(value=value)) = source
         let pymodule = value |> Helpers.rewriteFableImport
 
         printfn "Module: %A" pymodule

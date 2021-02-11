@@ -113,6 +113,8 @@ type Statement =
     | TryStatement of block: BlockStatement * handler: CatchClause option * finalizer: BlockStatement option * loc: SourceLocation option
     | ForStatement of body: BlockStatement * init: VariableDeclaration option * test: Expression option * update: Expression option * loc: SourceLocation option
 
+
+
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
     | ClassDeclaration of
@@ -348,7 +350,7 @@ type ClassMember =
         key: Expression *
         ``params``: Pattern array *
         body: BlockStatement *
-        Computed: bool *
+        computed: bool *
         ``static``: bool option *
         ``abstract``: bool option *
         returnType: TypeAnnotation option *
