@@ -465,7 +465,7 @@ module Helpers =
     let isModuleValueForCalls (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
         && isModuleValueForDeclarations memb
-        // Mutable public values must be called as functions (see #986)
+        && memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0        // Mutable public values must be called as functions (see #986)
         && (not memb.IsMutable || not (isPublicMember memb))
 
     let rec getAllInterfaceMembers (ent: FSharpEntity) =
@@ -1547,6 +1547,7 @@ module Util =
             memberRefTyped com ctx r typ memb
 
         | _ ->
+            let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callExpr =
                 memberRef com ctx r memb
                 |> makeCall r typ callInfo

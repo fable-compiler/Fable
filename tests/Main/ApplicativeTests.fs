@@ -901,6 +901,32 @@ let mul x y = x * y
 
 let addOne (add: int->int->int) x = add 1 x
 let pointFree_addOne = addOne
+let fortyTwo x y = x + "42" + y
+let fortyTwo2 x y () z = 42 + (FSharp.Core.Operators.int x) + (FSharp.Core.Operators.int y) + z
+let wrap someFun () () = someFun "4" "6"
+let doesWork someFun = wrap someFun
+let doesNotWork = wrap
+let applyFooInRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
+
+type Wrapper() =
+    member _.doesNotWorki = wrap
+    static member doesNotWork = wrap
+    member _.doesNotWorki2 = wrap
+    static member doesNotWork2 = wrap
+
+type Fn = bool -> int -> string
+
+type Thing =
+    | In of Fn
+    | Out of Fn
+
+let findThing (things:Thing list) =
+    let folder (a : Fn option) t =
+        match t with
+        | In x -> Some x // Found an In, set accumulator
+        | _ -> a // pass accumulator through unchanged
+
+    things |> List.fold folder None  // Searching for an "In x"
 
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
@@ -1175,6 +1201,52 @@ let tests7 = [
         d 42 42 |> equal [3; 2; 1; 0; 42; 42]
         let s = Seq.fold folder state [0..3]
         s 15 20 |> equal [3; 2; 1; 0; 15; 20]
+
+    testCase "Assigning a function with arity > 1 to a scoped mutable variable #2046" <| fun _ ->
+        let mutable state = fortyTwo
+        state "a" "b" |> equal "a42b"
+        state <- fun x y -> x + "32" + y
+        state "a" "b" |> equal "a32b"
+
+    testCase "Uncurrying works with generic records returning lambdas" <| fun () ->
+        applyFooInRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
+        let f = applyFooInRecord {| foo = fun x y -> x ** y |} 5.
+        f 3. |> equal 125.
+
+    testCase "Curried functions being mangled via DU, List.fold and match combination #2356" <| fun _ ->
+        let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
+
+        let test = match findThing testData with
+                            | Some f -> f true 1
+                            | None -> "nothing"
+        test |> equal "fly"
+
+    testCase "Option uncurrying #2116" <| fun _ ->
+        let optionFn = Some (fun x y -> x + y)
+
+        let list = List.choose id [optionFn]
+        List.length list |> equal 1
+        let x =
+            match list with
+            | [f] -> f 3 4
+            | _ -> -1
+        equal 7 x
+
+    testCase "Iterating list of functions #2047" <| fun _ ->
+        let mutable s = "X"
+        for someFun in [fortyTwo] do
+            s <- s + someFun "y" "z" + s
+        equal "Xy42zX" s
+
+    testCase "Aliasing a function wrapping a multi-arity function in point-free style #2045" <| fun _ ->
+        equal "4426" <| doesWork fortyTwo () ()
+        equal "4426" <| doesNotWork fortyTwo () ()
+        equal "4426" <| Wrapper().doesNotWorki fortyTwo () ()
+        equal "4426" <| Wrapper.doesNotWork fortyTwo () ()
+        equal 56 <| doesWork fortyTwo2 () () () 4
+        equal 56 <| doesNotWork fortyTwo2 () () () 4
+        equal 56 <| Wrapper().doesNotWorki2 fortyTwo2 () () () 4
+        equal 56 <| Wrapper.doesNotWork2 fortyTwo2 () () () 4
 ]
 
 module Adaptive =

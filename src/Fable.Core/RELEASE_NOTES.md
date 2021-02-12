@@ -1,3 +1,9 @@
+### 3.2.4
+
+* Add Object.values, Object.entries @kerams
+* Add JsInterop.jsTypeof/jsInstanceof
+* Add JS.Constructors.Array.Create/from
+
 ### 3.2.3
 
 * Fix incompatibility with Feliz @TIHan

@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Quicktest",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/netcoreapp3.1/fable.dll",
+            "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--forcePkgs", "--runScript"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "console": "internalConsole"
+        },
+        {
             "name": "Attach to Node",
             "port": 9229,
             "request": "attach",
