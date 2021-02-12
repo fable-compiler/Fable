@@ -18,31 +18,82 @@ let private allocate (i: int): ResizeArray<'T> = jsNative
 // [<Struct>]
 // [<CustomEquality; CustomComparison>]
 [<CompiledName("FSharpList")>]
-type ResizeList<'T>(count, values) =
-    member _.Count: int = count
-    member _.Values: ResizeArray<'T> = values
+type ResizeList<'T>(count: int, values: ResizeArray<'T>, ?tail: ResizeList<'T>) =
+    // if count = 0 && Option.isSome tail then
+    //     failwith "Unexpected, empty list with tail"
+
+    member inline internal _.HiddenCount = count
+    member inline internal _.HiddenValues = values
+    member inline internal _.HiddenTail = tail
+    member inline _.IsEmpty = count <= 0
+
+    member _.Length =
+        match tail with
+        | Some tail -> count + tail.Length
+        | None -> count
 
     member internal xs.Add(x: 'T) =
-        let values =
-            if xs.Count = xs.Values.Count
-            then xs.Values
-            else xs.Values.GetRange(0, xs.Count)
-        values.Add(x)
-        ResizeList<'T>.NewList(values)
+        if count = values.Count then
+            values.Add(x)
+            ResizeList<'T>(values.Count, values, ?tail=tail)
+        elif count = 0 then
+            ResizeList<'T>(1, ResizeArray [|x|])
+        else
+            ResizeList<'T>(1, ResizeArray [|x|], xs)
+
+    member internal xs.AddRange(ys: 'T ResizeArray) =
+        if count = values.Count then
+            values.AddRange(ys)
+            ResizeList<'T>(values.Count, values, ?tail=tail)
+        elif count = 0 then
+            ResizeList<'T>(ys.Count, ys)
+        else
+            ResizeList<'T>(ys.Count, ys, xs)
+
+    member internal xs.Append(ys: 'T ResizeList) =
+        match count, tail with
+        | 0, _ -> ys
+        | _, None -> ResizeList<'T>(count, values, ys)
+        | _, Some _ ->
+            let values = allocate xs.Length
+            let mutable revIdx = values.Count
+            xs.Iterate(fun v ->
+                revIdx <- revIdx - 1
+                values.[revIdx] <- v)
+            ResizeList<'T>(values.Count, values, ys)
+
+    member internal _.Iterate f =
+        for i = count - 1 downto 0 do
+            f values.[i]
+        match tail with
+        | Some t -> t.Iterate f
+        | None -> ()
+
+    member internal _.IterateBack f =
+        match tail with
+        | Some t -> t.IterateBack f
+        | None -> ()
+        for i = 0 to count - 1 do
+            f values.[i]
+
+    member internal xs.DoWhile f =
+        let rec loop idx (xs: 'T ResizeList) =
+            if idx >= 0 && f xs.HiddenValues.[idx] then
+                let idx = idx - 1
+                if idx < 0 then
+                    match xs.HiddenTail with
+                    | Some t -> loop (t.HiddenCount - 1) t
+                    | None -> ()
+                else loop idx xs
+        loop (count - 1) xs
 
     member internal xs.Reverse() =
-        let values = allocate xs.Count
-        let mutable j = 0
-        for i = xs.Count - 1 downto 0 do
-            values.[j] <- xs.Values.[i]
-            j <- j + 1
+        let values = allocate xs.Length
+        let mutable i = -1
+        xs.Iterate(fun v ->
+            i <- i + 1
+            values.[i] <- v)
         ResizeList<'T>.NewList(values)
-
-    // This is a destructive internal optimization that
-    // can only be performed on newly constructed lists.
-    member inline internal xs.ReverseInPlace() =
-        xs.Values.Reverse()
-        xs
 
     static member inline Singleton(x: 'T) =
         ResizeList<'T>.NewList(ResizeArray [|x|])
@@ -58,22 +109,46 @@ type ResizeList<'T>(count, values) =
 
     static member inline Cons (x: 'T, xs: 'T list) = xs.Add(x)
 
-    member inline xs.IsEmpty = xs.Count <= 0
-
-    member inline xs.Length = xs.Count
+    member _.TryHead =
+        if count > 0
+        then Some values.[count - 1]
+        else None
 
     member xs.Head =
-        if xs.Count > 0
-        then xs.Values.[xs.Count - 1]
-        else invalidArg "list" SR.inputListWasEmpty
+        match xs.TryHead with
+        | Some h -> h
+        | None -> invalidArg "list" SR.inputListWasEmpty
+
+    member _.TryTail =
+        if count > 1 then
+            ResizeList<'T>(count - 1, values, ?tail=tail) |> Some
+        elif count = 1 then
+            match tail with
+            | Some t -> Some t
+            | None -> ResizeList<'T>(count - 1, values) |> Some
+        else
+            None
 
     member xs.Tail =
-        if xs.Count > 0
-        then ResizeList<'T>.NewList(xs.Count - 1, xs.Values)
-        else invalidArg "list" SR.inputListWasEmpty
+        match xs.TryTail with
+        | Some h -> h
+        | None -> invalidArg "list" SR.inputListWasEmpty
 
-    member inline xs.Item with get (index: int) =
-        xs.Values.[xs.Count - 1 - index]
+    member inline internal _.HeadUnsafe =
+        values.[count - 1]
+
+    member inline internal _.TailUnsafe =
+        if count = 1 && Option.isSome tail then tail.Value
+        else ResizeList<'T>(count - 1, values, ?tail=tail)
+
+    member _.Item with get (index: int) =
+        let actualIndex = count - 1 - index
+        if actualIndex >= 0 then
+            values.[actualIndex]
+        else
+            match tail with
+            | None -> invalidArg "index" SR.indexOutOfBounds
+            | Some t -> t.Item(index - count)
 
     override xs.ToString() =
         "[" + System.String.Join("; ", xs) + "]"
@@ -88,10 +163,12 @@ type ResizeList<'T>(count, values) =
 
     override xs.GetHashCode() =
         let inline combineHash i x y = (x <<< 1) + y + 631 * i
-        let len = min (xs.Length - 1) 18 // limit the hash count
         let mutable h = 0
-        for i = 0 to len do
-            h <- combineHash i h (Unchecked.hash xs.[i])
+        let mutable i = -1
+        xs.DoWhile(fun v ->
+            i <- i + 1
+            h <- combineHash i h (Unchecked.hash v)
+            i < 18) // limit the hash count
         h
 
     interface IJsonSerializable with
@@ -103,23 +180,35 @@ type ResizeList<'T>(count, values) =
             Seq.compareWith Unchecked.compare xs (other :?> 'T list)
 
     interface System.Collections.Generic.IEnumerable<'T> with
-        member xs.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
-            new ListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
+        member _.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
+            let mutable curIdx = count
+            let mutable curValues = values
+            let mutable curTail = tail
+            { new System.Collections.Generic.IEnumerator<'T> with
+                member __.Current = curValues.[curIdx]
+              interface System.Collections.IEnumerator with
+                member __.Current = box curValues.[curIdx]
+                member __.MoveNext() =
+                    curIdx <- curIdx - 1
+                    if curIdx < 0 then
+                        match curTail with
+                        | Some t ->
+                            curIdx <- t.HiddenCount - 1
+                            curValues <- t.HiddenValues
+                            curTail <- t.HiddenTail
+                            curIdx >= 0
+                        | None -> false
+                    else true
+                member __.Reset() =
+                    curIdx <- count
+                    curValues <- values
+                    curTail <- tail
+              interface System.IDisposable with
+                member __.Dispose() = () }
 
     interface System.Collections.IEnumerable with
         member xs.GetEnumerator(): System.Collections.IEnumerator =
             ((xs :> System.Collections.Generic.IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
-
-and ListEnumerator<'T>(xs: 'T list) =
-    let mutable i = -1
-    interface System.Collections.Generic.IEnumerator<'T> with
-        member __.Current = xs.[i]
-    interface System.Collections.IEnumerator with
-        member __.Current = box (xs.[i])
-        member __.MoveNext() = i <- i + 1; i < xs.Length
-        member __.Reset() = i <- -1
-    interface System.IDisposable with
-        member __.Dispose() = ()
 
 and 'T list = ResizeList<'T>
 
@@ -130,6 +219,9 @@ and 'T list = ResizeList<'T>
 let inline indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
 
 let newList values = ResizeList<'T>.NewList (values)
+
+let newListWithTail (xs: 'T ResizeArray) (tail: 'T list) =
+    tail.AddRange(xs)
 
 let empty () = ResizeList.Empty
 
@@ -143,48 +235,61 @@ let length (xs: 'T list) = xs.Length
 
 let head (xs: 'T list) = xs.Head
 
-let tryHead (xs: 'T list) =
-    if xs.Length > 0
-    then Some xs.[0]
-    else None
+let tryHead (xs: 'T list) = xs.TryHead
 
 let tail (xs: 'T list) = xs.Tail
 
-let (|Cons|Nil|) xs =
-    if isEmpty xs then Nil
-    else Cons (head xs, tail xs)
+let head_ (xs: 'T list) = xs.HeadUnsafe
 
-let last (xs: 'T list) =
-    if xs.Length > 0
-    then xs.[xs.Length - 1]
-    else invalidArg "list" SR.inputListWasEmpty
+let tail_ (xs: 'T list) = xs.TailUnsafe
+
+// let (|Cons|Nil|) xs =
+//     if isEmpty xs then Nil
+//     else Cons (head xs, tail xs)
 
 let tryLast (xs: 'T list) =
     if xs.Length > 0
     then Some xs.[xs.Length - 1]
     else None
 
+let last (xs: 'T list) =
+    match tryLast xs with
+    | Some h -> h
+    | None -> invalidArg "list" SR.inputListWasEmpty
+
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
     Seq.compareWith comparer xs ys
 
 let fold (folder: 'acc -> 'T -> 'acc) (state: 'acc) (xs: 'T list) =
     let mutable acc = state
-    for i = 0 to xs.Length - 1 do
-        acc <- folder acc xs.[i]
+    xs.Iterate(fun v -> acc <- folder acc v)
     acc
 
 let foldBack (folder: 'T -> 'acc -> 'acc) (xs: 'T list) (state: 'acc) =
     let mutable acc = state
-    for i = xs.Length - 1 downto 0 do
-        acc <- folder xs.[i] acc
+    xs.IterateBack(fun v -> acc <- folder v acc)
     acc
 
 let reverse (xs: 'a list) =
     xs.Reverse()
 
+// One of the attempts to optimize but I'm not sure if it's much faster than JS Array.prototype.reverse
+// If it is, we should use this as replacement of ResizeArray.Reverse
+// https://stackoverflow.com/a/9113136
+let private reverseInPlace (xs: ResizeArray<'a>) =
+    let mutable left = 0
+    let mutable right = 0
+    let length = xs.Count
+    while left < length / 2 do
+        right <- length - 1 - left;
+        let temporary = xs.[left]
+        xs.[left] <- xs.[right]
+        xs.[right] <- temporary
+        left <- left + 1
+
 let ofResizeArrayInPlace (xs: ResizeArray<'a>) =
-    xs.Reverse()
-    ResizeList.NewList xs
+    reverseInPlace xs
+    ResizeList<'a>.NewList(xs)
 
 let toSeq (xs: 'a list): 'a seq =
     xs :> System.Collections.Generic.IEnumerable<'a>
@@ -193,7 +298,7 @@ let ofSeq (xs: 'a seq): 'a list =
     // Seq.fold (fun acc x -> cons x acc) ResizeList.Empty xs
     // |> ofResizeArrayInPlace
     let values = ResizeArray(xs)
-    values.Reverse()
+    reverseInPlace values
     values |> newList
 
 let concat (lists: seq<'a list>) =
@@ -221,23 +326,19 @@ let scanBack f (xs: 'a list) (state: 'acc) =
     Seq.scanBack f xs state |> ofSeq
 
 let append (xs: 'a list) (ys: 'a list) =
-    let ylen = ys.Count
-    let values = allocate (xs.Count + ys.Count)
-    for i = xs.Count - 1 downto 0 do
-        values.[i + ylen] <- xs.Values.[i]
-    for i = ys.Count - 1 downto 0 do
-        values.[i] <- ys.Values.[i]
-    ResizeList<'a>.NewList(values)
+    xs.Append(ys)
 
 let collect (f: 'a -> 'b list) (xs: 'a list) =
     Seq.collect f xs |> ofSeq
 
 let mapIndexed (f: int -> 'a -> 'b) (xs: 'a list) =
-    let values = allocate xs.Count
-    let mutable j = 0
-    for i = xs.Count - 1 downto 0 do
-        values.[i] <- f j xs.Values.[i]
-        j <- j + 1
+    let values = allocate xs.Length
+    let mutable idx = -1
+    let mutable revIdx = values.Count
+    xs.Iterate(fun v ->
+        idx <- idx + 1
+        revIdx <- revIdx - 1
+        values.[revIdx] <- f idx v)
     ResizeList<'b>.NewList(values)
 
 let map (f: 'a -> 'b) (xs: 'a list) =
@@ -266,26 +367,20 @@ let mapFold (f: 'S -> 'T -> 'R * 'S) s xs =
 let mapFoldBack (f: 'T -> 'S -> 'R * 'S) xs s =
     mapFold (fun s v -> f v s) s (reverse xs)
 
-let iterate f xs =
-    fold (fun () x -> f x) () xs
+let iterate f (xs: 'a list) =
+    xs.Iterate f
 
 let iterate2 f xs ys =
     fold2 (fun () x y -> f x y) () xs ys
 
-let iterateIndexed f xs =
-    fold (fun i x -> f i x; i + 1) 0 xs |> ignore
+let iterateIndexed f (xs: 'a list) =
+    let mutable i = -1
+    xs.Iterate(fun v ->
+        i <- i + 1
+        f i v)
 
 let iterateIndexed2 f xs ys =
     fold2 (fun i x y -> f i x y; i + 1) 0 xs ys |> ignore
-
-let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
-    let values = tail.Values
-    for i = xs.Length - 1 downto 0 do
-        values.Add(xs.[i])
-    newList values
-
-// let ofArray (xs: 'T[]) =
-//     ofArrayWithTail xs ResizeList.Empty
 
 let ofArray (xs: 'T[]) =
     // let mutable res = ResizeList.Empty
@@ -299,20 +394,23 @@ let ofArray (xs: 'T[]) =
     values |> newList
 
 let tryPickIndexed (f: int -> 'a -> 'b option) (xs: 'a list) =
-    let rec loop i =
-        let res = f i xs.[i]
-        match res with
-        | Some _ -> res
-        | None -> if i < xs.Length - 1 then loop (i + 1) else None
-    if xs.Length > 0 then loop 0 else None
+    let mutable result = None
+    let mutable i = -1
+    xs.DoWhile(fun v ->
+        i <- i + 1
+        match f i v with
+        | Some r -> result <- Some r; false
+        | None -> true)
+    result
 
 let tryPickIndexedBack (f: int -> 'a -> 'b option) (xs: 'a list) =
-    let rec loop i =
-        let res = f i xs.[i]
-        match res with
-        | Some _ -> res
-        | None -> if i > 0 then loop (i - 1) else None
-    if xs.Length > 0 then loop (xs.Length - 1) else None
+    let mutable result = None
+    let mutable i = xs.Length
+    xs.IterateBack(fun v ->
+        if Option.isNone result then
+            i <- i - 1
+            result <- f i v)
+    result
 
 let tryPick f xs =
     let rec loop (xs: 'T list) =
@@ -372,15 +470,15 @@ let findIndexBack f xs: int =
     | None -> indexNotFound()
     | Some x -> x
 
-let item index (xs: 'a list) =
-    if index >= 0 && index < xs.Length
-    then xs.[index]
-    else invalidArg "index" SR.indexOutOfBounds
-
 let tryItem index (xs: 'a list) =
     if index >= 0 && index < xs.Length
     then Some xs.[index]
     else None
+
+let item index (xs: 'a list) =
+    match tryItem index xs with
+    | Some x -> x
+    | None -> invalidArg "index" SR.indexOutOfBounds
 
 let filter f xs =
     (ResizeArray(), xs)
@@ -560,21 +658,24 @@ let exactlyOne (xs: 'T list) =
     | 0 -> invalidArg "list" SR.inputSequenceEmpty
     | _ -> invalidArg "list" SR.inputSequenceTooLong
 
-// TODO: Optimize this
 let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>): ('Key * 'T list) list =
-    let dict = System.Collections.Generic.Dictionary<'Key, 'T list>(eq)
-    let mutable keys = ResizeList.Empty
-    xs |> iterate (fun v ->
+    let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>(eq)
+    let keys = ResizeArray<'Key>()
+    for v in xs do
         let key = projection v
         match dict.TryGetValue(key) with
         | true, prev ->
-            dict.[key] <- cons v prev
+            prev.Add(v)
         | false, _ ->
-            dict.Add(key, cons v ResizeList.Empty)
-            keys <- cons key keys )
-    let mutable result = ResizeList.Empty
-    keys |> iterate (fun key -> result <- cons (key, dict.[key].ReverseInPlace()) result)
-    result
+            dict.Add(key, ResizeArray [|v|])
+            keys.Add(key)
+    let result = allocate keys.Count
+    let mutable revIdx = keys.Count
+    for i = 0 to keys.Count - 1 do
+        revIdx <- revIdx - 1
+        let key = keys.[i]
+        result.[revIdx] <- (key, ofResizeArrayInPlace dict.[key])
+    newList result
 
 let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>) =
     let dict = System.Collections.Generic.Dictionary<'Key, int>(eq)

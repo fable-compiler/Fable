@@ -932,36 +932,24 @@ module Util =
         // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
         //     makeList com ctx r headAndTail
         // Optimization for bundle size: compile list literals as List.ofArray
-        | Replacements.ListLiteral(exprs, t) ->
-            [|List.rev exprs |> makeArray com ctx|]
-            |> libCall com ctx r "List" "newList"
-            // match exprs with
-            // | [] -> libCall com ctx r "List" "empty" [||]
-            // | [TransformExpr com ctx expr] -> libCall com ctx r "List" "singleton" [|expr|]
-            // | exprs -> [|makeArray com ctx exprs|] |> libCall com ctx r "List" "ofArray"
         | Fable.NewList (headAndTail, _) ->
-            match headAndTail with
-            | None -> libCall com ctx r "List" "empty" [||]
-            | Some(TransformExpr com ctx head, TransformExpr com ctx tail) ->
+            let rec getItems acc = function
+                | None -> List.rev acc, None
+                | Some(head, Fable.Value(Fable.NewList(tail, _),_)) -> getItems (head::acc) tail
+                | Some(head, tail) -> List.rev (head::acc), Some tail
+            match getItems [] headAndTail with
+            | [], None ->
+                libCall com ctx r "List" "empty" [||]
+            | [TransformExpr com ctx expr], None ->
+                libCall com ctx r "List" "singleton" [|expr|]
+            | exprs, None ->
+                [|List.rev exprs |> makeArray com ctx|]
+                |> libCall com ctx r "List" "newList"
+            | [TransformExpr com ctx head], Some(TransformExpr com ctx tail) ->
                 libCall com ctx r "List" "cons" [|head; tail|]
-
-            // let rec getItems acc = function
-            //     | None -> List.rev acc, None
-            //     | Some(head, Fable.Value(Fable.NewList(tail, _),_)) -> getItems (head::acc) tail
-            //     | Some(head, tail) -> List.rev (head::acc), Some tail
-            // match getItems [] headAndTail with
-            // | [], None ->
-            //     libCall com ctx r "List" "empty" [||]
-            // | [TransformExpr com ctx expr], None ->
-            //     libCall com ctx r "List" "singleton" [|expr|]
-            // | exprs, None ->
-            //     [|makeArray com ctx exprs|]
-            //     |> libCall com ctx r "List" "ofArray"
-            // | [TransformExpr com ctx head], Some(TransformExpr com ctx tail) ->
-            //     libCall com ctx r "List" "cons" [|head; tail|]
-            // | exprs, Some(TransformExpr com ctx tail) ->
-            //     [|makeArray com ctx exprs; tail|]
-            //     |> libCall com ctx r "List" "ofArrayWithTail"
+            | exprs, Some(TransformExpr com ctx tail) ->
+                [|List.rev exprs |> makeArray com ctx; tail|]
+                |> libCall com ctx r "List" "newListWithTail"
         | Fable.NewOption (value, t) ->
             match value with
             | Some (TransformExpr com ctx e) ->
@@ -1216,11 +1204,11 @@ module Util =
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
-            libCall com ctx range "List" "head" [|com.TransformAsExpr(ctx, fableExpr)|]
+            libCall com ctx range "List" "head_" [|com.TransformAsExpr(ctx, fableExpr)|]
 
         | Fable.ListTail ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
-            libCall com ctx range "List" "tail" [|com.TransformAsExpr(ctx, fableExpr)|]
+            libCall com ctx range "List" "tail_" [|com.TransformAsExpr(ctx, fableExpr)|]
 
         | Fable.TupleIndex index ->
             match fableExpr with
