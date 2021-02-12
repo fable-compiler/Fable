@@ -426,10 +426,10 @@ module MapTree =
             res <- add comparer x y res
         res
 
-    let ofSeq comparer (c: seq<'Key * 'T>) =
+    let ofSeq comparer (c: seq<'Key * 'Value>) =
         match c with
-        | :? array<'Key * 'T> as xs -> ofArray comparer xs
-        // | :? list<'Key * 'T> as xs -> ofList comparer xs
+        | :? array<'Key * 'Value> as xs -> ofArray comparer xs
+        | :? list<'Key * 'Value> as xs -> ofList comparer xs
         | _ ->
             use ie = c.GetEnumerator()
             mkFromEnumerator comparer empty ie
@@ -859,8 +859,8 @@ let ofSeq elements =
 
 // [<CompiledName("OfArray")>]
 let ofArray (elements: ('Key * 'Value) array) =
-   let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-   new Map<_, _>(comparer, MapTree.ofArray comparer elements)
+    let comparer = LanguagePrimitives.FastGenericComparer<'Key>
+    new Map<_, _>(comparer, MapTree.ofArray comparer elements)
 
 // [<CompiledName("ToList")>]
 let toList (table: Map<_, _>) =

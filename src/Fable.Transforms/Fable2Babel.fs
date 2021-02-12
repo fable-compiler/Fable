@@ -283,7 +283,7 @@ module Reflection =
         | Fable.Array _ | Fable.Tuple _ ->
             libCall com ctx None "Util" "isArrayLike" [|com.TransformAsExpr(ctx, expr)|]
         | Fable.List _ ->
-            jsInstanceof (libValue com ctx "Types" "List") expr
+            jsInstanceof (libValue com ctx "List" "List$1") expr
         | Fable.AnonymousRecordType _ ->
             warnAndEvalToFalse "anonymous records"
         | Fable.MetaType ->

@@ -574,12 +574,19 @@ module SetTree =
             mkFromEnumerator comparer (add comparer e.Current acc) e
         else acc
 
-    let ofSeq comparer (c: IEnumerable<_>) =
-        use ie = c.GetEnumerator()
-        mkFromEnumerator comparer empty ie
-
     let ofArray comparer l =
         Array.fold (fun acc k -> add comparer k acc) empty l
+
+    let ofList comparer l =
+        List.fold (fun acc k -> add comparer k acc) empty l
+
+    let ofSeq comparer (c: seq<'T>) =
+        match c with
+        | :? array<'T> as xs -> ofArray comparer xs
+        | :? list<'T> as xs -> ofList comparer xs
+        | _ ->
+            use ie = c.GetEnumerator()
+            mkFromEnumerator comparer empty ie
 
 [<Sealed>]
 [<CompiledName("FSharpSet")>]
