@@ -1,11 +1,15 @@
+### 3.1.4
+
+* Fix #2045: Aliasing a function wrapping a multi-arity function in point-free style
+
 ### 3.1.3
 
 * Add support for named capture groups in Regexes @Booksbaum
 * Babel AST: cleanup and refactor @dbrattli
 * Fix #1343: Warning when interface name clashes with record field @BillHally
-* Fix #2376: Char.IsLetter with `“` and `”` @ncave @NickDarvey
+* Fix #2376: Char.IsLetter with “ and ” @ncave @NickDarvey
 * Fix #2372: Array.reduce Array.append @inosik
-* Fix #2367: Using `unbox null` for callback returns `undefines`
+* Fix #2367: Using "unbox null" for callback returns "undefined"
 * Fix #2357: Fall-through to default switch case duplicates the switch case consequent code block
 * Fix #2356: Curried functions mangled via DU, List.fold and match combination
 * Fix #2355: System.Math.Ceiling/Floor returning incorrect values for some Decimals @ncave

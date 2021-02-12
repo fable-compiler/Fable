@@ -902,9 +902,20 @@ let mul x y = x * y
 let addOne (add: int->int->int) x = add 1 x
 let pointFree_addOne = addOne
 let fortyTwo x y = x + "42" + y
+let fortyTwo2 x y () z = 42 + (FSharp.Core.Operators.int x) + (FSharp.Core.Operators.int y) + z
+let wrap someFun () () = someFun "4" "6"
+let doesWork someFun = wrap someFun
+let doesNotWork = wrap
 let applyFooInRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
 
+type Wrapper() =
+    member _.doesNotWorki = wrap
+    static member doesNotWork = wrap
+    member _.doesNotWorki2 = wrap
+    static member doesNotWork2 = wrap
+
 type Fn = bool -> int -> string
+
 type Thing =
     | In of Fn
     | Out of Fn
@@ -1226,6 +1237,16 @@ let tests7 = [
         for someFun in [fortyTwo] do
             s <- s + someFun "y" "z" + s
         equal "Xy42zX" s
+
+    testCase "Aliasing a function wrapping a multi-arity function in point-free style #2045" <| fun _ ->
+        equal "4426" <| doesWork fortyTwo () ()
+        equal "4426" <| doesNotWork fortyTwo () ()
+        equal "4426" <| Wrapper().doesNotWorki fortyTwo () ()
+        equal "4426" <| Wrapper.doesNotWork fortyTwo () ()
+        equal 56 <| doesWork fortyTwo2 () () () 4
+        equal 56 <| doesNotWork fortyTwo2 () () () 4
+        equal 56 <| Wrapper().doesNotWorki2 fortyTwo2 () () () 4
+        equal 56 <| Wrapper.doesNotWork2 fortyTwo2 () () () 4
 ]
 
 module Adaptive =

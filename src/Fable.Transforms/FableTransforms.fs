@@ -416,30 +416,32 @@ module private Transforms =
     let checkSubArguments com expectedType (expr: Expr) =
         match expectedType, expr with
         | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_)) ->
-            let actualArgs = List.truncate expectedArgs.Length actualArgs
-            let _, replacements =
-                ((0, Map.empty), expectedArgs, actualArgs)
-                |||> List.fold2 (fun (index, replacements) expected actual ->
-                    match expected, actual with
-                    | GenericParam _, NestedLambdaType(args2, _) when List.isMultiple args2 ->
-                        index + 1, Map.add index (0, List.length args2) replacements
-                    | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
-                            when not(List.sameLength args1 args2) ->
-                        let expectedArity = List.length args1
-                        let actualArity = List.length args2
-                        index + 1, Map.add index (expectedArity, actualArity) replacements
-                    | _ -> index + 1, replacements)
-            if Map.isEmpty replacements
-            then expr
+            let expectedLength = List.length expectedArgs
+            if List.length actualArgs < expectedLength then expr
             else
-                let mappings =
-                    actualArgs |> List.mapi (fun i _ ->
-                        match Map.tryFind i replacements with
-                        | Some (expectedArity, actualArity) ->
-                            NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
-                        | None -> makeIntConst 0)
-                    |> makeArray Any
-                Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])
+                let actualArgs = List.truncate expectedLength actualArgs
+                let _, replacements =
+                    ((0, Map.empty), expectedArgs, actualArgs)
+                    |||> List.fold2 (fun (index, replacements) expected actual ->
+                        match expected, actual with
+                        | GenericParam _, NestedLambdaType(args2, _) when List.isMultiple args2 ->
+                            index + 1, Map.add index (0, List.length args2) replacements
+                        | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
+                                when not(List.sameLength args1 args2) ->
+                            let expectedArity = List.length args1
+                            let actualArity = List.length args2
+                            index + 1, Map.add index (expectedArity, actualArity) replacements
+                        | _ -> index + 1, replacements)
+                if Map.isEmpty replacements then expr
+                else
+                    let mappings =
+                        actualArgs |> List.mapi (fun i _ ->
+                            match Map.tryFind i replacements with
+                            | Some (expectedArity, actualArity) ->
+                                NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
+                            | None -> makeIntConst 0)
+                        |> makeArray Any
+                    Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])
         | _ -> expr
 
     let uncurryArgs com autoUncurrying argTypes args =
