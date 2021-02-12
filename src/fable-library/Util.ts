@@ -538,11 +538,7 @@ const CURRIED_KEY = "__CURRIED__";
 
 export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
-  if (f == null) { return undefined; }
-
-  // The function is already uncurried
-  if (f.length > 1) {
-    // if (CURRIED_KEY in f) { // This doesn't always work
+  if (f == null || f.length > 1) {
     return f;
   }
 
@@ -579,7 +575,9 @@ export function uncurry(arity: number, f: Function) {
 }
 
 export function curry(arity: number, f: Function): Function | undefined {
-  if (f == null) { return undefined; }
+  if (f == null || f.length === 1) {
+    return f;
+  }
   if (CURRIED_KEY in f) {
     return (f as any)[CURRIED_KEY];
   }
@@ -607,13 +605,19 @@ export function curry(arity: number, f: Function): Function | undefined {
   }
 }
 
+export function checkArity(arity: number, f: Function): Function {
+  return f.length > arity
+    ? (...args1: any[]) => (...args2: any[]) => f.apply(undefined, args1.concat(args2))
+    : f;
+}
+
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
     return undefined;
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
     for (let i = 0; i < args.length; i++) {
-      f = f(args[i]);
+      f = f(args[i]) ;
     }
     return f;
   } else {

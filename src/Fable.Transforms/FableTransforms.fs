@@ -365,12 +365,12 @@ module private Transforms =
         let rec getLambdaTypeArity acc = function
             | LambdaType(_, returnType) ->
                 getLambdaTypeArity (acc + 1) returnType
-            | _ -> acc
+            | t -> acc, t
         match t with
         | LambdaType(_, returnType)
         | Option(LambdaType(_, returnType)) ->
             getLambdaTypeArity 1 returnType
-        | _ -> 0
+        | _ -> 0, t
 
     let curryIdentsInBody replacements body =
         visitFromInsideOut (function
@@ -383,7 +383,7 @@ module private Transforms =
     let uncurryIdentsAndReplaceInBody (idents: Ident list) body =
         let replacements =
             (Map.empty, idents) ||> List.fold (fun replacements id ->
-                let arity = getLambdaTypeArity id.Type
+                let arity, _ = getLambdaTypeArity id.Type
                 if arity > 1
                 then Map.add id.Name arity replacements
                 else replacements)
@@ -460,7 +460,7 @@ module private Transforms =
             | Any when autoUncurrying -> uncurryExpr com None arg
             | _ ->
                 let arg = checkSubArguments com expectedType arg
-                let arity = getLambdaTypeArity expectedType
+                let arity, _ = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr com (Some arity) arg
                 else arg)
@@ -469,7 +469,8 @@ module private Transforms =
         let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
-        | Let(ident, NestedLambdaWithSameArity(args, fnBody, _), letBody) when List.isMultiple args ->
+        | Let(ident, NestedLambdaWithSameArity(args, fnBody, _), letBody) when List.isMultiple args
+                                                                          && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
             Let(ident, Delegate(args, fnBody, None), letBody)
@@ -483,7 +484,7 @@ module private Transforms =
         | e -> e
 
     let propagateUncurryingThroughLets (_: Compiler) = function
-        | Let(ident, value, body) ->
+        | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
                 | Curry(innerExpr, arity,_,_) ->
@@ -504,7 +505,7 @@ module private Transforms =
         if m.Info.IsValue then m
         else { m with Body = uncurryIdentsAndReplaceInBody m.Args m.Body }
 
-    let uncurryReceivedArgs (_: Compiler) e =
+    let uncurryReceivedArgs (com: Compiler) e =
         match e with
         // TODO: This breaks cases when we actually need to import a curried function
         // // Sometimes users type imports as lambdas but if they come from JS they're not curried
@@ -519,10 +520,17 @@ module private Transforms =
             Delegate(args, body, name)
         // Uncurry also values received from getters
         | Get(_, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
-            let arity = getLambdaTypeArity fieldType
-            if arity > 1
-            then Curry(e, arity, t, r)
-            else e
+            match getLambdaTypeArity fieldType with
+            // If the lambda returns a generic the actual arity may be higher than expected,
+            // so we need a runtime partial application
+            | arity, GenericParam _ when arity > 0 ->
+                let callee = makeImportLib com Any "checkArity" "Util"
+                let info = makeCallInfo None [makeIntConst arity; e] []
+                let e = Call(callee, info, t, r)
+                if arity > 1 then Curry(e, arity, t, r)
+                else e
+            | arity, _ when arity > 1 -> Curry(e, arity, t, r)
+            | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
         | e -> e
