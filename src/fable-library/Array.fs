@@ -1,4 +1,4 @@
-module Array
+module ArrayModule
 
 // Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"

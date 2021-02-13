@@ -1906,7 +1906,6 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some
-    | "ToArray", [x] -> toArray r t x |> Some
     | "AllPairs", args ->
         let allPairs = Helper.LibCall(com, "Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
         toList com t allPairs |> Some

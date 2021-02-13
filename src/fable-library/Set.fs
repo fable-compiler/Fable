@@ -564,8 +564,8 @@ module SetTree =
         iter (fun x -> arr.[j] <- x; j <- j + 1) s
 
     let toArray s =
-        let n = (count s)
-        let res = Array.Helpers.allocateArray n
+        let n = count s
+        let res = Array.zeroCreate n
         copyToArray s res 0
         res
 

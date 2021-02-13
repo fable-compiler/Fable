@@ -408,8 +408,15 @@ module MapTree =
                 | _ -> (m2.Key, m2.Value) :: acc
         loop m []
 
-    let toArray (m: MapTree<'Key, 'Value>): ('Key * 'Value)[] =
-        m |> toList |> Array.ofList
+    let copyToArray m (arr: _[]) i =
+        let mutable j = i
+        iter (fun x y -> arr.[j] <- KeyValuePair(x, y); j <- j + 1) m
+
+    let toArray m =
+        let n = size m
+        let res = Array.zeroCreate n
+        copyToArray m res 0
+        res
 
     let ofList comparer l =
         List.fold (fun acc (k, v) -> add comparer k v acc) empty l
@@ -433,10 +440,6 @@ module MapTree =
         | _ ->
             use ie = c.GetEnumerator()
             mkFromEnumerator comparer empty ie
-
-    let copyToArray m (arr: _[]) i =
-        let mutable j = i
-        m |> iter (fun x y -> arr.[j] <- KeyValuePair(x, y); j <- j + 1)
 
     /// Imperative left-to-right iterators.
     [<NoEquality; NoComparison>]
