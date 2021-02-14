@@ -42,10 +42,10 @@ type Expression =
     | Dict of Dict
     | Tuple of Tuple
 
-    // member val Lineno: int = 0 with get, set
-    // member val ColOffset: int = 0 with get, set
-    // member val EndLineno: int option = None with get, set
-    // member val EndColOffset: int option = None with get, set
+// member val Lineno: int = 0 with get, set
+// member val ColOffset: int = 0 with get, set
+// member val EndLineno: int option = None with get, set
+// member val EndColOffset: int option = None with get, set
 type Operator =
     | Add
     | Sub
@@ -88,8 +88,7 @@ type ExpressionContext =
     | Del
     | Store
 
-type Identifier =
-    | Identifier of string
+type Identifier = Identifier of string
 
 type Statement =
     | Pass
@@ -112,15 +111,12 @@ type Statement =
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
 
-    // member val Lineno: int = 0 with get, set
-    // member val ColOffset: int = 0 with get, set
-    // member val EndLineno: int option = None with get, set
-    // member val EndColOffset: int option = None with get, set
+// member val Lineno: int = 0 with get, set
+// member val ColOffset: int = 0 with get, set
+// member val EndLineno: int option = None with get, set
+// member val EndColOffset: int option = None with get, set
 
-type Module =
-    {
-        Body: Statement list
-    }
+type Module = { Body: Statement list }
 
 /// Both parameters are raw strings of the names. asname can be None if the regular name is to be used.
 ///
@@ -137,59 +133,49 @@ type Module =
 ///     type_ignores=[])
 /// ```
 type Alias =
-    {
-        Name: Identifier
-        AsName: Identifier option
-    }
+    { Name: Identifier
+      AsName: Identifier option }
 
 /// A single except clause. type is the exception type it will match, typically a Name node (or None for a catch-all
 /// except: clause). name is a raw string for the name to hold the exception, or None if the clause doesn’t have as foo.
 /// body is a list of nodes.
 type ExceptHandler =
-    {
-        Type: Expression option
-        Name: Identifier option
-        Body: Statement list
-        Loc: SourceLocation option
-    }
+    { Type: Expression option
+      Name: Identifier option
+      Body: Statement list
+      Loc: SourceLocation option }
 
 /// try blocks. All attributes are list of nodes to execute, except for handlers, which is a list of ExceptHandler
 /// nodes.
 type Try =
-    {
-        Body: Statement list
-        Handlers: ExceptHandler list
-        OrElse: Statement list
-        FinalBody: Statement list
-        Loc: SourceLocation option
-    }
+    { Body: Statement list
+      Handlers: ExceptHandler list
+      OrElse: Statement list
+      FinalBody: Statement list
+      Loc: SourceLocation option }
 
 /// A single argument in a list. arg is a raw string of the argument name, annotation is its annotation, such as a Str
 /// or Name node.
 ///
 /// - type_comment is an optional string with the type annotation as a comment
 type Arg =
-    {
-        Lineno: int
-        ColOffset: int
-        EndLineno: int option
-        EndColOffset: int option
+    { Lineno: int
+      ColOffset: int
+      EndLineno: int option
+      EndColOffset: int option
 
-        Arg: Identifier
-        Annotation: Expression option
-        TypeComment: string option
-    }
+      Arg: Identifier
+      Annotation: Expression option
+      TypeComment: string option }
 
 type Keyword =
-    {
-        Lineno: int
-        ColOffset: int
-        EndLineno: int option
-        EndColOffset: int option
+    { Lineno: int
+      ColOffset: int
+      EndLineno: int option
+      EndColOffset: int option
 
-        Arg: Identifier
-        Value: Expression
-    }
+      Arg: Identifier
+      Value: Expression }
 
 /// The arguments for a function.
 ///
@@ -200,15 +186,13 @@ type Keyword =
 ///  - defaults is a list of default values for arguments that can be passed positionally. If there are fewer defaults,
 ///    they correspond to the last n arguments.
 type Arguments =
-    {
-        PosOnlyArgs: Arg list
-        Args: Arg list
-        VarArg: Arg option
-        KwOnlyArgs: Arg list
-        KwDefaults: Expression list
-        KwArg: Arg option
-        Defaults: Expression list
-    }
+    { PosOnlyArgs: Arg list
+      Args: Arg list
+      VarArg: Arg option
+      KwOnlyArgs: Arg list
+      KwDefaults: Expression list
+      KwArg: Arg option
+      Defaults: Expression list }
 
 //#region Statements
 
@@ -244,11 +228,9 @@ type Arguments =
 ///     type_ignores=[])
 /// ```
 type Assign =
-    {
-        Targets: Expression list
-        Value: Expression
-        TypeComment: string option
-    }
+    { Targets: Expression list
+      Value: Expression
+      TypeComment: string option }
 
 /// When an expression, such as a function call, appears as a statement by itself with its return value not used or
 /// stored, it is wrapped in this container. value holds one of the other nodes in this section, a Constant, a Name, a
@@ -264,10 +246,7 @@ type Assign =
 ///                 operand=Name(id='a', ctx=Load())))],
 ///     type_ignores=[])
 ///```
-type Expr =
-    {
-        Value: Expression
-    }
+type Expr = { Value: Expression }
 
 /// A for loop. target holds the variable(s) the loop assigns to, as a single Name, Tuple or List node. iter holds the
 /// item to be looped over, again as a single node. body and orelse contain lists of nodes to execute. Those in orelse
@@ -296,22 +275,18 @@ type Expr =
 ///     type_ignores=[])
 ///```
 type For =
-    {
-        Target: Expression
-        Iterator: Expression
-        Body: Statement list
-        Else: Statement list
-        TypeComment: string option
-    }
+    { Target: Expression
+      Iterator: Expression
+      Body: Statement list
+      Else: Statement list
+      TypeComment: string option }
 
 type AsyncFor =
-    {
-        Target: Expression
-        Iterator: Expression
-        Body: Statement list
-        Else: Statement list
-        TypeComment: string option
-    }
+    { Target: Expression
+      Iterator: Expression
+      Body: Statement list
+      Else: Statement list
+      TypeComment: string option }
 
 /// A while loop. test holds the condition, such as a Compare node.
 ///
@@ -335,11 +310,9 @@ type AsyncFor =
 ///     type_ignores=[])
 /// ```
 type While =
-    {
-        Test: Expression
-        Body: Statement list
-        Else: Statement list
-    }
+    { Test: Expression
+      Body: Statement list
+      Else: Statement list }
 
 /// A class definition.
 ///
@@ -378,14 +351,12 @@ type While =
 ///     type_ignores=[])
 ///```
 type ClassDef =
-    {
-        Name: Identifier
-        Bases: Expression list
-        Keyword: Keyword list
-        Body: Statement list
-        DecoratorList: Expression list
-        Loc: SourceLocation option
-    }
+    { Name: Identifier
+      Bases: Expression list
+      Keyword: Keyword list
+      Body: Statement list
+      DecoratorList: Expression list
+      Loc: SourceLocation option }
 
 /// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
 ///
@@ -420,11 +391,9 @@ type ClassDef =
 ///     type_ignores=[])
 /// ```
 type If =
-    {
-        Test: Expression
-        Body: Statement list
-        Else: Statement list
-    }
+    { Test: Expression
+      Body: Statement list
+      Else: Statement list }
 
 /// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
 /// raise. cause is the optional part for y in raise x from y.
@@ -439,10 +408,8 @@ type If =
 ///     type_ignores=[])
 /// ```
 type Raise =
-    {
-        Exception: Expression
-        Cause: Expression option
-    }
+    { Exception: Expression
+      Cause: Expression option }
 
     static member Create(exc, ?cause): Statement = { Exception = exc; Cause = cause } |> Raise
 
@@ -456,24 +423,20 @@ type Raise =
 /// - returns is the return annotation.
 /// - type_comment is an optional string with the type annotation as a comment.
 type FunctionDef =
-    {
-        Name: Identifier
-        Args: Arguments
-        Body: Statement list
-        DecoratorList: Expression list
-        Returns: Expression option
-        TypeComment: string option
-    }
+    { Name: Identifier
+      Args: Arguments
+      Body: Statement list
+      DecoratorList: Expression list
+      Returns: Expression option
+      TypeComment: string option }
 
     static member Create(name, args, body, ?decoratorList, ?returns, ?typeComment): Statement =
-        {
-            Name = name
-            Args = args
-            Body = body
-            DecoratorList = defaultArg decoratorList []
-            Returns = returns
-            TypeComment = typeComment
-        }
+        { Name = name
+          Args = args
+          Body = body
+          DecoratorList = defaultArg decoratorList []
+          Returns = returns
+          TypeComment = typeComment }
         |> FunctionDef
 
 /// global and nonlocal statements. names is a list of raw strings.
@@ -491,9 +454,7 @@ type FunctionDef =
 ///
 /// ```
 type Global =
-    {
-        Names: Identifier list
-    }
+    { Names: Identifier list }
 
     static member Create(names) = { Names = names }
 
@@ -511,9 +472,7 @@ type Global =
 ///     type_ignores=[])
 /// `````
 type NonLocal =
-    {
-        Names: Identifier list
-    }
+    { Names: Identifier list }
 
     static member Create(names) = { Names = names }
 
@@ -527,24 +486,20 @@ type NonLocal =
 /// - returns is the return annotation.
 /// - type_comment is an optional string with the type annotation as a comment.
 type AsyncFunctionDef =
-    {
-        Name: Identifier
-        Args: Arguments
-        Body: Statement list
-        DecoratorList: Expression list
-        Returns: Expression option
-        TypeComment: string option
-    }
+    { Name: Identifier
+      Args: Arguments
+      Body: Statement list
+      DecoratorList: Expression list
+      Returns: Expression option
+      TypeComment: string option }
 
     static member Create(name, args, body, decoratorList, ?returns, ?typeComment) =
-        {
-            Name = name
-            Args = args
-            Body = body
-            DecoratorList = decoratorList
-            Returns = returns
-            TypeComment = typeComment
-        }
+        { Name = name
+          Args = args
+          Body = body
+          DecoratorList = decoratorList
+          Returns = returns
+          TypeComment = typeComment }
 
 /// An import statement. names is a list of alias nodes.
 ///
@@ -559,10 +514,7 @@ type AsyncFunctionDef =
 ///                 alias(name='z')])],
 ///     type_ignores=[])
 /// `````
-type Import =
-    {
-        Names: Alias list
-    }
+type Import = { Names: Alias list }
 
 
 /// Represents from x import y. module is a raw string of the ‘from’ name, without any leading dots, or None for
@@ -583,12 +535,9 @@ type Import =
 ///     type_ignores=[])
 /// ```
 type ImportFrom =
-    {
-        Module: Identifier option
-        Names: Alias list
-        Level: int option
-    }
-
+    { Module: Identifier option
+      Names: Alias list
+      Level: int option }
 
 /// A return statement.
 ///
@@ -600,10 +549,7 @@ type ImportFrom =
 ///             value=Constant(value=4))],
 ///     type_ignores=[])
 /// ```
-type Return =
-    {
-        Value: Expression option
-    }
+type Return = { Value: Expression option }
 
 //#endregion
 
@@ -621,17 +567,13 @@ type Return =
 ///         ctx=Load()))
 /// ```
 type Attribute =
-    {
-        Value: Expression
-        Attr: Identifier
-        Ctx: ExpressionContext
-    }
+    { Value: Expression
+      Attr: Identifier
+      Ctx: ExpressionContext }
 
 type NamedExpr =
-    {
-        Target: Expression
-        Value: Expression
-    }
+    { Target: Expression
+      Value: Expression }
 
 /// A subscript, such as l[1]. value is the subscripted object (usually sequence or mapping). slice is an index, slice
 /// or key. It can be a Tuple and contain a Slice. ctx is Load, Store or Del according to the action performed with the
@@ -652,24 +594,18 @@ type NamedExpr =
 ///         ctx=Load()))
 /// ```
 type Subscript =
-    {
-        Value: Expression
-        Slice: Expression
-        Ctx: ExpressionContext
-    }
+    { Value: Expression
+      Slice: Expression
+      Ctx: ExpressionContext }
 
 type BinOp =
-    {
-        Left: Expression
-        Right: Expression
-        Operator: Operator
-    }
+    { Left: Expression
+      Right: Expression
+      Operator: Operator }
 
 type BoolOp =
-    {
-        Values: Expression list
-        Operator: BoolOperator
-    }
+    { Values: Expression list
+      Operator: BoolOperator }
 
 /// A comparison of two or more values. left is the first value in the comparison, ops the list of operators, and
 /// comparators the list of values after the first element in the comparison.
@@ -687,19 +623,15 @@ type BoolOp =
 ///             Constant(value=10)]))
 /// `````
 type Compare =
-    {
-        Left: Expression
-        Comparators: Expression list
-        Ops: ComparisonOperator list
-    }
+    { Left: Expression
+      Comparators: Expression list
+      Ops: ComparisonOperator list }
 
 /// A unary operation. op is the operator, and operand any expression node.
 type UnaryOp =
-    {
-        Op: UnaryOperator
-        Operand: Expression
-        Loc: SourceLocation option
-    }
+    { Op: UnaryOperator
+      Operand: Expression
+      Loc: SourceLocation option }
 
 /// A constant value. The value attribute of the Constant literal contains the Python object it represents. The values
 /// represented can be simple types such as a number, string or None, but also immutable container types (tuples and
@@ -710,10 +642,7 @@ type UnaryOp =
 /// Expression(
 ///     body=Constant(value=123))
 /// `````
-type Constant =
-    {
-        Value: obj
-    }
+type Constant = { Value: obj }
 
 /// Node representing a single formatting field in an f-string. If the string contains a single formatting field and
 /// nothing else the node can be isolated otherwise it appears in JoinedStr.
@@ -727,11 +656,9 @@ type Constant =
 /// - format_spec is a JoinedStr node representing the formatting of the value, or None if no format was specified. Both
 /// conversion and format_spec can be set at the same time.
 type FormattedValue =
-    {
-        Value: Expression
-        Conversion: int option
-        FormatSpec: Expression option
-    }
+    { Value: Expression
+      Conversion: int option
+      FormatSpec: Expression option }
 
 /// A function call. func is the function, which will often be a Name or Attribute object. Of the arguments:
 ///
@@ -759,17 +686,13 @@ type FormattedValue =
 ///                 value=Name(id='e', ctx=Load()))]))
 /// ```
 type Call =
-    {
-        Func: Expression
-        Args: Expression list
-        Keywords: Keyword list
-    }
+    { Func: Expression
+      Args: Expression list
+      Keywords: Keyword list }
 
 type Emit =
-    {
-        Value: string
-        Args: Expression list
-    }
+    { Value: string
+      Args: Expression list }
 
 /// An expression such as a if b else c. Each field holds a single node, so in the following example, all three are Name nodes.
 ///
@@ -782,11 +705,9 @@ type Emit =
 ///         orelse=Name(id='c', ctx=Load())))
 /// ```
 type IfExp =
-    {
-        Test: Expression
-        Body: Expression
-        OrElse: Expression
-    }
+    { Test: Expression
+      Body: Expression
+      OrElse: Expression }
 
 /// lambda is a minimal function definition that can be used inside an expression. Unlike FunctionDef, body holds a
 /// single node.
@@ -808,11 +729,7 @@ type IfExp =
 ///                 body=Constant(value=Ellipsis)))],
 ///     type_ignores=[])
 /// ```
-type Lambda =
-    {
-        Args: Arguments
-        Body: Expression
-    }
+type Lambda = { Args: Arguments; Body: Expression }
 
 /// A tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an assignment target
 /// (i.e. (x,y)=something), and Load otherwise.
@@ -828,10 +745,8 @@ type Lambda =
 ///         ctx=Load()))
 ///```
 type Tuple =
-    {
-        Elements: Expression list
-        Loc: SourceLocation option
-    }
+    { Elements: Expression list
+      Loc: SourceLocation option }
 
 /// A list or tuple. elts holds a list of nodes representing the elements. ctx is Store if the container is an
 /// assignment target (i.e. (x,y)=something), and Load otherwise.
@@ -846,10 +761,7 @@ type Tuple =
 ///             Constant(value=3)],
 ///         ctx=Load()))
 ///```
-type List =
-    {
-        Elements: Expression list
-    }
+type List = { Elements: Expression list }
 
 /// A set. elts holds a list of nodes representing the set’s elements.
 ///
@@ -862,10 +774,7 @@ type List =
 ///             Constant(value=2),
 ///             Constant(value=3)]))
 /// ```
-type Set =
-    {
-        Elements: Expression list
-    }
+type Set = { Elements: Expression list }
 
 /// A dictionary. keys and values hold lists of nodes representing the keys and the values respectively, in matching
 /// order (what would be returned when calling dictionary.keys() and dictionary.values()).
@@ -885,229 +794,222 @@ type Set =
 ///             Name(id='d', ctx=Load())]))
 /// ```
 type Dict =
-    {
-        Keys: Expression list
-        Values: Expression list
-    }
+    { Keys: Expression list
+      Values: Expression list }
 
 /// A variable name. id holds the name as a string, and ctx is one of the following types.
 type Name =
-    {
-        Id: Identifier
-        Context: ExpressionContext
-    }
+    { Id: Identifier
+      Context: ExpressionContext }
 
 [<AutoOpen>]
 module PythonExtensions =
     type Statement with
+
         static member import(names): Statement = Import { Names = names }
         static member expr(value): Statement = { Expr.Value = value } |> Expr
+
         static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc): Statement =
-            Try.try'(body, ?handlers=handlers, ?orElse=orElse, ?finalBody=finalBody, ?loc=loc) |> Try
+            Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)
+            |> Try
+
         static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc): Statement =
-            {
-                Name = name
-                Bases = defaultArg bases []
-                Keyword = defaultArg keywords []
-                Body = defaultArg body []
-                DecoratorList = defaultArg decoratorList []
-                Loc = loc
-            }
+            { Name = name
+              Bases = defaultArg bases []
+              Keyword = defaultArg keywords []
+              Body = defaultArg body []
+              DecoratorList = defaultArg decoratorList []
+              Loc = loc }
             |> ClassDef
+
         static member assign(targets, value, ?typeComment): Statement =
-            {
-                Targets = targets
-                Value = value
-                TypeComment = typeComment
-            }
+            { Targets = targets
+              Value = value
+              TypeComment = typeComment }
             |> Assign
+
         static member return'(?value): Statement = Return { Value = value }
-        static member for'(target, iter, ?body, ?orelse, ?typeComment) : Statement =
-            For.for'(target, iter, ?body=body, ?orelse=orelse, ?typeComment=typeComment)
+
+        static member for'(target, iter, ?body, ?orelse, ?typeComment): Statement =
+            For.for' (target, iter, ?body = body, ?orelse = orelse, ?typeComment = typeComment)
             |> For
+
         static member while'(test, body, ?orelse): Statement =
-            {
-                While.Test = test
-                Body = body
-                Else = defaultArg orelse []
-            }
+            { While.Test = test
+              Body = body
+              Else = defaultArg orelse [] }
             |> While
+
         static member if'(test, body, ?orelse): Statement =
-            {
-                Test = test
-                Body = body
-                Else = defaultArg orelse []
-            }
+            { Test = test
+              Body = body
+              Else = defaultArg orelse [] }
             |> If
+
         static member importFrom(``module``, names, ?level) =
-            ImportFrom.importFrom(``module``, names, ?level=level) |> ImportFrom
+            ImportFrom.importFrom (``module``, names, ?level = level)
+            |> ImportFrom
 
     type Expression with
-        static member name(id, ?ctx): Expression = { Id = id; Context = defaultArg ctx Load } |> Name
+
+        static member name(id, ?ctx): Expression =
+            { Id = id
+              Context = defaultArg ctx Load }
+            |> Name
+        static member name(name, ?ctx): Expression =
+            Expression.name(Identifier(name), ?ctx=ctx)
+
         static member dict(keys, values): Expression = { Keys = keys; Values = values } |> Dict
         static member tuple(elts, ?loc): Expression = { Elements = elts; Loc = loc } |> Tuple
+
         static member ifExp(test, body, orElse): Expression =
-            {
-                Test = test
-                Body = body
-                OrElse = orElse
-            }
+            { Test = test
+              Body = body
+              OrElse = orElse }
             |> IfExp
+
         static member lambda(args, body): Expression = { Args = args; Body = body } |> Lambda
+
         static member emit(value, ?args): Expression =
-            {
-                Value = value
-                Args = defaultArg args []
-            }
+            { Value = value
+              Args = defaultArg args [] }
             |> Emit
+
         static member call(func, ?args, ?kw): Expression =
-            {
-                Func = func
-                Args = defaultArg args []
-                Keywords = defaultArg kw []
-            }
+            { Func = func
+              Args = defaultArg args []
+              Keywords = defaultArg kw [] }
             |> Call
+
         static member compare(left, ops, comparators): Expression =
-            {
-                Left = left
-                Comparators = comparators
-                Ops = ops
-            }
+            { Left = left
+              Comparators = comparators
+              Ops = ops }
             |> Compare
+
         static member attribute(value, attr, ctx): Expression =
-            {
-                Value = value
-                Attr = attr
-                Ctx = ctx
-            }
+            { Value = value
+              Attr = attr
+              Ctx = ctx }
             |> Attribute
+
         static member unaryOp(op, operand, ?loc): Expression =
-            {
-                Op = op
-                Operand = operand
-                Loc = loc
-            }
+            { Op = op
+              Operand = operand
+              Loc = loc }
             |> UnaryOp
-        static member namedExpr(target, value) =
-            {
-                Target = target
-                Value = value
-            }
-            |> NamedExpr
+
+        static member namedExpr(target, value) = { Target = target; Value = value } |> NamedExpr
+
         static member subscript(value, slice, ctx): Expression =
-            {
-                Value = value
-                Slice = slice
-                Ctx = ctx
-            }
+            { Value = value
+              Slice = slice
+              Ctx = ctx }
             |> Subscript
+
         static member binOp(left, op, right): Expression =
-            {
-                Left = left
-                Right = right
-                Operator = op
-            }
+            { Left = left
+              Right = right
+              Operator = op }
             |> BinOp
+
         static member boolOp(op, values): Expression = { Values = values; Operator = op } |> BoolOp
         static member constant(value: obj): Expression = { Value = value } |> Constant
 
-
     type List with
+
         static member list(elts) = { Elements = elts }
 
     type ExceptHandler with
+
         static member exceptHandler(``type``, ?name, ?body, ?loc) =
-            {
-                Type = ``type``
-                Name = name
-                Body = defaultArg body []
-                Loc = loc
-            }
+            { Type = ``type``
+              Name = name
+              Body = defaultArg body []
+              Loc = loc }
+
     type Alias with
+
         static member alias(name, asname) = { Name = name; AsName = asname }
 
     type Try with
+
         static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) =
-            {
-                Body = body
-                Handlers = defaultArg handlers []
-                OrElse = defaultArg orElse []
-                FinalBody = defaultArg finalBody []
-                Loc = loc
-            }
+            { Body = body
+              Handlers = defaultArg handlers []
+              OrElse = defaultArg orElse []
+              FinalBody = defaultArg finalBody []
+              Loc = loc }
 
     type FormattedValue with
+
         static member formattedValue(value, ?conversion, ?formatSpec) =
-            {
-                Value = value
-                Conversion = conversion
-                FormatSpec = formatSpec
-            }
+            { Value = value
+              Conversion = conversion
+              FormatSpec = formatSpec }
 
     type Module with
+
         static member module'(body) = { Body = body }
 
     type Arg with
-        static member arg(arg, ?annotation, ?typeComment) =
-            {
-                Lineno = 0
-                ColOffset = 0
-                EndLineno = None
-                EndColOffset = None
 
-                Arg = arg
-                Annotation = annotation
-                TypeComment = typeComment
-            }
+        static member arg(arg, ?annotation, ?typeComment) =
+            { Lineno = 0
+              ColOffset = 0
+              EndLineno = None
+              EndColOffset = None
+
+              Arg = arg
+              Annotation = annotation
+              TypeComment = typeComment }
 
     type Keyword with
-        static member keyword(arg, value) =
-            {
-                Lineno = 0
-                ColOffset = 0
-                EndLineno = None
-                EndColOffset = None
 
-                Arg = arg
-                Value = value
-            }
+        static member keyword(arg, value) =
+            { Lineno = 0
+              ColOffset = 0
+              EndLineno = None
+              EndColOffset = None
+
+              Arg = arg
+              Value = value }
 
     type Arguments with
+
         static member arguments(?posonlyargs, ?args, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?defaults) =
-            {
-                PosOnlyArgs = defaultArg posonlyargs []
-                Args = defaultArg args []
-                VarArg = vararg
-                KwOnlyArgs = defaultArg kwonlyargs []
-                KwDefaults = defaultArg kwDefaults []
-                KwArg = kwarg
-                Defaults = defaultArg defaults []
-            }
+            { PosOnlyArgs = defaultArg posonlyargs []
+              Args = defaultArg args []
+              VarArg = vararg
+              KwOnlyArgs = defaultArg kwonlyargs []
+              KwDefaults = defaultArg kwDefaults []
+              KwArg = kwarg
+              Defaults = defaultArg defaults [] }
 
     type For with
+
         static member for'(target, iter, ?body, ?orelse, ?typeComment) =
-            {
-                Target = target
-                Iterator = iter
-                Body = defaultArg body []
-                Else = defaultArg orelse []
-                TypeComment = typeComment
-            }
+            { Target = target
+              Iterator = iter
+              Body = defaultArg body []
+              Else = defaultArg orelse []
+              TypeComment = typeComment }
 
     type AsyncFor with
+
         static member asyncFor(target, iter, body, ?orelse, ?typeComment) =
-            {
-                Target = target
-                Iterator = iter
-                Body = body
-                Else = defaultArg orelse []
-                TypeComment = typeComment
-            }
+            { Target = target
+              Iterator = iter
+              Body = body
+              Else = defaultArg orelse []
+              TypeComment = typeComment }
 
     type ImportFrom with
+
         static member importFrom(``module``, names, ?level) =
-            {
-                Module = ``module``
-                Names = names
-                Level = level
-            }
+            { Module = ``module``
+              Names = names
+              Level = level }
+    type Expr with
+        static member expr(value) : Expr =
+            { Value=value }
