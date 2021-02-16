@@ -106,7 +106,9 @@ type PollingFileWatcher (watchedDirectoryPath, ignoredDirectoryNameRegexes) =
                 with
                     | :? FileNotFoundException ->
                         knownEntities.[fullFilePath] <- { fileMeta with FoundAgain = false }
-            tempDictionary.Add(f.FullName, { FileInfo = f; FoundAgain = false }))
+            // TryAdd instead of Add because sometimes we get duplicates (?!)
+            // (Saw multiple times on Linux. Not sure where it came from...)
+            tempDictionary.TryAdd(f.FullName, { FileInfo = f; FoundAgain = false }) |> ignore)
 
         for file in knownEntities do
             if not (file.Value.FoundAgain)
