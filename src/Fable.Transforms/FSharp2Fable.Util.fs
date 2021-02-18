@@ -1159,7 +1159,7 @@ module Util =
             | _ -> false)
 
     let isAttachMembersEntity (ent: FSharpEntity) =
-        ent.Attributes |> Seq.exists (fun att ->
+        not ent.IsFSharpModule && ent.Attributes |> Seq.exists (fun att ->
             // Should we make sure the attribute is not an alias?
             match att.AttributeType.TryFullName with
             | Some Atts.attachMembers -> true

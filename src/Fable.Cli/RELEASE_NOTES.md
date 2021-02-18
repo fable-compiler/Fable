@@ -1,3 +1,8 @@
+### 3.1.5
+
+* Fix #2384: Polling file watcher @mlaily
+* Fix static constructors with attached members
+
 ### 3.1.4
 
 * Fix #2045: Aliasing a function wrapping a multi-arity function in point-free style

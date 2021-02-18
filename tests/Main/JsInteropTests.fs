@@ -157,6 +157,7 @@ type JsOptions =
 
 [<Fable.Core.AttachMembers>]
 type ClassWithAttachments(v, ?sign) =
+    static let secretSauce = "wasabi"
     let mutable x = v
     member _.Times with get() = x and set(y) = x <- x + y
     member this.SaySomethingTo(name: string, ?format) =
@@ -166,6 +167,7 @@ type ClassWithAttachments(v, ?sign) =
         String.Format(format, name)
     static member GreetingFormat = "Hello {0}"
     static member GetGrettingEnding(times, sign) = String.replicate times sign
+    member _.WithSecretSauce(food) = $"{food} with lots of {secretSauce}"
 
 type ClassWithAttachmentsChild() =
     inherit ClassWithAttachments(3, "?")
@@ -183,6 +185,11 @@ let tests =
         equal 2 x.Times
         x.Times <- 3
         x.SaySomethingTo("Tanaka") |> equal "Hello Tanaka!!!!!"
+
+    testCase "Class with attached members can have static constructors" <| fun _ ->
+        let x = ClassWithAttachments(2)
+        x.WithSecretSauce("Nuggets")
+        |> equal "Nuggets with lots of wasabi"
 
     testCase "Class with attached members can be inherited" <| fun _ ->
         let x = ClassWithAttachmentsChild()
