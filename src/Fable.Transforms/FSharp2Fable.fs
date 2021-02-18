@@ -1118,7 +1118,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         []
     else
         match memb.DeclaringEntity with
-        | Some ent when isAttachMembersEntity ent ->
+        | Some ent when isAttachMembersEntity ent && memb.CompiledName <> ".cctor" ->
             transformExplicitlyAttachedMember com ctx ent memb args body; []
         | _ -> transformMemberFunctionOrValue com ctx memb args body
 
