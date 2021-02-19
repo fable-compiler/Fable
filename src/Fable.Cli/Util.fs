@@ -1,6 +1,7 @@
 namespace Fable.Cli
 
 open System
+open System.Threading
 
 type RunProcess(exeFile: string, args: string list, ?watch: bool, ?fast: bool) =
     member _.ExeFile = exeFile
@@ -23,6 +24,24 @@ type CliArgs =
 
 type private TypeInThisAssembly = class end
 
+type Agent<'T> private (mbox: MailboxProcessor<'T>, cts: CancellationTokenSource) =
+  static member Start(f: 'T -> unit) =
+    let cts = new CancellationTokenSource()
+    new Agent<'T>(MailboxProcessor<'T>.Start((fun mb ->
+        let rec loop () = async {
+            let! msg = mb.Receive()
+            f msg
+            return! loop()
+        }
+        loop()), cancellationToken = cts.Token), cts)
+
+  member _.Post msg = mbox.Post msg
+
+  interface IDisposable with
+    member _.Dispose() =
+      (mbox :> IDisposable).Dispose()
+      cts.Cancel()
+
 [<RequireQualifiedAccess>]
 module Log =
     let mutable private verbosity = Fable.Verbosity.Normal
@@ -31,17 +50,14 @@ module Log =
     let makeVerbose() =
         verbosity <- Fable.Verbosity.Verbose
 
-    let writerLock = obj()
-
     let always (msg: string) =
         if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
             Console.Out.WriteLine(msg)
 
     let alwaysInSameLine (msg: string) =
         if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
-        lock writerLock (fun () ->
             Console.Out.Write("\r" + String(' ', Console.WindowWidth) + "\r")
-            Console.Out.Write(msg))
+            Console.Out.Write(msg)
 
     let verbose (msg: Lazy<string>) =
         if verbosity = Fable.Verbosity.Verbose then
