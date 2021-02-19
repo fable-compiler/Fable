@@ -193,7 +193,7 @@ module private Util =
             do! BabelPrinter.run writer mapGen babel
             do! mapPrinter outPath
 
-            Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
+            Log.alwaysInSameLine("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -502,7 +502,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                     |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
                 |> Async.Parallel
 
-            Log.always(sprintf "Fable compilation finished in %ims" ms)
+            Log.always $"\nFable compilation finished in %i{ms}ms"
 
             let logs, watchDependencies =
                 ((logs, state.WatchDependencies), results)

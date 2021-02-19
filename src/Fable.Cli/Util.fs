@@ -37,6 +37,12 @@ module Log =
         if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
             Console.Out.WriteLine(msg)
 
+    let alwaysInSameLine (msg: string) =
+        if verbosity <> Fable.Verbosity.Silent && not(String.IsNullOrEmpty(msg)) then
+        lock writerLock (fun () ->
+            Console.Out.Write("\r" + String(' ', Console.WindowWidth) + "\r")
+            Console.Out.Write(msg))
+
     let verbose (msg: Lazy<string>) =
         if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
