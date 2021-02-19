@@ -16,27 +16,6 @@ module Helpers =
     [<Emit("Array.from($0)")>]
     let arrayFrom (xs: 'T seq): 'T[] = jsNative
 
-    [<Emit("Array.from($0, $1)")>]
-    let mapFrom (xs: 'T seq, mapping: 'T -> 'U): 'U[] = jsNative
-
-    [<Emit("Array.from($0, $1)")>]
-    let mapiFrom (xs: 'T seq, mapping: 'T -> int -> 'U): 'U[] = jsNative
-
-    let arrayFromCons (cons: Cons<'T>) (xs: 'T seq): 'T[] =
-        if jsTypeof cons = "function"
-        then !!cons?from(xs)
-        else arrayFrom xs
-
-    let mapFromCons (cons: Cons<'U>) (mapping: 'T -> 'U) (xs: 'T seq): 'U[] =
-        if jsTypeof cons = "function"
-        then !!cons?from(xs, mapping)
-        else mapFrom (xs, mapping)
-
-    let mapiFromCons (cons: Cons<'U>) (mapping: 'T -> int -> 'U) (xs: 'T seq): 'U[] =
-        if jsTypeof cons = "function"
-        then !!cons?from(xs, mapping)
-        else mapiFrom (xs, mapping)
-
     [<Emit("new Array($0)")>]
     let allocateArray (len: int): 'T[] = jsNative
 
@@ -175,20 +154,18 @@ let tryLast (array: 'T[]) =
     else Some array.[array.Length-1]
 
 let mapIndexed (f: int -> 'T -> 'U) (source: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[] =
-    // let len = source.Length
-    // let target = allocateArrayFromCons cons len
-    // for i = 0 to (len - 1) do
-    //     target.[i] <- f i source.[i]
-    // target
-    mapiFromCons cons (fun x i -> f i x) source
+    let len = source.Length
+    let target = allocateArrayFromCons cons len
+    for i = 0 to (len - 1) do
+        target.[i] <- f i source.[i]
+    target
 
 let map (f: 'T -> 'U) (source: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[] =
-    // let len = source.Length
-    // let target = allocateArrayFromCons cons len
-    // for i = 0 to (len - 1) do
-    //     target.[i] <- f source.[i]
-    // target
-    mapFromCons cons (fun x -> f x) source
+    let len = source.Length
+    let target = allocateArrayFromCons cons len
+    for i = 0 to (len - 1) do
+        target.[i] <- f source.[i]
+    target
 
 let mapIndexed2 (f: int->'T1->'T2->'U) (source1: 'T1[]) (source2: 'T2[]) ([<Inject>] cons: Cons<'U>): 'U[] =
     if source1.Length <> source2.Length then failwith "Arrays had different lengths"
@@ -595,7 +572,7 @@ let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: Cons<'U>) =
         | None -> ()
         | Some y -> pushImpl res y |> ignore
     if jsTypeof cons = "function"
-    then arrayFromCons cons res
+    then map id res cons
     else res // avoid extra copy
 
 let foldIndexed folder (state: 'State) (array: 'T[]) =
