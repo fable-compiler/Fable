@@ -114,7 +114,7 @@ export function interpolate(input: string, values: any[]): string {
   let i = 0;
   return input.replace(interpolateRegExp, (_, prefix, flags, padLength, precision, format) => {
     return formatReplacement(values[i++], prefix, flags, padLength, precision, format);
-  });
+  }).replace(/%%/g, "%");
 }
 
 function continuePrint(cont: (x: string) => any, arg: IPrintfFormat | string) {
