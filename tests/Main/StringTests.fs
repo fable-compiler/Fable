@@ -885,4 +885,10 @@ let tests =
       // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
       testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
             "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
-]
+
+      testCase "sprintf with double % should be unescaped" <| fun () ->
+            sprintf "%d%%" 100 |> equal "100%"
+
+      testCase "interpolated string with double % should be unescaped" <| fun () ->
+            $"{100}%%" |> equal "100%"
+  ]
