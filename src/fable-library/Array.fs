@@ -566,10 +566,14 @@ let tryFindIndexBack predicate (array: _[]) =
     loop (array.Length - 1)
 
 let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: Cons<'U>) =
-    let f x = chooser x |> Option.isSome
-    let g x = chooser x |> Option.get
-    let arr = filterImpl f array
-    map g arr cons
+    let res: 'U[] = [||]
+    for i = 0 to array.Length - 1 do
+        match chooser array.[i] with
+        | None -> ()
+        | Some y -> pushImpl res y |> ignore
+    if jsTypeof cons = "function"
+    then map id res cons
+    else res // avoid extra copy
 
 let foldIndexed folder (state: 'State) (array: 'T[]) =
     // if isTypedArrayImpl array then

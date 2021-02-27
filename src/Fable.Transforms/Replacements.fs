@@ -2708,8 +2708,8 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Item" when i.DeclaringEntityFullName = "System.Text.RegularExpressions.GroupCollection" ->
         // can be group index or group name
         //        `m.Groups.[0]` `m.Groups.["name"]`
-        match args |> List.head with
-        | Value (StringConstant name, _) ->
+        match (args |> List.head).Type with
+        | String ->
             // name
             (* `groups` might not exist -> check first:
                 (`m`: `thisArg.Value`; `name`: `args.Head`)

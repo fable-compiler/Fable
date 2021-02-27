@@ -317,6 +317,57 @@ let tests =
 
                 m.Groups.["exact"].Success |> equal false
 
+            testCase "group name from string" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                m.Groups.["number"].Value |> equal "12345"
+
+            testCase "group name from variable" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                let g = "number"
+                m.Groups.[g].Value |> equal "12345"
+
+            testCase "group name from addition" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                m.Groups.["num" + "ber"].Value |> equal "12345"
+
+            testCase "group name from string in function" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                let namedGroup (name: string) (m: Match): string =
+                    m.Groups.[name].Value
+
+                m |> namedGroup "number" |> equal "12345"
+
+            testCase "group name from variable in function" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                let namedGroup (name: string) (m: Match): string =
+                    m.Groups.[name].Value
+
+                let g = "number"
+                m |> namedGroup g |> equal "12345"
+
+            testCase "group name from function call" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                let getName () = "number"
+                m.Groups.[getName ()].Value |> equal "12345"
+
+            testCase "group name from if expression" <| fun _ ->
+                let r = Regex "(?<number>\\d+)"
+                let m = r.Match "Number 12345 is positive"
+
+                m.Groups.[if m.Success then "number" else failwith "Regex didn't match!"].Value |> equal "12345"
+
 
 #if FABLE_COMPILER
             testList "on not existing group" [
@@ -372,6 +423,42 @@ let tests =
                 let actual =
                     r.Matches text
                     |> Seq.map (fun m -> m.Groups.["country"].Value, m.Groups.["num"].Value)
+                    |> Seq.toList
+
+                actual |> equal expected
+
+            testCase "group name from string" <| fun _ ->
+                let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+                let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+                let expected = [
+                    ("1", "12")
+                    ("49", "456")
+                    ("44", "7890")
+                ]
+
+                let actual =
+                    r.Matches text
+                    |> Seq.map (fun m -> m.Groups.["country"].Value, m.Groups.["num"].Value)
+                    |> Seq.toList
+
+                actual |> equal expected
+
+            testCase "group name from variable" <| fun _ ->
+                let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+                let text = "Numbers: +1 12; +49 456; +44 7890;"
+
+                let expected = [
+                    ("1", "12")
+                    ("49", "456")
+                    ("44", "7890")
+                ]
+
+                let g1, g2 = ("country", "num")
+
+                let actual =
+                    r.Matches text
+                    |> Seq.map (fun m -> m.Groups.[g1].Value, m.Groups.[g2].Value)
                     |> Seq.toList
 
                 actual |> equal expected
