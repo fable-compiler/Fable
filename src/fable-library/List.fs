@@ -1,4 +1,4 @@
-module LinkedList
+module ListModule
 
 open Fable.Core
 
@@ -376,77 +376,57 @@ let mapFold (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: 'T 
 let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: 'T list) (state: 'State) =
     mapFold (fun acc x -> mapping x acc) state (reverse xs)
 
-let tryPickIndexed (f: int -> 'T -> 'U option) (xs: 'T list) =
-    let rec loop i (xs: 'T list) =
+let tryPick f xs =
+    let rec loop (xs: 'T list) =
         if xs.IsEmpty then None
         else
-            match f i xs.Head with
+            match f xs.Head with
             | Some _  as res -> res
-            | None -> loop (i + 1) xs.Tail
-    loop 0 xs
-
-let tryPickIndexedBack (f: int -> 'T -> 'U option) (xs: 'T list) =
-    let rec loop i acc (xs: 'T list) =
-        if xs.IsEmpty then acc
-        else
-            let result =
-                match f i xs.Head with
-                | Some _ as res -> res
-                | None -> acc
-            loop (i + 1) result xs.Tail
-    loop 0 None xs
-
-let tryPick f xs =
-    tryPickIndexed (fun _ x -> f x) xs
+            | None -> loop xs.Tail
+    loop xs
 
 let pick f xs =
     match tryPick f xs with
     | Some x -> x
     | None -> indexNotFound()
 
-let tryFindIndexed f xs =
-    tryPickIndexed (fun i x -> if f i x then Some x else None) xs
-
-let tryFindIndexedBack f xs =
-    tryPickIndexedBack (fun i x -> if f i x then Some x else None) xs
-
-let findIndexed f xs =
-    match tryFindIndexed f xs with
-    | None -> indexNotFound()
-    | Some x -> x
-
-let findIndexedBack f xs =
-    match tryFindIndexedBack f xs with
-    | None -> indexNotFound()
-    | Some x -> x
+let tryFind f xs =
+    tryPick (fun x -> if f x then Some x else None) xs
 
 let find f xs =
-    findIndexed (fun _ x -> f x) xs
-
-let findBack f xs =
-    findIndexedBack (fun _ x -> f x) xs
-
-let tryFind f xs =
-    tryPickIndexed (fun _ x -> if f x then Some x else None) xs
+    match tryFind f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
 let tryFindBack f xs =
-    tryPickIndexedBack (fun _ x -> if f x then Some x else None) xs
+    xs |> toArray |> Array.tryFindBack f
+
+let findBack f xs =
+    match tryFindBack f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
 let tryFindIndex f xs: int option =
-    tryPickIndexed (fun i x -> if f x then Some i else None) xs
-
-let tryFindIndexBack f xs: int option =
-    tryPickIndexedBack (fun i x -> if f x then Some i else None) xs
+    let rec loop i (xs: 'T list) =
+        if xs.IsEmpty then None
+        else
+            if f xs.Head
+            then Some i
+            else loop (i + 1) xs.Tail
+    loop 0 xs
 
 let findIndex f xs: int =
     match tryFindIndex f xs with
-    | None -> indexNotFound()
     | Some x -> x
+    | None -> indexNotFound()
+
+let tryFindIndexBack f xs: int option =
+    xs |> toArray |> Array.tryFindIndexBack f
 
 let findIndexBack f xs: int =
     match tryFindIndexBack f xs with
-    | None -> indexNotFound()
     | Some x -> x
+    | None -> indexNotFound()
 
 let tryItem n (xs: 'T list) =
     let rec loop i (xs: 'T list) =
@@ -488,7 +468,8 @@ let choose f (xs: 'T list) =
     root.Tail
 
 let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
-    tryFindIndex (fun v -> eq.Equals (value, v)) xs |> Option.isSome
+    tryFindIndex (fun v -> eq.Equals (value, v)) xs
+    |> Option.isSome
 
 let except (itemsToExclude: seq<'T>) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
     if xs.IsEmpty then xs
@@ -599,6 +580,16 @@ let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
     |> Array.chunkBySize chunkSize
     |> Array.map ofArray
     |> ofArray
+
+let allPairs (xs: 'T1 list) (ys: 'T2 list): ('T1 * 'T2) list =
+    let root = List.Empty
+    let mutable node = root
+    iterate (fun x ->
+        iterate (fun y ->
+            node <- node.AppendConsNoTail (x, y)
+        ) ys) xs
+    node.SetConsTail List.Empty
+    root.Tail
 
 let rec skip count (xs: 'T list) =
     if count <= 0 then xs
@@ -726,7 +717,6 @@ let transpose (lists: seq<'T list>): 'T list list =
     |> Array.map ofArray
     |> ofArray
 
-// let rev = reverse
 // let init = initialize
 // let iter = iterate
 // let iter2 = iterate2
@@ -734,3 +724,6 @@ let transpose (lists: seq<'T list>): 'T list list =
 // let iteri2 = iterateIndexed2
 // let forall = forAll
 // let forall2 = forAll2
+// let mapi = mapIndexed
+// let mapi2 = mapIndexed2
+// let rev = reverse

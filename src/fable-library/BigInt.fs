@@ -170,19 +170,3 @@ let fromByteArray (bytes:byte array) =
                         ||| (uint32 b3 <<< 24)
                     loop (value :: accumUInt32) (currIndex + bytesToProcess) (bytesRemaining - bytesToProcess) lowBitFound
         loop [] 0 bytes.Length false
-
-let makeRangeStepFunction (step: bigint) (last: bigint) =
-    let stepComparedWithZero = compare step zero
-    if stepComparedWithZero = 0 then
-        failwith "The step of a range cannot be zero"
-    let stepGreaterThanZero = stepComparedWithZero > 0
-    fun (x: bigint) ->
-        let comparedWithLast = compare x last
-        if (stepGreaterThanZero && comparedWithLast <= 0)
-            || (not stepGreaterThanZero && comparedWithLast >= 0) then
-            Some (x, x + step)
-        else None
-
-let range (first: bigint) (step: bigint) (last: bigint) =
-    let stepFn = makeRangeStepFunction step last
-    Seq.delay(fun () -> Seq.unfold stepFn first)

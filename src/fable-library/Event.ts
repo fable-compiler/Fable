@@ -1,7 +1,6 @@
 import { IObservable, IObserver, Observer, protect } from "./Observable.js";
 import { Option, some, value } from "./Option.js";
 import { FSharpChoice$2, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
-import { iterate as seqIterate } from "./Seq.js";
 import { IDisposable } from "./Util.js";
 
 export type Delegate<T> = (x: T) => void;
@@ -38,7 +37,7 @@ export class Event<T> implements IEvent<T> {
   }
 
   public Trigger(value: T) {
-    seqIterate((f) => f(value), this.delegates);
+    this.delegates.forEach((f) => f(value));
   }
 
   // IDelegateEvent<T> methods

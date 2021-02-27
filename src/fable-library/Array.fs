@@ -676,6 +676,15 @@ let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComp
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
     sortInPlaceWith comparer (copyImpl xs)
 
+let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
+    let len1 = xs.Length
+    let len2 = ys.Length
+    let res = allocateArray (len1 * len2)
+    for i = 0 to xs.Length-1 do
+        for j = 0 to ys.Length-1 do
+            res.[i * len2 + j] <- (xs.[i], ys.[j])
+    res
+
 let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'T[] =
     let res: 'T[] = [||]
     let rec loop state =

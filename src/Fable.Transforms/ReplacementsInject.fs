@@ -78,6 +78,22 @@ let fableReplacementsModules =
       "groupBy", (Types.equalityComparer, 1)
       "countBy", (Types.equalityComparer, 1)
     ]
+    "Seq", Map [
+      "contains", (Types.equalityComparer, 0)
+      "except", (Types.equalityComparer, 0)
+      "sort", (Types.comparer, 0)
+      "sortBy", (Types.comparer, 1)
+      "sortDescending", (Types.comparer, 0)
+      "sortByDescending", (Types.comparer, 1)
+      "sum", ("Fable.Core.IGenericAdder`1", 0)
+      "sumBy", ("Fable.Core.IGenericAdder`1", 1)
+      "maxBy", (Types.comparer, 1)
+      "max", (Types.comparer, 0)
+      "minBy", (Types.comparer, 1)
+      "min", (Types.comparer, 0)
+      "average", ("Fable.Core.IGenericAverager`1", 0)
+      "averageBy", ("Fable.Core.IGenericAverager`1", 1)
+    ]
     "Set", Map [
       "FSharpSet__Map", (Types.comparer, 1)
       "singleton", (Types.comparer, 0)
