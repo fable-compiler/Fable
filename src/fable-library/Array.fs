@@ -254,28 +254,6 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[
     concat mapped cons
     // collectImpl mapping array // flatMap not widely available yet
 
-let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * int)[] =
-    let dict = Dictionary<'Key, int>(eq)
-    let keys: 'Key[] = [||]
-    for value in array do
-        let key = projection value
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            dict.[key] <- prev + 1
-        | false, _ ->
-            dict.[key] <- 1
-            pushImpl keys key |> ignore
-    let result =
-        map (fun key -> key, dict.[key]) keys Unchecked.defaultof<_>
-    result
-
-let distinctBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
-    let hashSet = HashSet<'Key>(eq)
-    array |> filter (projection >> hashSet.Add)
-
-let distinct (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
-    distinctBy id array eq
-
 let where predicate (array: _[]) = filterImpl predicate array
 
 let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
@@ -286,28 +264,6 @@ let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>
             if eq.Equals (value, array.[i]) then true
             else loop (i + 1)
     loop 0
-
-let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>): 'T[] =
-    if array.Length = 0 then
-        array
-    else
-        let cached = HashSet(itemsToExclude, eq)
-        array |> filterImpl cached.Add
-
-let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T[])[] =
-    let dict = Dictionary<'Key, ResizeArray<'T>>(eq)
-    let keys: 'Key[] = [||]
-    for v in array do
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            prev.Add(v)
-        | false, _ ->
-            dict.Add(key, ResizeArray [|v|])
-            pushImpl keys key |> ignore
-    let result =
-        map (fun key -> key, arrayFrom dict.[key]) keys Unchecked.defaultof<_>
-    result
 
 let empty cons = allocateArrayFromCons cons 0
 
@@ -414,7 +370,8 @@ let addInPlace (x: 'T) (array: 'T[]) =
 
 let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    Seq.iter (fun x -> pushImpl array x |> ignore) range
+    for x in range do
+        addInPlace x array
 
 let removeInPlace (item: 'T) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
@@ -777,6 +734,11 @@ let exactlyOne (array: 'T[]) =
     if array.Length = 1 then array.[0]
     elif array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
     else invalidArg "array" "Input array too long"
+
+let tryExactlyOne (array: 'T[]) =
+    if array.Length = 1
+    then Some (array.[0])
+    else None
 
 let head (array: 'T[]) =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString

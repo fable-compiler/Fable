@@ -37,7 +37,10 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
         hashMap.Clear()
 
     member this.Count =
-        hashMap.Values |> Seq.sumBy (fun pairs -> pairs.Count)
+        let mutable count = 0
+        for pairs in hashMap.Values do
+            count <- count + pairs.Count
+        count
 
     member this.Item
         with get (k: 'Key) =

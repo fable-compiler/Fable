@@ -37,7 +37,10 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
         hashMap.Clear()
 
     member this.Count =
-        hashMap.Values |> Seq.sumBy (fun pairs -> pairs.Count)
+        let mutable count = 0
+        for items in hashMap.Values do
+            count <- count + items.Count
+        count
 
     member this.Add(k) =
         match this.TryFindIndex(k) with

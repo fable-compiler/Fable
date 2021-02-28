@@ -1661,50 +1661,12 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let sort r returnType descending projection args genArg =
-        let compareFn =
-            let identExpr ident =
-                match projection with
-                | Some projection ->
-                    let info = makeCallInfo None [IdentExpr ident] []
-                    Call(projection, info, genArg, None)
-                | None -> IdentExpr ident
-            let x = makeUniqueIdent ctx genArg "x"
-            let y = makeUniqueIdent ctx genArg "y"
-            let comparison =
-                let comparison = compare com ctx None (identExpr x) (identExpr y)
-                if descending
-                then makeUnOp None (Number Int32) comparison UnaryMinus
-                else comparison
-            Delegate([x; y], comparison, None)
-        Helper.LibCall(com, "Seq", "sortWith", returnType, compareFn::args, ?loc=r) |> Some
-
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
-    | ("Cache" | "ToArray"), [arg] -> toArray r t arg |> Some
-    | "OfList", [arg] -> toSeq t arg |> Some
-    | "ToList", _ -> Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("ChunkBySize" | "Permute" | "SplitInto") as meth, [arg1; arg2] ->
-        let arg2 = toArray r (Array Any) arg2
-        let result = Helper.LibCall(com, "Array", Naming.lowerFirst meth, Any, [arg1; arg2])
-        Helper.LibCall(com, "Seq", "ofArray", t, [result]) |> Some
-    // For Using we need to cast the argument to IDisposable
-    | "EnumerateUsing", [arg; f] ->
-        Helper.LibCall(com, "Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Sort" | "SortDescending" as meth), args ->
-        (genArg com ctx r 0 i.GenericArgs) |> sort r t (meth = "SortDescending") None args
-    | ("SortBy" | "SortByDescending" as meth), projection::args ->
-        (genArg com ctx r 1 i.GenericArgs) |> sort r t (meth = "SortByDescending") (Some projection) args
-    | ("GroupBy" | "CountBy" as meth), args ->
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Map" meth i.GenericArgs args
-        Helper.LibCall(com, "Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Distinct" | "DistinctBy" as meth), args ->
-        let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Set" meth i.GenericArgs args
-        Helper.LibCall(com, "Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "TryExactlyOne", args ->
-        tryCoreOp com r t "Seq" "exactlyOne" args |> Some
+        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        Helper.LibCall(com, "Seq2", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
@@ -1860,19 +1822,16 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
-    | "TryExactlyOne", args ->
-        tryCoreOp com r t "Array" "exactlyOne" args |> Some
-    // | "SortInPlace", args ->
-    //     let _, thisArg = List.splitLast args
-    //     let argTypes = List.take (List.length args) i.SignatureArgTypes
-    //     let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
-    //     Helper.InstanceCall(thisArg, "sort", t, [compareFn], argTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
         Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        Helper.LibCall(com, "Seq2", "Array_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Array" meth i.GenericArgs args
@@ -1905,8 +1864,10 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some
-    | "TryExactlyOne", args ->
-        tryCoreOp com r t "List" "exactlyOne" args |> Some
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        Helper.LibCall(com, "Seq2", "List_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "List" meth i.GenericArgs args

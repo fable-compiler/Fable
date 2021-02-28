@@ -13,7 +13,7 @@ module SR =
     let notEnoughElements = "The input sequence has an insufficient number of elements."
 
 [<CustomEquality; CustomComparison>]
-// [<CompiledName("FSharpList`1")>]
+[<CompiledName("FSharpList")>]
 type LinkedList<'T when 'T: comparison> =
     { head: 'T; mutable tail: LinkedList<'T> option }
 
@@ -471,12 +471,6 @@ let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generi
     tryFindIndex (fun v -> eq.Equals (value, v)) xs
     |> Option.isSome
 
-let except (itemsToExclude: seq<'T>) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
-    if xs.IsEmpty then xs
-    else
-        let cached = System.Collections.Generic.HashSet(itemsToExclude, eq)
-        xs |> filter cached.Add
-
 let initialize n (f: int -> 'T) =
     let root = List.Empty
     let mutable node = root
@@ -525,7 +519,7 @@ let zip3 xs ys zs =
 
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
     let arr = toArray xs
-    Array.sortInPlaceWith comparer arr // TODO: use stable sort
+    Array.sortInPlaceWith comparer arr // Note: In JS this sort is stable
     arr |> ofArray
 
 let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
@@ -646,13 +640,6 @@ let splitAt index (xs: 'T list) =
     if index > xs.Length then invalidArg "index" SR.notEnoughElements
     take index xs, skip index xs
 
-let distinctBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>) =
-    let hashSet = System.Collections.Generic.HashSet<'Key>(eq)
-    xs |> filter (projection >> hashSet.Add)
-
-let distinct (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
-    distinctBy id xs eq
-
 let exactlyOne (xs: 'T list) =
     if xs.IsEmpty
     then invalidArg "list" SR.inputSequenceEmpty
@@ -660,35 +647,10 @@ let exactlyOne (xs: 'T list) =
         if xs.Tail.IsEmpty then xs.Head
         else invalidArg "list" SR.inputSequenceTooLong
 
-let groupBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>): ('Key * 'T list) list =
-    let dict = System.Collections.Generic.Dictionary<'Key, 'T list>(eq)
-    let mutable keys = List.Empty
-    xs |> iterate (fun v ->
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            dict.[key] <- List.Cons(v, prev)
-        | false, _ ->
-            dict.Add(key, List.Cons(v, List.Empty))
-            keys <- List.Cons(key, keys) )
-    let mutable result = List.Empty
-    keys |> iterate (fun key -> result <- List.Cons((key, reverse dict.[key]), result))
-    result
-
-let countBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'Key>) =
-    let dict = System.Collections.Generic.Dictionary<'Key, int>(eq)
-    let mutable keys = List.Empty
-    xs |> iterate (fun v ->
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            dict.[key] <- prev + 1
-        | false, _ ->
-            dict.[key] <- 1
-            keys <- List.Cons(key, keys) )
-    let mutable result = List.Empty
-    keys |> iterate (fun key -> result <- List.Cons((key, dict.[key]), result))
-    result
+let tryExactlyOne (xs: 'T list) =
+    if not (xs.IsEmpty) && xs.Tail.IsEmpty
+    then Some (xs.Head)
+    else None
 
 let where predicate (xs: 'T list) =
     filter predicate xs
@@ -712,7 +674,8 @@ let splitInto (chunks: int) (xs: 'T list): 'T list list =
 
 let transpose (lists: seq<'T list>): 'T list list =
     lists
-    |> Seq.map toArray
+    |> Array.ofSeq
+    |> Array.map toArray
     |> Array.transpose
     |> Array.map ofArray
     |> ofArray
