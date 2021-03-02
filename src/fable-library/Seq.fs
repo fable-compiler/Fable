@@ -45,30 +45,18 @@ module Enumerator =
                 str <- str + "; ..."
             str + "]"
 
-    // // in JS using this object is slower than the object expression below
-    //
-    // type FromFunctions<'T>(get, next, reset, dispose) =
-    //     interface IEnumerator<'T> with
-    //         member __.Current = get()
-    //     interface System.Collections.IEnumerator with
-    //         member __.Current = box (get())
-    //         member __.MoveNext() = next()
-    //         member __.Reset() = reset()
-    //     interface System.IDisposable with
-    //         member __.Dispose() = dispose()
+    type FromFunctions<'T>(get, next, dispose) =
+        interface IEnumerator<'T> with
+            member __.Current = get()
+        interface System.Collections.IEnumerator with
+            member __.Current = box (get())
+            member __.MoveNext() = next()
+            member __.Reset() = noReset()
+        interface System.IDisposable with
+            member __.Dispose() = dispose()
 
-    // let inline fromFunctions get next reset dispose: IEnumerator<'T> =
-    //     new FromFunctions<_>(get, next, reset, dispose) :> IEnumerator<'T>
-
-    let fromFunctions get next reset dispose: IEnumerator<'T> =
-        { new IEnumerator<'T> with
-                member __.Current = get()
-            interface System.Collections.IEnumerator with
-                member __.Current = box (get())
-                member __.MoveNext() = next()
-                member __.Reset() = reset()
-            interface System.IDisposable with
-                member __.Dispose() = dispose() }
+    let inline fromFunctions get next dispose: IEnumerator<'T> =
+        new FromFunctions<_>(get, next, dispose) :> IEnumerator<'T>
 
     // // implementation for languages where arrays are not IEnumerable
     //
@@ -84,17 +72,15 @@ module Enumerator =
     //             i <- i + 1
     //             i < len
     //         else false
-    //     let reset() = noReset() // i <- -1
     //     let dispose() = ()
-    //     fromFunctions get next reset dispose
+    //     fromFunctions get next dispose
     //
     // let empty<'T>(): IEnumerator<'T> =
     //     let mutable started = false
     //     let get() = if not started then notStarted() else alreadyFinished()
     //     let next() = started <- true; false
-    //     let reset() = noReset()
     //     let dispose() = ()
-    //     fromFunctions get next reset dispose
+    //     fromFunctions get next dispose
     //
     // let singleton (x: 'T): IEnumerator<'T> =
     //     let mutable index = -1
@@ -103,19 +89,17 @@ module Enumerator =
     //         if index > 0 then alreadyFinished()
     //         x
     //     let next() = index <- index + 1; index = 0
-    //     let reset() = noReset()
     //     let dispose() = ()
-    //     fromFunctions get next reset dispose
+    //     fromFunctions get next dispose
 
     let cast (e: System.Collections.IEnumerator): IEnumerator<'T> =
         let get() = unbox<'T> e.Current
         let next() = e.MoveNext()
-        let reset() = noReset()
         let dispose() =
             match e with
             | :? System.IDisposable as e -> e.Dispose()
             | _ -> ()
-        fromFunctions get next reset dispose
+        fromFunctions get next dispose
 
     let concat<'T,'U when 'U :> seq<'T>> (sources: seq<'U>) =
         let mutable outerOpt: IEnumerator<'U> option = None
@@ -166,16 +150,14 @@ module Enumerator =
             if not started then started <- true
             if finished then false
             else loop ()
-        let reset() = noReset()
         let dispose() = if not finished then finish()
-        fromFunctions get next reset dispose
+        fromFunctions get next dispose
 
     let enumerateThenFinally f (e: IEnumerator<'T>): IEnumerator<'T> =
         let get() = e.Current
         let next() = e.MoveNext()
-        let reset() = noReset()
         let dispose() = try e.Dispose() finally f()
-        fromFunctions get next reset dispose
+        fromFunctions get next dispose
 
     let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit): IEnumerator<'U> =
         let mutable started = false
@@ -186,7 +168,6 @@ module Enumerator =
             match curr with
             | None -> alreadyFinished()
             | Some x -> x
-        let reset() = noReset()
         let dispose() =
             match state with
             | None -> ()
@@ -204,7 +185,7 @@ module Enumerator =
                 match (try compute s with _ -> finish(); reraise()) with
                 | None -> finish(); false
                 | Some _ as x -> curr <- x; true
-        fromFunctions get next reset dispose
+        fromFunctions get next dispose
 
     let unfold (f: 'State -> ('T * 'State) option) (state: 'State): IEnumerator<'T> =
         let mutable curr: ('T * 'State) option = None
@@ -220,9 +201,8 @@ module Enumerator =
             | Some (x, st) ->
                 acc <- st
                 true
-        let reset() = noReset()
         let dispose() = ()
-        fromFunctions get next reset dispose
+        fromFunctions get next dispose
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]
@@ -248,6 +228,12 @@ let concat (sources: seq<#seq<'T>>) =
 let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
     mkSeq (fun () -> Enumerator.unfold generator state)
 
+let empty () =
+    delay (fun () -> Array.empty :> seq<'T>) // Enumerator.empty<_>())
+
+let singleton x =
+    delay (fun () -> (Array.singleton x) :> seq<'T>) // Enumerator.singleton x)
+
 let ofArray (arr: 'T[]) =
     arr :> seq<'T>
 
@@ -265,12 +251,6 @@ let toList (xs: seq<'T>): 'T list =
     | :? array<'T> as a -> List.ofArray a
     | :? list<'T> as a -> a
     | _ -> List.ofSeq xs
-
-let empty () =
-    delay (fun () -> Array.empty :> seq<'T>) // Enumerator.empty<_>())
-
-let singleton x =
-    delay (fun () -> (Array.singleton x) :> seq<'T>) // Enumerator.singleton x)
 
 let generate create compute dispose =
     mkSeq (fun () -> Enumerator.generateWhileSome create compute dispose)
