@@ -45,25 +45,42 @@ module Enumerator =
                 str <- str + "; ..."
             str + "]"
 
-    type FromFunctions<'T>(get, next, dispose) =
+    type FromFunctions<'T>(current, next, dispose) =
         interface IEnumerator<'T> with
-            member __.Current = get()
+            member __.Current = current()
         interface System.Collections.IEnumerator with
-            member __.Current = box (get())
+            member __.Current = box (current())
             member __.MoveNext() = next()
             member __.Reset() = noReset()
         interface System.IDisposable with
             member __.Dispose() = dispose()
 
-    let inline fromFunctions get next dispose: IEnumerator<'T> =
-        new FromFunctions<_>(get, next, dispose) :> IEnumerator<'T>
+    let inline fromFunctions current next dispose: IEnumerator<'T> =
+        new FromFunctions<_>(current, next, dispose) :> IEnumerator<'T>
 
     // // implementation for languages where arrays are not IEnumerable
+    //
+    // let empty<'T>(): IEnumerator<'T> =
+    //     let mutable started = false
+    //     let current() = if not started then notStarted() else alreadyFinished()
+    //     let next() = started <- true; false
+    //     let dispose() = ()
+    //     fromFunctions current next dispose
+    //
+    // let singleton (x: 'T): IEnumerator<'T> =
+    //     let mutable index = -1
+    //     let current() =
+    //         if index < 0 then notStarted()
+    //         if index > 0 then alreadyFinished()
+    //         x
+    //     let next() = index <- index + 1; index = 0
+    //     let dispose() = ()
+    //     fromFunctions current next dispose
     //
     // let ofArray (arr: 'T[]): IEnumerator<'T> =
     //     let len = arr.Length
     //     let mutable i = -1
-    //     let get() =
+    //     let current() =
     //         if i < 0 then notStarted()
     //         elif i >= len then alreadyFinished()
     //         else arr.[i]
@@ -73,33 +90,16 @@ module Enumerator =
     //             i < len
     //         else false
     //     let dispose() = ()
-    //     fromFunctions get next dispose
-    //
-    // let empty<'T>(): IEnumerator<'T> =
-    //     let mutable started = false
-    //     let get() = if not started then notStarted() else alreadyFinished()
-    //     let next() = started <- true; false
-    //     let dispose() = ()
-    //     fromFunctions get next dispose
-    //
-    // let singleton (x: 'T): IEnumerator<'T> =
-    //     let mutable index = -1
-    //     let get() =
-    //         if index < 0 then notStarted()
-    //         if index > 0 then alreadyFinished()
-    //         x
-    //     let next() = index <- index + 1; index = 0
-    //     let dispose() = ()
-    //     fromFunctions get next dispose
+    //     fromFunctions current next dispose
 
     let cast (e: System.Collections.IEnumerator): IEnumerator<'T> =
-        let get() = unbox<'T> e.Current
+        let current() = unbox<'T> e.Current
         let next() = e.MoveNext()
         let dispose() =
             match e with
             | :? System.IDisposable as e -> e.Dispose()
             | _ -> ()
-        fromFunctions get next dispose
+        fromFunctions current next dispose
 
     let concat<'T,'U when 'U :> seq<'T>> (sources: seq<'U>) =
         let mutable outerOpt: IEnumerator<'U> option = None
@@ -107,7 +107,7 @@ module Enumerator =
         let mutable started = false
         let mutable finished = false
         let mutable curr = None
-        let get() =
+        let current() =
             if not started then notStarted()
             elif finished then alreadyFinished()
             match curr with
@@ -151,19 +151,19 @@ module Enumerator =
             if finished then false
             else loop ()
         let dispose() = if not finished then finish()
-        fromFunctions get next dispose
+        fromFunctions current next dispose
 
     let enumerateThenFinally f (e: IEnumerator<'T>): IEnumerator<'T> =
-        let get() = e.Current
+        let current() = e.Current
         let next() = e.MoveNext()
         let dispose() = try e.Dispose() finally f()
-        fromFunctions get next dispose
+        fromFunctions current next dispose
 
     let generateWhileSome (openf: unit -> 'T) (compute: 'T -> 'U option) (closef: 'T -> unit): IEnumerator<'U> =
         let mutable started = false
         let mutable curr = None
         let mutable state = Some (openf())
-        let get() =
+        let current() =
             if not started then notStarted()
             match curr with
             | None -> alreadyFinished()
@@ -185,12 +185,12 @@ module Enumerator =
                 match (try compute s with _ -> finish(); reraise()) with
                 | None -> finish(); false
                 | Some _ as x -> curr <- x; true
-        fromFunctions get next dispose
+        fromFunctions current next dispose
 
     let unfold (f: 'State -> ('T * 'State) option) (state: 'State): IEnumerator<'T> =
         let mutable curr: ('T * 'State) option = None
         let mutable acc: 'State = state
-        let get() =
+        let current() =
             match curr with
             | None -> notStarted()
             | Some (x, st) -> x
@@ -202,7 +202,7 @@ module Enumerator =
                 acc <- st
                 true
         let dispose() = ()
-        fromFunctions get next dispose
+        fromFunctions current next dispose
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]
@@ -229,10 +229,10 @@ let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
     mkSeq (fun () -> Enumerator.unfold generator state)
 
 let empty () =
-    delay (fun () -> Array.empty :> seq<'T>) // Enumerator.empty<_>())
+    delay (fun () -> Array.empty :> seq<'T>)
 
 let singleton x =
-    delay (fun () -> (Array.singleton x) :> seq<'T>) // Enumerator.singleton x)
+    delay (fun () -> (Array.singleton x) :> seq<'T>)
 
 let ofArray (arr: 'T[]) =
     arr :> seq<'T>
