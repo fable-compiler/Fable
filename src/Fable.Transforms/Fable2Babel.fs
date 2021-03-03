@@ -283,7 +283,7 @@ module Reflection =
         | Fable.Array _ | Fable.Tuple _ ->
             libCall com ctx None "Util" "isArrayLike" [|com.TransformAsExpr(ctx, expr)|]
         | Fable.List _ ->
-            jsInstanceof (libValue com ctx "Types" "List") expr
+            jsInstanceof (libValue com ctx "List" "FSharpList") expr
         | Fable.AnonymousRecordType _ ->
             warnAndEvalToFalse "anonymous records"
         | Fable.MetaType ->
@@ -435,7 +435,7 @@ module Annotation =
             makeNativeTypeAnnotation com ctx [genArg] "Array"
 
     let makeListTypeAnnotation com ctx genArg =
-        makeImportTypeAnnotation com ctx [genArg] "Types" "List"
+        makeImportTypeAnnotation com ctx [genArg] "List" "List"
 
     let makeUnionTypeAnnotation com ctx genArgs =
         List.map (typeAnnotation com ctx) genArgs
@@ -661,12 +661,6 @@ module Util =
         match parts with
         | [] -> expr
         | m::ms -> get None expr m |> getParts ms
-
-    let makeList com ctx r headAndTail =
-        match headAndTail with
-        | None -> [||]
-        | Some(TransformExpr com ctx head, TransformExpr com ctx tail) -> [|head; tail|]
-        |> libConsCall com ctx r "Types" "List"
 
     let makeArray (com: IBabelCompiler) ctx exprs =
         List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
@@ -933,8 +927,8 @@ module Util =
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
         | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
         | Fable.NewTuple vals -> makeArray com ctx vals
-        | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
-            makeList com ctx r headAndTail
+        // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
+        //     makeList com ctx r headAndTail
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
             let rec getItems acc = function
@@ -988,7 +982,7 @@ module Util =
 
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
-        BlockStatement([| Statement.returnStatement(libCall com ctx None "Seq" "toIterator" [|enumerator|])|])
+        BlockStatement([| Statement.returnStatement(libCall com ctx None "Util" "toIterator" [|enumerator|])|])
 
     let extractBaseExprFromBaseCall (com: IBabelCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
         match baseCall, baseType with
@@ -1206,10 +1200,12 @@ module Util =
             | Fable.FieldKey field -> get range expr field.Name
 
         | Fable.ListHead ->
-            get range (com.TransformAsExpr(ctx, fableExpr)) "head"
+            // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
+            libCall com ctx range "List" "head" [|com.TransformAsExpr(ctx, fableExpr)|]
 
         | Fable.ListTail ->
-            get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
+            // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
+            libCall com ctx range "List" "tail" [|com.TransformAsExpr(ctx, fableExpr)|]
 
         | Fable.TupleIndex index ->
             match fableExpr with
@@ -1274,8 +1270,10 @@ module Util =
             Expression.binaryExpression(op, com.TransformAsExpr(ctx, expr), Expression.nullLiteral(), ?loc=range)
         | Fable.ListTest nonEmpty ->
             let expr = com.TransformAsExpr(ctx, expr)
-            let op = if nonEmpty then BinaryUnequal else BinaryEqual
-            Expression.binaryExpression(op, get None expr "tail", Expression.nullLiteral(), ?loc=range)
+            // let op = if nonEmpty then BinaryUnequal else BinaryEqual
+            // Expression.binaryExpression(op, get None expr "tail", Expression.nullLiteral(), ?loc=range)
+            let expr = libCall com ctx range "List" "isEmpty" [|expr|]
+            if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
             let expected = ofInt tag
             let actual = com.TransformAsExpr(ctx, expr) |> getUnionExprTag None

@@ -1372,12 +1372,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             | _ -> args
         let modul, meth, args =
             match genArg with
-            | Char -> "Seq", "rangeChar", args
-            | Builtin BclInt64 -> "Seq", "rangeLong", (addStep args) @ [makeBoolConst false]
-            | Builtin BclUInt64 -> "Seq", "rangeLong", (addStep args) @ [makeBoolConst true]
-            | Builtin BclDecimal -> "Seq", "rangeDecimal", addStep args
-            | Builtin BclBigInt -> "BigInt", "range", addStep args
-            | _ -> "Seq", "rangeNumber", addStep args
+            | Char -> "Range", "rangeChar", args
+            | Builtin BclInt64 -> "Range", "rangeInt64", addStep args
+            | Builtin BclUInt64 -> "Range", "rangeUInt64", addStep args
+            | Builtin BclDecimal -> "Range", "rangeDecimal", addStep args
+            | Builtin BclBigInt -> "Range", "rangeBigInt", addStep args
+            | _ -> "Range", "rangeDouble", addStep args
         Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // Pipes and composition
     | "op_PipeRight", [x; f]
@@ -1542,7 +1542,7 @@ let implementedStringFunctions =
         |]
 
 let getEnumerator com r t expr =
-    Helper.LibCall(com, "Seq", "getEnumerator", t, [toSeq Any expr], ?loc=r)
+    Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq Any expr], ?loc=r)
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1660,51 +1660,13 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let seqs (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let sort r returnType descending projection args genArg =
-        let compareFn =
-            let identExpr ident =
-                match projection with
-                | Some projection ->
-                    let info = makeCallInfo None [IdentExpr ident] []
-                    Call(projection, info, genArg, None)
-                | None -> IdentExpr ident
-            let x = makeUniqueIdent ctx genArg "x"
-            let y = makeUniqueIdent ctx genArg "y"
-            let comparison =
-                let comparison = compare com ctx None (identExpr x) (identExpr y)
-                if descending
-                then makeUnOp None (Number Int32) comparison UnaryMinus
-                else comparison
-            Delegate([x; y], comparison, None)
-        Helper.LibCall(com, "Seq", "sortWith", returnType, compareFn::args, ?loc=r) |> Some
-
+let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
-    | ("Cache" | "ToArray"), [arg] -> toArray r t arg |> Some
-    | "OfList", [arg] -> toSeq t arg |> Some
-    | "ToList", _ -> Helper.LibCall(com, "List", "ofSeq", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("ChunkBySize" | "Permute" | "SplitInto") as meth, [arg1; arg2] ->
-        let arg2 = toArray r (Array Any) arg2
-        let result = Helper.LibCall(com, "Array", Naming.lowerFirst meth, Any, [arg1; arg2])
-        Helper.LibCall(com, "Seq", "ofArray", t, [result]) |> Some
-    // For Using we need to cast the argument to IDisposable
-    | "EnumerateUsing", [arg; f] ->
-        Helper.LibCall(com, "Seq", "enumerateUsing", t, [arg; f], i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Sort" | "SortDescending" as meth), args ->
-        (genArg com ctx r 0 i.GenericArgs) |> sort r t (meth = "SortDescending") None args
-    | ("SortBy" | "SortByDescending" as meth), projection::args ->
-        (genArg com ctx r 1 i.GenericArgs) |> sort r t (meth = "SortByDescending") (Some projection) args
-    | ("GroupBy" | "CountBy" as meth), args ->
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Map" meth i.GenericArgs args
-        Helper.LibCall(com, "Map", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Distinct" | "DistinctBy" as meth), args ->
-        let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Set" meth i.GenericArgs args
-        Helper.LibCall(com, "Set", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "TryExactlyOne", args ->
-        tryCoreOp com r t "Seq" "exactlyOne" args |> Some
+        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        Helper.LibCall(com, "Seq2", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
@@ -1749,16 +1711,16 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Clear", Some ar, _ ->
         Helper.LibCall(com, "Util", "clear", t, [ar], ?loc=r) |> Some
     | "Find", Some ar, [arg] ->
-        let opt = Helper.LibCall(com, "Seq", "tryFind", t, [arg; ar; defaultof com ctx t], ?loc=r)
-        Helper.LibCall(com, "Option", "value", t, [opt], ?loc=r) |> Some
+        let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
+        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
         let left = Helper.InstanceCall(ar, "findIndex", Number Int32, [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
-        let opt = Helper.LibCall(com, "Seq", "tryFindBack", t, [arg; ar; defaultof com ctx t], ?loc=r)
-        Helper.LibCall(com, "Option", "value", t, [opt], ?loc=r) |> Some
+        let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
+        Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
     | "FindAll", Some ar, [arg] ->
-        Helper.LibCall(com, "Seq", "filter", t, [arg; ar], ?loc=r) |> toArray r t |> Some
+        Helper.LibCall(com, "Array", "filter", t, [arg; ar], ?loc=r) |> Some
     | "AddRange", Some ar, [arg] ->
         Helper.LibCall(com, "Array", "addRangeInPlace", t, [arg; ar], ?loc=r) |> Some
     | "GetRange", Some ar, [idx; cnt] ->
@@ -1845,8 +1807,10 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     match i.CompiledName, args with
     | "ToSeq", [arg] -> Some arg
     | "OfSeq", [arg] -> toArray r t arg |> Some
-    | "OfList", [arg] -> toArray r t arg |> Some
-    | "ToList", _ -> Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "OfList", [arg] ->
+        Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "ToList", args ->
+        Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Length" | "Count"), [arg] -> get r t arg "length" |> Some
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
@@ -1858,22 +1822,16 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
         eq (get r (Number Int32) ar "length") (makeIntConst 0) |> Some
-    | "AllPairs", args ->
-        let allPairs = Helper.LibCall(com, "Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
-        toArray r t allPairs |> Some
-    | "TryExactlyOne", args ->
-        tryCoreOp com r t "Array" "exactlyOne" args |> Some
-    | "SortInPlace", args ->
-        let _, thisArg = List.splitLast args
-        let argTypes = List.take (List.length args) i.SignatureArgTypes
-        let compareFn = (genArg com ctx r 0 i.GenericArgs) |> makeComparerFunction com ctx
-        Helper.InstanceCall(thisArg, "sort", t, [compareFn], argTypes, ?loc=r) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
         let argTypes = List.take (List.length args) i.SignatureArgTypes
         Helper.InstanceCall(thisArg, meth, t, args, argTypes, ?loc=r) |> Some
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        Helper.LibCall(com, "Seq2", "Array_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Array" meth i.GenericArgs args
@@ -1906,12 +1864,10 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
     // Use a cast to give it better chances of optimization (e.g. converting list
     // literals to arrays) after the beta reduction pass
     | "ToSeq", [x] -> toSeq t x |> Some
-    | "ToArray", [x] -> toArray r t x |> Some
-    | "AllPairs", args ->
-        let allPairs = Helper.LibCall(com, "Seq", "allPairs", t, args, i.SignatureArgTypes, ?loc=r)
-        toList com t allPairs |> Some
-    | "TryExactlyOne", args ->
-        tryCoreOp com r t "List" "exactlyOne" args |> Some
+    | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
+        let meth = Naming.lowerFirst meth
+        let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
+        Helper.LibCall(com, "Seq2", "List_" + meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "List" meth i.GenericArgs args
@@ -1989,19 +1945,20 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToArray", [arg] ->
         toArray r t arg |> Some
+    | "ToList", [arg] ->
+        let args = args |> List.replaceLast (toArray None t)
+        Helper.LibCall(com, "List", "ofArray", t, args, ?loc=r) |> Some
     | "FoldBack", [folder; opt; state] ->
         Helper.LibCall(com, "Seq", "foldBack", t, [folder; toArray None t opt; state], i.SignatureArgTypes, ?loc=r) |> Some
     | ("DefaultValue" | "OrElse"), _ ->
         Helper.LibCall(com, "Option", "defaultArg", t, List.rev args, ?loc=r) |> Some
     | ("DefaultWith" | "OrElseWith"), _ ->
         Helper.LibCall(com, "Option", "defaultArgWith", t, List.rev args, List.rev i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" | "ToList" as meth), _ ->
+    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
+        let meth = Naming.lowerFirst meth
         let args = args |> List.replaceLast (toArray None t)
-        let moduleName, meth =
-            if meth = "ToList"
-            then "List", "ofArray"
-            else "Seq", Naming.lowerFirst meth
-        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        let args = injectArg com ctx r "Seq" meth i.GenericArgs args
+        Helper.LibCall(com, "Seq", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2266,7 +2223,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     // Type: RangeChar : char -> char -> seq<char>
     // Usage: RangeChar start stop
     | "RangeChar", None, _ ->
-        Helper.LibCall(com, "Seq", "rangeChar", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Range", "rangeChar", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
     // Type: RangeDouble: float -> float -> float -> seq<float>
     // Usage: RangeDouble start step stop
@@ -2274,10 +2231,11 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "RangeInt16"  | "RangeUInt16"
     | "RangeInt32"  | "RangeUInt32"
     | "RangeSingle" | "RangeDouble"), None, args ->
-        Helper.LibCall(com, "Seq", "rangeNumber", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("RangeInt64" | "RangeUInt64"), None, args ->
-        let isUnsigned = makeBoolConst (i.CompiledName = "RangeUInt64")
-        Helper.LibCall(com, "Seq", "rangeLong", t, args @ [isUnsigned] , i.SignatureArgTypes, ?loc=r) |> Some
+        Helper.LibCall(com, "Range", "rangeDouble", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "RangeInt64", None, args ->
+        Helper.LibCall(com, "Range", "rangeInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "RangeUInt64", None, args ->
+        Helper.LibCall(com, "Range", "rangeUInt64", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 
 let runtimeHelpers (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
@@ -3061,8 +3019,8 @@ let private replacedModules =
     "Microsoft.FSharp.Collections.ListModule", listModule
     "Microsoft.FSharp.Collections.HashIdentity", fsharpModule
     "Microsoft.FSharp.Collections.ComparisonIdentity", fsharpModule
-    "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqs
-    "Microsoft.FSharp.Collections.SeqModule", seqs
+    "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqModule
+    "Microsoft.FSharp.Collections.SeqModule", seqModule
     "System.Collections.Generic.KeyValuePair`2", keyValuePairs
     "System.Collections.Generic.Comparer`1", bclType
     "System.Collections.Generic.EqualityComparer`1", bclType

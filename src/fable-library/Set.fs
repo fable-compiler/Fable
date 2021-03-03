@@ -564,8 +564,8 @@ module SetTree =
         iter (fun x -> arr.[j] <- x; j <- j + 1) s
 
     let toArray s =
-        let n = (count s)
-        let res = Array.Helpers.allocateArray n
+        let n = count s
+        let res = Array.zeroCreate n
         copyToArray s res 0
         res
 
@@ -574,12 +574,21 @@ module SetTree =
             mkFromEnumerator comparer (add comparer e.Current acc) e
         else acc
 
-    let ofSeq comparer (c: IEnumerable<_>) =
-        use ie = c.GetEnumerator()
-        mkFromEnumerator comparer empty ie
-
     let ofArray comparer l =
         Array.fold (fun acc k -> add comparer k acc) empty l
+
+    let ofList comparer l =
+        List.fold (fun acc k -> add comparer k acc) empty l
+
+    let ofSeq comparer (c: seq<'T>) =
+        match c with
+        | :? array<'T> as xs -> ofArray comparer xs
+        | :? list<'T> as xs -> ofList comparer xs
+        | _ ->
+            use ie = c.GetEnumerator()
+            mkFromEnumerator comparer empty ie
+
+open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpSet")>]
@@ -682,7 +691,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
         else
             Set(s.Comparer, SetTree.filter s.Comparer f s.Tree)
 
-    member s.Map(f, [<Fable.Core.Inject>] comparer: IComparer<'U>) : Set<'U> =
+    member s.Map(f, [<Inject>] comparer: IComparer<'U>) : Set<'U> =
         Set(comparer, SetTree.fold (fun acc k -> SetTree.add comparer (f k) acc) (SetTree.empty) s.Tree)
 
     member s.Exists f =
@@ -828,7 +837,7 @@ let contains element (set: Set<'T>) = set.Contains element
 let add value (set: Set<'T>) = set.Add value
 
 // [<CompiledName("Singleton")>]
-let singleton (value: 'T) ([<Fable.Core.Inject>] comparer: IComparer<'T>) : Set<'T> =
+let singleton (value: 'T) ([<Inject>] comparer: IComparer<'T>) : Set<'T> =
     Set<'T>.Empty(comparer).Add value
 
 // [<CompiledName("Remove")>]
@@ -838,7 +847,7 @@ let remove value (set: Set<'T>) = set.Remove value
 let union (set1: Set<'T>) (set2: Set<'T>)  = set1 + set2
 
 // [<CompiledName("UnionMany")>]
-let unionMany (sets: seq<Set<'T>>) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let unionMany (sets: seq<Set<'T>>) ([<Inject>] comparer: IComparer<'T>) =
     Seq.fold (fun s1 s2 -> s1 + s2) (Set<'T>.Empty comparer) sets
 
 // [<CompiledName("Intersect")>]
@@ -851,7 +860,7 @@ let intersectMany (sets: seq<Set<'T>>)  = Set.IntersectionMany sets
 let iterate action (set: Set<'T>)  = set.Iterate action
 
 // [<CompiledName("Empty")>]
-let empty<'T when 'T : comparison> ([<Fable.Core.Inject>] comparer: IComparer<'T>): Set<'T> = Set<'T>.Empty comparer
+let empty<'T when 'T : comparison> ([<Inject>] comparer: IComparer<'T>): Set<'T> = Set<'T>.Empty comparer
 
 // [<CompiledName("ForAll")>]
 let forAll predicate (set: Set<'T>) = set.ForAll predicate
@@ -872,17 +881,17 @@ let fold<'T, 'State  when 'T : comparison> folder (state:'State) (set: Set<'T>) 
 let foldBack<'T, 'State when 'T : comparison> folder (set: Set<'T>) (state:'State) = SetTree.foldBack folder set.Tree state
 
 // [<CompiledName("Map")>]
-let map mapping (set: Set<'T>) ([<Fable.Core.Inject>] comparer: IComparer<'U>) = set.Map(mapping, comparer)
+let map mapping (set: Set<'T>) ([<Inject>] comparer: IComparer<'U>) = set.Map(mapping, comparer)
 
 // [<CompiledName("Count")>]
 let count (set: Set<'T>) = set.Count
 
 // [<CompiledName("OfList")>]
-let ofList elements ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let ofList elements ([<Inject>] comparer: IComparer<'T>) =
     Set(comparer, SetTree.ofSeq comparer elements)
 
 // [<CompiledName("OfArray")>]
-let ofArray (array: 'T array) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let ofArray (array: 'T array) ([<Inject>] comparer: IComparer<'T>) =
     Set(comparer, SetTree.ofArray comparer array)
 
 // [<CompiledName("ToList")>]
@@ -895,7 +904,7 @@ let toArray (set: Set<'T>) = set.ToArray()
 let toSeq (set: Set<'T>) = (set |> Seq.map id)
 
 // [<CompiledName("OfSeq")>]
-let ofSeq (elements: seq<_>) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let ofSeq (elements: seq<_>) ([<Inject>] comparer: IComparer<'T>) =
     Set(comparer, SetTree.ofSeq comparer elements)
 
 // [<CompiledName("Difference")>]
@@ -919,32 +928,12 @@ let minElement (set: Set<'T>) = set.MinimumElement
 // [<CompiledName("MaxElement")>]
 let maxElement (set: Set<'T>) = set.MaximumElement
 
-let createMutable (source: seq<'T>) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'T>) =
-    let set = Fable.Collections.MutableSet(source, comparer)
-    set :> Fable.Core.JS.Set<_>
-
-let distinct (xs: seq<'T>) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'T>) =
-    seq {
-        let set = Fable.Collections.MutableSet(Seq.empty, comparer)
-        for x in xs do
-            if set.Add(x) then
-                yield x
-    }
-
-let distinctBy (projection: 'T -> 'Key) (xs: seq<'T>) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'Key>) =
-    seq {
-        let set = Fable.Collections.MutableSet(Seq.empty, comparer)
-        for x in xs do
-            if set.Add(projection x) then
-                yield x
-    }
-
 // Helpers to replicate HashSet methods
 
 let unionWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) =
     (s1, s2) ||> Seq.fold (fun acc x -> acc.add x)
 
-let intersectWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let intersectWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     let s2 = ofSeq s2 comparer
     for x in s1.keys() do
         if not (s2.Contains x) then
@@ -954,14 +943,14 @@ let exceptWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) =
     for x in s2 do
         s1.delete x |> ignore
 
-let isSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let isSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
 
-let isSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let isSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
 
-let isProperSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let isProperSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isProperSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
 
-let isProperSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Fable.Core.Inject>] comparer: IComparer<'T>) =
+let isProperSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isProperSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)

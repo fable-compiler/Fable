@@ -79,6 +79,57 @@ export function sameConstructor<T>(x: T, y: T) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
+export interface IEnumerator<T> extends IDisposable {
+  ["System.Collections.Generic.IEnumerator`1.get_Current"](): T | undefined;
+  ["System.Collections.IEnumerator.get_Current"](): T | undefined;
+  ["System.Collections.IEnumerator.MoveNext"](): boolean;
+  ["System.Collections.IEnumerator.Reset"](): void;
+  Dispose(): void;
+}
+
+export interface IEnumerable<T> extends Iterable<T> {
+  GetEnumerator(): IEnumerator<T>;
+}
+
+export class Enumerator<T> implements IEnumerator<T> {
+  private current?: T;
+  constructor(private iter: Iterator<T>) { }
+  public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
+    return this.current;
+  }
+  public ["System.Collections.IEnumerator.get_Current"]() {
+    return this.current;
+  }
+  public ["System.Collections.IEnumerator.MoveNext"]() {
+    const cur = this.iter.next();
+    this.current = cur.value;
+    return !cur.done;
+  }
+  public ["System.Collections.IEnumerator.Reset"]() {
+    throw new Error("JS iterators cannot be reset");
+  }
+  public Dispose() {
+    return;
+  }
+}
+
+export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
+  return typeof (o as any).GetEnumerator === "function"
+    ? (o as IEnumerable<T>).GetEnumerator()
+    : new Enumerator(o[Symbol.iterator]());
+}
+
+export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+  return {
+    [Symbol.iterator]() { return this; },
+    next() {
+      const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
+      const current = hasNext ? en["System.Collections.IEnumerator.get_Current"]() : undefined;
+      return { done: !hasNext, value: current } as IteratorResult<T>;
+    },
+  };
+}
+
 export class Comparer<T> implements IComparer<T> {
   public Compare: (x: T, y: T) => number;
 
@@ -617,7 +668,7 @@ export function partialApply(arity: number, f: Function, args: any[]): any {
   } else if (CURRIED_KEY in f) {
     f = (f as any)[CURRIED_KEY];
     for (let i = 0; i < args.length; i++) {
-      f = f(args[i]) ;
+      f = f(args[i]);
     }
     return f;
   } else {

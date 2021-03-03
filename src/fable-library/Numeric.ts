@@ -50,7 +50,6 @@ export function toPrecision(x: Numeric, sd?: number) {
     }
 }
 
-
 export function toExponential(x: Numeric, dp?: number) {
     if (typeof x === "number") {
         return x.toExponential(dp);
