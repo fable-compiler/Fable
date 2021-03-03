@@ -317,7 +317,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.FableOptions.Configuration projFile
 
     // let targetFramework =
     //     match Map.tryFind "TargetFramework" msbuildProps with
@@ -358,9 +358,9 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
       OtherCompilerOptions = otherOpts }
 
 /// For project references of main project, ignore dll and package references
-let easyCrack opts dllRefs (projFile: string): CrackedFsproj =
+let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
     let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.FableOptions.Configuration projFile
 
     let sourceFiles, otherOpts =
         (projOpts.OtherOptions, ([], []))
