@@ -8,6 +8,7 @@ type CompilerOptionsHelper =
     static member Make(?typedArrays,
                        ?typescript,
                        ?define,
+                       ?configuration,
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
@@ -16,6 +17,7 @@ type CompilerOptionsHelper =
         let isDebug = List.contains "DEBUG" define
         { new CompilerOptions with
               member _.Define = define
+              member _.Configuration = defaultArg configuration "Debug"
               member _.DebugMode = isDebug
               member _.Typescript = defaultArg typescript false
               member _.TypedArrays = defaultArg typedArrays true

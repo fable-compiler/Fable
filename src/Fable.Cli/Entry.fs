@@ -56,6 +56,7 @@ Arguments:
   -s|--sourceMaps   Enable source maps
 
   --define          Defines a symbol for use in conditional compilation
+  --configuration   The configuration to use for building the project, the default is 'Debug'
   --verbose         Print more info during compilation
   --typedArrays     Compile numeric arrays as JS typed arrays (default true)
 
@@ -135,12 +136,20 @@ type Runner =
                 Verbosity.Verbose
             else Verbosity.Normal
 
+        let configuration =
+            let defaultConfiguration = "Debug"
+            let configurationArg = argValue "--configuration" args |> Option.defaultValue defaultConfiguration
+            if String.IsNullOrWhiteSpace configurationArg then
+                defaultConfiguration
+            else
+                configurationArg
+
         let define =
             argValues "--define" args
             |> List.append [
                 "FABLE_COMPILER"
                 "FABLE_COMPILER_3"
-                if watch then "DEBUG"
+                configuration.ToUpperInvariant()
             ]
             |> List.distinct
 
@@ -152,6 +161,7 @@ type Runner =
                                        typedArrays = typedArrays,
                                        fileExtension = fileExt,
                                        define = define,
+                                       configuration = configuration,
                                        optimizeFSharpAst = flagEnabled "--optimize" args,
                                        verbosity = verbosity)
 
