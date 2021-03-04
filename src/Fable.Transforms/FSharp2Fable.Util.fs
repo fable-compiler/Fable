@@ -134,7 +134,7 @@ type FsEnt(ent: FSharpEntity) =
         let ent = Helpers.nonAbbreviatedDefinition ent
         match tryArrayFullName ent with
         | Some fullName -> fullName
-        | None when ent.IsNamespace ->
+        | None when ent.IsNamespace || ent.IsByRef ->
             match ent.Namespace with
             | Some ns -> ns + "." + ent.CompiledName
             | None -> ent.CompiledName
