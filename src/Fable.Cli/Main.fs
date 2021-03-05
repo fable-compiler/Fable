@@ -153,7 +153,7 @@ module private Util =
                 else path
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
+    let compileFile (cliArgs: CliArgs) dedupTargetDir logger (com: CompilerImpl) = async {
         try
             let babel =
                 FSharp2Fable.Compiler.transformFile com
@@ -193,7 +193,7 @@ module private Util =
             do! BabelPrinter.run writer mapGen babel
             do! mapPrinter outPath
 
-            Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
+            logger("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -495,14 +495,15 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
         if hasFSharpError then
             return logs, state.WatchDependencies, state
         else
+            use logger = Agent.Start Log.alwaysInSameLine
             let! results, ms = measureTimeAsync <| fun () ->
                 filesToCompile
                 |> Array.map (fun file ->
                     cracked.MakeCompiler(file, parsed.Project)
-                    |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
+                    |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir logger.Post)
                 |> Async.Parallel
 
-            Log.always(sprintf "Fable compilation finished in %ims" ms)
+            Log.always $"\nFable compilation finished in %i{ms}ms"
 
             let logs, watchDependencies =
                 ((logs, state.WatchDependencies), results)
