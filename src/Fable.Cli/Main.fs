@@ -193,7 +193,7 @@ module private Util =
             do! BabelPrinter.run writer mapGen babel
             do! mapPrinter outPath
 
-            logger <| "Compiled " + File.getRelativePathFromCwd com.CurrentFile
+            logger("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
