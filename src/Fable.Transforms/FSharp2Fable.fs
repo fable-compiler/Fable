@@ -639,7 +639,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let altElseExpr =
             match elseExpr with
             | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
-                let errorMessage = "The match cases were incomplete"
+                let errorMessage = "Match failure"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                 makeThrow rangeOfElseExpr Fable.Any errorExpr
@@ -836,14 +836,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // rewrite last decision target if it throws MatchFailureException
         let compiledFableTargets =
             match snd (List.last decisionTargets) with
-            | RaisingMatchFailureExpr fileNameWhereErrorOccurs ->
+            | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
                 match decisionExpr with
                 | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(_unionValue, unionType, _unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
-                    let errorMessage =
-                        sprintf "The match cases were incomplete against type of '%s' at %s"
-                            unionType.TypeDefinition.DisplayName
-                            fileNameWhereErrorOccurs
+                    let errorMessage = "Match failure: " + unionType.TypeDefinition.FullName
                     let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                     // Creates a "throw Error({errorMessage})" expression
                     let throwExpr = makeThrow rangeOfLastDecisionTarget Fable.Any errorExpr
