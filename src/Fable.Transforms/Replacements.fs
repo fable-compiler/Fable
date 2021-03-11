@@ -2244,6 +2244,14 @@ let runtimeHelpers (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg arg
     | "GetHashCode", [arg] -> identityHash com r arg |> Some
     | _ -> None
 
+// ExceptionDispatchInfo is used to raise exceptions through different threads in async workflows
+// We don't need to do anything in JS, see #2396
+let exceptionDispatchInfo (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
+    match i.CompiledName, thisArg, args with
+    | "Capture", _, [arg] -> Some arg
+    | "Throw", Some arg, _ -> makeThrow r t arg |> Some
+    | _ -> None
+
 let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
     // Just use Emit to change the type of the arg, Fable will automatically uncurry the function
@@ -3010,6 +3018,7 @@ let private replacedModules =
     "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare", languagePrimitives
     "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators", operators
     "System.Runtime.CompilerServices.RuntimeHelpers", runtimeHelpers
+    "System.Runtime.ExceptionServices.ExceptionDispatchInfo", exceptionDispatchInfo
     Types.char, chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule

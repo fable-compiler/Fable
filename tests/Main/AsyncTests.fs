@@ -22,6 +22,10 @@ type Get =
     | GetZero of replyChannel: AsyncReplyChannel<int>
     | GetOne of replyChannel: AsyncReplyChannel<int>
 
+type MyException(value) =
+    inherit Exception()
+    member _.Value: int = value
+
 let sleepAndAssign token res =
     Async.StartImmediate(async {
         do! Async.Sleep 200
@@ -473,5 +477,22 @@ let tests =
                 |> asyncMap (fun x -> token <- x)
             equal 5 token
             res
+        }
+
+    testCaseAsync "Can use custom exceptions in async workflows #2396" <| fun () ->
+        let workflow(): Async<unit> = async {
+            return MyException(7) |> raise
+        }
+        let parentWorkflow() =
+            async {
+                try
+                    do! workflow()
+                    return 100
+                with
+                | :? MyException as ex -> return ex.Value
+            }
+        async {
+            let! res = parentWorkflow()
+            equal 7 res
         }
   ]
