@@ -749,8 +749,12 @@ module TypeHelpers =
         let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map genParamName) genArgs |> Map
         let resolveType (t: FSharpType) =
             if t.IsGenericParameter then Map.find (genParamName t.GenericParameter) genArgs else t
-        let argTypes = argTypes |> Seq.map (resolveType >> makeType ctxTypeArgs) |> Seq.toList
         let returnType = returnType |> resolveType |> makeType ctxTypeArgs
+        let argTypes =
+            argTypes
+            |> Seq.map (resolveType >> makeType ctxTypeArgs)
+            |> Seq.toList
+            |> function [Fable.Unit] -> [] | argTypes -> argTypes
         Fable.DelegateType(argTypes, returnType)
 
     let numberTypes =

@@ -221,15 +221,29 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
       return Fable.ObjectExpr(members |> List.concat, makeType ctx.GenericArgs objType, baseCall)
     }
 
-let private transformDelegate com ctx delegateType expr =
+let private transformDelegate com ctx (delegateType: FSharpType) expr =
   trampoline {
     let! expr = transformExpr com ctx expr
+
+    // For some reason, when transforming to Func<'T> (no args) the F# compiler
+    // applies a unit arg to the expression, see #2400
+    let expr =
+        if delegateType.HasTypeDefinition && delegateType.TypeDefinition.FullName = "System.Func`1" then
+            match expr with
+            | Fable.CurriedApply(expr, [Fable.Value(Fable.UnitConstant, _)],_,_) -> expr
+            | Fable.Call(expr, { Args = [Fable.Value(Fable.UnitConstant, _)] },_,_) -> expr
+            | _ -> expr
+        else expr
+
     match makeType ctx.GenericArgs delegateType with
     | Fable.DelegateType(argTypes, _) ->
         let arity = List.length argTypes |> max 1
-        match expr with
-        | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
-        | _ -> return Replacements.uncurryExprAtRuntime com arity expr
+        if arity > 1 then
+            match expr with
+            | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
+            | _ -> return Replacements.uncurryExprAtRuntime com arity expr
+        else
+            return expr
     | _ -> return expr
   }
 

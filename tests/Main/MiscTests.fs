@@ -667,11 +667,33 @@ let tests =
 
         (System.Func<_,_> f2).Invoke(2) |> equal 4
 
-    // TODO!!!
-    // testCase "Conversion to Func<_> works" <| fun () ->
-    //     (System.Func<_> f3).Invoke() |> equal 5
-    //     let f = Func<_>(fun () -> 6)
-    //     f.Invoke() |> equal 6
+        // See #2400
+        let func1 : Func<int> = Func<int>(fun () -> 8)
+        func1.Invoke() |> equal 8
+
+        let fn2 () = 9
+        let func2 : Func<int> = Func<int>(fn2)
+        func2.Invoke() |> equal 9
+
+        let func2b = Func<unit, int>(fn2)
+        func2b.Invoke() |> equal 9
+
+        let fn2c () () = 9
+        let func2c : Func<int> = Func<int>(fn2c())
+        func2c.Invoke() |> equal 9
+
+        let fn3 i = i + 4
+        let func3 = Func<int, int>(fn3)
+        func3.Invoke(7) |> equal 11
+
+        let fn4 x y = x * y - 3
+        let func4 = Func<int, int, int>(fn4)
+        func4.Invoke(4, 6) |> equal 21
+
+    testCase "Conversion to Func<_> works" <| fun () ->
+        (System.Func<_> f3).Invoke() |> equal 5
+        let f = Func<_>(fun () -> 6)
+        f.Invoke() |> equal 6
 
     // TODO
     // testCase "Conversion to FSharpFunc<_,_,_> works" <| fun () ->
