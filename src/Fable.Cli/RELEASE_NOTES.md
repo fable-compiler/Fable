@@ -1,3 +1,7 @@
+### 3.1.7
+
+* Fix for Fable.Core.JsInterop.importValueDynamic
+
 ### 3.1.6
 
 * Support setting a Build configuration with --configuration cli arg @stroborobo

@@ -516,9 +516,13 @@ module AST =
         | Float32 -> "Float32Array"
         | Float64 -> "Float64Array"
 
+    /// Used to compare arg idents of a lambda wrapping a function call
     let argEquals (argIdents: Ident list) argExprs =
+        // When the lambda has a single unit arg, usually the method call has no args
+        // so we ignore single unit args just in case
         let argIdents = match argIdents with [i] when i.Type = Unit -> [] | _ -> argIdents
         let argExprs = match argExprs with [Value(UnitConstant,_)] -> [] | _ -> argExprs
+
         if List.sameLength argIdents argExprs |> not then false
         else
             (true, List.zip argIdents argExprs)
