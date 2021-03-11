@@ -1,13 +1,13 @@
 ### 3.1.6
 
-* Support setting a Build configuration with `--configuration` cli arg @stroborobo
+* Support setting a Build configuration with --configuration cli arg @stroborobo
 * Log compiled files in same line
 * Fix #2390: Array.choose is executing choose function two times @ncave
 * Fix #2394: interpolate doesn't unescape %% correctly @thinkbeforecoding
 * Fix #2396: custom exceptions in async workflows
 * Fix #2400: Conversion to delegates
 * Fix: Accessing named capture group in Regex only works with string constant @Booksbaum
-* Fable library improvements and other fixes @mcave
+* Fable library improvements and other fixes @ncave
 
 ### 3.1.5
 

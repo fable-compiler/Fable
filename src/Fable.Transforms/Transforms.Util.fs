@@ -517,6 +517,8 @@ module AST =
         | Float64 -> "Float64Array"
 
     let argEquals (argIdents: Ident list) argExprs =
+        let argIdents = match argIdents with [i] when i.Type = Unit -> [] | _ -> argIdents
+        let argExprs = match argExprs with [Value(UnitConstant,_)] -> [] | _ -> argExprs
         if List.sameLength argIdents argExprs |> not then false
         else
             (true, List.zip argIdents argExprs)
