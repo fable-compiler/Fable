@@ -1352,10 +1352,16 @@ module Util =
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
+    let addWatchDependencyFromMember (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
+        memb.DeclaringEntity
+        |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
+        |> Option.iter com.AddWatchDependency
+
     let (|Emitted|_|) com r typ (callInfo: Fable.CallInfo option) (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Naming.StartsWith Atts.emit _ as attFullName) ->
+                addWatchDependencyFromMember com memb
                 let callInfo =
                     match callInfo with
                     | Some i -> i
@@ -1428,6 +1434,7 @@ module Util =
 
             | None, _ -> None
         | _ -> None
+        |> Option.tap (fun _ -> addWatchDependencyFromMember com memb)
 
     let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee (info: Fable.CallInfo) (memb: FSharpMemberOrFunctionOrValue) =
         let rec foldArgs acc = function

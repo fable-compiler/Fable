@@ -11,6 +11,12 @@ module Tuple3 =
     let item3 (_,_,z) = z
 
 [<RequireQualifiedAccess>]
+module Option =
+    let tap (f: 'a -> unit) (x: 'a option): 'a option =
+        match x with Some a -> f a | None -> ()
+        x
+
+[<RequireQualifiedAccess>]
 module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
