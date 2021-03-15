@@ -521,17 +521,17 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(_, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
-            match getLambdaTypeArity fieldType with
-            // If the lambda returns a generic the actual arity may be higher than expected,
-            // so we need a runtime partial application
-            | arity, GenericParam _ when arity > 0 ->
+        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
+            match getLambdaTypeArity fieldType, callee.Type with
+            // For anonymous records, if the lambda returns a generic the actual
+            // arity may be higher than expected, so we need a runtime partial application
+            | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
                 let callee = makeImportLib com Any "checkArity" "Util"
                 let info = makeCallInfo None [makeIntConst arity; e] []
                 let e = Call(callee, info, t, r)
                 if arity > 1 then Curry(e, arity, t, r)
                 else e
-            | arity, _ when arity > 1 -> Curry(e, arity, t, r)
+            | (arity, _), _ when arity > 1 -> Curry(e, arity, t, r)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
