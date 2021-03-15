@@ -1,3 +1,8 @@
+### 3.1.8
+
+* Fix #2234: Recompile dependencies in watch mode when Emit/Import attributes change
+* Fix #2406: Check --outDir argument when running clean command
+
 ### 3.1.7
 
 * Fix for Fable.Core.JsInterop.importValueDynamic
