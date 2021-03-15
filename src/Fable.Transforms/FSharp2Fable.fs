@@ -228,12 +228,13 @@ let private transformDelegate com ctx (delegateType: FSharpType) expr =
     // For some reason, when transforming to Func<'T> (no args) the F# compiler
     // applies a unit arg to the expression, see #2400
     let expr =
-        if delegateType.HasTypeDefinition && delegateType.TypeDefinition.FullName = "System.Func`1" then
+        match tryDefinition delegateType with
+        | Some(_, Some "System.Func`1") ->
             match expr with
             | Fable.CurriedApply(expr, [Fable.Value(Fable.UnitConstant, _)],_,_) -> expr
             | Fable.Call(expr, { Args = [Fable.Value(Fable.UnitConstant, _)] },_,_) -> expr
             | _ -> expr
-        else expr
+        | _ -> expr
 
     match makeType ctx.GenericArgs delegateType with
     | Fable.DelegateType(argTypes, _) ->

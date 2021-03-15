@@ -175,6 +175,8 @@ let f2 x = x + x
 
 let f3 () = 5
 
+type MyDelegate = Func<int>
+
 let mutable myMutableField = 0
 
 let f4 i = myMutableField <- i
@@ -693,6 +695,11 @@ let tests =
     testCase "Conversion to Func<_> works" <| fun () ->
         (System.Func<_> f3).Invoke() |> equal 5
         let f = Func<_>(fun () -> 6)
+        f.Invoke() |> equal 6
+
+    testCase "Conversion to aliased Func<_> works" <| fun () ->
+        (MyDelegate f3).Invoke() |> equal 5
+        let f = MyDelegate(fun () -> 6)
         f.Invoke() |> equal 6
 
     // TODO

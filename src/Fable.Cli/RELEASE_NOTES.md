@@ -1,3 +1,7 @@
+### 3.1.9
+
+* Fix crash with delegate alias
+
 ### 3.1.8
 
 * Fix #2234: Recompile dependencies in watch mode when Emit/Import attributes change
