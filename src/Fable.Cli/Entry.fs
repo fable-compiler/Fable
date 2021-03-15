@@ -52,7 +52,7 @@ Commands:
 Arguments:
   --cwd             Working directory
   -o|--outDir       Redirect compilation output to a directory
-  --extension       Extension for generated JS files (default .fs.js)
+  -e|--extension    Extension for generated JS files (default .fs.js)
   -s|--sourceMaps   Enable source maps
 
   --define          Defines a symbol for use in conditional compilation
@@ -154,7 +154,8 @@ type Runner =
             |> List.distinct
 
         let fileExt =
-            argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
+            argValueMulti ["-e"; "--extension"] args
+            |> Option.defaultValue (defaultFileExt typescript args)
 
         let compilerOptions =
             CompilerOptionsHelper.Make(typescript = typescript,
@@ -198,8 +199,15 @@ type Runner =
 let clean args dir =
     let typescript = flagEnabled "--typescript" args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
+
     let fileExt =
-        argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
+        argValueMulti ["-e"; "--extension"] args
+        |> Option.defaultValue (defaultFileExt typescript args)
+
+    let dir =
+        argValueMulti ["-o"; "--outDir"] args
+        |> Option.defaultValue dir
+        |> IO.Path.GetFullPath
 
     // clean is a potentially destructive operation, we need a permission before proceeding
     Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, dir)
