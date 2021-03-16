@@ -56,7 +56,8 @@ Arguments:
   -s|--sourceMaps   Enable source maps
 
   --define          Defines a symbol for use in conditional compilation
-  --configuration   The configuration to use for building the project, the default is 'Debug'
+  --configuration   The configuration to use when parsing .fsproj with MSBuild,
+                    default is 'Debug' in watch mode, or 'Release' otherwise
   --verbose         Print more info during compilation
   --typedArrays     Compile numeric arrays as JS typed arrays (default true)
 
@@ -137,7 +138,7 @@ type Runner =
             else Verbosity.Normal
 
         let configuration =
-            let defaultConfiguration = "Debug"
+            let defaultConfiguration = if watch then "Debug" else "Release"
             let configurationArg = argValue "--configuration" args |> Option.defaultValue defaultConfiguration
             if String.IsNullOrWhiteSpace configurationArg then
                 defaultConfiguration
@@ -162,7 +163,6 @@ type Runner =
                                        typedArrays = typedArrays,
                                        fileExtension = fileExt,
                                        define = define,
-                                       configuration = configuration,
                                        optimizeFSharpAst = flagEnabled "--optimize" args,
                                        verbosity = verbosity)
 
@@ -170,6 +170,7 @@ type Runner =
             { ProjectFile = Path.normalizeFullPath projFile
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
+              Configuration = configuration
               OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
               SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
               ForcePkgs = flagEnabled "--forcePkgs" args

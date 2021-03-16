@@ -14,6 +14,7 @@ type CliArgs =
       RootDir: string
       OutDir: string option
       FableLibraryPath: string option
+      Configuration: string
       ForcePkgs: bool
       NoRestore: bool
       SourceMaps: bool

@@ -11,11 +11,12 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noRestore, projFile) =
+type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, forcePkgs, noRestore, projFile) =
     let builtDlls = HashSet()
     member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
     member _.OutDir: string option = outDir
+    member _.Configuration: string = configuration
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
     member _.ForcePkgs: bool = forcePkgs
@@ -317,7 +318,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.FableOptions.Configuration projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
     // let targetFramework =
     //     match Map.tryFind "TargetFramework" msbuildProps with
@@ -360,7 +361,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 /// For project references of main project, ignore dll and package references
 let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
     let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.FableOptions.Configuration projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
     let sourceFiles, otherOpts =
         (projOpts.OtherOptions, ([], []))

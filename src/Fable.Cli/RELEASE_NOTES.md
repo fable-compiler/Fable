@@ -1,3 +1,7 @@
+### 3.1.10
+
+* Revert breaking change, configuration should default to Debug only in watch mode @forki
+
 ### 3.1.9
 
 * Fix crash with delegate alias

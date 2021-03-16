@@ -14,7 +14,6 @@ type CompilerOptions =
       abstract ClampByteArrays: bool
       abstract Typescript: bool
       abstract Define: string list
-      abstract Configuration: string
       abstract DebugMode: bool
       abstract OptimizeFSharpAst: bool
       abstract Verbosity: Verbosity
