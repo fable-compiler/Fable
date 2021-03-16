@@ -2,6 +2,7 @@ module Fable.Tests.DateTimeOffset
 
 open System
 open Util.Testing
+open Fable.Core.JsInterop
 
 let toSigFigs nSigFigs x =
     let absX = abs x
@@ -453,4 +454,210 @@ let tests =
         let t = d.TimeOfDay
 
         t |> equal (TimeSpan(0, 13, 23, 30, 1))
+
+    testList "Constructor" [
+
+        /// date is 2007-09-01
+        /// -> UTC + 2 in Europe! (summer time)
+        let usedDate = DateTime(2007, 9, 1, 9, 30, 17, DateTimeKind.Unspecified)
+        let dateWithKind (kind: DateTimeKind)=
+            DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, kind)
+
+        let fromDateList (offset: TimeSpan) =
+            DateTimeOffset(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, offset)
+        let fromDateTime (offset: TimeSpan) =
+            let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second)
+            DateTimeOffset(dt, offset)
+        let fromTicks (offset: TimeSpan) =
+            //             633242358000000000L
+            DateTimeOffset(usedDate.Ticks, offset)
+        let fromLocalDateTime (offset: TimeSpan) =
+            let dt = dateWithKind DateTimeKind.Local
+            DateTimeOffset(dt, offset)
+        let fromUTCDateTime (offset: TimeSpan) =
+            let dt = dateWithKind DateTimeKind.Utc
+            DateTimeOffset(dt, offset)
+        let fromUnspecifiedDateTime (offset: TimeSpan) =
+            let dt = dateWithKind DateTimeKind.Unspecified
+            DateTimeOffset(dt, offset)
+
+        /// Necessary for DateTime(..., DateTimeKind.Local) tests.
+        /// Unfortunately that's not ideal:
+        /// * different tests on different systems (with different local time)
+        /// * Local Time might be same as UTC -> `Offset = 0` -> quite often different behaviour than `Offset <> 0`
+        ///
+        /// NOTE: local utc offset of `usedDate`, NOT `DateTime.Now`
+        /// -> `usedDate` is in september -> summer time in Europe (`+2`)!
+        let localOffset: TimeSpan =
+#if FABLE_COMPILER
+            !!(usedDate?getTimezoneOffset() * -60_000)
+#else
+            TimeZoneInfo.Local.GetUtcOffset(usedDate)
+#endif
+
+        let shouldSucceed = Ok ()
+        let shouldThrowOutOfRange = Error "Offset must be within plus or minus 14 hours."
+        let shouldThrowNotMinutes = Error "Offset must be specified in whole minutes."
+        let shouldThrowUTCOffsetAndLocalDateTimeDontMatch = Error "The UTC Offset of the local dateTime parameter does not match the offset argument."
+        let shouldThrowUTCOffsetForUTCDateTimeMustBeZero = Error "The UTC Offset for Utc DateTime instances must be 0." // .net: `Utc`... -.-
+
+        let offsets =
+            [
+                TimeSpan.FromHours(0.0), shouldSucceed
+
+                // positive range
+                TimeSpan.FromMinutes(30.0), shouldSucceed
+                TimeSpan.FromHours(1.0), shouldSucceed
+                TimeSpan.FromHours(2.0), shouldSucceed
+                TimeSpan(13, 59, 0), shouldSucceed
+                TimeSpan.FromHours(14.0), shouldSucceed
+                TimeSpan(14, 01, 0), shouldThrowOutOfRange
+                TimeSpan(14, 59, 0), shouldThrowOutOfRange
+                TimeSpan.FromHours(15.0), shouldThrowOutOfRange
+                TimeSpan(15, 01, 0), shouldThrowOutOfRange
+                TimeSpan(23, 59, 0), shouldThrowOutOfRange
+                TimeSpan.FromHours(24.0), shouldThrowOutOfRange
+                TimeSpan(24, 01, 0), shouldThrowOutOfRange
+                TimeSpan.FromHours(100.0), shouldThrowOutOfRange
+
+                // negative range
+                TimeSpan.FromMinutes(-30.0), shouldSucceed
+                TimeSpan.FromHours(-1.0), shouldSucceed
+                TimeSpan.FromHours(-2.0), shouldSucceed
+                TimeSpan(-13, -59, 0), shouldSucceed
+                TimeSpan.FromHours(-14.0), shouldSucceed
+                TimeSpan(-14, -01, 0), shouldThrowOutOfRange
+                TimeSpan(-14, -59, 0), shouldThrowOutOfRange
+                TimeSpan.FromHours(-15.0), shouldThrowOutOfRange
+                TimeSpan(-15, -01, 0), shouldThrowOutOfRange
+                TimeSpan(-23, -59, 0), shouldThrowOutOfRange
+                TimeSpan.FromHours(-24.0), shouldThrowOutOfRange
+                TimeSpan(-24, -01, 0), shouldThrowOutOfRange
+                TimeSpan.FromHours(-100.0), shouldThrowOutOfRange
+
+                // positive seconds
+                TimeSpan.FromSeconds(10.0), shouldThrowNotMinutes
+                TimeSpan.FromSeconds(60.0), shouldSucceed
+                // .Net: check for seconds before check for range
+                TimeSpan(24, 01, 01), shouldThrowNotMinutes
+
+                // negative seconds
+                TimeSpan.FromSeconds(-10.0), shouldThrowNotMinutes
+                TimeSpan.FromSeconds(-60.0), shouldSucceed
+                TimeSpan(-24, -01, -01), shouldThrowNotMinutes
+            ]
+
+        let withCtor ctor offsets =
+            offsets
+            |> List.map (fun (offset, expected) -> (ctor, offset, expected))
+
+        let testSucceeds (ctor: TimeSpan -> DateTimeOffset) offset =
+            (fun _ -> ctor offset)
+            |> Util.doesntThrow
+        let testThrows expectedError (ctor: TimeSpan -> DateTimeOffset) offset =
+            (fun _ -> ctor offset)
+            |> Util.throwsErrorContaining expectedError
+
+        let toTestCase (ctor, offset, expected: Result<unit, string>) =
+            let formatOffset (offset: TimeSpan) =
+                if offset.TotalMinutes - Math.Floor(offset.TotalMinutes) > 0.0 then
+                    // doesn't handle ms and ticks
+                    sprintf "%ih %02imin %02is" (int offset.TotalHours) (offset.Minutes) (offset.Seconds)
+                else
+                    sprintf "%ih %02imin" (int offset.TotalHours) (offset.Minutes)
+            let formatExpected expected =
+                match expected with
+                | Ok _ -> "succeeds"
+                | Error msg -> sprintf "throws '%s'" msg
+
+            let name =
+                sprintf "offset '%s' %s"
+                    (formatOffset offset)
+                    (formatExpected expected)
+
+            let test =
+                match expected with
+                | Ok _ -> testSucceeds
+                | Error msg -> testThrows msg
+
+            testCase name (fun _ -> test ctor offset)
+
+        testList "(year, month, ..., second, offset)" (
+            offsets
+            |> withCtor fromDateList
+            |> List.map toTestCase
+        )
+
+        testList "(ticks, offset)" (
+            offsets
+            |> withCtor fromTicks
+            |> List.map toTestCase
+        )
+
+        testList "(DateTime)" [
+            testCase "Default (= unspecified)" <| fun _ ->
+                let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second)
+                let dto = DateTimeOffset(dt)
+                equal dto.Offset localOffset
+            testCase "Unspecified" <| fun _ ->
+                let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, DateTimeKind.Unspecified)
+                let dto = DateTimeOffset(dt)    // no custom offset -> local offset
+                equal dto.Offset localOffset
+            testCase "UTC" <| fun _ ->
+                let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, DateTimeKind.Utc)
+                let dto = DateTimeOffset(dt)
+                equal dto.Offset TimeSpan.Zero
+            testCase "Local" <| fun _ ->
+                let dt = DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, DateTimeKind.Local)
+                let dto = DateTimeOffset(dt)
+                equal dto.Offset localOffset
+        ]
+
+        testList "(DateTime, offset)" (
+            offsets
+            |> withCtor fromDateTime
+            |> List.map toTestCase
+        )
+
+        // Unspecified is default -> same as test list above
+        testList "(DateTime(Unspecified), offset)" (
+            offsets
+            |> withCtor fromUnspecifiedDateTime
+            |> List.map toTestCase
+        )
+
+        // all must fail -- except when offset = localOffset
+        testList "(DateTime(Local)), offset)" [
+            yield!
+                offsets
+                |> List.map (fun (offset, _) ->
+                    // ensure offset isn't local offset -> doesn't throw
+                    let offset =
+                        if offset = localOffset then
+                            // adjust towards 0, otherwise might get out of range (+/- 14h)
+                            if offset.TotalHours < 0.0 then
+                                offset.Add(TimeSpan.FromMinutes(1.0))
+                            else
+                                offset.Subtract(TimeSpan.FromMinutes(1.0))
+                        else
+                            offset
+                    (offset, shouldThrowUTCOffsetAndLocalDateTimeDontMatch)
+                )
+                |> withCtor fromLocalDateTime
+                |> List.map toTestCase
+
+            yield
+                testCase (sprintf "offset = localOffset (%s) succeeds" (localOffset.ToString())) <| fun _ ->
+                    localOffset
+                    |> testSucceeds fromLocalDateTime
+        ]
+
+        // all execpt zero offset must fail
+        testList "(DateTime(UTC), offset)" (
+            offsets
+            |> List.map (fun (offset, _) -> (offset, if offset = TimeSpan.Zero then shouldSucceed else shouldThrowUTCOffsetForUTCDateTimeMustBeZero))
+            |> withCtor fromUTCDateTime
+            |> List.map toTestCase
+        )
+    ]
   ]
