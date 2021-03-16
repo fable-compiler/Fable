@@ -31,7 +31,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
                 |> Array.skip 1
                 |> Array.rev
                 |> String.concat "/"
-            Process.runSync projDir "dotnet" ["build"] |> ignore
+            Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
 type CrackerResponse =
