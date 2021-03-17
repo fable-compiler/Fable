@@ -37,7 +37,7 @@
     "build-test": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib",
     "build-test-ts": "npm run build-test -- --fableLib out-lib-ts --typescript",
     "build-test-opt": "npm run build-test -- --optimize",
-    "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test",
+    "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib",
     "build-test-node-ts": "npm run build-test-node --typescript",
     "test": "node ./out-test/src/test.js",
 
@@ -46,7 +46,7 @@
     "build-tests": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests --fableLib out-lib",
     "build-tests-ts": "npm run build-tests -- --fableLib out-lib-ts --typescript",
     "build-tests-opt": "npm run build-tests -- --optimize",
-    "build-tests-node": "node out-node/app.js ../../../../tests/Main/Fable.Tests.fsproj out-tests",
+    "build-tests-node": "node out-node/app.js ../../../../tests/Main/Fable.Tests.fsproj out-tests --fableLib out-lib",
     "tests": "npm run mocha -- out-tests -r esm --colors --reporter dot",
 
     "tsc": "node ../../../../node_modules/typescript/bin/tsc",
