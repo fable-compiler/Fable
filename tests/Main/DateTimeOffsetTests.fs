@@ -660,4 +660,125 @@ let tests =
             |> List.map toTestCase
         )
     ]
+
+    testList "ToOffset" [
+
+        // source: https://docs.microsoft.com/en-us/dotnet/api/system.datetimeoffset.tooffset?view=net-5.0#System_DateTimeOffset_ToOffset_System_TimeSpan_
+
+        testCase "Convert to same time" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 9, 30, 0, TimeSpan(-5, 0, 0))
+            let target = source.ToOffset(TimeSpan(-5, 0, 0))
+
+            let expected = source
+
+            target |> equal expected
+
+        testCase "Convert to UTC (0 offset)" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 9, 30, 0, TimeSpan(-5, 0, 0))
+            let target = source.ToOffset(TimeSpan.Zero)
+
+            let expected = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan(0, 0, 0))
+
+            target |> equal expected
+
+        testCase "Convert to 8 hours behind UTC" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 9, 30, 0, TimeSpan(-5, 0, 0))
+            let target = source.ToOffset(TimeSpan(-8, 0, 0))
+
+            let expected = DateTimeOffset(2007, 9, 1, 6, 30, 0, TimeSpan(-8, 0, 0))
+
+            target |> equal expected
+
+        testCase "Convert to 3 hours ahead of UTC" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 9, 30, 0, TimeSpan(-5, 0, 0))
+            let target = source.ToOffset(TimeSpan(3, 0, 0))
+
+            let expected = DateTimeOffset(2007, 9, 1, 17, 30, 0, TimeSpan(3, 0, 0))
+
+            target |> equal expected
+
+        testCase "Convert to 3 hours and 30 min ahead of UTC" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 9, 30, 0, TimeSpan(-5, 0, 0))
+            let target = source.ToOffset(TimeSpan(3, 30, 0))
+
+            let expected = DateTimeOffset(2007, 9, 1, 18, 0, 0, TimeSpan(3, 30, 0))
+
+            target |> equal expected
+
+        testCase "UTC: Convert to 5 hours behind UTC" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            let target = source.ToOffset(TimeSpan(-5, 0, 0))
+
+            let expected = DateTimeOffset(2007, 9, 1, 9, 30, 0, TimeSpan(-5, 0, 0))
+
+            target |> equal expected
+
+        testCase "UTC: Convert to UTC (0 offset)" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            let target = source.ToOffset(TimeSpan.Zero)
+
+            let expected = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan(0, 0, 0))
+
+            target |> equal expected
+
+        testCase "UTC: Convert to 8 hours behind UTC" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            let target = source.ToOffset(TimeSpan(-8, 0, 0))
+
+            let expected = DateTimeOffset(2007, 9, 1, 6, 30, 0, TimeSpan(-8, 0, 0))
+
+            target |> equal expected
+
+        testCase "UTC: Convert to 3 hours ahead of UTC" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            let target = source.ToOffset(TimeSpan(3, 0, 0))
+
+            let expected = DateTimeOffset(2007, 9, 1, 17, 30, 0, TimeSpan(3, 0, 0))
+
+            target |> equal expected
+
+        testCase "UTC: Convert to 3 hours and 30 min ahead of UTC" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            let target = source.ToOffset(TimeSpan(3, 30, 0))
+
+            let expected = DateTimeOffset(2007, 9, 1, 18, 0, 0, TimeSpan(3, 30, 0))
+
+            target |> equal expected
+
+        testCase "14h offset doesn't throw exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            source.ToOffset(TimeSpan(14, 0, 0))
+            |> ignore
+        testCase "-14h offset doesn't throw exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            source.ToOffset(TimeSpan(-14, 0, 0))
+            |> ignore
+
+        testCase "14h 30min offset throws exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            (fun _ -> source.ToOffset(TimeSpan(14, 30, 0)))
+            |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+        testCase "-(14h 30min) offset throws exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            (fun _ -> source.ToOffset(TimeSpan(-14, -30, 0)))
+            |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+
+        testCase "100h offset throws exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            (fun _ -> source.ToOffset(TimeSpan(100, 0, 0)))
+            |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+        testCase "-100h offset throws exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            (fun _ -> source.ToOffset(TimeSpan(-100, 0, 0)))
+            |> Util.throwsErrorContaining "Offset must be within plus or minus 14 hour"
+
+        testCase "10s offset throws exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            (fun _ -> source.ToOffset(TimeSpan(0, 0, 10)))
+            |> Util.throwsErrorContaining "Offset must be specified in whole minutes"
+        testCase "-10s offset throws exception" <| fun () ->
+            let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
+            (fun _ -> source.ToOffset(TimeSpan(0, 0, -10)))
+            |> Util.throwsErrorContaining "Offset must be specified in whole minutes"
+    ]
   ]

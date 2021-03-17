@@ -299,3 +299,7 @@ export function op_Addition(x: IDateTimeOffset, y: number) {
 export function op_Subtraction(x: IDateTimeOffset, y: number | IDateTimeOffset) {
   return subtract(x, y);
 }
+
+export function toOffset(d: IDateTimeOffset, offset: number): IDateTimeOffset {
+  return DateTimeOffset(d.getTime(), offset);
+}
