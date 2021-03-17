@@ -211,7 +211,7 @@ function parse(x, n) {
     // for (e = 0; i <= nl;) x.c[e++] = +n.charAt(i++);
   }
 
-  // x = round(x, Big.DP, Big.RM);
+  x = round(x, Big.DP + 1, Big.RM);
   return x;
 }
 
