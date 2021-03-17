@@ -839,7 +839,8 @@ module TypeHelpers =
             Fable.LambdaType(argType, returnType)
         elif t.IsAnonRecordType then
             let genArgs = makeGenArgs ctxTypeArgs t.GenericArguments
-            Fable.AnonymousRecordType(t.AnonRecordTypeDetails.SortedFieldNames, genArgs)
+            let fields = t.AnonRecordTypeDetails.SortedFieldNames
+            Fable.AnonymousRecordType(fields, genArgs)
         elif t.HasTypeDefinition then
 // No support for provided types when compiling FCS+Fable to JS
 #if !FABLE_COMPILER
@@ -1038,7 +1039,6 @@ module Util =
             | Some (Transform com ctx finalBody) -> Some finalBody
             | None -> None
         Fable.TryCatch(body, catchClause, finalizer, r)
-
 
     let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
         let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
