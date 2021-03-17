@@ -11,7 +11,7 @@ open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, forcePkgs, noRestore, projFile) =
+type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
     member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
@@ -19,7 +19,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace
     member _.Configuration: string = configuration
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
-    member _.ForcePkgs: bool = forcePkgs
+    member _.NoCache: bool = noCache
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.BuildDll(normalizedDllPath: string) =
@@ -442,7 +442,7 @@ let createFableDir (opts: CrackerOptions) =
         ]
 
     let isEmptyOrOutdated =
-        if opts.ForcePkgs || isDirectoryEmpty fableDir then true
+        if opts.NoCache || isDirectoryEmpty fableDir then true
         else
             let isOutdated =
                 try

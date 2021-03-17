@@ -174,7 +174,7 @@ let buildLibraryTs() =
 // Mainly intended for CI
 let testJsFast() =
     runFableWithArgs "src/fable-standalone/src" [
-        "--forcePkgs"
+        "--noCache"
     ]
 
     runFableWithArgs "src/fable-compiler-js/src" [
@@ -526,7 +526,7 @@ match argsLower with
 | "test-integration"::_ -> testIntegration()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --runScript"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 
 | "run"::_ ->
     buildLibraryIfNotExists()

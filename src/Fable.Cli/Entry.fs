@@ -69,7 +69,7 @@ Arguments:
 
   --yes             Automatically reply 'yes' (e.g. with `clean` command)
   --noRestore       Skip `dotnet restore`
-  --forcePkgs       Force a new copy of package sources into `.fable` folder
+  --noCache         Recompile all files, including sources from packages
   --exclude         Don't merge sources of referenced projects with specified pattern
                     (Intended for plugin development)
 
@@ -173,8 +173,8 @@ type Runner =
               Configuration = configuration
               OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
               SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
-              ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
+              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args // backwards compatibility
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args

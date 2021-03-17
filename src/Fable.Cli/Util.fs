@@ -15,8 +15,8 @@ type CliArgs =
       OutDir: string option
       FableLibraryPath: string option
       Configuration: string
-      ForcePkgs: bool
       NoRestore: bool
+      NoCache: bool
       SourceMaps: bool
       Exclude: string option
       Replace: Map<string, string>

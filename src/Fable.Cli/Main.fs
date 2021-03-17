@@ -322,7 +322,7 @@ type ProjectCracked(sourceFiles: File array,
                            configuration = cliArgs.Configuration,
                            exclude = cliArgs.Exclude,
                            replace = cliArgs.Replace,
-                           forcePkgs = cliArgs.ForcePkgs,
+                           noCache = cliArgs.NoCache,
                            noRestore = cliArgs.NoRestore,
                            projFile = cliArgs.ProjectFile)
             |> getFullProjectOpts
@@ -468,7 +468,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
                 |> fun files ->
-                    if Option.isNone state.Watcher then files
+                    if Option.isNone state.Watcher || state.CliArgs.NoCache then files
                     else
                         // Skip files that have a more recent JS version
                         let skipped =

@@ -1,9 +1,9 @@
 import { toString as dateToString } from "./Date.js";
 import { compare as numericCompare, isNumeric, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.js";
 import { escape } from "./RegExp.js";
-import { FSharpRef, toString } from "./Types.js";
+import { toString } from "./Types.js";
 
-const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/;
+const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/g;
 const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
 
@@ -110,11 +110,26 @@ export function printf(input: string): IPrintfFormat {
   };
 }
 
-export function interpolate(input: string, values: any[]): string {
-  let i = 0;
-  return input.replace(interpolateRegExp, (_, prefix, flags, padLength, precision, format) => {
-    return formatReplacement(values[i++], prefix, flags, padLength, precision, format);
-  }).replace(/%%/g, "%");
+export function interpolate(str: string, values: any[]): string {
+  let valIdx = 0;
+  let strIdx = 0;
+  let result = "";
+  interpolateRegExp.lastIndex = 0;
+  let match = interpolateRegExp.exec(str);
+  while (match) {
+    // The first group corresponds to the no-escape char (^|[^%]), the actual pattern starts in the next char
+    // Note: we don't use negative lookbehind because some browsers don't support it yet
+    const matchIndex = match.index + (match[1] || "").length;
+    result += str.substring(strIdx, matchIndex).replace(/%%/g, "%");
+    const [, , flags, padLength, precision, format] = match;
+    result += formatReplacement(values[valIdx++], flags, padLength, precision, format);
+    strIdx = interpolateRegExp.lastIndex;
+    // Likewise we need to move interpolateRegExp.lastIndex one char behind to make sure we match the no-escape char next time
+    interpolateRegExp.lastIndex -= 1;
+    match = interpolateRegExp.exec(str);
+  }
+  result += str.substring(strIdx).replace(/%%/g, "%");
+  return result;
 }
 
 function continuePrint(cont: (x: string) => any, arg: IPrintfFormat | string) {
@@ -140,7 +155,7 @@ export function toFail(arg: IPrintfFormat | string) {
   }, arg);
 }
 
-function formatReplacement(rep: any, prefix: any, flags: any, padLength: any, precision: any, format: any) {
+function formatReplacement(rep: any, flags: any, padLength: any, precision: any, format: any) {
   let sign = "";
   flags = flags || "";
   format = format || "";
@@ -198,45 +213,70 @@ function formatReplacement(rep: any, prefix: any, flags: any, padLength: any, pr
   } else {
     rep = sign + rep;
   }
-  return prefix ? prefix + rep : rep;
+  return rep;
 }
 
-function formatOnce(str2: string, rep: any, padRef: FSharpRef<number|null>) {
-  return str2.replace(fsFormatRegExp, (match, prefix, flags, padLength, precision, format) => {
-    if (padRef.contents != null) {
-      padLength = padRef.contents;
-      padRef.contents = null;
-    }
-    else if (padLength === "*") {
-      if (rep < 0) {
-        throw new Error("Non-negative number required");
-      }
-      padRef.contents = rep;
-      return match;
-    }
-    const once = formatReplacement(rep, prefix, flags, padLength, precision, format);
-    return once.replace(/%/g, "%%");
-  });
-}
-
-function createPrinter(str: string, cont: (...args: any[]) => any, padRef = new FSharpRef<number|null>(null)) {
+function createPrinter(cont: (...args: any[]) => any, _strParts: string[], _matches: RegExpExecArray[], _result = "", padArg = -1) {
   return (...args: any[]) => {
-    // Make a copy as the function may be used several times
-    let strCopy = str;
+    // Make copies of the values passed by reference because the function can be used multiple times
+    let result = _result;
+    const strParts = _strParts.slice();
+    const matches = _matches.slice();
     for (const arg of args) {
-      strCopy = formatOnce(strCopy, arg, padRef);
+      const [, , flags, _padLength, precision, format] = matches[0];
+      let padLength: any = _padLength;
+      if (padArg >= 0) {
+        padLength = padArg;
+        padArg = -1;
+      }
+      else if (padLength === "*") {
+        if (arg < 0) {
+          throw new Error("Non-negative number required");
+        }
+        padArg = arg;
+        continue;
+      }
+
+      result += strParts[0];
+      result += formatReplacement(arg, flags, padLength, precision, format);
+
+      strParts.splice(0, 1);
+      matches.splice(0, 1);
     }
-    return fsFormatRegExp.test(strCopy)
-      ? createPrinter(strCopy, cont, padRef)
-      : cont(strCopy.replace(/%%/g, "%"));
+
+    if (matches.length === 0) {
+      result += strParts[0];
+      return cont(result);
+    } else {
+      return createPrinter(cont, strParts, matches, result, padArg);
+    }
   };
 }
 
 export function fsFormat(str: string) {
   return (cont: (...args: any[]) => any) => {
-    return fsFormatRegExp.test(str)
-      ? createPrinter(str, cont)
-      : cont(str);
+    fsFormatRegExp.lastIndex = 0;
+    const strParts: string[] = [];
+    const matches: RegExpExecArray[] = [];
+    let strIdx = 0;
+    let match = fsFormatRegExp.exec(str);
+    while (match) {
+      // The first group corresponds to the no-escape char (^|[^%]), the actual pattern starts in the next char
+      // Note: we don't use negative lookbehind because some browsers don't support it yet
+      const matchIndex = match.index + (match[1] || "").length;
+      strParts.push(str.substring(strIdx, matchIndex).replace(/%%/g, "%"));
+      matches.push(match)
+      strIdx = fsFormatRegExp.lastIndex;
+      // Likewise we need to move fsFormatRegExp.lastIndex one char behind to make sure we match the no-escape char next time
+      fsFormatRegExp.lastIndex -= 1;
+      match = fsFormatRegExp.exec(str);
+    }
+    if (strParts.length === 0) {
+      return cont(str.replace(/%%/g, "%"));
+    } else {
+      strParts.push(str.substring(strIdx).replace(/%%/g, "%"))
+      return createPrinter(cont, strParts, matches);
+    }
   };
 }
 
