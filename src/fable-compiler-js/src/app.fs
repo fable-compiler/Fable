@@ -152,6 +152,7 @@ let parseFiles projectFileName options =
     // Fable (F# to JS)
     let projDir = projectFileName |> normalizeFullPath |> Path.GetDirectoryName
     let libDir = options.libDir |> Option.defaultValue (getFableLibDir()) |> normalizeFullPath
+
     let parseFable (res, fileName) =
         fable.CompileToBabelAst(libDir, res, fileName,
             typedArrays = options.typedArrays,
@@ -164,9 +165,9 @@ let parseFiles projectFileName options =
 
     let getOrAddDeduplicateTargetDir =
         let dedupDic = System.Collections.Generic.Dictionary()
-        fun (importDir: string) addTargetDir ->
+        fun importDir addTargetDir ->
             // Lower importDir as some OS use case insensitive paths
-            let importDir = JS.path.resolve(importDir).ToLower()
+            let importDir = (normalizeFullPath importDir).ToLower()
             match dedupDic.TryGetValue(importDir) with
             | true, v -> v
             | false, _ ->
@@ -206,9 +207,9 @@ let parseFiles projectFileName options =
 let argValue keys (args: string[]) =
     args
     |> Array.pairwise
-    |> Array.tryPick (fun (k, v) ->
-        if (List.contains k keys) && not (v.StartsWith("-"))
-        then Some v else None)
+    |> Array.tryFindBack (fun (k, v) ->
+        not (v.StartsWith("-")) && (List.contains k keys))
+    |> Option.map snd
 
 let tryFlag flag (args: string[]) =
     match argValue [flag] args with

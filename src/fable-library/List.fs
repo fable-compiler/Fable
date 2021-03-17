@@ -17,8 +17,8 @@ module SR =
 type LinkedList<'T when 'T: comparison> =
     { head: 'T; mutable tail: LinkedList<'T> option }
 
-    static member inline Empty: 'T list = { head = Unchecked.defaultof<'T>; tail = None }
-    static member inline Cons (x: 'T, xs: 'T list) = { head = x; tail = Some xs }
+    static member Empty: 'T list = { head = Unchecked.defaultof<'T>; tail = None }
+    static member Cons (x: 'T, xs: 'T list) = { head = x; tail = Some xs }
 
     static member inline internal ConsNoTail (x: 'T) = { head = x; tail = None }
     member inline internal xs.SetConsTail (t: 'T list) = xs.tail <- Some t
@@ -27,7 +27,7 @@ type LinkedList<'T when 'T: comparison> =
         xs.SetConsTail t
         t
 
-    member inline xs.IsEmpty = xs.tail.IsNone
+    member xs.IsEmpty = xs.tail.IsNone
 
     member xs.Length =
         let rec loop i xs =

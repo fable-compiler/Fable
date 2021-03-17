@@ -162,6 +162,14 @@ module Naming =
                 })
         else ident
 
+    let replaceRegex (pattern: string) (value: string) (input: string) =
+        Regex.Replace(input, pattern, value)
+
+    let replacePrefix (prefix: string) (value: string) (input: string) =
+        if input.StartsWith(prefix) then
+            value + (input.Substring(prefix.Length))
+        else input
+
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
             s.Substring(4)

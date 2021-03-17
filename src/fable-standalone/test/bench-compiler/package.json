@@ -2,13 +2,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "clean": "git clean -fdX",
     "build-cli": "dotnet run -c Release -p ../../../Fable.Cli -- bench-compiler.fsproj --outDir out-node",
     "postbuild-cli": "npm run rollup-bundle",
 
-    "prebuild-dotnet": "git clean -fdX && npm run build-lib",
-    "build-dotnet": "dotnet run -c Release bench-compiler.fsproj out-node --fableLib out-lib",
-    "build-dotnet-opt": "dotnet run -c Release bench-compiler.fsproj out-node --optimize",
-    "postbuild-dotnet": "npm run rollup-bundle",
+    "prebuild": "git clean -fdX && npm run build-lib",
+    "build": "dotnet run -c Release bench-compiler.fsproj out-node --fableLib out-lib",
+    "build-opt": "npm run build --optimize",
+    "postbuild": "npm run rollup-bundle",
 
     "build-node": "node dist/bundle.js bench-compiler.fsproj out-node2",
     "build-node-es": "node out-node/app.js bench-compiler.fsproj out-node2",
@@ -32,19 +33,20 @@
     "tsc-lib-init": "npm run tsc -- --init --target es2020 --module es2020 --allowJs",
     "tsc-lib": "npm run tsc -- -p ./out-lib-ts --outDir ./out-lib-js",
 
-    "build-test-dotnet": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test",
-    "build-test-dotnet-ts": "npm run build-test-dotnet -- --typescript",
-    "build-test-dotnet-opt": "npm run build-test-dotnet -- --optimize",
-    "build-test-node": "node dist/bundle.js ../../../../../fable-test/fable-test.fsproj out-test",
-    "build-test-node-es": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test",
-    "build-test-node-ts": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test --typescript",
-    "test-node": "node ./out-test/src/test.js",
+    "prebuild-test": "git clean -fdX && npm run build-lib",
+    "build-test": "dotnet run -c Release ../../../../../fable-test/fable-test.fsproj out-test --fableLib out-lib",
+    "build-test-ts": "npm run build-test -- --fableLib out-lib-ts --typescript",
+    "build-test-opt": "npm run build-test -- --optimize",
+    "build-test-node": "node out-node/app.js ../../../../../fable-test/fable-test.fsproj out-test",
+    "build-test-node-ts": "npm run build-test-node --typescript",
+    "test": "node ./out-test/src/test.js",
 
-    "build-tests-dotnet": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests",
-    "build-tests-dotnet-opt": "npm run build-tests-dotnet -- --optimize",
-    "build-tests-node": "node out-node/app.js ../../../../tests/Main/Fable.Tests.fsproj out-tests",
+    "prebuild-tests": "git clean -fdX && npm run build-lib",
     "prebuild-tests-ts": "git clean -fdX && npm run build-lib-ts",
-    "build-tests-ts": "npm run build-tests-dotnet -- --fableLib out-lib-ts --typescript",
+    "build-tests": "dotnet run -c Release ../../../../tests/Main/Fable.Tests.fsproj out-tests --fableLib out-lib",
+    "build-tests-ts": "npm run build-tests -- --fableLib out-lib-ts --typescript",
+    "build-tests-opt": "npm run build-tests -- --optimize",
+    "build-tests-node": "node out-node/app.js ../../../../tests/Main/Fable.Tests.fsproj out-tests",
     "tests": "npm run mocha -- out-tests -r esm --colors --reporter dot",
 
     "tsc": "node ../../../../node_modules/typescript/bin/tsc",
@@ -58,13 +60,13 @@
     "perf": "perf record -q -e cpu-clock -F 99 -g -- node --perf-basic-prof --interpreted-frames-native-stack dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "perf-es": "perf record -q -e cpu-clock -F 99 -g -- node --perf-basic-prof --interpreted-frames-native-stack ./out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
     "perf-report": "perf report -n --stdio -g srcline -s dso,sym,srcline --inline > perf-report.log",
-    "profile": "node --prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
-    "cpu-prof": "node --cpu-prof --cpu-prof-dir=out-prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
-    "heap-prof": "node --heap-prof dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
+    "profile": "node --prof out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
+    "cpu-prof": "node --cpu-prof --cpu-prof-dir=out-prof out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
+    "heap-prof": "node --heap-prof out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
     "prof-process": "node --prof-process isolate-*.log > profile.log",
     "prof-preprocess": "node --prof-process --preprocess isolate-*.log > profile.v8log.json",
     "speedscope": "speedscope profile.v8log.json",
     "flamegraph": "perf script | ../../../../../FlameGraph/stackcollapse-perf.pl | ../../../../../FlameGraph/flamegraph.pl > perf.svg",
-    "trace": "node --trace-deopt ./out-node/app.js bench-compiler.fsproj out-node2 > deopt.log"
+    "trace": "node --trace-deopt out-node/app.js bench-compiler.fsproj out-node2 > deopt.log"
   }
 }

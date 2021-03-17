@@ -812,7 +812,8 @@ module Util =
     let getUnionCaseName (uci: Fable.UnionCase) =
         match uci.CompiledName with Some cname -> cname | None -> uci.Name
 
-    let getUnionExprTag r expr =
+    let getUnionExprTag (com: IBabelCompiler) ctx r (fableExpr: Fable.Expr) =
+        let expr = com.TransformAsExpr(ctx, fableExpr)
         getExpr r expr (Expression.stringLiteral("tag"))
 
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
@@ -958,8 +959,9 @@ module Util =
         | Fable.EnumConstant(x,_) ->
             com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, genArgs) ->
+            let ent = com.GetEntity(ent)
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-            let consRef = com.GetEntity(ent) |> jsConstructor com ctx
+            let consRef = ent |> jsConstructor com ctx
             let typeParamInst =
                 if com.Options.Typescript && (ent.FullName = Types.reference)
                 then makeGenTypeParamInst com ctx genArgs
@@ -967,11 +969,11 @@ module Util =
             Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-            Array.zip fieldNames values
-            |> makeJsObject
+            Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
-            let consRef = com.GetEntity(ent) |> jsConstructor com ctx
+            let ent = com.GetEntity(ent)
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
+            let consRef = ent |> jsConstructor com ctx
             let typeParamInst =
                 if com.Options.Typescript
                 then makeGenTypeParamInst com ctx genArgs
@@ -1185,8 +1187,8 @@ module Util =
             | statements -> Statement.ifStatement(guardExpr, thenStmnt, Statement.blockStatement(statements), ?loc=r)
             |> Array.singleton
 
-    let transformGet (com: IBabelCompiler) ctx range typ fableExpr (getKind: Fable.GetKind) =
-        match getKind with
+    let transformGet (com: IBabelCompiler) ctx range typ fableExpr kind =
+        match kind with
         | Fable.ByKey key ->
             let fableExpr =
                 match fableExpr with
@@ -1221,21 +1223,21 @@ module Util =
             else expr
 
         | Fable.UnionTag ->
-            com.TransformAsExpr(ctx, fableExpr) |> getUnionExprTag range
+            getUnionExprTag com ctx range fableExpr
 
-        | Fable.UnionField(idx, _) ->
+        | Fable.UnionField(index, _) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt idx)
+            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
 
-    let transformSet (com: IBabelCompiler) ctx range var (value: Fable.Expr) setKind =
-        let var = com.TransformAsExpr(ctx, var)
+    let transformSet (com: IBabelCompiler) ctx range fableExpr (value: Fable.Expr) kind =
+        let expr = com.TransformAsExpr(ctx, fableExpr)
         let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
-        let var =
-            match setKind with
-            | None -> var
-            | Some(Fable.FieldKey fi) -> get None var fi.Name
-            | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None var e
-        assign range var value
+        let ret =
+            match kind with
+            | None -> expr
+            | Some(Fable.FieldKey fi) -> get None expr fi.Name
+            | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None expr e
+        assign range ret value
 
     let transformBindingExprBody (com: IBabelCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
@@ -1276,7 +1278,7 @@ module Util =
             if nonEmpty then Expression.unaryExpression(UnaryNot, expr, ?loc=range) else expr
         | Fable.UnionCaseTest tag ->
             let expected = ofInt tag
-            let actual = com.TransformAsExpr(ctx, expr) |> getUnionExprTag None
+            let actual = getUnionExprTag com ctx None expr
             Expression.binaryExpression(BinaryEqualStrict, actual, expected, ?loc=range)
 
     let transformSwitch (com: IBabelCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
@@ -1541,8 +1543,8 @@ module Util =
         | Fable.Operation(kind, _, range) ->
             transformOperation com ctx range kind
 
-        | Fable.Get(expr, getKind, typ, range) ->
-            transformGet com ctx range typ expr getKind
+        | Fable.Get(expr, kind, typ, range) ->
+            transformGet com ctx range typ expr kind
 
         | Fable.IfThenElse(TransformExpr com ctx guardExpr,
                            TransformExpr com ctx thenExpr,
@@ -1555,8 +1557,8 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccessAsExpr com ctx idx boundValues
 
-        | Fable.Set(var, setKind, value, range) ->
-            transformSet com ctx range var value setKind
+        | Fable.Set(expr, kind, value, range) ->
+            transformSet com ctx range expr value kind
 
         | Fable.Let(ident, value, body) ->
             if ctx.HoistVars [ident] then
@@ -1632,8 +1634,8 @@ module Util =
         | Fable.Operation(kind, t, range) ->
             [|transformOperation com ctx range kind |> resolveExpr t returnStrategy|]
 
-        | Fable.Get(expr, getKind, t, range) ->
-            [|transformGet com ctx range t expr getKind |> resolveExpr t returnStrategy|]
+        | Fable.Get(expr, kind, t, range) ->
+            [|transformGet com ctx range t expr kind |> resolveExpr t returnStrategy|]
 
         | Fable.Let(ident, value, body) ->
             let binding = transformBindingAsStatements com ctx ident value
@@ -1643,13 +1645,8 @@ module Util =
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
             Array.append bindings (transformAsStatements com ctx returnStrategy body)
 
-        | Fable.Set(TransformExpr com ctx expr, kind, value, _range) ->
-            let ret =
-                match kind with
-                | None -> Assign expr
-                | Some(Fable.ExprKey(TransformExpr com ctx prop)) -> getExpr None expr prop |> Assign
-                | Some(Fable.FieldKey fi) -> get None expr fi.Name |> Assign
-            com.TransformAsStatements(ctx, Some ret, value)
+        | Fable.Set(expr, kind, value, range) ->
+            [|transformSet com ctx range expr value kind |> resolveExpr expr.Type returnStrategy|]
 
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
             let asStatement =
@@ -1812,7 +1809,7 @@ module Util =
         |> Seq.toArray
 
     let getEntityFieldsAsProps (com: IBabelCompiler) ctx (ent: Fable.Entity) =
-        if (ent.IsFSharpUnion) then
+        if ent.IsFSharpUnion then
             getUnionFieldsAsIdents com ctx ent
             |> Array.map (fun id ->
                 let prop = identAsExpr id
