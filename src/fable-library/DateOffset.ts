@@ -37,13 +37,34 @@ function checkOffsetInRange(offset?: number) {
 }
 
 export function fromDate(date: IDateTime, offset?: number) {
-  const isUtc = date.kind === DateKind.UTC;
-  const offset2 = isUtc ? 0 : date.getTimezoneOffset() * -60000;
-  if (offset != null && offset !== offset2) {
-    throw new Error(isUtc
-      ? "The UTC Offset for Utc DateTime instances must be 0."
-      : "The UTC Offset of the local dateTime parameter does not match the offset argument.");
+  let offset2: number = 0;
+  switch (date.kind) {
+    case DateKind.UTC:
+      if(offset != null && offset !== 0) {
+        throw new Error("The UTC Offset for Utc DateTime instances must be 0.");
+      }
+      offset2 = 0;
+      break;
+
+    case DateKind.Local:
+      offset2 = date.getTimezoneOffset() * -60_000;
+      if(offset != null && offset !== offset2) {
+        throw new Error("The UTC Offset of the local dateTime parameter does not match the offset argument.");
+      }
+
+      break;
+
+    case DateKind.Unspecified:
+    default:
+      if(offset == null) {
+        offset2 = date.getTimezoneOffset() * -60_000;
+      }
+      else {
+        offset2 = offset;
+      }
+      break;
   }
+
   return DateTimeOffset(date.getTime(), offset2);
 }
 
