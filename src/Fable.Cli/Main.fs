@@ -492,8 +492,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
     let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
 
     let! logs, watchDependencies, state = async {
-        // Skip Fable compilation if there are F# errors
-        if hasFSharpError then
+        // Skip Fable compilation if there are F# errors and it's not watch mode
+        if hasFSharpError && Option.isNone state.Watcher then
             return logs, state.WatchDependencies, state
         else
             use logger = Agent.Start Log.alwaysInSameLine
