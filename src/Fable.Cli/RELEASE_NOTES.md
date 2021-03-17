@@ -1,3 +1,8 @@
+### 3.1.11
+
+* Fix watch compilation issues
+* Fix #2398: two successive string format placeholders and value of first one ends in `%`
+
 ### 3.1.10
 
 * Revert breaking change, configuration should default to Debug only in watch mode @forki
