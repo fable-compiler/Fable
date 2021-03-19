@@ -48,19 +48,12 @@ open Testing
 
 module private RunResult =
 #if FABLE_COMPILER
-    let private isString value : bool =
-        Fable.Core.JsInterop.emitJsExpr
-            (value)
-            // literal string: `"foo"`   // string object: `new String("foo")`
-            "typeof $0 === \"string\" || $0 instanceof String"
     let private stringify result =
-        let stringifyValue value =
-            if value = Fable.Core.JS.undefined then
-                ""  // probably `unit`
-            elif value |> isString then
-                sprintf "\"%s\"" (string value)
-            else
-                sprintf "%A" value
+        let stringifyValue (value: obj) =
+            match value with
+            | _ when value = Fable.Core.JS.undefined -> "" // probably `unit`
+            | :? string as value -> sprintf "\"%s\"" value
+            | _ -> sprintf "%A" value
         let stringifyHead head value =
             match stringifyValue value with
             | "" -> head
