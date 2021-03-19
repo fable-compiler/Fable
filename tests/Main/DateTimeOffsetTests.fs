@@ -507,7 +507,6 @@ let tests =
 
                 // positive range
                 TimeSpan.FromMinutes(30.0), shouldSucceed
-                TimeSpan.FromHours(1.0), shouldSucceed
                 TimeSpan.FromHours(2.0), shouldSucceed
                 TimeSpan(13, 59, 0), shouldSucceed
                 TimeSpan.FromHours(14.0), shouldSucceed
@@ -522,7 +521,6 @@ let tests =
 
                 // negative range
                 TimeSpan.FromMinutes(-30.0), shouldSucceed
-                TimeSpan.FromHours(-1.0), shouldSucceed
                 TimeSpan.FromHours(-2.0), shouldSucceed
                 TimeSpan(-13, -59, 0), shouldSucceed
                 TimeSpan.FromHours(-14.0), shouldSucceed
@@ -631,17 +629,14 @@ let tests =
             yield!
                 offsets
                 |> List.map (fun (offset, _) ->
-                    // ensure offset isn't local offset -> doesn't throw
-                    let offset =
-                        if offset = localOffset then
-                            // adjust towards 0, otherwise might get out of range (+/- 14h)
-                            if offset.TotalHours < 0.0 then
-                                offset.Add(TimeSpan.FromMinutes(1.0))
-                            else
-                                offset.Subtract(TimeSpan.FromMinutes(1.0))
-                        else
-                            offset
-                    (offset, shouldThrowUTCOffsetAndLocalDateTimeDontMatch)
+                    // offset = local offset doesn't throw
+                    if offset = localOffset then
+                        // don't adjust to throw: generated test name might conflict with other test case
+                        // instead emit succeeding test to keep test count same
+                        // -> same as single testCase below (`offset = localOffset (...) succeeds`)
+                        (offset, shouldSucceed)
+                    else
+                        (offset, shouldThrowUTCOffsetAndLocalDateTimeDontMatch)
                 )
                 |> withCtor fromLocalDateTime
                 |> List.map toTestCase
