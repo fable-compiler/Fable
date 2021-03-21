@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <RollForward>Major</RollForward>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
     <OtherFlags>$(OtherFlags) --crossoptimize-</OtherFlags>
@@ -26,12 +26,14 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="5.0.0" />
-    <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="1.0.0-alpha-*" /> -->
+    <!-- <PackageReference Include="source-map-sharp" Version="1.0.3" /> -->
+    <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-*" /> -->
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../../Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../../src/Fable.Standalone.fsproj" />
+    <ProjectReference Include="../../../../../source-map-sharp/source-map-sharp.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

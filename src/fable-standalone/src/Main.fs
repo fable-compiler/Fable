@@ -299,12 +299,10 @@ let init () =
                         member _.Dispose() = writer.Dispose()
                         member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
                         member _.MakeImportPath(path) = writer.MakeImportPath(path)
+                        member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
                         member _.Write(str) = writer.Write(str) }
 
-                let map = { new BabelPrinter.SourceMapGenerator with
-                                member _.AddMapping(_,_,_,_,_) = () }
-
-                BabelPrinter.run writer map babel.Program
+                BabelPrinter.run writer babel.Program
             | _ ->
                 failwith "Unexpected Babel result"
 

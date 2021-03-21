@@ -35,6 +35,19 @@ export function ensureDirExists(dir, cont) {
   }
 }
 
+export function serializeToJson(data) {
+  return JSON.stringify(data, (key, value) => {
+    if (value === Infinity) {
+      return "Infinity";
+    } else if (value === -Infinity) {
+      return "-Infinity";
+    } else if (value !== value) {
+      return "NaN";
+    }
+    return value;
+  });
+}
+
 export function copyFolder(from, dest) {
   if (!fs.existsSync(dest)) {
     ensureDirExists(dest);

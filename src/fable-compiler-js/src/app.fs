@@ -74,18 +74,25 @@ module Imports =
                 else getRelativePath targetDir importPath
             else importPath
 
-type SourceWriter(sourcePath, targetPath, projDir, outDir, fileExt: string, dedupTargetDir) =
+type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, fileExt: string, dedupTargetDir) =
     // In imports *.ts extensions have to be converted to *.js extensions instead
     let fileExt = if fileExt.EndsWith(".ts") then Path.ChangeExtension(fileExt, ".js") else fileExt
     let sb = System.Text.StringBuilder()
+    let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
-        member _.EscapeJsStringLiteral(str) = javaScriptStringEncode(str)
+        member _.EscapeJsStringLiteral(str) = escapeJsString(str)
         member _.MakeImportPath(path) =
-            let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir outDir path
+            let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir options.outDir path
             if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
+        member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
+            if options.sourceMaps then
+                let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
+                let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
+                mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
         member _.Dispose() = ()
-    member __.Result = sb.ToString()
+    member _.SourceMap = mapGenerator.Force().toJSON()
+    member _.Result = sb.ToString()
 
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
     let printError (e: Fable.Standalone.Error) =
@@ -175,34 +182,41 @@ let parseFiles projectFileName options =
                 dedupDic.Add(importDir, v)
                 v
 
-    async {
-        for fileName in fileNames do
+    for fileName in fileNames do
 
-            // print F# AST
-            if options.printAst then
-                let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
-                printfn "%s Typed AST: %s" fileName fsAstStr
+        // print F# AST
+        if options.printAst then
+            let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
+            printfn "%s Typed AST: %s" fileName fsAstStr
 
-            // transform F# AST to Babel AST
-            let res, ms2 = measureTime parseFable (parseRes, fileName)
-            printfn "File: %s, Fable time: %d ms" fileName ms2
-            res.FableErrors |> printErrors showWarnings
+        // transform F# AST to Babel AST
+        let res, ms2 = measureTime parseFable (parseRes, fileName)
+        printfn "File: %s, Fable time: %d ms" fileName ms2
+        res.FableErrors |> printErrors showWarnings
 
-            // print Babel AST as JavaScript/TypeScript
-            let outPath =
-                match options.outDir with
-                | None ->
-                    Path.ChangeExtension(fileName, fileExt)
-                | Some outDir ->
-                    let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
-                    Path.ChangeExtension(absPath, fileExt)
-            let writer = new SourceWriter(fileName, outPath, projDir, options.outDir, fileExt, getOrAddDeduplicateTargetDir)
-            do! fable.PrintBabelAst(res, writer)
+        // print Babel AST as JavaScript/TypeScript
+        let outPath =
+            match options.outDir with
+            | None ->
+                Path.ChangeExtension(fileName, fileExt)
+            | Some outDir ->
+                let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
+                Path.ChangeExtension(absPath, fileExt)
+        let writer = new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)
+        fable.PrintBabelAst(res, writer) |> runAsync
 
-            // write the result to file
-            ensureDirExists(Path.GetDirectoryName(outPath))
-            writeAllText outPath writer.Result
-    } |> runAsync
+        // create output folder
+        ensureDirExists(Path.GetDirectoryName(outPath))
+
+        // write source map to file
+        if options.sourceMaps then
+            let mapPath = outPath + ".map"
+            let sourceMapUrl = "//# sourceMappingURL=" + Path.GetFileName(mapPath)
+            (writer :> Fable.Standalone.IWriter).Write(sourceMapUrl) |> runAsync
+            writeAllText mapPath (serializeToJson writer.SourceMap)
+
+        // write the result to file
+        writeAllText outPath writer.Result
 
 let argValue keys (args: string[]) =
     args
@@ -238,7 +252,7 @@ let run opts projectFileName outDir =
         libDir = opts |> argValue ["--fableLib"]
         benchmark = opts |> hasFlag "--benchmark"
         optimize = opts |> hasFlag "--optimize"
-        // sourceMaps = opts |> hasFlag "--sourceMaps"
+        sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
         typedArrays = opts |> tryFlag "--typedArrays"
                            |> Option.defaultValue (opts |> hasFlag "--typescript" |> not)
         typescript = opts |> hasFlag "--typescript"
@@ -254,11 +268,14 @@ let parseArguments (argv: string[]) =
 Options:
   --help            Show help
   --version         Print version
-  --outDir          Redirect compilation output to a directory
-  --optimize        Compile with optimized F# AST (experimental)
-  --typescript      Compile to TypeScript (experimental)
+  -o|--outDir       Redirect compilation output to a directory
+  -s|--sourceMaps   Enable source maps
+  --fableLib        Specify Fable library path
   --typedArrays     Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)
   --run             Execute the script after compilation
+
+  --typescript      Compile to TypeScript (experimental)
+  --optimize        Compile with optimized F# AST (experimental)
 """
 
     let args, opts =

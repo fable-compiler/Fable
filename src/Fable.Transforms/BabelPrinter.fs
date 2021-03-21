@@ -6,17 +6,12 @@ open Fable
 open Fable.AST
 open Fable.AST.Babel
 
-type SourceMapGenerator =
-    abstract AddMapping:
-        originalLine: int
-        * originalColumn: int
-        * generatedLine: int
-        * generatedColumn: int
-        * ?name: string
-        -> unit
+type SourceMapping =
+    int * int * int * int * string option
 
 type Writer =
     inherit IDisposable
+    abstract AddSourceMapping: SourceMapping -> unit
     abstract EscapeJsStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
@@ -32,7 +27,7 @@ type Printer =
     abstract EscapeJsStringLiteral: string -> string
     abstract MakeImportPath: string -> string
 
-type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
+type PrinterImpl(writer: Writer) =
     // TODO: We can make this configurable later
     let indentSpaces = "    "
     let builder = Text.StringBuilder()
@@ -44,11 +39,12 @@ type PrinterImpl(writer: Writer, map: SourceMapGenerator) =
         match loc with
         | None -> ()
         | Some loc ->
-            map.AddMapping(originalLine = loc.start.line,
-                           originalColumn = loc.start.column,
-                           generatedLine = line,
-                           generatedColumn = column,
-                           ?name = loc.identifierName)
+            writer.AddSourceMapping(
+                loc.start.line,
+                loc.start.column,
+                line,
+                column,
+                loc.identifierName)
 
     member _.Flush(): Async<unit> =
         async {
@@ -1031,7 +1027,7 @@ module PrinterExtensions =
 
 open PrinterExtensions
 
-let run writer map (program: Program): Async<unit> =
+let run writer (program: Program): Async<unit> =
     let printDeclWithExtraLine extraLine (printer: Printer) (decl: ModuleDeclaration) =
         printer.Print(decl)
 
@@ -1042,7 +1038,7 @@ let run writer map (program: Program): Async<unit> =
             printer.PrintNewLine()
 
     async {
-        use printer = new PrinterImpl(writer, map)
+        use printer = new PrinterImpl(writer)
 
         let imports, restDecls =
             program.Body |> Array.splitWhile (function

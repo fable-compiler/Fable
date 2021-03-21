@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="source-map-sharp" Version="1.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
 
