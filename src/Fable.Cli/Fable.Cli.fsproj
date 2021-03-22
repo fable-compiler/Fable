@@ -37,7 +37,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
-    <PackageReference Include="source-map-sharp" Version="1.0.2" />
+    <PackageReference Include="source-map-sharp" Version="1.0.5" />
     <!-- <PackageReference Include="FSharp.Core" Version="5.0.0" /> -->
   </ItemGroup>
 </Project>
