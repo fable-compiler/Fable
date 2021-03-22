@@ -31,6 +31,7 @@
     <Compile Include="Util/Util2.fs" />
     <Compile Include="Util/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
+    <Compile Include="Util/UtilTests.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ArrayTests.fs" />
