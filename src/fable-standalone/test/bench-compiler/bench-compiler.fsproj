@@ -26,14 +26,13 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="5.0.0" />
-    <!-- <PackageReference Include="source-map-sharp" Version="1.0.3" /> -->
+    <PackageReference Include="source-map-sharp" Version="1.0.3" />
     <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-*" /> -->
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../../Fable.Core/Fable.Core.fsproj" />
     <ProjectReference Include="../../src/Fable.Standalone.fsproj" />
-    <ProjectReference Include="../../../../../source-map-sharp/source-map-sharp.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
