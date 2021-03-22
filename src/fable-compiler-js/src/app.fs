@@ -182,41 +182,43 @@ let parseFiles projectFileName options =
                 dedupDic.Add(importDir, v)
                 v
 
-    for fileName in fileNames do
+    async {
+        for fileName in fileNames do
 
-        // print F# AST
-        if options.printAst then
-            let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
-            printfn "%s Typed AST: %s" fileName fsAstStr
+            // print F# AST
+            if options.printAst then
+                let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
+                printfn "%s Typed AST: %s" fileName fsAstStr
 
-        // transform F# AST to Babel AST
-        let res, ms2 = measureTime parseFable (parseRes, fileName)
-        printfn "File: %s, Fable time: %d ms" fileName ms2
-        res.FableErrors |> printErrors showWarnings
+            // transform F# AST to Babel AST
+            let res, ms2 = measureTime parseFable (parseRes, fileName)
+            printfn "File: %s, Fable time: %d ms" fileName ms2
+            res.FableErrors |> printErrors showWarnings
 
-        // print Babel AST as JavaScript/TypeScript
-        let outPath =
-            match options.outDir with
-            | None ->
-                Path.ChangeExtension(fileName, fileExt)
-            | Some outDir ->
-                let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
-                Path.ChangeExtension(absPath, fileExt)
-        let writer = new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)
-        fable.PrintBabelAst(res, writer) |> runAsync
+            // print Babel AST as JavaScript/TypeScript
+            let outPath =
+                match options.outDir with
+                | None ->
+                    Path.ChangeExtension(fileName, fileExt)
+                | Some outDir ->
+                    let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
+                    Path.ChangeExtension(absPath, fileExt)
+            let writer = new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)
+            do! fable.PrintBabelAst(res, writer)
 
-        // create output folder
-        ensureDirExists(Path.GetDirectoryName(outPath))
+            // create output folder
+            ensureDirExists(Path.GetDirectoryName(outPath))
 
-        // write source map to file
-        if options.sourceMaps then
-            let mapPath = outPath + ".map"
-            let sourceMapUrl = "//# sourceMappingURL=" + Path.GetFileName(mapPath)
-            (writer :> Fable.Standalone.IWriter).Write(sourceMapUrl) |> runAsync
-            writeAllText mapPath (serializeToJson writer.SourceMap)
+            // write source map to file
+            if options.sourceMaps then
+                let mapPath = outPath + ".map"
+                let sourceMapUrl = "//# sourceMappingURL=" + Path.GetFileName(mapPath)
+                do! (writer :> Fable.Standalone.IWriter).Write(sourceMapUrl)
+                writeAllText mapPath (serializeToJson writer.SourceMap)
 
-        // write the result to file
-        writeAllText outPath writer.Result
+            // write the result to file
+            writeAllText outPath writer.Result
+    } |> runAsync
 
 let argValue keys (args: string[]) =
     args
