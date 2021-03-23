@@ -85,9 +85,11 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: FSharpType
         match genParams.TryGetValue(t.GenericParameter.Name) with
         | true, i -> i
         | false, _ -> getGenericParamConstrainsHash genParams t.GenericParameter
-    elif t.IsTupleType
-    then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
-    elif t.IsFunctionType
+    elif t.IsTupleType then
+        let genArgs = t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " * "
+        if t.IsStructTupleType then "struct " + genArgs
+        else genArgs
+      elif t.IsFunctionType
     then t.GenericArguments |> Seq.map (getTypeFastFullName genParams) |> String.concat " -> "
     elif t.IsAnonRecordType then
         Seq.zip t.AnonRecordTypeDetails.SortedFieldNames t.GenericArguments
