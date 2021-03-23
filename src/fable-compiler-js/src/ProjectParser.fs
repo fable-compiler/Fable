@@ -3,8 +3,6 @@ module Fable.Compiler.ProjectParser
 open Fable.Compiler.Platform
 open System.Collections.Generic
 open System.Text.RegularExpressions
-open Fable.Core
-open Fable.Core.JsInterop
 
 type ReferenceType =
     | ProjectReference of string

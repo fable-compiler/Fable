@@ -103,6 +103,13 @@ let tests =
         System.Predicate<_> (fun x -> x = 2.) |> li.FindLastIndex |> equal 3
         System.Predicate<_> (fun x -> x = 0.) |> li.FindLastIndex |> equal -1
 
+    testCase "ResizeArray.ForEach works" <| fun () ->
+        let li = ResizeArray<_>()
+        let mutable sum = 0
+        li.Add(1); li.Add(2); li.Add(3); li.Add(4); li.Add(5)
+        System.Action<_> (fun x -> sum <- sum + x) |> li.ForEach
+        sum |> equal 15
+
     testCase "ResizeArray indexer getter works" <| fun () ->
         let li = ResizeArray<_>()
         li.Add(1.); li.Add(2.); li.Add(3.); li.Add(4.); li.Add(5.)
@@ -130,6 +137,13 @@ let tests =
         let li = ResizeArray<_>()
         li.AddRange [1;2;3]
         equal 3 li.Count
+
+    testCase "ResizeArray.InsertRange works" <| fun () ->
+        let li = ResizeArray<_>()
+        let mutable sum = 0
+        li.Add(1); li.Add(2); li.Add(5)
+        li.InsertRange(2, [3;4])
+        Seq.toList li |> equal [1;2;3;4;5]
 
     testCase "ResizeArray.GetRange works" <| fun () ->
         let li = ResizeArray<_>()
@@ -224,6 +238,12 @@ let tests =
         ns.Sort(fun x y -> if x < y then 1 else -1)
         Seq.toList ns |> equal [3; 2; 1]
         ns.Sort(compare)
+        Seq.toList ns |> equal [1;2;3]
+
+    testCase "ResizeArray.SortInPlaceWith works with custom comparer" <| fun () -> // See #1386
+        let ns = ResizeArray<int> [1;3;2]
+        let comparer = System.Collections.Generic.Comparer<int>.Default
+        ns.Sort(comparer)
         Seq.toList ns |> equal [1;2;3]
 
     testCase "ResizeArray.ToArray works" <| fun () ->

@@ -60,6 +60,10 @@ module Helpers =
         !!array?push(item)
 
     // Typed arrays not supported, only dynamic ones do
+    let inline insertImpl (array: 'T[]) (index: int) (item: 'T): 'T[] =
+        !!array?splice(index, 0, item)
+
+    // Typed arrays not supported, only dynamic ones do
     let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int): 'T[] =
         !!array?splice(start, deleteCount)
 
@@ -372,6 +376,13 @@ let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
     for x in range do
         addInPlace x array
+
+let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
+    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
+    let mutable i = index
+    for x in range do
+        insertImpl array i x |> ignore
+        i <- i + 1
 
 let removeInPlace (item: 'T) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"

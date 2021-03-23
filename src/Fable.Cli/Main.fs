@@ -139,6 +139,7 @@ module private Util =
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
+        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
@@ -152,6 +153,13 @@ module private Util =
                     changeFsExtension isInFableHiddenDir path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
+            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
+                if cliArgs.SourceMaps then
+                    let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
+                    let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
+                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
+        member _.SourceMap =
+            mapGenerator.Force().toJSON()
 
     let compileFile (cliArgs: CliArgs) dedupTargetDir logger (com: CompilerImpl) = async {
         try
@@ -159,28 +167,6 @@ module private Util =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
-
-            let mapPrinter, mapGen =
-                if cliArgs.SourceMaps then
-                    let mapGenerator = SourceMapSharp.SourceMapGenerator()
-
-                    let print outPath = async {
-                        let mapPath = outPath + ".map"
-                        do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                        use sw = IO.File.Open(mapPath, IO.FileMode.Create)
-                        do! Text.Json.JsonSerializer.SerializeAsync(sw, mapGenerator.toJSON()) |> Async.AwaitTask
-                    }
-
-                    print, { new BabelPrinter.SourceMapGenerator with
-                        member _.AddMapping(orLine, orCol, genLine, genCol, name) =
-                            let generated: SourceMapSharp.Util.MappingIndex =
-                                {line = genLine; column = genCol}
-                            let original: SourceMapSharp.Util.MappingIndex =
-                                {line = orLine; column = orCol}
-                            mapGenerator.AddMapping(generated, original, source=com.CurrentFile, ?name=name) }
-                else
-                    Async.ignore, { new BabelPrinter.SourceMapGenerator with
-                        member _.AddMapping(_,_,_,_,_) = () }
 
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
@@ -190,8 +176,14 @@ module private Util =
 
             // write output to file
             let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-            do! BabelPrinter.run writer mapGen babel
-            do! mapPrinter outPath
+            do! BabelPrinter.run writer babel
+
+            // write source map to file
+            if cliArgs.SourceMaps then
+                let mapPath = outPath + ".map"
+                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                use sw = IO.File.Open(mapPath, IO.FileMode.Create)
+                do! Text.Json.JsonSerializer.SerializeAsync(sw, writer.SourceMap) |> Async.AwaitTask
 
             logger("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 

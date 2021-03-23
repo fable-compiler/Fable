@@ -36,6 +36,9 @@ type Completion =
     { Name: string
       Glyph: Glyph }
 
+type SourceMapping =
+    int * int * int * int * string option
+
 type IChecker =
     interface end
 
@@ -48,6 +51,7 @@ type IBabelResult =
 
 type IWriter =
     inherit System.IDisposable
+    abstract AddSourceMapping: SourceMapping -> unit
     abstract EscapeJsStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>

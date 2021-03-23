@@ -5,7 +5,7 @@ type CmdLineOptions = {
     libDir: string option
     benchmark: bool
     optimize: bool
-    // sourceMaps: bool
+    sourceMaps: bool
     typedArrays: bool
     typescript: bool
     printAst: bool
@@ -26,7 +26,7 @@ let measureTime (f: 'a -> 'b) x =
     sw.Stop()
     res, sw.ElapsedMilliseconds
 
-let javaScriptStringEncode (str: string) =
+let escapeJsString (str: string) =
     System.Web.HttpUtility.JavaScriptStringEncode(str)
 
 let ensureDirExists (path: string): unit =
@@ -63,6 +63,9 @@ let getGlobFiles (path: string) =
         |> Array.sort
     else [| path |]
 
+let serializeToJson (value: obj) =
+    System.Text.Json.JsonSerializer.Serialize(value)
+
 #else
 
 open Fable.Core.JsInterop
@@ -93,7 +96,8 @@ module JS =
     type IUtil =
         abstract getDirFiles: dir: string -> string[]
         abstract ensureDirExists: dir: string -> unit
-        abstract escapeJsStringLiteral: string -> string
+        abstract escapeJsStringLiteral: str: string -> string
+        abstract serializeToJson: data: obj -> string
 
     // type IPerformance =
     //     abstract now: unit -> float
@@ -122,10 +126,9 @@ let measureTime (f: 'a -> 'b) x =
     let elapsed = JS.proc.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
-let javaScriptStringEncode (str: string) =
-    JS.util.escapeJsStringLiteral(str)
-
-let ensureDirExists = JS.util.ensureDirExists
+let escapeJsString (str: string) = JS.util.escapeJsStringLiteral(str)
+let ensureDirExists (dir: string) = JS.util.ensureDirExists(dir)
+let serializeToJson (data: obj) = JS.util.serializeToJson(data)
 
 let normalizePath (path: string) =
     path.Replace('\\', '/')
