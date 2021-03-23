@@ -576,9 +576,6 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal m.Tree = tree
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "FSharpMap"
-
     member m.Add(key, value) : Map<'Key, 'Value> =
 // #if TRACE_SETS_AND_MAPS
 //         MapTree.report()
@@ -698,6 +695,13 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
                                   ((e1c.Key = e2c.Key) && (Unchecked.equals e1c.Value e2c.Value) && loop())))
             loop()
         | _ -> false
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "FSharpMap"
+
+    interface Fable.Core.IJsonSerializable with
+        member this.toJSON(_key) =
+            Fable.Core.JS.Constructors.Array.from(this) |> box
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member __.GetEnumerator() = MapTree.mkIEnumerator tree

@@ -14,9 +14,6 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
     // new () = MutableMap (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableMap (Seq.empty, comparer)
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "Dictionary"
-
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
         match hashMap.TryGetValue h with
@@ -78,6 +75,13 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             true
         | _, _, _ ->
             false
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "Dictionary"
+
+    interface Fable.Core.IJsonSerializable with
+        member this.toJSON(_key) =
+            Fable.Core.JS.Constructors.Array.from(this) |> box
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator(): System.Collections.IEnumerator =

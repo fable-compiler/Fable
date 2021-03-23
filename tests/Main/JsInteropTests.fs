@@ -200,6 +200,26 @@ let tests =
         x.dileHola("Pepe") |> equal "Hola, Pepe???"
 
 #if FABLE_COMPILER
+    testCase "List can be JSON serialized" <| fun () ->
+        let x = [3; 2; 1]
+        JS.JSON.stringify(x)
+        |> equal "[3,2,1]"
+
+    testCase "Set can be JSON serialized" <| fun () ->
+        let x = set ["b"; "a"; "b"]
+        JS.JSON.stringify(x)
+        |> equal """["a","b"]"""
+
+    testCase "Map can be JSON serialized" <| fun () ->
+        let x = Map [ "b", 3; "a", 1; "b", 2]
+        JS.JSON.stringify(x)
+        |> equal """[["a",1],["b",2]]"""
+
+    testCase "BigInt can be JSON serialized" <| fun () ->
+        let x = 291865927421743871985719734712342981734987481I
+        JS.JSON.stringify(x)
+        |> equal "\"291865927421743871985719734712342981734987481\""
+
     testCase "Class with attached members can be sent to JS" <| fun _ ->
         let handleClass (cons: obj): string = importMember "./js/1foo.js"
         jsConstructor<ClassWithAttachments>

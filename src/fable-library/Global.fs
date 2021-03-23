@@ -11,3 +11,6 @@ type IGenericAverager<'T> =
 
 type Symbol_wellknown =
     abstract ``Symbol.toStringTag``: string
+
+type IJsonSerializable =
+    abstract toJSON: key: string -> obj

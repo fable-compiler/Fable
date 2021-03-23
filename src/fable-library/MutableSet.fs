@@ -14,9 +14,6 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
     // new () = MutableSet (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableSet (Seq.empty, comparer)
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "HashSet"
-
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
         match hashMap.TryGetValue h with
@@ -65,6 +62,13 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
             true
         | _, _, _ ->
             false
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "HashSet"
+
+    interface Fable.Core.IJsonSerializable with
+        member this.toJSON(_key) =
+            Fable.Core.JS.Constructors.Array.from(this) |> box
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator(): System.Collections.IEnumerator =

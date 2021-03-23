@@ -85,6 +85,10 @@ type LinkedList<'T when 'T: comparison> =
                 else loop (i + 1) (combineHash i h (hash xs.head)) t
         loop 0 0 xs
 
+    interface IJsonSerializable with
+        member this.toJSON(_key) =
+            JS.Constructors.Array.from(this) |> box
+
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
             let ys = other :?> 'T list

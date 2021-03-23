@@ -641,9 +641,6 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     static member Empty comparer: Set<'T> =
         Set<'T>(comparer, SetTree.empty)
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "FSharpSet"
-
     member s.Add value: Set<'T> =
 // #if TRACE_SETS_AND_MAPS
 //         SetTree.report()
@@ -775,6 +772,13 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
         | :? Set<'T> as that ->
             SetTree.compare this.Comparer this.Tree that.Tree = 0
         | _ -> false
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "FSharpSet"
+
+    interface IJsonSerializable with
+        member this.toJSON(_key) =
+            JS.Constructors.Array.from(this) |> box
 
     interface System.IComparable with
         member s.CompareTo(that: obj) = SetTree.compare s.Comparer s.Tree ((that :?> Set<'T>).Tree)

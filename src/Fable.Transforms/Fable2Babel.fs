@@ -595,6 +595,8 @@ module Util =
         | Fable.Sequential _ | Fable.Let _ | Fable.LetRec _ | Fable.Set _
         | Fable.ForLoop _ | Fable.WhileLoop _ -> true
 
+        // TODO: If IsJsSatement is false, still try to infer it? See #2414
+        // /^\s*(break|continue|debugger|while|for|switch|if|try|let|const|var)\b/
         | Fable.Emit(i,_,_) -> i.IsJsStatement
 
         | Fable.DecisionTreeSuccess(targetIndex,_, _) ->
