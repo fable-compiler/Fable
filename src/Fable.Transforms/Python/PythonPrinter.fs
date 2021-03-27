@@ -247,7 +247,17 @@ module PrinterExtensions =
 
         member printer.Print(af: AsyncFunctionDef) = printer.Print("(AsyncFunctionDef)")
 
-        member printer.Print(im: Import) = printer.Print("(Import)")
+        member printer.Print(im: Import) =
+            if not (List.isEmpty im.Names) then
+                printer.Print("import ")
+
+                if List.length im.Names > 1 then
+                    printer.Print("(")
+
+                printer.PrintCommaSeparatedList(im.Names)
+
+                if List.length im.Names > 1 then
+                    printer.Print(")")
 
         member printer.Print(im: ImportFrom) =
             let (Identifier path) = im.Module |> Option.defaultValue (Identifier ".")

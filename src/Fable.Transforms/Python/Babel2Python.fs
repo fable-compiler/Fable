@@ -130,7 +130,7 @@ module Util =
 
         match name with
         | "math" ->
-            com.GetImportExpr(ctx, "math", name="math") |> ignore
+            com.GetImportExpr(ctx, "math") |> ignore
         | _ -> ()
 
         Python.Identifier name
@@ -167,41 +167,32 @@ module Util =
             | Babel.ImportMemberSpecifier (local, imported) ->
                 printfn "ImportMemberSpecifier"
 
-                let alias =
-                    Alias.alias (
-                        Python.Identifier(imported.Name),
-                        if imported.Name <> local.Name then
-                            com.GetIdentifier(ctx, local.Name) |> Some
-                        else
-                            None
-                    )
-
+                let asname =
+                    if imported.Name <> local.Name then
+                        com.GetIdentifier(ctx, local.Name) |> Some
+                    else
+                        None
+                let alias = Alias.alias(Python.Identifier(imported.Name),?asname=asname)
                 importFroms.Add(alias)
             | Babel.ImportDefaultSpecifier (local) ->
                 printfn "ImportDefaultSpecifier"
 
-                let alias =
-                    Alias.alias (
-                        Python.Identifier(pymodule),
-                        if local.Name <> pymodule then
-                            Python.Identifier(local.Name) |> Some
-                        else
-                            None
-                    )
-
+                let asname =
+                    if local.Name <> pymodule then
+                        Python.Identifier(local.Name) |> Some
+                    else
+                        None
+                let alias = Alias.alias (Python.Identifier(pymodule), ?asname=asname)
                 imports.Add(alias)
             | Babel.ImportNamespaceSpecifier (Identifier (name = name)) ->
                 printfn "ImportNamespaceSpecifier: %A" (name, name)
 
-                let alias =
-                    Alias.alias (
-                        Python.Identifier(pymodule),
-                        if pymodule <> name then
-                            Python.Identifier(name) |> Some
-                        else
-                            None
-                    )
-
+                let asname =
+                    if pymodule <> name then
+                        Python.Identifier(name) |> Some
+                    else
+                        None
+                let alias = Alias.alias(Python.Identifier(pymodule), ?asname=asname)
                 importFroms.Add(alias)
 
         [ if imports.Count > 0 then
@@ -829,15 +820,18 @@ module Util =
         let imports = com.GetAllImports()
         Module.module' (imports @ stmt)
 
-    let getIdentForImport (ctx: Context) (moduleName: string) (name: string) =
-        if String.IsNullOrEmpty name then
-            None
-        else
+    let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
+        // import math
+        // from seq import a
+        match name with
+        | None ->
+            Path.GetFileNameWithoutExtension(moduleName)
+            |> Python.Identifier
+            |> Some
+        | Some name ->
             match name with
             | "*"
-            | "default" -> Path.GetFileNameWithoutExtension(moduleName)
             | _ -> name
-            //|> getUniqueNameInRootScope ctx
             |> Python.Identifier
             |> Some
 
@@ -846,7 +840,7 @@ module Compiler =
 
     type PythonCompiler (com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
-        let imports = Dictionary<string, ImportFrom>()
+        let imports = Dictionary<string, Python.Statement>()
 
         interface IPythonCompiler with
             member _.WarnOnlyOnce(msg, ?range) =
@@ -854,38 +848,38 @@ module Compiler =
                     addWarning com [] range msg
 
             member bcom.GetIdentifier(ctx, name) = getIdentifier bcom ctx name
-            member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
+            member _.GetImportExpr(ctx, moduleName, ?name, ?loc) =
                 let cachedName = moduleName + "::" + defaultArg name "module"
 
-                match imports.TryGetValue(cachedName), name with
-                | (true, { Names = [ { AsName = localIdent } ] }), _ ->
+                match imports.TryGetValue(cachedName) with
+                | (true, ImportFrom { Names = [ { AsName = localIdent } ] }) ->
                     match localIdent with
                     | Some localIdent -> localIdent |> Some
                     | None -> None
-                | _, Some name ->
+                | _ ->
                     let localId = getIdentForImport ctx moduleName name
 
-                    let nameId =
-                        if name = Naming.placeholder then
-                            "`importMember` must be assigned to a variable"
-                            |> addError com [] r
-
-                            (name |> Python.Identifier)
-                        else
+                    match name with
+                    | Some name ->
+                        let nameId =
+                            if name = Naming.placeholder then
+                                "`importMember` must be assigned to a variable"
+                                |> addError com [] loc
                             name |> Python.Identifier
 
-                    let i = ImportFrom.importFrom(Python.Identifier moduleName |> Some, [ Alias.alias (nameId, localId) ])
-                    imports.Add(cachedName, i)
+                        let i = Statement.importFrom(Python.Identifier moduleName |> Some, [ Alias.alias (nameId, ?asname=localId) ])
+                        imports.Add(cachedName, i)
+                     | None ->
+                        let i = Statement.import([ Alias.alias (Python.Identifier moduleName)])
+                        imports.Add(cachedName, i)
 
                     match localId with
                     | Some localId -> localId |> Some
                     | None -> None
-                | _ -> None
 
             member _.GetAllImports() =
                 imports.Values
                 |> List.ofSeq
-                |> List.map ImportFrom
 
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformExpressionAsStatements bcom ctx ret e

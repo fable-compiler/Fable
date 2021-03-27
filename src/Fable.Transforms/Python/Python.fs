@@ -929,8 +929,7 @@ module PythonExtensions =
               Loc = loc }
 
     type Alias with
-
-        static member alias(name, asname) = { Name = name; AsName = asname }
+        static member alias(name, ?asname) = { Name = name; AsName = asname }
 
     type Try with
 
