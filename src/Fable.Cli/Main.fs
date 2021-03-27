@@ -139,6 +139,7 @@ module private Util =
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
+        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask

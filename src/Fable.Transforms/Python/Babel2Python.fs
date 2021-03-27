@@ -37,8 +37,8 @@ type Context =
 type IPythonCompiler =
     inherit Compiler
     abstract GetAllImports: unit -> Python.Statement list
-
-    abstract GetImportExpr: Context * name: string * moduleName: string * SourceLocation option -> Python.Identifier option
+    abstract GetIdentifier: ctx: Context * name: string -> Python.Identifier
+    abstract GetImportExpr: ctx: Context * moduleName: string * ?name: string * ?loc: SourceLocation -> Python.Identifier option
 
     abstract TransformAsExpr: Context * Babel.Expression -> Python.Expression * Python.Statement list
     abstract TransformAsStatements: Context * ReturnStrategy * Babel.Expression -> Python.Statement list
@@ -65,18 +65,20 @@ type IPythonCompiler =
 module Helpers =
     let index = (Seq.initInfinite id).GetEnumerator()
 
-    let getIdentifier (name: string): Python.Identifier =
+    let getUniqueIdentifier (name: string): Python.Identifier =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
         Python.Identifier($"{name}_{idx}")
 
 
-    /// Replaces all '$' with '_'
-    let cleanNameAsPythonIdentifier (name: string) =
+    /// Replaces all '$' and `.`with '_'
+    let clean (name: string) =
         match name with
-        | "this" -> "self" // TODO: Babel should use ThisExpression to avoid this hack.
+        | "this" -> "self"
         | "async" -> "asyncio"
-        | _ -> name.Replace('$', '_').Replace('.', '_')
+        | "Math" -> "math"
+        | _ ->
+            name.Replace('$', '_').Replace('.', '_')
 
     let rewriteFableImport moduleName =
         let _reFableLib =
@@ -87,7 +89,7 @@ module Helpers =
         if m.Groups.Count > 1 then
             let pymodule =
                 m.Groups.["module"].Value.ToLower()
-                |> cleanNameAsPythonIdentifier
+                |> clean
 
             let moduleName = String.concat "." [ "fable"; pymodule ]
 
@@ -95,7 +97,6 @@ module Helpers =
         else
             // TODO: Can we expect all modules to be lower case?
             let moduleName = moduleName.Replace("/", "").ToLower()
-            printfn "moduleName: %s" moduleName
             moduleName
 
     let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
@@ -124,13 +125,15 @@ module Helpers =
         | _ -> Some stmt
 
 module Util =
-    let makeImportTypeId (com: IPythonCompiler) ctx moduleName typeName =
-        let expr =
-            com.GetImportExpr(ctx, typeName, getLibPath com moduleName, None)
+    let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
+        let name = Helpers.clean name
 
-        match expr with
-        | Some (id) -> id
-        | _ -> Python.Identifier typeName
+        match name with
+        | "math" ->
+            com.GetImportExpr(ctx, "math", name="math") |> ignore
+        | _ -> ()
+
+        Python.Identifier name
 
     let rec transformBody (returnStrategy: ReturnStrategy) (body: Python.Statement list) =
         let body = body |> List.choose Helpers.isProductiveStatement
@@ -168,7 +171,7 @@ module Util =
                     Alias.alias (
                         Python.Identifier(imported.Name),
                         if imported.Name <> local.Name then
-                            Python.Identifier(local.Name) |> Some
+                            com.GetIdentifier(ctx, local.Name) |> Some
                         else
                             None
                     )
@@ -265,8 +268,7 @@ module Util =
                               match key with
                               | Expression.Identifier (id) -> Python.Identifier(id.Name)
                               | Expression.Literal(Literal.StringLiteral(StringLiteral(value=name))) ->
-                                let name = Helpers.cleanNameAsPythonIdentifier(name)
-                                Python.Identifier(name)
+                                com.GetIdentifier(ctx, name)
                               | _ -> failwith $"transformAsClassDef: Unknown key: {key}"
 
                           FunctionDef.Create(name, arguments, body = body)
@@ -281,9 +283,9 @@ module Util =
                   | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}" ]
 
         printfn $"Body length: {body.Length}: ${body}"
-        let name = Helpers.cleanNameAsPythonIdentifier (id.Value.Name)
+        let name = com.GetIdentifier(ctx, id.Value.Name)
 
-        [ yield! stmts; Statement.classDef (Python.Identifier(name), body = body, bases = bases) ]
+        [ yield! stmts; Statement.classDef(name, body = body, bases = bases) ]
 
     let transformAsFunction
         (com: IPythonCompiler)
@@ -297,17 +299,16 @@ module Util =
             |> List.ofArray
             |> List.map
                 (fun pattern ->
-                    let name = Helpers.cleanNameAsPythonIdentifier (pattern.Name)
-                    Arg.arg (Python.Identifier(name)))
+                    let ident = com.GetIdentifier(ctx, pattern.Name)
+                    Arg.arg (ident))
 
         let arguments = Arguments.arguments (args = args)
 
         let body =
             com.TransformAsStatements(ctx, ReturnStrategy.Return, body |> Statement.BlockStatement)
 
-        let name = Helpers.cleanNameAsPythonIdentifier (name.Name)
-
-        FunctionDef.Create(Python.Identifier(name), arguments, body = body)
+        let name = com.GetIdentifier(ctx, name.Name)
+        FunctionDef.Create(name, arguments, body = body)
 
     /// Transform Babel expression as Python expression
     let rec transformAsExpr (com: IPythonCompiler) (ctx: Context) (expr: Babel.Expression): Python.Expression * list<Python.Statement> =
@@ -398,7 +399,7 @@ module Util =
                 Expression.lambda (arguments, body), stmts
             | _ ->
                 let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
-                let name = Helpers.getIdentifier "lifted"
+                let name = Helpers.getUniqueIdentifier "lifted"
 
                 let func =
                     FunctionDef.Create(name = name, args = arguments, body = body)
@@ -426,8 +427,8 @@ module Util =
         | Expression.Literal (Literal.StringLiteral (StringLiteral.StringLiteral (value = value))) ->
             Expression.constant (value = value), []
         | Expression.Identifier (Identifier (name = name)) ->
-            let name = Helpers.cleanNameAsPythonIdentifier name
-            Expression.name (id = Python.Identifier name), []
+            let name = com.GetIdentifier(ctx, name)
+            Expression.name (id = name), []
         | NewExpression (callee = callee; arguments = args) -> // FIXME: use transformAsCall
             let func, stmts = com.TransformAsExpr(ctx, callee)
 
@@ -457,7 +458,7 @@ module Util =
                               |> List.map (fun pattern -> Arg.arg (Python.Identifier pattern.Name))
 
                           let arguments = Arguments.arguments (args = args)
-                          let name = Helpers.getIdentifier "lifted"
+                          let name = Helpers.getUniqueIdentifier "lifted"
 
                           let func =
                               FunctionDef.Create(name = name, args = arguments, body = body)
@@ -515,32 +516,16 @@ module Util =
                 | _ -> value
             let func = Expression.name("getattr")
             Expression.call(func=func, args=[value; attr]), stmts
-        | Expression.MemberExpression (computed=false; object = object; property = property) ->
+        | MemberExpression (computed=false; object = object; property = property) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
 
             let attr =
                 match property with
-                | Expression.Identifier (Identifier (name = name)) -> Python.Identifier(name)
+                | Expression.Identifier (Identifier (name = name)) -> com.GetIdentifier(ctx, name)
                 | _ -> failwith $"transformAsExpr: unknown property {property}"
-
-            let value =
-                match value with
-                | Name { Id = Python.Identifier (id)
-                         Context = ctx } ->
-                    // TODO: Need to make this more generic and robust
-                    let id =
-                        if id = "Math" then
-                            //com.imports.Add("math", )
-                            "math"
-                        else
-                            id
-
-                    Expression.name (id = Python.Identifier(id), ctx = ctx)
-                | _ -> value
-
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Expression.Literal (Literal.BooleanLiteral (value = value)) -> Expression.constant (value = value), []
-        | Expression.FunctionExpression (``params`` = parms; body = body) ->
+        | FunctionExpression (``params`` = parms; body = body) ->
             let args =
                 parms
                 |> List.ofArray
@@ -555,20 +540,20 @@ module Util =
             | _ ->
                 let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
 
-                let name = Helpers.getIdentifier "lifted"
+                let name = Helpers.getUniqueIdentifier "lifted"
 
                 let func =
                     FunctionDef.Create(name = name, args = arguments, body = body)
 
                 Expression.name (name), [ func ]
-        | Expression.ConditionalExpression (test = test; consequent = consequent; alternate = alternate) ->
+        | ConditionalExpression (test = test; consequent = consequent; alternate = alternate) ->
             let test, stmts1 = com.TransformAsExpr(ctx, test)
             let body, stmts2 = com.TransformAsExpr(ctx, consequent)
             let orElse, stmts3 = com.TransformAsExpr(ctx, alternate)
 
             Expression.ifExp (test, body, orElse), stmts1 @ stmts2 @ stmts3
         | Expression.Literal (Literal.NullLiteral (nl)) -> Expression.name (Python.Identifier("None")), []
-        | Expression.SequenceExpression (expressions = exprs) ->
+        | SequenceExpression (expressions = exprs) ->
             // Sequence expressions are tricky. We currently convert them to a function that we call w/zero arguments
             let stmts =
                 exprs
@@ -585,7 +570,7 @@ module Util =
             //             else
             //                 Statement.expr (n))
 
-            let name = Helpers.getIdentifier ("lifted")
+            let name = Helpers.getUniqueIdentifier ("lifted")
 
             let func =
                 FunctionDef.Create(name = name, args = Arguments.arguments [], body = stmts)
@@ -626,13 +611,11 @@ module Util =
             let targets, stmts2: Python.Expression list * Python.Statement list =
                 match left with
                 | Expression.Identifier (Identifier (name = name)) ->
-                    let target =
-                        Python.Identifier(Helpers.cleanNameAsPythonIdentifier (name))
+                    let target = com.GetIdentifier(ctx, name)
 
                     [ Expression.name (id = target, ctx = Store) ], []
                 | MemberExpression (property = Expression.Identifier (id); object = object) ->
-                    let attr =
-                        Python.Identifier(Helpers.cleanNameAsPythonIdentifier (id.Name))
+                    let attr = com.GetIdentifier(ctx, id.Name)
 
                     let value, stmts = com.TransformAsExpr(ctx, object)
                     [ Expression.attribute (value = value, attr = attr, ctx = Store) ], stmts
@@ -658,7 +641,7 @@ module Util =
             [ yield! com.TransformAsStatements(ctx, returnStrategy, bs) ]
             |> transformBody returnStrategy
 
-        | Statement.ReturnStatement (argument = arg) ->
+        | ReturnStatement (argument = arg) ->
             let expr, stmts = transformAsExpr com ctx arg
 
             match returnStrategy with
@@ -667,8 +650,8 @@ module Util =
         | Statement.Declaration (Declaration.VariableDeclaration (VariableDeclaration (declarations = declarations))) ->
             [ for (VariableDeclarator (id = id; init = init)) in declarations do
                   let targets: Python.Expression list =
-                      let name = Helpers.cleanNameAsPythonIdentifier (id.Name)
-                      [ Expression.name (id = Python.Identifier(name), ctx = Store) ]
+                      let name = com.GetIdentifier(ctx, id.Name)
+                      [ Expression.name (id = name, ctx = Store) ]
 
                   match init with
                   | Some value ->
@@ -676,7 +659,7 @@ module Util =
                       yield! stmts
                       Statement.assign (targets, expr)
                   | None -> () ]
-        | Statement.ExpressionStatement (expr = expression) ->
+        | ExpressionStatement (expr = expression) ->
             // Handle Babel expressions that we need to transforme here as Python statements
             match expression with
             | Expression.AssignmentExpression (_) -> com.TransformAsStatements(ctx, returnStrategy, expression)
@@ -684,7 +667,7 @@ module Util =
                 [ let expr, stmts = com.TransformAsExpr(ctx, expression)
                   yield! stmts
                   Statement.expr (expr) ]
-        | Statement.IfStatement (test = test; consequent = consequent; alternate = alternate) ->
+        | IfStatement (test = test; consequent = consequent; alternate = alternate) ->
             let test, stmts = com.TransformAsExpr(ctx, test)
 
             let body =
@@ -700,7 +683,7 @@ module Util =
                 | _ -> []
 
             [ yield! stmts; Statement.if' (test = test, body = body, orelse = orElse) ]
-        | Statement.WhileStatement (test = test; body = body) ->
+        | WhileStatement (test = test; body = body) ->
             let expr, stmts = com.TransformAsExpr(ctx, test)
 
             let body =
@@ -708,7 +691,7 @@ module Util =
                 |> transformBody ReturnStrategy.NoReturn
 
             [ yield! stmts; Statement.while' (test = expr, body = body, orelse = []) ]
-        | Statement.TryStatement (block = block; handler = handler; finalizer = finalizer) ->
+        | TryStatement (block = block; handler = handler; finalizer = finalizer) ->
             let body = com.TransformAsStatements(ctx, returnStrategy, block)
 
             let finalBody =
@@ -739,7 +722,7 @@ module Util =
                 | _ -> []
 
             [ Statement.try' (body = body, handlers = handlers, ?finalBody = finalBody) ]
-        | Statement.SwitchStatement (discriminant = discriminant; cases = cases) ->
+        | SwitchStatement (discriminant = discriminant; cases = cases) ->
             let value, stmts = com.TransformAsExpr(ctx, discriminant)
 
             let rec ifThenElse (fallThrough: Python.Expression option) (cases: Babel.SwitchCase list): Python.Statement list option =
@@ -756,8 +739,7 @@ module Util =
                     | Some test ->
                         let test, st = com.TransformAsExpr(ctx, test)
 
-                        let expr =
-                            Expression.compare (left = value, ops = [ Eq ], comparators = [ test ])
+                        let expr = Expression.compare (left = value, ops = [ Eq ], comparators = [ test ])
 
                         let test =
                             match fallThrough with
@@ -797,8 +779,8 @@ module Util =
             stmts1
             @ stmts2
               @ [ Statement.for' (target = target, iter = iter, body = body) ]
-        | Statement.LabeledStatement (body = body) -> com.TransformAsStatements(ctx, returnStrategy, body)
-        | Statement.ContinueStatement (_) -> [ Continue ]
+        | LabeledStatement (body = body) -> com.TransformAsStatements(ctx, returnStrategy, body)
+        | ContinueStatement (_) -> [ Continue ]
         | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"
 
     let transformBlockStatementAsStatements
@@ -825,8 +807,8 @@ module Util =
                               let value, stmts = com.TransformAsExpr(ctx, init.Value)
 
                               let targets: Python.Expression list =
-                                  let name = Helpers.cleanNameAsPythonIdentifier (id.Name)
-                                  [ Expression.name (id = Python.Identifier(name), ctx = Store) ]
+                                  let name = com.GetIdentifier(ctx, id.Name)
+                                  [ Expression.name (id = name, ctx = Store) ]
 
                               yield! stmts
                               yield Statement.assign (targets = targets, value = value)
@@ -871,15 +853,16 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.GetImportExpr(ctx, name, moduleName, r) =
-                let cachedName = moduleName + "::" + name
+            member bcom.GetIdentifier(ctx, name) = getIdentifier bcom ctx name
+            member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
+                let cachedName = moduleName + "::" + defaultArg name "module"
 
-                match imports.TryGetValue(cachedName) with
-                | true, { Names = [ { AsName = localIdent } ] } ->
+                match imports.TryGetValue(cachedName), name with
+                | (true, { Names = [ { AsName = localIdent } ] }), _ ->
                     match localIdent with
                     | Some localIdent -> localIdent |> Some
                     | None -> None
-                | _ ->
+                | _, Some name ->
                     let localId = getIdentForImport ctx moduleName name
 
                     let nameId =
@@ -891,14 +874,13 @@ module Compiler =
                         else
                             name |> Python.Identifier
 
-                    let i =
-                        ImportFrom.importFrom (Python.Identifier moduleName |> Some, [ Alias.alias (nameId, localId) ])
-
+                    let i = ImportFrom.importFrom(Python.Identifier moduleName |> Some, [ Alias.alias (nameId, localId) ])
                     imports.Add(cachedName, i)
 
                     match localId with
                     | Some localId -> localId |> Some
                     | None -> None
+                | _ -> None
 
             member _.GetAllImports() =
                 imports.Values

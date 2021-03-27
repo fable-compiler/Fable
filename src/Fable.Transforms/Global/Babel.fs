@@ -1,6 +1,9 @@
 // fsharplint:disable MemberNames InterfaceNames
 namespace rec Fable.AST.Babel
 
+/// Babel AST. Note that this AST is a bit fragile in the sense that you cannot refer to all the types and union
+/// constructors fully qualified. Thus you must fully open the namespace in referring files.
+
 open Fable.AST
 
 /// The type field is a string representing the AST variant type.
@@ -112,8 +115,6 @@ type Statement =
     | IfStatement of test: Expression * consequent: BlockStatement * alternate: Statement option * loc: SourceLocation option
     | TryStatement of block: BlockStatement * handler: CatchClause option * finalizer: BlockStatement option * loc: SourceLocation option
     | ForStatement of body: BlockStatement * init: VariableDeclaration option * test: Expression option * update: Expression option * loc: SourceLocation option
-
-
 
 /// Note that declarations are considered statements; this is because declarations can appear in any statement context.
 type Declaration =
@@ -400,7 +401,6 @@ type ImportSpecifier =
     /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
     | ImportNamespaceSpecifier of local: Identifier
 
-
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
 /// The exported field refers to the name exported in the module.
 /// The local field refers to the binding into the local module scope.
@@ -411,7 +411,6 @@ type ExportSpecifier =
     | ExportSpecifier of local: Identifier * exported: Identifier
 
 // Type Annotations
-
 type TypeAnnotationInfo =
     | AnyTypeAnnotation
     | VoidTypeAnnotation

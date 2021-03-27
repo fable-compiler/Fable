@@ -526,7 +526,7 @@ match argsLower with
 | "test-integration"::_ -> testIntegration()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript --python"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --python --exclude Fable.Core --noCache --runScript"
 | "jupyter" :: _ ->
     buildLibraryIfNotExists ()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --exclude Fable.Core  --noCache --runScript  --python"
