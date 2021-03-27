@@ -11,7 +11,7 @@ let typeAliases =
     Map [
         "System.Collections.Generic.IComparer`1", "comparer"
         "System.Collections.Generic.IEqualityComparer`1", "equalityComparer"
-        "Array.Cons`1", "arrayCons"
+        "ArrayModule.Cons`1", "arrayCons"
     ]
 
 let parse (checker: FSharpChecker) projFile =
@@ -89,17 +89,7 @@ let main _argv =
 module Fable.Transforms.ReplacementsInject
 
 let fableReplacementsModules =
-  Map [
-    "Seq", Map [
-      "maxBy", (Types.comparer, 1)
-      "max", (Types.comparer, 0)
-      "minBy", (Types.comparer, 1)
-      "min", (Types.comparer, 0)
-      "sumBy", (Types.adder, 1)
-      "sum", (Types.adder, 0)
-      "averageBy", (Types.averager, 1)
-      "average", (Types.averager, 0)
-    ]"""
+  Map ["""
             for file in proj.AssemblyContents.ImplementationFiles do
                 let fileName = System.IO.Path.GetFileNameWithoutExtension(file.FileName)
                 // Apparently FCS generates the AssemblyInfo file automatically

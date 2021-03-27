@@ -180,6 +180,9 @@ let tests =
             same "%% %%"
             same "%% % % %%"
 
+      testCase "Fix #2398: Exception when two successive string format placeholders and value of first one ends in `%`" <| fun () ->
+          sprintf "%c%s" '%' "text" |> equal "%text"
+
       testCase "Unions with sprintf %A" <| fun () ->
             Bar(1,5) |> sprintf "%A" |> equal "Bar (1, 5)"
             Foo1 4.5 |> sprintf "%A" |> equal "Foo1 4.5"

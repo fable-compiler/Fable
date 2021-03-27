@@ -1,3 +1,36 @@
+### 3.1.11
+
+* Fix watch compilation issues
+* Fix #2398: two successive string format placeholders and value of first one ends in `%`
+
+### 3.1.10
+
+* Revert breaking change, configuration should default to Debug only in watch mode @forki
+
+### 3.1.9
+
+* Fix crash with delegate alias
+
+### 3.1.8
+
+* Fix #2234: Recompile dependencies in watch mode when Emit/Import attributes change
+* Fix #2406: Check --outDir argument when running clean command
+
+### 3.1.7
+
+* Fix for Fable.Core.JsInterop.importValueDynamic
+
+### 3.1.6
+
+* Support setting a Build configuration with --configuration cli arg @stroborobo
+* Log compiled files in same line
+* Fix #2390: Array.choose is executing choose function two times @ncave
+* Fix #2394: interpolate doesn't unescape %% correctly @thinkbeforecoding
+* Fix #2396: custom exceptions in async workflows
+* Fix #2400: Conversion to delegates
+* Fix: Accessing named capture group in Regex only works with string constant @Booksbaum
+* Fable library improvements and other fixes @ncave
+
 ### 3.1.5
 
 * Fix #2384: Polling file watcher @mlaily

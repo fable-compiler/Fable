@@ -41,3 +41,4 @@ module Compiler =
     let majorMinorVersion: float = 0.
     let debugMode: bool = false
     let typedArrays: bool = false
+    let extension: string = ".fs.js"

@@ -110,6 +110,17 @@ let tests =
             ys.Head + xs.Head
             |> equal zs.Head
 
+    testCase "List.cons works II" <| fun () ->
+            let li = [1;2;3;4;5]
+            let li2 = li.Tail
+            let li3 = [8;9;11] @ li2
+            let li3b = [20;16] @ li3.Tail
+            let li4 = 14 :: li3b
+            li4.[1] |> equal 20
+            li4.[3] |> equal 9
+            List.length li4 |> equal 9
+            List.sum li4 |> equal 84
+
     testCase "List.empty works" <| fun () ->
             let xs = 1 :: List.Empty
             let ys = 1 :: List.empty
@@ -121,6 +132,26 @@ let tests =
             let zs = List.append ys xs
             zs.Head + zs.Tail.Head
             |> equal 1
+
+    testCase "List.append works II" <| fun () ->
+            let li = [1;2;3;4;5]
+            let li2 = li.Tail
+            let li3 = [8;9;11] @ li2
+            let li3b = [20;16] @ li3.Tail
+            let li4 = li3b @ li2
+            li4.[1] |> equal 16
+            li4.[9] |> equal 3
+            List.length li4 |> equal 12
+            List.sum li4 |> equal 84
+
+    testCase "List.append works with empty list" <| fun () ->
+            let li = [{| value = 2|}; {| value = 4|};]
+            let li = li @ []
+            let li = [] @ li
+            li
+            |> Seq.map (fun x -> 20 / x.value)
+            |> Seq.sum
+            |> equal 15
 
     testCase "List.choose works" <| fun () ->
             let xs = [1; 2; 3; 4]

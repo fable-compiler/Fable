@@ -134,7 +134,7 @@ type FsEnt(ent: FSharpEntity) =
         let ent = Helpers.nonAbbreviatedDefinition ent
         match tryArrayFullName ent with
         | Some fullName -> fullName
-        | None when ent.IsNamespace ->
+        | None when ent.IsNamespace || ent.IsByRef ->
             match ent.Namespace with
             | Some ns -> ns + "." + ent.CompiledName
             | None -> ent.CompiledName
@@ -749,8 +749,12 @@ module TypeHelpers =
         let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map genParamName) genArgs |> Map
         let resolveType (t: FSharpType) =
             if t.IsGenericParameter then Map.find (genParamName t.GenericParameter) genArgs else t
-        let argTypes = argTypes |> Seq.map (resolveType >> makeType ctxTypeArgs) |> Seq.toList
         let returnType = returnType |> resolveType |> makeType ctxTypeArgs
+        let argTypes =
+            argTypes
+            |> Seq.map (resolveType >> makeType ctxTypeArgs)
+            |> Seq.toList
+            |> function [Fable.Unit] -> [] | argTypes -> argTypes
         Fable.DelegateType(argTypes, returnType)
 
     let numberTypes =
@@ -839,7 +843,8 @@ module TypeHelpers =
             Fable.LambdaType(argType, returnType)
         elif t.IsAnonRecordType then
             let genArgs = makeGenArgs ctxTypeArgs t.GenericArguments
-            Fable.AnonymousRecordType(t.AnonRecordTypeDetails.SortedFieldNames, genArgs)
+            let fields = t.AnonRecordTypeDetails.SortedFieldNames
+            Fable.AnonymousRecordType(fields, genArgs)
         elif t.HasTypeDefinition then
 // No support for provided types when compiling FCS+Fable to JS
 #if !FABLE_COMPILER
@@ -1038,7 +1043,6 @@ module Util =
             | Some (Transform com ctx finalBody) -> Some finalBody
             | None -> None
         Fable.TryCatch(body, catchClause, finalizer, r)
-
 
     let matchGenericParamsFrom (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type seq) =
         let matchGenericParams (genArgs: Fable.Type seq) (genParams: FSharpGenericParameter seq) =
@@ -1348,10 +1352,16 @@ module Util =
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
+    let addWatchDependencyFromMember (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
+        memb.DeclaringEntity
+        |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
+        |> Option.iter com.AddWatchDependency
+
     let (|Emitted|_|) com r typ (callInfo: Fable.CallInfo option) (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some(Naming.StartsWith Atts.emit _ as attFullName) ->
+                addWatchDependencyFromMember com memb
                 let callInfo =
                     match callInfo with
                     | Some i -> i
@@ -1424,6 +1434,7 @@ module Util =
 
             | None, _ -> None
         | _ -> None
+        |> Option.tap (fun _ -> addWatchDependencyFromMember com memb)
 
     let inlineExpr (com: IFableCompiler) (ctx: Context) r t (genArgs: Lazy<_>) callee (info: Fable.CallInfo) (memb: FSharpMemberOrFunctionOrValue) =
         let rec foldArgs acc = function

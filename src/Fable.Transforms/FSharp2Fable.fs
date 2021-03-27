@@ -221,15 +221,30 @@ let private transformObjExpr (com: IFableCompiler) (ctx: Context) (objType: FSha
       return Fable.ObjectExpr(members |> List.concat, makeType ctx.GenericArgs objType, baseCall)
     }
 
-let private transformDelegate com ctx delegateType expr =
+let private transformDelegate com ctx (delegateType: FSharpType) expr =
   trampoline {
     let! expr = transformExpr com ctx expr
+
+    // For some reason, when transforming to Func<'T> (no args) the F# compiler
+    // applies a unit arg to the expression, see #2400
+    let expr =
+        match tryDefinition delegateType with
+        | Some(_, Some "System.Func`1") ->
+            match expr with
+            | Fable.CurriedApply(expr, [Fable.Value(Fable.UnitConstant, _)],_,_) -> expr
+            | Fable.Call(expr, { Args = [Fable.Value(Fable.UnitConstant, _)] },_,_) -> expr
+            | _ -> expr
+        | _ -> expr
+
     match makeType ctx.GenericArgs delegateType with
     | Fable.DelegateType(argTypes, _) ->
         let arity = List.length argTypes |> max 1
-        match expr with
-        | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
-        | _ -> return Replacements.uncurryExprAtRuntime com arity expr
+        if arity > 1 then
+            match expr with
+            | LambdaUncurriedAtCompileTime (Some arity) lambda -> return lambda
+            | _ -> return Replacements.uncurryExprAtRuntime com arity expr
+        else
+            return expr
     | _ -> return expr
   }
 
@@ -639,7 +654,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let altElseExpr =
             match elseExpr with
             | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
-                let errorMessage = "The match cases were incomplete"
+                let errorMessage = "Match failure"
                 let rangeOfElseExpr = makeRangeFrom elseExpr
                 let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                 makeThrow rangeOfElseExpr Fable.Any errorExpr
@@ -671,25 +686,32 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     // Getters and Setters
     | BasicPatterns.AnonRecordGet(callee, calleeType, fieldIndex) ->
+        let r = makeRangeFrom fsExpr
         let! callee = transformExpr com ctx callee
         let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
         let typ = makeType ctx.GenericArgs fsExpr.Type
         let key = FsField(fieldName, lazy typ) :> Fable.Field |> Fable.FieldKey
-        return Fable.Get(callee, Fable.ByKey key, typ, makeRangeFrom fsExpr)
+        return Fable.Get(callee, Fable.ByKey key, typ, r)
 
     | BasicPatterns.FSharpFieldGet(callee, calleeType, field) ->
+        let r = makeRangeFrom fsExpr
         let! callee = transformExprOpt com ctx callee
         let callee =
             match callee with
             | Some callee -> callee
             | None -> entityRef com (FsEnt calleeType.TypeDefinition)
-        let key = FsField field :> Fable.Field |> Fable.FieldKey
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        return Fable.Get(callee, Fable.ByKey key, typ, makeRangeFrom fsExpr)
+        let key = FsField(field) :> Fable.Field |> Fable.FieldKey
+        return Fable.Get(callee, Fable.ByKey key, typ, r)
 
-    | BasicPatterns.TupleGet(_tupleType, tupleElemIndex, tupleExpr) ->
+    | BasicPatterns.TupleGet(tupleType, tupleElemIndex, tupleExpr) ->
         let! tupleExpr = transformExpr com ctx tupleExpr
-        let typ = makeType ctx.GenericArgs fsExpr.Type
+        let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't work (Fable.Any)
+        let typ2 = makeType ctx.GenericArgs tupleType
+        let typ =
+            match typ2 with
+            | Fable.Tuple genArgs -> List.item tupleElemIndex genArgs
+            | _ -> typ // Fable.Any (shoudn't happen)
         return Fable.Get(tupleExpr, Fable.TupleIndex tupleElemIndex, typ, makeRangeFrom fsExpr)
 
     | BasicPatterns.UnionCaseGet (unionExpr, fsType, unionCase, field) ->
@@ -717,23 +739,22 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 else Fable.ListTail, Fable.List t
             return Fable.Get(unionExpr, kind, t, r)
         | DiscriminatedUnion _ ->
-            let t = makeType Map.empty field.FieldType
-            let index =
-                unionCase.UnionCaseFields
-                |> Seq.findIndex (fun fi -> fi.Name = field.Name)
-            let kind = Fable.UnionField(index, t)
-            let typ = makeType ctx.GenericArgs fsExpr.Type
+            let typ = makeType Map.empty field.FieldType
+            let index = unionCase.UnionCaseFields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
+            let kind = Fable.UnionField(index, typ)
+            // let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't work (Fable.Any)
             return Fable.Get(unionExpr, kind, typ, r)
 
     | BasicPatterns.FSharpFieldSet(callee, calleeType, field, value) ->
+        let r = makeRangeFrom fsExpr
         let! callee = transformExprOpt com ctx callee
         let! value = transformExpr com ctx value
         let callee =
             match callee with
             | Some callee -> callee
             | None -> entityRef com (FsEnt calleeType.TypeDefinition)
-        let field = FsField field :> Fable.Field |> Fable.FieldKey |> Some
-        return Fable.Set(callee, field, value, makeRangeFrom fsExpr)
+        let field = FsField(field) :> Fable.Field |> Fable.FieldKey |> Some
+        return Fable.Set(callee, field, value, r)
 
     | BasicPatterns.UnionCaseTag(unionExpr, unionType) ->
         // TODO: This is an inconsistency. For new unions and union tests we calculate
@@ -806,15 +827,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return Fable.Sequential exprs
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
+        let r = makeRangeFrom fsExpr
         let! argExprs = transformExprList com ctx argExprs
         let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
-        return Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs) |> makeValue (makeRangeFrom fsExpr)
+        return Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs) |> makeValue r
 
     | BasicPatterns.NewAnonRecord(fsType, argExprs) ->
+        let r = makeRangeFrom fsExpr
         let! argExprs = transformExprList com ctx argExprs
         let fieldNames = fsType.AnonRecordTypeDetails.SortedFieldNames
         let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
-        return Fable.NewAnonymousRecord(argExprs, fieldNames, genArgs) |> makeValue (makeRangeFrom fsExpr)
+        return Fable.NewAnonymousRecord(argExprs, fieldNames, genArgs) |> makeValue r
 
     | BasicPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
@@ -836,14 +859,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         // rewrite last decision target if it throws MatchFailureException
         let compiledFableTargets =
             match snd (List.last decisionTargets) with
-            | RaisingMatchFailureExpr fileNameWhereErrorOccurs ->
+            | RaisingMatchFailureExpr _fileNameWhereErrorOccurs ->
                 match decisionExpr with
                 | BasicPatterns.IfThenElse(BasicPatterns.UnionCaseTest(_unionValue, unionType, _unionCaseInfo), _, _) ->
                     let rangeOfLastDecisionTarget = makeRangeFrom (snd (List.last decisionTargets))
-                    let errorMessage =
-                        sprintf "The match cases were incomplete against type of '%s' at %s"
-                            unionType.TypeDefinition.DisplayName
-                            fileNameWhereErrorOccurs
+                    let errorMessage = "Match failure: " + unionType.TypeDefinition.FullName
                     let errorExpr = Replacements.Helpers.error (Fable.Value(Fable.StringConstant errorMessage, None))
                     // Creates a "throw Error({errorMessage})" expression
                     let throwExpr = makeThrow rangeOfLastDecisionTarget Fable.Any errorExpr

@@ -296,6 +296,10 @@ type Distinct1 =
     static member inline Distinct1 (x: ^``Collection<'T>``, _impl: Default1) = (^``Collection<'T>`` : (static member Distinct1 : _->_) x) : '``Collection<'T>``
     static member inline Distinct1 (_: ^t when ^t : null and ^t : struct, _mthd: Default1) = id //must
 
+    // Overloads only distinguished by struct tuple work, see #2417
+    static member OfList(_elements: list<'K * 'V>) = ()
+    static member OfList(_elements: list<struct('K * 'V)>) = ()
+
 type InfoA = {
     Foo: string
 }

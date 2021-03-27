@@ -1,4 +1,4 @@
-module Array
+module ArrayModule
 
 // Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"
@@ -58,6 +58,10 @@ module Helpers =
     // Typed arrays not supported, only dynamic ones do
     let inline pushImpl (array: 'T[]) (item: 'T): int =
         !!array?push(item)
+
+    // Typed arrays not supported, only dynamic ones do
+    let inline insertImpl (array: 'T[]) (index: int) (item: 'T): 'T[] =
+        !!array?splice(index, 0, item)
 
     // Typed arrays not supported, only dynamic ones do
     let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int): 'T[] =
@@ -254,28 +258,6 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[
     concat mapped cons
     // collectImpl mapping array // flatMap not widely available yet
 
-let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * int)[] =
-    let dict = Dictionary<'Key, int>(eq)
-    let keys: 'Key[] = [||]
-    for value in array do
-        let key = projection value
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            dict.[key] <- prev + 1
-        | false, _ ->
-            dict.[key] <- 1
-            pushImpl keys key |> ignore
-    let result =
-        map (fun key -> key, dict.[key]) keys Unchecked.defaultof<_>
-    result
-
-let distinctBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
-    let hashSet = HashSet<'Key>(eq)
-    array |> filter (projection >> hashSet.Add)
-
-let distinct (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
-    distinctBy id array eq
-
 let where predicate (array: _[]) = filterImpl predicate array
 
 let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
@@ -286,28 +268,6 @@ let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>
             if eq.Equals (value, array.[i]) then true
             else loop (i + 1)
     loop 0
-
-let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>): 'T[] =
-    if array.Length = 0 then
-        array
-    else
-        let cached = HashSet(itemsToExclude, eq)
-        array |> filterImpl cached.Add
-
-let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T[])[] =
-    let dict = Dictionary<'Key, ResizeArray<'T>>(eq)
-    let keys: 'Key[] = [||]
-    for v in array do
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            prev.Add(v)
-        | false, _ ->
-            dict.Add(key, ResizeArray [|v|])
-            pushImpl keys key |> ignore
-    let result =
-        map (fun key -> key, arrayFrom dict.[key]) keys Unchecked.defaultof<_>
-    result
 
 let empty cons = allocateArrayFromCons cons 0
 
@@ -414,7 +374,15 @@ let addInPlace (x: 'T) (array: 'T[]) =
 
 let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    Seq.iter (fun x -> pushImpl array x |> ignore) range
+    for x in range do
+        addInPlace x array
+
+let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
+    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
+    let mutable i = index
+    for x in range do
+        insertImpl array i x |> ignore
+        i <- i + 1
 
 let removeInPlace (item: 'T) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
@@ -676,6 +644,15 @@ let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComp
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
     sortInPlaceWith comparer (copyImpl xs)
 
+let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
+    let len1 = xs.Length
+    let len2 = ys.Length
+    let res = allocateArray (len1 * len2)
+    for i = 0 to xs.Length-1 do
+        for j = 0 to ys.Length-1 do
+            res.[i * len2 + j] <- (xs.[i], ys.[j])
+    res
+
 let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'T[] =
     let res: 'T[] = [||]
     let rec loop state =
@@ -768,6 +745,11 @@ let exactlyOne (array: 'T[]) =
     if array.Length = 1 then array.[0]
     elif array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
     else invalidArg "array" "Input array too long"
+
+let tryExactlyOne (array: 'T[]) =
+    if array.Length = 1
+    then Some (array.[0])
+    else None
 
 let head (array: 'T[]) =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString

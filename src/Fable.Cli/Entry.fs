@@ -52,10 +52,12 @@ Commands:
 Arguments:
   --cwd             Working directory
   -o|--outDir       Redirect compilation output to a directory
-  --extension       Extension for generated JS files (default .fs.js)
+  -e|--extension    Extension for generated JS files (default .fs.js)
   -s|--sourceMaps   Enable source maps
 
   --define          Defines a symbol for use in conditional compilation
+  --configuration   The configuration to use when parsing .fsproj with MSBuild,
+                    default is 'Debug' in watch mode, or 'Release' otherwise
   --verbose         Print more info during compilation
   --typedArrays     Compile numeric arrays as JS typed arrays (default true)
 
@@ -67,7 +69,7 @@ Arguments:
 
   --yes             Automatically reply 'yes' (e.g. with `clean` command)
   --noRestore       Skip `dotnet restore`
-  --forcePkgs       Force a new copy of package sources into `.fable` folder
+  --noCache         Recompile all files, including sources from packages
   --exclude         Don't merge sources of referenced projects with specified pattern
                     (Intended for plugin development)
 
@@ -137,17 +139,26 @@ type Runner =
                 Verbosity.Verbose
             else Verbosity.Normal
 
+        let configuration =
+            let defaultConfiguration = if watch then "Debug" else "Release"
+            let configurationArg = argValue "--configuration" args |> Option.defaultValue defaultConfiguration
+            if String.IsNullOrWhiteSpace configurationArg then
+                defaultConfiguration
+            else
+                configurationArg
+
         let define =
             argValues "--define" args
             |> List.append [
                 "FABLE_COMPILER"
                 "FABLE_COMPILER_3"
-                if watch then "DEBUG"
+                configuration.ToUpperInvariant()
             ]
             |> List.distinct
 
         let fileExt =
-            argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
+            argValueMulti ["-e"; "--extension"] args
+            |> Option.defaultValue (defaultFileExt typescript args)
 
         let compilerOptions =
             CompilerOptionsHelper.Make(python = python,
@@ -162,10 +173,11 @@ type Runner =
             { ProjectFile = Path.normalizeFullPath projFile
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
+              Configuration = configuration
               OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
               SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
-              ForcePkgs = flagEnabled "--forcePkgs" args
               NoRestore = flagEnabled "--noRestore" args
+              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args // backwards compatibility
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args
@@ -192,8 +204,15 @@ let clean args dir =
     let typescript = flagEnabled "--typescript" args
     let python = flagEnabled "--python" args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
+
     let fileExt =
-        argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
+        argValueMulti ["-e"; "--extension"] args
+        |> Option.defaultValue (defaultFileExt typescript args)
+
+    let dir =
+        argValueMulti ["-o"; "--outDir"] args
+        |> Option.defaultValue dir
+        |> IO.Path.GetFullPath
 
     // clean is a potentially destructive operation, we need a permission before proceeding
     Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, dir)

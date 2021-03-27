@@ -34,50 +34,20 @@ export function toString(x: any, callStack = 0): string {
   return String(x);
 }
 
-function compareList<T>(self: List<T>, other: List<T>): number {
-  if (self === other) {
-    return 0;
+export function unionToString(name: string, fields: any[]) {
+  if (fields.length === 0) {
+    return name;
   } else {
-    if (other == null) {
-      return -1;
+    let fieldStr = "";
+    let withParens = true;
+    if (fields.length === 1) {
+      fieldStr = toString(fields[0]);
+      withParens = fieldStr.indexOf(" ") >= 0;
+    } else {
+      fieldStr = fields.map((x: any) => toString(x)).join(", ");
     }
-    while (self.tail != null) {
-      if (other.tail == null) { return 1; }
-      const res = compare(self.head, other.head);
-      if (res !== 0) { return res; }
-      self = self.tail;
-      other = other.tail;
-    }
-    return other.tail == null ? 0 : -1;
+    return name + (withParens ? " (" : " ") + fieldStr + (withParens ? ")" : "");
   }
-}
-
-export class List<T> implements IEquatable<List<T>>, IComparable<List<T>>, Iterable<T> {
-  public head: T;
-  public tail?: List<T>;
-
-  constructor(head?: T, tail?: List<T>) {
-    this.head = head as T;
-    this.tail = tail;
-  }
-
-  public [Symbol.iterator](): Iterator<T> {
-    let cur: List<T> | undefined = this;
-    return {
-      next: (): IteratorResult<T> => {
-        const value = cur?.head as T;
-        const done = cur?.tail == null;
-        cur = cur?.tail;
-        return { done, value };
-      },
-    };
-  }
-
-  public toJSON() { return Array.from(this); }
-  public toString() { return seqToString(this); }
-  public GetHashCode() { return combineHashCodes(Array.from(this).map(structuralHash)); }
-  public Equals(other: List<T>): boolean { return compareList(this, other) === 0; }
-  public CompareTo(other: List<T>): number { return compareList(this, other); }
 }
 
 export abstract class Union implements IEquatable<Union>, IComparable<Union> {
@@ -94,21 +64,7 @@ export abstract class Union implements IEquatable<Union>, IComparable<Union> {
   }
 
   public toString() {
-    if (this.fields.length === 0) {
-      return this.name;
-    } else {
-      let fields = "";
-      let withParens = true;
-      if (this.fields.length === 1) {
-        const field = toString(this.fields[0]);
-        withParens = field.indexOf(" ") >= 0;
-        fields = field;
-      }
-      else {
-        fields = this.fields.map((x: any) => toString(x)).join(", ");
-      }
-      return this.name + (withParens ? " (" : " ") + fields + (withParens ? ")" : "");
-    }
+    return unionToString(this.name, this.fields);
   }
 
   public GetHashCode() {

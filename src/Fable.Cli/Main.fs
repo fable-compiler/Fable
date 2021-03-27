@@ -139,7 +139,6 @@ module private Util =
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
-
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
@@ -153,6 +152,13 @@ module private Util =
                     changeFsExtension isInFableHiddenDir path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
+            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
+                if cliArgs.SourceMaps then
+                    let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
+                    let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
+                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
+        member _.SourceMap =
+            mapGenerator.Force().toJSON()
 
     type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
         let fileExt = ".py"
@@ -180,34 +186,12 @@ module private Util =
                 else path
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
+    let compileFile (cliArgs: CliArgs) dedupTargetDir logger (com: CompilerImpl) = async {
         try
             let babel =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
-
-            let mapPrinter, mapGen =
-                if cliArgs.SourceMaps then
-                    let mapGenerator = SourceMapSharp.SourceMapGenerator()
-
-                    let print outPath = async {
-                        let mapPath = outPath + ".map"
-                        do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                        use sw = IO.File.Open(mapPath, IO.FileMode.Create)
-                        do! Text.Json.JsonSerializer.SerializeAsync(sw, mapGenerator.toJSON()) |> Async.AwaitTask
-                    }
-
-                    print, { new BabelPrinter.SourceMapGenerator with
-                        member _.AddMapping(orLine, orCol, genLine, genCol, name) =
-                            let generated: SourceMapSharp.Util.MappingIndex =
-                                {line = genLine; column = genCol}
-                            let original: SourceMapSharp.Util.MappingIndex =
-                                {line = orLine; column = orCol}
-                            mapGenerator.AddMapping(generated, original, source=com.CurrentFile, ?name=name) }
-                else
-                    Async.ignore, { new BabelPrinter.SourceMapGenerator with
-                        member _.AddMapping(_,_,_,_,_) = () }
 
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
@@ -217,8 +201,14 @@ module private Util =
 
             // write output to file
             let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-            do! BabelPrinter.run writer mapGen babel
-            do! mapPrinter outPath
+            do! BabelPrinter.run writer babel
+
+            // write source map to file
+            if cliArgs.SourceMaps then
+                let mapPath = outPath + ".map"
+                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                use sw = IO.File.Open(mapPath, IO.FileMode.Create)
+                do! Text.Json.JsonSerializer.SerializeAsync(sw, writer.SourceMap) |> Async.AwaitTask
 
             if com.Options.Language = Python then
                 printfn "Generating Python"
@@ -229,7 +219,7 @@ module private Util =
                 let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
                 do! PythonPrinter.run writer map python
 
-            Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
+            logger("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -355,9 +345,10 @@ type ProjectCracked(sourceFiles: File array,
             CrackerOptions(fableOpts = cliArgs.CompilerOptions,
                            fableLib = cliArgs.FableLibraryPath,
                            outDir = cliArgs.OutDir,
+                           configuration = cliArgs.Configuration,
                            exclude = cliArgs.Exclude,
                            replace = cliArgs.Replace,
-                           forcePkgs = cliArgs.ForcePkgs,
+                           noCache = cliArgs.NoCache,
                            noRestore = cliArgs.NoRestore,
                            projFile = cliArgs.ProjectFile)
             |> getFullProjectOpts
@@ -503,7 +494,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
                 |> fun files ->
-                    if Option.isNone state.Watcher then files
+                    if Option.isNone state.Watcher || state.CliArgs.NoCache then files
                     else
                         // Skip files that have a more recent JS version
                         let skipped =
@@ -527,18 +518,19 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
     let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
 
     let! logs, watchDependencies, state = async {
-        // Skip Fable compilation if there are F# errors
-        if hasFSharpError then
+        // Skip Fable compilation if there are F# errors and it's not watch mode
+        if hasFSharpError && Option.isNone state.Watcher then
             return logs, state.WatchDependencies, state
         else
+            use logger = Agent.Start Log.alwaysInSameLine
             let! results, ms = measureTimeAsync <| fun () ->
                 filesToCompile
                 |> Array.map (fun file ->
                     cracked.MakeCompiler(file, parsed.Project)
-                    |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
+                    |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir logger.Post)
                 |> Async.Parallel
 
-            Log.always(sprintf "Fable compilation finished in %ims" ms)
+            Log.always $"\nFable compilation finished in %i{ms}ms"
 
             let logs, watchDependencies =
                 ((logs, state.WatchDependencies), results)

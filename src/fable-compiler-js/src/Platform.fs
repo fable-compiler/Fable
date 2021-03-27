@@ -7,7 +7,7 @@ type CmdLineOptions = {
     libDir: string option
     benchmark: bool
     optimize: bool
-    // sourceMaps: bool
+    sourceMaps: bool
     typedArrays: bool
     typescript: bool
     printAst: bool
@@ -40,7 +40,8 @@ module JS =
     type IUtil =
         abstract getDirFiles: dir: string -> string[]
         abstract ensureDirExists: dir: string -> unit
-        abstract escapeJsStringLiteral: string -> string
+        abstract escapeJsStringLiteral: str: string -> string
+        abstract serializeToJson: data: obj -> string
         abstract copyFolder: from: string * dest: string -> unit
         abstract runCmdAndExitIfFails: cmd: string -> unit
 
@@ -61,12 +62,11 @@ let measureTime (f: 'a -> 'b) x =
     let elapsed = JS.proc.hrtime(startTime)
     res, int64 (elapsed.[0] * 1e3 + elapsed.[1] / 1e6)
 
-let javaScriptStringEncode (str: string) =
-    JS.util.escapeJsStringLiteral(str)
-
-let ensureDirExists = JS.util.ensureDirExists
-let copyFolder = JS.util.copyFolder
-let runCmdAndExitIfFails = JS.util.runCmdAndExitIfFails
+let escapeJsString (str: string) = JS.util.escapeJsStringLiteral(str)
+let ensureDirExists (dir: string) = JS.util.ensureDirExists(dir)
+let serializeToJson (data: obj) = JS.util.serializeToJson(data)
+let copyFolder (from: string) (dest: string) = JS.util.copyFolder(from, dest)
+let runCmdAndExitIfFails (cmd: string) = JS.util.runCmdAndExitIfFails(cmd)
 
 let normalizePath (path: string) =
     path.Replace('\\', '/')

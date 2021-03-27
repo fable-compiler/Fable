@@ -1,3 +1,7 @@
+### 3.2.5
+
+* Add `Compiler.extension`
+
 ### 3.2.4
 
 * Add Object.values, Object.entries @kerams

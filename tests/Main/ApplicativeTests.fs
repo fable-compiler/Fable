@@ -906,7 +906,14 @@ let fortyTwo2 x y () z = 42 + (FSharp.Core.Operators.int x) + (FSharp.Core.Opera
 let wrap someFun () () = someFun "4" "6"
 let doesWork someFun = wrap someFun
 let doesNotWork = wrap
-let applyFooInRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
+
+type RFoo<'a,'b> = { foo: 'a -> 'b }
+type RFoo2<'a> = { foo: 'a }
+
+let applyFooInRecord (f: RFoo<'a,'b>) (a: 'a) = f.foo a
+let applyFooInRecord2 (f: RFoo2<'a -> 'b>) (a: 'a) = f.foo a
+let applyFooInRecord3 (f: RFoo2<'a -> 'b -> 'c>) (a: 'a) (b: 'b) = f.foo a b
+let applyFooInAnonRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
 
 type Wrapper() =
     member _.doesNotWorki = wrap
@@ -1209,8 +1216,19 @@ let tests7 = [
         state "a" "b" |> equal "a32b"
 
     testCase "Uncurrying works with generic records returning lambdas" <| fun () ->
-        applyFooInRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
-        let f = applyFooInRecord {| foo = fun x y -> x ** y |} 5.
+        applyFooInRecord { foo = fun x y -> x ** y } 5. 2. |> equal 25.
+        let f = applyFooInRecord { foo = fun x y z -> x ** y + z } 5.
+        f 3. 2. |> equal 127.
+        applyFooInRecord2 { foo = fun x y -> x ** y } 5. 2. |> equal 25.
+        let f = applyFooInRecord2 { foo = fun x y z -> x ** y + z } 5.
+        f 3. 2. |> equal 127.
+        applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5. 2. 1. |> equal 24.
+        let f = applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5.
+        f 3. 3. |> equal 122.
+
+    testCase "Uncurrying works with generic anonymous records returning lambdas" <| fun () ->
+        applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
+        let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
         f 3. |> equal 125.
 
     testCase "Curried functions being mangled via DU, List.fold and match combination #2356" <| fun _ ->

@@ -3858,14 +3858,7 @@ type ILModuleReaderImpl(ilModule: ILModuleDef, ilAssemblyRefs: Lazy<ILAssemblyRe
         member x.ILAssemblyRefs = ilAssemblyRefs.Force()
         member x.Dispose() = dispose()
     
-#if FABLE_COMPILER
-
-let OpenILModuleReaderFromBytes fileName bytes opts =
-    let pefile = ByteFile(fileName, bytes) :> BinaryFile
-    let ilModule, ilAssemblyRefs, pdb = openPE (fileName, pefile, opts.pdbDirPath, (opts.reduceMemoryUsage = ReduceMemoryFlag.Yes), true)
-    new ILModuleReaderImpl(ilModule, ilAssemblyRefs, (fun () -> ClosePdbReader pdb)) :> ILModuleReader
-
-#else
+#if !FABLE_COMPILER
 
 // ++GLOBAL MUTABLE STATE (concurrency safe via locking)
 type ILModuleReaderCacheKey = ILModuleReaderCacheKey of string * DateTime * bool * ReduceMemoryFlag * MetadataOnlyFlag
@@ -3916,10 +3909,14 @@ let createMemoryMapFile fileName =
     stats.memoryMapFileOpenedCount <- stats.memoryMapFileOpenedCount + 1
     safeHolder, RawMemoryFile(fileName, safeHolder, accessor.SafeMemoryMappedViewHandle.DangerousGetHandle(), int length) :> BinaryFile
 
+#endif //!FABLE_COMPILER
+
 let OpenILModuleReaderFromBytes fileName assemblyContents options = 
     let pefile = ByteFile(fileName, assemblyContents) :> BinaryFile
     let ilModule, ilAssemblyRefs, pdb = openPE (fileName, pefile, options.pdbDirPath, (options.reduceMemoryUsage = ReduceMemoryFlag.Yes), true)
     new ILModuleReaderImpl(ilModule, ilAssemblyRefs, (fun () -> ClosePdbReader pdb)) :> ILModuleReader
+
+#if !FABLE_COMPILER
 
 let ClearAllILModuleReaderCache() =
     ilModuleReaderCache1.Clear(ILModuleReaderCache1LockToken())

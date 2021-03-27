@@ -14,9 +14,6 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
     // new () = MutableMap (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableMap (Seq.empty, comparer)
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "Dictionary"
-
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
         match hashMap.TryGetValue h with
@@ -37,7 +34,10 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
         hashMap.Clear()
 
     member this.Count =
-        hashMap.Values |> Seq.sumBy (fun pairs -> pairs.Count)
+        let mutable count = 0
+        for pairs in hashMap.Values do
+            count <- count + pairs.Count
+        count
 
     member this.Item
         with get (k: 'Key) =
@@ -75,6 +75,15 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             true
         | _, _, _ ->
             false
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "Dictionary"
+
+    // Native JS Map (used for primitive keys) doesn't work with `JSON.stringify` but
+    // let's add `toJSON` for consistency with the types within fable-library.
+    interface Fable.Core.IJsonSerializable with
+        member this.toJSON(_key) =
+            Fable.Core.JS.Constructors.Array.from(this) |> box
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator(): System.Collections.IEnumerator =

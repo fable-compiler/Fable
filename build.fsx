@@ -174,7 +174,7 @@ let buildLibraryTs() =
 // Mainly intended for CI
 let testJsFast() =
     runFableWithArgs "src/fable-standalone/src" [
-        "--forcePkgs"
+        "--noCache"
     ]
 
     runFableWithArgs "src/fable-compiler-js/src" [
@@ -524,12 +524,13 @@ match argsLower with
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
 | "test-integration"::_ -> testIntegration()
-| "quicktest" :: _ ->
-    buildLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --forcePkgs --python"
+| "quicktest"::_ ->
+    buildLibraryIfNotExists()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript --python"
 | "jupyter" :: _ ->
     buildLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --exclude Fable.Core --forcePkgs --python"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --exclude Fable.Core  --noCache --runScript  --python"
+
 | "run"::_ ->
     buildLibraryIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args

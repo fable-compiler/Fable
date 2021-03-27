@@ -43,12 +43,13 @@ type State =
       Worker: ObservableWorker<WorkerRequest>
       CurrentResults: IParseResults option }
 
-type SourceWriter() =
+type SourceWriter(sourceMaps: bool) =
     let sb = System.Text.StringBuilder()
     interface Fable.Standalone.IWriter with
         member _.Write(str) = async { return sb.Append(str) |> ignore }
         member _.EscapeJsStringLiteral(str) = escapeJsStringLiteral(str)
         member _.MakeImportPath(path) = path
+        member _.AddSourceMapping(mapping) = ()
         member _.Dispose() = ()
     member __.Result = sb.ToString()
 
@@ -113,6 +114,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                 "--typedArrays"
                 "--clampByteArrays"
                 "--typescript"
+                "--sourceMaps"
             ]
             let fableOptions, otherFSharpOptions =
                 otherFSharpOptions |> Array.partition (fun x -> Set.contains x nonFSharpOptions)
@@ -126,12 +128,17 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                 if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
                     return "", parseResults.Errors, 0.
                 else
+                    let options = {|
+                        typedArrays = Array.contains "--typedArrays" fableOptions
+                        typescript = Array.contains "--typescript" fableOptions
+                        sourceMaps = Array.contains "--sourceMaps" fableOptions
+                    |}
                     let (res, fableTransformTime) = measureTime (fun () ->
                         fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME,
-                                                        typedArrays = Array.contains "--typedArrays" fableOptions,
-                                                        typescript = Array.contains "--typescript" fableOptions)) ()
+                            typedArrays = options.typedArrays,
+                            typescript = options.typescript) ()
                     // Print Babel AST
-                    let writer = new SourceWriter()
+                    let writer = new SourceWriter(options.sourceMaps)
                     do! fable.Manager.PrintBabelAst(res, writer)
                     let jsCode = writer.Result
 

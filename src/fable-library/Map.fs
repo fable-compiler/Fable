@@ -408,8 +408,15 @@ module MapTree =
                 | _ -> (m2.Key, m2.Value) :: acc
         loop m []
 
-    let toArray (m: MapTree<'Key, 'Value>): ('Key * 'Value)[] =
-        m |> toList |> Array.ofList
+    let copyToArray m (arr: _[]) i =
+        let mutable j = i
+        iter (fun x y -> arr.[j] <- KeyValuePair(x, y); j <- j + 1) m
+
+    let toArray m =
+        let n = size m
+        let res = Array.zeroCreate n
+        copyToArray m res 0
+        res
 
     let ofList comparer l =
         List.fold (fun acc (k, v) -> add comparer k v acc) empty l
@@ -426,17 +433,13 @@ module MapTree =
             res <- add comparer x y res
         res
 
-    let ofSeq comparer (c: seq<'Key * 'T>) =
+    let ofSeq comparer (c: seq<'Key * 'Value>) =
         match c with
-        | :? array<'Key * 'T> as xs -> ofArray comparer xs
-        | :? list<'Key * 'T> as xs -> ofList comparer xs
+        | :? array<'Key * 'Value> as xs -> ofArray comparer xs
+        | :? list<'Key * 'Value> as xs -> ofList comparer xs
         | _ ->
             use ie = c.GetEnumerator()
             mkFromEnumerator comparer empty ie
-
-    let copyToArray m (arr: _[]) i =
-        let mutable j = i
-        m |> iter (fun x y -> arr.[j] <- KeyValuePair(x, y); j <- j + 1)
 
     /// Imperative left-to-right iterators.
     [<NoEquality; NoComparison>]
@@ -573,9 +576,6 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal m.Tree = tree
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "FSharpMap"
-
     member m.Add(key, value) : Map<'Key, 'Value> =
 // #if TRACE_SETS_AND_MAPS
 //         MapTree.report()
@@ -695,6 +695,13 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
                                   ((e1c.Key = e2c.Key) && (Unchecked.equals e1c.Value e2c.Value) && loop())))
             loop()
         | _ -> false
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "FSharpMap"
+
+    interface Fable.Core.IJsonSerializable with
+        member this.toJSON(_key) =
+            Fable.Core.JS.Constructors.Array.from(this) |> box
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member __.GetEnumerator() = MapTree.mkIEnumerator tree
@@ -859,8 +866,8 @@ let ofSeq elements =
 
 // [<CompiledName("OfArray")>]
 let ofArray (elements: ('Key * 'Value) array) =
-   let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-   new Map<_, _>(comparer, MapTree.ofArray comparer elements)
+    let comparer = LanguagePrimitives.FastGenericComparer<'Key>
+    new Map<_, _>(comparer, MapTree.ofArray comparer elements)
 
 // [<CompiledName("ToList")>]
 let toList (table: Map<_, _>) =
@@ -873,34 +880,6 @@ let toArray (table: Map<_, _>) =
 // [<CompiledName("Empty")>]
 let empty<'Key, 'Value  when 'Key : comparison> =
     Map<'Key, 'Value>.Empty
-
-let createMutable (source: KeyValuePair<'Key, 'Value> seq) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'Key>) =
-    let map = Fable.Collections.MutableMap(source, comparer)
-    map :> Fable.Core.JS.Map<_,_>
-
-let groupBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'Key>): ('Key * 'T seq) seq =
-    let dict: Fable.Core.JS.Map<_,ResizeArray<'T>> = createMutable Seq.empty comparer
-
-    // Build the groupings
-    for v in xs do
-        let key = projection v
-        if dict.has(key) then dict.get(key).Add(v)
-        else dict.set(key, ResizeArray [v]) |> ignore
-
-    // Mapping shouldn't be necessary because KeyValuePair compiles
-    // as a tuple, but let's do it just in case the implementation changes
-    dict.entries() |> Seq.map (fun (k,v) -> k, upcast v)
-
-let countBy (projection: 'T -> 'Key) (xs: 'T seq) ([<Fable.Core.Inject>] comparer: IEqualityComparer<'Key>): ('Key * int) seq =
-    let dict = createMutable Seq.empty comparer
-
-    for value in xs do
-        let key = projection value
-        if dict.has(key) then dict.set(key, dict.get(key) + 1)
-        else dict.set(key, 1)
-        |> ignore
-
-    dict.entries()
 
 // [<CompiledName("Count")>]
 let count (table: Map<_, _>) =

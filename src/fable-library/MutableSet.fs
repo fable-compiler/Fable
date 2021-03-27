@@ -14,9 +14,6 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
     // new () = MutableSet (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableSet (Seq.empty, comparer)
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "HashSet"
-
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
         match hashMap.TryGetValue h with
@@ -37,7 +34,10 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
         hashMap.Clear()
 
     member this.Count =
-        hashMap.Values |> Seq.sumBy (fun pairs -> pairs.Count)
+        let mutable count = 0
+        for items in hashMap.Values do
+            count <- count + items.Count
+        count
 
     member this.Add(k) =
         match this.TryFindIndex(k) with
@@ -62,6 +62,15 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
             true
         | _, _, _ ->
             false
+
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "HashSet"
+
+    // Native JS Set (used for primitive keys) doesn't work with `JSON.stringify` but
+    // let's add `toJSON` for consistency with the types within fable-library.
+    interface Fable.Core.IJsonSerializable with
+        member this.toJSON(_key) =
+            Fable.Core.JS.Constructors.Array.from(this) |> box
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator(): System.Collections.IEnumerator =

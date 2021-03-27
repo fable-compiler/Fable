@@ -11,6 +11,12 @@ module Tuple3 =
     let item3 (_,_,z) = z
 
 [<RequireQualifiedAccess>]
+module Option =
+    let tap (f: 'a -> unit) (x: 'a option): 'a option =
+        match x with Some a -> f a | None -> ()
+        x
+
+[<RequireQualifiedAccess>]
 module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) =
         ([], xs) ||> Seq.fold (fun li x -> (f x)::li) |> List.rev
@@ -155,6 +161,14 @@ module Naming =
                     else yield "$" + System.String.Format("{0:X}", int c).PadLeft(4, '0')
                 })
         else ident
+
+    let replaceRegex (pattern: string) (value: string) (input: string) =
+        Regex.Replace(input, pattern, value)
+
+    let replacePrefix (prefix: string) (value: string) (input: string) =
+        if input.StartsWith(prefix) then
+            value + (input.Substring(prefix.Length))
+        else input
 
     let removeGetSetPrefix (s: string) =
         if s.StartsWith("get_") || s.StartsWith("set_") then
