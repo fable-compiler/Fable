@@ -50,16 +50,16 @@ let createObj (fields: #seq<string*obj>): obj = pyNative
 /// E.g. `keyValueList CaseRules.LowerFirst [ MyUnion 4 ]` in Python becomes `{ myUnion: 4 }`
 let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = pyNative
 
-/// Create a literal JS object from a mutator lambda. Normally used when
+/// Create a literal Py object from a mutator lambda. Normally used when
 /// the options interface has too many fields to be represented with a Pojo record.
 /// E.g. `jsOptions<MyOpt> (fun o -> o.foo <- 5)` in JS becomes `{ foo: 5 }`
-let jsOptions<'T> (f: 'T->unit): 'T = pyNative
+let pyOptions<'T> (f: 'T->unit): 'T = pyNative
 
 /// Create an empty JS object: {}
 ///let createEmpty<'T> : 'T = pyNative
 
-/// Get the JS function constructor for class types
-let jsConstructor<'T> : obj = pyNative
+/// Get the Py function constructor for class types
+let pyConstructor<'T> : obj = pyNative
 
 /// Makes an expression the default export for the JS module.
 /// Used to interact with JS tools that require a default export.

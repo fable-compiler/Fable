@@ -492,28 +492,26 @@ module Util =
             let value, stmts = com.TransformAsExpr(ctx, object)
             let func = Expression.name (Python.Identifier "str")
             Expression.call (func, [ value ]), stmts
+        // If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression
         | MemberExpression (computed=true; object = object; property = property) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
 
-            let attr =
-                match property with
-                | Expression.Identifier (Identifier (name = name)) -> Expression.constant(name)
-                | _ -> failwith $"transformAsExpr: unknown property {property}"
-
+            let attr, stmts' = com.TransformAsExpr(ctx, property)
             let value =
                 match value with
                 | Name { Id = Python.Identifier (id); Context = ctx } ->
                     Expression.name (id = Python.Identifier(id), ctx = ctx)
                 | _ -> value
             let func = Expression.name("getattr")
-            Expression.call(func=func, args=[value; attr]), stmts
+            Expression.call(func=func, args=[value; attr]), stmts @ stmts'
+        // If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier
         | MemberExpression (computed=false; object = object; property = property) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
 
             let attr =
                 match property with
                 | Expression.Identifier (Identifier (name = name)) -> com.GetIdentifier(ctx, name)
-                | _ -> failwith $"transformAsExpr: unknown property {property}"
+                | _ -> failwith $"transformAsExpr: MemberExpression (false): unknown property {property}"
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Expression.Literal (Literal.BooleanLiteral (value = value)) -> Expression.constant (value = value), []
         | FunctionExpression (``params`` = parms; body = body) ->
@@ -530,9 +528,7 @@ module Util =
                 Expression.lambda (arguments, body), stmts
             | _ ->
                 let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
-
                 let name = Helpers.getUniqueIdentifier "lifted"
-
                 let func =
                     FunctionDef.Create(name = name, args = arguments, body = body)
 
@@ -786,7 +782,7 @@ module Util =
 
     /// Transform Babel program to Python module.
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
-        let returnStrategy = ReturnStrategy.Return
+        let returnStrategy = ReturnStrategy.NoReturn
 
         let stmt: Python.Statement list =
             [ for md in body do
@@ -856,6 +852,7 @@ module Compiler =
                     match localIdent with
                     | Some localIdent -> localIdent |> Some
                     | None -> None
+                | (true, Import _) -> None
                 | _ ->
                     let localId = getIdentForImport ctx moduleName name
 
