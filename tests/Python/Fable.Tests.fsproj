@@ -21,6 +21,8 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="TestSeq.fs" />
+    <Compile Include="TestMath.fs" />
+    <Compile Include="TestFn.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
