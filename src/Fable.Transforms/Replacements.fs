@@ -1083,7 +1083,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _, "pyNative"
     | _, "jsNative" ->
         // TODO: Fail at compile time?
-        addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
+        addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> makeValue None

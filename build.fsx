@@ -359,6 +359,24 @@ let test() =
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
 
+let testPython() =
+    buildLibraryIfNotExists()
+
+    let projectDir = "tests/Python"
+    let buildDir = "build/tests/Python"
+
+    cleanDirs [buildDir]
+    runInDir projectDir "dotnet test"
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+        "--python"
+    ]
+
+    runInDir buildDir "touch __init__.py" // So relative imports works.
+    runInDir buildDir "pytest"
+
+
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     action version
@@ -524,6 +542,7 @@ match argsLower with
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
 | "test-integration"::_ -> testIntegration()
+| "test-py"::_ -> testPython()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --python --exclude Fable.Core --noCache --runScript"

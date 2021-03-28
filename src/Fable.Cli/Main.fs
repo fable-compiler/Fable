@@ -166,7 +166,8 @@ module private Util =
         do printfn "TargetPath: %s" targetPath
         let targetDir = Path.GetDirectoryName(targetPath)
         // PEP8: Modules should have short, all-lowercase names
-        let fileName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath)).ToLower()
+        let fileName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
+        let fileName = Naming.applyCaseRule Core.CaseRules.SnakeCase fileName
         // Note that Python modules cannot contain dots or it will be impossible to import them
         let targetPath = Path.Combine(targetDir, fileName + fileExt)
         do printfn "TargetPath: %s" targetPath
