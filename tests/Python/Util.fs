@@ -19,6 +19,7 @@ module Testing =
     type Fact() = inherit System.Attribute()
 #else
     open Xunit
+    type FactAttribute = Xunit.FactAttribute
 
     let equal<'T> (expected: 'T) (actual: 'T): unit = Assert.Equal(expected, actual)
     let notEqual<'T> (expected: 'T) (actual: 'T) : unit = Assert.NotEqual(expected, actual)
