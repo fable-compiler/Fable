@@ -27,3 +27,14 @@ let ``test pythagoras works`` () =
     let result = pythagoras(10.0, 2.1, id)
     result
     |> equal 10.218121158021175
+
+[<Fact>]
+let ``test nonlocal works`` () =
+    let mutable value = 0
+
+    let fn () =
+        value <- 42
+
+    fn ()
+
+    value |> equal 42

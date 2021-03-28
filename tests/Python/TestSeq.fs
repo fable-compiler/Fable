@@ -22,3 +22,11 @@ let ``test Seq.map works`` () =
     |> Seq.map string
     |> List.ofSeq
     |> equal ["1"; "2"; "3"; "4"]
+
+
+[<Fact>]
+let ``test Seq.singleton works`` () =
+    let xs = Seq.singleton 42
+    xs
+    |> List.ofSeq
+    |> equal [42]
