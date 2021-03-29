@@ -4,16 +4,16 @@ type bigint = BigInt.BigInteger
 
 let isBigInt (x: obj) = x :? bigint
 
-let tryParse str res =
+let tryParse (str: string) (res: byref<_>) =
     try
-        res := bigint.Parse str
+        res <- bigint.Parse str
         true
     with _ ->
         false
 
-let divRem x y (remainder: _ ref) =
+let divRem x y (remainder: byref<_>) =
     let quotient, remainder' = bigint.DivRem(x, y)
-    remainder := remainder'
+    remainder <- remainder'
     quotient
 
 let parse = bigint.Parse

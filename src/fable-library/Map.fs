@@ -648,9 +648,9 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member m.Remove key =
         new Map<'Key, 'Value>(comparer, MapTree.remove comparer key tree)
 
-    member __.TryGetValue(key: 'Key, value: 'Value ref) =
+    member __.TryGetValue(key: 'Key, value: byref<'Value>) =
         match MapTree.tryFind comparer key tree with
-        | Some v -> value := v; true
+        | Some v -> value <- v; true
         | None -> false
 
     member m.TryFind key =
