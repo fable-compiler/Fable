@@ -236,7 +236,7 @@ type Context =
     { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       UsedNamesInRootScope: Set<string>
-      UseNamesInDeclarationScope: HashSet<string>
+      UsedNamesInDeclarationScope: HashSet<string>
       GenericArgs: Map<string, Fable.Type>
       EnclosingMember: FSharpMemberOrFunctionOrValue option
       InlinedFunction: FSharpMemberOrFunctionOrValue option
@@ -251,7 +251,7 @@ type Context =
         { Scope = []
           ScopeInlineValues = []
           UsedNamesInRootScope = usedRootNames
-          UseNamesInDeclarationScope = Unchecked.defaultof<_>
+          UsedNamesInDeclarationScope = Unchecked.defaultof<_>
           GenericArgs = Map.empty
           EnclosingMember = None
           InlinedFunction = None
@@ -357,11 +357,11 @@ module Helpers =
         Naming.removeGetSetPrefix memb.DisplayName
 
     let isUsedName (ctx: Context) name =
-        ctx.UsedNamesInRootScope.Contains name || ctx.UseNamesInDeclarationScope.Contains name
+        ctx.UsedNamesInRootScope.Contains name || ctx.UsedNamesInDeclarationScope.Contains name
 
     let getIdentUniqueName (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (isUsedName ctx)
-        ctx.UseNamesInDeclarationScope.Add(name) |> ignore
+        ctx.UsedNamesInDeclarationScope.Add(name) |> ignore
         name
 
     let isUnit (typ: FSharpType) =
@@ -369,6 +369,17 @@ module Helpers =
         if typ.HasTypeDefinition then
             typ.TypeDefinition.TryFullName = Some Types.unit
         else false
+
+    let isByRefValue (value: FSharpMemberOrFunctionOrValue) =
+        // Value type "this" is passed as inref, so it has to be excluded
+        // (Note: the non-abbreviated type of inref and outref is byref)
+        let typ = value.FullType
+        value.IsValue && not (value.IsMemberThisValue)
+        && typ.HasTypeDefinition
+        && typ.TypeDefinition.IsByRef
+        // && (typ.TypeDefinition.DisplayName = "byref" ||
+        //     typ.TypeDefinition.DisplayName = "inref" ||
+        //     typ.TypeDefinition.DisplayName = "outref")
 
     let tryFindAtt fullName (atts: FSharpAttribute seq) =
         atts |> Seq.tryPick (fun att ->
@@ -465,7 +476,8 @@ module Helpers =
     let isModuleValueForCalls (declaringEntity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         declaringEntity.IsFSharpModule
         && isModuleValueForDeclarations memb
-        && memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0        // Mutable public values must be called as functions (see #986)
+        && memb.CurriedParameterGroups.Count = 0 && memb.GenericParameters.Count = 0
+        // Mutable public values must be called as functions (see #986)
         && (not memb.IsMutable || not (isPublicMember memb))
 
     let rec getAllInterfaceMembers (ent: FSharpEntity) =
@@ -528,6 +540,11 @@ module Patterns =
 
     let inline (|NonAbbreviatedType|) (t: FSharpType) =
         nonAbbreviatedType t
+
+    let (|IgnoreAddressOf|) (expr: FSharpExpr) =
+        match expr with
+        | BasicPatterns.AddressOf value -> value
+        | _ -> expr
 
     let (|TypeDefinition|_|) (NonAbbreviatedType t) =
         if t.HasTypeDefinition then Some t.TypeDefinition else None
@@ -954,7 +971,7 @@ module Identifiers =
     let makeIdentFrom (_com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
         let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
                             ||> Naming.sanitizeIdent (isUsedName ctx)
-        ctx.UseNamesInDeclarationScope.Add(sanitizedName) |> ignore
+        ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName
           Type = makeType ctx.GenericArgs fsRef.FullType
           IsThisArgument = false
@@ -1236,7 +1253,7 @@ module Util =
             // We assume the member belongs to the current file
             |> Option.defaultValue com.CurrentFile
         if file = com.CurrentFile then
-            { makeTypedIdent typ memberName with Range = r }
+            { makeTypedIdent typ memberName with Range = r; IsMutable = memb.IsMutable }
             |> Fable.IdentExpr
         elif isPublicMember memb then
             // If the overload suffix changes, we need to recompile the files that call this member

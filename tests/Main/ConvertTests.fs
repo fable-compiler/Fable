@@ -10,20 +10,20 @@ open Fable.Tests.Util
 //-------------------------------------
 
 let tryParse f initial (value: string) =
-    #if FABLE_COMPILER
-    f(value)
-    #else
     let res = ref initial
+#if FABLE_COMPILER
+    let success = f(value, res)
+#else
     let success = f(value, NumberStyles.Number, CultureInfo("en-US"), res)
+#endif
     (success, !res)
-    #endif
 
 let parse f (a: string) =
-    #if FABLE_COMPILER
+#if FABLE_COMPILER
     f(a)
-    #else
+#else
     f(a, CultureInfo("en-US"))
-    #endif
+#endif
 
 let tests =
   testList "Convert" [

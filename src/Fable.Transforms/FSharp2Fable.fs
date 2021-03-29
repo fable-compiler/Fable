@@ -108,6 +108,16 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
 
+let private transformCallee com ctx callee (calleeType: FSharpType) =
+  trampoline {
+    let! callee = transformExprOpt com ctx callee
+    let callee =
+        match callee with
+        | Some callee -> callee
+        | None -> entityRef com (FsEnt calleeType.TypeDefinition)
+    return callee
+  }
+
 let private resolveImportMemberBinding (ident: Fable.Ident) (info: Fable.ImportInfo) =
     if info.Selector = Naming.placeholder then { info with Selector = ident.Name }
     else info
@@ -471,7 +481,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 return "Cannot resolve locally inlined value: " + var.DisplayName
                 |> addErrorAndReturnNull com ctx.InlinePath r
         else
-            return makeValueFrom com ctx r var
+            if isByRefValue var then
+                // Getting byref value is compiled as FSharpRef op_Dereference
+                let var = makeValueFrom com ctx r var
+                return Replacements.getReference r var.Type var
+            else
+                return makeValueFrom com ctx r var
 
     | BasicPatterns.DefaultValue (FableType com ctx typ) ->
         return Replacements.defaultof com ctx typ
@@ -695,26 +710,23 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
-        let! callee = transformExprOpt com ctx callee
-        let callee =
-            match callee with
-            | Some callee -> callee
-            | None -> entityRef com (FsEnt calleeType.TypeDefinition)
+        let! callee = transformCallee com ctx callee calleeType
         let typ = makeType ctx.GenericArgs fsExpr.Type
         let key = FsField(field) :> Fable.Field |> Fable.FieldKey
         return Fable.Get(callee, Fable.ByKey key, typ, r)
 
-    | BasicPatterns.TupleGet(tupleType, tupleElemIndex, tupleExpr) ->
+    | BasicPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
         let! tupleExpr = transformExpr com ctx tupleExpr
-        let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't work (Fable.Any)
+        let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't always work (could be Fable.Any)
         let typ2 = makeType ctx.GenericArgs tupleType
         let typ =
-            match typ2 with
-            | Fable.Tuple genArgs -> List.item tupleElemIndex genArgs
-            | _ -> typ // Fable.Any (shoudn't happen)
+            // if type is Fable.Any, get the actual type from the tuple element
+            match typ, typ2 with
+            | Fable.Any, Fable.Tuple genArgs -> List.item tupleElemIndex genArgs
+            | _ -> typ
         return Fable.Get(tupleExpr, Fable.TupleIndex tupleElemIndex, typ, makeRangeFrom fsExpr)
 
-    | BasicPatterns.UnionCaseGet (unionExpr, fsType, unionCase, field) ->
+    | BasicPatterns.UnionCaseGet (IgnoreAddressOf unionExpr, fsType, unionCase, field) ->
         let r = makeRangeFrom fsExpr
         let! unionExpr = transformExpr com ctx unionExpr
         match fsType, unionCase with
@@ -747,16 +759,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | BasicPatterns.FSharpFieldSet(callee, calleeType, field, value) ->
         let r = makeRangeFrom fsExpr
-        let! callee = transformExprOpt com ctx callee
+        let! callee = transformCallee com ctx callee calleeType
         let! value = transformExpr com ctx value
-        let callee =
-            match callee with
-            | Some callee -> callee
-            | None -> entityRef com (FsEnt calleeType.TypeDefinition)
         let field = FsField(field) :> Fable.Field |> Fable.FieldKey |> Some
         return Fable.Set(callee, field, value, r)
 
-    | BasicPatterns.UnionCaseTag(unionExpr, unionType) ->
+    | BasicPatterns.UnionCaseTag(IgnoreAddressOf unionExpr, unionType) ->
         // TODO: This is an inconsistency. For new unions and union tests we calculate
         // the tag in this step but here we delay the calculation until Fable2Babel
         do tryDefinition unionType
@@ -848,11 +856,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! expr = transformExpr com ctx expr
         return Fable.Test(expr, Fable.TypeTest typ, makeRangeFrom fsExpr)
 
-    | BasicPatterns.UnionCaseTest(unionExpr, fsType, unionCase) ->
+    | BasicPatterns.UnionCaseTest(IgnoreAddressOf unionExpr, fsType, unionCase) ->
         return! transformUnionCaseTest com ctx (makeRangeFrom fsExpr) unionExpr fsType unionCase
 
     // Pattern Matching
-    | BasicPatterns.DecisionTree(decisionExpr, decisionTargets) ->
+    | BasicPatterns.DecisionTree(IgnoreAddressOf decisionExpr, decisionTargets) ->
         let! fableDecisionExpr = transformExpr com ctx decisionExpr
         let! fableDecisionTargets = transformDecisionTargets com ctx [] decisionTargets
 
@@ -897,17 +905,43 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return "Quotes are not currently supported by Fable"
         |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
-    // This is used when passing arguments by reference,
-    // and also when accessing Result types (not sure why)
-    | BasicPatterns.AddressOf(expr) ->
-        return! transformExpr com ctx expr
+    | BasicPatterns.AddressOf expr ->
+        let r = makeRangeFrom fsExpr
+        match expr with
+        // This matches passing variables by reference
+        | BasicPatterns.Call(None, memb, _, _, _)
+        | BasicPatterns.Value memb ->
+            let value = makeValueFrom com ctx r memb
+            match memb.DeclaringEntity with
+            | Some ent when ent.IsFSharpModule && isPublicMember memb ->
+                return Replacements.makeRefFromMutableFunc com ctx r value.Type value
+            | _ ->
+                return Replacements.makeRefFromMutableValue com ctx r value.Type value
+        // This matches passing fields by reference
+        | BasicPatterns.FSharpFieldGet(callee, calleeType, field) ->
+            let r = makeRangeFrom fsExpr
+            let! callee = transformCallee com ctx callee calleeType
+            let typ = makeType ctx.GenericArgs expr.Type
+            let key = FsField(field) :> Fable.Field |> Fable.FieldKey
+            return Replacements.makeRefFromMutableField com ctx r typ callee key
+        | _ ->
+            // ignore AddressOf, pass by value
+            return! transformExpr com ctx expr
 
-    | BasicPatterns.AddressSet _ ->
-        return "Mutating an argument passed by reference is not supported"
-        |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
+    | BasicPatterns.AddressSet expr ->
+        let r = makeRangeFrom fsExpr
+        match expr with
+        | BasicPatterns.Value valToSet, valueExpr
+                when isByRefValue valToSet ->
+            // Setting byref value is compiled as FSharpRef op_ColonEquals
+            let! value = transformExpr com ctx valueExpr
+            let valToSet = makeValueFrom com ctx r valToSet
+            return Replacements.setReference r valToSet value
+        | _ ->
+            return "Mutating this argument passed by reference is not supported"
+            |> addErrorAndReturnNull com ctx.InlinePath r
 
     // | BasicPatterns.ILFieldSet _
-    // | BasicPatterns.AddressSet _
     // | BasicPatterns.ILAsm _
     | expr ->
         return sprintf "Cannot compile expression %A" expr
@@ -948,7 +982,7 @@ let private transformImplicitConstructor (com: FableCompiler) (ctx: Context)
               FullDisplayName = fullName
               Args = args
               Body = body
-              UsedNames = set ctx.UseNamesInDeclarationScope
+              UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
               ExportDefault = false }
         com.AddConstructor(fullName, cons, baseCall)
@@ -993,12 +1027,21 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
         transformImport com r typ memb.IsMutable isPublic name fullDisplayName selector info.Path
     | fableValue ->
         let info = MemberInfo(memb.Attributes, isValue=true, isPublic=isPublic, isMutable=memb.IsMutable)
+
+        // Mutable public values must be compiled as functions (see #986)
+        // because values imported from ES2015 modules cannot be modified
+        // (Note: Moved here from Fable2Babel)
+        let fableValue =
+            if memb.IsMutable && isPublic
+            then Replacements.createAtom com fableValue
+            else fableValue
+
         [Fable.MemberDeclaration
             { Name = name
               FullDisplayName = fullDisplayName
               Args = []
               Body = fableValue
-              UsedNames = set ctx.UseNamesInDeclarationScope
+              UsedNames = set ctx.UsedNamesInDeclarationScope
               Info = info
               ExportDefault = false }]
 
@@ -1028,14 +1071,14 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                 { Body =
                     Fable.Delegate(args, body, Some name)
                     |> makeCall None Fable.Unit (makeCallInfo None [] [])
-                  UsedNames = set ctx.UseNamesInDeclarationScope }]
+                  UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
             [Fable.MemberDeclaration
                 { Name = name
                   FullDisplayName = fullDisplayName
                   Args = args
                   Body = body
-                  UsedNames = set ctx.UseNamesInDeclarationScope
+                  UsedNames = set ctx.UsedNamesInDeclarationScope
                   Info = moduleMemberDeclarationInfo isPublic memb
                   ExportDefault = false }]
 
@@ -1073,7 +1116,7 @@ let private transformAttachedMember (com: FableCompiler) (ctx: Context)
           FullDisplayName = entFullName + "." + signature.Name
           Args = args
           Body = body
-          UsedNames = set ctx.UseNamesInDeclarationScope
+          UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
           ExportDefault = false })
 
@@ -1095,14 +1138,14 @@ let private transformExplicitlyAttachedMember (com: FableCompiler) (ctx: Context
           FullDisplayName = entFullName + "." + name
           Args = args
           Body = body
-          UsedNames = set ctx.UseNamesInDeclarationScope
+          UsedNames = set ctx.UsedNamesInDeclarationScope
           Info = info
           ExportDefault = false })
 
 let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FSharpMemberOrFunctionOrValue)
                                 (args: FSharpMemberOrFunctionOrValue list list) (body: FSharpExpr) =
     let ctx = { ctx with EnclosingMember = Some memb
-                         UseNamesInDeclarationScope = HashSet() }
+                         UsedNamesInDeclarationScope = HashSet() }
     if isIgnoredNonAttachedMember memb then
         if memb.IsMutable && isPublicMember memb && hasAttribute Atts.global_ memb.Attributes then
             "Global members cannot be mutable and public, please make it private: " + memb.DisplayName
@@ -1214,11 +1257,11 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
         | MemberOrFunctionOrValue(meth, args, body) ->
             transformMemberDecl com ctx meth args body
         | InitAction fe ->
-            let ctx = { ctx with UseNamesInDeclarationScope = HashSet() }
+            let ctx = { ctx with UsedNamesInDeclarationScope = HashSet() }
             let e = transformExpr com ctx fe |> run
             [Fable.ActionDeclaration
                 { Body = e
-                  UsedNames = set ctx.UseNamesInDeclarationScope }])
+                  UsedNames = set ctx.UsedNamesInDeclarationScope }])
 
 let getRootFSharpEntities (file: FSharpImplementationFileContents) =
     let rec getRootFSharpEntitiesInner decl = seq {

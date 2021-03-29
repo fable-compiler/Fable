@@ -117,7 +117,6 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
                 true
             | _ -> false
 
-#if !FABLE_COMPILER
     interface IDictionary<'Key, 'Value> with
         member this.Add(key: 'Key, value: 'Value): unit =
             this.Add(key, value)
@@ -138,7 +137,6 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             | _ -> false
         member this.Values: ICollection<'Value> =
             [| for pair in this -> pair.Value |] :> ICollection<'Value>
-#endif
 
     interface Fable.Core.JS.Map<'Key, 'Value> with
         member this.size = this.Count
