@@ -30,3 +30,12 @@ let ``test Seq.singleton works`` () =
     xs
     |> List.ofSeq
     |> equal [42]
+
+[<Fact>]
+let ``test Seq.collect works`` () =
+    let xs = ["a"; "fable"; "bar" ]
+    xs
+    |> Seq.ofList
+    |> Seq.collect (fun a -> [a.Length])
+    |> List.ofSeq
+    |> equal [1; 5; 3]

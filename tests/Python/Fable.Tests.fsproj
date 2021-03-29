@@ -24,6 +24,7 @@
     <Compile Include="TestList.fs" />
     <Compile Include="TestMath.fs" />
     <Compile Include="TestFn.fs" />
+    <Compile Include="TestString.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
