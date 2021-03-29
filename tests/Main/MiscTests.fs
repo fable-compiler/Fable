@@ -422,6 +422,15 @@ type ValueType =
     val public X : int
   end
 
+type MutableFoo =
+    { mutable x: int }
+
+let incByRef (a: int) (b: byref<int>) = b <- a + b
+let addInRef (a: int) (b: inref<int>) = a + b
+let setOutRef (a: int) (b: outref<int>) = b <- a
+
+let mutable mutX = 3
+
 open FSharp.UMX
 
 [<Measure>] type customerId
@@ -1112,4 +1121,35 @@ let tests =
     testCase "Can import files specified via globbing patterns" <| fun () -> // See #1942
         Glob.hello "Albert"
         |> equal "Hello Albert from Glob"
+
+    testCase "Mutable variables can be passed by reference" <| fun () ->
+        let a = 1
+        let mutable b = 2
+        incByRef a &b
+        b |> equal 3
+        addInRef a &b |> equal 4
+        b |> equal 3
+        setOutRef a &b
+        b |> equal 1
+
+    testCase "Public mutable variables can be passed by reference" <| fun () ->
+        let a = 1
+        mutX <- 2
+        incByRef a &mutX
+        mutX |> equal 3
+        addInRef a &mutX |> equal 4
+        mutX |> equal 3
+        setOutRef a &mutX
+        mutX |> equal 1
+
+    testCase "Mutable fields can be passed by reference" <| fun () ->
+        let a = 1
+        let foo: MutableFoo = { x = 2 }
+        incByRef a &foo.x
+        foo.x |> equal 3
+        addInRef a &foo.x |> equal 4
+        foo.x |> equal 3
+        setOutRef a &foo.x
+        foo.x |> equal 1
+
   ]

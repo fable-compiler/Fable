@@ -1248,7 +1248,10 @@ module Util =
             transformFunctionWithAnnotations com ctx name args body
             |> makeArrowFunctionExpression name
         | _ ->
-            com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
+            if var.IsMutable then
+                com.TransformAsExpr(ctx, value)
+            else
+                com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
 
     let transformBindingAsExpr (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         transformBindingExprBody com ctx var value
@@ -1806,7 +1809,7 @@ module Util =
         |> Seq.map (fun field ->
             let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
             let typ = field.FieldType
-            let id: Fable.Ident = makeTypedIdent typ name
+            let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
         |> Seq.toArray
 
@@ -2017,13 +2020,8 @@ module Util =
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 let decls =
                     if decl.Info.IsValue then
-                        let isPublic, isMutable, value =
-                            // Mutable public values must be compiled as functions (see #986)
-                            // because values imported from ES2015 modules cannot be modified
-                            match decl.Info.IsPublic, decl.Info.IsMutable with
-                            | true, true -> true, false, Replacements.createAtom com decl.Body |> transformAsExpr com ctx
-                            | isPublic, isMutable -> isPublic, isMutable, transformAsExpr com ctx decl.Body
-                        [declareModuleMember isPublic decl.Name isMutable value]
+                        let value = transformAsExpr com ctx decl.Body
+                        [declareModuleMember decl.Info.IsPublic decl.Name decl.Info.IsMutable value]
                     else
                         [transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body]
 
