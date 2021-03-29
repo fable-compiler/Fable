@@ -1366,7 +1366,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         Helper.GlobalCall("Math", t, args, argTypes, meth, ?loc=r)
 
     match i.CompiledName, args with
-    | "DefaultArg", _ ->
+    | ("DefaultArg" | "DefaultValueArg"), _ ->
         Helper.LibCall(com, "Option", "defaultArg", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "DefaultAsyncBuilder", _ ->
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
