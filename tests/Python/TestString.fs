@@ -39,8 +39,42 @@ let ``sprintf displays sign correctly`` () =
       sprintf "%.2f" -1. |> equal "-1.00"
 
 [<Fact>]
+let ``test Print.sprintf works`` () =
+    let res = Printf.sprintf "%s" "abc"
+    equal "res: abc" ("res: " + res)
+
+[<Fact>]
+let ``test sprintf without arguments works`` () =
+    sprintf "hello" |> equal "hello"
+
+[<Fact>]
+let ``test input of print format can be retrieved`` () =
+    let pathScan (pf:PrintfFormat<_,_,_,_,'t>) =
+        let formatStr = pf.Value
+        formatStr
+
+    equal "/hello/%s" (pathScan "/hello/%s")
+
+[<Fact>]
 let ``test interpolate works`` () =
     let name = "Phillip"
     let age = 29
     $"Name: {name}, Age: %i{age}"
     |> equal "Name: Phillip, Age: 29"
+
+#if FABLE_COMPILER
+[<Fact>]
+let ``test string interpolation works with inline expressions`` () =
+    $"I think {3.0 + 0.14} is close to %.8f{3.14159265}!"
+    |> equal "I think 3.14 is close to 3.14159265!"
+#endif
+
+// [<Fact>]
+// let ``test string interpolation works with anonymous records`` () =
+//     let person =
+//         {| Name = "John"
+//            Surname = "Doe"
+//            Age = 32
+//            Country = "The United Kingdom" |}
+//     $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
+//     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
