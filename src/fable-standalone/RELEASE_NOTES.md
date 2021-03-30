@@ -1,3 +1,7 @@
+### 3.1.12
+
+* Sync with Fable dotnet tool
+
 ### 3.0.0
 
 * Nagareyama official release
