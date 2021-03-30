@@ -69,12 +69,12 @@ let ``test string interpolation works with inline expressions`` () =
     |> equal "I think 3.14 is close to 3.14159265!"
 #endif
 
-// [<Fact>]
-// let ``test string interpolation works with anonymous records`` () =
-//     let person =
-//         {| Name = "John"
-//            Surname = "Doe"
-//            Age = 32
-//            Country = "The United Kingdom" |}
-//     $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
-//     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+[<Fact>]
+let ``test string interpolation works with anonymous records`` () =
+    let person =
+        {| Name = "John"
+           Surname = "Doe"
+           Age = 32
+           Country = "The United Kingdom" |}
+    $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
+    |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"

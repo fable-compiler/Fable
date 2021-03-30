@@ -585,6 +585,13 @@ module PrinterExtensions =
             | Compare (cp) -> printer.Print(cp)
             | Dict (di) -> printer.Print(di)
             | Tuple (tu) -> printer.Print(tu)
+            | Starred (ex, ctx) ->
+                printer.Print("*")
+                printer.Print(ex)
+            | List (elts, ctx) ->
+                printer.Print("[")
+                printer.PrintCommaSeparatedList(elts)
+                printer.Print("]")
 
 
         member printer.Print(node: AST) =

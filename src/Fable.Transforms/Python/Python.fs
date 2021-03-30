@@ -41,6 +41,8 @@ type Expression =
     | Name of Name
     | Dict of Dict
     | Tuple of Tuple
+    | Starred of value: Expression * ctx: ExpressionContext
+    | List of elts: Expression list * ctx: ExpressionContext
 
 // member val Lineno: int = 0 with get, set
 // member val ColOffset: int = 0 with get, set
@@ -915,9 +917,9 @@ module PythonExtensions =
 
         static member boolOp(op, values): Expression = { Values = values; Operator = op } |> BoolOp
         static member constant(value: obj): Expression = { Value = value } |> Constant
-
+        static member starred(value: Expression, ?ctx: ExpressionContext) : Expression = Starred(value, ctx |> Option.defaultValue Load)
+        static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression = List(elts, ctx |> Option.defaultValue Load)
     type List with
-
         static member list(elts) = { Elements = elts }
 
     type ExceptHandler with

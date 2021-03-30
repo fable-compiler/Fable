@@ -457,7 +457,14 @@ module Util =
                           key, Expression.name (name), stmts @ [ func ] ]
                 |> List.unzip3
 
-            Expression.dict (keys = keys, values = values), stmts |> List.collect id
+            // Transform as namedtuple to allow attribute access of keys.
+            com.GetImportExpr(ctx, "collections", "namedtuple") |> ignore
+            let keys =
+                keys
+                |> List.map (function | Expression.Name { Id=Python.Identifier name} -> Expression.constant(name) | ex -> ex)
+
+            Expression.call(Expression.call(Expression.name("namedtuple"), [ Expression.constant("object"); Expression.list(keys)]), values), stmts |> List.collect id
+
         | EmitExpression (value = value; args = args) ->
             let args, stmts =
                 args
@@ -483,6 +490,10 @@ module Util =
         | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "indexOf"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
             let attr = Python.Identifier "index"
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "toLocaleUpperCase"))) ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
+            let attr = Python.Identifier "upper"
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "length"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
