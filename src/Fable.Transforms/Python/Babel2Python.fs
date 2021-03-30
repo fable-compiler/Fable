@@ -551,27 +551,27 @@ module Util =
 
             Expression.ifExp (test, body, orElse), stmts1 @ stmts2 @ stmts3
         | Expression.Literal (Literal.NullLiteral (nl)) -> Expression.name (Python.Identifier("None")), []
-        | SequenceExpression (expressions = exprs) ->
+        | SequenceExpression (expressions = exprs) -> //XXX
             // Sequence expressions are tricky. We currently convert them to a function that we call w/zero arguments
-            let stmts =
+            let body =
                 exprs
                 |> List.ofArray
-                |> List.map (fun ex -> com.TransformAsStatements(ctx, ReturnStrategy.Return, ex))
+                |> List.mapi
+                    (fun i ex ->
+                         // Return the last expression
+                        if i = exprs.Length - 1 then
+                            let expr, stmts = com.TransformAsExpr(ctx, ex)
+                            [Statement.return' (expr)]
+                        else
+                            com.TransformAsStatements(ctx, ReturnStrategy.Return, ex))
                 |> List.collect id
+                |> transformBody ReturnStrategy.Return
 
-            // let body =
-            //     exprs
-            //     |> List.mapi
-            //         (fun i n ->
-            //             if i = exprs.Length - 1 then
-            //                 Statement.return' (n) // Return the last statement
-            //             else
-            //                 Statement.expr (n))
 
             let name = Helpers.getUniqueIdentifier ("lifted")
 
             let func =
-                FunctionDef.Create(name = name, args = Arguments.arguments [], body = stmts)
+                FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
 
             let name = Expression.name (name)
             Expression.call (name), [ func ]
@@ -820,7 +820,7 @@ module Util =
                   | Babel.ImportDeclaration (specifiers, source) -> yield! com.TransformAsImports(ctx, specifiers, source)
                   | Babel.PrivateModuleDeclaration (statement = statement) ->
                       yield!
-                          com.TransformAsStatements(ctx, returnStrategy, statement)
+                          com.TransformAsStatements(ctx, ReturnStrategy.Return, statement)
                           |> transformBody returnStrategy
                   | _ -> failwith $"Unknown module declaration: {md}" ]
 
