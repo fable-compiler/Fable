@@ -2,6 +2,14 @@ module Fable.Tests.String
 
 open Util.Testing
 
+let containsInOrder (substrings: string list) (str: string) =
+    let mutable lastIndex = -1
+    substrings |> List.forall (fun s ->
+      let i = str.IndexOf(s)
+      let success = i >= 0 && i > lastIndex
+      lastIndex <- i
+      success)
+
 [<Fact>]
 let ``test sprintf works`` () =
     // Immediately applied
@@ -88,3 +96,36 @@ let ``test sprintf \"%A\" with lists works`` () =
 let ``test sprintf \"%A\" with nested lists works`` () =
     let xs = [["Hi"]; ["Hello"]; ["Hola"]]
     (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+
+[<Fact>]
+let ``test sprintf \"%A\" with sequences works`` () =
+    let xs = seq { "Hi"; "Hello"; "Hola" }
+    sprintf "%A" xs |> containsInOrder ["Hi"; "Hello"; "Hola"] |> equal true
+
+// [<Fact>]
+// let ``test Storing result of Seq.tail and printing the result several times works. Related to #1996`` () =
+//     let tweets = seq { "Hi"; "Hello"; "Hola" }
+//     let tweetsTailR: seq<string> = tweets |> Seq.tail
+
+//     let a = sprintf "%A" (tweetsTailR)
+//     let b = sprintf "%A" (tweetsTailR)
+
+//     containsInOrder ["Hello"; "Hola"] a |> equal true
+//     containsInOrder ["Hello"; "Hola"] b |> equal true
+
+// [<Fact>]
+// let ``test sprintf \"%X\" works`` () =
+//     //These should all be the Native JS Versions (except int64 / uint64)
+//     //See #1530 for more information.
+
+//     sprintf "255: %X" 255 |> equal "255: FF"
+//     sprintf "255: %x" 255 |> equal "255: ff"
+//     sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+//     sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
+//     sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
+//     sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
+//     sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
+//     sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
+//     sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
+//     sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
+//     sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"

@@ -2,6 +2,12 @@ module Fable.Tests.Seqs
 
 open Util.Testing
 
+let sumFirstTwo (zs: seq<float>) =
+    let second = Seq.skip 1 zs |> Seq.head
+    let first = Seq.head zs
+    printfn "sumFirstTwo: %A" (first, second)
+    first + second
+
 
 [<Fact>]
 let ``test Seq.empty works`` () =
@@ -39,3 +45,33 @@ let ``test Seq.collect works`` () =
     |> Seq.collect (fun a -> [a.Length])
     |> List.ofSeq
     |> equal [1; 5; 3]
+
+[<Fact>]
+let ``test Seq.collect works II"`` () =
+    let xs = [[1.]; [2.]; [3.]; [4.]]
+    let ys = xs |> Seq.collect id
+    sumFirstTwo ys
+    |> equal 3.
+
+    let xs1 = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+    let ys1 = xs1 |> Seq.collect id
+    sumFirstSeq ys1 5
+    |> equal 15.
+
+[<Fact>]
+let ``test Seq.collect works with Options`` () =
+    let xss = [[Some 1; Some 2]; [None; Some 3]]
+    Seq.collect id xss
+    |> Seq.sumBy (function
+        | Some n -> n
+        | None -> 0
+    )
+    |> equal 6
+
+    seq {
+        for xs in xss do
+            for x in xs do
+                x
+    }
+    |> Seq.length
+    |> equal 4
