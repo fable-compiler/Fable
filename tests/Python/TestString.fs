@@ -88,6 +88,10 @@ let ``test string interpolation works with anonymous records`` () =
     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
 [<Fact>]
+let ``test interpolated string with double % should be unescaped`` () =
+    $"{100}%%" |> equal "100%"
+
+[<Fact>]
 let ``test sprintf \"%A\" with lists works`` () =
     let xs = ["Hi"; "Hello"; "Hola"]
     (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"

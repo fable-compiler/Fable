@@ -26,6 +26,7 @@
     <Compile Include="TestFn.fs" />
     <Compile Include="TestString.fs" />
     <Compile Include="TestRecordType.fs" />
+    <Compile Include="TestSet.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
