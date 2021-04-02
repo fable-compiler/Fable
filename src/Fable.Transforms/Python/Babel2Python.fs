@@ -333,7 +333,8 @@ module Util =
             | "%" -> Mod |> toBinOp
             | "**" -> Pow |> toBinOp
             | "<<" -> LShift |> toBinOp
-            | ">>" -> RShift |> toBinOp
+            | ">>"
+            | ">>>" -> RShift |> toBinOp
             | "|" -> BitOr |> toBinOp
             | "^" -> BitXor |> toBinOp
             | "&" -> BitAnd |> toBinOp
@@ -803,7 +804,8 @@ module Util =
         : Python.Statement list =
 
         [ for stmt in block.Body do
-              yield! transformStatementAsStatements com ctx returnStrategy stmt ]
+            yield! transformStatementAsStatements com ctx returnStrategy stmt ]
+            |> List.sortBy (function | Statement.NonLocal _ -> 0 | _ -> 1)
 
     /// Transform Babel program to Python module.
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
