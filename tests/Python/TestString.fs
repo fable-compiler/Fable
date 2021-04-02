@@ -78,3 +78,13 @@ let ``test string interpolation works with anonymous records`` () =
            Country = "The United Kingdom" |}
     $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+
+[<Fact>]
+let ``test sprintf \"%A\" with lists works`` () =
+    let xs = ["Hi"; "Hello"; "Hola"]
+    (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+
+[<Fact>]
+let ``test sprintf \"%A\" with nested lists works`` () =
+    let xs = [["Hi"]; ["Hello"]; ["Hola"]]
+    (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"

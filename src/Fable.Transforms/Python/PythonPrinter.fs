@@ -162,7 +162,6 @@ module PrinterExtensions =
                 printer.PrintCommaSeparatedList(args)
 
         member printer.Print(assign: Assign) =
-            printfn "Assign: %A" (assign.Targets, assign.Value)
             //printer.PrintOperation(targets.[0], "=", value, None)
 
             for target in assign.Targets do
@@ -243,7 +242,9 @@ module PrinterExtensions =
 
         member printer.Print(gl: Global) = printer.Print("(Global)")
 
-        member printer.Print(nl: NonLocal) = printer.Print("(NonLocal)")
+        member printer.Print(nl: NonLocal) =
+            printer.Print("nonlocal ")
+            printer.PrintCommaSeparatedList nl.Names
 
         member printer.Print(af: AsyncFunctionDef) = printer.Print("(AsyncFunctionDef)")
 
@@ -327,7 +328,7 @@ module PrinterExtensions =
             match box node.Value with
             | :? string as str ->
                 printer.Print("\"")
-                printer.Print(string node.Value)
+                printer.Print(Web.HttpUtility.JavaScriptStringEncode(string node.Value))
                 printer.Print("\"")
             | _ -> printer.Print(string node.Value)
 
@@ -593,21 +594,21 @@ module PrinterExtensions =
                 printer.PrintCommaSeparatedList(elts)
                 printer.Print("]")
 
-
         member printer.Print(node: AST) =
             match node with
-            | Expression (ex) -> printer.Print(ex)
-            | Operator (op) -> printer.Print(op)
-            | BoolOperator (op) -> printer.Print(op)
-            | ComparisonOperator (op) -> printer.Print(op)
-            | UnaryOperator (op) -> printer.Print(op)
-            | ExpressionContext (_) -> ()
-            | Alias (al) -> printer.Print(al)
-            | Module ``mod`` -> printer.Print(``mod``)
-            | Arguments (arg) -> printer.Print(arg)
-            | Keyword (kw) -> printer.Print(kw)
-            | Arg (arg) -> printer.Print(arg)
-            | Statement (st) -> printer.Print(st)
+            | AST.Expression (ex) -> printer.Print(ex)
+            | AST.Operator (op) -> printer.Print(op)
+            | AST.BoolOperator (op) -> printer.Print(op)
+            | AST.ComparisonOperator (op) -> printer.Print(op)
+            | AST.UnaryOperator (op) -> printer.Print(op)
+            | AST.ExpressionContext (_) -> ()
+            | AST.Alias (al) -> printer.Print(al)
+            | AST.Module ``mod`` -> printer.Print(``mod``)
+            | AST.Arguments (arg) -> printer.Print(arg)
+            | AST.Keyword (kw) -> printer.Print(kw)
+            | AST.Arg (arg) -> printer.Print(arg)
+            | AST.Statement (st) -> printer.Print(st)
+            | AST.Identifier (id) -> printer.Print(id)
 
         member printer.PrintBlock
             (
@@ -638,8 +639,6 @@ module PrinterExtensions =
 
         member _.IsProductiveStatement(stmt: Statement) =
             let rec hasNoSideEffects(e: Expression) =
-                printfn $"hasNoSideEffects: {e}"
-
                 match e with
                 | Constant (_) -> true
                 | Dict { Keys = keys } -> keys.IsEmpty
@@ -689,7 +688,7 @@ module PrinterExtensions =
             | Some node -> printer.Print(node)
 
         member printer.PrintOptional(node: Expression option) =
-            printer.PrintOptional(node |> Option.map Expression)
+            printer.PrintOptional(node |> Option.map AST.Expression)
         member printer.PrintOptional(node: Identifier option) =
             match node with
             | None -> ()
@@ -708,11 +707,14 @@ module PrinterExtensions =
         member printer.PrintCommaSeparatedList(nodes: Expression list) =
             printer.PrintList(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
         member printer.PrintCommaSeparatedList(nodes: Arg list) =
-            printer.PrintCommaSeparatedList(nodes |> List.map Arg)
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Arg)
         member printer.PrintCommaSeparatedList(nodes: Keyword list) =
-            printer.PrintCommaSeparatedList(nodes |> List.map Keyword)
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Keyword)
         member printer.PrintCommaSeparatedList(nodes: Alias list) =
-            printer.PrintCommaSeparatedList(nodes |> List.map Alias)
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Alias)
+        member printer.PrintCommaSeparatedList(nodes: Identifier list) =
+            printer.PrintCommaSeparatedList(nodes |> List.map AST.Identifier)
+
 
         member printer.PrintFunction
             (
@@ -743,8 +745,6 @@ module PrinterExtensions =
 
         /// Surround with parens anything that can potentially conflict with operator precedence
         member printer.ComplexExpressionWithParens(expr: Expression) =
-            printfn "Expr: %A" expr
-
             match expr with
             | Constant (_) -> printer.Print(expr)
             | Name (_) -> printer.Print(expr)

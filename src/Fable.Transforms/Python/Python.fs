@@ -3,20 +3,6 @@ namespace rec Fable.AST.Python
 
 open Fable.AST
 
-type AST =
-    | Expression of Expression
-    | Statement of Statement
-    | Operator of Operator
-    | BoolOperator of BoolOperator
-    | ComparisonOperator of ComparisonOperator
-    | UnaryOperator of UnaryOperator
-    | ExpressionContext of ExpressionContext
-    | Alias of Alias
-    | Module of Module
-    | Arguments of Arguments
-    | Keyword of Keyword
-    | Arg of Arg
-
 type Expression =
     | Attribute of Attribute
     | Subscript of Subscript
@@ -90,7 +76,12 @@ type ExpressionContext =
     | Del
     | Store
 
-type Identifier = Identifier of string
+type Identifier =
+    Identifier of string
+    with
+        member this.Name =
+            let (Identifier name) = this
+            name
 
 type Statement =
     | Pass
@@ -804,6 +795,22 @@ type Name =
     { Id: Identifier
       Context: ExpressionContext }
 
+[<RequireQualifiedAccess>]
+type AST =
+    | Expression of Expression
+    | Statement of Statement
+    | Operator of Operator
+    | BoolOperator of BoolOperator
+    | ComparisonOperator of ComparisonOperator
+    | UnaryOperator of UnaryOperator
+    | ExpressionContext of ExpressionContext
+    | Alias of Alias
+    | Module of Module
+    | Arguments of Arguments
+    | Keyword of Keyword
+    | Arg of Arg
+    | Identifier of Identifier
+
 [<AutoOpen>]
 module PythonExtensions =
     type Statement with
@@ -851,6 +858,7 @@ module PythonExtensions =
         static member importFrom(``module``, names, ?level) =
             ImportFrom.importFrom (``module``, names, ?level = level)
             |> ImportFrom
+        static member nonLocal(ids) = NonLocal.Create ids |> Statement.NonLocal
 
     type Expression with
 
