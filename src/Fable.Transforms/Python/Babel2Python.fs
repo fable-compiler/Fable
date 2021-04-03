@@ -228,7 +228,6 @@ module Util =
                   match mber with
                   | Babel.ClassMember.ClassMethod (kind, key, ``params``, body, computed, ``static``, ``abstract``, returnType, typeParameters, loc) ->
                       let self = Arg.arg (Python.Identifier("self"))
-
                       let parms = ``params`` |> List.ofArray
 
                       let args =
@@ -249,26 +248,31 @@ module Util =
 
                       let arguments = Arguments.arguments (args = self :: args, ?vararg = varargs)
 
-                      match kind with
-                      | "method" ->
-                          let body =
-                              com.TransformAsStatements(ctx, ReturnStrategy.Return, body |> Statement.BlockStatement)
-
+                      match kind, key with
+                      | "method", _ ->
+                          let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
                           let name =
                               match key with
                               | Expression.Identifier (id) -> com.GetIdentifier(ctx, id.Name)
                               | Expression.Literal(Literal.StringLiteral(StringLiteral(value=name))) ->
                                   com.GetIdentifier(ctx, name)
+                              | MemberExpression(object=Expression.Identifier(Identifier(name="Symbol")); property=Expression.Identifier(Identifier(name="iterator"))) ->
+                                  com.GetIdentifier(ctx, "__iter__")
                               | _ ->
                                   failwith $"transformAsClassDef: Unknown key: {key}"
 
                           FunctionDef.Create(name, arguments, body = body)
-                      | "constructor" ->
+                      | "constructor", _ ->
                           let name = Python.Identifier("__init__")
-
-                          let body =
-                              com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body |> Statement.BlockStatement)
-
+                          let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
+                          FunctionDef.Create(name, arguments, body = body)
+                      | "get", MemberExpression(object=Expression.Identifier(Identifier(name="Symbol")); property=Expression.Identifier(Identifier(name="toStringTag"))) ->
+                          let name = Python.Identifier("__str__")
+                          let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
+                          FunctionDef.Create(name, arguments, body = body)
+                      | "get", Expression.Identifier(Identifier(name="size")) ->
+                          let name = Python.Identifier("__len__")
+                          let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
                           FunctionDef.Create(name, arguments, body = body)
                       | _ -> failwith $"transformAsClassDef: Unknown kind: {kind}"
                   | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}" ]
@@ -332,21 +336,19 @@ module Util =
             | "/" -> Div |> toBinOp
             | "%" -> Mod |> toBinOp
             | "**" -> Pow |> toBinOp
-            | "<<" -> LShift |> toBinOp
-            | ">>"
-            | ">>>" -> RShift |> toBinOp
+            | "<<<" | "<<" -> LShift |> toBinOp
+            | ">>" | ">>>" -> RShift |> toBinOp
             | "|" -> BitOr |> toBinOp
             | "^" -> BitXor |> toBinOp
             | "&" -> BitAnd |> toBinOp
-            | "==="
-            | "==" -> Eq |> toCompare
-            | "!=="
-            | "!=" -> NotEq |> toCompare
+            | "===" | "==" -> Eq |> toCompare
+            | "!==" | "!=" -> NotEq |> toCompare
             | ">" -> Gt |> toCompare
             | ">=" -> GtE |> toCompare
             | "<" -> Lt |> toCompare
             | "<=" -> LtE |> toCompare
-            | "isinstance" -> toCall "isinstance"
+            //| "isinstance" -> toCall "isinstance"
+            | "instanceof" -> toCall "isinstance"
             | _ -> failwith $"Unknown operator: {operator}"
 
         // Transform `~(~(a/b))` to `a // b`
@@ -626,11 +628,21 @@ module Util =
                             []
 
                     [ Expression.name (id = target, ctx = Store) ], stmts
+                // a.b = c
                 | MemberExpression (property = Expression.Identifier (id); object = object) ->
                     let attr = com.GetIdentifier(ctx, id.Name)
-
                     let value, stmts = com.TransformAsExpr(ctx, object)
                     [ Expression.attribute (value = value, attr = attr, ctx = Store) ], stmts
+                // a.b[c] = d
+                | MemberExpression (property = Expression.Literal(NumericLiteral(value=value)); object = object) ->
+                    let slice = Expression.constant(value)
+                    let expr, stmts = com.TransformAsExpr(ctx, object)
+                    [ Expression.subscript (value = expr, slice = slice, ctx = Store) ], stmts
+                // a[b] =
+                | MemberExpression (property = property; object = Expression.Identifier (id)) ->
+                    let attr = com.GetIdentifier(ctx, id.Name)
+                    let slice, stmts = com.TransformAsExpr(ctx, property)
+                    [ Expression.subscript (value = Expression.name attr, slice = slice, ctx = Store) ], stmts
                 | _ -> failwith $"AssignmentExpression, unknown expression: {left}"
 
             [ yield! stmts; yield! stmts2; Statement.assign (targets = targets, value = value) ]
