@@ -818,6 +818,7 @@ module Util =
         [ for stmt in block.Body do
             yield! transformStatementAsStatements com ctx returnStrategy stmt ]
             |> List.sortBy (function | Statement.NonLocal _ -> 0 | _ -> 1)
+            |> transformBody returnStrategy
 
     /// Transform Babel program to Python module.
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
