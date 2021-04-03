@@ -5,9 +5,8 @@ module Literals =
 
 type CompilerOptionsHelper =
     static member DefaultExtension = ".fs.js"
-    static member Make(?python,
+    static member Make(?language,
                        ?typedArrays,
-                       ?typescript,
                        ?define,
                        ?optimizeFSharpAst,
                        ?verbosity,
@@ -15,16 +14,12 @@ type CompilerOptionsHelper =
                        ?clampByteArrays) =
         let define = defaultArg define []
         let isDebug = List.contains "DEBUG" define
-        let language =
-            let typescript = typescript |> Option.bind(fun ts -> if ts then Some TypeScript else None)
-            let python = python |> Option.bind(fun py -> if py then Some Python else None)
+        let language = language |> Option.defaultValue JavaScript
 
-            typescript |> Option.orElse python
-        printfn "Language: %A" language
         { new CompilerOptions with
               member _.Define = define
               member _.DebugMode = isDebug
-              member _.Language = defaultArg language JavaScript
+              member _.Language = language
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal

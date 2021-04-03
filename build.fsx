@@ -160,7 +160,7 @@ let buildLibraryTs() =
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
-        "--typescript"
+        "--lang TypeScript"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
         "--define FABLE_LIBRARY"
@@ -370,7 +370,7 @@ let testPython() =
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"
-        "--python"
+        "--lang Python"
     ]
 
     runInDir buildDir "touch __init__.py" // So relative imports works.
@@ -545,10 +545,10 @@ match argsLower with
 | "test-py"::_ -> testPython()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --python --exclude Fable.Core --noCache --runScript"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache --runScript"
 | "jupyter" :: _ ->
     buildLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --exclude Fable.Core  --noCache --runScript  --python"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --lang Python --exclude Fable.Core  --noCache"
 
 | "run"::_ ->
     buildLibraryIfNotExists()

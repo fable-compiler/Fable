@@ -170,11 +170,8 @@ module private Util =
         let fileName = Naming.applyCaseRule Core.CaseRules.SnakeCase fileName
         // Note that Python modules cannot contain dots or it will be impossible to import them
         let targetPath = Path.Combine(targetDir, fileName + fileExt)
-        do printfn "TargetPath: %s" targetPath
 
         let stream = new IO.StreamWriter(targetPath)
-
-        do printfn $"PythonFileWriter: {sourcePath}, {targetPath}"
 
         interface PythonPrinter.Writer with
             member _.Write(str) =
@@ -213,7 +210,7 @@ module private Util =
                 do! Text.Json.JsonSerializer.SerializeAsync(sw, writer.SourceMap) |> Async.AwaitTask
 
             if com.Options.Language = Python then
-                printfn "Generating Python"
+                logger("Generating Python")
                 let python = babel |> Babel2Python.Compiler.transformFile com
 
                 let map = { new PythonPrinter.SourceMapGenerator with

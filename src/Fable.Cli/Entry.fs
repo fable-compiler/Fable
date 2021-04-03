@@ -74,8 +74,8 @@ Arguments:
                     (Intended for plugin development)
 
   --optimize        Compile with optimized F# AST (experimental)
-  --typescript      Compile to TypeScript (experimental)
-  --python          Compile to Python (experimental)
+  --lang|--language Compile to JavaScript (default), "TypeScript" or "Python".
+                    Support for TypeScript and Python is experimental.
 
   Environment variables:
    DOTNET_USE_POLLING_FILE_WATCHER
@@ -84,12 +84,24 @@ Arguments:
    Docker mounted volumes, and other virtual file systems.
 """
 
-let defaultFileExt isTypescript args =
+let defaultFileExt language args =
     let fileExt =
         match argValueMulti ["-o"; "--outDir"] args with
         | Some _ -> ".js"
         | None -> CompilerOptionsHelper.DefaultExtension
-    if isTypescript then Path.replaceExtension ".ts" fileExt else fileExt
+    match language with
+    | TypeScript -> Path.replaceExtension ".ts" fileExt
+    | Python -> Path.replaceExtension ".py" fileExt
+    | _ -> fileExt
+
+let argLanguage args =
+    argValue "--lang" args
+    |> Option.orElse (argValue "--language" args)
+    |> Option.defaultValue "JavaScript"
+    |> (function
+    | "TypeScript" -> TypeScript
+    | "Python" -> Python
+    | _ -> JavaScript)
 
 type Runner =
   static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
@@ -123,16 +135,16 @@ type Runner =
 
     // TODO: Remove this check when typed arrays are compatible with typescript
     |> Result.bind (fun projFile ->
-        let typescript = flagEnabled "--typescript" args
-        let python = flagEnabled "--python" args
+        let language = argLanguage args
+
         let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
-        if typescript && typedArrays then
+        if language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
         else
-            Ok(projFile, typescript, python, typedArrays)
+            Ok(projFile, language, typedArrays)
     )
 
-    |> Result.bind (fun (projFile, typescript, python, typedArrays) ->
+    |> Result.bind (fun (projFile, language, typedArrays) ->
         let verbosity =
             if flagEnabled "--verbose" args then
                 Log.makeVerbose()
@@ -158,11 +170,10 @@ type Runner =
 
         let fileExt =
             argValueMulti ["-e"; "--extension"] args
-            |> Option.defaultValue (defaultFileExt typescript args)
+            |> Option.defaultValue (defaultFileExt language args)
 
         let compilerOptions =
-            CompilerOptionsHelper.Make(python = python,
-                                       typescript = typescript,
+            CompilerOptionsHelper.Make(language=language,
                                        typedArrays = typedArrays,
                                        fileExtension = fileExt,
                                        define = define,
@@ -201,13 +212,12 @@ type Runner =
 
 
 let clean args dir =
-    let typescript = flagEnabled "--typescript" args
-    let python = flagEnabled "--python" args
+    let language = argLanguage args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
 
     let fileExt =
         argValueMulti ["-e"; "--extension"] args
-        |> Option.defaultValue (defaultFileExt typescript args)
+        |> Option.defaultValue (defaultFileExt language args)
 
     let dir =
         argValueMulti ["-o"; "--outDir"] args
