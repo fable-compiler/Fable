@@ -99,8 +99,8 @@ let argLanguage args =
     |> Option.orElse (argValue "--language" args)
     |> Option.defaultValue "JavaScript"
     |> (function
-    | "TypeScript" -> TypeScript
-    | "Python" -> Python
+    | "ts" | "typescript" | "TypeScript" -> TypeScript
+    | "py" | "python" | "Python" -> Python
     | _ -> JavaScript)
 
 type Runner =
