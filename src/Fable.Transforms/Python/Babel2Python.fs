@@ -709,15 +709,16 @@ module Util =
                 com.TransformAsStatements(ctx, returnStrategy, consequent)
                 |> transformBody ReturnStrategy.NoReturn
 
-            let orElse =
+            let orElse, nonLocals =
                 match alternate with
                 | Some alt ->
                     com.TransformAsStatements(ctx, returnStrategy, alt)
                     |> transformBody ReturnStrategy.NoReturn
+                    |> List.splitWhile (function | Statement.NonLocal (_) -> false | _ -> true )
 
-                | _ -> []
+                | _ -> [], []
 
-            [ yield! stmts; Statement.if' (test = test, body = body, orelse = orElse) ]
+            [ yield! nonLocals @ stmts; Statement.if' (test = test, body = body, orelse = orElse) ]
         | WhileStatement (test = test; body = body) ->
             let expr, stmts = com.TransformAsExpr(ctx, test)
 
