@@ -431,9 +431,9 @@ module PrinterExtensions =
         member printer.Print(node: IfExp) =
             printer.Print(node.Body)
             printer.Print(" if ")
-            printer.Print(node.Test)
+            printer.WithParens (node.Test)
             printer.Print(" else ")
-            printer.Print(node.OrElse)
+            printer.WithParens(node.OrElse)
 
         member printer.Print(node: Lambda) =
             printer.Print("lambda")

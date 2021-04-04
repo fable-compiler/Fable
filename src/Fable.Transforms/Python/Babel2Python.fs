@@ -76,7 +76,7 @@ module Helpers =
         | "for" -> "for_"
         | "Math" -> "math"
         | _ ->
-            name.Replace('$', '_').Replace('.', '_')
+            name.Replace('$', '_').Replace('.', '_').Replace('`', '_')
 
     let rewriteFableImport moduleName =
         let _reFableLib =
@@ -317,6 +317,14 @@ module Util =
                 Expression.namedExpr (left, right), leftStmts @ rightStmts
             | _ -> failwith $"Unsuppored assingment expression: {operator}"
 
+        | BinaryExpression (left = left; operator = "=="; right = Literal(NullLiteral(_))) ->
+            let left, leftStmts = com.TransformAsExpr(ctx, left)
+            let right = Expression.name("None")
+            Expression.compare (left, [ Python.Is ], [ right ]), leftStmts
+        | BinaryExpression (left = left; operator = "!="; right = Literal(NullLiteral(_))) ->
+            let left, leftStmts = com.TransformAsExpr(ctx, left)
+            let right = Expression.name("None")
+            Expression.compare (left, [ Python.IsNot ], [ right ]), leftStmts
         | BinaryExpression (left = left; operator = operator; right = right) ->
             let left, leftStmts = com.TransformAsExpr(ctx, left)
             let right, rightStmts = com.TransformAsExpr(ctx, right)
@@ -450,7 +458,6 @@ module Util =
                           let key, stmts = com.TransformAsExpr(ctx, key)
 
                           let name = Helpers.getUniqueIdentifier "lifted"
-
                           let func = com.TransformAsFunction(ctx, name.Name, parms, body)
                           key, Expression.name (name), stmts @ [ func ] ]
                 |> List.unzip3
@@ -476,7 +483,11 @@ module Util =
 
             match value with
             | "void $0" -> args.[0], stmts
-            //| "raise %0" -> Raise.Create()
+            | "throw $0" ->
+                let value = "raise $0"
+                Expression.emit (value, args), stmts
+            | Naming.StartsWith("new ") value ->
+                Expression.emit (value, args), stmts
             | _ -> Expression.emit (value, args), stmts
         // If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression
         | MemberExpression (computed = true; object = object; property = Expression.Literal (literal)) ->
@@ -572,7 +583,7 @@ module Util =
                          // Return the last expression
                         if i = exprs.Length - 1 then
                             let expr, stmts = com.TransformAsExpr(ctx', ex)
-                            [Statement.return' (expr)]
+                            stmts @ [Statement.return' (expr)]
                         else
                             com.TransformAsStatements(ctx', ReturnStrategy.Return, ex))
                 |> List.collect id
@@ -580,8 +591,7 @@ module Util =
 
 
             let name = Helpers.getUniqueIdentifier ("lifted")
-            let func =
-                FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
+            let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
 
             let name = Expression.name (name)
             Expression.call (name), [ func ]
@@ -629,20 +639,20 @@ module Util =
 
                     [ Expression.name (id = target, ctx = Store) ], stmts
                 // a.b = c
-                | MemberExpression (property = Expression.Identifier (id); object = object) ->
+                | MemberExpression (property = Expression.Identifier (id); object = object; computed=false) ->
                     let attr = com.GetIdentifier(ctx, id.Name)
                     let value, stmts = com.TransformAsExpr(ctx, object)
                     [ Expression.attribute (value = value, attr = attr, ctx = Store) ], stmts
                 // a.b[c] = d
-                | MemberExpression (property = Expression.Literal(NumericLiteral(value=value)); object = object) ->
+                | MemberExpression (property = Expression.Literal(NumericLiteral(value=value)); object = object; computed=false) ->
                     let slice = Expression.constant(value)
                     let expr, stmts = com.TransformAsExpr(ctx, object)
                     [ Expression.subscript (value = expr, slice = slice, ctx = Store) ], stmts
-                // a[b] =
-                | MemberExpression (property = property; object = Expression.Identifier (id)) ->
-                    let attr = com.GetIdentifier(ctx, id.Name)
-                    let slice, stmts = com.TransformAsExpr(ctx, property)
-                    [ Expression.subscript (value = Expression.name attr, slice = slice, ctx = Store) ], stmts
+                // object[property] =
+                | MemberExpression (property = property; object = object; computed=true) ->
+                    let value, stmts = com.TransformAsExpr(ctx, object)
+                    let index, stmts' = com.TransformAsExpr(ctx, property)
+                    [ Expression.subscript (value = value, slice = index, ctx = Store) ], stmts @ stmts'
                 | _ -> failwith $"AssignmentExpression, unknown expression: {left}"
 
             [ yield! stmts; yield! stmts2; Statement.assign (targets = targets, value = value) ]
@@ -788,22 +798,27 @@ module Util =
         | Statement.Declaration (Declaration.ClassDeclaration (body, id, superClass, implements, superTypeParameters, typeParameters, loc)) ->
             transformAsClassDef com ctx body id superClass implements superTypeParameters typeParameters loc
         | Statement.ForStatement (init = Some (VariableDeclaration(declarations = [| VariableDeclarator (id = id; init = Some (init)) |]))
-                                  test = Some (Expression.BinaryExpression (left = left; right = right; operator = "<="))
+                                  test = Some (Expression.BinaryExpression (left = left; right = right; operator = operator))
+                                  update = Some (Expression.UpdateExpression (operator=update))
                                   body = body) ->
-            let body =
-                com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
-
-            let target = Expression.name (Python.Identifier id.Name)
+            let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
             let start, stmts1 = com.TransformAsExpr(ctx, init)
             let stop, stmts2 = com.TransformAsExpr(ctx, right)
-            let stop = Expression.binOp (stop, Add, Expression.constant (1)) // Python `range` has exclusive end.
 
-            let iter =
-                Expression.call (Expression.name (Python.Identifier "range"), args = [ start; stop ])
+            let stop, step =
+                match operator, update with
+                | "<=", "++" ->
+                    let stop = Expression.binOp (stop, Add, Expression.constant (1)) // Python `range` has exclusive end.
+                    stop,  1
+                | ">=", "--" -> stop, -1
+                | _ -> failwith $"Unhandled for loop with operator {operator} and update {update}"
 
-            stmts1
-            @ stmts2
-              @ [ Statement.for' (target = target, iter = iter, body = body) ]
+            let target = Expression.name (Python.Identifier id.Name)
+            let step = Expression.constant(step)
+
+            let iter = Expression.call (Expression.name (Python.Identifier "range"), args = [ start; stop; step ])
+
+            stmts1 @ stmts2 @ [ Statement.for' (target = target, iter = iter, body = body) ]
         | LabeledStatement (body = body) -> com.TransformAsStatements(ctx, returnStrategy, body)
         | ContinueStatement (_) -> [ Continue ]
         | _ -> failwith $"transformStatementAsStatements: Unhandled: {stmt}"
