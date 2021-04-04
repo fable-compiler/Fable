@@ -97,7 +97,7 @@ let defaultFileExt language args =
 let argLanguage args =
     argValue "--lang" args
     |> Option.orElse (argValue "--language" args)
-    |> Option.orElse (argValue "--typescript" args) // Compatibility
+    |> Option.orElse (tryFlag "--typescript" args |> Option.map (fun _ -> "typescript"))// Compatibility with "--typescript".
     |> Option.defaultValue "JavaScript"
     |> (function
     | "ts" | "typescript" | "TypeScript" -> TypeScript
