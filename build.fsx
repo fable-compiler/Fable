@@ -170,6 +170,25 @@ let buildLibraryTs() =
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
 
+let buildLibraryPy() =
+    let libraryDir = "src/fable-library-py"
+    let projectDir = libraryDir + "/fable"
+    let buildDirPy = "build/fable-library-py"
+
+    cleanDirs [buildDirPy]
+
+    runFableWithArgs projectDir [
+        "--outDir " + buildDirPy
+        "--fableLib " + buildDirPy + "/fable"
+        "--lang Python"
+        "--exclude Fable.Core"
+    ]
+    // Copy *.py from projectDir to buildDir
+    runInDir libraryDir ("cp -R *  ../../" + buildDirPy)
+    runInDir buildDirPy ("cp fable-library/*.py fable/")
+    runInDir buildDirPy ("python3 --version")
+    runInDir buildDirPy ("python3 ./setup.py develop")
+
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
 let testJsFast() =
@@ -360,7 +379,7 @@ let test() =
         testJsFast()
 
 let testPython() =
-    buildLibraryIfNotExists()
+    buildLibraryIfNotExists() // NOTE: fable-library-py needs to be built seperatly.
 
     let projectDir = "tests/Python"
     let buildDir = "build/tests/Python"
@@ -567,6 +586,7 @@ match argsLower with
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
+| ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
 | ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}

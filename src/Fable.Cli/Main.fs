@@ -198,18 +198,19 @@ module private Util =
             let dir = IO.Path.GetDirectoryName outPath
             if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
-            // write output to file
-            let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-            do! BabelPrinter.run writer babel
+            match com.Options.Language with
+            | JavaScript | TypeScript ->
+                // write output to file
+                let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
+                do! BabelPrinter.run writer babel
 
-            // write source map to file
-            if cliArgs.SourceMaps then
-                let mapPath = outPath + ".map"
-                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                use sw = IO.File.Open(mapPath, IO.FileMode.Create)
-                do! Text.Json.JsonSerializer.SerializeAsync(sw, writer.SourceMap) |> Async.AwaitTask
-
-            if com.Options.Language = Python then
+                // write source map to file
+                if cliArgs.SourceMaps then
+                    let mapPath = outPath + ".map"
+                    do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                    use sw = IO.File.Open(mapPath, IO.FileMode.Create)
+                    do! Text.Json.JsonSerializer.SerializeAsync(sw, writer.SourceMap) |> Async.AwaitTask
+            | Python ->
                 logger("Generating Python")
                 let python = babel |> Babel2Python.Compiler.transformFile com
 
