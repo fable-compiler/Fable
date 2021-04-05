@@ -411,11 +411,29 @@ export function getCaseTag(x: any): number {
 }
 
 export function getCaseName(x: any): string {
-  assertUnion(x);
-  return x.cases()[x.tag];
+  let name = "";
+  if (x instanceof Union) {
+    name = x.cases()[x.tag];
+  } else if (Array.isArray(x)) {
+    name = x[0];
+  } else {
+    name = x;
+  }
+  // TODO: In some situations we may mistake a string field for the case name,
+  // for example in unions with a single case with multiple fields
+  if (typeof name !== "string") {
+    throw new Error();
+  }
+  return name;
 }
 
 export function getCaseFields(x: any): any[] {
-  assertUnion(x);
-  return x.fields;
+  if (x instanceof Union) {
+    return x.fields;
+  // TODO: How can we know if the first item represents the name?
+  } else if (Array.isArray(x)) {
+    return x;
+  } else {
+    return [x];
+  }
 }

@@ -197,6 +197,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsFSharpExceptionDeclaration = ent.IsFSharpExceptionDeclaration
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface
+        member this.IsErased = Util.isErasedOrStringEnumEntity this
 
 type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
@@ -456,13 +457,6 @@ module Helpers =
         with _ ->
             failwithf "Cannot find case %s in %s" unionCase.Name (FsEnt.FullName ent)
 
-    /// Apply case rules to case name if there's no explicit compiled name
-    let transformStringEnum (rule: CaseRules) (unionCase: FSharpUnionCase) =
-        match FsUnionCase.CompiledName unionCase with
-        | Some name -> name
-        | None -> Naming.applyCaseRule rule unionCase.Name
-        |> makeStrConst
-
     // let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
     //     match memb.DeclaringEntity with
     //     | Some ent -> ent.IsFSharpModule
@@ -698,13 +692,7 @@ module Patterns =
             | _ -> None
         else None
 
-    let (|OptionUnion|ListUnion|ErasedUnion|ErasedUnionCase|StringEnum|DiscriminatedUnion|)
-                            (NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
-        let getCaseRule (att: FSharpAttribute) =
-            match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
-            | _ -> CaseRules.LowerFirst
-
+    let (|OptionUnion|ListUnion|ErasedUnionCase|DiscriminatedUnion|) (NonAbbreviatedType typ: FSharpType, unionCase: FSharpUnionCase) =
         unionCase.Attributes |> Seq.tryPick (fun att ->
             match att.AttributeType.TryFullName with
             | Some Atts.erase -> Some ErasedUnionCase
@@ -717,13 +705,7 @@ module Patterns =
                 | Types.valueOption
                 | Types.option -> OptionUnion typ.GenericArguments.[0]
                 | Types.list -> ListUnion typ.GenericArguments.[0]
-                | _ ->
-                    tdef.Attributes |> Seq.tryPick (fun att ->
-                        match att.AttributeType.TryFullName with
-                        | Some Atts.erase -> Some (ErasedUnion(tdef, typ.GenericArguments, getCaseRule att))
-                        | Some Atts.stringEnum -> Some (StringEnum(tdef, getCaseRule att))
-                        | _ -> None)
-                    |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
+                | _ -> DiscriminatedUnion(tdef, typ.GenericArguments)
         )
 
     let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
@@ -830,21 +812,13 @@ module TypeHelpers =
             | DicContains numberTypes kind -> Fable.Number kind
             | "Microsoft.FSharp.Core.int64`1" -> makeSystemRuntimeType Types.int64
             | "Microsoft.FSharp.Core.decimal`1" -> makeSystemRuntimeType Types.decimal
-            // TODO: FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
-            // so we need to hard-cde FSharp.UMX types
+            // FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation, so we need to hard-code FSharp.UMX types
             | Naming.StartsWith "FSharp.UMX." (DicContains fsharpUMX choice) ->
                 match choice with
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeSystemRuntimeType fullName
-            | _ ->
-                // Special attributes
-                tdef.Attributes |> tryPickAttribute [
-                    Atts.stringEnum, Fable.String
-                    Atts.erase, Fable.Any
-                ]
-                // Rest of declared types
-                |> Option.defaultWith (fun () ->
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeGenArgs ctxTypeArgs genArgs))
+            // Rest of declared types
+            | _ -> Fable.DeclaredType(FsEnt.Ref tdef, makeGenArgs ctxTypeArgs genArgs)
 
     let rec makeType (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)

@@ -82,6 +82,7 @@ type Entity =
     abstract IsValueType: bool
     abstract IsFSharpExceptionDeclaration: bool
     abstract IsInterface: bool
+    abstract IsErased: bool
 
 type Type =
     | MetaType
@@ -266,7 +267,7 @@ type KeyKind =
 type GetKind =
     | ByKey of KeyKind
     | TupleIndex of int
-    | UnionField of index: int * fieldType: Type
+    | UnionField of index: int * fieldType: Type * tag: int
     | UnionTag
     | ListHead
     | ListTail

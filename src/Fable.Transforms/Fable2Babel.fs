@@ -909,6 +909,42 @@ module Util =
     let transformCurry (com: IBabelCompiler) (ctx: Context) _r expr arity: Expression =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 
+    let transformNewUnion (com: IBabelCompiler) ctx r values tag ent genArgs =
+        let asArrayWithCaseName (ent: Fable.Entity) values =
+            let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName
+            (makeStrConst caseName)::values |> makeArray com ctx
+
+        let ent = com.GetEntity(ent)
+        if ent.IsErased then
+            let multipleCases = List.isMultiple ent.UnionCases
+            match values with
+            | [] ->
+                let uci = ent.UnionCases |> List.item tag
+                // Apply case rules to case name if there's no explicit compiled name
+                let name =
+                    match uci.CompiledName with
+                    | Some name -> name
+                    | None -> uci.Name
+                Expression.stringLiteral(name, ?loc=r)
+            // TODO: When all cases are single field we cannot use an array for compatibility with "legacy" erased unions
+            // But we likely need a way to opt out this behaviour for better union testing when unions are not used for interop
+            | [value] when (not multipleCases) || ent.UnionCases |> List.forall (fun uci -> uci.UnionCaseFields.Length = 1) ->
+                com.TransformAsExpr(ctx, value)
+            | [value] ->
+                asArrayWithCaseName ent [value]
+            | values when multipleCases -> asArrayWithCaseName ent values
+            | values -> makeArray com ctx values
+        else
+            let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
+            let consRef = ent |> jsConstructor com ctx
+            let typeParamInst =
+                if com.Options.Typescript
+                then makeGenTypeParamInst com ctx genArgs
+                else None
+            // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
+            let values = (ofInt tag)::values |> List.toArray
+            Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
+
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
         match value with
         | Fable.BaseValue(None,_) -> Super(None)
@@ -973,16 +1009,7 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
-            let ent = com.GetEntity(ent)
-            let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
-            let consRef = ent |> jsConstructor com ctx
-            let typeParamInst =
-                if com.Options.Typescript
-                then makeGenTypeParamInst com ctx genArgs
-                else None
-            // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
-            let values = (ofInt tag)::values |> List.toArray
-            Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
+            transformNewUnion com ctx r values tag ent genArgs
 
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -1227,9 +1254,46 @@ module Util =
         | Fable.UnionTag ->
             getUnionExprTag com ctx range fableExpr
 
-        | Fable.UnionField(index, _) ->
-            let expr = com.TransformAsExpr(ctx, fableExpr)
-            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
+        | Fable.UnionField(index, _, tag) ->
+            let ent =
+                match fableExpr.Type with
+                | Fable.DeclaredType(entRef, _) -> com.GetEntity(entRef) |> Some
+                | _ -> None
+            match ent with
+            | Some ent when ent.IsErased ->
+                let uci = ent.UnionCases |> List.item tag
+                // let multipleCases = List.isMultiple ent.UnionCases
+                // match values with
+                // | [] ->
+                //     let uci = ent.UnionCases |> List.item tag
+                //     // Apply case rules to case name if there's no explicit compiled name
+                //     let name =
+                //         match uci.CompiledName with
+                //         | Some name -> name
+                //         | None -> uci.Name
+                //     Expression.stringLiteral(name, ?loc=r)
+                // | [value] when multipleCases || ent.UnionCases |> List.forall (fun uci -> uci.UnionCaseFields.Length = 1) ->
+                //     com.TransformAsExpr(ctx, value)
+                // | [value] ->
+                //     asArrayWithCaseName ent [value]
+                // | values when multipleCases -> asArrayWithCaseName ent values
+                // | values -> makeArray com ctx values
+
+                // | ErasedUnion _ ->
+                //     if unionCase.UnionCaseFields.Count = 1 then return unionExpr
+                //     else
+                //         let index = unionCase.UnionCaseFields |> Seq.findIndex (fun x -> x.Name = field.Name)
+                //         return Fable.Get(unionExpr, Fable.TupleIndex index, makeType ctx.GenericArgs fsType, r)
+                // | StringEnum _ ->
+                //     return "StringEnum types cannot have fields"
+                //     |> addErrorAndReturnNull com ctx.InlinePath r
+
+
+
+                failwith "todo"
+            | _ ->
+                let expr = com.TransformAsExpr(ctx, fableExpr)
+                getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
