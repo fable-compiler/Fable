@@ -819,7 +819,7 @@ module Util =
         getExpr r expr (Expression.stringLiteral("tag"))
 
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
-    let wrapIntExpression typ (e: Expression) =
+    let wrapIfIntExpression typ (e: Expression) =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
@@ -1071,7 +1071,7 @@ module Util =
                 |> extractBaseExprFromBaseCall com ctx None
                 |> Option.map (fun (baseExpr, baseArgs) ->
                     let consBody = BlockStatement([|callSuperAsStatement baseArgs|])
-                    let cons = makeClassConstructor [||]  consBody
+                    let cons = makeClassConstructor [||] consBody
                     Some baseExpr, cons::classMembers
                 )
                 |> Option.defaultValue (None, classMembers)
@@ -1099,7 +1099,7 @@ module Util =
         match strategy with
         | None | Some ReturnUnit -> ExpressionStatement(babelExpr)
         // TODO: Where to put these int wrappings? Add them also for function arguments?
-        | Some Return ->  Statement.returnStatement(wrapIntExpression t babelExpr)
+        | Some Return -> Statement.returnStatement(wrapIfIntExpression t babelExpr)
         | Some(Assign left) -> ExpressionStatement(assign None left babelExpr)
         | Some(Target left) -> ExpressionStatement(assign None (left |> Expression.Identifier) babelExpr)
 
@@ -1233,7 +1233,7 @@ module Util =
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
-        let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
+        let value = com.TransformAsExpr(ctx, value) |> wrapIfIntExpression value.Type
         let ret =
             match kind with
             | None -> expr
@@ -1251,7 +1251,7 @@ module Util =
             if var.IsMutable then
                 com.TransformAsExpr(ctx, value)
             else
-                com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
+                com.TransformAsExpr(ctx, value) |> wrapIfIntExpression value.Type
 
     let transformBindingAsExpr (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         transformBindingExprBody com ctx var value
@@ -1943,25 +1943,31 @@ module Util =
 
     let transformClassWithCompilerGeneratedConstructor (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getEntityFieldsAsIdents com ent
-        let args = fieldIds |> Array.map identAsExpr
-        let baseExpr =
+        let baseArgs, baseExpr =
             if ent.IsFSharpExceptionDeclaration
-            then libValue com ctx "Types" "FSharpException" |> Some
+            then [], libValue com ctx "Types" "FSharpException" |> Some
             elif ent.IsFSharpRecord || ent.IsValueType
-            then libValue com ctx "Types" "Record" |> Some
-            else None
+            then [], libValue com ctx "Types" "Record" |> Some
+            else
+                match ent.BaseType with
+                | Some b ->
+                    let baseEntity = b.Entity |> com.GetEntity
+                    // TODO: Get base constructor arguments
+                    [], Some(jsConstructor com ctx baseEntity)
+                | None -> [], None
         let body =
             BlockStatement([|
                 if Option.isSome baseExpr then
-                    yield callSuperAsStatement []
+                    yield baseArgs |> List.map identAsExpr |> callSuperAsStatement
                 yield! ent.FSharpFields |> Seq.mapi (fun i field ->
                     let left = get None thisExpr field.Name
-                    let right = wrapIntExpression field.FieldType args.[i]
+                    let right = identAsExpr fieldIds.[i] |> wrapIfIntExpression field.FieldType
                     assign None left right |> ExpressionStatement)
                 |> Seq.toArray
             |])
-        let typedPattern x = typedIdent com ctx x
-        let args = fieldIds |> Array.map (typedPattern >> Pattern.Identifier)
+        let args =
+            Array.append (List.toArray baseArgs) fieldIds
+            |> Array.map (fun x -> typedIdent com ctx x |> Pattern.Identifier)
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithImplicitConstructor (com: IBabelCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
