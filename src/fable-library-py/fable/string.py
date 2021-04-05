@@ -155,7 +155,7 @@ def toFail(arg: Union[IPrintfFormat, str]):
 
 
 def formatReplacement(rep: Any, flags: Any, padLength: Any, precision: Any, format: Any):
-    print("Got here", rep, format)
+    # print("Got here", rep, format)
     sign = ""
     flags = flags or ""
     format = format or ""

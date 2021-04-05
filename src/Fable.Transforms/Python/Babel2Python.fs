@@ -75,12 +75,14 @@ module Helpers =
         | "class" -> "class_"
         | "for" -> "for_"
         | "Math" -> "math"
+        | "Error" -> "Exception"
         | _ ->
             name.Replace('$', '_').Replace('.', '_').Replace('`', '_')
 
     let rewriteFableImport moduleName =
+        //printfn "ModuleName: %s" moduleName
         let _reFableLib =
-            Regex(".*\/fable-library[\.0-9]*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
+            Regex(".*\/fable-library.*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
 
@@ -106,7 +108,7 @@ module Helpers =
     /// left in the AST and we need to skip them since they are not valid for Python (either).
     let isProductiveStatement (stmt: Python.Statement) =
         let rec hasNoSideEffects (e: Python.Expression) =
-            printfn $"hasNoSideEffects: {e}"
+            //printfn $"hasNoSideEffects: {e}"
 
             match e with
             | Constant _ -> true
@@ -210,7 +212,7 @@ module Util =
         (typeParameters: Babel.TypeParameterDeclaration option)
         (loc: SourceLocation option)
         : Python.Statement list =
-        printfn $"transformAsClassDef"
+        //printfn $"transformAsClassDef"
 
         let bases, stmts =
             let entries =
@@ -297,7 +299,10 @@ module Util =
                     Arg.arg (ident))
 
         let arguments = Arguments.arguments (args = args)
-        let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = ctx.UsedNames.LocalScope; NonLocals = HashSet () }}
+        let enclosingScope = HashSet<string>()
+        enclosingScope.UnionWith(ctx.UsedNames.EnclosingScope)
+        enclosingScope.UnionWith(ctx.UsedNames.LocalScope)
+        let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = enclosingScope; NonLocals = HashSet () }}
         let body = com.TransformAsStatements(ctx', ReturnStrategy.Return, body)
 
         let name = com.GetIdentifier(ctx, name)
@@ -305,7 +310,7 @@ module Util =
 
     /// Transform Babel expression as Python expression
     let rec transformAsExpr (com: IPythonCompiler) (ctx: Context) (expr: Babel.Expression): Python.Expression * list<Python.Statement> =
-        printfn $"transformAsExpr: {expr}"
+        //printfn $"transformAsExpr: {expr}"
 
         match expr with
         | AssignmentExpression (left = left; operator = operator; right = right) ->
@@ -355,7 +360,6 @@ module Util =
             | ">=" -> GtE |> toCompare
             | "<" -> Lt |> toCompare
             | "<=" -> LtE |> toCompare
-            //| "isinstance" -> toCall "isinstance"
             | "instanceof" -> toCall "isinstance"
             | _ -> failwith $"Unknown operator: {operator}"
 
@@ -482,10 +486,11 @@ module Util =
                 |> Helpers.unzipArgs
 
             match value with
-            | "void $0" -> args.[0], stmts
+            //| "void $0" -> args.[0], stmts
             | "throw $0" ->
                 let value = "raise $0"
                 Expression.emit (value, args), stmts
+            | Naming.StartsWith("void ") value
             | Naming.StartsWith("new ") value ->
                 Expression.emit (value, args), stmts
             | _ -> Expression.emit (value, args), stmts
@@ -606,7 +611,7 @@ module Util =
         (expr: Babel.Expression)
         : Python.Statement list =
 
-        printfn $"transformExpressionAsStatements: {expr}"
+        //printfn $"transformExpressionAsStatements: {expr}"
 
         match expr with
         // Transform e.g `this["x@22"] = x;` into `setattr(self, "x@22", x)`
@@ -632,7 +637,7 @@ module Util =
                     let stmts =
                         if not (ctx.UsedNames.LocalScope.Contains name) && ctx.UsedNames.EnclosingScope.Contains name then
                             ctx.UsedNames.NonLocals.Add name |> ignore
-                            printfn "**** Adding non-local: %A" target
+                            // printfn "**** Adding non-local: %A" target
                             [ Statement.nonLocal [target] ]
                         else
                             []
@@ -668,7 +673,7 @@ module Util =
         (returnStrategy: ReturnStrategy)
         (stmt: Babel.Statement)
         : Python.Statement list =
-        printfn $"transformStatementAsStatements: {stmt}, returnStrategy: {returnStrategy}"
+        //printfn $"transformStatementAsStatements: {stmt}, returnStrategy: {returnStrategy}"
 
         match stmt with
         | Statement.BlockStatement (bs) ->
@@ -751,8 +756,7 @@ module Util =
                     // let value = Call.Create(Name.Create(Identifier("str"), Load), [idName])
                     // let msg = Assign.Create([trg], value)
                     // let body =  msg :: body
-                    let handlers =
-                        [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ]
+                    let handlers = [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ]
 
                     handlers
                 | _ -> []

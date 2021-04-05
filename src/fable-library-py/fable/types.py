@@ -157,5 +157,6 @@ def toString(x, callStack=0):
 
     return str(x)
 
+Exception = Exception
 
-__all__ = ["Attribute", "Union"]
+__all__ = ["Attribute", "Exception", "Union"]

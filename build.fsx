@@ -567,7 +567,7 @@ match argsLower with
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache --runScript"
 | "jupyter" :: _ ->
     buildLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --lang Python --exclude Fable.Core  --noCache"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src/fable.out"
 
 | "run"::_ ->
     buildLibraryIfNotExists()

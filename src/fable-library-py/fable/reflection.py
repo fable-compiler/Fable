@@ -99,3 +99,14 @@ uint32_type: TypeInfo = TypeInfo("System.UInt32")
 float32_type: TypeInfo = TypeInfo("System.Single")
 float64_type: TypeInfo = TypeInfo("System.Double")
 decimal_type: TypeInfo = TypeInfo("System.Decimal")
+
+def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
+    return t1 == t2
+#   if (t1.fullname === "") { // Anonymous records
+#     return t2.fullname === ""
+#       && equalArraysWith(getRecordElements(t1),
+#         getRecordElements(t2),
+#         ([k1, v1], [k2, v2]) => k1 === k2 && equals(v1, v2));
+#   } else {
+#     return t1.fullname === t2.fullname
+#       && equalArraysWith(getGenerics(t1), getGenerics(t2), equals);

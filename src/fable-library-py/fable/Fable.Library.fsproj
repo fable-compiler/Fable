@@ -15,7 +15,7 @@
     <!-- <Compile Include="BigInt.fs" /> -->
     <!-- <Compile Include="BigInt/q.fsi"/> -->
     <!-- <Compile Include="BigInt/q.fs"/> -->
-    <!-- <Compile Include="System.Text.fs" /> -->
+    <Compile Include="../../fable-library/System.Text.fs" />
     <!-- <Compile Include="System.Collections.Generic.fs" /> -->
     <!-- <Compile Include="FSharp.Collections.fs" /> -->
     <!-- <Compile Include="FSharp.Core.fs" /> -->
