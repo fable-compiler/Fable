@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Generic, Iterable, Tuple, TypeVar, Any, Optional
+from typing import Callable, Generic, Iterable, List, Tuple, TypeVar, Any, Optional
 
 T = TypeVar("T")
 
@@ -77,3 +77,8 @@ def int32ToString(i: int, radix: int = 10):
         return convertString[i]
     else:
         return int32ToString(i // radix, radix) + convertString[i % radix]
+
+
+def clear(col: Iterable[Any]):
+    if isinstance(col, List):
+        col.clear()

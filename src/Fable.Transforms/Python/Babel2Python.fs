@@ -76,6 +76,7 @@ module Helpers =
         | "for" -> "for_"
         | "Math" -> "math"
         | "Error" -> "Exception"
+        | "toString" -> "str"
         | _ ->
             name.Replace('$', '_').Replace('.', '_').Replace('`', '_')
 
@@ -165,8 +166,6 @@ module Util =
         for expr in specifiers do
             match expr with
             | Babel.ImportMemberSpecifier (local, imported) ->
-                printfn "ImportMemberSpecifier"
-
                 let asname =
                     if imported.Name <> local.Name then
                         com.GetIdentifier(ctx, local.Name) |> Some
@@ -175,8 +174,6 @@ module Util =
                 let alias = Alias.alias(Python.Identifier(imported.Name),?asname=asname)
                 importFroms.Add(alias)
             | Babel.ImportDefaultSpecifier (local) ->
-                printfn "ImportDefaultSpecifier"
-
                 let asname =
                     if local.Name <> pymodule then
                         Python.Identifier(local.Name) |> Some
@@ -255,6 +252,8 @@ module Util =
                           let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
                           let name =
                               match key with
+                              | Expression.Identifier(Identifier(name="toString")) ->
+                                  com.GetIdentifier(ctx, "__str__")
                               | Expression.Identifier (id) -> com.GetIdentifier(ctx, id.Name)
                               | Expression.Literal(Literal.StringLiteral(StringLiteral(value=name))) ->
                                   com.GetIdentifier(ctx, name)
@@ -515,6 +514,10 @@ module Util =
         | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "toLocaleUpperCase"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
             let attr = Python.Identifier "upper"
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "push"))) ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
+            let attr = Python.Identifier "append"
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         // If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier
         | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "length"))) ->
