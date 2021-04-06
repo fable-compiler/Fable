@@ -73,6 +73,10 @@ def full_name(t: TypeInfo) -> str:
     return t.fullname
 
 
+def option_type(generic: TypeInfo) -> TypeInfo:
+    return TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic])
+
+
 def list_type(generic: TypeInfo) -> TypeInfo:
     return TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic])
 
@@ -99,6 +103,7 @@ uint32_type: TypeInfo = TypeInfo("System.UInt32")
 float32_type: TypeInfo = TypeInfo("System.Single")
 float64_type: TypeInfo = TypeInfo("System.Double")
 decimal_type: TypeInfo = TypeInfo("System.Decimal")
+
 
 def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
     return t1 == t2

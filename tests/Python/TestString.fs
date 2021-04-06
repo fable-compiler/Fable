@@ -1,5 +1,6 @@
 module Fable.Tests.String
 
+open System
 open Util.Testing
 
 let containsInOrder (substrings: string list) (str: string) =
@@ -133,3 +134,14 @@ let ``test sprintf \"%A\" with sequences works`` () =
 //     sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
 //     sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
 //     sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
+
+[<Fact>]
+let ``test StringBuilder works`` () =
+    let sb = System.Text.StringBuilder()
+    sb.Append "Hello" |> ignore
+    sb.AppendLine () |> ignore
+    sb.AppendLine "World!" |> ignore
+    let expected = System.Text.StringBuilder()
+                      .AppendFormat("Hello{0}World!{0}", Environment.NewLine)
+                      .ToString()
+    sb.ToString() |> equal expected

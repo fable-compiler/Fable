@@ -1,8 +1,12 @@
+from curses.ascii import isspace
+from gettext import find
 import re
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Iterable, Match, Optional, Pattern, Union, cast, TypeVar
+from typing import Any, Callable, Iterable, Match, NoReturn, Optional, Pattern, Union, cast, TypeVar
+
+from fable.list import length
 
 # import multiply
 # import Numeric
@@ -14,7 +18,7 @@ from typing import Any, Callable, Iterable, Match, Optional, Pattern, Union, cas
 # import "./Numeric.js"
 # import "./RegExp.js"
 # import "./Types.js"
-from .numeric import to_fixed, to_precision, to_exponential
+from .numeric import to_fixed, to_precision, to_exponential, to_hex, multiply
 from .types import toString
 
 # import { escape }
@@ -140,9 +144,8 @@ def toConsole(arg: Union[IPrintfFormat, str]) -> Union[Any, Callable[[str], Any]
     return continuePrint(print, arg)
 
 
-# export function toConsoleError(arg: IPrintfFormat | string) {
-#   return continuePrint((x: string) => console.error(x), arg);
-# }
+def toConsoleError(arg: Union[IPrintfFormat, str]):
+    return continuePrint(lambda x: print(x), arg)
 
 
 def toText(arg: Union[IPrintfFormat, str]) -> str:
@@ -175,9 +178,9 @@ def formatReplacement(rep: Any, flags: Any, padLength: Any, precision: Any, form
                     sign = "+"
 
         elif format == "x":
-            rep = "{0:x}".format(rep)
+            rep = to_hex(rep)
         elif format == "X":
-            rep = "{0:x}".format(rep).upper()
+            rep = to_hex(rep).upper()
 
         precision = None if precision is None else int(precision)
         if format in ("f", "F"):
@@ -277,70 +280,74 @@ def fsFormat(str: str):
     return _
 
 
-# export function format(str: string, ...args: any[]) {
-#   if (typeof str === "object" && args.length > 0) {
-#     // Called with culture info
-#     str = args[0];
-#     args.shift();
-#   }
+def format(string: str, *args: Any) -> str:
+    print("format: ", string, args)
+    # if (typeof str === "object" and args.length > 0):
+    #     # Called with culture info
+    #     str = args[0]
+    #     args.shift()
 
-#   return str.replace(formatRegExp, (_, idx, padLength, format, precision, pattern) => {
-#     let rep = args[idx];
-#     if (is_numeric(rep)) {
-#       precision = precision == null ? null : parseInt(precision, 10);
-#       switch (format) {
-#         case "f": case "F":
-#           precision = precision != null ? precision : 2;
-#           rep = toFixed(rep, precision);
-#           break;
-#         case "g": case "G":
-#           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
-#           break;
-#         case "e": case "E":
-#           rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
-#           break;
-#         case "p": case "P":
-#           precision = precision != null ? precision : 2;
-#           rep = toFixed(multiply(rep, 100), precision) + " %";
-#           break;
-#         case "d": case "D":
-#           rep = precision != null ? padLeft(String(rep), precision, "0") : String(rep);
-#           break;
-#         case "x": case "X":
-#           rep = precision != null ? padLeft(toHex(rep), precision, "0") : toHex(rep);
-#           if (format === "X") { rep = rep.toUpperCase(); }
-#           break;
-#         default:
-#           if (pattern) {
-#             let sign = "";
-#             rep = (pattern as string).replace(/(0+)(\.0+)?/, (_, intPart, decimalPart) => {
-#               if (isLessThan(rep, 0)) {
-#                 rep = multiply(rep, -1);
-#                 sign = "-";
-#               }
-#               rep = toFixed(rep, decimalPart != null ? decimalPart.length - 1 : 0);
-#               return padLeft(rep, (intPart || "").length - sign.length + (decimalPart != null ? decimalPart.length : 0), "0");
-#             });
-#             rep = sign + rep;
-#           }
-#       }
-#     } else if (rep instanceof Date) {
-#       rep = dateToString(rep, pattern || format);
-#     } else {
-#       rep = toString(rep)
-#     }
-#     padLength = parseInt((padLength || " ").substring(1), 10);
-#     if (!isNaN(padLength)) {
-#       rep = padLeft(String(rep), Math.abs(padLength), " ", padLength < 0);
-#     }
-#     return rep;
-#   });
-# }
+    def match(m: Match[str]):
+        print("Groups: ", m.groups())
+        idx, padLength, format, precision_, pattern = list(m.groups())
+        rep = args[int(idx)]
+        print("rep: ", [rep])
+        if isinstance(rep, (int, float)):
+            precision: Optional[int] = None if precision_ is None else int(precision_)
 
-# export function endsWith(str: string, search: string) {
-#   const idx = str.lastIndexOf(search);
-#   return idx >= 0 && idx === str.length - search.length;
-# }
+            if format in ["f", "F"]:
+                precision = precision if precision is not None else 2
+                rep = to_fixed(rep, precision)
+
+            elif format in ["g", "G"]:
+                rep = to_precision(rep, precision) if precision is not None else to_precision(rep)
+
+            elif format in ["e", "E"]:
+                rep = to_exponential(rep, precision) if precision is not None else to_exponential(rep)
+
+            elif format in ["p", "P"]:
+                precision = precision if precision is not None else 2
+                rep = to_fixed(multiply(rep, 100), precision) + " %"
+
+            elif format in ["d", "D"]:
+                rep = padLeft(str(rep), precision, "0") if precision is not None else str(rep)
+
+            elif format in ["x", "X"]:
+                rep = padLeft(to_hex(rep), precision, "0") if precision is not None else to_hex(rep)
+                if format == "X":
+                    rep = rep.upper()
+            elif pattern:
+                sign = ""
+                # rep = (pattern as string).replace(/(0+)(\.0+)?/, (_, intPart, decimalPart) => {
+                # if (isLessThan(rep, 0)) {
+                #     rep = multiply(rep, -1);
+                #     sign = "-";
+                # }
+                # rep = toFixed(rep, decimalPart != null ? decimalPart.length - 1 : 0);
+                # return padLeft(rep, (intPart || "").length - sign.length + (decimalPart != null ? decimalPart.length : 0), "0");
+                # });
+                rep = sign + rep
+
+        elif isinstance(rep, datetime):
+            rep = dateToString(rep, pattern or format)
+        else:
+            rep = toString(rep)
+
+        try:
+            padLength = int((padLength or " ")[1:])
+            rep = padLeft(str(rep), abs(padLength), " ", padLength < 0)
+        except ValueError:
+            pass
+
+        print("return rep: ", [rep])
+        return rep
+
+    ret = formatRegExp.sub(match, string)
+    print("ret: ", ret)
+    return ret
+
+def endsWith(string: str, search: str) -> bool:
+    return string.endswith(search)
 
 
 def initialize(n: int, f: Callable[[int], str]) -> str:
@@ -366,9 +373,9 @@ def isNullOrEmpty(string: Optional[str]):
     not isinstance(string, str) or not len(string)
 
 
-# export function isNullOrWhiteSpace(str: string | any) {
-#   return typeof str !== "string" || /^\s*$/.test(str);
-# }
+def isNullOrWhiteSpace(string: Optional[Any]) -> bool:
+    return not isinstance(string, str) or string.isspace()
+
 
 def concat(*xs: Iterable[Any]) -> str:
     return "".join(map(str, xs))
@@ -385,9 +392,10 @@ def join(delimiter: str, xs: Iterable[Any]) -> str:
 #   return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
 # }
 
-# function notSupported(name: string): never {
-#   throw new Error("The environment doesn't support '" + name + "', please use a polyfill.");
-# }
+
+def notSupported(name: str) -> NoReturn:
+    raise Exception("The environment doesn't support '" + name + "', please use a polyfill.")
+
 
 # export function toBase64String(inArray: number[]) {
 #   let str = "";
@@ -406,18 +414,18 @@ def join(delimiter: str, xs: Iterable[Any]) -> str:
 #   return bytes;
 # }
 
-# export function padLeft(str: string, len: number, ch?: string, isRight?: boolean) {
-#   ch = ch || " ";
-#   len = len - str.length;
-#   for (let i = 0; i < len; i++) {
-#     str = isRight ? str + ch : ch + str;
-#   }
-#   return str;
-# }
+def padLeft(string: str, length: int, ch: Optional[str]=None, isRight: Optional[bool]=False) -> str:
+    ch = ch or " "
+    length = length - len(string)
+    for i in range(length):
+        string =  string + ch if isRight else ch + string
 
-# export function padRight(str: string, len: number, ch?: string) {
-#   return padLeft(str, len, ch, true);
-# }
+    return string
+
+
+def padRight(string: str, len: int, ch: Optional[str]=None) -> str:
+    return padLeft(string, len, ch, True)
+
 
 # export function remove(str: string, startIndex: number, count?: number) {
 #   if (startIndex >= str.length) {
@@ -434,8 +442,8 @@ def replace(string: str, search: str, replace: str):
     return re.sub(search, replace, string)
 
 
-def replicate(n: int, x: str):
-    return initialize(n, lambda: x)
+def replicate(n: int, x: str) -> str:
+    return initialize(n, lambda _=0: x)
 
 
 # export function getCharAtIndex(input: string, index: number) {

@@ -26,3 +26,10 @@ def to_exponential(x: float, dp: Optional[int] = None):
         return fmt.format(x)
 
     return "{}".format(x)
+
+
+def to_hex(x) -> str:
+    return "{0:x}".format(x)
+
+def multiply(x: int, y: int):
+    return x * y

@@ -186,6 +186,7 @@ let buildLibraryPy() =
     // Copy *.py from projectDir to buildDir
     runInDir libraryDir ("cp -R *  ../../" + buildDirPy)
     runInDir buildDirPy ("cp fable-library/*.py fable/")
+    runInDir buildDirPy ("mv fable/system.text.py fable/system_text.py") // Python modules cannot contain "."
     runInDir buildDirPy ("python3 --version")
     runInDir buildDirPy ("python3 ./setup.py develop")
 

@@ -637,17 +637,6 @@ module PrinterExtensions =
                 printer.Print("")
                 printer.PrintNewLine()
 
-        member _.IsProductiveStatement(stmt: Statement) =
-            let rec hasNoSideEffects(e: Expression) =
-                match e with
-                | Constant (_) -> true
-                | Dict { Keys = keys } -> keys.IsEmpty
-                | _ -> false
-
-            match stmt with
-            | Expr (expr) -> hasNoSideEffects expr.Value |> not
-            | _ -> true
-
         member printer.PrintStatement(stmt: Statement, ?printSeparator) =
             printer.Print(stmt)
 

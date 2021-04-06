@@ -15,11 +15,6 @@ type ReturnStrategy =
     | NoReturn
     | NoBreak // Used in switch statement blocks
 
-type ITailCallOpportunity =
-    abstract Label: string
-    abstract Args: string list
-    abstract IsRecursiveRef: Fable.Expr -> bool
-
 type UsedNames =
     { GlobalScope: HashSet<string>
       EnclosingScope: HashSet<string>
@@ -64,7 +59,6 @@ module Helpers =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
         Python.Identifier($"{name}_{idx}")
-
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
@@ -130,8 +124,7 @@ module Util =
         let name = Helpers.clean name
 
         match name with
-        | "math" ->
-            com.GetImportExpr(ctx, "math") |> ignore
+        | "math" -> com.GetImportExpr(ctx, "math") |> ignore
         | _ -> ()
 
         Python.Identifier name
@@ -171,22 +164,22 @@ module Util =
                         com.GetIdentifier(ctx, local.Name) |> Some
                     else
                         None
-                let alias = Alias.alias(Python.Identifier(imported.Name),?asname=asname)
+                let alias = Alias.alias(com.GetIdentifier(ctx, imported.Name),?asname=asname)
                 importFroms.Add(alias)
             | Babel.ImportDefaultSpecifier (local) ->
                 let asname =
                     if local.Name <> pymodule then
-                        Python.Identifier(local.Name) |> Some
+                        com.GetIdentifier(ctx, local.Name) |> Some
                     else
                         None
-                let alias = Alias.alias (Python.Identifier(pymodule), ?asname=asname)
+                let alias = Alias.alias(com.GetIdentifier(ctx, pymodule), ?asname=asname)
                 imports.Add(alias)
             | Babel.ImportNamespaceSpecifier (Identifier (name = name)) ->
                 printfn "ImportNamespaceSpecifier: %A" (name, name)
 
                 let asname =
                     if pymodule <> name then
-                        Python.Identifier(name) |> Some
+                        com.GetIdentifier(ctx, name) |> Some
                     else
                         None
                 let alias = Alias.alias(Python.Identifier(pymodule), ?asname=asname)
@@ -379,11 +372,12 @@ module Util =
 
             let operand, stmts = com.TransformAsExpr(ctx, arg)
 
-            match op with
-            | Some op -> Expression.unaryOp (op, operand), stmts
-            | _ ->
-                // TODO: Should be Contant(value=None) but we cannot create that in F#
+            match op, arg with
+            | Some op, _ -> Expression.unaryOp (op, operand), stmts
+            | None, Literal(NumericLiteral(value=0.)) ->
                 Expression.name (id = Python.Identifier("None")), stmts
+            | _ ->
+                operand, stmts
 
         | ArrowFunctionExpression (``params`` = parms; body = body) ->
             let args =
