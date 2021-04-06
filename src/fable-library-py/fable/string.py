@@ -2,7 +2,7 @@ import re
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Match, Optional, Pattern, Union, cast
+from typing import Any, Callable, Iterable, Match, Optional, Pattern, Union, cast, TypeVar
 
 # import multiply
 # import Numeric
@@ -20,6 +20,9 @@ from .types import toString
 # import { escape }
 # import { toString as dateToString }
 # import { toString }
+
+T = TypeVar("T")
+
 
 fsFormatRegExp: Pattern[str] = re.compile(r"(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)")
 interpolateRegExp: Pattern[str] = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
@@ -367,17 +370,12 @@ def isNullOrEmpty(string: Optional[str]):
 #   return typeof str !== "string" || /^\s*$/.test(str);
 # }
 
-# export function concat(...xs: any[]): string {
-#   return xs.map((x) => String(x)).join("");
-# }
+def concat(*xs: Iterable[Any]) -> str:
+    return "".join(map(str, xs))
 
-# export function join<T>(delimiter: string, xs: Iterable<T>): string {
-#   if (Array.isArray(xs)) {
-#     return xs.join(delimiter);
-#   } else {
-#     return Array.from(xs).join(delimiter);
-#   }
-# }
+
+def join(delimiter: str, xs: Iterable[Any]) -> str:
+    return delimiter.join(xs)
 
 # export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {
 #   const endIndexPlusOne = startIndex + count;
@@ -510,9 +508,8 @@ def replicate(n: int, x: str):
 #   return x.split("").filter((c) => pred(c)).join("");
 # }
 
-# export function substring(str: string, startIndex: number, length?: number) {
-#   if ((startIndex + (length || 0) > str.length)) {
-#     throw new Error("Invalid startIndex and/or length");
-#   }
-#   return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
-# }
+def substring(string: str, startIndex: int, length: Optional[int] = None) -> str:
+    if length is not None:
+        return string[startIndex:length]
+
+    return string[startIndex]
