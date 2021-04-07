@@ -518,6 +518,6 @@ def replicate(n: int, x: str) -> str:
 
 def substring(string: str, startIndex: int, length: Optional[int] = None) -> str:
     if length is not None:
-        return string[startIndex:length]
+        return string[startIndex:startIndex+length]
 
-    return string[startIndex]
+    return string[startIndex:]

@@ -163,7 +163,6 @@ module private Util =
 
     type PythonFileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
         let fileExt = ".py"
-        do printfn "TargetPath: %s" targetPath
         let targetDir = Path.GetDirectoryName(targetPath)
         // PEP8: Modules should have short, all-lowercase names
         let fileName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))

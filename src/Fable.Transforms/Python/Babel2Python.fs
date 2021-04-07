@@ -71,6 +71,7 @@ module Helpers =
         | "Math" -> "math"
         | "Error" -> "Exception"
         | "toString" -> "str"
+        | "len" -> "len_"
         | _ ->
             name.Replace('$', '_').Replace('.', '_').Replace('`', '_')
 
@@ -151,7 +152,7 @@ module Util =
         let (StringLiteral (value = value)) = source
         let pymodule = value |> Helpers.rewriteFableImport
 
-        printfn "Module: %A" pymodule
+        //printfn "Module: %A" pymodule
 
         let imports: ResizeArray<Alias> = ResizeArray()
         let importFroms = ResizeArray<Alias>()
@@ -488,17 +489,23 @@ module Util =
                 Expression.emit (value, args), stmts
             | _ -> Expression.emit (value, args), stmts
         // If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression
-        | MemberExpression (computed = true; object = object; property = Expression.Literal (literal)) ->
+        | MemberExpression (computed = true; object = object; property = property) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
-            match literal with
-            | NumericLiteral (value = numeric) ->
+            match property with
+            | Expression.Literal (NumericLiteral (value = numeric)) ->
                 let attr = Expression.constant(numeric)
                 Expression.subscript(value = value, slice = attr, ctx = Load), stmts
-            | Literal.StringLiteral (StringLiteral (value = str)) ->
+            | Expression.Literal (Literal.StringLiteral (StringLiteral (value = str))) ->
                 let attr = Expression.constant (str)
                 let func = Expression.name("getattr")
                 Expression.call(func, args=[value; attr]), stmts
-            | _ -> failwith $"transformExpr: unknown literal {literal}"
+            | Expression.Identifier (Identifier(name=name)) ->
+                let attr = Expression.name (com.GetIdentifier(ctx, name))
+                Expression.subscript(value = value, slice = attr, ctx = Load), stmts
+            | _ ->
+                let attr, stmts' = com.TransformAsExpr(ctx, property)
+                let func = Expression.name("getattr")
+                Expression.call(func=func, args=[value; attr]), stmts @ stmts'
         // If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier
         | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "indexOf"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
@@ -523,18 +530,6 @@ module Util =
             let value, stmts = com.TransformAsExpr(ctx, object)
             let func = Expression.name (Python.Identifier "str")
             Expression.call (func, [ value ]), stmts
-        // If computed is true, the node corresponds to a computed (a[b]) member expression and property is an Expression
-        | MemberExpression (computed=true; object = object; property = property) ->
-            let value, stmts = com.TransformAsExpr(ctx, object)
-
-            let attr, stmts' = com.TransformAsExpr(ctx, property)
-            let value =
-                match value with
-                | Name { Id = Python.Identifier (id); Context = exprCtx } ->
-                    Expression.name (id = com.GetIdentifier(ctx, id), ctx = exprCtx)
-                | _ -> value
-            let func = Expression.name("getattr")
-            Expression.call(func=func, args=[value; attr]), stmts @ stmts'
         // If computed is false, the node corresponds to a static (a.b) member expression and property is an Identifier
         | MemberExpression (computed=false; object = object; property = property) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
@@ -628,6 +623,7 @@ module Util =
         | AssignmentExpression (left = left; right = right) ->
             let value, stmts = com.TransformAsExpr(ctx, right)
             let targets, stmts2: Python.Expression list * Python.Statement list =
+                //printfn "AssignmentExpression: left: %A" left
                 match left with
                 | Expression.Identifier (Identifier (name = name)) ->
                     let target = com.GetIdentifier(ctx, name)
@@ -803,6 +799,7 @@ module Util =
                                   test = Some (Expression.BinaryExpression (left = left; right = right; operator = operator))
                                   update = Some (Expression.UpdateExpression (operator=update))
                                   body = body) ->
+            //printfn "For: %A" body
             let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
             let start, stmts1 = com.TransformAsExpr(ctx, init)
             let stop, stmts2 = com.TransformAsExpr(ctx, right)
