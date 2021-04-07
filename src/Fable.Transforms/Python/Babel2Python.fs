@@ -408,7 +408,22 @@ module Util =
                 let func = FunctionDef.Create(name = name, args = arguments, body = body)
 
                 Expression.name (name), [ func ]
-        | CallExpression (callee = callee; arguments = args) -> // FIXME: use transformAsCall
+        // Transform xs.toString() to str(xs)
+        | CallExpression (callee = MemberExpression(object=object; property=Expression.Identifier(Identifier(name="toString")))) ->
+            let object, stmts = com.TransformAsExpr(ctx, object)
+            let func = Expression.name("str")
+            Expression.call (func, [ object ]), stmts
+        // Transform "text".split("") to list("text")
+        | CallExpression (callee = MemberExpression(object=object; property=Expression.Identifier(Identifier(name="split"))); arguments = [| Literal(Literal.StringLiteral(StringLiteral(value=""))) |]) ->
+            let object, stmts = com.TransformAsExpr(ctx, object)
+            let func = Expression.name("list")
+            Expression.call (func, [ object ]), stmts
+        // Transform xs.join("|") to "|".join(xs)
+        | CallExpression (callee = MemberExpression(object=object; property=Expression.Identifier(Identifier(name="join"))); arguments = [| Literal(Literal.StringLiteral(StringLiteral(value=value))) |]) ->
+            let object, stmts = com.TransformAsExpr(ctx, object)
+            let func = Expression.attribute(value=Expression.constant(value), attr=Python.Identifier("join"))
+            Expression.call (func, [ object ]), stmts
+        | CallExpression (callee = callee; arguments = args) ->
             let func, stmts = com.TransformAsExpr(ctx, callee)
 
             let args, stmtArgs =
@@ -481,6 +496,9 @@ module Util =
 
             match value with
             //| "void $0" -> args.[0], stmts
+            | "$0.join('')" ->
+                let value = "''.join($0)"
+                Expression.emit (value, args), stmts
             | "throw $0" ->
                 let value = "raise $0"
                 Expression.emit (value, args), stmts
@@ -515,6 +533,10 @@ module Util =
         | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "toLocaleUpperCase"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
             let attr = Python.Identifier "upper"
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "toLocaleLowerCase"))) ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
+            let attr = Python.Identifier "lower"
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "push"))) ->
             let value, stmts = com.TransformAsExpr(ctx, object)
@@ -799,7 +821,7 @@ module Util =
                                   test = Some (Expression.BinaryExpression (left = left; right = right; operator = operator))
                                   update = Some (Expression.UpdateExpression (operator=update))
                                   body = body) ->
-            //printfn "For: %A" body
+            // printfn "For: %A" body
             let body = com.TransformAsStatements(ctx, ReturnStrategy.NoReturn, body)
             let start, stmts1 = com.TransformAsExpr(ctx, init)
             let stop, stmts2 = com.TransformAsExpr(ctx, right)

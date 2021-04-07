@@ -202,7 +202,7 @@ def formatReplacement(rep: Any, flags: Any, padLength: Any, precision: Any, form
         padLength = int(padLength)
         zeroFlag = flags.find("0") >= 0  # Use '0' for left padding
         minusFlag = flags.find("-") >= 0  # Right padding
-        ch = minusFlag or " " if not zeroFlag else "0"
+        ch = " " if minusFlag or not zeroFlag else "0"
         if ch == "0":
             rep = padLeft(rep, padLength - len(sign), ch, minusFlag)
             rep = sign + rep
@@ -414,11 +414,11 @@ def notSupported(name: str) -> NoReturn:
 #   return bytes;
 # }
 
-def padLeft(string: str, length: int, ch: Optional[str]=None, isRight: Optional[bool]=False) -> str:
+def padLeft(string: str, length: int, ch: Optional[str] = None, isRight: Optional[bool] = False) -> str:
     ch = ch or " "
     length = length - len(string)
     for i in range(length):
-        string =  string + ch if isRight else ch + string
+        string = string + ch if isRight else ch + string
 
     return string
 

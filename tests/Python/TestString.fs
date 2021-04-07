@@ -107,18 +107,18 @@ let ``test sprintf \"%A\" with sequences works`` () =
     let xs = seq { "Hi"; "Hello"; "Hola" }
     sprintf "%A" xs |> containsInOrder ["Hi"; "Hello"; "Hola"] |> equal true
 
-// [<Fact>]
-// let ``test Storing result of Seq.tail and printing the result several times works. Related to #1996`` () =
-//     let tweets = seq { "Hi"; "Hello"; "Hola" }
-//     let tweetsTailR: seq<string> = tweets |> Seq.tail
+[<Fact>]
+let ``test Storing result of Seq.tail and printing the result several times works. Related to #1996`` () =
+    let tweets = seq { "Hi"; "Hello"; "Hola" }
+    let tweetsTailR: seq<string> = tweets |> Seq.tail
 
-//     let a = sprintf "%A" (tweetsTailR)
-//     let b = sprintf "%A" (tweetsTailR)
+    let a = sprintf "%A" (tweetsTailR)
+    let b = sprintf "%A" (tweetsTailR)
 
-//     containsInOrder ["Hello"; "Hola"] a |> equal true
-//     containsInOrder ["Hello"; "Hola"] b |> equal true
+    containsInOrder ["Hello"; "Hola"] a |> equal true
+    containsInOrder ["Hello"; "Hola"] b |> equal true
 
-// [<Fact>]
+// [<Fact>] FIXME: we should get this working as well.
 // let ``test sprintf \"%X\" works`` () =
 //     //These should all be the Native JS Versions (except int64 / uint64)
 //     //See #1530 for more information.
@@ -134,6 +134,14 @@ let ``test sprintf \"%A\" with sequences works`` () =
 //     sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
 //     sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
 //     sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
+
+[<Fact>]
+let ``test sprintf integers with sign and padding works`` () =
+    sprintf "%+04i" 1 |> equal "+001"
+    sprintf "%+04i" -1 |> equal "-001"
+    sprintf "%5d" -5 |> equal "   -5"
+    sprintf "%5d" -5L |> equal "   -5"
+    sprintf "%- 4i" 5 |> equal " 5  "
 
 [<Fact>]
 let ``test StringBuilder works`` () =
@@ -161,3 +169,21 @@ let ``test StringBuilder.ToString works with index and length`` () =
     sb.Append("Hello") |> ignore
     sb.AppendLine() |> ignore
     equal "ll" (sb.ToString(2, 2))
+
+[<Fact>]
+let ``test StringBuilder.Clear works`` () =
+    let builder = new System.Text.StringBuilder()
+    builder.Append("1111") |> ignore
+    builder.Clear() |> ignore
+    equal "" (builder.ToString())
+
+[<Fact>]
+let ``test StringBuilder.Append works with various overloads`` () =
+    let builder = Text.StringBuilder()
+                      .Append(Text.StringBuilder "aaa")
+                      .Append("bcd".ToCharArray())
+                      .Append('/')
+                      .Append(true)
+                      .Append(5.2)
+                      .Append(34)
+    equal "aaabcd/true5.234" (builder.ToString().ToLower())

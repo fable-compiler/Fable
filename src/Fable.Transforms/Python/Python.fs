@@ -897,10 +897,10 @@ module PythonExtensions =
               Ops = ops }
             |> Compare
 
-        static member attribute(value, attr, ctx): Expression =
+        static member attribute(value, attr, ?ctx): Expression =
             { Value = value
               Attr = attr
-              Ctx = ctx }
+              Ctx = defaultArg ctx Load }
             |> Attribute
 
         static member unaryOp(op, operand, ?loc): Expression =
@@ -911,10 +911,10 @@ module PythonExtensions =
 
         static member namedExpr(target, value) = { Target = target; Value = value } |> NamedExpr
 
-        static member subscript(value, slice, ctx): Expression =
+        static member subscript(value, slice, ?ctx): Expression =
             { Value = value
               Slice = slice
-              Ctx = ctx }
+              Ctx = defaultArg ctx Load }
             |> Subscript
 
         static member binOp(left, op, right): Expression =
