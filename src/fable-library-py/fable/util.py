@@ -71,12 +71,24 @@ def createObj(fields: Iterable[Tuple[str, Any]]):
     return obj
 
 
-def int32ToString(i: int, radix: int = 10):
-    convertString = "0123456789ABCDEF"
-    if i < radix:
-        return convertString[i]
-    else:
-        return int32ToString(i // radix, radix) + convertString[i % radix]
+def int16ToString(i: int, radix: int = 10) -> str:
+    if radix == 10:
+        return '{:d}'.format(i)
+    if radix == 16:
+        return '{:x}'.format(i)
+    if radix == 2:
+        return '{:b}'.format(i)
+    return str(i)
+
+
+def int32ToString(i: int, radix: int = 10) -> str:
+    if radix == 10:
+        return '{:d}'.format(i)
+    if radix == 16:
+        return '{:x}'.format(i)
+    if radix == 2:
+        return '{:b}'.format(i)
+    return str(i)
 
 
 def clear(col: Iterable[Any]):

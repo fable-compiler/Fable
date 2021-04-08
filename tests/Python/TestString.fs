@@ -143,6 +143,17 @@ let ``test sprintf integers with sign and padding works`` () =
     sprintf "%5d" -5L |> equal "   -5"
     sprintf "%- 4i" 5 |> equal " 5  "
 
+// [<Fact>]
+// let ``test parameterized padding works`` () =
+//     sprintf "[%*s][%*s]" 6 "Hello" 5 "Foo"
+//     |> equal "[ Hello][  Foo]"
+
+[<Fact>]
+let ``test String.Format combining padding and zeroes pattern works`` () =
+    String.Format("{0:++0.00++}", -5000.5657) |> equal "-++5000.57++"
+    String.Format("{0:000.00}foo", 5) |> equal "005.00foo"
+    String.Format("{0,-8:000.00}foo", 12.456) |> equal "012.46  foo"
+
 [<Fact>]
 let ``test StringBuilder works`` () =
     let sb = System.Text.StringBuilder()
@@ -187,3 +198,73 @@ let ``test StringBuilder.Append works with various overloads`` () =
                       .Append(5.2)
                       .Append(34)
     equal "aaabcd/true5.234" (builder.ToString().ToLower())
+
+[<Fact>]
+let ``test Conversion char to int works`` () =
+    equal 97 (int 'a')
+    equal 'a' (char 97)
+
+[<Fact>]
+let ``test Conversion string to char works`` () =
+    equal 'a' (char "a")
+    equal "a" (string 'a')
+
+[<Fact>]
+let ``test Conversion string to negative int8 works`` () =
+    equal -5y (int8 "-5")
+    equal "-5" (string -5y)
+
+[<Fact>]
+let ``test Conversion string to negative int16 works`` () =
+    equal -5s (int16 "-5")
+    equal "-5" (string -5s)
+
+[<Fact>]
+let ``test Conversion string to negative int32 works`` () =
+    equal -5 (int32 "-5")
+    equal "-5" (string -5)
+
+[<Fact>]
+let ``test Conversion string to negative int64 works`` () =
+    equal -5L (int64 "-5")
+    equal "-5" (string -5L)
+
+[<Fact>]
+let ``test Conversion string to int8 works`` () =
+    equal 5y (int8 "5")
+    equal "5" (string 5y)
+
+[<Fact>]
+let ``test Conversion string to int16 works`` () =
+    equal 5s (int16 "5")
+    equal "5" (string 5s)
+
+[<Fact>]
+let ``test Conversion string to int32 works`` () =
+    equal 5 (int32 "5")
+    equal "5" (string 5)
+
+[<Fact>]
+let ``test Conversion string to int64 works`` () =
+    equal 5L (int64 "5")
+    equal "5" (string 5L)
+
+[<Fact>]
+let ``test Conversion string to uint8 works`` () =
+    equal 5uy (uint8 "5")
+    equal "5" (string 5uy)
+
+[<Fact>]
+let ``test Conversion string to uint16 works`` () =
+    equal 5us (uint16 "5")
+    equal "5" (string 5us)
+
+[<Fact>]
+let ``test Conversion string to uint32 works`` () =
+    equal 5u (uint32 "5")
+    equal "5" (string 5u)
+
+[<Fact>]
+let ``test Conversion string to uint64 works`` () =
+    equal 5uL (uint64 "5")
+    equal "5" (string 5uL)

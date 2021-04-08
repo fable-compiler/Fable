@@ -1,4 +1,4 @@
-def parse(string: str, style, unsigned, bitsize, radix) -> int:
+def parse(string: str, style, unsigned, bitsize, radix: int = 10) -> int:
     return int(string)
     # const res = isValid(str, style, radix);
     # if (res != null) {

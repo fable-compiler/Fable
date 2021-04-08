@@ -1,12 +1,8 @@
-from curses.ascii import isspace
-from gettext import find
 import re
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Iterable, Match, NoReturn, Optional, Pattern, Union, cast, TypeVar
-
-from fable.list import length
+from typing import Any, Callable, Iterable, Match, NoReturn, Optional, Pattern, Union, TypeVar
 
 # import multiply
 # import Numeric
@@ -148,9 +144,9 @@ def toConsoleError(arg: Union[IPrintfFormat, str]):
     return continuePrint(lambda x: print(x), arg)
 
 
-def toText(arg: Union[IPrintfFormat, str]) -> str:
+def toText(arg: Union[IPrintfFormat, str]) -> Union[str, Callable]:
     cont: Callable[[str], Any] = lambda x: x
-    return cast(str, continuePrint(cont, arg))
+    return continuePrint(cont, arg)
 
 
 def toFail(arg: Union[IPrintfFormat, str]):
@@ -247,7 +243,6 @@ def formatOnce(str2: str, rep: Any):
         return prefix + once.replace("%", "%%")
 
     ret = fsFormatRegExp.sub(match, str2, count=1)
-    # print(ret)
     return ret
 
 
@@ -318,14 +313,20 @@ def format(string: str, *args: Any) -> str:
                     rep = rep.upper()
             elif pattern:
                 sign = ""
-                # rep = (pattern as string).replace(/(0+)(\.0+)?/, (_, intPart, decimalPart) => {
-                # if (isLessThan(rep, 0)) {
-                #     rep = multiply(rep, -1);
-                #     sign = "-";
-                # }
-                # rep = toFixed(rep, decimalPart != null ? decimalPart.length - 1 : 0);
-                # return padLeft(rep, (intPart || "").length - sign.length + (decimalPart != null ? decimalPart.length : 0), "0");
-                # });
+
+                def match(m: Match[str]):
+                    nonlocal sign, rep
+
+                    intPart, decimalPart = list(m.groups())
+                    # print("**************************: ", rep)
+                    if rep < 0:
+                        rep = multiply(rep, -1)
+                        sign = "-"
+
+                    rep = to_fixed(rep, len(decimalPart) - 1 if decimalPart else 0)
+                    return padLeft(rep, len(intPart or "") - len(sign) + (len(decimalPart) if decimalPart else 0), "0")
+
+                rep = re.sub(r"(0+)(\.0+)?", match, pattern)
                 rep = sign + rep
 
         elif isinstance(rep, datetime):
@@ -345,6 +346,7 @@ def format(string: str, *args: Any) -> str:
     ret = formatRegExp.sub(match, string)
     print("ret: ", ret)
     return ret
+
 
 def endsWith(string: str, search: str) -> bool:
     return string.endswith(search)
@@ -384,6 +386,7 @@ def concat(*xs: Iterable[Any]) -> str:
 def join(delimiter: str, xs: Iterable[Any]) -> str:
     return delimiter.join(xs)
 
+
 # export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {
 #   const endIndexPlusOne = startIndex + count;
 #   if (endIndexPlusOne > xs.length) {
@@ -414,6 +417,7 @@ def notSupported(name: str) -> NoReturn:
 #   return bytes;
 # }
 
+
 def padLeft(string: str, length: int, ch: Optional[str] = None, isRight: Optional[bool] = False) -> str:
     ch = ch or " "
     length = length - len(string)
@@ -423,7 +427,7 @@ def padLeft(string: str, length: int, ch: Optional[str] = None, isRight: Optiona
     return string
 
 
-def padRight(string: str, len: int, ch: Optional[str]=None) -> str:
+def padRight(string: str, len: int, ch: Optional[str] = None) -> str:
     return padLeft(string, len, ch, True)
 
 
@@ -516,8 +520,9 @@ def replicate(n: int, x: str) -> str:
 #   return x.split("").filter((c) => pred(c)).join("");
 # }
 
+
 def substring(string: str, startIndex: int, length: Optional[int] = None) -> str:
     if length is not None:
-        return string[startIndex:startIndex+length]
+        return string[startIndex:startIndex + length]
 
     return string[startIndex:]

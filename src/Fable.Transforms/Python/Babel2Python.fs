@@ -413,6 +413,16 @@ module Util =
             let object, stmts = com.TransformAsExpr(ctx, object)
             let func = Expression.name("str")
             Expression.call (func, [ object ]), stmts
+        // Transform xs.charCodeAt(0) to ord(xs)
+        | CallExpression (callee = MemberExpression (computed = false; object = object; property = Expression.Identifier (Identifier(name = "charCodeAt")))) ->
+            let value, stmts = com.TransformAsExpr(ctx, object)
+            let func = Expression.name (Python.Identifier "ord")
+            Expression.call (func, [ value ]), stmts
+         // Transform String.fromCharCode(97) to chr(xs)
+        | CallExpression (callee = MemberExpression (computed = false; object = Expression.Identifier (Identifier(name = "String")); property = Expression.Identifier (Identifier(name = "fromCharCode"))); arguments=args) ->
+            let args, stmts = args |> Array.map (fun obj -> com.TransformAsExpr(ctx, obj)) |> List.ofArray |> Helpers.unzipArgs
+            let func = Expression.name (Python.Identifier "chr")
+            Expression.call (func, args), stmts
         // Transform "text".split("") to list("text")
         | CallExpression (callee = MemberExpression(object=object; property=Expression.Identifier(Identifier(name="split"))); arguments = [| Literal(Literal.StringLiteral(StringLiteral(value=""))) |]) ->
             let object, stmts = com.TransformAsExpr(ctx, object)
