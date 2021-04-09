@@ -1132,6 +1132,42 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> addError com ctx.InlinePath r
             Naming.unknown)
         |> makeStrConst |> Some
+
+    | _, ("casenameWithFieldCount"|"casenameWithFieldIndex" as meth) ->
+        let rec inferCasename = function
+            | Lambda(arg, IfThenElse(Test(IdentExpr arg2, UnionCaseTest tag,_),thenExpr,_,_),_) when arg.Name = arg2.Name ->
+                match arg.Type with
+                | DeclaredType(e,_) ->
+                    let e = com.GetEntity(e)
+                    if e.IsFSharpUnion then
+                        let c = e.UnionCases.[tag]
+                        let caseName = defaultArg c.CompiledName c.Name
+                        if meth = "casenameWithFieldCount" then
+                            Some(caseName, c.UnionCaseFields.Length)
+                        else
+                            match thenExpr with
+                            | NestedRevLets(bindings, IdentExpr i) ->
+                                bindings |> List.tryPick (fun (i2, v) ->
+                                    match v with
+                                    | Get(_, UnionField(fieldIdx,_),_,_) when i.Name = i2.Name -> Some fieldIdx
+                                    | _ -> None)
+                                |> Option.map (fun fieldIdx -> caseName, fieldIdx)
+                            | _ -> None
+                    else None
+                | _ -> None
+            | _ -> None
+
+        match args with
+        | [MaybeCasted(IdentExpr ident)] -> findInScope ctx.Scope ident.Name |> Option.bind inferCasename
+        | [e] -> inferCasename e
+        | _ -> None
+        |> Option.orElseWith (fun () ->
+            "Cannot infer case name of expression"
+            |> addError com ctx.InlinePath r
+            Some(Naming.unknown, -1))
+        |> Option.map (fun (s, i) ->
+            [makeStrConst s; makeIntConst i] |> NewTuple |> makeValue r)
+
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
     | "Fable.Core.Testing.Assert", _ ->

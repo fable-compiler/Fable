@@ -1,3 +1,7 @@
+### 3.1.14
+
+* Experimental `casenameWithFieldIndex`
+
 ### 3.1.12
 
 * Fix #1678: BigInt native JS JSON serialization with toJSON
