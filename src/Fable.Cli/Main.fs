@@ -139,7 +139,7 @@ module private Util =
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
-        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
+        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
@@ -182,8 +182,8 @@ module private Util =
             if cliArgs.SourceMaps then
                 let mapPath = outPath + ".map"
                 do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                use sw = IO.File.Open(mapPath, IO.FileMode.Create)
-                do! Text.Json.JsonSerializer.SerializeAsync(sw, writer.SourceMap) |> Async.AwaitTask
+                use fs = IO.File.Open(mapPath, IO.FileMode.Create)
+                do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
 
             logger("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 

@@ -72,6 +72,7 @@ Arguments:
   --noCache         Recompile all files, including sources from packages
   --exclude         Don't merge sources of referenced projects with specified pattern
                     (Intended for plugin development)
+  --sourceMapsRoot  Set the value of the `sourceRoot` property in generated source maps
 
   --optimize        Compile with optimized F# AST (experimental)
   --typescript      Compile to TypeScript (experimental)
@@ -173,6 +174,7 @@ type Runner =
               Configuration = configuration
               OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
               SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
+              SourceMapsRoot = argValue "--sourceMapsRoot" args
               NoRestore = flagEnabled "--noRestore" args
               NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args // backwards compatibility
               Exclude = argValue "--exclude" args

@@ -18,6 +18,7 @@ type CliArgs =
       NoRestore: bool
       NoCache: bool
       SourceMaps: bool
+      SourceMapsRoot: string option
       Exclude: string option
       Replace: Map<string, string>
       RunProcess: RunProcess option
