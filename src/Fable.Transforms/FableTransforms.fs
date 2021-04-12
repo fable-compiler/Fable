@@ -60,7 +60,7 @@ let visit f e =
     | Get(e, kind, t, r) ->
         match kind with
         | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag
-        | UnionField _ | ByKey(FieldKey _) -> Get(f e, kind, t, r)
+        | UnionField _ | ByKey(FieldKey _) | FieldGet _ -> Get(f e, kind, t, r)
         | ByKey(ExprKey e2) -> Get(f e, ByKey(ExprKey(f e2)), t, r)
     | Sequential exprs -> Sequential(List.map f exprs)
     | Let(ident, value, body) -> Let(ident, f value, f body)
@@ -71,9 +71,10 @@ let visit f e =
         IfThenElse(f cond, f thenExpr, f elseExpr, r)
     | Set(e, kind, v, r) ->
         match kind with
-        | Some(ExprKey e2) ->
-            Set(f e, Some(ExprKey(f e2)), f v, r)
-        | Some(FieldKey _) | None -> Set(f e, kind, f v, r)
+        | ByKeySet(ExprKey e2) ->
+            Set(f e, ByKeySet(ExprKey(f e2)), f v, r)
+        | ByKeySet(FieldKey _) | FieldSet _ | ValueSet ->
+            Set(f e, kind, f v, r)
     | WhileLoop(e1, e2, r) -> WhileLoop(f e1, f e2, r)
     | ForLoop(i, e1, e2, e3, up, r) -> ForLoop(i, f e1, f e2, f e3, up, r)
     | TryCatch(body, catch, finalizer, r) ->
@@ -132,7 +133,7 @@ let getSubExpressions = function
     | Get(e, kind, _, _) ->
         match kind with
         | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag
-        | UnionField _ | ByKey(FieldKey _) -> [e]
+        | UnionField _ | ByKey(FieldKey _) | FieldGet _ -> [e]
         | ByKey(ExprKey e2) -> [e; e2]
     | Sequential exprs -> exprs
     | Let(_, value, body) -> [value; body]
@@ -140,8 +141,8 @@ let getSubExpressions = function
     | IfThenElse(cond, thenExpr, elseExpr, _) -> [cond; thenExpr; elseExpr]
     | Set(e, kind, v, _) ->
         match kind with
-        | Some(ExprKey e2) -> [e; e2; v]
-        | Some(FieldKey _) | None -> [e; v]
+        | ByKeySet(ExprKey e2) -> [e; e2; v]
+        | ByKeySet(FieldKey _) | FieldSet _ | ValueSet -> [e; v]
     | WhileLoop(e1, e2, _) -> [e1; e2]
     | ForLoop(_, e1, e2, e3, _, _) -> [e1; e2; e3]
     | TryCatch(body, catch, finalizer, _) ->
@@ -521,7 +522,7 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
+        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | FieldGet(FieldType fieldType, _) | UnionField(_,fieldType)), t, r) ->
             match getLambdaTypeArity fieldType, callee.Type with
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
@@ -568,9 +569,12 @@ module private Transforms =
             let uci = com.GetEntity(ent).UnionCases.[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
-        | Set(e, Some(FieldKey fi), value, r) ->
+        | Set(e, ByKeySet(FieldKey fi), value, r) ->
             let value = uncurryArgs com false [fi.FieldType] [value]
-            Set(e, Some(FieldKey fi), List.head value, r)
+            Set(e, ByKeySet(FieldKey fi), List.head value, r)
+        | Set(e, FieldSet(field, index), value, r) ->
+            let value = uncurryArgs com false [field.FieldType] [value]
+            Set(e, FieldSet(field, index), List.head value, r)
         | e -> e
 
     let rec uncurryApplications (com: Compiler) e =

@@ -705,15 +705,16 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! callee = transformExpr com ctx callee
         let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        let key = FsField(fieldName, lazy typ) :> Fable.Field |> Fable.FieldKey
-        return Fable.Get(callee, Fable.ByKey key, typ, r)
+        let field = FsField(fieldName, lazy typ) :> Fable.Field
+        return Fable.Get(callee, Fable.FieldGet(field, fieldIndex), typ, r)
 
     | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        let key = FsField(field) :> Fable.Field |> Fable.FieldKey
-        return Fable.Get(callee, Fable.ByKey key, typ, r)
+        let index = calleeType.TypeDefinition.FSharpFields |> Seq.findIndex (fun x -> x.Name = field.Name)
+        let field = FsField(field) :> Fable.Field
+        return Fable.Get(callee, Fable.FieldGet(field, index), typ, r)
 
     | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
         let! tupleExpr = transformExpr com ctx tupleExpr
@@ -761,8 +762,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
         let! value = transformExpr com ctx value
-        let field = FsField(field) :> Fable.Field |> Fable.FieldKey |> Some
-        return Fable.Set(callee, field, value, r)
+        let index = calleeType.TypeDefinition.FSharpFields |> Seq.findIndex (fun x -> x.Name = field.Name)
+        let field = FsField(field) :> Fable.Field
+        return Fable.Set(callee, Fable.FieldSet(field, index), value, r)
 
     | FSharpExprPatterns.UnionCaseTag(IgnoreAddressOf unionExpr, unionType) ->
         // TODO: This is an inconsistency. For new unions and union tests we calculate
@@ -788,7 +790,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return makeCall r Fable.Unit info valToSet
         | _ ->
             let valToSet = makeValueFrom com ctx r valToSet
-            return Fable.Set(valToSet, None, valueExpr, r)
+            return Fable.Set(valToSet, Fable.ValueSet, valueExpr, r)
 
     | FSharpExprPatterns.NewArray(FableType com ctx elTyp, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs

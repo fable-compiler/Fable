@@ -48,8 +48,15 @@ type FsUnionCase(uci: FSharpUnionCase) =
         |> Helpers.tryFindAtt Atts.compiledName
         |> Option.map (fun (att: FSharpAttribute) -> att.ConstructorArguments.[0] |> snd |> string)
 
+    static member FullName (uci: FSharpUnionCase) =
+        // proper full compiled name (instead of uci.FullName)
+        uci.XmlDocSig
+        |> Naming.replacePrefix "T:Microsoft.FSharp." "FSharp."
+        |> Naming.replacePrefix "T:" ""
+
     interface Fable.UnionCase with
         member _.Name = uci.Name
+        member _.FullName = FsUnionCase.FullName uci
         member _.CompiledName = FsUnionCase.CompiledName uci
         member _.UnionCaseFields = uci.Fields |> Seq.mapToList (fun x -> upcast FsField(x))
 
@@ -1349,7 +1356,7 @@ module Util =
             let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             let key = makeFieldKey name true t
-            Fable.Set(callee, Some key, arg, r)
+            Fable.Set(callee, Fable.ByKeySet key, arg, r)
         else
             getSimple callee name |> makeCall r typ callInfo
 

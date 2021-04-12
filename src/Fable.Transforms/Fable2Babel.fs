@@ -1202,6 +1202,10 @@ module Util =
             | Fable.ExprKey(TransformExpr com ctx prop) -> getExpr range expr prop
             | Fable.FieldKey field -> get range expr field.Name
 
+        | Fable.FieldGet (field, index) ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            get range expr field.Name
+
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
             libCall com ctx range "List" "head" [|com.TransformAsExpr(ctx, fableExpr)|]
@@ -1235,9 +1239,10 @@ module Util =
         let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
         let ret =
             match kind with
-            | None -> expr
-            | Some(Fable.FieldKey fi) -> get None expr fi.Name
-            | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None expr e
+            | Fable.ValueSet -> expr
+            | Fable.ByKeySet(Fable.FieldKey fi) -> get None expr fi.Name
+            | Fable.ByKeySet(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None expr e
+            | Fable.FieldSet (field, index) -> get None expr field.Name
         assign range ret value
 
     let transformBindingExprBody (com: IBabelCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
