@@ -33,6 +33,7 @@ type Field =
 
 type UnionCase =
     abstract Name: string
+    abstract FullName: string
     abstract CompiledName: string option
     abstract UnionCaseFields: Field list
 
@@ -266,11 +267,17 @@ type KeyKind =
 type GetKind =
     | ByKey of KeyKind
     | TupleIndex of int
+    | FieldGet of Field * index: int
     | UnionField of index: int * fieldType: Type
     | UnionTag
     | ListHead
     | ListTail
     | OptionValue
+
+type SetKind =
+    | ByKeySet of KeyKind
+    | FieldSet of Field * index: int
+    | ValueSet
 
 type TestKind =
     | TypeTest of Type
@@ -311,8 +318,8 @@ type Expr =
     // Getters, setters and bindings
     | Let of Ident * Expr * body: Expr
     | LetRec of bindings: (Ident * Expr) list * body: Expr
-    | Get of Expr * GetKind * typ: Type * range: SourceLocation option
-    | Set of Expr * key: KeyKind option * value: Expr * range: SourceLocation option
+    | Get of Expr * kind: GetKind * typ: Type * range: SourceLocation option
+    | Set of Expr * kind: SetKind * value: Expr * range: SourceLocation option
 
     // Control flow
     | Sequential of Expr list
