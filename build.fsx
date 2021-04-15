@@ -184,11 +184,14 @@ let buildLibraryPy() =
         "--exclude Fable.Core"
     ]
     // Copy *.py from projectDir to buildDir
-    runInDir libraryDir ("cp -R *  ../../" + buildDirPy)
-    runInDir buildDirPy ("cp fable-library/*.py fable/")
-    runInDir buildDirPy ("mv fable/system.text.py fable/system_text.py") // Python modules cannot contain "."
-    runInDir buildDirPy ("python3 --version")
-    runInDir buildDirPy ("python3 ./setup.py develop")
+    copyDirRecursive libraryDir buildDirPy
+    copyDirRecursive (buildDirPy </> "fable-library/") (buildDirPy </> "fable/")
+
+    copyFile (buildDirPy </> "fable/system.text.py") (buildDirPy </> "fable/system_text.py")
+    removeFile (buildDirPy </> "fable/system.text.py")
+
+    runInDir buildDirPy ("python --version")
+    runInDir buildDirPy ("python ./setup.py develop")
 
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
