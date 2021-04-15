@@ -16,13 +16,13 @@
     "posttest-js": "mocha build/tests-js --reporter dot -t 10000"
   },
   "dependencies": {
-    "@types/node": "^14.14.35",
+    "@types/node": "^14.14.40",
     "esm": "^3.2.25",
     "ghreleases": "^3.0.2",
     "mocha": "^8.3.2",
-    "rollup": "^2.41.4",
-    "terser": "^5.6.0",
+    "rollup": "^2.45.2",
+    "terser": "^5.6.1",
     "tslint": "^6.1.3",
-    "typescript": "^4.2.3"
+    "typescript": "^4.2.4"
   }
 }
