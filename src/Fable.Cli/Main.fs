@@ -290,21 +290,23 @@ type File(normalizedFullPath: string) =
             sourceHash <- Some h
             h, lazy source
 
-type ProjectCracked(sourceFiles: File array,
+type ProjectCracked(projFile: string,
+                    sourceFiles: File array,
                     fableCompilerOptions: CompilerOptions,
                     crackerResponse: CrackerResponse) =
 
+    member _.ProjectFile = projFile
     member _.FableOptions = fableCompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
 
-    member _.MakeCompiler(currentFile, project) =
+    member _.MakeCompiler(currentFile, project, outDir) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
-        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir)
+        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir, ?outDir=outDir)
 
     member _.MapSourceFiles(f) =
-        ProjectCracked(Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
+        ProjectCracked(projFile, Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
 
     static member Init(cliArgs: CliArgs) =
         let res =
@@ -325,7 +327,7 @@ type ProjectCracked(sourceFiles: File array,
             sprintf "F# PROJECT: %s\n   %s" proj opts)
 
         let sourceFiles = getSourceFiles res.ProjectOptions |> Array.map File
-        ProjectCracked(sourceFiles, cliArgs.CompilerOptions, res)
+        ProjectCracked(cliArgs.ProjectFile, sourceFiles, cliArgs.CompilerOptions, res)
 
 type ProjectParsed(project: Project, checker: InteractiveChecker) =
 
@@ -351,7 +353,8 @@ type ProjectParsed(project: Project, checker: InteractiveChecker) =
                 InteractiveChecker.Create(config.ProjectOptions)
 
         let checkResults = checkProject config checker
-        let proj = Project(checkResults,
+        let proj = Project(config.ProjectFile,
+                           checkResults,
                            getPlugin=loadType,
                            optimizeFSharpAst=config.FableOptions.OptimizeFSharpAst)
         ProjectParsed(proj, checker)
@@ -492,7 +495,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
             let! results, ms = measureTimeAsync <| fun () ->
                 filesToCompile
                 |> Array.map (fun file ->
-                    cracked.MakeCompiler(file, parsed.Project)
+                    cracked.MakeCompiler(file, parsed.Project, state.CliArgs.OutDir)
                     |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir logger.Post)
                 |> Async.Parallel
 

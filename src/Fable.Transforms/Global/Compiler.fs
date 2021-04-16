@@ -44,6 +44,8 @@ type CompilerPlugins =
 type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
+    abstract OutputDir: string option
+    abstract ProjectFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileContents
@@ -77,6 +79,16 @@ module CompilerExt =
                 member _.GetEntity(ref) = com.GetEntity(ref)
                 member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
                 member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
+                member _.GetOutputPath() =
+                    let file = Path.replaceExtension com.Options.FileExtension com.CurrentFile
+                    match com.OutputDir with
+                    | None -> file
+                    | Some outDir ->
+                        // TODO: This is a simplified version of the actual mechanism and will not work with deduplicated paths
+                        let projDir = Path.GetDirectoryName(com.ProjectFile)
+                        let relPath = Path.getRelativeFileOrDirPath true projDir false file
+                        let relPath = if relPath.StartsWith("./") then relPath.[2..] else relPath
+                        Path.Combine(outDir, relPath)
              }
 
         member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =
