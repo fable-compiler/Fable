@@ -21,6 +21,11 @@ module Experimental =
     /// Reads the name of a property or a type from the lambda body
     let inline nameofLambda(f: 'a -> 'b): string = jsNative
 
+    /// Reads the case name and field count of a simple match: `casenameWithFieldCount(function Foo _ -> true | _ -> false)`
+    let casenameWithFieldCount<'T> (f: 'T -> bool): string * int = jsNative
+
+    /// Reads the case name and field index of a simple match: `casenameWithFieldIndex(function Bar(_,i) -> i | _ -> failwith "")`
+    let casenameWithFieldIndex<'T, 'O> (f: 'T -> 'O): string * int = jsNative
 
 module Testing =
     type Assert =

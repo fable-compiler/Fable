@@ -1,3 +1,7 @@
+### 3.2.6
+
+* Experimental `casenameWithFieldIndex`
+
 ### 3.2.5
 
 * Add `Compiler.extension`

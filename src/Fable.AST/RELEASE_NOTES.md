@@ -1,3 +1,7 @@
+### 3.1.0
+
+* Add GetOutputPath to PluginHelper
+
 ### 3.0.0
 
 * Official release

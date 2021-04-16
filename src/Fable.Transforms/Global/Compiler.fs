@@ -1,7 +1,7 @@
 namespace Fable
 
 module Literals =
-    let [<Literal>] VERSION = "3.1.11"
+    let [<Literal>] VERSION = "3.1.15"
 
 type CompilerOptionsHelper =
     static member DefaultExtension = ".fs.js"
@@ -46,6 +46,8 @@ type CompilerPlugins =
 type Compiler =
     abstract LibraryDir: string
     abstract CurrentFile: string
+    abstract OutputDir: string option
+    abstract ProjectFile: string
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
     abstract GetImplementationFile: fileName: string -> FSharpImplementationFileContents
@@ -60,13 +62,18 @@ type Compiler =
 module CompilerExt =
     let expectedVersionMatchesActual (expected: string) (actual: string) =
         try
-            let r = System.Text.RegularExpressions.Regex("^(\d+)\.(\d+)")
+            let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
             let parse v =
                 let m = r.Match(v)
-                int m.Groups.[1].Value, int m.Groups.[2].Value
-            let actualMajor, actualMinor = parse actual
-            let expectedMajor, expectedMinor = parse expected
-            actualMajor = expectedMajor && actualMinor >= expectedMinor
+                int m.Groups.[1].Value,
+                int m.Groups.[2].Value,
+                if m.Groups.[3].Success then Some(int m.Groups.[3].Value) else None
+            let actualMajor, actualMinor, actualPatch = parse actual
+            let expectedMajor, expectedMinor, expectedPatch = parse expected
+            let success = actualMajor = expectedMajor && actualMinor >= expectedMinor
+            match expectedPatch, actualPatch with
+            | Some expectedPatch, Some actualPatch -> success && actualPatch >= expectedPatch
+            | _ -> success
         with _ -> false
 
     type Compiler with
@@ -79,6 +86,16 @@ module CompilerExt =
                 member _.GetEntity(ref) = com.GetEntity(ref)
                 member _.LogWarning(msg, r) = com.AddLog(msg, Severity.Warning, ?range=r, fileName=com.CurrentFile)
                 member _.LogError(msg, r) = com.AddLog(msg, Severity.Error, ?range=r, fileName=com.CurrentFile)
+                member _.GetOutputPath() =
+                    let file = Path.replaceExtension com.Options.FileExtension com.CurrentFile
+                    match com.OutputDir with
+                    | None -> file
+                    | Some outDir ->
+                        // TODO: This is a simplified version of the actual mechanism and will not work with deduplicated paths
+                        let projDir = Path.GetDirectoryName(com.ProjectFile)
+                        let relPath = Path.getRelativeFileOrDirPath true projDir false file
+                        let relPath = if relPath.StartsWith("./") then relPath.[2..] else relPath
+                        Path.Combine(outDir, relPath)
              }
 
         member com.ApplyPlugin<'Plugin, 'Input when 'Plugin :> PluginAttribute>(plugins: Map<_,_>, atts: Fable.Attribute seq, input: 'Input, transform) =

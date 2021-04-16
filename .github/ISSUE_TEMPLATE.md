@@ -13,5 +13,5 @@ Please provide the expected and actual results.
 
 ### Related information
 
-* Fable version: `npm show fable-compiler version` or `yarn info fable-compiler version`
+* Fable version: `dotnet fable --version`
 * Operating system

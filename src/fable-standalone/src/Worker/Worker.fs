@@ -133,10 +133,10 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                         typescript = Array.contains "--typescript" fableOptions
                         sourceMaps = Array.contains "--sourceMaps" fableOptions
                     |}
-                    let (res, fableTransformTime) = measureTime (fun () ->
-                        fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME,
-                            typedArrays = options.typedArrays,
-                            typescript = options.typescript) ()
+                    let (res, fableTransformTime) =
+                        measureTime (fun () ->
+                            fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, typedArrays = options.typedArrays, typescript = options.typescript)
+                        ) ()
                     // Print Babel AST
                     let writer = new SourceWriter(options.sourceMaps)
                     do! fable.Manager.PrintBabelAst(res, writer)

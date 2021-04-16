@@ -122,7 +122,7 @@ let makeProject (projectOptions: FSharpProjectOptions) (projectResults: FSharpCh
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
-    Project(projectResults, optimizeFSharpAst=optimize)
+    Project(projectOptions.ProjectFileName, projectResults, optimizeFSharpAst=optimize)
 
 let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source otherFSharpOptions =
     let parseResults, checkResults, projectResults =

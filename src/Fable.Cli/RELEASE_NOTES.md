@@ -1,3 +1,24 @@
+### 3.1.15
+
+* Add a --sourceMapsRoot CLI option to set source maps sourceRoot @mlaily
+* Fix #2433: Improve type info for plugins like Fable.SvelteStore
+* Fix #2431: Pass output directory info to plugins
+
+### 3.1.14
+
+* Experimental `casenameWithFieldIndex`
+
+### 3.1.12
+
+* Fix #1678: BigInt native JS JSON serialization with toJSON
+* Fix #2151: Implement DateTimeOffset.toOffset @Booksbaum
+* Fix #2410: Invalid offsets are accepted @Booksbaum
+* Fix #2411: DateTime(Unspecified) fails when offset not local timezone @Booksbaum
+* Fix #2417: overloads with struct tuple
+* Fix #2418: List native JS JSON serialization with toJSON
+* Update big.js (decimals) @ncave
+* Update source-map-sharp to 1.0.5
+
 ### 3.1.11
 
 * Fix watch compilation issues

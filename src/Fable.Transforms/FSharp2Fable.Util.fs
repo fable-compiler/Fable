@@ -1545,7 +1545,14 @@ module Util =
     let hasInterface interfaceFullname (ent: Fable.Entity) =
         ent.AllInterfaces |> Seq.exists (fun ifc -> ifc.Entity.FullName = interfaceFullname)
 
-    let makeCallWithArgInfo com ctx r typ genArgs callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+    let makeCallWithArgInfo com ctx r typ (genArgs: Lazy<_>) callee (memb: FSharpMemberOrFunctionOrValue) (callInfo: Fable.CallInfo) =
+        let makeReturnType t =
+            match makeType (Map genArgs.Value) t with
+            // TODO: This is not ideal, but for proper currying when the call returns a lambda,
+            // let's use the type without filled generic args. See #2433.
+            | Fable.LambdaType _ -> makeType ctx.GenericArgs t
+            | t -> t
+
         match memb, memb.DeclaringEntity with
         | Emitted com r typ (Some callInfo) emitted, _ -> emitted
         | Imported com r typ (Some callInfo) imported -> imported
@@ -1571,11 +1578,12 @@ module Util =
             callInstanceMember com r typ callInfo entity memb
 
         | _, Some entity when isModuleValueForCalls entity memb ->
-            let typ = makeType ctx.GenericArgs memb.FullType
+            let typ = makeReturnType memb.FullType
             memberRefTyped com ctx r typ memb
 
         | _ ->
-            let typ = makeType ctx.GenericArgs memb.ReturnParameter.Type
+            // If member looks like a value but behaves like a function (has generic args) the type from F# AST is wrong (#2045).
+            let typ = makeReturnType memb.ReturnParameter.Type
             let callExpr =
                 memberRef com ctx r memb
                 |> makeCall r typ callInfo
