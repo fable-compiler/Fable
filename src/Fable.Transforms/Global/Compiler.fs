@@ -60,13 +60,18 @@ type Compiler =
 module CompilerExt =
     let expectedVersionMatchesActual (expected: string) (actual: string) =
         try
-            let r = System.Text.RegularExpressions.Regex("^(\d+)\.(\d+)")
+            let r = System.Text.RegularExpressions.Regex(@"^(\d+)\.(\d+)(?:\.(\d+))?")
             let parse v =
                 let m = r.Match(v)
-                int m.Groups.[1].Value, int m.Groups.[2].Value
-            let actualMajor, actualMinor = parse actual
-            let expectedMajor, expectedMinor = parse expected
-            actualMajor = expectedMajor && actualMinor >= expectedMinor
+                int m.Groups.[1].Value,
+                int m.Groups.[2].Value,
+                if m.Groups.[3].Success then Some(int m.Groups.[3].Value) else None
+            let actualMajor, actualMinor, actualPatch = parse actual
+            let expectedMajor, expectedMinor, expectedPatch = parse expected
+            let success = actualMajor = expectedMajor && actualMinor >= expectedMinor
+            match expectedPatch, actualPatch with
+            | Some expectedPatch, Some actualPatch -> success && actualPatch >= expectedPatch
+            | _ -> success
         with _ -> false
 
     type Compiler with
