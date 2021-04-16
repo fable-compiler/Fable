@@ -1,3 +1,9 @@
+### 3.1.15
+
+* Add a --sourceMapsRoot CLI option to set source maps sourceRoot @mlaily
+* Fix #2433: Improve type info for plugins like Fable.SvelteStore
+* Fix #2431: Pass output directory info to plugins
+
 ### 3.1.14
 
 * Experimental `casenameWithFieldIndex`
