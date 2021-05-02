@@ -80,6 +80,7 @@
             "type": "coreclr",
             "request": "launch",
             "name": "Run bench-compiler (.NET)",
+            "preLaunchTask": "build bench-compiler",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net5.0/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
@@ -93,6 +94,17 @@
             "program": "${workspaceRoot}/build/fable-compiler-js/src/fable-compiler-js/dist/app.js",
             "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "build/tests-js"],
             "stopOnEntry": true
+        },
+        {
+            "name": "Run Rust.AST.Tests",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Rust.AST.Tests",
+            "program": "${workspaceFolder}/src/Fable.Transforms/Rust/AST/Tests/bin/Debug/net5.0/Rust.AST.Tests.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole"
         },
     ]
 }
