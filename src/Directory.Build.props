@@ -2,7 +2,7 @@
     <PropertyGroup>
         <PackageProjectUrl>http://fable.io</PackageProjectUrl>
         <RepositoryUrl>https://github.com/fable-compiler/Fable.git</RepositoryUrl>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
         <PackageIcon>fable_logo.png</PackageIcon>
         <PackageTags>fsharp;fable;javascript;f#;js</PackageTags>
         <Authors>Alfonso García-Caro Núñez</Authors>
@@ -16,6 +16,7 @@
     </PropertyGroup>
     <ItemGroup>
         <None Include="..\..\fable_logo.png" Pack="true" PackagePath="\" />
+        <None Include="..\..\LICENSE" Pack="true" Visible="false" PackagePath=""/>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
