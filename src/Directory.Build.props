@@ -15,7 +15,7 @@
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
     <ItemGroup>
-        <None Include="$(MSBuildThisFileDirectory)\..\fable_logo.png" Pack="true" PackagePath="\" />
+        <None Include="$(MSBuildThisFileDirectory)\..\fable_logo.png" Pack="true" Visible="false" PackagePath="" />
         <None Include="$(MSBuildThisFileDirectory)\..\LICENSE" Pack="true" Visible="false" PackagePath=""/>
     </ItemGroup>
     <ItemGroup>
