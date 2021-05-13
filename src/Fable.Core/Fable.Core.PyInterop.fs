@@ -35,12 +35,12 @@ let (==>) (key: string) (v: obj): string*obj = pyNative
 
 /// Destructure a tuple of arguments and applies to literal JS code as with EmitAttribute.
 /// E.g. `emitJsExpr (arg1, arg2) "$0 + $1"` in Python becomes `arg1 + arg2`
-let emitJsExpr<'T> (args: obj) (jsCode: string): 'T = pyNative
+let emitPyExpr<'T> (args: obj) (jsCode: string): 'T = pyNative
 
 /// Same as emitJsExpr but intended for JS code that must appear in a statement position
 /// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements
 /// E.g. `emitJsExpr aValue "while($0 < 5) doSomething()"`
-let emitJsStatement<'T> (args: obj) (jsCode: string): 'T = pyNative
+let emitPyStatement<'T> (args: obj) (pyCode: string): 'T = pyNative
 
 /// Create a literal Python object from a collection of key-value tuples.
 /// E.g. `createObj [ "a" ==> 5 ]` in Python becomes `{ a: 5 }`
