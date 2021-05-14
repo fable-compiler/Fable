@@ -3,6 +3,8 @@ module Fable.Cli.Main
 open System
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Diagnostics
 
 open Fable
 open Fable.AST
@@ -93,12 +95,14 @@ module private Util =
         |> Array.map (fun er ->
             let severity =
                 match er.Severity with
-                | FSharpErrorSeverity.Warning -> Severity.Warning
-                | FSharpErrorSeverity.Error -> Severity.Error
+                | FSharpDiagnosticSeverity.Hidden
+                | FSharpDiagnosticSeverity.Info -> Severity.Info
+                | FSharpDiagnosticSeverity.Warning -> Severity.Warning
+                | FSharpDiagnosticSeverity.Error -> Severity.Error
 
             let range =
-                { start={ line=er.StartLineAlternate; column=er.StartColumn+1}
-                  ``end``={ line=er.EndLineAlternate; column=er.EndColumn+1}
+                { start={ line=er.StartLine; column=er.StartColumn+1}
+                  ``end``={ line=er.EndLine; column=er.EndColumn+1}
                   identifierName = None }
 
             let msg = sprintf "%s (code %i)" er.Message er.ErrorNumber

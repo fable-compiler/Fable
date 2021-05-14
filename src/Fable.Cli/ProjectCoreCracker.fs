@@ -4,7 +4,7 @@ module Fable.Cli.ProjectCoreCracker
 open System
 open System.IO
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 
 module MSBuildPrj = Dotnet.ProjInfo.Inspect
 
@@ -149,7 +149,6 @@ let rec private projInfo additionalMSBuildProps (file: string) =
               LoadTime = DateTime.Now
               UnresolvedReferences = None;
               OriginalLoadReferences = []
-              ExtraProjectInfo = None
               Stamp = None
           }
       let projRefs = p2ps |> List.map (fun p2p -> p2p.ProjectReferenceFullPath)

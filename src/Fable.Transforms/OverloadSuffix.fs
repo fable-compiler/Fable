@@ -3,7 +3,7 @@ module rec Fable.Transforms.OverloadSuffix
 
 open Fable
 open System.Collections.Generic
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 
 type ParamTypes = FSharpType list
 
