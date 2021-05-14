@@ -1,3 +1,7 @@
+### 3.2.7
+
+* Publish with icon and symbols @cartermp
+
 ### 3.2.6
 
 * Experimental `casenameWithFieldIndex`

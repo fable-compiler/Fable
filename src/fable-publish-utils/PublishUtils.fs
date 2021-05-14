@@ -585,20 +585,23 @@ module Publish =
                         | Some x -> x
                         | None -> failwithf "Cannot find .nupgk for %s" projDir
 
-                let snupkg =
-                    IO.Directory.GetFiles(tempDir)
-                    |> Seq.tryPick (fun path ->
-                        if path.EndsWith(".snupkg")
-                        then Some(tempDir </> path)
-                        else None)
-                    |> function
-                        | Some x -> x
-                        | None -> failwithf "Cannot find .snupgk for %s" projDir
-
                 runList ["dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetKey]
 
-                // Publish snupkg after the nupkg, since you need to already have a corresponding nupkg to match the symbols against
-                runList ["dotnet nuget push"; snupkg; "-s nuget.org -k"; nugetKey]
+                // Looks like the `nuget push` command automatically detects the .snupkg symbols
+                // so the command below is not necessary
+
+                // let snupkg =
+                //     IO.Directory.GetFiles(tempDir)
+                //     |> Seq.tryPick (fun path ->
+                //         if path.EndsWith(".snupkg")
+                //         then Some(tempDir </> path)
+                //         else None)
+                //     |> function
+                //         | Some x -> x
+                //         | None -> failwithf "Cannot find .snupgk for %s" projDir
+
+                // runList ["dotnet nuget push"; snupkg; "-s nuget.org -k"; nugetKey]
+
                 removeDirRecursive tempDir
             with _ ->
                 filenameWithoutExtension projFile
