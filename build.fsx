@@ -450,8 +450,7 @@ let githubRelease() =
         async {
             try
                 let! version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
-                // TODO: escape single quotes
-                let notes = notes |> Array.map (sprintf "'%s'") |> String.concat ","
+                let notes = notes |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""") |> String.concat ","
                 run $"git commit -am \"Release {version}\" && git push"
                 runSilent $"""
 node --eval "require('ghreleases').create({{
