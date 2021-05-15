@@ -178,20 +178,20 @@ let buildLibraryPy() =
     cleanDirs [buildDirPy]
 
     runFableWithArgs projectDir [
-        "--outDir " + buildDirPy
-        "--fableLib " + buildDirPy + "/fable"
+        "--outDir " + buildDirPy </> "fable"
+        "--fableLib " + buildDirPy </> "fable"
         "--lang Python"
         "--exclude Fable.Core"
     ]
     // Copy *.py from projectDir to buildDir
     copyDirRecursive libraryDir buildDirPy
-    copyDirRecursive (buildDirPy </> "fable-library/") (buildDirPy </> "fable/")
 
-    copyFile (buildDirPy </> "fable/system.text.py") (buildDirPy </> "fable/system_text.py")
-    removeFile (buildDirPy </> "fable/system.text.py")
+    copyFile (buildDirPy </> "fable/fable-library/system.text.py") (buildDirPy </> "fable/system_text.py")
+    //copyFile (buildDirPy </> "fable/async.py") (buildDirPy </> "fable/async_.py")
+    //removeFile (buildDirPy </> "fable/async.py")
 
-    runInDir buildDirPy ("python --version")
-    runInDir buildDirPy ("python ./setup.py develop")
+    runInDir buildDirPy ("python3 --version")
+    runInDir buildDirPy ("python3 ./setup.py develop")
 
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -566,6 +566,9 @@ match argsLower with
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "quicktest"::_ ->
+    buildLibraryIfNotExists()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache"
+| "quicktest-py"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
 | "jupyter" :: _ ->

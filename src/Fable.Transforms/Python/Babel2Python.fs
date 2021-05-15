@@ -8,6 +8,8 @@ open Fable
 open Fable.AST
 open Fable.AST.Python
 open Fable.AST.Babel
+open Fable.Naming
+open Fable.Core
 
 [<RequireQualifiedAccess>]
 type ReturnStrategy =
@@ -62,9 +64,10 @@ module Helpers =
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
+        //printfn $"clean: {name}"
         match name with
         | "this" -> "self"
-        | "async" -> "asyncio"
+        | "async" -> "async_"
         | "from" -> "from_"
         | "class" -> "class_"
         | "for" -> "for_"
@@ -72,6 +75,7 @@ module Helpers =
         | "Error" -> "Exception"
         | "toString" -> "str"
         | "len" -> "len_"
+        | "Map" -> "dict"
         | _ ->
             name.Replace('$', '_').Replace('.', '_').Replace('`', '_')
 
@@ -81,18 +85,25 @@ module Helpers =
             Regex(".*\/fable-library.*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
+        let dashify = applyCaseRule CaseRules.SnakeCase
 
         if m.Groups.Count > 1 then
             let pymodule =
-                m.Groups.["module"].Value.ToLower()
+                m.Groups.["module"].Value
+                |> dashify
                 |> clean
 
             let moduleName = String.concat "." [ "fable"; pymodule ]
 
+            printfn "-> Module: %A" moduleName
             moduleName
         else
-            // TODO: Can we expect all modules to be lower case?
-            let moduleName = moduleName.Replace("/", "").ToLower()
+            // Modules should have short, all-lowercase names.
+            let moduleName =
+                moduleName.Replace("/", "")
+                |> dashify
+
+            printfn "-> Module: %A" moduleName
             moduleName
 
     let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
@@ -238,8 +249,12 @@ module Util =
                               | Pattern.RestElement (argument = argument) -> Arg.arg (com.GetIdentifier(ctx, argument.Name)) |> Some
                               | _ -> None)
                           |> List.tryHead
-
-                      let arguments = Arguments.arguments (args = self :: args, ?vararg = varargs)
+                      let defaults =
+                          if List.length args = 1 then
+                              [ Expression.name "None"]
+                          else
+                              []
+                      let arguments = Arguments.arguments (args = self :: args, ?vararg = varargs, defaults=defaults)
 
                       match kind, key with
                       | "method", _ ->
@@ -269,7 +284,12 @@ module Util =
                           let name = Python.Identifier("__len__")
                           let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
                           FunctionDef.Create(name, arguments, body = body)
-                      | _ -> failwith $"transformAsClassDef: Unknown kind: {kind}"
+                      | "get", Expression.Identifier(Identifier(name=name)) ->
+                          let name = Python.Identifier(name)
+                          let body = com.TransformAsStatements(ctx, ReturnStrategy.Return, body)
+                          let decorators = [ Python.Expression.name "property"]
+                          FunctionDef.Create(name, arguments, body = body, decoratorList=decorators)
+                      | _ -> failwith $"transformAsClassDef: Unknown kind: {kind}, key: {key}"
                   | _ -> failwith $"transformAsClassDef: Unhandled class member {mber}" ]
 
         let name = com.GetIdentifier(ctx, id.Value.Name)
@@ -457,7 +477,13 @@ module Util =
         | Expression.Identifier (Identifier (name = name)) ->
             let name = com.GetIdentifier(ctx, name)
             Expression.name (id = name), []
-        | NewExpression (callee = callee; arguments = args) -> // FIXME: use transformAsCall
+        | NewExpression (callee = Expression.Identifier(Identifier(name="Int32Array")); arguments = args) ->
+            match args with
+            | [| arg |] ->
+                let expr, stmts = com.TransformAsExpr(ctx, arg)
+                expr, stmts
+            | _ -> failwith "Int32Array with multiple arguments not supported."
+        | NewExpression (callee = callee; arguments = args) ->
             let func, stmts = com.TransformAsExpr(ctx, callee)
 
             let args, stmtArgs =
@@ -624,6 +650,15 @@ module Util =
 
             let name = Expression.name (name)
             Expression.call (name), [ func ]
+        | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
+            let name =
+                match id with
+                | Some id -> Python.Identifier(id.Name)
+                | None -> Helpers.getUniqueIdentifier "Lifted"
+
+            let babelId = Identifier.identifier(name=name.Name) |> Some
+            let stmts = com.TransformAsClassDef(ctx, body, babelId, superClass, implements, superTypeParameters, typeParameters, loc)
+            Expression.name name, stmts
         | ThisExpression (_) -> Expression.name ("self"), []
         | _ -> failwith $"transformAsExpr: Unhandled value: {expr}"
 
@@ -870,6 +905,7 @@ module Util =
     let transformProgram (com: IPythonCompiler) ctx (body: Babel.ModuleDeclaration array): Module =
         let returnStrategy = ReturnStrategy.NoReturn
 
+        //printfn "Transform Program: %A" body
         let stmt: Python.Statement list =
             [ for md in body do
                   match md with
@@ -904,8 +940,6 @@ module Util =
         Module.module' (imports @ stmt)
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
-        // import math
-        // from seq import a
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)

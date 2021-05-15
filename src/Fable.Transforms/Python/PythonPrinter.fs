@@ -150,16 +150,26 @@ module PrinterExtensions =
             printer.Print(kw.Value)
 
         member printer.Print(arguments: Arguments) =
+            let args = arguments.Args |> List.map AST.Arg
+            let defaults = arguments.Defaults
+            if defaults.Length > 0 then
+                printfn "Got defaults. %A" defaults
+            for i = 0 to args.Length - 1 do
+                printer.Print(args.[i])
+                if i >= args.Length - defaults.Length then
+                    printer.Print("=")
+                    printer.Print(defaults.[i-defaults.Length])
+                if i < args.Length - 1 then
+                    printer.Print(", ")
+
             match arguments.Args, arguments.VarArg with
             | [], Some vararg ->
                 printer.Print("*")
                 printer.Print(vararg)
             | args, Some vararg ->
-                printer.PrintCommaSeparatedList(args)
                 printer.Print(", *")
                 printer.Print(vararg)
-            | args, None ->
-                printer.PrintCommaSeparatedList(args)
+            | _ -> ()
 
         member printer.Print(assign: Assign) =
             //printer.PrintOperation(targets.[0], "=", value, None)
@@ -237,7 +247,7 @@ module PrinterExtensions =
         member printer.Print(ri: Raise) = printer.Print("(Raise)")
 
         member printer.Print(func: FunctionDef) =
-            printer.PrintFunction(Some func.Name, func.Args, func.Body, func.Returns, isDeclaration = true)
+            printer.PrintFunction(Some func.Name, func.Args, func.Body, func.Returns, func.DecoratorList, isDeclaration = true)
             printer.PrintNewLine()
 
         member printer.Print(gl: Global) = printer.Print("(Global)")
@@ -711,8 +721,14 @@ module PrinterExtensions =
                 args: Arguments,
                 body: Statement list,
                 returnType: Expression option,
+                decoratorList: Expression list,
                 ?isDeclaration
             ) =
+            for deco in decoratorList do
+                printer.Print("@")
+                printer.Print(deco)
+                printer.PrintNewLine()
+
             printer.Print("def ")
             printer.PrintOptional(id)
             printer.Print("(")

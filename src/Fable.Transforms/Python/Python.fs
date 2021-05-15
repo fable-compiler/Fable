@@ -1022,3 +1022,7 @@ module PythonExtensions =
     type Expr with
         static member expr(value) : Expr =
             { Value=value }
+
+    type Constant with
+        static member contant(value) : Expr =
+            { Value=value }

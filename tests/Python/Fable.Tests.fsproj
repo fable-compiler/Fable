@@ -30,6 +30,7 @@
     <Compile Include="TestOption.fs" />
     <Compile Include="TestUnionType.fs" />
     <Compile Include="TestLoops.fs" />
+    <Compile Include="TestAsync.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

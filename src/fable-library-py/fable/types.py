@@ -1,12 +1,39 @@
 from __future__ import annotations
 
 from abc import abstractstaticmethod
-from typing import Any, Iterable, List
+from typing import Any, Generic, Iterable, List, TypeVar, Union as Union_, Callable, Optional, cast
 
 from .util import IComparable
 
+T = TypeVar("T")
 
-class Union(IComparable["Union"]):
+
+class FSharpRef:
+    def __init__(self, contentsOrGetter, setter=None) -> None:
+
+        contents = contentsOrGetter
+
+        def set_contents(value):
+            nonlocal contents
+            contents = value
+
+        if callable(setter):
+            self.getter = contentsOrGetter
+            self.setter = setter
+        else:
+            self.getter = lambda: contents
+            self.setter = set_contents
+
+    @property
+    def contents(self):
+        return self.getter()
+
+    @contents.setter
+    def contents(self, v):
+        self.setter(v)
+
+
+class Union(IComparable):
     def __init__(self):
         self.tag: int
         self.fields: List[int] = []
@@ -90,7 +117,7 @@ def recordGetHashCode(self):
     return hash(*self.values())
 
 
-class Record(IComparable["Record"]):
+class Record(IComparable):
     def toJSON(self) -> str:
         return recordToJSON(this)
 
@@ -157,7 +184,8 @@ def toString(x, callStack=0):
 
     return str(x)
 
+
 str = str
 Exception = Exception
 
-__all__ = ["Attribute", "Exception", "str", "Union"]
+__all__ = ["Attribute", "Exception", "FSharpRef", "str", "Union"]

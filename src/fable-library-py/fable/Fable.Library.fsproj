@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Timer.fs" />
     <Compile Include="../../fable-library/Global.fs" />
     <!-- <Compile Include="BigInt/n.fsi" /> -->
     <!-- <Compile Include="BigInt/n.fs" /> -->
@@ -29,6 +30,8 @@
     <!-- <Compile Include="Range.fs" /> -->
     <Compile Include="../../fable-library/Set.fs" />
     <!-- <Compile Include="Map.fs" /> -->
+    <!-- <Compile Include="AsyncBuilder.fs" /> -->
+    <!-- <Compile Include="Async.fs" /> -->
   </ItemGroup>
 
   <ItemGroup>
