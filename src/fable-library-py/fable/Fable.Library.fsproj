@@ -22,7 +22,7 @@
     <!-- <Compile Include="FSharp.Core.fs" /> -->
     <!-- <Compile Include="MutableMap.fs" /> -->
     <!-- <Compile Include="MutableSet.fs" /> -->
-    <!-- <Compile Include="Choice.fs" /> -->
+    <Compile Include="../../fable-library/Choice.fs" />
     <!-- <Compile Include="Array.fs" /> -->
     <!-- <Compile Include="List.fs" /> -->
     <!-- <Compile Include="Seq.fs" /> -->

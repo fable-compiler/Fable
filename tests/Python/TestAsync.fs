@@ -154,3 +154,28 @@ let ``test Async StartWithContinuations works`` () =
     equal "success" !res1
     equal "error" !res2
     equal "cancelled" !res3
+
+[<Fact>]
+let ``test Async.Catch works`` () =
+    let assign res = function
+        | Choice1Of2 msg -> res := msg
+        | Choice2Of2 (ex: Exception) -> res := "ERROR: " + ex.Message
+    let res1 = ref ""
+    let res2 = ref ""
+    async {
+        let! x1 = successWork |> Async.Catch
+        assign res1 x1
+        let! x2 = errorWork |> Async.Catch
+        assign res2 x2
+    } |> Async.StartImmediate
+    equal "success" !res1
+    equal "ERROR: error" !res2
+
+[<Fact>]
+let ``test Async.Ignore works`` () =
+    let res = ref false
+    async {
+        do! successWork |> Async.Ignore
+        res := true
+    } |> Async.StartImmediate
+    equal true !res

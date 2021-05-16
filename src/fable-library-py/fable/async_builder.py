@@ -72,7 +72,7 @@ class IAsyncContext:
 
     @property
     @abstractmethod
-    def trapoline(self) -> "Trampoline":
+    def trampoline(self) -> "Trampoline":
         ...
 
     @property

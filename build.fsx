@@ -185,10 +185,11 @@ let buildLibraryPy() =
     ]
     // Copy *.py from projectDir to buildDir
     copyDirRecursive libraryDir buildDirPy
-
-    copyFile (buildDirPy </> "fable/fable-library/system.text.py") (buildDirPy </> "fable/system_text.py")
+    copyDirNonRecursive (buildDirPy </> "fable/fable-library") (buildDirPy </> "fable")
+    //copyFile (buildDirPy </> "fable/fable-library/*.py") (buildDirPy </> "fable")
+    copyFile (buildDirPy </> "fable/system.text.py") (buildDirPy </> "fable/system_text.py")
     //copyFile (buildDirPy </> "fable/async.py") (buildDirPy </> "fable/async_.py")
-    //removeFile (buildDirPy </> "fable/async.py")
+    removeFile (buildDirPy </> "fable/system.text.py")
 
     runInDir buildDirPy ("python3 --version")
     runInDir buildDirPy ("python3 ./setup.py develop")

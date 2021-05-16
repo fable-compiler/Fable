@@ -1,5 +1,14 @@
 from threading import Timer
-from .async_builder import CancellationToken, IAsyncContext, OperationCanceledError, Trampoline, protected_cont
+from .async_builder import (
+    CancellationToken,
+    IAsyncContext,
+    OperationCanceledError,
+    Trampoline,
+    protected_bind,
+    protected_cont,
+    protected_return,
+)
+from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2
 
 
 class Async:
@@ -48,6 +57,24 @@ def sleep(millisecondsDueTime: int):
             ctx.on_success()
 
         timer = Timer(millisecondsDueTime / 1000.0, timeout)
+
+    return protected_cont(cont)
+
+
+def ignore(computation):
+    return protected_bind(computation, lambda _x: protected_return())
+
+
+def catchAsync(work):
+    def cont(ctx: IAsyncContext):
+        def on_success(x):
+            ctx.on_success(Choice_makeChoice1Of2(x))
+
+        def on_error(err):
+            ctx.on_success(Choice_makeChoice2Of2(err))
+
+        ctx_ = IAsyncContext.create(on_success, on_error, ctx.on_cancel, ctx.trampoline, ctx.cancel_token)
+        work(ctx_)
 
     return protected_cont(cont)
 

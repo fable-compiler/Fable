@@ -1,6 +1,11 @@
 from expression.core import option
 
 
+class Some:
+    def __init__(self, value):
+        self.value = value
+
+
 def defaultArg(value, default_value):
     return option.default_arg(option.of_optional(value), default_value)
 
@@ -17,9 +22,8 @@ def toArray(value):
     return option.of_optional(value).to_list()
 
 
-__all__ = [
-    "defaultArg",
-    "defaultArgWith",
-    "map",
-    "toArray"
-]
+def some(x):
+    return Some(x) if x is None or isinstance(x, Some) else x
+
+
+__all__ = ["defaultArg", "defaultArgWith", "map", "toArray"]
