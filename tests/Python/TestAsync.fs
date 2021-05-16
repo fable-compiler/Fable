@@ -7,6 +7,17 @@ type DisposableAction(f) =
     interface IDisposable with
         member __.Dispose() = f()
 
+let sleepAndAssign token res =
+    Async.StartImmediate(async {
+        do! Async.Sleep 200
+        res := true
+    }, token)
+
+let successWork: Async<string> = Async.FromContinuations(fun (onSuccess,_,_) -> onSuccess "success")
+let errorWork: Async<string> = Async.FromContinuations(fun (_,onError,_) -> onError (exn "error"))
+let cancelWork: Async<string> = Async.FromContinuations(fun (_,_,onCancel) ->
+        System.OperationCanceledException("cancelled") |> onCancel)
+
 [<Fact>]
 let ``test Simple async translates without exception`` () =
     async { return () }
@@ -73,3 +84,73 @@ let ``test async use statements should dispose of resources when they go out of 
     |> Async.StartImmediate
     step2ok := !isDisposed
     (!step1ok && !step2ok) |> equal true
+
+[<Fact>]
+let ``test Try ... with ... expressions inside async expressions work the same`` () =
+    let result = ref ""
+    let throw() : unit =
+        raise(exn "Boo!")
+    let append(x) =
+        result := !result + x
+    let innerAsync() =
+        async {
+            append "b"
+            try append "c"
+                throw()
+                append "1"
+            with _ -> append "d"
+            append "e"
+        }
+    async {
+        append "a"
+        try do! innerAsync()
+        with _ -> append "2"
+        append "f"
+    } |> Async.StartImmediate
+    equal !result "abcdef"
+
+// Disable this test for dotnet as it's failing too many times in Appveyor
+#if FABLE_COMPILER
+
+[<Fact>]
+let ``test async cancellation works`` () =
+    async {
+        let res1, res2, res3 = ref false, ref false, ref false
+        let tcs1 = new System.Threading.CancellationTokenSource(50)
+        let tcs2 = new System.Threading.CancellationTokenSource()
+        let tcs3 = new System.Threading.CancellationTokenSource()
+        sleepAndAssign tcs1.Token res1
+        sleepAndAssign tcs2.Token res2
+        sleepAndAssign tcs3.Token res3
+        tcs2.Cancel()
+        tcs3.CancelAfter(1000)
+        do! Async.Sleep 500
+        equal false !res1
+        equal false !res2
+        equal true !res3
+    } |> Async.StartImmediate
+
+[<Fact>]
+let ``test CancellationTokenSourceRegister works`` () =
+    async {
+        let mutable x = 0
+        let res1 = ref false
+        let tcs1 = new System.Threading.CancellationTokenSource(50)
+        let foo = tcs1.Token.Register(fun () ->
+            x <- x + 1)
+        sleepAndAssign tcs1.Token res1
+        do! Async.Sleep 500
+        equal false !res1
+        equal 1 x
+    } |> Async.StartImmediate
+#endif
+
+[<Fact>]
+let ``test Async StartWithContinuations works`` () =
+    let res1, res2, res3 = ref "", ref "", ref ""
+    Async.StartWithContinuations(successWork, (fun x -> res1 := x), ignore, ignore)
+    Async.StartWithContinuations(errorWork, ignore, (fun x -> res2 := x.Message), ignore)
+    Async.StartWithContinuations(cancelWork, ignore, ignore, (fun x -> res3 := x.Message))
+    equal "success" !res1
+    equal "error" !res2
+    equal "cancelled" !res3

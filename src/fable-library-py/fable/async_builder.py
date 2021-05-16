@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from threading import Timer
+from collections import deque
+from threading import Timer, Lock, RLock
 from fable.util import IDisposable
 
 
@@ -13,26 +14,36 @@ class CancellationToken:
         self.cancelled = cancelled
         self.listeners = {}
         self.idx = 0
+        self.lock = RLock()
 
     @property
     def is_cancelled(self):
         return self.cancelled
 
     def cancel(self):
-        if not self.cancelled:
-            self.cancelled = True
+        # print("CancellationToken:cancel")
+        cancel = False
+        with self.lock:
+            if not self.cancelled:
+                cancel = True
+                self.cancelled = True
 
-        for listener in self.listeners.values():
-            listener()
+        # print("cancel", cancel)
+        if cancel:
+            for listener in self.listeners.values():
+                listener()
 
     def add_listener(self, f):
-        id = self.idx
-        self.idx = self.idx + 1
-        self.listeners[self.idx] = f
+        with self.lock:
+            id = self.idx
+            self.idx = self.idx + 1
+            self.listeners[self.idx] = f
+
         return id
 
     def remove_listener(self, id: int):
-        del self.listeners[id]
+        with self.lock:
+            del self.listeners[id]
 
     def register(self, f, state=None):
         if state:
@@ -48,7 +59,7 @@ class CancellationToken:
 
 class IAsyncContext:
     @abstractmethod
-    def on_success(self, value):
+    def on_success(self, value=None):
         ...
 
     @abstractmethod
@@ -61,12 +72,12 @@ class IAsyncContext:
 
     @property
     @abstractmethod
-    def trapoline(self):
+    def trapoline(self) -> "Trampoline":
         ...
 
     @property
     @abstractmethod
-    def cancellation_token(self):
+    def cancel_token(self) -> CancellationToken:
         ...
 
     @staticmethod
@@ -90,67 +101,81 @@ class AnonymousAsyncContext:
         return self._on_error(error)
 
     def on_cancel(self, ct):
-        return self.on_cancel(ct)
+        return self._on_cancel(ct)
 
 
 # type IAsync<'T> = IAsyncContext<'T> -> unit
 
 
 class Trampoline:
-    MaxTrampolineCallCount = 2000
+    MaxTrampolineCallCount = 900  # Max recursion depth: 1000
 
     def __init__(self):
         self.call_count = 0
+        self.lock = Lock()
+        self.queue = deque()
+        self.running = False
 
-    def IncrementAndCheck(self):
-        self.call_count = self.call_count + 1
-        return self.call_count > Trampoline.MaxTrampolineCallCount
+    def increment_and_check(self):
+        with self.lock:
+            self.call_count = self.call_count + 1
+            return self.call_count > Trampoline.MaxTrampolineCallCount
 
-    def Hijack(self, f):
-        self.call_count = 0
-        timer = Timer(0.0, f)
-        timer.daemon = True
-        timer.start()
+    def run(self, action):
+
+        if self.increment_and_check():
+            with self.lock:
+                # print("queueing...")
+                self.queue.append(action)
+
+            if not self.running:
+                self.running = True
+                timer = Timer(0.0, self._run)
+                timer.start()
+        else:
+            action()
+
+    def _run(self):
+        while len(self.queue):
+            with self.lock:
+                self.call_count = 0
+                action = self.queue.popleft()
+                # print("Running action: ", action)
+
+            action()
+
+        self.running = False
 
 
 def protected_cont(f):
-    print("protected_cont")
+    # print("protected_cont")
 
     def _protected_cont(ctx):
-        print("_protected_cont")
+        # print("_protected_cont")
 
         if ctx.cancel_token.is_cancelled:
             ctx.on_cancel(OperationCanceledError())
-        elif ctx.trampoline.IncrementAndCheck():
-            print("Hijacking...")
 
-            def fn():
-                try:
-                    return f(ctx)
-                except Exception as err:
-                    print("Exception: ", err)
-                    ctx.on_error(err)
-
-            ctx.trampoline.Hijack(fn)
-        else:
+        def fn():
             try:
-                print("Calling cont", f, ctx)
                 return f(ctx)
             except Exception as err:
                 print("Exception: ", err)
                 ctx.on_error(err)
 
+        ctx.trampoline.run(fn)
+
     return _protected_cont
 
 
 def protected_bind(computation, binder):
-    print("protected_bind")
+    # print("protected_bind")
 
     def cont(ctx):
-        print("protected_bind: inner")
+        # print("protected_bind: inner")
 
         def on_success(x):
-            print("protected_bind: x", x, binder)
+            # print("protected_bind: x", x, binder)
             try:
                 binder(x)(ctx)
             except Exception as err:
@@ -164,7 +189,7 @@ def protected_bind(computation, binder):
 
 
 def protected_return(value=None):
-    print("protected_return:", value)
+    # print("protected_return:", value)
     return protected_cont(lambda ctx: ctx.on_success(value))
 
 
@@ -176,7 +201,7 @@ class AsyncBuilder:
         return self.Bind(computation1, lambda _=None: computation2)
 
     def Delay(self, generator):
-        print("Delay", generator)
+        # print("Delay", generator)
         return protected_cont(lambda ctx: generator()(ctx))
 
     def For(self, sequence, body):
@@ -190,14 +215,14 @@ class AsyncBuilder:
             done = True
 
         def delay():
-            print("For:delay")
+            # print("For:delay")
             nonlocal cur, done
-            print("cur", cur)
+            # print("cur", cur)
             res = body(cur)
-            print("For:delay:res", res)
+            # print("For:delay:res", res)
             try:
                 cur = next(it)
-                print("For:delay:next", cur)
+                # print("For:delay:next", cur)
             except StopIteration:
                 print("For:delay:stopIteration")
                 done = True
@@ -206,7 +231,7 @@ class AsyncBuilder:
         return self.While(lambda: not done, self.Delay(delay))
 
     def Return(self, value=None):
-        print("Return: ", value)
+        # print("Return: ", value)
         return protected_return(value)
 
     def ReturnFrom(self, computation):
@@ -232,7 +257,7 @@ class AsyncBuilder:
         return protected_cont(cont)
 
     def TryWith(self, computation, catchHandler):
-        print("TryWith")
+        # print("TryWith")
 
         def fn(ctx):
             def on_error(err):
@@ -257,12 +282,12 @@ class AsyncBuilder:
         return self.TryFinally(binder(resource), lambda _=None: resource.Dispose())
 
     def While(self, guard, computation):
-        print("while")
+        # print("while")
         if guard():
-            print("gard()")
+            # print("gard()")
             return self.Bind(computation, lambda _=None: self.While(guard, computation))
         else:
-            print("While:return")
+            # print("While:return")
             return self.Return()
 
     def Zero(self):
