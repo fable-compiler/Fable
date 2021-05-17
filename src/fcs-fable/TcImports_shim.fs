@@ -2,17 +2,15 @@
 
 namespace FSharp.Compiler.SourceCodeServices
 
-// open System
-// open System.Collections.Concurrent
-// open System.IO
+open Internal.Utilities.Collections
+open Internal.Utilities.Library
+open Internal.Utilities.Library.Extras
 
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.ILBinaryReader
-open FSharp.Compiler.AbstractIL.Internal
-open FSharp.Compiler.AbstractIL.Internal.Library
-open FSharp.Compiler.AbstractIL.Internal.Utils
+open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.CheckExpressions
 open FSharp.Compiler.CheckDeclarations
 open FSharp.Compiler.CompilerConfig
@@ -20,24 +18,22 @@ open FSharp.Compiler.CompilerDiagnostics
 open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.CompilerImports
 open FSharp.Compiler.CompilerOptions
-// open FSharp.Compiler.Driver
+open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.ErrorLogger
-open FSharp.Compiler.Lib
+open FSharp.Compiler.IO
 open FSharp.Compiler.NameResolution
 open FSharp.Compiler.ParseAndCheckInputs
-open FSharp.Compiler.Range
 open FSharp.Compiler.ScriptClosure
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.Syntax
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Text
+open FSharp.Compiler.Text.Range
+open FSharp.Compiler.Tokenization
 open FSharp.Compiler.TypedTree
+open FSharp.Compiler.TypedTreeBasics
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TypedTreePickle
-
-// open Microsoft.DotNet.DependencyManager
-
-open Internal.Utilities
-open Internal.Utilities.Collections
 
 //-------------------------------------------------------------------------
 // TcImports shim
@@ -141,7 +137,7 @@ module TcImports =
             let fileName = ilModule.Name
             let invalidateCcu = new Event<_>()
             let ccu = Import.ImportILAssembly(
-                        tcImports.GetImportMap, m, auxModuleLoader, ilScopeRef,
+                        tcImports.GetImportMap, m, auxModuleLoader, tcConfig.xmlDocInfoLoader, ilScopeRef,
                         tcConfig.implicitIncludeDir, Some fileName, ilModule, invalidateCcu.Publish)
             let ccuInfo = mkCcuInfo ilGlobals ilScopeRef ilModule ccu
             ccuInfo, None
@@ -178,7 +174,8 @@ module TcImports =
                     MemberSignatureEquality = (fun ty1 ty2 -> typeEquivAux EraseAll (tcImports.GetTcGlobals()) ty1 ty2)
                     TryGetILModuleDef = (fun () -> Some ilModule)
                     TypeForwarders = Import.ImportILAssemblyTypeForwarders(tcImports.GetImportMap, m, GetRawTypeForwarders ilModule)
-                    }
+                    XmlDocumentationInfo = None
+                  }
 
             let optdata = lazy (
                 match memoize_opt.Apply ccuName with 
@@ -257,4 +254,4 @@ module TcImports =
         // do this prior to parsing, since parsing IL assembly code may refer to mscorlib
         do tcImports.SetCcuMap(ccuMap)
         do tcImports.SetTcGlobals(tcGlobals)
-        tcImports, tcGlobals
+        tcGlobals, tcImports

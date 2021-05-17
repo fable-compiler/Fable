@@ -54,3 +54,6 @@ module Path =
 
     let DirectorySeparatorChar = '/'
     let AltDirectorySeparatorChar = '/'
+
+module Directory =
+    let GetCurrentDirectory() = "."

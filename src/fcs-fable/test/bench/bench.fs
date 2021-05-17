@@ -1,18 +1,19 @@
 module Fable.Compiler.App
 
+open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.SourceCodeServices
 open Fable.Compiler.Platform
 open Fable.Compiler.ProjectParser
 
 let references = Metadata.references_core
-let metadataPath = "../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
+let metadataPath = "../../../../../Fable/src/fable-metadata/lib/" // .NET BCL binaries
 
-let printErrors showWarnings (errors: FSharpErrorInfo[]) =
-    let isWarning (e: FSharpErrorInfo) =
-        e.Severity = FSharpErrorSeverity.Warning
-    let printError (e: FSharpErrorInfo) =
+let printErrors showWarnings (errors: FSharpDiagnostic[]) =
+    let isWarning (e: FSharpDiagnostic) =
+        e.Severity = FSharpDiagnosticSeverity.Warning
+    let printError (e: FSharpDiagnostic) =
         let errorType = (if isWarning e then "Warning" else "Error")
-        printfn "%s (%d,%d): %s: %s" e.FileName e.StartLineAlternate e.StartColumn errorType e.Message
+        printfn "%s (%d,%d): %s: %s" e.FileName e.StartLine e.StartColumn errorType e.Message
     let warnings, errors = errors |> Array.partition isWarning
     let hasErrors = not (Array.isEmpty errors)
     if showWarnings then
@@ -41,7 +42,7 @@ let parseFiles projectFileName outDir optimize =
     printfn "Project: %s, FCS time: %d ms" projectFileName ms1
     printfn "--------------------------------------------"
     let showWarnings = false // supress warnings for clarity
-    projectResults.Errors |> printErrors showWarnings
+    projectResults.Diagnostics  |> printErrors showWarnings
 
     // // modify last file
     // sources.[sources.Length - 1] <- sources.[sources.Length - 1] + "\n"

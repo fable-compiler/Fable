@@ -3,22 +3,21 @@
 /// Contains logic to coordinate the parsing and checking of one or a group of files
 module internal FSharp.Compiler.ParseAndCheckInputs
 
-open FSharp.Compiler
-open FSharp.Compiler.AbstractIL.Internal.Library
+open Internal.Utilities.Library
 open FSharp.Compiler.CheckExpressions
 open FSharp.Compiler.CheckDeclarations
 open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.CompilerConfig
 open FSharp.Compiler.CompilerImports
-open FSharp.Compiler.ErrorLogger
-open FSharp.Compiler.Range
-open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.TypedTree
-open FSharp.Compiler.TcGlobals
-
 #if !FABLE_COMPILER
-open Microsoft.DotNet.DependencyManager
+open FSharp.Compiler.DependencyManager
 #endif
+open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.TcGlobals
+open FSharp.Compiler.Text
+open FSharp.Compiler.TypedTree
+open FSharp.Compiler.UnicodeLexing
 
 val IsScript: string -> bool
 
@@ -33,7 +32,7 @@ type ModuleNamesDict = Map<string,Map<string,QualifiedNameOfFile>>
 val DeduplicateParsedInputModuleName: ModuleNamesDict -> ParsedInput -> ParsedInput * ModuleNamesDict
 
 /// Parse a single input (A signature file or implementation file)
-val ParseInput: (UnicodeLexing.Lexbuf -> Parser.token) * ErrorLogger * UnicodeLexing.Lexbuf * string option * string * isLastCompiland:(bool * bool) -> ParsedInput
+val ParseInput: (Lexbuf -> Parser.token) * ErrorLogger * Lexbuf * string option * string * isLastCompiland:(bool * bool) -> ParsedInput
 
 #if !FABLE_COMPILER
 
@@ -52,7 +51,10 @@ val ApplyMetaCommandsFromInputToTcConfig: TcConfig * ParsedInput * string * Depe
 val ApplyNoWarnsToTcConfig: TcConfig * ParsedInput * string -> TcConfig
 
 /// Parse one input file
-val ParseOneInputFile: TcConfig * Lexhelp.LexResourceManager * string list * string * isLastCompiland: (bool * bool) * ErrorLogger * (*retryLocked*) bool -> ParsedInput option
+val ParseOneInputFile: TcConfig * Lexhelp.LexResourceManager * conditionalCompilationDefines: string list * string * isLastCompiland: (bool * bool) * ErrorLogger * retryLocked: bool -> ParsedInput
+
+/// Parse multiple input files from disk
+val ParseInputFiles: TcConfig * Lexhelp.LexResourceManager * conditionalCompilationDefines: string list * string list * ErrorLogger * Exiter * createErrorLogger: (Exiter -> CapturingErrorLogger) * retryLocked: bool -> (ParsedInput * string) list
 
 #endif //!FABLE_COMPILER
 
@@ -137,8 +139,13 @@ val ParseOneInputLexbuf:
     tcConfig: TcConfig *
     lexResourceManager: Lexhelp.LexResourceManager *
     conditionalCompilationDefines: string list *
-    lexbuf: UnicodeLexing.Lexbuf *
+    lexbuf: Lexbuf *
     filename: string *
     isLastCompiland: (bool * bool) *
     errorLogger: ErrorLogger
-      ->  ParsedInput option
+      -> ParsedInput
+
+val EmptyParsedInput:
+    filename: string *
+    isLastCompiland: (bool * bool)
+      -> ParsedInput 

@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-namespace FSharp.Compiler.SourceCodeServices
+namespace FSharp.Compiler.EditorServices
 
-open FSharp.Compiler.NameResolution
-open FSharp.Compiler.Range
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Text
 
 module public UnusedOpens =
 
@@ -24,9 +23,9 @@ module public SimplifyNames =
        }
 
     /// Get all ranges that can be simplified in a file
-    val getSimplifiableNames : checkFileResults: FSharpCheckFileResults * getSourceLineStr: (int -> string) -> Async<SimplifiableRange list>
+    val getSimplifiableNames : checkFileResults: FSharpCheckFileResults * getSourceLineStr: (int -> string) -> Async<seq<SimplifiableRange>>
 
 module public UnusedDeclarations = 
 
     /// Get all unused declarations in a file
-    val getUnusedDeclarations : checkFileResults: FSharpCheckFileResults * isScriptFile: bool -> Async<range list>
+    val getUnusedDeclarations : checkFileResults: FSharpCheckFileResults * isScriptFile: bool -> Async<seq<range>>

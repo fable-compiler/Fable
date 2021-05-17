@@ -15,6 +15,10 @@ module Reflection =
     type AssemblyName(assemblyName: string) =
         member x.Name = assemblyName //TODO: proper implementation
 
+module Threading =
+    type System.Threading.CancellationToken with
+        static member None = System.Threading.CancellationToken() //TODO: proper implementation
+
 type WeakReference<'T>(v: 'T) =
     member x.TryGetTarget () = (true, v)
 
