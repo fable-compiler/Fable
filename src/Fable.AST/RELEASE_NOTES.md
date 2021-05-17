@@ -1,3 +1,7 @@
+### 3.1.1
+
+* Publish with icon and symbols @cartermp
+
 ### 3.1.0
 
 * Add GetOutputPath to PluginHelper

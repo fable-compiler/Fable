@@ -3,8 +3,9 @@ module Fable.Transforms.State
 open Fable
 open Fable.AST
 open System.Collections.Generic
-open FSharp.Compiler.Symbols
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 
 #if FABLE_COMPILER
 type Dictionary<'TKey, 'TValue> with
