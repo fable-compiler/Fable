@@ -34085,5 +34085,10 @@ Get the signature for the value&apos;s XML documentation
  Clears parse and typecheck caches.
 </summary>
 </member>
+<member name="M:FSharp.Compiler.SourceCodeServices.ParseAndCheck.ErrorsByFile(System.String[],Microsoft.FSharp.Collections.FSharpList{FSharp.Compiler.Diagnostics.FSharpDiagnostic[]})">
+<summary>
+ Errors grouped by file, sorted by line, column
+</summary>
+</member>
 </members>
 </doc>
