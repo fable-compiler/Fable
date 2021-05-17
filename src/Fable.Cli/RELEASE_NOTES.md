@@ -1,3 +1,7 @@
+### 3.1.16
+
+* Publish with icon and symbols @cartermp
+
 ### 3.1.15
 
 * Add a --sourceMapsRoot CLI option to set source maps sourceRoot @mlaily

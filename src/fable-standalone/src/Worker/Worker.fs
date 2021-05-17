@@ -6,6 +6,7 @@ open Fable.Standalone
 open Fable.WebWorker
 
 let FILE_NAME = "test.fs"
+let PROJECT_NAME = "project.fsproj"
 
 type IFableInit =
     abstract member init: unit -> IFableManager
@@ -103,7 +104,9 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     | Some fable, ParseCode(fsharpCode, otherFSharpOptions) ->
         // Check if we need to recreate the FableState because otherFSharpOptions have changed
         let! fable = makeFableState (Initialized fable) otherFSharpOptions
-        let res = fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)
+        // let res = fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)
+        let res = fable.Manager.ParseFSharpFileInProject(checker, FILE_NAME, PROJECT_NAME, [|FILE_NAME|], [|fsharpCode|], otherFSharpOptions)
+
         ParsedCode res.Errors |> state.Worker.Post
         return! loop box { state with CurrentResults = Some res }
 
@@ -122,7 +125,8 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
             // Check if we need to recreate the FableState because otherFSharpOptions have changed
             let! fable = makeFableState (Initialized fable) otherFSharpOptions
             let (parseResults, parsingTime) = measureTime (fun () ->
-                fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
+                // fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
+                fable.Manager.ParseFSharpFileInProject(fable.checker, FILE_NAME, PROJECT_NAME, [|FILE_NAME|], [|fsharpCode|], otherFSharpOptions)) ()
 
             let! jsCode, errors, fableTransformTime = async {
                 if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then

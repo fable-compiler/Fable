@@ -35,7 +35,9 @@ module internal LayoutRender =
 
     val internal showL: Layout -> string
 
+#if !FABLE_COMPILER
     val internal outL: TextWriter -> Layout -> unit
+#endif
 
     val internal bufferL: StringBuilder -> Layout -> unit
 
@@ -45,8 +47,10 @@ module internal LayoutRender =
     /// Render layout to string 
     val internal stringR: LayoutRenderer<string,string list>
 
+#if !FABLE_COMPILER
     /// Render layout to channel
     val internal channelR: TextWriter -> LayoutRenderer<NoResult,NoState>
+#endif
 
     /// Render layout to StringBuilder
     val internal bufferR: StringBuilder -> LayoutRenderer<NoResult,NoState>

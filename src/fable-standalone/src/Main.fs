@@ -5,7 +5,6 @@ open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
 open FsAutoComplete
-open FSharp.Compiler
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
@@ -19,18 +18,17 @@ type CheckerImpl(checker: InteractiveChecker) =
 let mapError (error: FSharpDiagnostic) =
     {
         FileName = error.FileName
-        StartLineAlternate = error.StartLine
+        StartLine = error.StartLine
         StartColumn = error.StartColumn
-        EndLineAlternate = error.EndLine
+        EndLine = error.EndLine
         EndColumn = error.EndColumn
         Message = error.Message
         IsWarning =
             match error.Severity with
-            | FSharpDiagnosticSeverity.Error -> false
-            | FSharpDiagnosticSeverity.Warning -> true
-            // TODO: Deal with info diagnostics
+            | FSharpDiagnosticSeverity.Info
             | FSharpDiagnosticSeverity.Hidden
-            | FSharpDiagnosticSeverity.Info -> true
+            | FSharpDiagnosticSeverity.Warning -> true
+            | FSharpDiagnosticSeverity.Error -> false
     }
 
 type ParseResults (project: Lazy<Project>,
@@ -130,13 +128,6 @@ let makeProject (projectOptions: FSharpProjectOptions) (projectResults: FSharpCh
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
     Project(projectOptions.ProjectFileName, projectResults, optimizeFSharpAst=optimize)
 
-let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source otherFSharpOptions =
-    let parseResults, checkResults, projectResults =
-        checker.ParseAndCheckFileInProject (fileName, projectFileName, [| fileName |], [| source |])
-    let projectOptions = makeProjOptions projectFileName [| fileName |] otherFSharpOptions
-    let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
-
 let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
     let projectResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
@@ -144,25 +135,27 @@ let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames s
     ParseResults (project, None, None, projectResults, otherFSharpOptions)
 
 let parseFSharpFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources otherFSharpOptions =
-    let parseResults, checkResultsOpt, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
+    let parseResults, checkResults, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
     let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, Some parseResults, Some checkResultsOpt, projectResults, otherFSharpOptions)
+    ParseResults (project, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
 
 let tooltipToString (el: ToolTipElement): string[] =
     let dataToString (data: ToolTipElementData) =
+        let toString (tts: FSharp.Compiler.Text.TaggedText[]) =
+            tts |> Array.map (fun x -> x.Text) |> String.concat " "
         [| match data.ParamName with
-           | Some x -> yield x
+           | Some x -> yield x + ": "
            | None -> ()
-           yield! data.MainDescription |> Array.map (fun d -> d.Text)
+           yield data.MainDescription |> toString
            match data.XmlDoc with
-           | FSharpXmlDoc.FromXmlText doc ->
-                yield! doc.UnprocessedLines
-                yield! doc.GetElaboratedXmlLines()
+           | FSharp.Compiler.Symbols.FSharpXmlDoc.FromXmlText xmlDoc ->
+                yield! xmlDoc.UnprocessedLines
+                yield! xmlDoc.GetElaboratedXmlLines()
            | _ -> ()
-           yield! data.TypeMapping |> Array.concat |> Array.map (fun t -> t.Text)
+           yield! data.TypeMapping |> List.map toString
            match data.Remarks with
-           | Some x -> yield! x |> Array.map (fun t -> t.Text)
+           | Some x -> yield x |> toString
            | None -> ()
         |]
     match el with
@@ -200,7 +193,8 @@ let getToolTipAtLocation (parseResults: ParseResults) line col lineText =
             [|"Cannot find ident for tooltip"|]
         | Some(col,identIsland) ->
             let (ToolTipText els) =
-                checkFile.GetToolTip(line, col, lineText, identIsland, Tokenization.FSharpTokenTag.IDENT)
+                checkFile.GetToolTip(line, col, lineText, identIsland,
+                    FSharp.Compiler.Tokenization.FSharpTokenTag.IDENT)
             Seq.map tooltipToString els |> Array.concat
     | None ->
         [||]
@@ -233,12 +227,6 @@ let init () =
         member __.ClearParseCaches(checker) =
             let c = checker :?> CheckerImpl
             c.Checker.ClearCache()
-
-        member __.ParseFSharpScript(checker, fileName, source, ?otherFSharpOptions) =
-            let c = checker :?> CheckerImpl
-            let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-            let projectFileName = "project" // TODO: make it an argument
-            parseFSharpScript c.Checker projectFileName fileName source otherFSharpOptions :> IParseResults
 
         member __.ParseFSharpProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
             let c = checker :?> CheckerImpl
@@ -283,9 +271,9 @@ let init () =
                 com.Logs |> Array.map (fun log ->
                     let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
                     { FileName = fileName
-                      StartLineAlternate = r.start.line
+                      StartLine = r.start.line
                       StartColumn = r.start.column
-                      EndLineAlternate = r.``end``.line
+                      EndLine = r.``end``.line
                       EndColumn = r.``end``.column
                       Message =
                         if log.Tag = "FABLE"
