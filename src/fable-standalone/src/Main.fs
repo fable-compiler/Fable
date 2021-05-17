@@ -5,24 +5,29 @@ open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
 open FsAutoComplete
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Diagnostics
+open FSharp.Compiler.EditorServices
 open FSharp.Compiler.SourceCodeServices
 
 type CheckerImpl(checker: InteractiveChecker) =
     member __.Checker = checker
     interface IChecker
 
-let mapError (error: FSharpErrorInfo) =
+let mapError (error: FSharpDiagnostic) =
     {
         FileName = error.FileName
-        StartLineAlternate = error.StartLineAlternate
+        StartLine = error.StartLine
         StartColumn = error.StartColumn
-        EndLineAlternate = error.EndLineAlternate
+        EndLine = error.EndLine
         EndColumn = error.EndColumn
         Message = error.Message
         IsWarning =
             match error.Severity with
-            | FSharpErrorSeverity.Error -> false
-            | FSharpErrorSeverity.Warning -> true
+            | FSharpDiagnosticSeverity.Info
+            | FSharpDiagnosticSeverity.Hidden
+            | FSharpDiagnosticSeverity.Warning -> true
+            | FSharpDiagnosticSeverity.Error -> false
     }
 
 type ParseResults (project: Lazy<Project>,
@@ -38,7 +43,7 @@ type ParseResults (project: Lazy<Project>,
 
     interface IParseResults with
         member __.OtherFSharpOptions = otherFSharpOptions
-        member __.Errors = checkProjectResults.Errors |> Array.map mapError
+        member __.Errors = checkProjectResults.Diagnostics |> Array.map mapError
 
 let inline private tryGetLexerSymbolIslands (sym: Lexer.LexerSymbol) =
   match sym.Text with
@@ -113,7 +118,6 @@ let makeProjOptions projectFileName fileNames otherFSharpOptions =
         LoadTime = DateTime.Now
         UnresolvedReferences = None
         OriginalLoadReferences = []
-        ExtraProjectInfo = None
         Stamp = None }
     projOptions
 
@@ -123,13 +127,6 @@ let makeProject (projectOptions: FSharpProjectOptions) (projectResults: FSharpCh
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
     Project(projectOptions.ProjectFileName, projectResults, optimizeFSharpAst=optimize)
 
-let parseFSharpScript (checker: InteractiveChecker) projectFileName fileName source otherFSharpOptions =
-    let parseResults, checkResults, projectResults =
-        checker.ParseAndCheckScript (projectFileName, fileName, source)
-    let projectOptions = makeProjOptions projectFileName [| fileName |] otherFSharpOptions
-    let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
-
 let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
     let projectResults = checker.ParseAndCheckProject (projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
@@ -137,31 +134,34 @@ let parseFSharpProject (checker: InteractiveChecker) projectFileName fileNames s
     ParseResults (project, None, None, projectResults, otherFSharpOptions)
 
 let parseFSharpFileInProject (checker: InteractiveChecker) fileName projectFileName fileNames sources otherFSharpOptions =
-    let parseResults, checkResultsOpt, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
+    let parseResults, checkResults, projectResults = checker.ParseAndCheckFileInProject (fileName, projectFileName, fileNames, sources)
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
     let project = lazy (makeProject projectOptions projectResults)
-    ParseResults (project, Some parseResults, checkResultsOpt, projectResults, otherFSharpOptions)
+    ParseResults (project, Some parseResults, Some checkResults, projectResults, otherFSharpOptions)
 
-let tooltipToString (el: FSharpToolTipElement<string>): string[] =
-    let dataToString (data: FSharpToolTipElementData<string>) =
+let tooltipToString (el: ToolTipElement): string[] =
+    let dataToString (data: ToolTipElementData) =
+        let toString (tts: FSharp.Compiler.Text.TaggedText[]) =
+            tts |> Array.map (fun x -> x.Text) |> String.concat " "
         [| match data.ParamName with
-           | Some x -> yield x + ": " + data.MainDescription
-           | None -> yield data.MainDescription
+           | Some x -> yield x + ": "
+           | None -> ()
+           yield data.MainDescription |> toString
            match data.XmlDoc with
-           | FSharpXmlDoc.Text (unprocessedLines, elaboratedXmlLines) ->
-                yield! unprocessedLines
-                yield! elaboratedXmlLines
+           | FSharp.Compiler.Symbols.FSharpXmlDoc.FromXmlText xmlDoc ->
+                yield! xmlDoc.UnprocessedLines
+                yield! xmlDoc.GetElaboratedXmlLines()
            | _ -> ()
-           yield! data.TypeMapping
+           yield! data.TypeMapping |> List.map toString
            match data.Remarks with
-           | Some x -> yield x
+           | Some x -> yield x |> toString
            | None -> ()
         |]
     match el with
-    | FSharpToolTipElement.None -> [||]
-    | FSharpToolTipElement.Group(els) ->
+    | ToolTipElement.None -> [||]
+    | ToolTipElement.Group(els) ->
         Seq.map dataToString els |> Array.concat
-    | FSharpToolTipElement.CompositionError err -> [|err|]
+    | ToolTipElement.CompositionError err -> [|err|]
 
 /// Get tool tip at the specified location
 let getDeclarationLocation (parseResults: ParseResults) line col lineText =
@@ -170,13 +170,13 @@ let getDeclarationLocation (parseResults: ParseResults) line col lineText =
         match findLongIdents(col - 1, lineText) with
         | None -> None
         | Some(col,identIsland) ->
-            let (declarations: FSharpFindDeclResult) =
+            let (declarations: FindDeclResult) =
                 checkFile.GetDeclarationLocation(line, col, lineText, identIsland)
             match declarations with
-            | FSharpFindDeclResult.DeclNotFound _
-            | FSharpFindDeclResult.ExternalDecl _ ->
+            | FindDeclResult.DeclNotFound _
+            | FindDeclResult.ExternalDecl _ ->
                 None
-            | FSharpFindDeclResult.DeclFound range ->
+            | FindDeclResult.DeclFound range ->
                 Some { StartLine = range.StartLine
                        StartColumn = range.StartColumn
                        EndLine = range.EndLine
@@ -191,8 +191,9 @@ let getToolTipAtLocation (parseResults: ParseResults) line col lineText =
         | None ->
             [|"Cannot find ident for tooltip"|]
         | Some(col,identIsland) ->
-            let (FSharpToolTipText els) =
-                checkFile.GetToolTipText(line, col, lineText, identIsland, FSharpTokenTag.Identifier)
+            let (ToolTipText els) =
+                checkFile.GetToolTip(line, col, lineText, identIsland,
+                    FSharp.Compiler.Tokenization.FSharpTokenTag.IDENT)
             Seq.map tooltipToString els |> Array.concat
     | None ->
         [||]
@@ -201,7 +202,7 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
    match parseResults.CheckFileResultsOpt with
     | Some checkFile ->
         let ln, residue = findLongIdentsAndResidue(col - 1, lineText)
-        let longName = FSharp.Compiler.QuickParse.GetPartialLongNameEx(lineText, col - 1)
+        let longName = QuickParse.GetPartialLongNameEx(lineText, col - 1)
         let longName = { longName with QualifyingIdents = ln; PartialIdent = residue }
         let decls = checkFile.GetDeclarationListInfo(parseResults.ParseFileResultsOpt, line, lineText, longName, fun () -> [])
         decls.Items |> Array.map (fun decl ->
@@ -225,12 +226,6 @@ let init () =
         member __.ClearParseCaches(checker) =
             let c = checker :?> CheckerImpl
             c.Checker.ClearCache()
-
-        member __.ParseFSharpScript(checker, fileName, source, ?otherFSharpOptions) =
-            let c = checker :?> CheckerImpl
-            let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-            let projectFileName = "project" // TODO: make it an argument
-            parseFSharpScript c.Checker projectFileName fileName source otherFSharpOptions :> IParseResults
 
         member __.ParseFSharpProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
             let c = checker :?> CheckerImpl
@@ -275,9 +270,9 @@ let init () =
                 com.Logs |> Array.map (fun log ->
                     let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
                     { FileName = fileName
-                      StartLineAlternate = r.start.line
+                      StartLine = r.start.line
                       StartColumn = r.start.column
-                      EndLineAlternate = r.``end``.line
+                      EndLine = r.``end``.line
                       EndColumn = r.``end``.column
                       Message =
                         if log.Tag = "FABLE"
