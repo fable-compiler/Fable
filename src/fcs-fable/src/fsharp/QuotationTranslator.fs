@@ -252,8 +252,10 @@ and GetWitnessArgs cenv (env : QuotationTranslationEnv) m tps tyargs =
     let g = cenv.g
     if g.generateWitnesses && not env.suppressWitnesses then 
         let witnessExprs = 
+          try
             ConstraintSolver.CodegenWitnessesForTyparInst cenv.tcVal g cenv.amap m tps tyargs 
             |> CommitOperationResult
+          with _ -> []
         let env = { env with suppressWitnesses = true }
         witnessExprs |> List.map (fun arg -> 
             match arg with 
@@ -1341,3 +1343,4 @@ let ConvReflectedDefinition cenv methName v e =
 
     let mbaseR = ConvMethodBase cenv env (methName, v)
     mbaseR, astExprWithWitnessLambdas
+

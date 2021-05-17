@@ -48,6 +48,12 @@ module Path =
         if i <= 0 then ""
         else normPath.Substring(0, i)
 
+    let GetFullPath (path: string) = //TODO: proper xplat implementation
+        path
+
+    let GetTempPath () = //TODO: proper xplat implementation
+        "."
+
     let IsPathRooted (path: string) = //TODO: proper xplat implementation
         let normPath = path.Replace("\\", "/").TrimEnd('/')
         normPath.StartsWith("/")
@@ -56,4 +62,5 @@ module Path =
     let AltDirectorySeparatorChar = '/'
 
 module Directory =
-    let GetCurrentDirectory() = "."
+    let GetCurrentDirectory() = //TODO: proper xplat implementation
+        "."

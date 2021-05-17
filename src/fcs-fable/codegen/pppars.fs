@@ -4,7 +4,7 @@ module internal FSharp.Compiler.PPParser
 open FSharp.Compiler
 open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Text.Parsing.ParseHelpers
-//# 3 "../../../src/fsharp/pppars.fsy"
+//# 3 "src/fsharp/pppars.fsy"
 
 open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.ParseHelpers
@@ -155,20 +155,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 38 "../../../src/fsharp/pppars.fsy"
+//# 38 "src/fsharp/pppars.fsy"
                                    _1 
                    )
-//# 38 "../../../src/fsharp/pppars.fsy"
+//# 38 "src/fsharp/pppars.fsy"
                  :  LexerIfdefExpression ));
 //# 163 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 41 "../../../src/fsharp/pppars.fsy"
+//# 41 "src/fsharp/pppars.fsy"
                                                    doNothing parseState ()                                         
                    )
-//# 41 "../../../src/fsharp/pppars.fsy"
+//# 41 "src/fsharp/pppars.fsy"
                  : 'Recover));
 //# 173 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -176,10 +176,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 44 "../../../src/fsharp/pppars.fsy"
+//# 44 "src/fsharp/pppars.fsy"
                                                    _2                                                            
                    )
-//# 44 "../../../src/fsharp/pppars.fsy"
+//# 44 "src/fsharp/pppars.fsy"
                  : 'Full));
 //# 184 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -187,10 +187,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 45 "../../../src/fsharp/pppars.fsy"
+//# 45 "src/fsharp/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsMissingToken("#if/#elif")) 
                    )
-//# 45 "../../../src/fsharp/pppars.fsy"
+//# 45 "src/fsharp/pppars.fsy"
                  : 'Full));
 //# 195 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -198,10 +198,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 48 "../../../src/fsharp/pppars.fsy"
+//# 48 "src/fsharp/pppars.fsy"
                                                    _2                                                            
                    )
-//# 48 "../../../src/fsharp/pppars.fsy"
+//# 48 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 206 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -209,10 +209,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 49 "../../../src/fsharp/pppars.fsy"
+//# 49 "src/fsharp/pppars.fsy"
                                                    IfdefId(_1)                                                   
                    )
-//# 49 "../../../src/fsharp/pppars.fsy"
+//# 49 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 217 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -220,10 +220,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 50 "../../../src/fsharp/pppars.fsy"
+//# 50 "src/fsharp/pppars.fsy"
                                                    IfdefNot(_2)                                                  
                    )
-//# 50 "../../../src/fsharp/pppars.fsy"
+//# 50 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 228 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -232,10 +232,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 51 "../../../src/fsharp/pppars.fsy"
+//# 51 "src/fsharp/pppars.fsy"
                                                    IfdefAnd(_1,_3)                                               
                    )
-//# 51 "../../../src/fsharp/pppars.fsy"
+//# 51 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 240 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -244,10 +244,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 52 "../../../src/fsharp/pppars.fsy"
+//# 52 "src/fsharp/pppars.fsy"
                                                    IfdefOr(_1,_3)                                                
                    )
-//# 52 "../../../src/fsharp/pppars.fsy"
+//# 52 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 252 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -255,10 +255,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 54 "../../../src/fsharp/pppars.fsy"
+//# 54 "src/fsharp/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("&&"))     
                    )
-//# 54 "../../../src/fsharp/pppars.fsy"
+//# 54 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 263 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -266,10 +266,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 55 "../../../src/fsharp/pppars.fsy"
+//# 55 "src/fsharp/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("||"))     
                    )
-//# 55 "../../../src/fsharp/pppars.fsy"
+//# 55 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 274 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -277,20 +277,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 56 "../../../src/fsharp/pppars.fsy"
+//# 56 "src/fsharp/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken("!"))      
                    )
-//# 56 "../../../src/fsharp/pppars.fsy"
+//# 56 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 285 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 57 "../../../src/fsharp/pppars.fsy"
+//# 57 "src/fsharp/pppars.fsy"
                                                    doNothing parseState dummy                                    
                    )
-//# 57 "../../../src/fsharp/pppars.fsy"
+//# 57 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 295 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -299,10 +299,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 58 "../../../src/fsharp/pppars.fsy"
+//# 58 "src/fsharp/pppars.fsy"
                                                    fail parseState 3 (FSComp.SR.ppparsMissingToken(")"))         
                    )
-//# 58 "../../../src/fsharp/pppars.fsy"
+//# 58 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 307 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -310,10 +310,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 59 "../../../src/fsharp/pppars.fsy"
+//# 59 "src/fsharp/pppars.fsy"
                                                    fail parseState 2 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 59 "../../../src/fsharp/pppars.fsy"
+//# 59 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 318 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -321,10 +321,10 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 60 "../../../src/fsharp/pppars.fsy"
+//# 60 "src/fsharp/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsUnexpectedToken(")"))      
                    )
-//# 60 "../../../src/fsharp/pppars.fsy"
+//# 60 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 329 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
@@ -333,20 +333,20 @@ let _fsyacc_reductions ()  =    [|
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 61 "../../../src/fsharp/pppars.fsy"
+//# 61 "src/fsharp/pppars.fsy"
                                                    fail parseState 2 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 61 "../../../src/fsharp/pppars.fsy"
+//# 61 "src/fsharp/pppars.fsy"
                  : 'Expr));
 //# 341 "pppars.fs"
         (fun (parseState : Internal.Utilities.Text.Parsing.IParseState) ->
             Microsoft.FSharp.Core.Operators.box
                 (
                    (
-//# 62 "../../../src/fsharp/pppars.fsy"
+//# 62 "src/fsharp/pppars.fsy"
                                                    fail parseState 1 (FSComp.SR.ppparsIncompleteExpression())    
                    )
-//# 62 "../../../src/fsharp/pppars.fsy"
+//# 62 "src/fsharp/pppars.fsy"
                  : 'Expr));
 |]
 //# 352 "pppars.fs"

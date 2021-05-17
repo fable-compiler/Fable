@@ -140,6 +140,7 @@ module LayoutRender =
           member _.AddTag z (_, _, _) = z
           member _.Finish rstrs = NoResult }
 
+#if !FABLE_COMPILER
     /// channel LayoutRenderer
     let channelR (chan:TextWriter) =
       { new LayoutRenderer<NoResult, NoState> with 
@@ -148,6 +149,7 @@ module LayoutRender =
           member r.AddBreak z n = chan.WriteLine(); chan.Write (spaces n); z
           member r.AddTag z (tag, attrs, start) =  z
           member r.Finish z = NoResult }
+#endif
 
     /// buffer render
     let bufferR os =
@@ -160,7 +162,9 @@ module LayoutRender =
 
     let showL layout = renderL stringR layout
 
+#if !FABLE_COMPILER
     let outL (chan:TextWriter)  layout = renderL (channelR chan) layout |> ignore
+#endif
 
     let bufferL os layout = renderL (bufferR os) layout |> ignore
 

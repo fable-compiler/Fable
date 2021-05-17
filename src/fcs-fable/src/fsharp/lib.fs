@@ -574,10 +574,18 @@ let inline vsnd ((_, y): struct('T * 'T)) = y
 /// Track a set of resources to cleanup
 type DisposablesTracker() =
 
+#if FABLE_COMPILER
+    let items = List<IDisposable>()
+#else
     let items = Stack<IDisposable>()
+#endif
 
     /// Register some items to dispose
+#if FABLE_COMPILER
+    member _.Register i = items.Add i
+#else
     member _.Register i = items.Push i
+#endif
 
     interface IDisposable with
 
