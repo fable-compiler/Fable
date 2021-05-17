@@ -26,4 +26,11 @@ def some(x):
     return Some(x) if x is None or isinstance(x, Some) else x
 
 
-__all__ = ["defaultArg", "defaultArgWith", "map", "toArray"]
+def value(x):
+    if x is None:
+        raise Exception("Option has no value")
+    else:
+        return x.value if isinstance(x, Some) else x
+
+
+__all__ = ["defaultArg", "defaultArgWith", "map", "some", "Some", "toArray", "value"]

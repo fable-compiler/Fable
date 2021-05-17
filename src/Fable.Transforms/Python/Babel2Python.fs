@@ -770,20 +770,21 @@ module Util =
         | IfStatement (test = test; consequent = consequent; alternate = alternate) ->
             let test, stmts = com.TransformAsExpr(ctx, test)
 
-            let body =
+            let body, nonLocals =
                 com.TransformAsStatements(ctx, returnStrategy, consequent)
                 |> transformBody ReturnStrategy.NoReturn
+                |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
 
-            let orElse, nonLocals =
+            let orElse, nonLocals' =
                 match alternate with
                 | Some alt ->
                     com.TransformAsStatements(ctx, returnStrategy, alt)
                     |> transformBody ReturnStrategy.NoReturn
-                    |> List.splitWhile (function | Statement.NonLocal (_) -> false | _ -> true )
+                    |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
 
                 | _ -> [], []
 
-            [ yield! nonLocals @ stmts; Statement.if' (test = test, body = body, orelse = orElse) ]
+            [ yield! nonLocals @ nonLocals' @ stmts; Statement.if' (test = test, body = body, orelse = orElse) ]
         | WhileStatement (test = test; body = body) ->
             let expr, stmts = com.TransformAsExpr(ctx, test)
 
@@ -795,9 +796,11 @@ module Util =
         | TryStatement (block = block; handler = handler; finalizer = finalizer) ->
             let body = com.TransformAsStatements(ctx, returnStrategy, block)
 
-            let finalBody =
+            let finalBody, nonLocals =
                 finalizer
                 |> Option.map (fun f -> com.TransformAsStatements(ctx, returnStrategy, f))
+                |> Option.defaultValue []
+                |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
 
             let handlers =
                 match handler with
@@ -821,7 +824,7 @@ module Util =
                     handlers
                 | _ -> []
 
-            [ Statement.try' (body = body, handlers = handlers, ?finalBody = finalBody) ]
+            [ yield! nonLocals; Statement.try' (body = body, handlers = handlers, finalBody = finalBody) ]
         | SwitchStatement (discriminant = discriminant; cases = cases) ->
             let value, stmts = com.TransformAsExpr(ctx, discriminant)
 

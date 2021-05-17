@@ -240,3 +240,19 @@ def uncurry(arity: int, f: Callable):
 
     setattr(f, CURRIED_KEY, f)
     return uncurriedFn
+
+
+def isArrayLike(x):
+    return hasattr(x, "__len__")
+
+
+def isDisposable(x):
+    return x is not None and isinstance(x, IDisposable)
+
+
+def toIterator(x):
+    return iter(x)
+
+
+def structuralHash(x):
+    return hash(x)
