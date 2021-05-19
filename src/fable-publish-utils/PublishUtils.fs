@@ -544,6 +544,15 @@ module Publish =
                 sprintf "Already version %s, no need to publish" releaseVersion |> print
             not sameVersion
 
+    let private findFileWithExt (dir: string) (ext: string) =
+        IO.Directory.GetFiles(dir) |> Seq.tryPick (fun path ->
+            if path.EndsWith(ext)
+            then Some(dir </> path)
+            else None)
+        |> function
+            | Some x -> x
+            | None -> failwithf "Cannot find %s in %s" ext dir
+
     let pushNuget (projFile: string) props buildAction =
         let checkPkgVersion = function
             | Regex NUGET_PACKAGE_VERSION [_;_;pkgVersion;_] -> Some pkgVersion
@@ -575,32 +584,13 @@ module Publish =
                     "-c Release -o"
                     tempDir
                 ]
-                let nupkg =
-                    IO.Directory.GetFiles(tempDir)
-                    |> Seq.tryPick (fun path ->
-                        if path.EndsWith(".nupkg")
-                        then Some(tempDir </> path)
-                        else None)
-                    |> function
-                        | Some x -> x
-                        | None -> failwithf "Cannot find .nupgk for %s" projDir
-
+                let nupkg = findFileWithExt tempDir ".nupkg"
                 runList ["dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetKey]
 
                 // Looks like the `nuget push` command automatically detects the .snupkg symbols
-                // so the command below is not necessary
-
-                // let snupkg =
-                //     IO.Directory.GetFiles(tempDir)
-                //     |> Seq.tryPick (fun path ->
-                //         if path.EndsWith(".snupkg")
-                //         then Some(tempDir </> path)
-                //         else None)
-                //     |> function
-                //         | Some x -> x
-                //         | None -> failwithf "Cannot find .snupgk for %s" projDir
-
-                // runList ["dotnet nuget push"; snupkg; "-s nuget.org -k"; nugetKey]
+                // We issue the command below just in case but with --skip-duplicate to prevent errors
+                let snupkg = findFileWithExt tempDir ".snupkg"
+                runList ["dotnet nuget push"; snupkg; "-s nuget.org --skip-duplicate -k"; nugetKey]
 
                 removeDirRecursive tempDir
             with _ ->
