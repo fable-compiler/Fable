@@ -14,8 +14,8 @@
     "build-opt": "npm run build --optimize",
     "postbuild": "npm run rollup-bundle",
 
-    "build-node": "node dist/bundle.js bench-compiler.fsproj out-node2",
-    "build-node-es": "node out-node/app.js bench-compiler.fsproj out-node2",
+    "build-node": "node --stack_size=1200 dist/bundle.js bench-compiler.fsproj out-node2 --fableLib out-lib",
+    "build-node-es": "node --stack_size=1200 out-node/app.js bench-compiler.fsproj out-node2 --fableLib out-lib",
     "benchmark": "node dist/bundle.js bench-compiler.fsproj out-node2 --benchmark",
     "benchmark-es": "node out-node/app.js bench-compiler.fsproj out-node2 --benchmark",
 
