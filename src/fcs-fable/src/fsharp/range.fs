@@ -262,8 +262,10 @@ type Range(code1:int64, code2: int64) =
 
     member r.Code2 = code2
 
-#if !FABLE_COMPILER
     member r.DebugCode =
+#if FABLE_COMPILER
+        ""
+#else
         let name = r.FileName
         if name = unknownFileName || name = startupFileName || name = commandLineArgsFileName then name else
 
