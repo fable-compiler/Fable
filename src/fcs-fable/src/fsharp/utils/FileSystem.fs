@@ -382,23 +382,25 @@ module internal FileSystemUtils =
 [<AbstractClass; Sealed>]
 type FileSystem =
 
-    static member GetFullPathShim (fileName: string) = Path.GetFullPath fileName
+    static member GetFullPathShim (fileName: string) =
+        fileName // not getting a full path, unless it already is
 
-    static member IsPathRootedShim (path: string) = Path.IsPathRooted path
+    static member IsPathRootedShim (path: string) =
+        path.StartsWith("/") || path.StartsWith("\\") || path.IndexOf(':') = 1
 
     static member NormalizePathShim (path: string) =
-        try
+        let path =
             if FileSystem.IsPathRootedShim path
             then FileSystem.GetFullPathShim path
             else path
-        with _ -> path
+        path.Replace('\\', '/')
 
     static member GetFullFilePathInDirectoryShim (dir: string) (fileName: string) =
         let path =
-            if FileSystem.IsPathRootedShim(fileName) then fileName
+            if FileSystem.IsPathRootedShim(fileName)
+            then fileName
             else Path.Combine(dir, fileName)
-        try FileSystem.GetFullPathShim(path)
-        with _ -> path
+        FileSystem.GetFullPathShim(path)
 
     static member IsInvalidPathShim(path: string) =
         let isInvalidPath(p: string) =
@@ -412,15 +414,10 @@ type FileSystem =
         let filename = Path.GetFileName path
         isInvalidDirectory directory || isInvalidFilename filename
 
-    static member GetTempPathShim() = Path.GetTempPath()
+    static member GetTempPathShim() = "."
 
     static member GetDirectoryNameShim(path: string) =
-        FileSystemUtils.checkPathForIllegalChars path
-        if path = "" then "."
-        else
-            match Path.GetDirectoryName(path) with
-            | null -> if FileSystem.IsPathRootedShim(path) then path else "."
-            | res -> if res = "" then "." else res
+        Path.GetDirectoryName(path)
 
 #else //!FABLE_COMPILER
 
