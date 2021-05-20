@@ -753,16 +753,21 @@ module TypeHelpers =
         |> Seq.toList
 
     let makeTypeFromDelegate ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
+        let invokeArgs() =
+            let invokeMember =
+                tdef.MembersFunctionsAndValues
+                |> Seq.find (fun f -> f.DisplayName = "Invoke")
+            invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
+            invokeMember.ReturnParameter.Type
         let argTypes, returnType =
             try
-                tdef.FSharpDelegateSignature.DelegateArguments |> Seq.map snd,
-                tdef.FSharpDelegateSignature.DelegateReturnType
-            with _ -> // tdef.FSharpDelegateSignature doesn't work with System.Func & friends
-                let invokeMember =
-                    tdef.MembersFunctionsAndValues
-                    |> Seq.find (fun f -> f.DisplayName = "Invoke")
-                invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
-                invokeMember.ReturnParameter.Type
+                // tdef.FSharpDelegateSignature doesn't work with System.Func & friends
+                if tdef.IsFSharp then
+                    tdef.FSharpDelegateSignature.DelegateArguments |> Seq.map snd,
+                    tdef.FSharpDelegateSignature.DelegateReturnType
+                else invokeArgs()
+            with _ -> invokeArgs()
+
         let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map genParamName) genArgs |> Map
         let resolveType (t: FSharpType) =
             if t.IsGenericParameter then Map.find (genParamName t.GenericParameter) genArgs else t
