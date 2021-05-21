@@ -1230,7 +1230,7 @@ module Util =
         | Fable.UnionTag ->
             getUnionExprTag com ctx range fableExpr
 
-        | Fable.UnionField(index, _) ->
+        | Fable.UnionField(index, _, _) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
             getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
 

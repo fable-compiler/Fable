@@ -756,7 +756,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | DiscriminatedUnion _ ->
             let typ = makeType Map.empty field.FieldType
             let index = unionCase.Fields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
-            let kind = Fable.UnionField(index, typ)
+            let kind = Fable.UnionField(index, typ, FsField(unionCase.Fields.[index]))
             // let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't work (Fable.Any)
             return Fable.Get(unionExpr, kind, typ, r)
 

@@ -522,7 +522,7 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | FieldGet(FieldType fieldType, _) | UnionField(_,fieldType)), t, r) ->
+        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | FieldGet(FieldType fieldType, _) | UnionField(_,fieldType,_)), t, r) ->
             match getLambdaTypeArity fieldType, callee.Type with
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application

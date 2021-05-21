@@ -39,6 +39,9 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Integration", "tests\Integration\Fable.Tests.Integration.fsproj", "{7E9173E4-8875-4336-9E76-C87FCC833D50}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Standalone", "src\fable-standalone\src\Fable.Standalone.fsproj", "{B67CB1A1-982F-4551-8A95-C36B516F53C4}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{95442CD7-540E-4C45-943E-9D7D76501AEE}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Php", "tests\Php\Fable.Tests.Php.fsproj", "{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Compiler", "tests\Compiler\Compiler.fsproj", "{B880F891-0D65-4085-901D-F8A7D510B826}"
 EndProject
@@ -256,11 +259,26 @@ Global
 		{B880F891-0D65-4085-901D-F8A7D510B826}.Release|x64.Build.0 = Release|Any CPU
 		{B880F891-0D65-4085-901D-F8A7D510B826}.Release|x86.ActiveCfg = Release|Any CPU
 		{B880F891-0D65-4085-901D-F8A7D510B826}.Release|x86.Build.0 = Release|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Debug|x64.Build.0 = Debug|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Debug|x86.Build.0 = Debug|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|x64.ActiveCfg = Release|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|x64.Build.0 = Release|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|x86.ActiveCfg = Release|Any CPU
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {204581E6-42C5-4EE2-A4A9-713C32A17CF2}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89} = {95442CD7-540E-4C45-943E-9D7D76501AEE}
 	EndGlobalSection
 EndGlobal

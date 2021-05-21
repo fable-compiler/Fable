@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Fable.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "c:\\dev\\Fable\\tests\\Php\\ --language Php"
+    }
+  }
+}
