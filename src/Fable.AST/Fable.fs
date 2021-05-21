@@ -276,7 +276,7 @@ type GetKind =
     | ByKey of KeyKind
     | TupleIndex of int
     | FieldGet of Field * index: int
-    | UnionField of index: int * fieldType: Type
+    | UnionField of index: int * fieldType: Type * field: Field
     | UnionTag
     | ListHead
     | ListTail

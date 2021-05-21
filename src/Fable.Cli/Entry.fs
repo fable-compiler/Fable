@@ -75,7 +75,8 @@ Arguments:
   --sourceMapsRoot  Set the value of the `sourceRoot` property in generated source maps
 
   --optimize        Compile with optimized F# AST (experimental)
-  --lang|--language Compile to JavaScript (default) or TypeScript (experimental)
+  --lang|--language Compile to JavaScript (default), "TypeScript" or "Php".
+                    Support for TypeScript and Php is experimental.
 
   Environment variables:
    DOTNET_USE_POLLING_FILE_WATCHER
@@ -90,8 +91,9 @@ let defaultFileExt language args =
         | Some _ -> ".js"
         | None -> CompilerOptionsHelper.DefaultExtension
     match language with
-        | TypeScript -> Path.replaceExtension ".ts" fileExt
-        | _ -> fileExt
+    | TypeScript -> Path.replaceExtension ".ts" fileExt
+    | Php -> Path.replaceExtension ".php" fileExt
+    | _ -> fileExt
 
 let argLanguage args =
     argValue "--lang" args
@@ -100,6 +102,7 @@ let argLanguage args =
     |> Option.defaultValue "JavaScript"
     |> (function
     | "ts" | "typescript" | "TypeScript" -> TypeScript
+    | "php" | "Php" | "PHP" -> Php
     | _ -> JavaScript)
 
 type Runner =

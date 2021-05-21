@@ -167,10 +167,9 @@ module private Util =
 
     let compileFile (cliArgs: CliArgs) dedupTargetDir logger (com: CompilerImpl) = async {
         try
-            let babel =
+            let fable =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
-                |> Fable2Babel.Compiler.transformFile com
 
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
@@ -178,16 +177,30 @@ module private Util =
             let dir = IO.Path.GetDirectoryName outPath
             if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
-            // write output to file
-            let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-            do! BabelPrinter.run writer babel
+            match com.Options.Language with
+            | JavaScript | TypeScript ->
+                let babel = fable |> Fable2Babel.Compiler.transformFile com
+                // write output to file
+                let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
+                do! BabelPrinter.run writer babel
 
-            // write source map to file
-            if cliArgs.SourceMaps then
-                let mapPath = outPath + ".map"
-                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-                do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
+                // write source map to file
+                if cliArgs.SourceMaps then
+                    let mapPath = outPath + ".map"
+                    do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                    use fs = IO.File.Open(mapPath, IO.FileMode.Create)
+                    do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
+
+            | Php ->
+                logger("Generating Php")
+                let php = fable |> Fable2Php.transformFile com
+
+
+                use w = new IO.StreamWriter(com.CurrentFile + ".php")
+                let ctx = PhpPrinter.Output.Writer.create w
+                PhpPrinter.Output.writeFile ctx php
+                w.Flush()
+
 
             logger("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
 

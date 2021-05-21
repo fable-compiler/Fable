@@ -1104,7 +1104,8 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, "op_ErasedCast" -> List.tryHead args
     | _, ".ctor" -> typedObjExpr t [] |> Some
-    | _, "jsNative" ->
+    | _, "jsNative"
+    | _, "phpNative" ->
         // TODO: Fail at compile time?
         addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
@@ -1150,7 +1151,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                             | NestedRevLets(bindings, IdentExpr i) ->
                                 bindings |> List.tryPick (fun (i2, v) ->
                                     match v with
-                                    | Get(_, UnionField(fieldIdx,_),_,_) when i.Name = i2.Name -> Some fieldIdx
+                                    | Get(_, UnionField(fieldIdx,_,_),_,_) when i.Name = i2.Name -> Some fieldIdx
                                     | _ -> None)
                                 |> Option.map (fun fieldIdx -> caseName, fieldIdx)
                             | _ -> None

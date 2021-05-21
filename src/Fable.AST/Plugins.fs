@@ -12,6 +12,7 @@ type Verbosity =
 type Language =
     | JavaScript
     | TypeScript
+    | Php
 
 type CompilerOptions =
       abstract TypedArrays: bool

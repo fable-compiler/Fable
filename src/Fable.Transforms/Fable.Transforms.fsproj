@@ -21,6 +21,10 @@
     <Compile Include="FableTransforms.fs" />
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="BabelPrinter.fs" />
+    <Compile Include="Php/Php.fs" />
+    <Compile Include="Php/Fable2Php.fs" />
+    <Compile Include="Php/PhpPrinter.fs" />
+
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>

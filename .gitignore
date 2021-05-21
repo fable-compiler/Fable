@@ -5,6 +5,7 @@ node_modules/
 temp/
 *.fs.js
 *.fs.js.map
+*.fs.php
 src/fable-library/*.js
 src/fable-library/BigInt/*.js
 
