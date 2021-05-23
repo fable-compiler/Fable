@@ -160,7 +160,7 @@ let buildLibraryTs() =
     runFableWithArgs projectDir [
         "--outDir " + buildDirTs
         "--fableLib " + buildDirTs
-        "--typescript"
+        "--lang TypeScript"
         "--exclude Fable.Core"
         "--define FX_NO_BIGINT"
         "--define FABLE_LIBRARY"

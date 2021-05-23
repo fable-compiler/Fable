@@ -508,7 +508,7 @@ module Annotation =
          AnyTypeAnnotation // TODO:
 
     let typedIdent (com: IBabelCompiler) ctx (id: Fable.Ident) =
-        if com.Options.Typescript then
+        if com.Options.Language = TypeScript then
             let ta = typeAnnotation com ctx id.Type |> TypeAnnotation |> Some
             let optional = None // match id.Type with | Fable.Option _ -> Some true | _ -> None
             Identifier.identifier(id.Name, ?optional=optional, ?typeAnnotation=ta, ?loc=id.Range)
@@ -516,7 +516,7 @@ module Annotation =
             Identifier.identifier(id.Name, ?loc=id.Range)
 
     let transformFunctionWithAnnotations (com: IBabelCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
-        if com.Options.Typescript then
+        if com.Options.Language = TypeScript then
             let argTypes = args |> List.map (fun id -> id.Type)
             let genTypeParams = Util.getGenericTypeParams (argTypes @ [body.Type])
             let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
@@ -796,7 +796,7 @@ module Util =
         let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx funcName args body
 
         let typeParamDecl =
-            if com.Options.Typescript then
+            if com.Options.Language = TypeScript then
                 makeTypeParamDecl genTypeParams |> mergeTypeParamDecls typeParamDecl
             else typeParamDecl
 
@@ -965,7 +965,7 @@ module Util =
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = ent |> jsConstructor com ctx
             let typeParamInst =
-                if com.Options.Typescript && (ent.FullName = Types.reference)
+                if com.Options.Language = TypeScript && (ent.FullName = Types.reference)
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
@@ -977,7 +977,7 @@ module Util =
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let consRef = ent |> jsConstructor com ctx
             let typeParamInst =
-                if com.Options.Typescript
+                if com.Options.Language = TypeScript
                 then makeGenTypeParamInst com ctx genArgs
                 else None
             // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
@@ -1220,7 +1220,7 @@ module Util =
 
         | Fable.OptionValue ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            if mustWrapOption typ || com.Options.Typescript
+            if mustWrapOption typ || com.Options.Language = TypeScript
             then libCall com ctx None "Option" "value" [|expr|]
             else expr
 
@@ -1473,7 +1473,7 @@ module Util =
         // If some targets are referenced multiple times, hoist bound idents,
         // resolve the decision index and compile the targets as a switch
         let targetsWithMultiRefs =
-            if com.Options.Typescript then [] // no hoisting when compiled with types
+            if com.Options.Language = TypeScript then [] // no hoisting when compiled with types
             else getTargetsWithMultipleReferences treeExpr
         match targetsWithMultiRefs with
         | [] ->
@@ -1778,7 +1778,7 @@ module Util =
         else ExportNamedDeclaration(decl)
 
     let makeEntityTypeParamDecl (com: IBabelCompiler) _ctx (ent: Fable.Entity) =
-        if com.Options.Typescript then
+        if com.Options.Language = TypeScript then
             getEntityGenParams ent |> makeTypeParamDecl
         else
             None
@@ -1832,13 +1832,13 @@ module Util =
     let declareClassType (com: IBabelCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) classMembers =
         let typeParamDecl = makeEntityTypeParamDecl com ctx ent
         let implements =
-            if com.Options.Typescript then
+            if com.Options.Language = TypeScript then
                 let implements = Util.getClassImplements com ctx ent |> Seq.toArray
                 if Array.isEmpty implements then None else Some implements
             else None
         let classCons = makeClassConstructor consArgs consBody
         let classFields =
-            if com.Options.Typescript then
+            if com.Options.Language = TypeScript then
                 getEntityFieldsAsProps com ctx ent
                 |> Array.map (fun (ObjectTypeProperty(key, value, _, _, ``static``, _, _, _)) ->
                     let ta = value |> TypeAnnotation |> Some
@@ -1853,7 +1853,7 @@ module Util =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration =
             let ta =
-                if com.Options.Typescript then
+                if com.Options.Language = TypeScript then
                     makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
                     |> TypeAnnotation |> Some
                 else None
@@ -1972,7 +1972,7 @@ module Util =
 
         let returnType, typeParamDecl =
             // change constructor's return type from void to entity type
-            if com.Options.Typescript then
+            if com.Options.Language = TypeScript then
                 let genParams = getEntityGenParams classEnt
                 let returnType = getGenericTypeAnnotation com ctx classDecl.Name genParams
                 let typeParamDecl = makeTypeParamDecl genParams |> mergeTypeParamDecls typeParamDecl

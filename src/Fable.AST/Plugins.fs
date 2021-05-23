@@ -9,10 +9,14 @@ type Verbosity =
     | Verbose
     | Silent
 
+type Language =
+    | JavaScript
+    | TypeScript
+
 type CompilerOptions =
       abstract TypedArrays: bool
       abstract ClampByteArrays: bool
-      abstract Typescript: bool
+      abstract Language: Language
       abstract Define: string list
       abstract DebugMode: bool
       abstract OptimizeFSharpAst: bool
