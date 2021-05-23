@@ -1,6 +1,7 @@
 module Fable.Standalone.Main
 
 open System
+open Fable
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
@@ -265,7 +266,8 @@ let init () =
                 if x.StartsWith("--define:") || x.StartsWith("-d:")
                 then x.[(x.IndexOf(':') + 1)..] |> Some
                 else None) |> Array.toList
-            let options = Fable.CompilerOptionsHelper.Make(define=define, ?typedArrays=typedArrays, ?typescript=typescript)
+            let language = typescript |> Option.map (fun ts -> match ts with | true -> TypeScript | _ -> JavaScript) |> Option.defaultValue JavaScript
+            let options = Fable.CompilerOptionsHelper.Make(define=define, ?typedArrays=typedArrays, language=language)
             let com = CompilerImpl(fileName, project, options, fableLibrary)
             let ast =
                 FSharp2Fable.Compiler.transformFile com
