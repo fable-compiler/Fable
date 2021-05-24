@@ -43,7 +43,6 @@ type IBabelCompiler =
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement array
     abstract TransformImport: Context * selector:string * path:string -> Expression
     abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
-
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 // TODO: All things that depend on the library should be moved to Replacements

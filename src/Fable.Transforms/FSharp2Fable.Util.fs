@@ -271,6 +271,7 @@ type IFableCompiler =
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
+    abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Helpers =
     let rec nonAbbreviatedDefinition (ent: FSharpEntity): FSharpEntity =
@@ -1365,7 +1366,8 @@ module Util =
             | None when info.IsInterface ->
                 callInstanceMember com r typ callInfo ent memb |> Some
             | None ->
-                sprintf "Cannot resolve replacement %s.%s" info.DeclaringEntityFullName info.CompiledName
+                com.WarnOnlyOnce("Fable only supports a subset of standard .NET API, please check https://fable.io/docs/dotnet/compatibility.html. For external libraries, check whether they are Fable-compatible in the package docs.")
+                sprintf "%s.%s is not supported by Fable" info.DeclaringEntityFullName info.CompiledName
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 
