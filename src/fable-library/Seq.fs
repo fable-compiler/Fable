@@ -807,13 +807,17 @@ let average (xs: seq<'T>) ([<Inject>] averager: IGenericAverager<'T>): 'T =
     let mutable count = 0
     let folder acc x = count <- count + 1; averager.Add(acc, x)
     let total = fold folder (averager.GetZero()) xs
-    averager.DivideByInt(total, count)
+    if count = 0 then
+        invalidArg "xs" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+    else averager.DivideByInt(total, count)
 
 let averageBy (f: 'T -> 'U) (xs: seq<'T>) ([<Inject>] averager: IGenericAverager<'U>): 'U =
     let mutable count = 0
     let inline folder acc x = count <- count + 1; averager.Add(acc, f x)
     let total = fold folder (averager.GetZero()) xs
-    averager.DivideByInt(total, count)
+    if count = 0 then
+        invalidArg "xs" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
+    else averager.DivideByInt(total, count)
 
 let permute f (xs: seq<'T>) =
     delay (fun () ->
