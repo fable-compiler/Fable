@@ -33,7 +33,7 @@ and PhpExpr =
     | PhpBinaryOp of string *PhpExpr * PhpExpr
     | PhpProp of PhpExpr * Prop * typ: PhpType option
     | PhpArrayAccess of PhpExpr * PhpExpr
-    | PhpNew of ty:PhpType * args:PhpExpr list
+    | PhpNew of ty:PhpTypeRef * args:PhpExpr list
     | PhpArray of args: (PhpArrayIndex * PhpExpr) list
     | PhpCall of f: PhpExpr * args: PhpExpr list
     | PhpMethod of this: PhpExpr * func:PhpExpr * args: PhpExpr list
@@ -80,6 +80,7 @@ and PhpType =
       BaseType: PhpType option
       Interfaces: PhpType list
       File: string
+      OriginalFullName: string
     }
 
 
