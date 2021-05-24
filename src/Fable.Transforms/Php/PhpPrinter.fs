@@ -84,7 +84,7 @@ module Output =
             function
             | "!" -> 2
             | "-" -> 4
-            | "~~~" -> 6
+            | "~~~"
             | "&" -> 8
             | "(void)" -> 10
             | op -> failwithf "Unknown unary operator %s" op
@@ -110,7 +110,18 @@ module Output =
 
     let rec writeTypeRef ctx ref =
         match ref with
-        | InType t -> write ctx t.Name
+        | InType t -> 
+           if not (Set.contains t ctx.UsedTypes) then
+               match t.Namespace with
+               | None -> write ctx @"\"
+               | Some ns  ->
+                   if t.Namespace <> ctx.CurrentNamespace then
+                       write ctx @"\"
+                       write ctx ns
+                       write ctx @"\"
+                
+           write ctx t.Name
+ 
         | ExType t -> write ctx t
         | ArrayRef t ->
             writeTypeRef ctx t
@@ -173,15 +184,7 @@ module Output =
                 (fun subCtx ->
                     write subCtx "new "
 
-                    if not (Set.contains t ctx.UsedTypes) then
-                        match t.Namespace with
-                        | None -> write subCtx @"\"
-                        | Some ns  ->
-                            if t.Namespace <> ctx.CurrentNamespace then
-                                write subCtx @"\"
-                                write subCtx ns
-                                write subCtx @"\"
-                    write subCtx t.Name
+                    writeTypeRef subCtx t
                     write subCtx "("
                     writeArgs subCtx args
                     write subCtx ")")
