@@ -1303,6 +1303,7 @@ let private tryGetMemberArgsAndBody (com: Compiler) fileName entityFullName memb
 
 type FableCompiler(com: Compiler) =
     let attachedMembers = Dictionary<string, _>()
+    let onlyOnceWarnings = HashSet<string>()
 
     member __.Options = com.Options
 
@@ -1343,6 +1344,10 @@ type FableCompiler(com: Compiler) =
         |> Option.defaultValue false
 
     interface IFableCompiler with
+        member _.WarnOnlyOnce(msg, ?range) =
+            if onlyOnceWarnings.Add(msg) then
+                addWarning com [] range msg
+
         member this.Transform(ctx, fsExpr) =
             transformExpr this ctx fsExpr |> run
 
