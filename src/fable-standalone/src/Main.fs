@@ -212,6 +212,39 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
     | None ->
         [||]
 
+let compileToFableAst (parseResults: IParseResults) fileName fableLibrary typedArrays language =
+    let res = parseResults :?> ParseResults
+    let project = res.GetProject()
+    let define = parseResults.OtherFSharpOptions |> Array.choose (fun x ->
+        if x.StartsWith("--define:") || x.StartsWith("-d:")
+        then x.[(x.IndexOf(':') + 1)..] |> Some
+        else None) |> Array.toList
+    let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
+    let com = CompilerImpl(fileName, project, options, fableLibrary)
+    let fableAst =
+        FSharp2Fable.Compiler.transformFile com
+        |> FableTransforms.transformFile com
+    let errors =
+        com.Logs |> Array.map (fun log ->
+            let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
+            {
+                FileName = fileName
+                StartLine = r.start.line
+                StartColumn = r.start.column
+                EndLine = r.``end``.line
+                EndColumn = r.``end``.column
+                Message =
+                    if log.Tag = "FABLE"
+                    then "FABLE: " + log.Message
+                    else log.Message
+                IsWarning =
+                    match log.Severity with
+                    | Fable.Severity.Error -> false
+                    | Fable.Severity.Warning
+                    | Fable.Severity.Info -> true
+            })
+    (com, fableAst, errors)
+
 type BabelResult(program: Babel.Program, errors) =
     member _.Program = program
     interface IBabelResult with
@@ -256,38 +289,12 @@ let init () =
 
         member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string,
                                     ?typedArrays, ?typescript) =
-            let res = parseResults :?> ParseResults
-            let project = res.GetProject()
-            let define = parseResults.OtherFSharpOptions |> Array.choose (fun x ->
-                if x.StartsWith("--define:") || x.StartsWith("-d:")
-                then x.[(x.IndexOf(':') + 1)..] |> Some
-                else None) |> Array.toList
-            let language = typescript |> Option.map (fun ts -> match ts with | true -> TypeScript | _ -> JavaScript) |> Option.defaultValue JavaScript
-            let options = Fable.CompilerOptionsHelper.Make(define=define, ?typedArrays=typedArrays, language=language)
-            let com = CompilerImpl(fileName, project, options, fableLibrary)
-            let ast =
-                FSharp2Fable.Compiler.transformFile com
-                |> FableTransforms.transformFile com
-                |> Fable2Babel.Compiler.transformFile com
-            let errors =
-                com.Logs |> Array.map (fun log ->
-                    let r = defaultArg log.Range Fable.AST.SourceLocation.Empty
-                    { FileName = fileName
-                      StartLine = r.start.line
-                      StartColumn = r.start.column
-                      EndLine = r.``end``.line
-                      EndColumn = r.``end``.column
-                      Message =
-                        if log.Tag = "FABLE"
-                        then "FABLE: " + log.Message
-                        else log.Message
-                      IsWarning =
-                        match log.Severity with
-                        | Fable.Severity.Error -> false
-                        | Fable.Severity.Warning
-                        | Fable.Severity.Info -> true
-                    })
-            upcast BabelResult(ast, errors)
+            let language = match typescript with | Some true -> TypeScript | _ -> JavaScript
+            let com, fableAst, errors =
+                compileToFableAst parseResults fileName fableLibrary typedArrays language
+            let babelAst =
+                fableAst |> Fable2Babel.Compiler.transformFile com
+            upcast BabelResult(babelAst, errors)
 
         member _.PrintBabelAst(babelResult, writer) =
             match babelResult with
