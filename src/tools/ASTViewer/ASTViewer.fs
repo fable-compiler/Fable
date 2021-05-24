@@ -5,9 +5,8 @@ open System.IO
 open System.Collections.Generic
 open System.Text.RegularExpressions
 open FSharp.Compiler
-open FSharp.Compiler.Ast
-open FSharp.Compiler.SourceCodeServices
-open FSharp.Compiler.SourceCodeServices.BasicPatterns
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Symbols
 
 let parse (checker: FSharpChecker) projFile =
     let projFile = Path.GetFullPath(projFile)
@@ -15,11 +14,11 @@ let parse (checker: FSharpChecker) projFile =
         match Path.GetExtension(projFile) with
         | ".fsx" ->
             let projCode = File.ReadAllText projFile
-            checker.GetProjectOptionsFromScript(projFile, projCode)
+            checker.GetProjectOptionsFromScript(projFile, projCode |> FSharp.Compiler.Text.SourceText.ofString)
             |> Async.RunSynchronously
             |> fst
         | ".fsproj" ->
-            let opts, _, _ = Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile(projFile)
+            let opts, _, _ = Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile "Release" projFile
             opts
         | ext -> failwithf "Unexpected extension: %s" ext
     // for f in options.OtherOptions do
@@ -33,9 +32,9 @@ let printShort limit (e: FSharpExpr) =
     if s.Length > limit then s.[..limit] + "..." else s
 
 let rec printExpr = function
-    | BasicPatterns.Sequential(e1, e2) ->
+    | FSharpExprPatterns.Sequential(e1, e2) ->
         sprintf "SEQUENTIAL: %s\n%s" (printExpr e1) (printExpr e2)
-    | BasicPatterns.Let((var, value), e) ->
+    | FSharpExprPatterns.Let((var, value), e) ->
         sprintf "LET: (%A, %A)\n>>>> %A" var value e
     | e -> printShort 100 e
 
@@ -58,7 +57,7 @@ let rec printDecls prefix decls =
             then printfn "%s%i) VALUE: %s " prefix i meth.FullName
             else printfn "%s%i) METHOD: %s" prefix i meth.FullName
             // match body with
-            // | BasicPatterns.Call(_,call,_,_,_) ->
+            // | FSharpExprPatterns.Call(_,call,_,_,_) ->
             //     printfn "%s Call %s (IsDispatchSlot %b)" prefix call.FullName call.IsDispatchSlot
             // | _ -> ()
             if meth.IsCompilerGenerated
