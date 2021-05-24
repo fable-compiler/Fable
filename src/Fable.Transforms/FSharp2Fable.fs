@@ -18,6 +18,12 @@ open Util
 let inline private transformExprList com ctx xs = trampolineListMap (transformExpr com ctx) xs
 let inline private transformExprOpt com ctx opt = trampolineOptionMap (transformExpr com ctx) opt
 
+let private transformSequential com ctx xs =
+    trampoline {
+        let! xs = trampolineListMap (transformExpr com ctx) xs
+        return Fable.Sequential xs
+    }
+
 let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: FSharpMemberOrFunctionOrValue) genArgs baseArgs =
     let baseEnt = FsEnt baseEnt
     let argTypes = lazy getArgTypes com baseCons
@@ -815,24 +821,32 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs None args memb
 
     | BasicPatterns.Sequential (first, second) ->
-        let exprs =
-            match ctx.CaptureBaseConsCall with
-            | Some(baseEnt, captureBaseCall) ->
-                match first with
-                | ConstructorCall(call, genArgs, args)
-                // This pattern occurs in constructors that define a this value: `type C() as this`
-                // We're discarding the bound `this` value, it "shouldn't" be used in the base constructor arguments
-                | BasicPatterns.Let(_, (ConstructorCall(call, genArgs, args))) ->
-                    match call.DeclaringEntity with
-                    | Some ent when ent = baseEnt ->
-                        let r = makeRangeFrom first
-                        transformBaseConsCall com ctx r baseEnt call genArgs args |> captureBaseCall
-                        [second]
-                    | _ -> [first; second]
-                | _ -> [first; second]
-            | _ -> [first; second]
-        let! exprs = transformExprList com ctx exprs
-        return Fable.Sequential exprs
+        match ctx.CaptureBaseConsCall with
+        | Some(baseEnt, captureBaseCall) ->
+            match first with
+            | ConstructorCall(call, genArgs, args)
+            // This pattern occurs in constructors that define a this value: `type C() as this`
+            // We're discarding the bound `this` value, it "shouldn't" be used in the base constructor arguments
+            | BasicPatterns.Let(_, (ConstructorCall(call, genArgs, args))) ->
+                match call.DeclaringEntity with
+                | Some ent when ent = baseEnt ->
+                    let r = makeRangeFrom first
+                    transformBaseConsCall com ctx r baseEnt call genArgs args |> captureBaseCall
+                    return! transformExpr com ctx second
+                | _ -> return! transformSequential com ctx [first; second]
+            | _ -> return! transformSequential com ctx [first; second]
+        | None ->
+            match first, second with
+            | ConstructorCall(baseCall, _, baseArgs), BasicPatterns.NewRecord(consType, consArgs)
+                when (match baseCall.DeclaringEntity, consType.BaseType with
+                      | Some baseCallEntity, Some(TypeDefinition consBaseEntity) -> baseCallEntity = consBaseEntity
+                      | _ -> false) ->
+                let r = makeRangeFrom fsExpr
+                let! baseArgs = transformExprList com ctx baseArgs
+                let! consArgs = transformExprList com ctx consArgs
+                let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments consType)
+                return Fable.NewRecord(baseArgs @ consArgs, FsEnt.Ref consType.TypeDefinition, genArgs) |> makeValue r
+            | _ -> return! transformSequential com ctx [first; second]
 
     | BasicPatterns.NewRecord(fsType, argExprs) ->
         let r = makeRangeFrom fsExpr

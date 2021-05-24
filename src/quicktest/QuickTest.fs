@@ -66,3 +66,17 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+type Node =
+    val X: int
+    new (x: int) = { X = x }
+
+type Node2(x: int, ?j: int) = //, ?j: int) =
+    member val X = x
+    member val J = defaultArg j 3
+    // new (x: int) = { X = x }
+
+type Leaf =
+    inherit Node2
+    val Y: string
+    new (y: string, x) =
+        { inherit Node2(x + 5); Y = y + "a" }
