@@ -80,6 +80,14 @@ let tests =
         sumFirstTwo zs
         |> equal 1.
 
+    testCase "Seq.average for empty sequence" <| fun () ->
+        let xs = Seq.empty<float>
+        (try Seq.average xs |> ignore; false with | _ -> true) |> equal true
+
+    testCase "Seq.averageBy for empty sequence" <| fun () ->
+        let xs = Seq.empty<float>
+        (try Seq.averageBy ((*) 2.) xs |> ignore; false with | _ -> true) |> equal true
+
     testCase "Seq.average works" <| fun () ->
         let xs = seq {1.; 2.; 3.; 4.}
         Seq.average xs
