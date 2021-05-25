@@ -3172,6 +3172,7 @@ let private replacedModules =
     "Microsoft.FSharp.Control.LazyExtensions", laziness
     "Microsoft.FSharp.Control.CommonExtensions", controlExtensions
     "Microsoft.FSharp.Control.FSharpEvent`1", events
+    "Microsoft.FSharp.Control.FSharpEvent`2", events
     "Microsoft.FSharp.Control.EventModule", events
     "Microsoft.FSharp.Control.ObservableModule", observable
     Types.type_, types
