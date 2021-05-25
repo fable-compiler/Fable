@@ -138,10 +138,6 @@ type Runner =
     // TODO: Remove this check when typed arrays are compatible with typescript
     |> Result.bind (fun projFile ->
         let language = argLanguage args
-<<<<<<< HEAD
-
-=======
->>>>>>> 18447c3f5c2ee0ff68d5e610124bf9242417124a
         let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
         if language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
