@@ -171,13 +171,12 @@ let tests =
         source.Trigger 6
         equal 0 result
 
-    // TODO!!!
-    // testCase "Classes can trigger CLI events" <| fun () ->
-    //     let mutable result = 0
-    //     let classWithEvent = new ClassWithCLIEvent()
-    //     classWithEvent.Event.Add(fun (sender, x) -> result <- x)
-    //     classWithEvent.TestEvent(5)
-    //     equal 5 result
+    testCase "Classes can trigger CLI events" <| fun () ->
+        let mutable result = 0
+        let classWithEvent = new ClassWithCLIEvent()
+        classWithEvent.Event.Add(fun (sender, x) -> result <- x)
+        classWithEvent.TestEvent(5)
+        equal 5 result
 
     testCase "Classes can trigger non-CLI events" <| fun () ->
         let mutable result = ""
