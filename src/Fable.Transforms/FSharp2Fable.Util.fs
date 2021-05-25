@@ -2,8 +2,8 @@ namespace rec Fable.Transforms.FSharp2Fable
 
 open System
 open System.Collections.Generic
-open FSharp.Compiler
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.Text
 open Fable
 open Fable.Core
 open Fable.AST
@@ -51,7 +51,7 @@ type FsUnionCase(uci: FSharpUnionCase) =
     interface Fable.UnionCase with
         member _.Name = uci.Name
         member _.CompiledName = FsUnionCase.CompiledName uci
-        member _.UnionCaseFields = uci.UnionCaseFields |> Seq.mapToList (fun x -> upcast FsField(x))
+        member _.UnionCaseFields = uci.Fields |> Seq.mapToList (fun x -> upcast FsField(x))
 
 type FsAtt(att: FSharpAttribute) =
     interface Fable.Attribute with
@@ -173,7 +173,7 @@ type FsEnt(ent: FSharpEntity) =
             ent.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
         member _.MembersFunctionsAndValues =
-            ent.TryGetMembersFunctionsAndValues |> Seq.map (fun x ->
+            ent.TryGetMembersFunctionsAndValues() |> Seq.map (fun x ->
                 FsMemberFunctionOrValue(x) :> Fable.MemberFunctionOrValue)
 
         member _.AllInterfaces =
@@ -271,6 +271,7 @@ type IFableCompiler =
     abstract InjectArgument: Context * SourceLocation option *
         genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
+    abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
 module Helpers =
     let rec nonAbbreviatedDefinition (ent: FSharpEntity): FSharpEntity =
@@ -439,7 +440,7 @@ module Helpers =
         then false
         else not memb.Accessibility.IsPrivate
 
-    let makeRange (r: Range.range) =
+    let makeRange (r: Range) =
         { start = { line = r.StartLine; column = r.StartColumn }
           ``end``= { line = r.EndLine; column = r.EndColumn }
           identifierName = None }
@@ -515,7 +516,7 @@ module Helpers =
         hasParamArray memb || hasParamSeq memb
 
 module Patterns =
-    open BasicPatterns
+    open FSharpExprPatterns
     open Helpers
 
     let inline (|Rev|) x = List.rev x
@@ -543,7 +544,7 @@ module Patterns =
 
     let (|IgnoreAddressOf|) (expr: FSharpExpr) =
         match expr with
-        | BasicPatterns.AddressOf value -> value
+        | AddressOf value -> value
         | _ -> expr
 
     let (|TypeDefinition|_|) (NonAbbreviatedType t) =
@@ -753,16 +754,21 @@ module TypeHelpers =
         |> Seq.toList
 
     let makeTypeFromDelegate ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
+        let invokeArgs() =
+            let invokeMember =
+                tdef.MembersFunctionsAndValues
+                |> Seq.find (fun f -> f.DisplayName = "Invoke")
+            invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
+            invokeMember.ReturnParameter.Type
         let argTypes, returnType =
             try
-                tdef.FSharpDelegateSignature.DelegateArguments |> Seq.map snd,
-                tdef.FSharpDelegateSignature.DelegateReturnType
-            with _ -> // tdef.FSharpDelegateSignature doesn't work with System.Func & friends
-                let invokeMember =
-                    tdef.MembersFunctionsAndValues
-                    |> Seq.find (fun f -> f.DisplayName = "Invoke")
-                invokeMember.CurriedParameterGroups.[0] |> Seq.map (fun p -> p.Type),
-                invokeMember.ReturnParameter.Type
+                // tdef.FSharpDelegateSignature doesn't work with System.Func & friends
+                if tdef.IsFSharp then
+                    tdef.FSharpDelegateSignature.DelegateArguments |> Seq.map snd,
+                    tdef.FSharpDelegateSignature.DelegateReturnType
+                else invokeArgs()
+            with _ -> invokeArgs()
+
         let genArgs = Seq.zip (tdef.GenericParameters |> Seq.map genParamName) genArgs |> Map
         let resolveType (t: FSharpType) =
             if t.IsGenericParameter then Map.find (genParamName t.GenericParameter) genArgs else t
@@ -879,7 +885,7 @@ module TypeHelpers =
         | _ -> None
 
     let rec getOwnAndInheritedFsharpMembers (tdef: FSharpEntity) = seq {
-        yield! tdef.TryGetMembersFunctionsAndValues
+        yield! tdef.TryGetMembersFunctionsAndValues()
         match getBaseEntity tdef with
         | Some(baseDef, _) -> yield! getOwnAndInheritedFsharpMembers baseDef
         | _ -> ()
@@ -1365,7 +1371,8 @@ module Util =
             | None when info.IsInterface ->
                 callInstanceMember com r typ callInfo ent memb |> Some
             | None ->
-                sprintf "Cannot resolve replacement %s.%s" info.DeclaringEntityFullName info.CompiledName
+                com.WarnOnlyOnce("Fable only supports a subset of standard .NET API, please check https://fable.io/docs/dotnet/compatibility.html. For external libraries, check whether they are Fable-compatible in the package docs.")
+                sprintf "%s.%s is not supported by Fable" info.DeclaringEntityFullName info.CompiledName
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ -> None
 

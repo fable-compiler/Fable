@@ -14,12 +14,11 @@ type CompilerOptionsHelper =
                        ?clampByteArrays) =
         let define = defaultArg define []
         let isDebug = List.contains "DEBUG" define
-        let language = language |> Option.defaultValue JavaScript
 
         { new CompilerOptions with
               member _.Define = define
               member _.DebugMode = isDebug
-              member _.Language = language
+              member _.Language = defaultArg language JavaScript
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
@@ -32,7 +31,7 @@ type Severity =
     | Error
     | Info
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 open Fable.AST
 
 type InlineExpr =

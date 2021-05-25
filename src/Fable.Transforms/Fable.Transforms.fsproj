@@ -28,7 +28,7 @@
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="5.0.0" /> -->
+    <!-- <PackageReference Include="FSharp.Core" Version="5.0.1" /> -->
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>

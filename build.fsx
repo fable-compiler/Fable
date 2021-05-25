@@ -602,7 +602,7 @@ match argsLower with
     publishPackages []
     githubRelease ()
 | "sync-fcs-repo"::_ -> syncFcsRepo()
-| "copy-fcs-repo"::_ -> copyFcsRepo "../fsharp"
+| "copy-fcs-repo"::_ -> copyFcsRepo FCS_REPO_LOCAL
 | "test-repos"::_ -> testRepos()
 | _ ->
     printfn """Please pass a target name. Examples:

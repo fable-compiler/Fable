@@ -5,7 +5,7 @@ module Fable.Cli.ProjectCracker
 open System
 open System.Xml.Linq
 open System.Collections.Generic
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open Fable
 open Globbing.Operators
 
@@ -66,7 +66,6 @@ let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
       LoadTime = DateTime.MaxValue
       UnresolvedReferences = None
       OriginalLoadReferences = []
-      ExtraProjectInfo = None
       Stamp = None }
 
 let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
