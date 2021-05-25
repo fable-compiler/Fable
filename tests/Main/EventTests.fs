@@ -15,6 +15,18 @@ type ClassWithNonCLIEvent() =
     member this.TestEvent(arg) =
         event.Trigger(this, arg)
 
+type InterfaceWithCLIEvent<'t> =
+    [<CLIEvent>]
+    abstract Event : IEvent<System.Action<obj,'t>,'t>
+
+type ClassWithInterfaceWithCLIEvent<'t>() =
+    let event = new Event<_,_>()
+    member this.TestEvent(arg) =
+        event.Trigger(this, arg)
+    interface InterfaceWithCLIEvent<'t> with
+        [<CLIEvent>]
+        member __.Event = event.Publish
+
 let tests =
   testList "Event" [
     testCase "Event.add works" <| fun () ->
@@ -186,6 +198,35 @@ let tests =
         disp.Dispose()
         classWithEvent.TestEvent("Bye")
         equal "Hello" result
+
+    testCase "Classes can trigger CLI events on interfaces" <| fun () ->
+        let mutable result = 0
+        let mutable sender = null
+        let classWithEvent = new ClassWithInterfaceWithCLIEvent<_>()
+        (classWithEvent :> InterfaceWithCLIEvent<_>).Event.AddHandler(fun s x ->
+            sender <- s
+            result <- x
+        )
+        classWithEvent.TestEvent(5)
+        equal 5 result
+        equal (box classWithEvent) sender
+
+    testCase "Generic interface expression can have CLI events" <| fun () ->
+        let mutable actualSender = ""
+        let mutable result = false
+        let event = Event<_,_>()
+        let ifaceWIthEvent =
+            { new InterfaceWithCLIEvent<_> with
+                [<CLIEvent>]
+                member __.Event = event.Publish }
+        ifaceWIthEvent.Event.AddHandler(fun sender arg ->
+            actualSender <- string sender
+            result <- arg)
+        let expectedSender = "SENDER"
+        let expectedResult = true
+        event.Trigger(expectedSender, expectedResult)
+        equal expectedSender actualSender
+        equal expectedResult result
 
     testCase "Events are unsubscribed correctly" <| fun () -> // See #609
         let mutable counter = 0
