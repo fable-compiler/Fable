@@ -30,7 +30,7 @@ type Severity =
     | Error
     | Info
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 open Fable.AST
 
 type InlineExpr =

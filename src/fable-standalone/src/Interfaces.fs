@@ -19,9 +19,9 @@ type Glyph =
 
 type Error =
     { FileName: string
-      StartLineAlternate: int
+      StartLine: int
       StartColumn: int
-      EndLineAlternate: int
+      EndLine: int
       EndColumn: int
       Message: string
       IsWarning: bool }
@@ -60,7 +60,6 @@ type IFableManager =
     abstract Version: string
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker
     abstract ClearParseCaches: checker: IChecker -> unit
-    abstract ParseFSharpScript: checker: IChecker * fileName: string * source: string * ?otherFSharpOptions: string[] -> IParseResults
     abstract ParseFSharpProject: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
     abstract ParseFSharpFileInProject: checker: IChecker * fileName: string * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]

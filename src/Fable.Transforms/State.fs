@@ -3,7 +3,9 @@ module Fable.Transforms.State
 open Fable
 open Fable.AST
 open System.Collections.Generic
+open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 
 #if FABLE_COMPILER
 type Dictionary<'TKey, 'TValue> with
@@ -151,7 +153,7 @@ type Project(projFile: string,
     member _.ImplementationFiles = implFiles
     member _.Assemblies = assemblies
     member _.InlineExprs = inlineExprs
-    member _.Errors = checkResults.Errors
+    member _.Errors = checkResults.Diagnostics
 
 type Log =
     { Message: string

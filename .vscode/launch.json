@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/netcoreapp3.1/fable.dll",
+            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
             "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--forcePkgs", "--runScript"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": true,

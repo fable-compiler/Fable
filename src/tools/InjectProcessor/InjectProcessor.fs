@@ -3,8 +3,8 @@ module InjectProcessor
 open System
 open System.IO
 open System.Collections.Generic
-open FSharp.Compiler.SourceCodeServices
-open FSharp.Compiler.SourceCodeServices.BasicPatterns
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Symbols
 open Fable
 
 let typeAliases =
@@ -24,7 +24,7 @@ let parse (checker: FSharpChecker) projFile =
             |> Async.RunSynchronously
             |> fst
         | ".fsproj" ->
-            let opts, _, _ = Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile(projFile)
+            let opts, _, _ = Fable.Cli.ProjectCoreCracker.GetProjectOptionsFromProjectFile "Release" projFile
             opts
         | ext -> failwithf "Unexpected extension: %s" ext
     // for f in options.OtherOptions do

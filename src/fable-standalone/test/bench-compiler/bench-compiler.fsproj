@@ -25,8 +25,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
-    <PackageReference Include="source-map-sharp" Version="1.0.5" />
+    <PackageReference Include="FSharp.Core" Version="5.0.1" />
+    <PackageReference Include="source-map-sharp" Version="1.0.7" />
     <!-- <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-*" /> -->
   </ItemGroup>
 

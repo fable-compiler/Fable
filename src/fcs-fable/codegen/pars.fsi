@@ -193,16 +193,17 @@ type token =
   | INFIX_AT_HAT_OP of (string)
   | INFIX_COMPARE_OP of (string)
   | INFIX_STAR_STAR_OP of (string)
+  | HASH_IDENT of (string)
   | IDENT of (string)
-  | KEYWORD_STRING of (string)
+  | KEYWORD_STRING of (string * string)
   | LBRACE of (ParseHelpers.LexerContinuation)
   | RBRACE of (ParseHelpers.LexerContinuation)
   | INTERP_STRING_END of (string * ParseHelpers.LexerContinuation)
   | INTERP_STRING_PART of (string * ParseHelpers.LexerContinuation)
-  | INTERP_STRING_BEGIN_PART of (string * ParseHelpers.LexerContinuation)
-  | INTERP_STRING_BEGIN_END of (string * ParseHelpers.LexerContinuation)
-  | STRING of (string * ParseHelpers.LexerContinuation)
-  | BYTEARRAY of (byte[] * ParseHelpers.LexerContinuation)
+  | INTERP_STRING_BEGIN_PART of (string * SynStringKind * ParseHelpers.LexerContinuation)
+  | INTERP_STRING_BEGIN_END of (string * SynStringKind * ParseHelpers.LexerContinuation)
+  | STRING of (string * SynStringKind * ParseHelpers.LexerContinuation)
+  | BYTEARRAY of (byte[] * SynByteStringKind * ParseHelpers.LexerContinuation)
 type tokenId = 
     | TOKEN_HASH_IF
     | TOKEN_HASH_ELSE
@@ -395,6 +396,7 @@ type tokenId =
     | TOKEN_INFIX_AT_HAT_OP
     | TOKEN_INFIX_COMPARE_OP
     | TOKEN_INFIX_STAR_STAR_OP
+    | TOKEN_HASH_IDENT
     | TOKEN_IDENT
     | TOKEN_KEYWORD_STRING
     | TOKEN_LBRACE
@@ -515,7 +517,6 @@ type nonTerminalId =
     | NONTERM_braceFieldDeclList
     | NONTERM_anonRecdType
     | NONTERM_braceBarFieldDeclListCore
-    | NONTERM_inlineAssemblyTyconRepr
     | NONTERM_classOrInterfaceOrStruct
     | NONTERM_interfaceMember
     | NONTERM_tyconNameAndTyparDecls
@@ -727,7 +728,8 @@ type nonTerminalId =
     | NONTERM_structOrBegin
     | NONTERM_sigOrBegin
     | NONTERM_colonOrEquals
-    | NONTERM_stringOrKeywordString
+    | NONTERM_string
+    | NONTERM_sourceIdentifier
     | NONTERM_interpolatedStringFill
     | NONTERM_interpolatedStringParts
     | NONTERM_interpolatedString
@@ -752,8 +754,8 @@ val prodIdxToNonTerminal: int -> nonTerminalId
 
 /// This function gets the name of a token as a string
 val token_to_string: token -> string
-val signatureFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.ParsedSigFile) 
-val implementationFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.ParsedImplFile) 
-val interaction : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.ParsedFsiInteraction) 
-val typedSeqExprEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.SynExpr) 
-val typEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SyntaxTree.SynType) 
+val signatureFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (ParsedSigFile) 
+val implementationFile : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (ParsedImplFile) 
+val interaction : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (ParsedScriptInteraction) 
+val typedSeqExprEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SynExpr) 
+val typEOF : (Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> token) -> Internal.Utilities.Text.Lexing.LexBuffer<'cty> -> (SynType) 

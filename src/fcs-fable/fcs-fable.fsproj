@@ -13,7 +13,7 @@
     <DefineConstants>$(DefineConstants);FX_NO_WEAKTABLE</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_EXTENSIONTYPING</DefineConstants>
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
-    <OtherFlags>$(OtherFlags) --warnon:1182</OtherFlags>
+    <OtherFlags>$(OtherFlags) --warnon:1182 --nowarn:57</OtherFlags>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
 
@@ -27,6 +27,7 @@
     <Compile Include="SR.fs" />
     <Compile Include="$(FsYaccOutputFolder)/FSComp.fs" />
     <Compile Include="$(FsYaccOutputFolder)/FSIstrings.fs" />
+    <!-- <EmbeddedResource Include="$(FSharpSourcesRoot)/fsharp/FSStrings.resx" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/sformat.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/sformat.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/sr.fsi" /> -->
@@ -43,24 +44,27 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/ResizeArray.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/HashMultiMap.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/HashMultiMap.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/EditDistance.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/EditDistance.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/TaggedCollections.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/TaggedCollections.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/illib.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/illib.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/FileSystem.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/FileSystem.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ildiag.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ildiag.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/illib.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/filename.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/filename.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/zmap.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/zmap.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/zset.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/zset.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/bytes.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/bytes.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/XmlAdapters.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/XmlAdapters.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/InternalCollections.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/InternalCollections.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/QueueList.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/QueueList.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/lib.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/lib.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/rational.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/rational.fs" />
@@ -69,14 +73,26 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/RidHelpers.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/range.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/range.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/Diagnostics.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/Diagnostics.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/TextLayoutRender.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/TextLayoutRender.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/ErrorLogger.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ErrorLogger.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/ErrorResolutionHints.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ErrorResolutionHints.fs" />
+    <!-- <FsLex Include="$(FSharpSourcesRoot)/fsharp/absil/illex.fsl" /> -->
+    <!-- <None Include="$(FSharpSourcesRoot)/fsharp/absil/illex.fsl" /> -->
+    <!-- <FsYacc Include="$(FSharpSourcesRoot)/fsharp/absil/ilpars.fsy" /> -->
+    <!-- <None Include="$(FSharpSourcesRoot)/fsharp/absil/ilpars.fsy" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/il.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/il.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilx.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilx.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilascii.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilascii.fs" /> -->
+    <!-- <Compile Include="$(FsYaccOutputFolder)/ilpars.fs" /> -->
+    <!-- <Compile Include="$(FsLexOutputFolder)/illex.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilprint.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilprint.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilmorph.fsi" />
@@ -87,8 +103,6 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilnativeres.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilsupp.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilsupp.fs" /> -->
-    <!-- <Compile Include="$(FsYaccOutputFolder)/ilpars.fs" /> -->
-    <!-- <Compile Include="$(FsYaccOutputFolder)/illex.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilbinary.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilbinary.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilread.fsi" />
@@ -97,23 +111,42 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilwritepdb.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilwrite.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilwrite.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilreflect.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/absil/ilreflect.fs" /> -->
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/ReferenceResolver.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ReferenceResolver.fs" />
+    <!-- A legacy resolver used to help with scripting diagnostics in the Visual Studio tools -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/LegacyMSBuildReferenceResolver.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/LegacyMSBuildReferenceResolver.fs" Condition="'$(MonoPackaging)' != 'true'" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/SimulatedMSBuildReferenceResolver.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/SimulatedMSBuildReferenceResolver.fs" /> -->
+    <!-- <EmbeddedText Include="$(FSharpSourcesRoot)/fsharp/utils/UtilsStrings.txt" / /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/CompilerLocationUtils.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/utils/CompilerLocationUtils.fs" /> -->
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/PrettyNaming.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/PrettyNaming.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/ilxsettings.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/EraseClosures.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/EraseClosures.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/EraseUnions.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ilx/EraseUnions.fs" />
+    <!-- <FsLex Include="$(FSharpSourcesRoot)/fsharp/pplex.fsl" /> -->
+    <!-- <FsYacc Include="$(FSharpSourcesRoot)/fsharp/pppars.fsy" /> -->
+    <!-- <FsLex Include="$(FSharpSourcesRoot)/fsharp/lex.fsl" /> -->
+    <!-- <FsYacc Include="$(FSharpSourcesRoot)/fsharp/pars.fsy" /> -->
+    <!-- <None Include="$(FSharpSourcesRoot)/fsharp/pplex.fsl" /> -->
+    <!-- <None Include="$(FSharpSourcesRoot)/fsharp/lex.fsl" /> -->
+    <!-- <None Include="$(FSharpSourcesRoot)/fsharp/pppars.fsy" /> -->
+    <!-- <None Include="$(FSharpSourcesRoot)/fsharp/pars.fsy" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/UnicodeLexing.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/UnicodeLexing.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/layout.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/layout.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/XmlDoc.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/XmlDoc.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/SyntaxTree.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/SyntaxTree.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/SyntaxTreeOps.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/SyntaxTreeOps.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/ParseHelpers.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/ParseHelpers.fs" />
     <Compile Include="$(FsYaccOutputFolder)/pppars.fs" />
     <Compile Include="$(FsYaccOutputFolder)/pars.fs" />
@@ -121,6 +154,7 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/lexhelp.fs" />
     <Compile Include="$(FsYaccOutputFolder)/pplex.fs" />
     <Compile Include="$(FsYaccOutputFolder)/lex.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/LexFilter.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/LexFilter.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/tainted.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/tainted.fs" /> -->
@@ -128,8 +162,10 @@
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/ExtensionTyping.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/QuotationPickler.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/QuotationPickler.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerGlobalState.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerGlobalState.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/TypedTree.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/TypedTreeBasics.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/TypedTreeBasics.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/TcGlobals.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/TypedTreeOps.fsi" />
@@ -138,18 +174,27 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/TypedTreePickle.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/import.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/import.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/infos.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/infos.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/AccessibilityLogic.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/AccessibilityLogic.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/AttributeChecking.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/AttributeChecking.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/TypeRelations.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/TypeRelations.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/InfoReader.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/InfoReader.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/NicePrint.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/NicePrint.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/AugmentWithHashCompare.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/AugmentWithHashCompare.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/NameResolution.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/NameResolution.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/SignatureConformance.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/SignatureConformance.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/MethodOverrides.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/MethodOverrides.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/MethodCalls.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/MethodCalls.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/PatternMatchCompilation.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/PatternMatchCompilation.fs" />
@@ -181,13 +226,13 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/autobox.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/IlxGen.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/IlxGen.fs" />
-    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DotNetFrameworkDependencies.fs" /> -->
-    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/Microsoft.DotNet.DependencyManager/AssemblyResolveHandler.fsi" /> -->
-    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/Microsoft.DotNet.DependencyManager/AssemblyResolveHandler.fs" /> -->
-    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/Microsoft.DotNet.DependencyManager/NativeDllResolveHandler.fsi" /> -->
-    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/Microsoft.DotNet.DependencyManager/NativeDllResolveHandler.fs" /> -->
-    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/Microsoft.DotNet.DependencyManager/DependencyProvider.fsi" /> -->
-    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/Microsoft.DotNet.DependencyManager/DependencyProvider.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/FxResolver.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/AssemblyResolveHandler.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/AssemblyResolveHandler.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/NativeDllResolveHandler.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/NativeDllResolveHandler.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/DependencyProvider.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/DependencyManager/DependencyProvider.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerConfig.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerConfig.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerImports.fsi" />
@@ -202,9 +247,16 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/CompilerOptions.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/OptimizeInputs.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/OptimizeInputs.fs" />
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/XmlDocFileWriter.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/XmlDocFileWriter.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/BinaryResourceFormats.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/BinaryResourceFormats.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/StaticLinking.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/StaticLinking.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/CreateILModule.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/CreateILModule.fs" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/fsc.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/fsc.fs" /> -->
-
     <!-- the symbol API. -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/symbols/SymbolHelpers.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/symbols/SymbolHelpers.fs" />
@@ -216,26 +268,32 @@
     <Compile Include="$(FSharpSourcesRoot)/fsharp/symbols/SymbolPatterns.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/Reactor.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/Reactor.fs" />
-
     <!-- the incremental builder and service . -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassification.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassification.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ItemKey.fsi" /> -->
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ItemKey.fs" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassificationKey.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/SemanticClassificationKey.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/IncrementalBuild.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/IncrementalBuild.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceCompilerDiagnostics.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceCompilerDiagnostics.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceConstants.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceDeclarationLists.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceDeclarationLists.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceLexing.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceLexing.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceParseTreeWalk.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceParseTreeWalk.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceNavigation.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceNavigation.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceParamInfoLocations.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceParamInfoLocations.fs" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceUntypedParse.fsi" />
-    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceUntypedParse.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/FSharpParseFileResults.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/FSharpParseFileResults.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceParsedInputOps.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceParsedInputOps.fs" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceAssemblyContent.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceAssemblyContent.fs" />
     <!-- <Compile Include="$(FSharpSourcesRoot)/fsharp/service/ServiceXmlDocParser.fsi" /> -->
@@ -264,7 +322,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
+    <PackageReference Include="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 
 </Project>

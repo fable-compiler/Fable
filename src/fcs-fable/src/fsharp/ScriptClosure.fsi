@@ -3,18 +3,19 @@
 /// Compute the load closure of a set of script files
 module internal FSharp.Compiler.ScriptClosure
 
+open Internal.Utilities.Library
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL.ILBinaryReader
-open FSharp.Compiler.AbstractIL.Internal.Library
 open FSharp.Compiler.CompilerConfig
 open FSharp.Compiler.CompilerImports
-open FSharp.Compiler.ErrorLogger
-open FSharp.Compiler.Range
-open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.Text
 #if !FABLE_COMPILER
-open Microsoft.DotNet.DependencyManager
+open FSharp.Compiler.DependencyManager
 #endif
+open FSharp.Compiler.Diagnostics
+open FSharp.Compiler.ErrorLogger
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Text
 
 [<RequireQualifiedAccess>]
 type CodeContext =
@@ -24,10 +25,15 @@ type CodeContext =
 
 [<RequireQualifiedAccess>]
 type LoadClosureInput = 
-    { FileName: string
+    {
+      FileName: string
+      
       SyntaxTree: ParsedInput option
-      ParseDiagnostics: (PhasedDiagnostic * bool) list 
-      MetaCommandDiagnostics: (PhasedDiagnostic * bool) list  }
+      
+      ParseDiagnostics: (PhasedDiagnostic * FSharpDiagnosticSeverity) list 
+      
+      MetaCommandDiagnostics: (PhasedDiagnostic * FSharpDiagnosticSeverity) list 
+    }
 
 [<RequireQualifiedAccess>]
 type LoadClosure = 
@@ -39,6 +45,12 @@ type LoadClosure =
 
       /// The resolved pacakge references along with the ranges of the #r positions in each file.
       PackageReferences: (range * string list)[]
+
+      /// Whether we're decided to use .NET Framework analysis for this script
+      UseDesktopFramework: bool
+
+      /// Was the SDK directory override given?
+      SdkDirOverride: string option
 
       /// The list of references that were not resolved during load closure.
       UnresolvedReferences: UnresolvedAssemblyReference list
@@ -53,13 +65,13 @@ type LoadClosure =
       NoWarns: (string * range list) list
 
       /// Diagnostics seen while processing resolutions
-      ResolutionDiagnostics: (PhasedDiagnostic * bool)  list
+      ResolutionDiagnostics: (PhasedDiagnostic * FSharpDiagnosticSeverity)  list
 
       /// Diagnostics to show for root of closure (used by fsc.fs)
-      AllRootFileDiagnostics: (PhasedDiagnostic * bool) list
+      AllRootFileDiagnostics: (PhasedDiagnostic * FSharpDiagnosticSeverity) list
 
       /// Diagnostics seen while processing the compiler options implied root of closure
-      LoadClosureRootFileDiagnostics: (PhasedDiagnostic * bool) list }   
+      LoadClosureRootFileDiagnostics: (PhasedDiagnostic * FSharpDiagnosticSeverity) list }   
 
 #if !FABLE_COMPILER
 
@@ -70,7 +82,7 @@ type LoadClosure =
     /// same arguments as the rest of the application.
     static member ComputeClosureOfScriptText:
         CompilationThreadToken * 
-        legacyReferenceResolver: ReferenceResolver.Resolver * 
+        legacyReferenceResolver: LegacyReferenceResolver * 
         defaultFSharpBinariesDir: string * 
         filename: string * 
         sourceText: ISourceText * 
@@ -78,6 +90,7 @@ type LoadClosure =
         useSimpleResolution: bool * 
         useFsiAuxLib: bool * 
         useSdkRefs: bool * 
+        sdkDir: string option * 
         lexResourceManager: Lexhelp.LexResourceManager * 
         applyCompilerOptions: (TcConfigBuilder -> unit) * 
         assumeDotNetFramework: bool * 
