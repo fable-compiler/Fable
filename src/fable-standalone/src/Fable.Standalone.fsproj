@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="5.0.1" />
     <ProjectReference Include="../../fcs-fable/fcs-fable.fsproj" />
+    <ProjectReference Include="../../Fable.Transforms/Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +35,9 @@
     <Compile Include="../../Fable.Transforms/Fable2Babel.fs" />
     <Compile Include="../../Fable.Transforms/BabelPrinter.fs" />
     <Compile Include="../../Fable.Transforms/State.fs" />
+
+    <Compile Include="../../Fable.Transforms/Rust/Rust.Printer.fs" />
+    <Compile Include="../../Fable.Transforms/Rust/Fable2Rust.fs" />
 
     <Compile Include="Interfaces.fs"/>
     <Compile Include="Lexer.fs"/>

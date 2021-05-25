@@ -49,6 +49,9 @@ type IParseResults =
 type IBabelResult =
     abstract FableErrors: Error[]
 
+type IRustResult =
+    abstract FableErrors: Error[]
+
 type IWriter =
     inherit System.IDisposable
     abstract AddSourceMapping: SourceMapping -> unit
@@ -70,4 +73,6 @@ type IFableManager =
                                 * ?typedArrays: bool
                                 * ?typescript: bool -> IBabelResult
     abstract PrintBabelAst: babelResult: IBabelResult * IWriter -> Async<unit>
+    abstract CompileToRustAst: fableLibrary: string * parseResults: IParseResults * fileName: string -> IRustResult
+    abstract PrintRustAst: rustResult: IRustResult * IWriter -> Async<unit>
     abstract FSharpAstToString: parseResults: IParseResults * fileName: string -> string

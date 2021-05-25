@@ -12,7 +12,7 @@ let test_crate: Crate = {
       attrs = Vec []
       id = DUMMY_NODE_ID
       span = DUMMY_SP
-      vis = visibilityInherited
+      vis = INHERITED_VIS
       ident = Ident.from_str("main")
       kind =
         ItemKind.Fn(
@@ -58,7 +58,7 @@ let test_crate: Crate = {
                                 kind =
                                   ExprKind.MacCall(
                                     { // MacCall
-                                      path = mkPath(Vec ["vec"])
+                                      path = mkPathFromSymbols(Vec ["vec"])
                                       args =
                                         MacArgs.Delimited(
                                           dummyDelimSpan,
@@ -98,13 +98,13 @@ let test_crate: Crate = {
                       StmtKind.MacCall(
                         { // MacCallStmt
                           mac = { // MacCall
-                            path = mkPath(Vec ["println"])
+                            path = mkPathFromSymbols(Vec ["println"])
                             args =
                               MacArgs.Delimited(
                                 dummyDelimSpan,
                                 MacDelimiter.Parenthesis,
                                 token.TokenStream(
-                                  [
+                                  Vec [
                                     (mkStrTokenTreeToken("{:?}"), token.Spacing.Joint)
                                     (commaTokenTreeToken, token.Spacing.Alone)
                                     (mkIdentTokenTreeToken("a"), token.Spacing.Alone)

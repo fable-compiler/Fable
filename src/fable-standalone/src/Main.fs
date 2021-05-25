@@ -250,6 +250,11 @@ type BabelResult(program: Babel.Program, errors) =
     interface IBabelResult with
         member _.FableErrors = errors
 
+type RustResult(crate: Rust.AST.Types.Crate, errors) =
+    member _.Crate = crate
+    interface IRustResult with
+        member _.FableErrors = errors
+
 let init () =
   { new IFableManager with
         member __.Version = Fable.Literals.VERSION
@@ -310,6 +315,30 @@ let init () =
                 BabelPrinter.run writer babel.Program
             | _ ->
                 failwith "Unexpected Babel result"
+
+        member __.CompileToRustAst(fableLibrary:string, parseResults:IParseResults, fileName:string) =
+            let language = Rust
+            let typedArrays = None
+            let com, fableAst, errors =
+                compileToFableAst parseResults fileName fableLibrary typedArrays language
+            let rustAst =
+                fableAst |> Fable2Rust.Compiler.transformFile com
+            upcast RustResult(rustAst, errors)
+
+        member _.PrintRustAst(rustResult, writer) =
+            match rustResult with
+            | :? RustResult as rust ->
+                let writer =
+                    { new Rust.Printer.Writer with
+                        member _.Dispose() = writer.Dispose()
+                        member _.EscapeJsStringLiteral(str) = writer.EscapeJsStringLiteral(str)
+                        member _.MakeImportPath(path) = writer.MakeImportPath(path)
+                        member _.AddSourceMapping(mapping) = writer.AddSourceMapping(mapping)
+                        member _.Write(str) = writer.Write(str) }
+
+                Rust.Printer.run writer rust.Crate
+            | _ ->
+                failwith "Unexpected Rust result"
 
         member __.FSharpAstToString(parseResults:IParseResults, fileName:string) =
             let res = parseResults :?> ParseResults

@@ -151,14 +151,22 @@ let parseFiles projectFileName options =
     let libDir = options.libDir |> Option.defaultValue (getFableLibDir()) |> normalizeFullPath
 
     let parseFable (res, fileName) =
+#if FABLE_RUST
+        fable.CompileToRustAst(libDir, res, fileName)
+#else
         fable.CompileToBabelAst(libDir, res, fileName,
             typedArrays = options.typedArrays,
             typescript = options.typescript)
+#endif
 
     let fileExt =
+#if FABLE_RUST
+        ".rs"
+#else
         match options.outDir with
         | Some _ -> if options.typescript then ".ts" else ".js"
         | None -> if options.typescript then ".fs.ts" else ".fs.js"
+#endif
 
     let getOrAddDeduplicateTargetDir =
         let dedupDic = System.Collections.Generic.Dictionary()
@@ -194,8 +202,11 @@ let parseFiles projectFileName options =
                     let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
                     Path.ChangeExtension(absPath, fileExt)
             let writer = new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)
+#if FABLE_RUST
+            do! fable.PrintRustAst(res, writer)
+#else
             do! fable.PrintBabelAst(res, writer)
-
+#endif
             // create output folder
             ensureDirExists(Path.GetDirectoryName(outPath))
 
