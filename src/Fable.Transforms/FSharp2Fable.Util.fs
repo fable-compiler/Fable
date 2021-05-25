@@ -667,7 +667,14 @@ module Patterns =
                 Lambda(_callback, NewDelegate(_, Lambda(_delegateArg0, Lambda(_delegateArg1, Application(Value _callback',[],[Value _delegateArg0'; Value _delegateArg1'])))))])
           when createEvent.FullName = Types.createEvent ->
             let eventName = addEvent.CompiledName.Replace("add_","")
-            Some (callee, eventName)
+            match addEvent.DeclaringEntity with
+            | Some klass ->
+                klass.MembersFunctionsAndValues
+                |> Seq.tryFind (fun m -> m.LogicalName = eventName)
+                |> function
+                | Some memb -> Some (callee, memb)
+                | _ -> None
+            | _ -> None
         | _ -> None
 
     let (|ConstructorCall|_|) = function
