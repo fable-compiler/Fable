@@ -12,8 +12,6 @@ export interface IDelegateEvent<T> {
 }
 
 export interface IEvent<T> extends IObservable<T>, IDelegateEvent<T> {
-  Publish: IEvent<T>;
-  Trigger(x: T): void;
 }
 
 export class Event<T> implements IEvent<T> {
@@ -215,6 +213,20 @@ export function split<T, U1, U2>(splitter: (x: T) => FSharpChoice$2<U1, U2>, sou
     choose((v) => Choice_tryValueIfChoice1Of2(splitter(v)), sourceEvent),
     choose((v) => Choice_tryValueIfChoice2Of2(splitter(v)), sourceEvent),
   ];
+}
+
+export function createEvent<T>(addHandler: (h: DotNetDelegate<T>) => void, removeHandler: (h: DotNetDelegate<T>) => void): IEvent<T> {
+  return {
+    AddHandler(h) { addHandler(h); },
+    RemoveHandler(h) { removeHandler(h); },
+    Subscribe(r) {
+      const h: DotNetDelegate<T> = (_, args) => r.OnNext(args);
+      addHandler(h);
+      return {
+        Dispose() { removeHandler(h); }
+      };
+    }
+  };
 }
 
 export default Event;
