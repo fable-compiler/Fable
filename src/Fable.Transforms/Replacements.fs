@@ -1723,6 +1723,8 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
+    | "CreateEvent", [addHandler; removeHandler; createHandler] ->
+        Helper.LibCall(com, "Event", "createEvent", t, [addHandler; removeHandler], i.SignatureArgTypes, ?loc=r) |> Some
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
@@ -3170,6 +3172,7 @@ let private replacedModules =
     "Microsoft.FSharp.Control.LazyExtensions", laziness
     "Microsoft.FSharp.Control.CommonExtensions", controlExtensions
     "Microsoft.FSharp.Control.FSharpEvent`1", events
+    "Microsoft.FSharp.Control.FSharpEvent`2", events
     "Microsoft.FSharp.Control.EventModule", events
     "Microsoft.FSharp.Control.ObservableModule", observable
     Types.type_, types

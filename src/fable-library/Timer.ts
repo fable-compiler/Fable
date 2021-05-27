@@ -17,7 +17,7 @@ export class Timer implements IDisposable {
     this._elapsed = new Event<Date>();
   }
 
-  get Elapsed() {
+  Elapsed() {
     return this._elapsed;
   }
 

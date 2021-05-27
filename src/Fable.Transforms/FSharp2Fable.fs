@@ -493,9 +493,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | FSharpExprPatterns.Let((var, value), body) ->
         match value, body with
-        | CreateEvent(value, eventName), _ ->
+        | (CreateEvent(value, event) as createEvent), _ ->
             let! value = transformExpr com ctx value
-            let value = get None Fable.Any value eventName
+            let typ = makeType ctx.GenericArgs createEvent.Type
+            let value = makeCallFrom com ctx (makeRangeFrom createEvent) typ Seq.empty (Some value) [] event
             let ctx, ident = putBindingInScope com ctx var value
             let! body = transformExpr com ctx body
             return Fable.Let(ident, value, body)
@@ -563,10 +564,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
 
     | FSharpExprPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
         match callee with
-        | Some(CreateEvent(callee, eventName)) ->
+        | Some(CreateEvent(callee, event) as createEvent) ->
             let! callee = transformExpr com ctx callee
+            let typ = makeType ctx.GenericArgs createEvent.Type
+            let callee = makeCallFrom com ctx (makeRangeFrom createEvent) typ Seq.empty (Some callee) [] event
             let! args = transformExprList com ctx args
-            let callee = get None Fable.Any callee eventName
             let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
             let typ = makeType ctx.GenericArgs fsExpr.Type
             return makeCallFrom com ctx (makeRangeFrom fsExpr) typ genArgs (Some callee) args memb
