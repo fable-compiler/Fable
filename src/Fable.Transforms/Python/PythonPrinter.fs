@@ -152,8 +152,6 @@ module PrinterExtensions =
         member printer.Print(arguments: Arguments) =
             let args = arguments.Args |> List.map AST.Arg
             let defaults = arguments.Defaults
-            if defaults.Length > 0 then
-                printfn "Got defaults. %A" defaults
             for i = 0 to args.Length - 1 do
                 printer.Print(args.[i])
                 if i >= args.Length - defaults.Length then
@@ -334,14 +332,6 @@ module PrinterExtensions =
 
             printer.ComplexExpressionWithParens(node.Operand)
 
-        member printer.Print(node: Constant) =
-            match box node.Value with
-            | :? string as str ->
-                printer.Print("\"")
-                printer.Print(Web.HttpUtility.JavaScriptStringEncode(string node.Value))
-                printer.Print("\"")
-            | _ -> printer.Print(string node.Value)
-
         member printer.Print(node: FormattedValue) = printer.Print("(FormattedValue)")
 
         member printer.Print(node: Call) =
@@ -400,7 +390,7 @@ module PrinterExtensions =
                         let i = int m.Groups.[1].Value
 
                         match node.Args.[i] with
-                        | Constant (c) -> m.Groups.[2].Value
+                        | Constant (value=c) -> m.Groups.[2].Value
                         | _ -> m.Groups.[3].Value)
 
                 |> replace
@@ -585,7 +575,14 @@ module PrinterExtensions =
             | Emit (ex) -> printer.Print(ex)
             | UnaryOp (ex) -> printer.Print(ex)
             | FormattedValue (ex) -> printer.Print(ex)
-            | Constant (ex) -> printer.Print(ex)
+            | Constant (value=value) ->
+                match box value with
+                | :? string as str ->
+                    printer.Print("\"")
+                    printer.Print(Web.HttpUtility.JavaScriptStringEncode(string value))
+                    printer.Print("\"")
+                | _ -> printer.Print(string value)
+
             | IfExp (ex) -> printer.Print(ex)
             | Call (ex) -> printer.Print(ex)
             | Lambda (ex) -> printer.Print(ex)

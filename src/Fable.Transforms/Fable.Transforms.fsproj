@@ -22,6 +22,7 @@
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="BabelPrinter.fs" />
     <Compile Include="Python/Python.fs" />
+    <Compile Include="Python/Fable2Python.fs" />
     <Compile Include="Python/Babel2Python.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
 

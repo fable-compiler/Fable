@@ -18,7 +18,10 @@ type Expression =
     | IfExp of IfExp
     | UnaryOp of UnaryOp
     | FormattedValue of FormattedValue
-    | Constant of Constant
+    /// A constant value. The value attribute of the Constant literal contains the Python object it represents. The
+    /// values represented can be simple types such as a number, string or None, but also immutable container types
+    /// (tuples and frozensets) if all of their elements are constant.
+    | Constant of value: obj * loc: SourceLocation option
     | Call of Call
     | Compare of Compare
     | Lambda of Lambda
@@ -77,11 +80,11 @@ type ExpressionContext =
     | Store
 
 type Identifier =
-    Identifier of string
-    with
-        member this.Name =
-            let (Identifier name) = this
-            name
+    | Identifier of name: string
+
+    member this.Name =
+        let (Identifier name) = this
+        name
 
 type Statement =
     | Pass
@@ -305,7 +308,8 @@ type AsyncFor =
 type While =
     { Test: Expression
       Body: Statement list
-      Else: Statement list }
+      Else: Statement list
+      Loc: SourceLocation option }
 
 /// A class definition.
 ///
@@ -386,7 +390,8 @@ type ClassDef =
 type If =
     { Test: Expression
       Body: Statement list
-      Else: Statement list }
+      Else: Statement list
+      Loc: SourceLocation option }
 
 /// A raise statement. exc is the exception object to be raised, normally a Call or Name, or None for a standalone
 /// raise. cause is the optional part for y in raise x from y.
@@ -404,7 +409,7 @@ type Raise =
     { Exception: Expression
       Cause: Expression option }
 
-    static member Create(exc, ?cause): Statement = { Exception = exc; Cause = cause } |> Raise
+    static member Create(exc, ?cause) : Statement = { Exception = exc; Cause = cause } |> Raise
 
 /// A function definition.
 ///
@@ -423,7 +428,7 @@ type FunctionDef =
       Returns: Expression option
       TypeComment: string option }
 
-    static member Create(name, args, body, ?decoratorList, ?returns, ?typeComment): Statement =
+    static member Create(name, args, body, ?decoratorList, ?returns, ?typeComment) : Statement =
         { Name = name
           Args = args
           Body = body
@@ -566,7 +571,8 @@ type Attribute =
 
 type NamedExpr =
     { Target: Expression
-      Value: Expression }
+      Value: Expression
+      Loc: SourceLocation option }
 
 /// A subscript, such as l[1]. value is the subscripted object (usually sequence or mapping). slice is an index, slice
 /// or key. It can be a Tuple and contain a Slice. ctx is Load, Store or Del according to the action performed with the
@@ -594,11 +600,13 @@ type Subscript =
 type BinOp =
     { Left: Expression
       Right: Expression
-      Operator: Operator }
+      Operator: Operator
+      Loc: SourceLocation option }
 
 type BoolOp =
     { Values: Expression list
-      Operator: BoolOperator }
+      Operator: BoolOperator
+      Loc: SourceLocation option }
 
 /// A comparison of two or more values. left is the first value in the comparison, ops the list of operators, and
 /// comparators the list of values after the first element in the comparison.
@@ -618,24 +626,14 @@ type BoolOp =
 type Compare =
     { Left: Expression
       Comparators: Expression list
-      Ops: ComparisonOperator list }
+      Ops: ComparisonOperator list
+      Loc: SourceLocation option }
 
 /// A unary operation. op is the operator, and operand any expression node.
 type UnaryOp =
     { Op: UnaryOperator
       Operand: Expression
       Loc: SourceLocation option }
-
-/// A constant value. The value attribute of the Constant literal contains the Python object it represents. The values
-/// represented can be simple types such as a number, string or None, but also immutable container types (tuples and
-/// frozensets) if all of their elements are constant.
-///
-/// ```py
-/// >>> print(ast.dump(ast.parse('123', mode='eval'), indent=4))
-/// Expression(
-///     body=Constant(value=123))
-/// `````
-type Constant = { Value: obj }
 
 /// Node representing a single formatting field in an f-string. If the string contains a single formatting field and
 /// nothing else the node can be isolated otherwise it appears in JoinedStr.
@@ -681,11 +679,13 @@ type FormattedValue =
 type Call =
     { Func: Expression
       Args: Expression list
-      Keywords: Keyword list }
+      Keywords: Keyword list
+      Loc: SourceLocation option }
 
 type Emit =
     { Value: string
-      Args: Expression list }
+      Args: Expression list
+      Loc: SourceLocation option }
 
 /// An expression such as a if b else c. Each field holds a single node, so in the following example, all three are Name nodes.
 ///
@@ -700,7 +700,8 @@ type Emit =
 type IfExp =
     { Test: Expression
       Body: Expression
-      OrElse: Expression }
+      OrElse: Expression
+      Loc: SourceLocation option }
 
 /// lambda is a minimal function definition that can be used inside an expression. Unlike FunctionDef, body holds a
 /// single node.
@@ -793,7 +794,8 @@ type Dict =
 /// A variable name. id holds the name as a string, and ctx is one of the following types.
 type Name =
     { Id: Identifier
-      Context: ExpressionContext }
+      Context: ExpressionContext
+      Loc: SourceLocation option }
 
 [<RequireQualifiedAccess>]
 type AST =
@@ -814,15 +816,16 @@ type AST =
 [<AutoOpen>]
 module PythonExtensions =
     type Statement with
+        static member break'() : Statement = Break
+        static member continue' (?loc) : Statement = Continue
+        static member import(names) : Statement = Import { Names = names }
+        static member expr(value) : Statement = { Expr.Value = value } |> Expr
 
-        static member import(names): Statement = Import { Names = names }
-        static member expr(value): Statement = { Expr.Value = value } |> Expr
-
-        static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc): Statement =
+        static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
             Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)
             |> Try
 
-        static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc): Statement =
+        static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) : Statement =
             { Name = name
               Bases = defaultArg bases []
               Keyword = defaultArg keywords []
@@ -831,103 +834,157 @@ module PythonExtensions =
               Loc = loc }
             |> ClassDef
 
-        static member assign(targets, value, ?typeComment): Statement =
+        static member assign(targets, value, ?typeComment) : Statement =
             { Targets = targets
               Value = value
               TypeComment = typeComment }
             |> Assign
 
-        static member return'(?value): Statement = Return { Value = value }
+        static member return'(?value) : Statement = Return { Value = value }
 
-        static member for'(target, iter, ?body, ?orelse, ?typeComment): Statement =
+        static member for'(target, iter, ?body, ?orelse, ?typeComment) : Statement =
             For.for' (target, iter, ?body = body, ?orelse = orelse, ?typeComment = typeComment)
             |> For
 
-        static member while'(test, body, ?orelse): Statement =
+        static member while'(test, body, ?orelse, ?loc) : Statement =
             { While.Test = test
               Body = body
-              Else = defaultArg orelse [] }
+              Else = defaultArg orelse []
+              Loc = loc }
             |> While
 
-        static member if'(test, body, ?orelse): Statement =
+        static member if'(test, body, ?orelse, ?loc) : Statement =
             { Test = test
               Body = body
-              Else = defaultArg orelse [] }
+              Else = defaultArg orelse []
+              Loc = loc }
             |> If
 
         static member importFrom(``module``, names, ?level) =
             ImportFrom.importFrom (``module``, names, ?level = level)
             |> ImportFrom
+
         static member nonLocal(ids) = NonLocal.Create ids |> Statement.NonLocal
 
     type Expression with
 
-        static member name(id, ?ctx): Expression =
-            { Id = id
-              Context = defaultArg ctx Load }
+        static member name(identifier, ?ctx, ?loc) : Expression =
+            { Id = identifier
+              Context = defaultArg ctx Load
+              Loc = loc }
             |> Name
-        static member name(name, ?ctx): Expression =
-            Expression.name(Identifier(name), ?ctx=ctx)
 
-        static member dict(keys, values): Expression = { Keys = keys; Values = values } |> Dict
-        static member tuple(elts, ?loc): Expression = { Elements = elts; Loc = loc } |> Tuple
+        static member name(name, ?ctx) : Expression = Expression.name(Identifier(name), ?ctx = ctx)
+        static member identifier(name, ?ctx, ?loc) : Expression = Expression.name(Identifier(name), ?ctx = ctx, ?loc = loc)
+        static member identifier(identifier, ?ctx, ?loc) : Expression = Expression.name(identifier, ?ctx = ctx, ?loc = loc)
 
-        static member ifExp(test, body, orElse): Expression =
+        static member dict(keys, values) : Expression = { Keys = keys; Values = values } |> Dict
+        static member tuple(elts, ?loc) : Expression = { Elements = elts; Loc = loc } |> Tuple
+
+        static member ifExp(test, body, orElse, ?loc) : Expression =
             { Test = test
               Body = body
-              OrElse = orElse }
+              OrElse = orElse
+              Loc = loc }
             |> IfExp
 
-        static member lambda(args, body): Expression = { Args = args; Body = body } |> Lambda
+        static member lambda(args, body) : Expression = { Args = args; Body = body } |> Lambda
 
-        static member emit(value, ?args): Expression =
+        static member emit(value, ?args, ?loc) : Expression =
             { Value = value
-              Args = defaultArg args [] }
+              Args = defaultArg args []
+              Loc = loc }
             |> Emit
 
-        static member call(func, ?args, ?kw): Expression =
+        static member call(func, ?args, ?kw, ?loc) : Expression =
             { Func = func
               Args = defaultArg args []
-              Keywords = defaultArg kw [] }
+              Keywords = defaultArg kw []
+              Loc = loc }
             |> Call
 
-        static member compare(left, ops, comparators): Expression =
+        static member compare(left, ops, comparators, ?loc) : Expression =
             { Left = left
               Comparators = comparators
-              Ops = ops }
+              Ops = ops
+              Loc = loc }
             |> Compare
+        static member none() =
+            Expression.name (Identifier(name="None"))
 
-        static member attribute(value, attr, ?ctx): Expression =
+        static member attribute(value, attr, ?ctx) : Expression =
             { Value = value
               Attr = attr
               Ctx = defaultArg ctx Load }
             |> Attribute
 
-        static member unaryOp(op, operand, ?loc): Expression =
+        static member unaryOp(op, operand, ?loc) : Expression =
+            let op =
+              match op with
+                  | UnaryMinus -> USub
+                  | UnaryPlus -> UAdd
+                  | UnaryNot -> Not
+                  | UnaryNotBitwise -> Invert
+                  | _ -> failwith $"Operator {op} not supported"
+                  // | UnaryTypeof -> "typeof"
+                  // | UnaryVoid -> "void"
+                  // | UnaryDelete -> "delete"
+
+            Expression.unaryOp(op, operand, ?loc=loc)
+
+        static member unaryOp(op, operand, ?loc) : Expression =
             { Op = op
               Operand = operand
               Loc = loc }
             |> UnaryOp
 
-        static member namedExpr(target, value) = { Target = target; Value = value } |> NamedExpr
+        static member namedExpr(target, value, ?loc) = { Target = target; Value = value; Loc=loc } |> NamedExpr
 
-        static member subscript(value, slice, ?ctx): Expression =
+        static member subscript(value, slice, ?ctx) : Expression =
             { Value = value
               Slice = slice
               Ctx = defaultArg ctx Load }
             |> Subscript
 
-        static member binOp(left, op, right): Expression =
+        static member binOp(left, op, right, ?loc) : Expression =
             { Left = left
               Right = right
-              Operator = op }
+              Operator = op
+              Loc = loc }
             |> BinOp
 
-        static member boolOp(op, values): Expression = { Values = values; Operator = op } |> BoolOp
-        static member constant(value: obj): Expression = { Value = value } |> Constant
+        static member binOp(left, op, right, ?loc) : Expression =
+            let op =
+              match op with
+              | BinaryPlus -> Add
+              | BinaryMinus -> Sub
+              | BinaryMultiply -> Mult
+              | BinaryDivide -> Div
+              | BinaryModulus -> Mod
+              | BinaryOrBitwise -> BitOr
+              | BinaryAndBitwise -> BitAnd
+              | BinaryShiftLeft -> LShift
+              | BinaryShiftRightZeroFill -> RShift
+              | BinaryShiftRightSignPropagating -> RShift
+              | BinaryXorBitwise -> BitXor
+              | _ -> failwith $"Operator {op} not supported"
+
+            Expression.binOp(left, op, right, ?loc=loc)
+
+        static member boolOp(op, values, ?loc) : Expression = { Values = values; Operator = op; Loc=loc } |> BoolOp
+        static member boolOp(op, values, ?loc) : Expression =
+            let op =
+                match op with
+                | LogicalAnd -> And
+                | LogicalOr -> Or
+
+            Expression.boolOp(op, values, ?loc=loc)
+        static member constant(value: obj, ?loc) : Expression = Constant (value=value, loc=loc)
         static member starred(value: Expression, ?ctx: ExpressionContext) : Expression = Starred(value, ctx |> Option.defaultValue Load)
         static member list(elts: Expression list, ?ctx: ExpressionContext) : Expression = List(elts, ctx |> Option.defaultValue Load)
+
     type List with
+
         static member list(elts) = { Elements = elts }
 
     type ExceptHandler with
@@ -939,6 +996,7 @@ module PythonExtensions =
               Loc = loc }
 
     type Alias with
+
         static member alias(name, ?asname) = { Name = name; AsName = asname }
 
     type Try with
@@ -1019,10 +1077,7 @@ module PythonExtensions =
             { Module = ``module``
               Names = names
               Level = level }
-    type Expr with
-        static member expr(value) : Expr =
-            { Value=value }
 
-    type Constant with
-        static member contant(value) : Expr =
-            { Value=value }
+    type Expr with
+
+        static member expr(value) : Expr = { Value = value }

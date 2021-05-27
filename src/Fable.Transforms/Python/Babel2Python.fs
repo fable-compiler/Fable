@@ -82,7 +82,7 @@ module Helpers =
     let rewriteFableImport moduleName =
         //printfn "ModuleName: %s" moduleName
         let _reFableLib =
-            Regex(".*\/fable-library.*\/(?<module>[^\/]*)\.js", RegexOptions.Compiled)
+            Regex(".*(\/fable-library.*)?\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
         let dashify = applyCaseRule CaseRules.SnakeCase
@@ -95,15 +95,17 @@ module Helpers =
 
             let moduleName = String.concat "." [ "fable"; pymodule ]
 
-            printfn "-> Module: %A" moduleName
+            //printfn "-> Module: %A" moduleName
             moduleName
         else
             // Modules should have short, all-lowercase names.
             let moduleName =
-                moduleName.Replace("/", "")
-                |> dashify
+                let name =
+                    moduleName.Replace("/", "")
+                    |> dashify
+                string(name.[0]) + name.[1..].Replace(".", "_")
 
-            printfn "-> Module: %A" moduleName
+            //printfn "-> Module: %A" moduleName
             moduleName
 
     let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
@@ -264,6 +266,7 @@ module Util =
                               | Expression.Identifier(Identifier(name="toString")) ->
                                   com.GetIdentifier(ctx, "__str__")
                               | Expression.Identifier (id) -> com.GetIdentifier(ctx, id.Name)
+                              // E.g ["System.Collections.Generic.IEnumerator`1.get_Current"]() { ... }
                               | Expression.Literal(Literal.StringLiteral(StringLiteral(value=name))) ->
                                   com.GetIdentifier(ctx, name)
                               | MemberExpression(object=Expression.Identifier(Identifier(name="Symbol")); property=Expression.Identifier(Identifier(name="iterator"))) ->
@@ -343,11 +346,11 @@ module Util =
             let left, leftStmts = com.TransformAsExpr(ctx, left)
             let right = Expression.name("None")
             Expression.compare (left, [ Python.IsNot ], [ right ]), leftStmts
-        | BinaryExpression (left = left; operator = operator; right = right) ->
-            let left, leftStmts = com.TransformAsExpr(ctx, left)
-            let right, rightStmts = com.TransformAsExpr(ctx, right)
+        | BinaryExpression (left = left'; operator = operator; right = right') ->
+            let left, leftStmts = com.TransformAsExpr(ctx, left')
+            let right, rightStmts = com.TransformAsExpr(ctx, right')
 
-            let toBinOp op = Expression.binOp (left, op, right), leftStmts @ rightStmts
+            let toBinOp (op: Operator) = Expression.binOp (left, op, right), leftStmts @ rightStmts
             let toCompare op = Expression.compare (left, [ op ], [ right ]), leftStmts @ rightStmts
 
             let toCall name =
@@ -367,8 +370,19 @@ module Util =
             | "|" -> BitOr |> toBinOp
             | "^" -> BitXor |> toBinOp
             | "&" -> BitAnd |> toBinOp
-            | "===" | "==" -> Eq |> toCompare
-            | "!==" | "!=" -> NotEq |> toCompare
+            | "==="  ->
+                match right' with
+                | Expression.Identifier(_)
+                | Literal(_) -> Eq |> toCompare
+                | _ -> Is |> toCompare
+            | "==" -> Eq |> toCompare
+            | "!==" ->
+                match right' with
+                | Expression.Identifier(_)
+                | Literal(_) -> NotEq |> toCompare
+                | _ -> IsNot |> toCompare
+
+            | "!=" -> NotEq |> toCompare
             | ">" -> Gt |> toCompare
             | ">=" -> GtE |> toCompare
             | "<" -> Lt |> toCompare
@@ -396,7 +410,7 @@ module Util =
             match op, arg with
             | Some op, _ -> Expression.unaryOp (op, operand), stmts
             | None, Literal(NumericLiteral(value=0.)) ->
-                Expression.name (id = Python.Identifier("None")), stmts
+                Expression.name(identifier = Python.Identifier("None")), stmts
             | _ ->
                 operand, stmts
 
@@ -476,7 +490,7 @@ module Util =
             Expression.constant (value = value), []
         | Expression.Identifier (Identifier (name = name)) ->
             let name = com.GetIdentifier(ctx, name)
-            Expression.name (id = name), []
+            Expression.name(identifier = name), []
         | NewExpression (callee = Expression.Identifier(Identifier(name="Int32Array")); arguments = args) ->
             match args with
             | [| arg |] ->
@@ -515,8 +529,13 @@ module Util =
             com.GetImportExpr(ctx, "collections", "namedtuple") |> ignore
             let keys =
                 keys
-                |> List.map (function | Expression.Name { Id=Python.Identifier name} -> Expression.constant(name) | ex -> ex)
-
+                |> List.map (function
+                    | Expression.Name { Id=Python.Identifier name } -> Expression.constant(Helpers.clean name)
+                    | Expression.Constant(value=value) ->
+                        match value with
+                        | :? string as name -> Expression.constant(Helpers.clean name)
+                        | _ -> Expression.constant(value)
+                    | ex -> ex)
             Expression.call(
                 Expression.call(
                     Expression.name("namedtuple"), [ Expression.constant("object"); Expression.list(keys)]
@@ -702,7 +721,7 @@ module Util =
                         else
                             []
 
-                    [ Expression.name (id = target, ctx = Store) ], stmts
+                    [ Expression.name(identifier = target, ctx = Store) ], stmts
                 // a.b = c
                 | MemberExpression (property = Expression.Identifier (id); object = object; computed=false) ->
                     let attr = com.GetIdentifier(ctx, id.Name)
@@ -750,7 +769,7 @@ module Util =
             [ for (VariableDeclarator (id = id; init = init)) in declarations do
                   let targets: Python.Expression list =
                       let name = com.GetIdentifier(ctx, id.Name)
-                      [ Expression.name (id = name, ctx = Store) ]
+                      [ Expression.name(identifier = name, ctx = Store) ]
 
                   match init with
                   | Some value ->
@@ -813,15 +832,8 @@ module Util =
 
                     // Insert a ex.message = str(ex) for all aliased exceptions.
                     let identifier = Python.Identifier(parm.Name)
-                    // let idName = Name.Create(identifier, Load)
-                    // let message = Identifier("message")
-                    // let trg = Attribute.Create(idName, message, Store)
-                    // let value = Call.Create(Name.Create(Identifier("str"), Load), [idName])
-                    // let msg = Assign.Create([trg], value)
-                    // let body =  msg :: body
-                    let handlers = [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ]
+                    [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ]
 
-                    handlers
                 | _ -> []
 
             [ yield! nonLocals; Statement.try' (body = body, handlers = handlers, finalBody = finalBody) ]
@@ -921,7 +933,7 @@ module Util =
                               let targets: Python.Expression list =
                                   let name = com.GetIdentifier(ctx, id.Name)
                                   ctx.UsedNames.GlobalScope.Add id.Name |> ignore
-                                  [ Expression.name (id = name, ctx = Store) ]
+                                  [ Expression.name (identifier = name, ctx = Store) ]
 
                               yield! stmts
                               yield Statement.assign (targets = targets, value = value)
@@ -932,7 +944,8 @@ module Util =
                           yield! transformAsClassDef com ctx body id superClass implements superTypeParameters typeParameters loc
                       | _ -> failwith $"Unhandled Declaration: {decl}"
 
-                  | Babel.ImportDeclaration (specifiers, source) -> yield! com.TransformAsImports(ctx, specifiers, source)
+                  | Babel.ImportDeclaration (specifiers, source) ->
+                      yield! com.TransformAsImports(ctx, specifiers, source)
                   | Babel.PrivateModuleDeclaration (statement = statement) ->
                       yield!
                           com.TransformAsStatements(ctx, ReturnStrategy.Return, statement)

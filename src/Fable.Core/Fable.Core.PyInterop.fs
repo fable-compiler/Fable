@@ -56,10 +56,20 @@ let keyValueList (caseRule: CaseRules) (li: 'T seq): obj = pyNative
 let pyOptions<'T> (f: 'T->unit): 'T = pyNative
 
 /// Create an empty JS object: {}
-///let createEmpty<'T> : 'T = pyNative
+let createEmpty<'T> : 'T = pyNative
 
 /// Get the Py function constructor for class types
 let pyConstructor<'T> : obj = pyNative
+
+[<Emit("type($0)")>]
+let pyTypeof (x: obj): string = pyNative
+
+[<Emit("isinstance($0, $1)")>]
+let pyInstanceof (x: obj) (cons: obj): bool = pyNative
+
+/// Check if object is callable, i.e a function.
+[<Emit("callable($0)")>]
+let callable(x: obj) = pyNative
 
 /// Makes an expression the default export for the JS module.
 /// Used to interact with JS tools that require a default export.
@@ -107,11 +117,11 @@ let [<Emit("this")>] jsThis<'T> : 'T = pyNative
 let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = pyNative
 
 /// JS non-strict null checking
-let [<Emit("$0 == null")>] isNullOrUndefined (target: obj): bool = pyNative
+let [<Emit("$0 is None")>] isNullOrUndefined (target: obj): bool = pyNative
 
 /// Use it when importing a constructor from a JS library.
 type [<AllowNullLiteral>] JsConstructor =
-    [<Emit("new $0($1...)")>]
+    [<Emit("$0($1...)")>]
     abstract Create: [<ParamArray>]args: obj[] -> obj
 
 /// Use it when importing dynamic functions from JS. If you need a constructor, use `JsConstructor`.
