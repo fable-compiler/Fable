@@ -448,6 +448,16 @@ module Helpers =
     let makeRangeFrom (fsExpr: FSharpExpr) =
         Some (makeRange fsExpr.Range)
 
+    let isErasedTypeDef (com: Compiler) (tdef: FSharpEntity) =
+        com.Options.EraseTypes && tdef.IsFSharp
+        && (tdef.IsFSharpUnion || tdef.IsFSharpRecord || tdef.IsValueType || tdef.IsByRef)
+        && not (tdef.TryFullName = Some Types.reference) // no F# refs
+        && not (hasAttribute Atts.customEquality tdef.Attributes)
+        && not (hasAttribute Atts.customComparison tdef.Attributes)
+
+    let isErasedType (com: Compiler) (t: FSharpType) =
+        t.HasTypeDefinition && (isErasedTypeDef com t.TypeDefinition)
+
     let unionCaseTag (com: IFableCompiler) (ent: FSharpEntity) (unionCase: FSharpUnionCase) =
         try
             // If the order of cases changes in the declaration, the tag has to change too.
@@ -1179,6 +1189,12 @@ module Util =
                 else path
             makeImportUserGenerated None Fable.Any selector path |> Some
         | _ -> None
+
+    let isErasedEntity (com: Compiler) (ent: Fable.Entity) =
+        match ent with
+        | :? FsEnt as fsEnt ->
+            Helpers.isErasedTypeDef com fsEnt.FSharpEntity
+        | _ -> false
 
     let isErasedOrStringEnumEntity (ent: Fable.Entity) =
         ent.Attributes |> Seq.exists (fun att ->

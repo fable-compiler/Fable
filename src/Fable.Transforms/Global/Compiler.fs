@@ -6,6 +6,7 @@ module Literals =
 type CompilerOptionsHelper =
     static member DefaultExtension = ".fs.js"
     static member Make(?language,
+                       ?eraseTypes,
                        ?typedArrays,
                        ?define,
                        ?optimizeFSharpAst,
@@ -18,6 +19,7 @@ type CompilerOptionsHelper =
               member _.Define = define
               member _.DebugMode = isDebug
               member _.Language = defaultArg language JavaScript
+              member _.EraseTypes = defaultArg eraseTypes false
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal

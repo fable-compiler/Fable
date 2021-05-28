@@ -8,6 +8,7 @@ type CmdLineOptions = {
     sourceMaps: bool
     typedArrays: bool
     typescript: bool
+    eraseTypes: bool
     printAst: bool
     // watch: bool
 }

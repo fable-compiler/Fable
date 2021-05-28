@@ -17,6 +17,20 @@ export function seqToString<T>(self: Iterable<T>): string {
   return str + "]";
 }
 
+export function erasedTypeToString(offset: number, isUnion: boolean, fields: any[]) {
+  if (Array.isArray(fields) && offset > 0) {
+    const name = toString(fields[offset - 1]);
+    if (isUnion) {
+      const caseName = name.substring(name.lastIndexOf(".") + 1);
+      return unionToString(caseName, fields.slice(offset));
+    } else {
+      return name; // records and value types
+    }
+  } else {
+    return toString(fields);
+  }
+}
+
 export function toString(x: any, callStack = 0): string {
   if (x != null && typeof x === "object") {
     if (typeof x.toString === "function") {
