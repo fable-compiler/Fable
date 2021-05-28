@@ -553,7 +553,7 @@ module Publish =
             | Some x -> x
             | None -> failwithf "Cannot find %s in %s" ext dir
 
-    let pushNuget (projFile: string) props buildAction =
+    let pushNugetWithKey (projFile: string) props buildAction nugetKey =
         let checkPkgVersion = function
             | Regex NUGET_PACKAGE_VERSION [_;_;pkgVersion;_] -> Some pkgVersion
             | _ -> None
@@ -561,10 +561,6 @@ module Publish =
         if needsPublishing checkPkgVersion releaseVersion projFile then
             buildAction()
             let projDir = dirname projFile
-            let nugetKey =
-                match envVarOrNone "NUGET_KEY" with
-                | Some nugetKey -> nugetKey
-                | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
             // Restore dependencies here so they're updated to latest project versions
             runList ["dotnet restore"; projDir]
             // Update the project file
@@ -627,7 +623,34 @@ module Publish =
 let doNothing () = ()
 
 let pushNuget projFile props buildAction =
-    Publish.pushNuget projFile props buildAction
+    let nugetKey =
+        match envVarOrNone "NUGET_KEY" with
+        | Some nugetKey -> nugetKey
+        | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
+
+    Publish.pushNugetWithKey projFile props buildAction nugetKey
+
+let pushFableNuget projFile props buildAction =
+    let fableNugetKey =
+        match envVarOrNone "FABLE_NUGET_KEY" with
+        | Some nugetKey -> nugetKey
+        | None ->
+            match envVarOrNone "NUGET_KEY" with
+            | Some _nugetKey ->
+                failwith """
+    The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable
+
+    We recently created a Fable org on NuGet, if you are a member of this organisation you need to generate a new
+    nuget key specifing Fable as the owner of the key.
+
+    We are now using FABLE_NUGET_KEY for the Fable's key so you can keep hosting your personnal key inside NUGET_KEY.
+
+    More information can be found at: https://github.com/fable-compiler/Fable/issues/2455
+    """
+            | None ->
+                failwith "The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable"
+
+    Publish.pushNugetWithKey projFile props buildAction fableNugetKey
 
 let pushNpm projDir buildAction =
     Publish.pushNpm projDir buildAction

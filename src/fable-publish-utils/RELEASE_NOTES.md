@@ -1,3 +1,8 @@
+### 2.2.0
+
+* Add explicit `pushFableNuget` helper that uses FABLE_NUGET_KEY envVar @MangelMaxime
+
+
 ### 2.1.0
 
 * Publish symbols for Nuget packages @cartermp

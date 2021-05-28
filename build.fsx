@@ -504,7 +504,8 @@ let publishPackages restArgs =
         | None -> packages
     for (pkg, buildAction) in packages do
         if System.Char.IsUpper pkg.[0] then
-            pushNuget ("src" </> pkg </> pkg + ".fsproj") ["Pack", "true"] buildAction
+            let projFile = "src" </> pkg </> pkg + ".fsproj"
+            pushFableNuget projFile ["Pack", "true"] buildAction
         else
             pushNpm ("src" </> pkg) buildAction
 

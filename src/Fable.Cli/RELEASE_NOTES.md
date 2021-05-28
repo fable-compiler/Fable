@@ -1,3 +1,10 @@
+### 3.2.0
+
+* Update to net5.0 and FCS, @ncave
+* Fix Event issues and and implement FSharpEvent`2 @chkn
+* Fix #2451: throw exception when sequence is empty @MNie
+* Fix #2445: Improve error message when fable doesn't implement an API
+
 ### 3.1.16
 
 * Publish with icon and symbols @cartermp
