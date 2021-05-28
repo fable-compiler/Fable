@@ -617,7 +617,8 @@ module Util =
     let varDeclaration (var: Expression) (isMutable: bool) value =
         Statement.assign([var], value)
 
-    let restElement (var: Expression) =
+    let restElement (var: Fable.Ident) =
+        let var = Expression.name (ident var)
         Expression.starred(var)
 
     let callSuper (args: Expression list) =
@@ -724,12 +725,12 @@ module Util =
         let func = FunctionDef.Create(name = name, args = args, body = body)
         Expression.name (name), [ func ]
 
-    let makeFunctionExpression name (args, (body: Expression), returnType, typeParamDecl): Expression * Statement list=
+    let makeFunctionExpression name (args, (body: Expression)) : Expression * Statement list=
         let id = name |> Option.map Identifier
         let body = wrapExprInBlockWithReturn (body, [])
         let name = Helpers.getUniqueIdentifier "lifted"
         let func =
-            FunctionDef.Create(name = name, args = args, body = body)
+            FunctionDef.Create(name = name, args = Arguments.arguments args, body = body)
         //Expression.functionExpression(args, body, ?id=id, ?returnType=returnType, ?typeParameters=typeParamDecl)
         Expression.name (name), [ func ]
 
@@ -1729,72 +1730,61 @@ module Util =
 //             | _ -> None
 //         )
 
-//     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
-//         let tagId = makeTypedIdent (Fable.Number Int32) "tag"
-//         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
-//         [| tagId; fieldsId |]
+    let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
+        let tagId = makeTypedIdent (Fable.Number Int32) "tag"
+        let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
+        [| tagId; fieldsId |]
 
-//     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
-//         ent.FSharpFields
-//         |> Seq.map (fun field ->
-//             let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
-//             let typ = field.FieldType
-//             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
-//             id)
-//         |> Seq.toArray
+    let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
+        ent.FSharpFields
+        |> Seq.map (fun field ->
+            let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+            let typ = field.FieldType
+            let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
+            id)
+        |> Seq.toArray
 
-//     let getEntityFieldsAsProps (com: IPythonCompiler) ctx (ent: Fable.Entity) =
-//         if ent.IsFSharpUnion then
-//             getUnionFieldsAsIdents com ctx ent
-//             |> Array.map (fun id ->
-//                 let prop = identAsExpr id
-//                 let ta = typeAnnotation com ctx id.Type
-//                 ObjectTypeProperty.objectTypeProperty(prop, ta))
-//         else
-//             ent.FSharpFields
-//             |> Seq.map (fun field ->
-//                 let prop, computed = memberFromName field.Name
-//                 let ta = typeAnnotation com ctx field.FieldType
-//                 let isStatic = if field.IsStatic then Some true else None
-//                 ObjectTypeProperty.objectTypeProperty(prop, ta, computed_=computed, ?``static``=isStatic))
-//             |> Seq.toArray
+    let getEntityFieldsAsProps (com: IPythonCompiler) ctx (ent: Fable.Entity) =
+        if ent.IsFSharpUnion then
+            getUnionFieldsAsIdents com ctx ent
+            |> Array.map (fun id ->
+                let prop = identAsExpr id
+                //let ta = typeAnnotation com ctx id.Type
+                prop)
+        else
+            ent.FSharpFields
+            |> Seq.map (fun field ->
+                let prop, computed = memberFromName field.Name
+                //let ta = typeAnnotation com ctx field.FieldType
+                let isStatic = if field.IsStatic then Some true else None
+                prop)
+            |> Seq.toArray
 
-//     let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Pattern[]) (consBody: BlockStatement) (baseExpr: Expression option) classMembers =
-//         let typeParamDecl = makeEntityTypeParamDecl com ctx ent
-//         let implements =
-//             if com.Options.Language = TypeScript then
-//                 let implements = Util.getClassImplements com ctx ent |> Seq.toArray
-//                 if Array.isEmpty implements then None else Some implements
-//             else None
-//         let classCons = makeClassConstructor consArgs consBody
-//         let classFields =
-//             if com.Options.Language = TypeScript then
-//                 getEntityFieldsAsProps com ctx ent
-//                 |> Array.map (fun (ObjectTypeProperty(key, value, _, _, ``static``, _, _, _)) ->
-//                     let ta = value |> TypeAnnotation |> Some
-//                     ClassMember.classProperty(key, ``static``=``static``, ?typeAnnotation=ta))
-//             else Array.empty
-//         let classMembers = Array.append [| classCons |] classMembers
-//         let classBody = ClassBody.classBody([| yield! classFields; yield! classMembers |])
-//         let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr, ?typeParameters=typeParamDecl, ?implements=implements)
-//         classExpr |> declareModuleMember ent.IsPublic entName false
+    let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arg list) (consBody: Statement list) (baseExpr: Expression option) classMembers =
+        //let typeParamDecl = makeEntityTypeParamDecl com ctx ent
+        let classCons = makeClassConstructor consArgs consBody
+        let classFields = Array.empty
+        let classMembers = List.append [ classCons ] classMembers
+        let classBody = [ yield! classFields; yield! classMembers ]
+        let bases = baseExpr |> Option.toList
+        //let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr, ?typeParameters=typeParamDecl, ?implements=implements)
+        let name =  Helpers.getUniqueIdentifier "Lifted"
+        let classStmt = Statement.classDef(name, body = classBody, bases = bases)
+        let expr = Expression.name(name)
+        expr |> declareModuleMember ent.IsPublic entName false
 
-    // let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arg list) (consBody: Statement list) baseExpr classMembers: Module list =
-    //     let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
-    //     let reflectionDeclaration =
-    //         let ta =
-    //             if com.Options.Language = TypeScript then
-    //                 makeImportTypeAnnotation com ctx [] "Reflection" "TypeInfo"
-    //                 |> TypeAnnotation |> Some
-    //             else None
-    //         let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
-    //         let generics = genArgs |> Array.map identAsExpr
-    //         let body = transformReflectionInfo com ctx None ent generics
-    //         let args = genArgs |> Array.map (fun x -> Pattern.identifier(x.Name, ?typeAnnotation=ta))
-    //         let returnType = ta
-    //         makeFunctionExpression None (args, body, returnType, None)
-    //         |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
-    //     [typeDeclaration; reflectionDeclaration]
+    let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arg list) (consBody: Statement list) baseExpr classMembers : Statement list =
+        let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
+        let reflectionDeclaration, stmts =
+            let ta = None
+            let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
+            let generics = genArgs |> Array.mapToList identAsExpr
+            let body, stmts = transformReflectionInfo com ctx None ent generics
+            let args = genArgs |> Array.mapToList (ident >> Arg.arg)
+            let returnType = ta
+            let expr, stmts' = makeFunctionExpression None (args, body)
+            expr |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false, stmts @ stmts'
+        stmts @ [typeDeclaration; reflectionDeclaration]
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
         let args, body =
@@ -1821,120 +1811,113 @@ module Util =
         //else
         statements
 
-    // let transformAttachedProperty (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
-    //     let isStatic = not memb.Info.IsInstance
-    //     let kind = if memb.Info.IsGetter then ClassGetter else ClassSetter
-    //     let args, body, _returnType, _typeParamDecl =
-    //         getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
-    //     let key, computed = memberFromName memb.Name
-    //     ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
-    //     |> Array.singleton
+    let transformAttachedProperty (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
+        let isStatic = not memb.Info.IsInstance
+        //let kind = if memb.Info.IsGetter then ClassGetter else ClassSetter
+        let args, body =
+            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+        let key, computed = memberFromName memb.Name
+        let arguments = Arguments.arguments args
+        FunctionDef.Create(Identifier memb.Name, arguments, body = body)
+        |> List.singleton
+        //ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
 
-    // let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
-    //     let isStatic = not memb.Info.IsInstance
-    //     let makeMethod name args body =
-    //         let key, computed = memberFromName name
-    //         ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
-    //     let args, body, _returnType, _typeParamDecl =
-    //         getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
-    //     [|
-    //         yield makeMethod memb.Name args body
-    //         if memb.Info.IsEnumerator then
-    //             yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
-    //     |]
+    let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
+        let isStatic = not memb.Info.IsInstance
+        let makeMethod name args body =
+            let key, computed = memberFromName name
+            //ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
+            FunctionDef.Create(Identifier name, args, body = body)
+        let args, body =
+            getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
+        let arguments = Arguments.arguments args
+        [
+            yield makeMethod memb.Name arguments body
+            if memb.Info.IsEnumerator then
+                yield makeMethod "Symbol.iterator" (Arguments.arguments []) (enumerator2iterator com ctx)
+        ]
 
-    // let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-    //     let fieldIds = getUnionFieldsAsIdents com ctx ent
-    //     let args =
-    //         [ fieldIds.[0]
-    //           fieldIds.[1] |> restElement ]
-    //     let body =
-    //         [
-    //             yield callSuperAsStatement []
-    //             yield! fieldIds |> Array.map (fun id ->
-    //                 let left = get None thisExpr id.Name
-    //                 let right =
-    //                     match id.Type with
-    //                     | Fable.Number _ ->
-    //                         Expression.binOp(identAsExpr id, BinaryOrBitwise, Expression.constant(0.))
-    //                     | _ -> identAsExpr id
-    //                 assign None left right |> Statement.expr)
-    //         ]
-    //     let cases =
-    //         let body =
-    //             ent.UnionCases
-    //             |> Seq.map (getUnionCaseName >> makeStrConst)
-    //             |> Seq.toList
-    //             |> makeArray com ctx
-    //             |> Statement.return'
-    //             |> List.singleton
-    //         let name = Identifier("cases")
-    //         FunctionDef.Create(name, Arguments.arguments [], body = body)
+    let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+        let fieldIds = getUnionFieldsAsIdents com ctx ent
+        let args =
+            [ fieldIds.[0] |> ident |> Arg.arg
+              fieldIds.[1] |> ident |> Arg.arg ] //restElement ]
+        let body =
+            [
+                yield callSuperAsStatement []
+                yield! fieldIds |> Array.map (fun id ->
+                    let left = get None thisExpr id.Name
+                    let right =
+                        match id.Type with
+                        | Fable.Number _ ->
+                            Expression.binOp(identAsExpr id, BinaryOrBitwise, Expression.constant(0.))
+                        | _ -> identAsExpr id
+                    assign None left right |> Statement.expr)
+            ]
+        let cases =
+            let expr, stmts =
+                ent.UnionCases
+                |> Seq.map (getUnionCaseName >> makeStrConst)
+                |> Seq.toList
+                |> makeArray com ctx
 
-    //     let baseExpr = libValue com ctx "Types" "Union" |> Some
-    //     let classMembers = Array.append [|cases|] classMembers
-    //     declareType com ctx ent entName args body baseExpr classMembers
+            let body = stmts @ [ Statement.return'(expr) ]
+            let name = Identifier("cases")
+            FunctionDef.Create(name, Arguments.arguments [], body = body)
 
-    // let transformClassWithCompilerGeneratedConstructor (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-    //     let fieldIds = getEntityFieldsAsIdents com ent
-    //     let args = fieldIds |> Array.map identAsExpr
-    //     let baseExpr =
-    //         if ent.IsFSharpExceptionDeclaration
-    //         then libValue com ctx "Types" "FSharpException" |> Some
-    //         elif ent.IsFSharpRecord || ent.IsValueType
-    //         then libValue com ctx "Types" "Record" |> Some
-    //         else None
-    //     let body = [
-    //             if Option.isSome baseExpr then
-    //                 yield callSuperAsStatement []
-    //             yield! ent.FSharpFields |> Seq.mapi (fun i field ->
-    //                 let left = get None thisExpr field.Name
-    //                 let right = wrapIntExpression field.FieldType args.[i]
-    //                 assign None left right |> Statement.expr)
-    //             |> Seq.toArray
-    //         ]
-    //     let typedPattern x = typedIdent com ctx x
-    //     let args = fieldIds |> Array.map (typedPattern >> Pattern.Identifier)
-    //     declareType com ctx ent entName args body baseExpr classMembers
+        let baseExpr = libValue com ctx "Types" "Union" |> Some
+        let classMembers = List.append [ cases ] classMembers
+        declareType com ctx ent entName args body baseExpr classMembers
 
-    // let transformClassWithImplicitConstructor (com: IPythonCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
-    //     let classEnt = com.GetEntity(classDecl.Entity)
-    //     let classIdent = Expression.identifier(classDecl.Name)
-    //     let consArgs, consBody, returnType, typeParamDecl =
-    //         getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
+    let transformClassWithCompilerGeneratedConstructor (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+        let fieldIds = getEntityFieldsAsIdents com ent
+        let args = fieldIds |> Array.map identAsExpr
+        let baseExpr =
+            if ent.IsFSharpExceptionDeclaration
+            then libValue com ctx "Types" "FSharpException" |> Some
+            elif ent.IsFSharpRecord || ent.IsValueType
+            then libValue com ctx "Types" "Record" |> Some
+            else None
+        let body = [
+                if Option.isSome baseExpr then
+                    yield callSuperAsStatement []
+                yield! ent.FSharpFields |> Seq.mapi (fun i field ->
+                    let left = get None thisExpr field.Name
+                    let right = wrapIntExpression field.FieldType args.[i]
+                    assign None left right |> Statement.expr)
+                |> Seq.toArray
+            ]
+        let args = fieldIds |> Array.mapToList (ident >> Arg.arg)
+        declareType com ctx ent entName args body baseExpr classMembers
 
-    //     let returnType, typeParamDecl =
-    //         // change constructor's return type from void to entity type
-    //         if com.Options.Language = TypeScript then
-    //             let genParams = getEntityGenParams classEnt
-    //             let returnType = getGenericTypeAnnotation com ctx classDecl.Name genParams
-    //             let typeParamDecl = makeTypeParamDecl genParams |> mergeTypeParamDecls typeParamDecl
-    //             returnType, typeParamDecl
-    //         else
-    //             returnType, typeParamDecl
+    let transformClassWithImplicitConstructor (com: IPythonCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
+        let classEnt = com.GetEntity(classDecl.Entity)
+        let classIdent = Expression.identifier(classDecl.Name)
+        let consArgs, consBody =
+            getMemberArgsAndBody com ctx ClassConstructor cons.Info.HasSpread cons.Args cons.Body
 
-    //     let exposedCons =
-    //         let argExprs = consArgs |> Array.map (fun p -> Expression.identifier(p.Name))
-    //         let exposedConsBody = Expression.newExpression(classIdent, argExprs)
-    //         makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
+        let exposedCons, stmts =
+            let argExprs = consArgs |> List.map (fun p -> Expression.identifier(p.Arg))
+            let exposedConsBody = Expression.call(classIdent, argExprs)
+            makeFunctionExpression None (consArgs, exposedConsBody)
 
-    //     let baseExpr, consBody =
-    //         classDecl.BaseCall
-    //         |> extractBaseExprFromBaseCall com ctx classEnt.BaseType
-    //         |> Option.orElseWith (fun () ->
-    //             if classEnt.IsValueType then Some(libValue com ctx "Types" "Record", [])
-    //             else None)
-    //         |> Option.map (fun (baseExpr, baseArgs) ->
-    //             let consBody =
-    //                 consBody.Body
-    //                 |> List.append [ callSuperAsStatement baseArgs ]
-    //             Some baseExpr, consBody)
-    //         |> Option.defaultValue (None, consBody)
+        let baseExpr, consBody =
+            classDecl.BaseCall
+            |> extractBaseExprFromBaseCall com ctx classEnt.BaseType
+            |> Option.orElseWith (fun () ->
+                if classEnt.IsValueType then Some(libValue com ctx "Types" "Record", ([], []))
+                else None)
+            |> Option.map (fun (baseExpr, (baseArgs, stmts)) ->
+                let consBody =
+                    stmts @ consBody
+                    |> List.append [ callSuperAsStatement baseArgs ]
+                Some baseExpr, consBody)
+            |> Option.defaultValue (None, consBody)
 
-    //     [
-    //         yield! declareType com ctx classEnt classDecl.Name consArgs consBody baseExpr classMembers
-    //         yield declareModuleMember cons.Info.IsPublic cons.Name false exposedCons
-    //     ]
+        [
+            yield! declareType com ctx classEnt classDecl.Name consArgs consBody baseExpr classMembers
+            yield declareModuleMember cons.Info.IsPublic cons.Name false exposedCons
+        ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
@@ -1961,70 +1944,41 @@ module Util =
                     decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
                 else decls
 
-    //     | Fable.ClassDeclaration decl ->
-    //         let ent = decl.Entity
+        | Fable.ClassDeclaration decl ->
+            let ent = decl.Entity
 
-    //         let classMembers =
-    //             decl.AttachedMembers
-    //             |> List.toArray
-    //             |> Array.collect (fun memb ->
-    //                 withCurrentScope ctx memb.UsedNames <| fun ctx ->
-    //                     if memb.Info.IsGetter || memb.Info.IsSetter then
-    //                         transformAttachedProperty com ctx memb
-    //                     else
-    //                         transformAttachedMethod com ctx memb)
+            let classMembers =
+                decl.AttachedMembers
+                |> List.collect (fun memb ->
+                    withCurrentScope ctx memb.UsedNames <| fun ctx ->
+                        if memb.Info.IsGetter || memb.Info.IsSetter then
+                            transformAttachedProperty com ctx memb
+                        else
+                            transformAttachedMethod com ctx memb)
 
-    //         match decl.Constructor with
-    //         | Some cons ->
-    //             withCurrentScope ctx cons.UsedNames <| fun ctx ->
-    //                 transformClassWithImplicitConstructor com ctx decl classMembers cons
-    //         | None ->
-    //             let ent = com.GetEntity(ent)
-    //             if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
-    //             else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
-            | _ -> failwith $"Declaration {decl} not implemented"
+            match decl.Constructor with
+            | Some cons ->
+                withCurrentScope ctx cons.UsedNames <| fun ctx ->
+                    transformClassWithImplicitConstructor com ctx decl classMembers cons
+            | None ->
+                let ent = com.GetEntity(ent)
+                if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
+                else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-    // let transformImports (imports: Import seq): Module list =
-    //     let statefulImports = ResizeArray()
-    //     imports |> Seq.map (fun import ->
-    //         let specifier =
-    //             import.LocalIdent
-    //             |> Option.map (fun localId ->
-    //                 let localId = Identifier.identifier(localId)
-    //                 match import.Selector with
-    //                 | "*" -> ImportNamespaceSpecifier(localId)
-    //                 | "default" | "" -> ImportDefaultSpecifier(localId)
-    //                 | memb -> ImportMemberSpecifier(localId, Identifier.identifier(memb)))
-    //         import.Path, specifier)
-    //     |> Seq.groupBy fst
-    //     |> Seq.collect (fun (path, specifiers) ->
-    //         let mems, defs, alls =
-    //             (([], [], []), Seq.choose snd specifiers)
-    //             ||> Seq.fold (fun (mems, defs, alls) x ->
-    //                 match x with
-    //                 | ImportNamespaceSpecifier(_) -> mems, defs, x::alls
-    //                 | ImportDefaultSpecifier(_) -> mems, x::defs, alls
-    //                 | _ -> x::mems, defs, alls)
-    //         // We used to have trouble when mixing member, default and namespace imports,
-    //         // issue an import statement for each kind just in case
-    //         [mems; defs; alls] |> List.choose (function
-    //             | [] -> None
-    //             | specifiers ->
-    //                 ImportDeclaration(List.toArray specifiers, StringLiteral.stringLiteral(path))
-    //                 |> Some)
-    //         |> function
-    //             | [] ->
-    //                 // If there are no specifiers, this is just an import for side effects,
-    //                 // put it after the other ones to match standard JS practices, see #2228
-    //                 ImportDeclaration([||], StringLiteral.stringLiteral(path))
-    //                 |> statefulImports.Add
-    //                 []
-    //             | decls -> decls
-    //         )
-    //     |> fun staticImports -> [
-    //         yield! staticImports
-    //         yield! statefulImports
-    //     ]
+        | _ -> failwith $"Declaration {decl} not implemented"
+
+    let transformImports (imports: Import seq) : Statement list =
+        let statefulImports = ResizeArray()
+        printfn "Imports: %A" imports
+
+        [
+            for import in imports do
+                match import with
+                | { Selector = selector; LocalIdent = local; Path = path } ->
+                    let path = path |> Helpers.rewriteFableImport
+                    let alias = Alias.alias(Identifier(selector), ?asname=None)
+                    Statement.importFrom (Some(Identifier(path)), [ alias ])
+        ]
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then None
@@ -2040,7 +1994,7 @@ module Compiler =
 
     type BabelCompiler (com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
-        let imports = Dictionary<string,Import>()
+        let imports = Dictionary<string,  Import>()
 
         interface IPythonCompiler with
             member _.WarnOnlyOnce(msg, ?range) =
@@ -2068,6 +2022,7 @@ module Compiler =
                     match localId with
                     | Some localId -> Expression.identifier(localId)
                     | None -> Expression.none()
+
             member _.GetAllImports() = imports.Values :> _
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
@@ -2112,6 +2067,6 @@ module Compiler =
             ScopedTypeParams = Set.empty }
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
-        let importDecls = [] //com.GetAllImports() |> transformImports
+        let importDecls = com.GetAllImports() |> transformImports
         let body = importDecls @ rootDecls
         Module.module' (body)
