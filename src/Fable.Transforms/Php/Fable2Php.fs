@@ -449,6 +449,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // this is a value (number / record instanciation ...)
         convertValue com value
 
+
     | Fable.Operation(Fable.Binary(op, left,right), t, _) ->
         // the result of a binary operation
         let opstr =
@@ -475,7 +476,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             | BinaryOperator.BinaryExponent -> "**"
             | BinaryOperator.BinaryShiftLeft -> "<<"
             | BinaryOperator.BinaryShiftRightSignPropagating -> ">>"
-            | BinaryOperator.BinaryShiftRightZeroFill -> failwithf "BinaryShiftRightZeroFill not supported"
+            | BinaryOperator.BinaryShiftRightZeroFill -> ">>>"
             | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
             | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
         PhpBinaryOp(opstr, convertExpr com left, convertExpr com right)
@@ -737,7 +738,8 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // an array with string keys.
         PhpArray [
             for m in members do
-                PhpArrayString m.Name , convertExpr com m.Body
+                PhpArrayString m.Name,
+                    convertFunction com m.Body m.Args
         ]
     | Fable.Expr.Lambda(arg,body,_) ->
         // lambda is transpiled as a function
@@ -901,9 +903,12 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) =
                     PhpArrayString fields.[i], convertExpr com values.[i] ]
     
 
-    | Fable.BaseValue(_,_) ->
-        failwith "BaseValue Not implemented"
-
+    | Fable.BaseValue(ident,_) ->
+        match ident with
+        | None -> PhpParent
+        | Some ident -> convertExpr com (Fable.IdentExpr(ident))
+    | Fable.NewArrayFrom(size,_) ->
+        PhpArray([])
 
 
 and canBeCompiledAsSwitch evalExpr tree =
@@ -1103,7 +1108,6 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
 let convertDecl (com: IPhpCompiler)  decl =
     match decl with
     | Fable.Declaration.ClassDeclaration decl -> 
-        //let ent = decl.Entity
         let ent = com.GetEntity(decl.Entity)
         if ent.IsFSharpUnion then
             let parts = ent.FullName.Split('.')
@@ -1123,17 +1127,23 @@ let convertDecl (com: IPhpCompiler)  decl =
             com.AddEntityName(ent, name)
             convertRecord com ent
         else
-            [PhpType {
-                Namespace = Some com.PhpNamespace
-                Name = decl.Name
-                Fields = []
-                Methods = []
-                Abstract = false
-                BaseType = None
-                Interfaces = []
-                File = com.CurrentFile
-                OriginalFullName = ent.FullName
-             }]
+            let name = decl.Name
+            com.AddEntityName(ent, name)
+            let typ = 
+                {
+                    Namespace = Some com.PhpNamespace
+                    Name = name
+                    Fields = [ for field in ent.FSharpFields do
+                                { Name = field.Name; Type = "" } ]
+                    Methods = []
+                    Abstract = false
+                    BaseType = None
+                    Interfaces = []
+                    File = com.CurrentFile
+                    OriginalFullName = ent.FullName
+                 }
+            com.AddType(Some ent.Ref, typ)
+            [PhpType typ]
     | Fable.Declaration.MemberDeclaration decl ->
         com.AddImport(decl.Name, decl.Info.IsValue)
         if decl.Info.IsValue then
@@ -1189,22 +1199,6 @@ let convertDecl (com: IPhpCompiler)  decl =
         [ PhpAction( convertExprToStatement com decl.Body Do ) ]
 
             
-    //| Fable.Declaration.ConstructorDeclaration(Fable.UnionConstructor(info),_) -> 
-    //    convertUnion ctx info
-    //| Fable.Declaration.ConstructorDeclaration(Fable.CompilerGeneratedConstructor(info),_) -> 
-    //    convertRecord ctx info
-    //| Fable.Declaration.ValueDeclaration(Fable.Function(Fable.FunctionKind.Delegate(args), body, Some name),decl) ->
-    //   [{ PhpFun.Name = fixName name
-    //      Args = [ for arg in args do 
-    //                fixName arg.Name ]
-    //      Matchings = []
-    //      Body = convertExprToStatement ctx body Return 
-    //      Static = false } |> PhpFun ]
-    //| Fable.Declaration.ValueDeclaration(expr , decl) ->
-    //    [ PhpDeclValue(fixName decl.Name, convertExpr ctx expr) ]
-    //| _ -> [] 
-
-
 type Scope =
     { mutable capturedVars: Capture Set
       mutable localVars: string Set
@@ -1413,7 +1407,7 @@ let transformFile com (file: Fable.File) =
     let phpComp = PhpCompiler(com) :> IPhpCompiler
     phpComp.ClearRequire(__SOURCE_DIRECTORY__ + @"/src/")
     
-    let rootModule = com.GetRootModule(phpComp.CurrentFile)
+    let rootModule = com.GetRootModule(phpComp.CurrentFile).Replace(".",@"\")
     phpComp.SetPhpNamespace(rootModule)
     let decls = 
         [

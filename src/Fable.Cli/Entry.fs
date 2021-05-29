@@ -92,7 +92,7 @@ let defaultFileExt language args =
         | None -> CompilerOptionsHelper.DefaultExtension
     match language with
     | TypeScript -> Path.replaceExtension ".ts" fileExt
-    | Php -> Path.replaceExtension ".php" fileExt
+    | Php -> ".php"
     | _ -> fileExt
 
 let argLanguage args =
