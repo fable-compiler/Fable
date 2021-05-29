@@ -150,6 +150,8 @@ module PrinterExtensions =
             printer.Print(kw.Value)
 
         member printer.Print(arguments: Arguments) =
+            printer.PrintCommaSeparatedList(arguments.PosOnlyArgs)
+
             let args = arguments.Args |> List.map AST.Arg
             let defaults = arguments.Defaults
             for i = 0 to args.Length - 1 do

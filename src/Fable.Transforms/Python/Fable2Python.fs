@@ -1797,7 +1797,7 @@ module Util =
         |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
         |> function
         | true ->  [ stmt; declareEntryPoint com ctx expr ]
-        | false -> [ declareModuleMember info.IsPublic membName false expr ]
+        | false -> [ stmt; declareModuleMember info.IsPublic membName false expr ]
 
     let transformAction (com: IPythonCompiler) ctx expr =
         let statements = transformAsStatements com ctx None expr
@@ -1965,7 +1965,7 @@ module Util =
                 if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
                 else transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-        | _ -> failwith $"Declaration {decl} not implemented"
+        //| _ -> failwith $"Declaration {decl} not implemented"
 
     let transformImports (imports: Import seq) : Statement list =
         let statefulImports = ResizeArray()
