@@ -192,11 +192,9 @@ module private Util =
                     do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
 
             | Php ->
-                logger("Generating Php")
                 let php = fable |> Fable2Php.transformFile com
-
-
-                use w = new IO.StreamWriter(com.CurrentFile + ".php")
+                
+                use w = new IO.StreamWriter(outPath)
                 let ctx = PhpPrinter.Output.Writer.create w
                 PhpPrinter.Output.writeFile ctx php
                 w.Flush()

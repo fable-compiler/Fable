@@ -41,6 +41,7 @@ and PhpExpr =
     | PhpIsA of expr: PhpExpr * PhpTypeRef
     | PhpAnonymousFunc of args: string list * uses: Capture list * body: PhpStatement list
     | PhpMacro of macro: string * args: PhpExpr list
+    | PhpParent
    
 and PhpStatement =
     | Return of PhpExpr

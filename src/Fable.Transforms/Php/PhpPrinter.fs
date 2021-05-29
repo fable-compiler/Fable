@@ -67,7 +67,7 @@ module Output =
             function
             | "*" | "/" | "%"         -> 3
             | "+" | "-" | "."         -> 4
-            | "<<" | ">>"             -> 5
+            | "<<" | ">>" |  ">>>"    -> 5
             | "<" | "<=" | ">=" | ">" -> 7
             | "==" | "!=" | "===" 
             | "!==" | "<>" | "<=>"    -> 7
@@ -219,8 +219,11 @@ module Output =
             writeArgs ctx args
             write ctx ")"
         | PhpMethod(this,f,args) ->
-            writeExpr ctx this
-            write ctx "->"
+            match this with
+            | PhpParent -> write ctx "parent::"
+            | _ ->
+                writeExpr ctx this
+                write ctx "->"
             match f with
             | PhpConst(PhpConstString f) -> write ctx f
             | _ -> writeExpr ctx f
@@ -274,21 +277,24 @@ module Output =
                 let n = int m.Groups.["n"].Value
                 write ctx (macro.Substring(pos,m.Index-pos))
                 if m.Groups.["s"].Success then
-                    match args.[n] with
-                    | PhpArray items ->
-                       let mutable first = true
-                       for _,value in items do
-                           if first then
-                               first <- false
-                           else
-                               write ctx ", "
-                           writeExpr ctx value 
+                    if n < args.Length then
+                        match args.[n] with
+                        | PhpArray items ->
+                           let mutable first = true
+                           for _,value in items do
+                               if first then
+                                   first <- false
+                               else
+                                   write ctx ", "
+                               writeExpr ctx value 
 
 
-                    | _ -> failwith "Splice param should be a array"
+                        | _ -> 
+                            writeExpr ctx args.[n]
 
-                else
+                elif n < args.Length then
                     writeExpr ctx args.[n]
+
                 pos <- m.Index + m.Length
             write ctx (macro.Substring(pos))
 
