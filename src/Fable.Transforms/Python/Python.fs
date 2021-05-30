@@ -925,10 +925,10 @@ module PythonExtensions =
                   | UnaryPlus -> UAdd
                   | UnaryNot -> Not
                   | UnaryNotBitwise -> Invert
-                  | _ -> failwith $"Operator {op} not supported"
                   // | UnaryTypeof -> "typeof"
-                  // | UnaryVoid -> "void"
+                  //| UnaryVoid ->
                   // | UnaryDelete -> "delete"
+                  | _ -> failwith $"Operator {op} not supported"
 
             Expression.unaryOp(op, operand, ?loc=loc)
 
@@ -1030,6 +1030,9 @@ module PythonExtensions =
               Arg = arg
               Annotation = annotation
               TypeComment = typeComment }
+
+        static member arg(arg, ?annotation, ?typeComment) =
+          Arg.arg(Identifier(arg), ?annotation=annotation, ?typeComment=typeComment)
 
     type Keyword with
 
