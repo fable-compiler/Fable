@@ -489,7 +489,7 @@ module Util =
         | None -> failwithf "Cannot find DecisionTree target %i" targetIndex
         | Some(idents, target) -> idents, target
 
-    let rec isJsStatement ctx preferStatement (expr: Fable.Expr) =
+    let rec isPyStatement ctx preferStatement (expr: Fable.Expr) =
         match expr with
         | Fable.Value _ | Fable.Import _  | Fable.IdentExpr _
         | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _
@@ -506,16 +506,16 @@ module Util =
 
         | Fable.DecisionTreeSuccess(targetIndex,_, _) ->
             getDecisionTarget ctx targetIndex
-            |> snd |> isJsStatement ctx preferStatement
+            |> snd |> isPyStatement ctx preferStatement
 
         // Make it also statement if we have more than, say, 3 targets?
         // That would increase the chances to convert it into a switch
         | Fable.DecisionTree(_,targets) ->
             preferStatement
-            || List.exists (snd >> (isJsStatement ctx false)) targets
+            || List.exists (snd >> (isPyStatement ctx false)) targets
 
         | Fable.IfThenElse(_,thenExpr,elseExpr,_) ->
-            preferStatement || isJsStatement ctx false thenExpr || isJsStatement ctx false elseExpr
+            preferStatement || isPyStatement ctx false thenExpr || isPyStatement ctx false elseExpr
 
 
     let addErrorAndReturnNull (com: Compiler) (range: SourceLocation option) (error: string) =
@@ -544,7 +544,6 @@ module Util =
         match memberName with
         | "ToString" -> Expression.identifier("toString"), []
         | n when n.StartsWith("Symbol.iterator") ->
-            //Expression.memberExpression(Expression.identifier("Symbol"), Expression.identifier(n.[7..]), false), true
             let name = Identifier "__iter__"
             Expression.name(name), []
         | n when Naming.hasIdentForbiddenChars n -> Expression.constant(n), []
@@ -556,17 +555,16 @@ module Util =
         Expression.attribute (value = left, attr = expr, ctx = Load)
 
     let getExpr r (object: Expression) (expr: Expression) =
-        let attr, stmts =
-            match expr with
-            | Expression.Constant(value=value) ->
-                match value with
-                | :? string as str -> memberFromName str
-                | _ -> failwith "Need to be string"
-            | e -> e, []
-        let func = Expression.name("getattr")
-        Expression.call(func=func, args=[object; attr]), stmts
-        //Expression.attribute (value = object, attr = expr, ctx = Load), stmts
-        //Expression.memberExpression(object, expr, computed, ?loc=r)
+        match expr with
+        | Expression.Constant(value=value) ->
+            match value with
+            | :? string as str -> memberFromName str
+            | _ -> failwith "Need to be string"
+        | Expression.Name({Id=id}) ->
+            Expression.attribute (value = object, attr = id, ctx = Load), []
+        | e ->
+                let func = Expression.name("getattr")
+                Expression.call(func=func, args=[object; e]), []
 
     let rec getParts (parts: string list) (expr: Expression) =
         match parts with
@@ -675,7 +673,7 @@ module Util =
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
                     if FableTransforms.isIdentUsed thisArg.Name body then
-                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "this" }
+                        let thisKeyword = Fable.IdentExpr { thisArg with Name = "self" }
                         Fable.Let(thisArg, thisKeyword, body)
                     else body
                 None, genTypeParams, args, body
@@ -991,13 +989,14 @@ module Util =
                 rest @ [ Expression.starred(expr) ], stmts @ stmts'
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
 
-    let resolveExpr t strategy babelExpr: Statement =
+    let resolveExpr t strategy pyExpr: Statement =
+        printfn "resolveExpr: %A" pyExpr
         match strategy with
-        | None | Some ReturnUnit -> Statement.expr(babelExpr)
+        | None | Some ReturnUnit -> Statement.expr(pyExpr)
         // TODO: Where to put these int wrappings? Add them also for function arguments?
-        | Some Return ->  Statement.return'(wrapIntExpression t babelExpr)
-        | Some(Assign left) -> Statement.expr(assign None left babelExpr)
-        | Some(Target left) -> Statement.expr(assign None (left |> Expression.identifier) babelExpr)
+        | Some Return ->  Statement.return'(wrapIntExpression t pyExpr)
+        | Some(Assign left) -> Statement.expr(assign None left pyExpr)
+        | Some(Target left) -> Statement.expr(assign None (left |> Expression.identifier) pyExpr)
 
     let transformOperation com ctx range opKind: Expression * Statement list =
         match opKind with
@@ -1150,6 +1149,7 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr (value: Fable.Expr) kind =
+        printfn "transformSet"
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let value', stmts' = com.TransformAsExpr(ctx, value)
         let value = value' |> wrapIntExpression value.Type
@@ -1160,6 +1160,7 @@ module Util =
             | Some(Fable.ExprKey(TransformExpr com ctx (e, stmts''))) ->
                 let expr, stmts''' = getExpr None expr e
                 expr, stmts @ stmts' @ stmts'' @ stmts'''
+        printfn "transformset, assign: %A" (range, ret, value, stmts)
         assign range ret value, stmts
 
     let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
@@ -1176,20 +1177,23 @@ module Util =
                 expr |> wrapIntExpression value.Type, stmts
 
     let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        printfn "transformBindingAsExpr: %A" (var, value)
         let expr, stmts = transformBindingExprBody com ctx var value
         expr |> assign None (identAsExpr var), stmts
 
     let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        if isJsStatement ctx false value then
+        if isPyStatement ctx false value then
+            printfn "Py statement"
             let varName, varExpr = Expression.name(var.Name), identAsExpr var
             let decl = Statement.assign([varName], varExpr)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             List.append [ decl ] body
         else
+            printfn "Not Py statement"
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = Expression.name(var.Name)
             let decl = varDeclaration varName var.IsMutable value
-            [ decl ]
+            stmts @ [ decl ]
 
     let transformTest (com: IPythonCompiler) ctx range kind expr: Expression * Statement list =
         match kind with
@@ -1489,6 +1493,7 @@ module Util =
             transformDecisionTreeSuccessAsExpr com ctx idx boundValues
 
         | Fable.Set(expr, kind, value, range) ->
+            printfn "A"
             transformSet com ctx range expr value kind
 
         | Fable.Let(ident, value, body) ->
@@ -1588,18 +1593,23 @@ module Util =
             List.append bindings (transformAsStatements com ctx returnStrategy body)
 
         | Fable.Set(expr, kind, value, range) ->
+            printfn "B: %A" (kind, value, range)
+
             let expr', stmts = transformSet com ctx range expr value kind
-            stmts @ [ expr' |> resolveExpr expr.Type returnStrategy ]
+            match expr' with
+            | Expression.NamedExpr({ Target = target; Value = value; Loc=loc }) ->
+                stmts @ [ Statement.assign([target], value) ]
+            | _ -> stmts @ [ expr' |> resolveExpr expr.Type returnStrategy ]
 
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
             let asStatement =
                 match returnStrategy with
                 | None | Some ReturnUnit -> true
                 | Some(Target _) -> true // Compile as statement so values can be bound
-                | Some(Assign _) -> (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
+                | Some(Assign _) -> (isPyStatement ctx false thenExpr) || (isPyStatement ctx false elseExpr)
                 | Some Return ->
                     Option.isSome ctx.TailCallOpportunity
-                    || (isJsStatement ctx false thenExpr) || (isJsStatement ctx false elseExpr)
+                    || (isPyStatement ctx false thenExpr) || (isPyStatement ctx false elseExpr)
             if asStatement then
                 transformIfStatement com ctx r returnStrategy guardExpr thenExpr elseExpr
             else
@@ -1660,7 +1670,7 @@ module Util =
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
-            elif isJsStatement ctx (Option.isSome tailcallChance) body then
+            elif isPyStatement ctx (Option.isSome tailcallChance) body then
                 transformBlock com ctx (Some Return) body
             else
                 transformAsExpr com ctx body |> wrapExprInBlockWithReturn
@@ -1776,7 +1786,7 @@ module Util =
         let classMembers = List.append [ classCons ] classMembers
         let classBody =
             let body = [ yield! classFields; yield! classMembers ]
-            printfn "Body: %A" body
+            //printfn "Body: %A" body
             match body with
             | [] -> [ Pass ]
             | _ -> body
@@ -1830,7 +1840,8 @@ module Util =
         let args, body =
             getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key, computed = memberFromName memb.Name
-        let arguments = Arguments.arguments args
+        let self = Arg.arg("self")
+        let arguments = Arguments.arguments (self::args)
         FunctionDef.Create(Identifier memb.Name, arguments, body = body)
         |> List.singleton
         //ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
@@ -1843,7 +1854,8 @@ module Util =
             FunctionDef.Create(Identifier name, args, body = body)
         let args, body =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
-        let arguments = Arguments.arguments args
+        let self = Arg.arg("self")
+        let arguments = Arguments.arguments (self::args)
         [
             yield makeMethod memb.Name arguments body
             if memb.Info.IsEnumerator then
@@ -1865,7 +1877,9 @@ module Util =
                         | Fable.Number _ ->
                             Expression.binOp(identAsExpr id, BinaryOrBitwise, Expression.constant(0.))
                         | _ -> identAsExpr id
-                    assign None left right |> Statement.expr)
+
+                    Statement.assign([left], right))
+                    //assign None left right |> Statement.expr)
             ]
         let cases =
             let expr, stmts =
@@ -1876,7 +1890,8 @@ module Util =
 
             let body = stmts @ [ Statement.return'(expr) ]
             let name = Identifier("cases")
-            FunctionDef.Create(name, Arguments.arguments [], body = body)
+            let self = Arg.arg("self")
+            FunctionDef.Create(name, Arguments.arguments [ self ], body = body)
 
         let baseExpr = libValue com ctx "Types" "Union" |> Some
         let classMembers = List.append [ cases ] classMembers
@@ -1897,6 +1912,7 @@ module Util =
                 yield! ent.FSharpFields |> Seq.mapi (fun i field ->
                     let left = get None thisExpr field.Name
                     let right = wrapIntExpression field.FieldType args.[i]
+                    printfn "***"
                     assign None left right |> Statement.expr)
                 |> Seq.toArray
             ]
@@ -1963,6 +1979,7 @@ module Util =
                     decls
 
         | Fable.ClassDeclaration decl ->
+            printfn "Class: %A" decl
             let ent = decl.Entity
 
             let classMembers =
@@ -1985,8 +2002,6 @@ module Util =
                 else
                     printfn "2"
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
-
-        //| _ -> failwith $"Declaration {decl} not implemented"
 
     let transformImports (imports: Import seq) : Statement list =
         let statefulImports = ResizeArray()
