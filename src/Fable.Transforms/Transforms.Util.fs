@@ -480,11 +480,11 @@ module AST =
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
 
-    let get r t left membName =
-        makeStrConst membName |> getExpr r t left
+    let getAttachedMemberWith r t callee membName =
+        Get(callee, FieldGet(membName, true), t, r)
 
-    let getSimple (left: Expr) membName =
-        makeStrConst membName |> getExpr left.Range Any left
+    let getAttachedMember (e: Expr) membName =
+        getAttachedMemberWith e.Range Any e membName
 
     let getNumberKindName kind =
         match kind with

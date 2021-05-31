@@ -280,7 +280,7 @@ type GetKind =
 
 type SetKind =
     | ExprSet of Expr
-    | FieldSet of fieldName: string * expectedType: Type
+    | FieldSet of fieldName: string * fieldType: Type
     | ValueSet
 
 type TestKind =
