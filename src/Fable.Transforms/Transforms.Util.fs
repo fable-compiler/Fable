@@ -344,8 +344,8 @@ module AST =
             // OptionValue has a runtime check
             | ListHead | ListTail | TupleIndex _
             | UnionTag | UnionField _ -> canHaveSideEffects e
-            | ByKey(FieldKey fi) ->
-                if fi.IsMutable then true
+            | FieldGet(_, isMutable) ->
+                if isMutable then true
                 else canHaveSideEffects e
             | _ -> true
         | _ -> true
@@ -355,14 +355,6 @@ module AST =
     let rec mustWrapOption = function
         | Any | Unit | GenericParam _ | Option _ -> true
         | _ -> false
-
-    let makeFieldKey name isMutable typ =
-        FieldKey({ new Field with
-                    member _.Name = name
-                    member _.IsMutable = isMutable
-                    member _.IsStatic = false
-                    member _.FieldType = typ
-                    member _.LiteralValue = None })
 
     /// ATTENTION: Make sure the ident name is unique
     let makeTypedIdent typ name =
@@ -486,7 +478,7 @@ module AST =
         Call(calleeExpr, argInfo, t, r)
 
     let getExpr r t left memb =
-        Get(left, ByKey(ExprKey memb), t, r)
+        Get(left, ExprGet memb, t, r)
 
     let get r t left membName =
         makeStrConst membName |> getExpr r t left
