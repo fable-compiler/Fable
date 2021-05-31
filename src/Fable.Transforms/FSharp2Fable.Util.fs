@@ -9,9 +9,18 @@ open Fable.Core
 open Fable.AST
 open Fable.Transforms
 
-type FsField(name, typ: Lazy<Fable.Type>, ?isMutable, ?isStatic, ?literalValue) =
-    new (fi: FSharpField) =
-        let getFSharpFieldName (fi: FSharpField) =
+type FsField(fi: FSharpField) =
+    let name = FsField.FSharpFieldName fi
+    let typ = TypeHelpers.makeType Map.empty fi.FieldType
+
+    interface Fable.Field with
+        member _.Name = name
+        member _.FieldType = typ
+        member _.LiteralValue = fi.LiteralValue
+        member _.IsStatic = fi.IsStatic
+        member _.IsMutable = fi.IsMutable
+
+    static member FSharpFieldName (fi: FSharpField) =
             let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
                 match TypeHelpers.getBaseEntity ent with
                 | None -> acc
@@ -30,15 +39,6 @@ type FsField(name, typ: Lazy<Fable.Type>, ?isMutable, ?isStatic, ?literalValue) 
                 match countConflictingCases 0 ent name with
                 | 0 -> name
                 | n -> name + "_" + (string n)
-
-        let typ = lazy TypeHelpers.makeType Map.empty fi.FieldType
-        FsField(getFSharpFieldName fi, typ, isMutable=fi.IsMutable, isStatic=fi.IsStatic, ?literalValue=fi.LiteralValue)
-    interface Fable.Field with
-        member _.Name = name
-        member _.FieldType = typ.Value
-        member _.LiteralValue = literalValue
-        member _.IsStatic = defaultArg isStatic false
-        member _.IsMutable = defaultArg isMutable false
 
 type FsUnionCase(uci: FSharpUnionCase) =
     /// FSharpUnionCase.CompiledName doesn't give the value of CompiledNameAttribute
@@ -1635,15 +1635,13 @@ module Util =
                 if indexedProp then memb.CompiledName, false, false
                 else getMemberDisplayName memb, isGetter, isSetter
         if isGetter then
-            let t = memb.ReturnParameter.Type |> makeType Map.empty
+            // let t = memb.ReturnParameter.Type |> makeType Map.empty
             // Set the field as mutable to prevent beta reduction
-            let key = makeFieldKey name true t
-            Fable.Get(callee, Fable.ByKey key, typ, r)
+            Fable.Get(callee, Fable.FieldGet(name, true), typ, r)
         elif isSetter then
             let t = memb.CurriedParameterGroups.[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
-            let key = makeFieldKey name true t
-            Fable.Set(callee, Fable.ByKeySet key, arg, r)
+            Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
         else
             getSimple callee name |> makeCall r typ callInfo
 
@@ -1744,8 +1742,7 @@ module Util =
             | Some moduleOrClassExpr, None ->
                 if isModuleValueForCalls e memb then
                     // Set the field as mutable just in case, so it's not displaced by beta reduction
-                    let fieldGet = makeFieldKey (getMemberDisplayName memb) true Fable.Any
-                    Fable.Get(moduleOrClassExpr, Fable.ByKey fieldGet, typ, r) |> Some
+                    Fable.Get(moduleOrClassExpr, Fable.FieldGet(getMemberDisplayName memb, true), typ, r) |> Some
                 else
                     let callInfo = { callInfo with ThisArg = Some moduleOrClassExpr }
                     callInstanceMember com r typ callInfo e memb |> Some

@@ -268,23 +268,19 @@ type OperationKind =
     | Binary of BinaryOperator * left: Expr * right: Expr
     | Logical of LogicalOperator * left: Expr * right: Expr
 
-type KeyKind =
-    | FieldKey of Field
-    | ExprKey of Expr
-
 type GetKind =
-    | ByKey of KeyKind
     | TupleIndex of int
-    | FieldGet of Field * index: int
-    | UnionField of index: int * fieldType: Type * field: Field
+    | ExprGet of Expr
+    | FieldGet of fieldName: string * isMutable: bool
+    | UnionField of tagIndex: int * fieldIndex: int
     | UnionTag
     | ListHead
     | ListTail
     | OptionValue
 
 type SetKind =
-    | ByKeySet of KeyKind
-    | FieldSet of Field * index: int
+    | ExprSet of Expr
+    | FieldSet of fieldName: string * expectedType: Type
     | ValueSet
 
 type TestKind =
@@ -501,7 +497,7 @@ type Expr =
 //             | ListTail -> print e + ".tail"
 //             | OptionValue -> print e + ".Value"
 //             | TupleIndex i
-//             | UnionField(i,_) -> print e + "[" + string i + "]"
+//             | UnionField(_,i) -> print e + "[" + string i + "]"
 //             | UnionTag -> print e + ".Tag"
 //             | ByKey(FieldKey k) -> print e + "." + k.Name
 //             | ByKey(ExprKey e2) -> print e + "[" + print e2 + "]"

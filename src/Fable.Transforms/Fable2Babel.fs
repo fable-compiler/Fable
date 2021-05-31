@@ -1190,7 +1190,11 @@ module Util =
 
     let transformGet (com: IBabelCompiler) ctx range typ fableExpr kind =
         match kind with
-        | Fable.ByKey key ->
+        | Fable.ExprGet(TransformExpr com ctx prop) ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            getExpr range expr prop
+
+        | Fable.FieldGet(fieldName,_) ->
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -1198,13 +1202,7 @@ module Util =
                 | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                 | _ -> fableExpr
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            match key with
-            | Fable.ExprKey(TransformExpr com ctx prop) -> getExpr range expr prop
-            | Fable.FieldKey field -> get range expr field.Name
-
-        | Fable.FieldGet (field, index) ->
-            let expr = com.TransformAsExpr(ctx, fableExpr)
-            get range expr field.Name
+            get range expr fieldName
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1230,9 +1228,9 @@ module Util =
         | Fable.UnionTag ->
             getUnionExprTag com ctx range fableExpr
 
-        | Fable.UnionField(index, _, _) ->
+        | Fable.UnionField(_, fieldIndex) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
+            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt fieldIndex)
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1240,9 +1238,8 @@ module Util =
         let ret =
             match kind with
             | Fable.ValueSet -> expr
-            | Fable.ByKeySet(Fable.FieldKey fi) -> get None expr fi.Name
-            | Fable.ByKeySet(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None expr e
-            | Fable.FieldSet (field, index) -> get None expr field.Name
+            | Fable.ExprSet(TransformExpr com ctx e) -> getExpr None expr e
+            | Fable.FieldSet(fieldName, _) -> get None expr fieldName
         assign range ret value
 
     let transformBindingExprBody (com: IBabelCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =

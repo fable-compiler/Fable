@@ -643,7 +643,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                                 when m.FullName = "Fable.Core.JsInterop.( ? )" ->
             let! e1 = transformExpr com ctx e1
             let! e2 = transformExpr com ctx e2
-            let e = Fable.Get(e1, Fable.ByKey(Fable.ExprKey e2), Fable.Any, e1.Range)
+            let e = Fable.Get(e1, Fable.ExprGet e2, Fable.Any, e1.Range)
             let! args = transformExprList com ctx args
             let args = destructureTupleArgs args
             let typ = makeType ctx.GenericArgs fsExpr.Type
@@ -707,16 +707,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! callee = transformExpr com ctx callee
         let fieldName = calleeType.AnonRecordTypeDetails.SortedFieldNames.[fieldIndex]
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        let field = FsField(fieldName, lazy typ) :> Fable.Field
-        return Fable.Get(callee, Fable.FieldGet(field, fieldIndex), typ, r)
+        return Fable.Get(callee, Fable.FieldGet(fieldName, false), typ, r)
 
     | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
         let typ = makeType ctx.GenericArgs fsExpr.Type
-        let index = calleeType.TypeDefinition.FSharpFields |> Seq.findIndex (fun x -> x.Name = field.Name)
-        let field = FsField(field) :> Fable.Field
-        return Fable.Get(callee, Fable.FieldGet(field, index), typ, r)
+        return Fable.Get(callee, Fable.FieldGet(FsField.FSharpFieldName field, field.IsMutable), typ, r)
 
     | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
         let! tupleExpr = transformExpr com ctx tupleExpr
@@ -753,20 +750,20 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 then Fable.ListHead, t
                 else Fable.ListTail, Fable.List t
             return Fable.Get(unionExpr, kind, t, r)
-        | DiscriminatedUnion _ ->
+        | DiscriminatedUnion(tdef, _) ->
+            let caseIndex = unionCaseTag com tdef unionCase
+            let fieldIndex = unionCase.Fields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
+            let kind = Fable.UnionField(caseIndex, fieldIndex)
             let typ = makeType Map.empty field.FieldType
-            let index = unionCase.Fields |> Seq.findIndex (fun fi -> fi.Name = field.Name)
-            let kind = Fable.UnionField(index, typ, FsField(unionCase.Fields.[index]))
             // let typ = makeType ctx.GenericArgs fsExpr.Type // doesn't work (Fable.Any)
             return Fable.Get(unionExpr, kind, typ, r)
 
     | FSharpExprPatterns.FSharpFieldSet(callee, calleeType, field, value) ->
         let r = makeRangeFrom fsExpr
+        let t = makeType Map.empty field.FieldType
         let! callee = transformCallee com ctx callee calleeType
         let! value = transformExpr com ctx value
-        let index = calleeType.TypeDefinition.FSharpFields |> Seq.findIndex (fun x -> x.Name = field.Name)
-        let field = FsField(field) :> Fable.Field
-        return Fable.Set(callee, Fable.FieldSet(field, index), value, r)
+        return Fable.Set(callee, Fable.FieldSet(FsField.FSharpFieldName field, t), value, r)
 
     | FSharpExprPatterns.UnionCaseTag(IgnoreAddressOf unionExpr, unionType) ->
         // TODO: This is an inconsistency. For new unions and union tests we calculate
@@ -926,7 +923,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             let r = makeRangeFrom fsExpr
             let! callee = transformCallee com ctx callee calleeType
             let typ = makeType ctx.GenericArgs expr.Type
-            let key = FsField(field) :> Fable.Field |> Fable.FieldKey
+            let key = FsField.FSharpFieldName field
             return Replacements.makeRefFromMutableField com ctx r typ callee key
         | _ ->
             // ignore AddressOf, pass by value
