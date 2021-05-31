@@ -1643,7 +1643,7 @@ module Util =
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
             Fable.Set(callee, Fable.FieldSet(name, t), arg, r)
         else
-            getSimple callee name |> makeCall r typ callInfo
+            getAttachedMember callee name |> makeCall r typ callInfo
 
     let (|Replaced|_|) (com: IFableCompiler) ctx r typ (genArgs: Lazy<_>) (callInfo: Fable.CallInfo)
             (memb: FSharpMemberOrFunctionOrValue, entity: FSharpEntity option) =
