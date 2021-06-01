@@ -141,12 +141,20 @@ type ClassDecl = {
     AttachedMembers: MemberDecl list
 }
 
-type Declaration =
+type ModuleDecl = {
+    Name: string
+    Entity: EntityRef
+    Members: Declaration list
+}
+
+and Declaration =
+    | ModuleDeclaration of ModuleDecl
     | ActionDeclaration of ActionDecl
     | MemberDeclaration of MemberDecl
     | ClassDeclaration of ClassDecl
     member this.UsedNames =
         match this with
+        | ModuleDeclaration d -> Set.empty
         | ActionDeclaration d -> d.UsedNames
         | MemberDeclaration d -> d.UsedNames
         | ClassDeclaration d ->
