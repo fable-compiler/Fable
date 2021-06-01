@@ -97,6 +97,21 @@ module Output =
 
         let clear ctx = { ctx with Precedence = Int32.MaxValue} 
 
+    let writeIdent ctx (id: PhpIdentity) =
+        match id.Namespace with
+        | Some ns ->
+            write ctx @"\"
+            write ctx ns
+            if ns <> "" then
+                write ctx @"\"
+        | None -> ()
+        match id.Class with
+        | Some cls -> 
+            write ctx cls
+            write ctx "::"
+        | None -> ()
+        write ctx id.Name
+
     let withPrecedence ctx prec f =
         let useParens = prec > ctx.Precedence || (prec = 14 && ctx.Precedence = 14)
         let subCtx = { ctx with Precedence = prec }
@@ -122,7 +137,7 @@ module Output =
                 
            write ctx t.Name
  
-        | ExType t -> write ctx t
+        | ExType id -> writeIdent ctx id
         | ArrayRef t ->
             writeTypeRef ctx t
             write ctx "[]"
@@ -156,7 +171,6 @@ module Output =
             | PhpConstBool true -> write ctx "true"
             | PhpConstBool false -> write ctx "false"
             | PhpConstNull -> write ctx "NULL"
-            | PhpConstUnit -> write ctx "NULL"
         | PhpVar (v,_) -> 
             write ctx "$"
             write ctx v
@@ -165,20 +179,14 @@ module Output =
             //write ctx "$"
             write ctx v
             write ctx "']"
-        | PhpProp(l,r, _) ->
+        | PhpField(l,r, _) ->
             writeExpr ctx l
             write ctx "->"
             match r with
             | Field r -> write ctx r.Name
             | StrField r -> write ctx r
-        | PhpIdent(ns,i) ->
-            match ns with
-            | Some ns ->
-                write ctx @"\"
-                write ctx ns
-                write ctx @"\"
-            | None -> ()
-            write ctx i
+        | PhpIdent id ->
+            writeIdent ctx id
         | PhpNew(t,args) ->
             withPrecedence ctx (Precedence._new)
                 (fun subCtx ->
@@ -188,7 +196,7 @@ module Output =
                     write subCtx "("
                     writeArgs subCtx args
                     write subCtx ")")
-        | PhpArray(args) ->
+        | PhpNewArray(args) ->
             write ctx "[ "
             let mutable first = true
             for key,value in args do
@@ -198,32 +206,28 @@ module Output =
                     write ctx ", "
                 writeArrayIndex ctx key
                 writeExpr ctx value
-            write ctx "]"
+            write ctx " ]"
         | PhpArrayAccess(array, index) ->
             writeExpr ctx array
             write ctx "["
             writeExpr ctx index
             write ctx "]"
 
-        | PhpCall(f,args) ->
+        | PhpFunctionCall(f,args) ->
             let anonymous = match f with PhpAnonymousFunc _ -> true | _ -> false
             if anonymous then
                 write ctx "("
-            match f with
-            | PhpConst (PhpConstString f) ->
-                write ctx f
-            | _ -> writeExpr ctx f
+            writeExpr ctx f
             if anonymous then
                 write ctx ")"
             write ctx "("
             writeArgs ctx args
             write ctx ")"
-        | PhpMethod(this,f,args) ->
+        | PhpMethodCall(this,f,args) ->
+            writeExpr ctx this
             match this with
-            | PhpParent -> write ctx "parent::"
-            | _ ->
-                writeExpr ctx this
-                write ctx "->"
+            | PhpParent ->  write ctx "::"
+            | _ -> write ctx "->"
             match f with
             | PhpConst(PhpConstString f) -> write ctx f
             | _ -> writeExpr ctx f
@@ -238,7 +242,7 @@ module Output =
                     writeExpr ctx thenExpr
                     write ctx " : "
                     writeExpr ctx elseExpr)
-        | PhpIsA (expr, t) ->
+        | PhpInstanceOf (expr, t) ->
             withPrecedence ctx (Precedence.instanceOf)
                 (fun ctx ->
                     writeExpr ctx expr
@@ -279,7 +283,7 @@ module Output =
                 if m.Groups.["s"].Success then
                     if n < args.Length then
                         match args.[n] with
-                        | PhpArray items ->
+                        | PhpNewArray items ->
                            let mutable first = true
                            for _,value in items do
                                if first then
@@ -297,6 +301,8 @@ module Output =
 
                 pos <- m.Index + m.Length
             write ctx (macro.Substring(pos))
+        | PhpParent ->
+            write ctx "parent"
 
 
     and writeArgs ctx args =
@@ -322,21 +328,21 @@ module Output =
         
     and writeStatement ctx st =
         match st with
-        | PhpStatement.Return expr ->
+        | PhpStatement.PhpReturn expr ->
             writei ctx "return "
             writeExpr (Precedence.clear ctx) expr
             writeln ctx ";"
-        | Expr expr ->
+        | PhpExpr expr ->
             writei ctx ""
             writeExpr (Precedence.clear ctx) expr
             writeln ctx ";"
-        | Assign(name, expr) ->
+        | PhpAssign(name, expr) ->
             writei ctx ""
             writeExpr (Precedence.clear ctx)  name
             write ctx " = "
             writeExpr (Precedence.clear ctx)  expr
             writeln ctx ";"
-        | Switch(expr, cases) ->
+        | PhpSwitch(expr, cases) ->
             writei ctx "switch ("
             writeExpr (Precedence.clear ctx)  expr
             writeln ctx ")"
@@ -359,9 +365,9 @@ module Output =
                     writeStatement caseCtx st
 
             writeiln ctx "}"
-        | Break ->
+        | PhpBreak ->
             writeiln ctx "break;"
-        | If(guard, thenCase, elseCase) ->
+        | PhpIf(guard, thenCase, elseCase) ->
             writei ctx "if ("
             writeExpr (Precedence.clear ctx) guard
             writeln ctx ") {"
@@ -376,18 +382,18 @@ module Output =
                 for st in elseCase do
                     writeStatement body st
                 writeiln ctx "}"
-        | Throw(cls,args) ->
+        | PhpThrow(cls,args) ->
             writei ctx "throw new "
             write ctx cls
             write ctx "("
             writeArgs ctx args
             writeln ctx ");"
-        | PhpStatement.Do (PhpConst PhpConstUnit)-> ()
-        | PhpStatement.Do (expr) ->
+        | PhpStatement.PhpDo (PhpConst PhpConstNull)-> ()
+        | PhpStatement.PhpDo (expr) ->
             writei ctx ""
             writeExpr (Precedence.clear ctx) expr
             writeln ctx ";"
-        | PhpStatement.TryCatch(body, catch, finallizer) ->
+        | PhpStatement.PhpTryCatch(body, catch, finallizer) ->
             writeiln ctx "try {"
             let bodyind = indent ctx
             for st in body do
@@ -411,7 +417,7 @@ module Output =
                 for st in finallizer do
                     writeStatement bodyind st
                 writeiln ctx "}"
-        | PhpStatement.WhileLoop(guard, body) ->
+        | PhpStatement.PhpWhileLoop(guard, body) ->
             writei ctx "while ("
             writeExpr ctx guard
             writeln ctx ") {"
@@ -419,7 +425,7 @@ module Output =
             for st in body do
                 writeStatement bodyctx st
             writeiln ctx "}"
-        | PhpStatement.ForLoop(ident, start, limit, isUp, body) ->
+        | PhpStatement.PhpFor(ident, start, limit, isUp, body) ->
             writei ctx "for ($"
             write ctx ident
             write ctx " = "
@@ -473,25 +479,21 @@ module Output =
         write ctx m.Name
         writeln ctx ";"
 
-    let writeCtor ctx (t: PhpType) =
+    let writeCtor ctx (ctor: PhpConstructor) =
+        
         writei ctx "function __construct("
         let mutable first = true
-        for p in t.Fields do
+        for a in ctor.Args do
             if first then
                 first <- false
             else
                 write ctx ", "
-            //write ctx p.Type
             write ctx "$"
-            write ctx p.Name
+            write ctx a
         writeln ctx ") {"
         let bodyctx = indent ctx
-        for p in t.Fields do
-            writei bodyctx "$this->"
-            write bodyctx p.Name
-            write bodyctx " = $"
-            write bodyctx p.Name
-            writeln bodyctx ";"
+        for s in ctor.Body do
+            writeStatement bodyctx s
 
         writeiln ctx "}"
 
@@ -522,8 +524,8 @@ module Output =
         for m in t.Fields do
             writeField mbctx m
 
-        if not t.Abstract then
-            writeCtor mbctx t
+        t.Constructor 
+        |> Option.iter (writeCtor mbctx)
 
         for m in t.Methods do
             writeFunc mbctx m

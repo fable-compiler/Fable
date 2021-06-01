@@ -6,12 +6,12 @@ type PhpConst =
     | PhpConstString of string
     | PhpConstBool of bool
     | PhpConstNull
-    | PhpConstUnit
 
 type PhpArrayIndex =
     | PhpArrayNoIndex
     | PhpArrayInt of int
     | PhpArrayString of string
+
 type PhpField =
     { Name: string 
       Type: string }
@@ -24,43 +24,54 @@ type Prop =
     | Field of PhpField
     | StrField of string
 
+type PhpIdentity =
+    { Namespace: string option 
+      Class: string option
+      Name: string
+    }
+
 and PhpExpr =
+      // Php Variable name (without the $)
     | PhpVar of string * typ: PhpType option
-    | PhpIdent of cls: string option * string
+      // Php Identifier for functions and class names
+    | PhpIdent of PhpIdentity
+      // Php global (rendered as $GLOBLAS['name']
     | PhpGlobal of string
     | PhpConst of PhpConst
     | PhpUnaryOp of string * PhpExpr
     | PhpBinaryOp of string *PhpExpr * PhpExpr
-    | PhpProp of PhpExpr * Prop * typ: PhpType option
+    | PhpField of PhpExpr * Prop * typ: PhpType option
     | PhpArrayAccess of PhpExpr * PhpExpr
     | PhpNew of ty:PhpTypeRef * args:PhpExpr list
-    | PhpArray of args: (PhpArrayIndex * PhpExpr) list
-    | PhpCall of f: PhpExpr * args: PhpExpr list
-    | PhpMethod of this: PhpExpr * func:PhpExpr * args: PhpExpr list
+    | PhpNewArray of args: (PhpArrayIndex * PhpExpr) list
+    | PhpFunctionCall of f: PhpExpr * args: PhpExpr list
+    | PhpMethodCall of this: PhpExpr * func:PhpExpr * args: PhpExpr list
     | PhpTernary of gard: PhpExpr * thenExpr: PhpExpr * elseExpr: PhpExpr
-    | PhpIsA of expr: PhpExpr * PhpTypeRef
+    | PhpInstanceOf of expr: PhpExpr * PhpTypeRef
     | PhpAnonymousFunc of args: string list * uses: Capture list * body: PhpStatement list
     | PhpMacro of macro: string * args: PhpExpr list
     | PhpParent
    
 and PhpStatement =
-    | Return of PhpExpr
-    | Expr of PhpExpr
-    | Switch of PhpExpr * (PhpCase * PhpStatement list) list
-    | Break
-    | Assign of target:PhpExpr * value:PhpExpr
-    | If of guard: PhpExpr * thenCase: PhpStatement list * elseCase: PhpStatement list
-    | Throw of string * PhpExpr list
-    | TryCatch of body: PhpStatement list * catch: (string * PhpStatement list) option * finallizer: PhpStatement list 
-    | WhileLoop of guard: PhpExpr * body: PhpStatement list
-    | ForLoop of ident: string * start: PhpExpr * limit: PhpExpr * isUp: bool * body: PhpStatement list
-    | Do of PhpExpr
+    | PhpReturn of PhpExpr
+    | PhpExpr of PhpExpr
+    | PhpSwitch of PhpExpr * (PhpCase * PhpStatement list) list
+    | PhpBreak
+    | PhpAssign of target:PhpExpr * value:PhpExpr
+    | PhpIf of guard: PhpExpr * thenCase: PhpStatement list * elseCase: PhpStatement list
+    | PhpThrow of string * PhpExpr list
+    | PhpTryCatch of body: PhpStatement list * catch: (string * PhpStatement list) option * finallizer: PhpStatement list 
+    | PhpWhileLoop of guard: PhpExpr * body: PhpStatement list
+    | PhpFor of ident: string * start: PhpExpr * limit: PhpExpr * isUp: bool * body: PhpStatement list
+    | PhpDo of PhpExpr
+
 and PhpCase =
     | IntCase of int
     | StringCase of string
     | DefaultCase
+
 and PhpTypeRef =
-    | ExType of string
+    | ExType of PhpIdentity
     | InType of PhpType
     | ArrayRef of PhpTypeRef
 
@@ -71,11 +82,16 @@ and PhpFun =
       Body: PhpStatement list
       Static: bool
     }
+and PhpConstructor =
+    { Args: string list 
+      Body: PhpStatement list
+    }
 
 and PhpType =
     { Namespace: string option
       Name: string
       Fields: PhpField list;
+      Constructor: PhpConstructor option
       Methods: PhpFun list
       Abstract: bool
       BaseType: PhpType option

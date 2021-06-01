@@ -3,45 +3,46 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "QuickTest", "src\quicktest\QuickTest.fsproj", "{661A1972-0D06-46E8-958C-55325E5D520C}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "QuickTest", "src\quicktest\QuickTest.fsproj", "{661A1972-0D06-46E8-958C-55325E5D520C}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Transforms", "src\Fable.Transforms\Fable.Transforms.fsproj", "{E55F3DA2-86B7-4E73-9700-EC6490043268}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Transforms", "src\Fable.Transforms\Fable.Transforms.fsproj", "{E55F3DA2-86B7-4E73-9700-EC6490043268}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Cli", "src\Fable.Cli\Fable.Cli.fsproj", "{504F3F51-B441-4A7E-9789-3544EF0AE746}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Cli", "src\Fable.Cli\Fable.Cli.fsproj", "{504F3F51-B441-4A7E-9789-3544EF0AE746}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Core", "src\Fable.Core\Fable.Core.fsproj", "{61CE8447-0903-43F1-893B-4114657E1D33}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Core", "src\Fable.Core\Fable.Core.fsproj", "{61CE8447-0903-43F1-893B-4114657E1D33}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests", "tests\Main\Fable.Tests.fsproj", "{7F563728-1992-49D0-AEAD-8075AF16F300}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests", "tests\Main\Fable.Tests.fsproj", "{7F563728-1992-49D0-AEAD-8075AF16F300}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.DllRef", "tests\DllRef\Fable.Tests.DllRef.fsproj", "{3A2FB3B0-BAD6-412B-86AE-FA001EE929F6}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.DllRef", "tests\DllRef\Fable.Tests.DllRef.fsproj", "{3A2FB3B0-BAD6-412B-86AE-FA001EE929F6}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Spaces", "tests\Project With Spaces\Fable.Tests.Spaces.fsproj", "{FB4EBA4A-6B98-465F-9675-8FD088BA0917}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.Spaces", "tests\Project With Spaces\Fable.Tests.Spaces.fsproj", "{FB4EBA4A-6B98-465F-9675-8FD088BA0917}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.External", "tests_external\Fable.Tests.External.fsproj", "{F5DEF871-BEEB-40A1-BBF1-7A19BD8B6185}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.External", "tests_external\Fable.Tests.External.fsproj", "{F5DEF871-BEEB-40A1-BBF1-7A19BD8B6185}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Library", "src\fable-library\Fable.Library.fsproj", "{C6B876C9-8410-4FFF-AD89-46539E54253C}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Library", "src\fable-library\Fable.Library.fsproj", "{C6B876C9-8410-4FFF-AD89-46539E54253C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Files", "Files", "{54BD4E45-0C5B-455A-9C7C-37736B216015}"
 	ProjectSection(SolutionItems) = preProject
 		build.fsx = build.fsx
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Worker", "src\fable-standalone\src\Worker\Worker.fsproj", "{8CF1FD4C-0170-4E86-AD26-43012ED12929}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Worker", "src\fable-standalone\src\Worker\Worker.fsproj", "{8CF1FD4C-0170-4E86-AD26-43012ED12929}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "fable-compiler-js", "src\fable-compiler-js\src\fable-compiler-js.fsproj", "{C9A73E73-8ED5-4E5F-9E7A-7E4511F94858}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fable-compiler-js", "src\fable-compiler-js\src\fable-compiler-js.fsproj", "{C9A73E73-8ED5-4E5F-9E7A-7E4511F94858}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.AST", "src\Fable.AST\Fable.AST.fsproj", "{7D98854F-8786-4F4B-9B57-2C3F905BB53D}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.AST", "src\Fable.AST\Fable.AST.fsproj", "{7D98854F-8786-4F4B-9B57-2C3F905BB53D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PublishUtils", "src\fable-publish-utils\PublishUtils.fsproj", "{83FF0D5A-9B00-4975-83EF-E399D4466FE4}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PublishUtils", "src\fable-publish-utils\PublishUtils.fsproj", "{83FF0D5A-9B00-4975-83EF-E399D4466FE4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.React", "tests\React\Fable.Tests.React.fsproj", "{54276AEF-340A-4178-B7C3-CB834D4317BB}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.React", "tests\React\Fable.Tests.React.fsproj", "{54276AEF-340A-4178-B7C3-CB834D4317BB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Integration", "tests\Integration\Fable.Tests.Integration.fsproj", "{7E9173E4-8875-4336-9E76-C87FCC833D50}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.Integration", "tests\Integration\Fable.Tests.Integration.fsproj", "{7E9173E4-8875-4336-9E76-C87FCC833D50}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Standalone", "src\fable-standalone\src\Fable.Standalone.fsproj", "{B67CB1A1-982F-4551-8A95-C36B516F53C4}"
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{95442CD7-540E-4C45-943E-9D7D76501AEE}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Standalone", "src\fable-standalone\src\Fable.Standalone.fsproj", "{B67CB1A1-982F-4551-8A95-C36B516F53C4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fable.Tests.Php", "tests\Php\Fable.Tests.Php.fsproj", "{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable.Tests.Php", "tests\Php\Fable.Tests.Php.fsproj", "{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "fcs-fable", "src\fcs-fable\fcs-fable.fsproj", "{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -257,14 +258,23 @@ Global
 		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|x64.Build.0 = Release|Any CPU
 		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|x86.ActiveCfg = Release|Any CPU
 		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89}.Release|x86.Build.0 = Release|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Debug|x64.Build.0 = Debug|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Debug|x86.Build.0 = Debug|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Release|x64.ActiveCfg = Release|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Release|x64.Build.0 = Release|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Release|x86.ActiveCfg = Release|Any CPU
+		{D3366D89-B8D7-44DD-AD43-C4FD2C59ABB4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {204581E6-42C5-4EE2-A4A9-713C32A17CF2}
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{F7BBDD4C-16B3-4BFE-8647-4BCCAE3E8E89} = {95442CD7-540E-4C45-943E-9D7D76501AEE}
 	EndGlobalSection
 EndGlobal

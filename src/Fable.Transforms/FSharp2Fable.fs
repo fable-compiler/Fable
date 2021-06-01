@@ -152,7 +152,7 @@ let private getAttachedMemberInfo com ctx r nonMangledNameConflicts
                     ent.TryGetMembersFunctionsAndValues()
                     |> Seq.tryFind (fun x -> x.CompiledName = sign.Name)
                     |> function Some m -> hasParamArray m | None -> false
-            let isMangled = isMangledAbstractEntity ent
+            let isMangled = isMangledAbstractEntity com ent
             let name, isGetter, isSetter =
                 if isMangled then
                     let overloadHash =
@@ -1185,7 +1185,7 @@ let private transformMemberDecl (com: FableCompiler) (ctx: Context) (memb: FShar
         []
     else
         match memb.DeclaringEntity with
-        | Some ent when isAttachMembersEntity ent && memb.CompiledName <> ".cctor" ->
+        | Some ent when (isAttachMembersEntity com ent && memb.CompiledName <> ".cctor") ->
             transformExplicitlyAttachedMember com ctx ent memb args body; []
         | _ -> transformMemberFunctionOrValue com ctx memb args body
 
