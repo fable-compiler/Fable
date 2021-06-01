@@ -1479,12 +1479,12 @@ module Util =
             | Atts.global_ | Naming.StartsWith Atts.import _ -> true
             | _ -> false)
 
-    let isAttachMembersEntity (ent: FSharpEntity) =
-        not ent.IsFSharpModule && ent.Attributes |> Seq.exists (fun att ->
+    let isAttachMembersEntity (com: Fable.Compiler) (ent: FSharpEntity) =
+        not ent.IsFSharpModule && ((*com.Options.Language = Php ||*) ent.Attributes |> Seq.exists (fun att ->
             // Should we make sure the attribute is not an alias?
             match att.AttributeType.TryFullName with
             | Some Atts.attachMembers -> true
-            | _ -> false)
+            | _ -> false))
 
     let isEmittedOrImportedMember (memb: FSharpMemberOrFunctionOrValue) =
         memb.Attributes |> Seq.exists (fun att ->
@@ -1587,7 +1587,7 @@ module Util =
             ent.TryFullName = Some baseFullName)
         |> Option.isSome
 
-    let isMangledAbstractEntity (ent: FSharpEntity) =
+    let isMangledAbstractEntity com (ent: FSharpEntity) =
         match ent.TryFullName with
         // By default mangle interfaces in System namespace as they are not meant to interact with JS
         // except those that are used in fable-library Typescript files
@@ -1606,14 +1606,14 @@ module Util =
         // Don't mangle interfaces by default (for better JS interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> hasAttribute Atts.mangle ent.Attributes
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
-        | _ -> not(isGlobalOrImportedEntity(FsEnt ent) || isAttachMembersEntity ent)
+        | _ -> not(isGlobalOrImportedEntity(FsEnt ent) || isAttachMembersEntity com ent)
 
     let getMangledAbstractMemberName (ent: FSharpEntity) memberName overloadHash =
         // TODO: Error if entity doesn't have fullname?
         let entityName = defaultArg ent.TryFullName ""
         entityName + "." + memberName + overloadHash
 
-    let callInstanceMember _com r typ (callInfo: Fable.CallInfo)
+    let callInstanceMember com r typ (callInfo: Fable.CallInfo)
                     (entity: FSharpEntity) (memb: FSharpMemberOrFunctionOrValue) =
         let callInfo, callee =
             match callInfo.ThisArg with
@@ -1625,7 +1625,7 @@ module Util =
         let isSetter = not isGetter && memb.IsPropertySetterMethod
         let indexedProp = (isGetter && countNonCurriedParams memb > 0) || (isSetter && countNonCurriedParams memb > 1)
         let name, isGetter, isSetter =
-            if isMangledAbstractEntity entity then
+            if isMangledAbstractEntity com entity then
                 let overloadHash =
                     if (isGetter || isSetter) && not indexedProp then ""
                     else OverloadSuffix.getHash entity memb
@@ -1732,7 +1732,7 @@ module Util =
                 match tryGlobalOrImportedEntity com fableEnt with
                 | Some expr -> Some expr
                 // AttachMembers classes behave the same as global/imported classes
-                | None when isAttachMembersEntity e -> Some(entityRef com fableEnt)
+                | None when isAttachMembersEntity com e -> Some(entityRef com fableEnt)
                 | None -> None
             match moduleOrClassExpr, callInfo.ThisArg with
             | Some _, Some _thisArg ->
