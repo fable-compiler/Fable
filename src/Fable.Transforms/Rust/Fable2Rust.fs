@@ -116,127 +116,145 @@ module Reflection =
         let cases = Expression.arrowFunctionExpression([||], Expression.arrayExpression(cases))
         [|fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; cases|]
         |> libReflectionCall com ctx None "union"
+*)
+module TypeInfo =
 
-    let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Expression>) t: Rust.Expr =
-        let primitiveTypeInfo name =
-           libValue com ctx "Reflection" (name + "_type")
-        let numberInfo kind =
-            getNumberKindName kind
-            |> primitiveTypeInfo
-        let nonGenericTypeInfo fullname =
-            [| Expression.stringLiteral(fullname) |]
-            |> libReflectionCall com ctx None "class"
-        let resolveGenerics generics: Rust.Expr[] =
-            generics |> Array.map (transformTypeInfo com ctx r genMap)
-        let genericTypeInfo name genArgs =
-            let resolved = resolveGenerics genArgs
-            libReflectionCall com ctx None name resolved
-        let genericEntity (fullname: string) generics =
-            libReflectionCall com ctx None "class" [|
-                Expression.stringLiteral(fullname)
-                if not(Array.isEmpty generics) then
-                    Expression.arrayExpression(generics)
-            |]
+    // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
+    let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
+        let primitiveType name =
+            [name] |> Vec |> mkPathTy
+        let numberType kind =
+            match kind with
+            | Int8 -> "i8"
+            | UInt8 -> "u8"
+            | Int16 -> "i16"
+            | UInt16 -> "u16"
+            | Int32 -> "i32"
+            | UInt32 -> "u32"
+            | Float32 -> "f32"
+            | Float64 -> "f64"
+            |> primitiveType
+        // let nonGenericTypeInfo fullname =
+        //     [| Expression.stringLiteral(fullname) |]
+        //     |> libReflectionCall com ctx None "class"
+        // let resolveGenerics generics: Rust.Expr[] =
+        //     generics |> Array.map (transformTypeInfo com ctx r genMap)
+        // let genericTypeInfo name genArgs =
+        //     let resolved = resolveGenerics genArgs
+        //     libReflectionCall com ctx None name resolved
+        // let genericEntity (fullname: string) generics =
+        //     libReflectionCall com ctx None "class" [|
+        //         Expression.stringLiteral(fullname)
+        //         if not(Array.isEmpty generics) then
+        //             Expression.arrayExpression(generics)
+        //     |]
         match t with
-        | Fable.Any -> primitiveTypeInfo "obj"
-        | Fable.GenericParam name ->
-            match Map.tryFind name genMap with
-            | Some t -> t
-            | None ->
-                Replacements.genericTypeInfoError name |> addError com [] r
-                Expression.nullLiteral()
-        | Fable.Unit    -> primitiveTypeInfo "unit"
-        | Fable.Boolean -> primitiveTypeInfo "bool"
-        | Fable.Char    -> primitiveTypeInfo "char"
-        | Fable.String  -> primitiveTypeInfo "string"
-        | Fable.Enum entRef ->
-            let ent = com.GetEntity(entRef)
-            let mutable numberKind = Int32
-            let cases =
-                ent.FSharpFields |> Seq.choose (fun fi ->
-                    // F# seems to include a field with this name in the underlying type
-                    match fi.Name with
-                    | "value__" ->
-                        match fi.FieldType with
-                        | Fable.Number kind -> numberKind <- kind
-                        | _ -> ()
-                        None
-                    | name ->
-                        let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-                        Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-                |> Seq.toArray
-                |> Expression.arrayExpression
-            [|Expression.stringLiteral(entRef.FullName); numberInfo numberKind; cases |]
-            |> libReflectionCall com ctx None "enum"
-        | Fable.Number kind ->
-            numberInfo kind
-        | Fable.LambdaType(argType, returnType) ->
-            genericTypeInfo "lambda" [|argType; returnType|]
-        | Fable.DelegateType(argTypes, returnType) ->
-            genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-        | Fable.Tuple genArgs   -> genericTypeInfo "tuple" (List.toArray genArgs)
-        | Fable.Option genArg   -> genericTypeInfo "option" [|genArg|]
-        | Fable.Array genArg    -> genericTypeInfo "array" [|genArg|]
-        | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
-        | Fable.Regex           -> nonGenericTypeInfo Types.regex
-        | Fable.MetaType        -> nonGenericTypeInfo Types.type_
-        | Fable.AnonymousRecordType(fieldNames, genArgs) ->
-            let genArgs = resolveGenerics (List.toArray genArgs)
-            Array.zip fieldNames genArgs
-            |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
-            |> libReflectionCall com ctx None "anonRecord"
-        | Fable.DeclaredType(entRef, generics) ->
-            let fullName = entRef.FullName
-            match fullName, generics with
-            | Replacements.BuiltinEntity kind ->
-                match kind with
-                | Replacements.BclGuid
-                | Replacements.BclTimeSpan
-                | Replacements.BclDateTime
-                | Replacements.BclDateTimeOffset
-                | Replacements.BclTimer
-                | Replacements.BclInt64
-                | Replacements.BclUInt64
-                | Replacements.BclDecimal
-                | Replacements.BclBigInt -> genericEntity fullName [||]
-                | Replacements.BclHashSet gen
-                | Replacements.FSharpSet gen ->
-                    genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
-                | Replacements.BclDictionary(key, value)
-                | Replacements.BclKeyValuePair(key, value)
-                | Replacements.FSharpMap(key, value) ->
-                    genericEntity fullName [|
-                        transformTypeInfo com ctx r genMap key
-                        transformTypeInfo com ctx r genMap value
-                    |]
-                | Replacements.FSharpResult(ok, err) ->
-                    let ent = com.GetEntity(entRef)
-                    transformUnionReflectionInfo com ctx r ent [|
-                        transformTypeInfo com ctx r genMap ok
-                        transformTypeInfo com ctx r genMap err
-                    |]
-                | Replacements.FSharpChoice gen ->
-                    let ent = com.GetEntity(entRef)
-                    let gen = List.map (transformTypeInfo com ctx r genMap) gen
-                    List.toArray gen |> transformUnionReflectionInfo com ctx r ent
-                | Replacements.FSharpReference gen ->
-                    let ent = com.GetEntity(entRef)
-                    [|transformTypeInfo com ctx r genMap gen|]
-                    |> transformRecordReflectionInfo com ctx r ent
-            | _ ->
-                let ent = com.GetEntity(entRef)
-                let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-                /// Check if the entity is actually declared in JS code
-                if ent.IsInterface
-                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                    || FSharp2Fable.Util.isReplacementCandidate ent then
-                    genericEntity ent.FullName generics
-                else
-                    let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
-                    let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
-                    Expression.callExpression(callee, generics)
+        // | Fable.Any -> primitiveType "obj"
+        // | Fable.GenericParam name ->
+        //     match Map.tryFind name genMap with
+        //     | Some t -> t
+        //     | None ->
+        //         Replacements.genericTypeInfoError name |> addError com [] r
+        //         Expression.nullLiteral()
+        // | Fable.Unit    -> primitiveType "unit"
+        | Fable.Boolean -> primitiveType "bool"
+        | Fable.Char    -> primitiveType "char"
+        | Fable.String  -> primitiveType "String"
+        // | Fable.Enum entRef ->
+        //     let ent = com.GetEntity(entRef)
 
+        //     let mutable numberKind = Int32
+        //     let cases =
+        //         ent.FSharpFields |> Seq.choose (fun fi ->
+        //             // F# seems to include a field with this name in the underlying type
+        //             match fi.Name with
+        //             | "value__" ->
+        //                 match fi.FieldType with
+        //                 | Fable.Number kind -> numberKind <- kind
+        //                 | _ -> ()
+        //                 None
+        //             | name ->
+        //                 let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+        //                 Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
+        //         |> Seq.toArray
+        //         |> Expression.arrayExpression
+        //     [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
+        //     |> libReflectionCall com ctx None "enum"
+        | Fable.Number kind ->
+            numberType kind
+        // | Fable.LambdaType(argType, returnType) ->
+        //     genericTypeInfo "lambda" [|argType; returnType|]
+        // | Fable.DelegateType(argTypes, returnType) ->
+        //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
+        | Fable.Tuple genArgs ->
+            genArgs |> List.map (transformType com ctx) |> Vec |> Rust.TyKind.Tup |> mkTy
+        | Fable.Option genArg ->
+            let genArgs = [genArg] |> List.map (transformType com ctx) |> Vec |> mkGenericArgs
+            mkGenericTy "Option" genArgs
+        | Fable.Array genArg ->
+            genArg |> transformType com ctx |> Rust.TyKind.Slice |> mkTy |> mkRefTy
+        // | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
+        // | Fable.Regex           -> nonGenericTypeInfo Types.regex
+        // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
+        // | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+        //     let genArgs = resolveGenerics (List.toArray genArgs)
+        //     Array.zip fieldNames genArgs
+        //     |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
+        //     |> libReflectionCall com ctx None "anonRecord"
+        // | Fable.DeclaredType(entRef, generics) ->
+        //     let fullName = entRef.FullName
+        //     match fullName, generics with
+        //     | Replacements.BuiltinEntity kind ->
+        //         match kind with
+        //         | Replacements.BclGuid
+        //         | Replacements.BclTimeSpan
+        //         | Replacements.BclDateTime
+        //         | Replacements.BclDateTimeOffset
+        //         | Replacements.BclTimer
+        //         | Replacements.BclInt64
+        //         | Replacements.BclUInt64
+        //         | Replacements.BclDecimal
+        //         | Replacements.BclBigInt -> genericEntity fullName [||]
+        //         | Replacements.BclHashSet gen
+        //         | Replacements.FSharpSet gen ->
+        //             genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
+        //         | Replacements.BclDictionary(key, value)
+        //         | Replacements.BclKeyValuePair(key, value)
+        //         | Replacements.FSharpMap(key, value) ->
+        //             genericEntity fullName [|
+        //                 transformTypeInfo com ctx r genMap key
+        //                 transformTypeInfo com ctx r genMap value
+        //             |]
+        //         | Replacements.FSharpResult(ok, err) ->
+        //             let ent = com.GetEntity(entRef)
+        //             transformUnionReflectionInfo com ctx r ent [|
+        //                 transformTypeInfo com ctx r genMap ok
+        //                 transformTypeInfo com ctx r genMap err
+        //             |]
+        //         | Replacements.FSharpChoice gen ->
+        //             let ent = com.GetEntity(entRef)
+        //             let gen = List.map (transformTypeInfo com ctx r genMap) gen
+        //             List.toArray gen |> transformUnionReflectionInfo com ctx r ent
+        //         | Replacements.FSharpReference gen ->
+        //             let ent = com.GetEntity(entRef)
+        //             [|transformTypeInfo com ctx r genMap gen|]
+        //             |> transformRecordReflectionInfo com ctx r ent
+        //     | _ ->
+        //         let ent = com.GetEntity(entRef)
+        //         let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
+        //         /// Check if the entity is actually declared in JS code
+        //         if ent.IsInterface
+        //             || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+        //             || FSharp2Fable.Util.isGlobalOrImportedEntity ent
+        //             || FSharp2Fable.Util.isReplacementCandidate ent then
+        //             genericEntity ent.FullName generics
+        //         else
+        //             let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
+        //             let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
+        //             Expression.callExpression(callee, generics)
+        | _ -> Rust.TyKind.Err |> mkTy
+
+(*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
         if ent.IsFSharpRecord then
             transformRecordReflectionInfo com ctx r ent generics
@@ -542,6 +560,7 @@ module Util =
     // open Lib
     // open Reflection
     // open Annotation
+    open TypeInfo
 
     let (|TransformExpr|) (com: IRustCompiler) ctx e =
         com.TransformAsExpr(ctx, e)
@@ -678,11 +697,11 @@ module Util =
 *)
     let makeArray (com: IRustCompiler) ctx (exprs: Fable.Expr list) =
         List.map (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        |> mkArrayExpr
+        |> Vec |> mkArrayExpr
 
     let makeTuple (com: IRustCompiler) ctx (exprs: Fable.Expr list) =
         List.map (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        |> mkTupleExpr
+        |> Vec |> mkTupleExpr
 (*
     let makeTypedArray (com: IRustCompiler) ctx t (args: Fable.Expr list) =
         match t with
@@ -756,11 +775,11 @@ module Util =
 
     let makeClassConstructor args body =
         ClassMember.classMethod(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
-
-    let callFunction r funcExpr (args: Rust.Expr list) =
-        Expression.callExpression(funcExpr, List.toArray args, ?loc=r)
-
-    let callFunctionWithThisContext r funcExpr (args: Rust.Expr list) =
+*)
+    let callFunction range callee (args: Rust.Expr list) =
+        mkCallExpr callee (Vec args) //?loc=range)
+(*
+    let callFunctionWithThisContext r callee (args: Rust.Expr list) =
         let args = thisExpr::args |> List.toArray
         Expression.callExpression(get None funcExpr "call", args, ?loc=r)
 
@@ -770,7 +789,7 @@ module Util =
     let undefined range =
 //        Undefined(?loc=range) :> Expression
         Expression.unaryExpression(UnaryVoid, Expression.numericLiteral(0.), ?loc=range)
-
+*)
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
             | Fable.GenericParam name -> [name]
@@ -778,7 +797,7 @@ module Util =
         types
         |> List.collect getGenParams
         |> Set.ofList
-
+(*
     let uncurryLambdaType t =
         let rec uncurryLambdaArgs acc = function
             | Fable.LambdaType(paramType, returnType) ->
@@ -949,10 +968,7 @@ module Util =
         | Fable.NewArray (values, _typ) -> makeArray com ctx values
         // | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
         | Fable.NewTuple values -> makeTuple com ctx values
-        // // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
-        // //     makeList com ctx r headAndTail
-        // // Optimization for bundle size: compile list literals as List.ofArray
-        // | Fable.NewList (headAndTail, _) ->
+        // | Fable.NewList (headAndTail, _typ) ->
         //     let rec getItems acc = function
         //         | None -> List.rev acc, None
         //         | Some(head, Fable.Value(Fable.NewList(tail, _),_)) -> getItems (head::acc) tail
@@ -981,6 +997,10 @@ module Util =
         //     com.TransformAsExpr(ctx, x)
         // | Fable.NewRecord(values, ent, genArgs) ->
         //     let ent = com.GetEntity(ent)
+        // //     let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
+        // //     let parts = ent.FullName.Split('.')
+        // //     let path = mkPathExpr (Vec(parts)) //TODO: generics
+        // //     mkStructExpr path fields StructRest.None
         //     let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
         //     let consRef = ent |> jsConstructor com ctx
         //     let typeParamInst =
@@ -1004,7 +1024,7 @@ module Util =
         //     Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
 
         // TODO: remove this catch-all
-        | _ -> TODO_EXPR "value"
+        | _ -> TODO_EXPR (sprintf "%A" value)
 
 (*
     let enumerator2iterator com ctx =
@@ -1102,22 +1122,22 @@ module Util =
             let classBody = ClassBody.classBody(List.toArray classMembers)
             let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
-
+*)
     let transformCallArgs (com: IRustCompiler) ctx hasSpread args =
         match args with
         | []
         | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> []
-        | args when hasSpread ->
-            match List.rev args with
-            | [] -> []
-            | (Replacements.ArrayOrListLiteral(spreadArgs,_))::rest ->
-                let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
-            | last::rest ->
-                let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-                rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
+        // | args when hasSpread ->
+        //     match List.rev args with
+        //     | [] -> []
+        //     | (Replacements.ArrayOrListLiteral(spreadArgs,_))::rest ->
+        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+        //         rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
+        //     | last::rest ->
+        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+        //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
-
+(*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
         match strategy with
         | None | Some ReturnUnit -> ExpressionStatement(rustExpr)
@@ -1179,15 +1199,15 @@ module Util =
         transformCallArgs com ctx info.HasSpread info.Args
         |> List.append thisArg
         |> emitExpression range macro
-
+*)
     let transformCall (com: IRustCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         let callee = com.TransformAsExpr(ctx, callee)
         let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
         match callInfo.ThisArg with
         | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-        | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
+        // | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
         | None -> callFunction range callee args
-
+(*
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx false args with
         | [] -> callFunction range applied []
@@ -1288,17 +1308,40 @@ module Util =
         | Fable.UnionField(index, _) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
             getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
-
+*)
     let transformSet (com: IRustCompiler) ctx range fableExpr (value: Fable.Expr) kind =
-        let expr = com.TransformAsExpr(ctx, fableExpr)
-        let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
-        let ret =
-            match kind with
-            | None -> expr
-            | Some(Fable.FieldKey fi) -> get None expr fi.Name
-            | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None expr e
-        assign range ret value
+        let left = com.TransformAsExpr(ctx, fableExpr)
+        let right = com.TransformAsExpr(ctx, value)
+        // let left =
+        //     match kind with
+        //     | None -> left
+        //     | Some(Fable.FieldKey fi) -> get None left fi.Name
+        //     | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None left e
+        // assign range ret value
+        mkAssignExpr left right
 
+    let transformLet (com: IRustCompiler) ctx (ident: Fable.Ident) value body =
+        let isRef = false
+        let isMut = ident.IsMutable
+        let pat = mkSymbolPat ident.Name isRef isMut
+        let ty = transformType com ctx ident.Type
+        let init = transformAsExpr com ctx value
+        let attrs = Vec []
+        let letBind = mkLocal pat (Some ty) (Some init) attrs
+        let letStmt = mkLocalStmt letBind
+        let letBody = transformAsExpr com ctx body |> mkExprStmt
+        [letStmt; letBody] |> Vec |> mkBlock |> mkBlockExpr
+
+    let transformIfThenElse (com: IRustCompiler) ctx range guardExpr thenExpr (elseExpr: Fable.Expr) =
+        let guardExpr = com.TransformAsExpr(ctx, guardExpr)
+        let thenExpr = com.TransformAsExpr(ctx, thenExpr)
+        if elseExpr.Type = Fable.Unit then
+            mkIfThenExpr guardExpr thenExpr //?loc=range)
+        else
+            let elseExpr = com.TransformAsExpr(ctx, elseExpr)
+            mkIfThenElseExpr guardExpr thenExpr elseExpr //?loc=range)
+
+(*
     let transformBindingExprBody (com: IRustCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
         | Function(args, body) ->
@@ -1598,8 +1641,8 @@ module Util =
         // | Fable.ObjectExpr (members, _, baseCall) ->
         //    transformObjectExpr com ctx members baseCall
 
-        // | Fable.Call(callee, info, _, range) ->
-        //     transformCall com ctx range callee info
+        | Fable.Call(callee, info, _, range) ->
+            transformCall com ctx range callee info
 
         // | Fable.CurriedApply(callee, args, _, range) ->
         //     transformCurriedApply com ctx range callee args
@@ -1610,10 +1653,8 @@ module Util =
         // | Fable.Get(expr, kind, typ, range) ->
         //     transformGet com ctx range typ expr kind
 
-        // | Fable.IfThenElse(TransformExpr com ctx guardExpr,
-        //                    TransformExpr com ctx thenExpr,
-        //                    TransformExpr com ctx elseExpr, r) ->
-        //     Expression.conditionalExpression(guardExpr, thenExpr, elseExpr, ?loc=r)
+        | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
+            transformIfThenElse com ctx r guardExpr thenExpr elseExpr
 
         // | Fable.DecisionTree(expr, targets) ->
         //     transformDecisionTreeAsExpr com ctx targets expr
@@ -1621,14 +1662,15 @@ module Util =
         // | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
         //     transformDecisionTreeSuccessAsExpr com ctx idx boundValues
 
-        // | Fable.Set(expr, kind, value, range) ->
-        //     transformSet com ctx range expr value kind
+        | Fable.Set(expr, kind, value, range) ->
+            transformSet com ctx range expr value kind
 
-        // | Fable.Let(ident, value, body) ->
-        //     if ctx.HoistVars [ident] then
-        //         let assignment = transformBindingAsExpr com ctx ident value
-        //         Expression.sequenceExpression([|assignment; com.TransformAsExpr(ctx, body)|])
-        //     else iife com ctx expr
+        | Fable.Let(ident, value, body) ->
+            transformLet com ctx ident value body
+            // if ctx.HoistVars [ident] then
+            //     let assignment = transformBindingAsExpr com ctx ident value
+            //     Expression.sequenceExpression([|assignment; com.TransformAsExpr(ctx, body)|])
+            // else iife com ctx expr
 
         // | Fable.LetRec(bindings, body) ->
         //     if ctx.HoistVars(List.map fst bindings) then
@@ -1637,9 +1679,12 @@ module Util =
         //         Expression.sequenceExpression(Array.append values [|com.TransformAsExpr(ctx, body)|])
         //     else iife com ctx expr
 
-        // | Fable.Sequential exprs ->
-        //     List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        //     |> Expression.sequenceExpression
+        | Fable.Sequential exprs ->
+            exprs
+            |> List.map (fun e ->
+                com.TransformAsExpr(ctx, e)
+                |> (if e.Type = Fable.Unit then mkSemiStmt else mkExprStmt))
+            |> Vec |> mkBlock |> mkBlockExpr
 
         // | Fable.Emit(info, _, range) ->
         //     if info.IsJsStatement then iife com ctx expr
@@ -1816,8 +1861,12 @@ module Util =
         // Don't exit the process after leaving main, as there may be a server running
         // ExpressionStatement(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         PrivateModuleDeclaration(ExpressionStatement(main))
-
-    let declareModuleMember isPublic membName isMutable (expr: Rust.Expr) =
+*)
+    // let declareModuleMember isPublic membName isMutable (expr: Rust.Expr) =
+    let transformModuleMember com ctx isPublic membName isMutable (expr: Fable.Expr) =
+        let expr = transformAsExpr com ctx expr
+        [TODO_ITEM membName]
+(*
         let membName' = Pattern.identifier(membName)
         let membName = Identifier.identifier(membName)
         let decl: Declaration =
@@ -1927,8 +1976,59 @@ module Util =
             makeFunctionExpression None (args, body, returnType, None)
             |> declareModuleMember ent.IsPublic (entName + Naming.reflectionSuffix) false
         [typeDeclaration; reflectionDeclaration]
+*)
+    let typedParam (com: IRustCompiler) ctx (id: Fable.Ident) =
+        let ident = mkIdent id.Name
+        let ty = transformType com ctx id.Type
+        let isRef = false
+        let isMut = false
+        mkParamFromType ident ty isRef isMut //?loc=id.Range)
 
-    let transformModuleFunction (com: IRustCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
+    let transformBody (com: IRustCompiler) ctx (body: Fable.Expr): Rust.Stmt =
+        let expr = com.TransformAsExpr(ctx, body)
+        if body.Type = Fable.Unit
+        then mkSemiStmt expr
+        else mkExprStmt expr
+
+    let transformModuleFunction (com: IRustCompiler) ctx (info: Fable.MemberInfo) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
+        let argTypes = args |> List.map (fun id -> id.Type)
+        let genTypeParams = Util.getGenericTypeParams (argTypes @ [body.Type])
+        let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+        let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams newTypeParams }
+        let fnBodyStmt = transformBody com ctx body
+        let fnBody = [fnBodyStmt] |> Vec |> mkBlock |> Some
+        let fnRetTy =
+            if body.Type = Fable.Unit then VOID_RETURN_TY
+            else transformType com ctx body.Type |> Rust.FnRetTy.Ty
+        let inputs =
+            args
+            |> List.filter (fun id -> id.Type <> Fable.Unit)
+            |> List.map (typedParam com ctx)
+            |> Vec
+        let header = DEFAULT_FN_HEADER
+        let decl = mkFnDecl inputs fnRetTy
+        let gen =  NO_GENERICS //TODO: add generics
+        let kind = mkFnKind header decl gen fnBody
+        let fnItem = mkFnItem membName kind
+
+        let isEntryPoint =
+            info.Attributes
+            |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
+
+        // if main entrypoint, declare and call it with cmd line args
+        if isEntryPoint then
+            let fnBody =
+                let stmt1 = mkItemStmt fnItem // original main func
+                let stmt2 = mkEmitSemiStmt "let args: Vec<String> = std::env::args().collect()"
+                let stmt3 = mkEmitSemiStmt (sprintf "%s(&args[1..])" membName) // call main
+                [stmt1; stmt2; stmt3] |> Vec |> mkBlock |> Some
+            let decl = mkFnDecl NO_PARAMS VOID_RETURN_TY
+            let kind = mkFnKind DEFAULT_FN_HEADER decl NO_GENERICS fnBody
+            [mkFnItem "main" kind]
+        else
+            [fnItem]
+
+(*
         let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
         let expr = Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl)
@@ -2074,6 +2174,11 @@ module Util =
             result
 
         match decl with
+        | Fable.ModuleDeclaration decl ->
+            let members = decl.Members |> List.collect (transformDeclaration com ctx)
+            let modItem = members |> Vec |> mkModItem decl.Name
+            [modItem]
+
         | Fable.ActionDeclaration decl ->
             // TODO: use ItemKind.Static with IIFE closure?
             [TODO_ITEM "module_do_bindings_not_implemented_yet"]
@@ -2082,16 +2187,10 @@ module Util =
 
         | Fable.MemberDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
-                let value = transformAsExpr com ctx decl.Body
-                [TODO_ITEM decl.Name]
-                // let decls =
-                //     if decl.Info.IsValue then
-                //         let value = transformAsExpr com ctx decl.Body
-                //         [transformModuleMember decl.Info.IsPublic decl.Name decl.Info.IsMutable decl.Body]
-                //         // [declareModuleMember decl.Info.IsPublic decl.Name decl.Info.IsMutable value]
-                //     else
-                //         [transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body]
-                // decls
+                if decl.Info.IsValue
+                then transformModuleMember com ctx decl.Info.IsPublic decl.Name decl.Info.IsMutable decl.Body
+                else transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body
+
                 // if decl.ExportDefault then
                 //     decls @ [ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name)))]
                 // else decls

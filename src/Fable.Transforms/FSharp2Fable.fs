@@ -1293,14 +1293,14 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                               Constructor = None
                               BaseCall = None
                               AttachedMembers = [] }]
-            // // This adds modules in the AST for languages that support them (like Rust)
-            // | sub when (ent.IsFSharpModule || ent.IsNamespace) && (com :> Compiler).Options.Language = Rust ->
-            //     let entRef = FsEnt.Ref ent
-            //     let members = transformDeclarations com ctx sub
-            //     [Fable.ModuleDeclaration
-            //         { Name = ent.CompiledName
-            //           Entity = entRef
-            //           Members = members }]
+            // This adds modules in the AST for languages that support them (like Rust)
+            | sub when (ent.IsFSharpModule || ent.IsNamespace) && (com :> Compiler).Options.Language = Rust ->
+                let entRef = FsEnt.Ref ent
+                let members = transformDeclarations com ctx sub
+                [Fable.ModuleDeclaration
+                    { Name = ent.CompiledName
+                      Entity = entRef
+                      Members = members }]
             | sub ->
                 transformDeclarations com ctx sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(meth, args, body) ->

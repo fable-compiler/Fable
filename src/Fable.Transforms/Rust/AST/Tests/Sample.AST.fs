@@ -13,7 +13,7 @@ let test_crate: Crate = {
       id = DUMMY_NODE_ID
       span = DUMMY_SP
       vis = INHERITED_VIS
-      ident = Ident.from_str("main")
+      ident = mkIdent("main")
       kind =
         ItemKind.Fn(
           ( //FnKind
@@ -49,7 +49,7 @@ let test_crate: Crate = {
                       StmtKind.Local(
                         { // Local
                           id = DUMMY_NODE_ID
-                          pat = mkPatNot "a"
+                          pat = mkSymbolPat "a" false false
                           ty = None
                           init =
                             Some(
@@ -58,7 +58,7 @@ let test_crate: Crate = {
                                 kind =
                                   ExprKind.MacCall(
                                     { // MacCall
-                                      path = mkPathFromSymbols(Vec ["vec"])
+                                      path = mkPathFromSymbol("vec")
                                       args =
                                         MacArgs.Delimited(
                                           dummyDelimSpan,
@@ -98,7 +98,7 @@ let test_crate: Crate = {
                       StmtKind.MacCall(
                         { // MacCallStmt
                           mac = { // MacCall
-                            path = mkPathFromSymbols(Vec ["println"])
+                            path = mkPathFromSymbol("println")
                             args =
                               MacArgs.Delimited(
                                 dummyDelimSpan,
