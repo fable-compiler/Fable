@@ -2016,6 +2016,9 @@ module Util =
             result
 
         match decl with
+        | Fable.ModuleDeclaration decl ->
+            decl.Members |> List.collect (transformDeclaration com ctx)
+
         | Fable.ActionDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 transformAction com ctx decl.Body

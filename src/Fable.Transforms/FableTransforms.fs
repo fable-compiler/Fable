@@ -618,7 +618,7 @@ let getTransformations (_com: Compiler) =
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
     ]
 
-let transformDeclaration transformations (com: Compiler) file decl =
+let rec transformDeclaration transformations (com: Compiler) file decl =
     let transformExpr (com: Compiler) e =
         List.fold (fun e f -> f com e) e transformations
 
@@ -626,6 +626,13 @@ let transformDeclaration transformations (com: Compiler) file decl =
         { m with Body = transformExpr com m.Body }
 
     match decl with
+    | ModuleDeclaration decl ->
+        let members =
+            decl.Members
+            |> List.map (transformDeclaration transformations com file)
+        { decl with Members = members }
+        |> ModuleDeclaration
+
     | ActionDeclaration decl ->
         { decl with Body = transformExpr com decl.Body }
         |> ActionDeclaration
