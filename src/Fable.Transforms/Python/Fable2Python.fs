@@ -29,9 +29,17 @@ type UsedNames =
     DeclarationScopes: HashSet<string>
     CurrentDeclarationScope: HashSet<string> }
 
+/// Used for keeping track of existing variable bindings to know if we need to declare an
+/// identifier as nonlocal or global. TODO: can we merge this with UsedNames?
+type BoundVars =
+    { GlobalScope: HashSet<string>
+      EnclosingScope: HashSet<string>
+      LocalScope: HashSet<string> }
+
 type Context =
   { File: Fable.File
     UsedNames: UsedNames
+    BoundVars: BoundVars
     DecisionTargets: (Fable.Ident list * Fable.Expr) list
     HoistVars: Fable.Ident list -> bool
     TailCallOpportunity: ITailCallOpportunity option
@@ -433,9 +441,9 @@ module Util =
         let name = Helpers.clean name
 
         // FIXME:
-        //match name with
-        //| "math" -> com.GetImportExpr(ctx, "math") |> ignore
-        //| _ -> ()
+        // match name with
+        // | "math" -> com.GetImportExpr(ctx, "math") |> ignore
+        // | _ -> ()
 
         Python.Identifier name
 
@@ -599,18 +607,16 @@ module Util =
         Expression.call(afe, []), stmts
 
     let multiVarDeclaration (variables: (Identifier * Expression option) list) =
-        let varDeclarators =
-            // TODO: Log error if there're duplicated non-empty var declarations
+        let ids, values =
             variables
             |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
+            |> List.map (function
+                | i, Some value -> Expression.name(i, Store), value
+                | i, _ -> Expression.name(i, Store), Expression.none ())
+            |> List.unzip
+            |> fun (ids, values) -> (Expression.tuple(ids), Expression.tuple(values))
 
-        [
-            for id, init in varDeclarators do
-                let name = Expression.name(id, Store)
-                match init with
-                | Some value ->
-                    Statement.assign ([name], value)
-                | None -> () ]
+        Statement.assign([ids], values)
 
     let varDeclaration (var: Expression) (isMutable: bool) value =
         Statement.assign([var], value)
@@ -1149,7 +1155,7 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr (value: Fable.Expr) kind =
-        printfn "transformSet"
+        printfn "transformSet: %A" (fableExpr, value)
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let value', stmts' = com.TransformAsExpr(ctx, value)
         let value = value' |> wrapIntExpression value.Type
@@ -1160,6 +1166,7 @@ module Util =
             | Some(Fable.ExprKey(TransformExpr com ctx (e, stmts''))) ->
                 let expr, stmts''' = getExpr None expr e
                 expr, stmts @ stmts' @ stmts'' @ stmts'''
+        printfn "Used names: %A" ctx.UsedNames
         printfn "transformset, assign: %A" (range, ret, value, stmts)
         assign range ret value, stmts
 
@@ -1216,30 +1223,31 @@ module Util =
             let actual, stmts = getUnionExprTag com ctx None expr
             Expression.compare(actual, [Eq], [ expected ], ?loc=range), stmts
 
-    // let transformSwitch (com: IPythonCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
-    //     let cases =
-    //         cases |> List.collect (fun (guards, expr) ->
-    //             // Remove empty branches
-    //             match returnStrategy, expr, guards with
-    //             | None, Fable.Value(Fable.UnitConstant,_), _
-    //             | _, _, [] -> []
-    //             | _, _, guards ->
-    //                 let guards, lastGuard = List.splitLast guards
-    //                 let guards = guards |> List.map (fun e -> SwitchCase.switchCase([||], com.TransformAsExpr(ctx, e)))
-    //                 let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-    //                 let caseBody =
-    //                     match returnStrategy with
-    //                     | Some Return -> caseBody
-    //                     | _ -> Array.append caseBody [|Statement.break'()|]
-    //                 guards @ [SwitchCase.switchCase(caseBody, com.TransformAsExpr(ctx, lastGuard))]
-    //             )
-    //     let cases =
-    //         match defaultCase with
-    //         | Some expr ->
-    //             let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-    //             cases @ [SwitchCase.switchCase(consequent defaultCaseBody)]
-    //         | None -> cases
-    //     Statement.switchStatement(com.TransformAsExpr(ctx, evalExpr), List.toArray cases)
+    let transformSwitch (com: IPythonCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
+        // let cases =
+        //     cases |> List.collect (fun (guards, expr) ->
+        //         // Remove empty branches
+        //         match returnStrategy, expr, guards with
+        //         | None, Fable.Value(Fable.UnitConstant,_), _
+        //         | _, _, [] -> []
+        //         | _, _, guards ->
+        //             let guards, lastGuard = List.splitLast guards
+        //             let guards = guards |> List.map (fun e -> SwitchCase.switchCase([||], com.TransformAsExpr(ctx, e)))
+        //             let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
+        //             let caseBody =
+        //                 match returnStrategy with
+        //                 | Some Return -> caseBody
+        //                 | _ -> Array.append caseBody [|Statement.break'()|]
+        //             guards @ [SwitchCase.switchCase(caseBody, com.TransformAsExpr(ctx, lastGuard))]
+        //         )
+        // let cases =
+        //     match defaultCase with
+        //     | Some expr ->
+        //         let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
+        //         cases @ [SwitchCase.switchCase(consequent defaultCaseBody)]
+        //     | None -> cases
+        // Statement.switchStatement(com.TransformAsExpr(ctx, evalExpr), List.toArray cases)
+        Statement.expr(Expression.name("Not implemented"))
 
     let matchTargetIdentAndValues idents values =
         if List.isEmpty idents then []
@@ -1371,76 +1379,76 @@ module Util =
 
     /// When several branches share target create first a switch to get the target index and bind value
     /// and another to execute the actual target
-    // let transformDecisionTreeWithTwoSwitches (com: IPythonCompiler) ctx returnStrategy
-    //                 (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
-    //     // Declare target and bound idents
-    //     let targetId = getUniqueNameInDeclarationScope ctx "pattern_matching_result" |> makeIdent |> ident
-    //     let multiVarDecl =
-    //         let boundIdents =
-    //             targets |> List.collect (fun (idents,_) ->
-    //             idents) |> List.map (fun id -> ident id, None)
-    //         multiVarDeclaration ((targetId,None)::boundIdents)
-    //     // Transform targets as switch
-    //     let switch2 =
-    //         // TODO: Declare the last case as the default case?
-    //         let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
-    //         transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
-    //     // Transform decision tree
-    //     let targetAssign = Target(ident targetId)
-    //     let ctx = { ctx with DecisionTargets = targets }
-    //     match transformDecisionTreeAsSwitch treeExpr with
-    //     | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-    //         let cases = groupSwitchCases (Fable.Number Int32) cases (defaultIndex, defaultBoundValues)
-    //         let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
-    //         let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-    //         [ multiVarDecl; switch1; switch2 ]
-    //     | None ->
-    //         let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-    //         [ yield multiVarDecl; yield! decisionTree; yield switch2 ]
+    let transformDecisionTreeWithTwoSwitches (com: IPythonCompiler) ctx returnStrategy
+                    (targets: (Fable.Ident list * Fable.Expr) list) treeExpr =
+        // Declare target and bound idents
+        let targetId = getUniqueNameInDeclarationScope ctx "pattern_matching_result" |> makeIdent
+        let multiVarDecl =
+            let boundIdents =
+                targets |> List.collect (fun (idents,_) ->
+                idents) |> List.map (fun id -> ident id, None)
+            multiVarDeclaration ((ident targetId,None)::boundIdents)
+        // Transform targets as switch
+        let switch2 =
+            // TODO: Declare the last case as the default case?
+            let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
+            transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
+        // Transform decision tree
+        let targetAssign = Target(ident targetId)
+        let ctx = { ctx with DecisionTargets = targets }
+        match transformDecisionTreeAsSwitch treeExpr with
+        | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+            let cases = groupSwitchCases (Fable.Number Int32) cases (defaultIndex, defaultBoundValues)
+            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
+            let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
+            [ multiVarDecl; switch1; switch2 ]
+        | None ->
+            let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
+            [ yield multiVarDecl; yield! decisionTree; yield switch2 ]
 
-    // let transformDecisionTreeAsStatements (com: IPythonCompiler) (ctx: Context) returnStrategy
-    //                     (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement list =
-    //     // If some targets are referenced multiple times, hoist bound idents,
-    //     // resolve the decision index and compile the targets as a switch
-    //     let targetsWithMultiRefs =
-    //         if com.Options.Language = TypeScript then [] // no hoisting when compiled with types
-    //         else getTargetsWithMultipleReferences treeExpr
-    //     match targetsWithMultiRefs with
-    //     | [] ->
-    //         let ctx = { ctx with DecisionTargets = targets }
-    //         match transformDecisionTreeAsSwitch treeExpr with
-    //         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-    //             let t = treeExpr.Type
-    //             let cases = cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
-    //                 [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t))
-    //             let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-    //             [ transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase) ]
-    //         | None ->
-    //             com.TransformAsStatements(ctx, returnStrategy, treeExpr)
-    //     | targetsWithMultiRefs ->
-    //         // If the bound idents are not referenced in the target, remove them
-    //         let targets =
-    //             targets |> List.map (fun (idents, expr) ->
-    //                 idents
-    //                 |> List.exists (fun i -> FableTransforms.isIdentUsed i.Name expr)
-    //                 |> function
-    //                     | true -> idents, expr
-    //                     | false -> [], expr)
-    //         let hasAnyTargetWithMultiRefsBoundValues =
-    //             targetsWithMultiRefs |> List.exists (fun idx ->
-    //                 targets.[idx] |> fst |> List.isEmpty |> not)
-    //         if not hasAnyTargetWithMultiRefsBoundValues then
-    //             match transformDecisionTreeAsSwitch treeExpr with
-    //             | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-    //                 let t = treeExpr.Type
-    //                 let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
-    //                 let ctx = { ctx with DecisionTargets = targets }
-    //                 let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-    //                 [ transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase) ]
-    //             | None ->
-    //                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
-    //         else
-    //             transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
+    let transformDecisionTreeAsStatements (com: IPythonCompiler) (ctx: Context) returnStrategy
+                        (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement list =
+        // If some targets are referenced multiple times, hoist bound idents,
+        // resolve the decision index and compile the targets as a switch
+        let targetsWithMultiRefs =
+            if com.Options.Language = TypeScript then [] // no hoisting when compiled with types
+            else getTargetsWithMultipleReferences treeExpr
+        match targetsWithMultiRefs with
+        | [] ->
+            let ctx = { ctx with DecisionTargets = targets }
+            match transformDecisionTreeAsSwitch treeExpr with
+            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                let t = treeExpr.Type
+                let cases = cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
+                    [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t))
+                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
+                [ transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase) ]
+            | None ->
+                com.TransformAsStatements(ctx, returnStrategy, treeExpr)
+        | targetsWithMultiRefs ->
+            // If the bound idents are not referenced in the target, remove them
+            let targets =
+                targets |> List.map (fun (idents, expr) ->
+                    idents
+                    |> List.exists (fun i -> FableTransforms.isIdentUsed i.Name expr)
+                    |> function
+                        | true -> idents, expr
+                        | false -> [], expr)
+            let hasAnyTargetWithMultiRefsBoundValues =
+                targetsWithMultiRefs |> List.exists (fun idx ->
+                    targets.[idx] |> fst |> List.isEmpty |> not)
+            if not hasAnyTargetWithMultiRefsBoundValues then
+                match transformDecisionTreeAsSwitch treeExpr with
+                | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                    let t = treeExpr.Type
+                    let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
+                    let ctx = { ctx with DecisionTargets = targets }
+                    let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
+                    [ transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase) ]
+                | None ->
+                    transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
+            else
+                transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
 
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list=
         match expr with
@@ -1493,7 +1501,6 @@ module Util =
             transformDecisionTreeSuccessAsExpr com ctx idx boundValues
 
         | Fable.Set(expr, kind, value, range) ->
-            printfn "A"
             transformSet com ctx range expr value kind
 
         | Fable.Let(ident, value, body) ->
@@ -1593,8 +1600,6 @@ module Util =
             List.append bindings (transformAsStatements com ctx returnStrategy body)
 
         | Fable.Set(expr, kind, value, range) ->
-            printfn "B: %A" (kind, value, range)
-
             let expr', stmts = transformSet com ctx range expr value kind
             match expr' with
             | Expression.NamedExpr({ Target = target; Value = value; Loc=loc }) ->
@@ -1686,7 +1691,7 @@ module Util =
                     |> List.map (fun (id, tcArg) -> ident id, Some (Expression.identifier(tcArg)))
                     |> multiVarDeclaration
 
-                let body = varDecls @ body
+                let body = varDecls :: body
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = body @ [ Statement.break'() ]
                 args', Statement.while'(Expression.constant(true), body)
@@ -1696,7 +1701,7 @@ module Util =
             if declaredVars.Count = 0 then body
             else
                 let varDeclStatement = multiVarDeclaration [for v in declaredVars -> ident v, None]
-                List.append varDeclStatement body
+                varDeclStatement :: body
         args |> List.map (ident >> Arg.arg), body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
@@ -1723,7 +1728,6 @@ module Util =
         //         ?returnType = returnType,
         //         ?typeParameters = typeParameters)
         | _ ->
-            //printfn $"declareModuleMember: Got {expr}"
             varDeclaration membName isMutable expr
         // if not isPublic then PrivateModuleDeclaration(decl |> Declaration)
         // else ExportNamedDeclaration(decl)
@@ -1912,7 +1916,6 @@ module Util =
                 yield! ent.FSharpFields |> Seq.mapi (fun i field ->
                     let left = get None thisExpr field.Name
                     let right = wrapIntExpression field.FieldType args.[i]
-                    printfn "***"
                     assign None left right |> Statement.expr)
                 |> Seq.toArray
             ]
@@ -1965,7 +1968,6 @@ module Util =
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 let decls =
                     if decl.Info.IsValue then
-                        printfn "1"
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
                         stmts @ [declareModuleMember decl.Info.IsPublic name decl.Info.IsMutable value]
@@ -1973,7 +1975,6 @@ module Util =
                         transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body
 
                 if decl.ExportDefault then
-                    printfn "2"
                     decls //@ [ ExportDefaultDeclaration(Choice2Of2(Expression.identifier(decl.Name))) ]
                 else
                     decls
@@ -1994,13 +1995,11 @@ module Util =
             match decl.Constructor with
             | Some cons ->
                 withCurrentScope ctx cons.UsedNames <| fun ctx ->
-                    printfn "1"
                     transformClassWithImplicitConstructor com ctx decl classMembers cons
             | None ->
                 let ent = com.GetEntity(ent)
                 if ent.IsFSharpUnion then transformUnion com ctx ent decl.Name classMembers
                 else
-                    printfn "2"
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformImports (imports: Import seq) : Statement list =
@@ -2096,6 +2095,9 @@ module Compiler =
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope
                           DeclarationScopes = declScopes
                           CurrentDeclarationScope = Unchecked.defaultof<_> }
+            BoundVars = { GlobalScope = HashSet ()
+                          EnclosingScope = HashSet ()
+                          LocalScope = HashSet () }
             DecisionTargets = []
             HoistVars = fun _ -> false
             TailCallOpportunity = None

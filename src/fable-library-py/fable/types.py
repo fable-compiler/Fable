@@ -91,12 +91,7 @@ def recordEquals(self, other):
     if self is other:
         return True
 
-    else:
-        for name in self.keys():
-            if self[name] != other.get(name):
-                return False
-
-        return True
+    return False
 
 
 def recordCompareTo(self, other):
@@ -137,7 +132,7 @@ class Record(IComparable):
         raise NotImplementedError
 
     def __eq__(self, other: Any) -> bool:
-        return recordEquals(self, other)
+        return self.Equals(other)
 
     def __hash__(self) -> int:
         return recordGetHashCode(self)

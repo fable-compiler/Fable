@@ -20,8 +20,7 @@ type ReturnStrategy =
 type UsedNames =
     { GlobalScope: HashSet<string>
       EnclosingScope: HashSet<string>
-      LocalScope: HashSet<string>
-      NonLocals: HashSet<string> }
+      LocalScope: HashSet<string> }
 
 type Context =
     { ReturnStrategy: ReturnStrategy
@@ -318,7 +317,7 @@ module Util =
         let enclosingScope = HashSet<string>()
         enclosingScope.UnionWith(ctx.UsedNames.EnclosingScope)
         enclosingScope.UnionWith(ctx.UsedNames.LocalScope)
-        let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = enclosingScope; NonLocals = HashSet () }}
+        let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = enclosingScope }}
         let body = com.TransformAsStatements(ctx', ReturnStrategy.Return, body)
 
         let name = com.GetIdentifier(ctx, name)
@@ -435,7 +434,7 @@ module Util =
                 let body, stmts = com.TransformAsExpr(ctx, argument)
                 Expression.lambda (arguments, body), stmts
             | _ ->
-                let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = ctx.UsedNames.LocalScope; NonLocals = HashSet () }}
+                let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = ctx.UsedNames.LocalScope }}
                 let body = com.TransformAsStatements(ctx', ReturnStrategy.Return, body)
                 let name = Helpers.getUniqueIdentifier "lifted"
 
@@ -630,7 +629,7 @@ module Util =
                 let body, stmts = com.TransformAsExpr(ctx, expr)
                 Expression.lambda (arguments, body), stmts
             | _ ->
-                let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = ctx.UsedNames.LocalScope; NonLocals = HashSet () }}
+                let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = ctx.UsedNames.LocalScope }}
 
                 let body = com.TransformAsStatements(ctx', ReturnStrategy.Return, body)
                 let name = Helpers.getUniqueIdentifier "lifted"
@@ -647,7 +646,7 @@ module Util =
         | Expression.Literal (Literal.NullLiteral (nl)) -> Expression.name (Python.Identifier("None")), []
         | SequenceExpression (expressions = exprs) -> //XXX
             // Sequence expressions are tricky. We currently convert them to a function that we call w/zero arguments
-            let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = ctx.UsedNames.LocalScope; NonLocals = HashSet () }}
+            let ctx' = { ctx with UsedNames = { ctx.UsedNames with LocalScope = HashSet (); EnclosingScope = ctx.UsedNames.LocalScope }}
 
             let body =
                 exprs
@@ -715,7 +714,6 @@ module Util =
                     let target = com.GetIdentifier(ctx, name)
                     let stmts =
                         if not (ctx.UsedNames.LocalScope.Contains name) && ctx.UsedNames.EnclosingScope.Contains name then
-                            ctx.UsedNames.NonLocals.Add name |> ignore
                             // printfn "**** Adding non-local: %A" target
                             [ Statement.nonLocal [target] ]
                         else
@@ -1051,7 +1049,6 @@ module Compiler =
                 GlobalScope = HashSet ()
                 EnclosingScope = HashSet ()
                 LocalScope = HashSet ()
-                NonLocals = HashSet ()
               }
             }
 

@@ -21,5 +21,6 @@ Continuation = aiotools.Continuation
 sleep = aiotools.sleep
 start = aiotools.start
 runSynchronously = aiotools.run_synchronously
+startImmediate = aiotools.start_immediate
 
-__all__ = ["sleep", "start", "runSynchronously"]
+__all__ = ["sleep", "start", "runSynchronously", "startImmediate"]

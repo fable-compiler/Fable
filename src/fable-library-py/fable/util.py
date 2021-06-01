@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from threading import RLock
 from typing import Callable, Iterable, List, TypeVar, Optional
 
+from libcst import Call
+
 T = TypeVar("T")
 
 
@@ -89,6 +91,30 @@ def equals(a, b):
     return a == b
 
 
+def equal(a, b):
+    return a == b
+
+
+def compare(a, b):
+    if a == b:
+        return 0
+    if a < b:
+        return -1
+    return 1
+
+
+def comparePrimitives(x, y) -> int:
+    return 0 if x == y else (-1 if x < y else 1)
+
+
+def min(comparer, x, y):
+    return x if comparer(x, y) < 0 else y
+
+
+def max(comparer, x, y):
+    return x if comparer(x, y) > 0 else y
+
+
 def assertEqual(actual, expected, msg=None) -> None:
     if actual != expected:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
@@ -149,7 +175,6 @@ def clear(col):
 
 
 class IEnumerator(IDisposable):
-    @property
     @abstractmethod
     def Current(self):
         ...
@@ -177,7 +202,7 @@ class IEnumerator(IDisposable):
 
 class IEnumerable(Iterable):
     @abstractmethod
-    def GetEnumerator():
+    def GetEnumerator(self):
         ...
 
 
@@ -186,7 +211,6 @@ class Enumerator(IEnumerator):
         self.iter = iter
         self.current = None
 
-    @property
     def Current(self):
         if self.current is not None:
             return self.current
@@ -210,7 +234,7 @@ class Enumerator(IEnumerator):
 def getEnumerator(o):
     attr = getattr(o, "GetEnumerator", None)
     if attr:
-        return attr
+        return attr()
     else:
         return Enumerator(iter(o))
 
@@ -242,6 +266,35 @@ def uncurry(arity: int, f: Callable):
     return uncurriedFn
 
 
+def curry(arity: int, f: Callable) -> Callable:
+    if f is None or arity == 1:
+        return f
+
+    if hasattr(f, CURRIED_KEY):
+        return getattr(f, CURRIED_KEY)
+
+    if arity == 2:
+        return lambda a1: lambda a2: f(a1, a2)
+    elif arity == 3:
+        return lambda a1: lambda a2: lambda a3: f(a1, a2, a3)
+    elif arity == 4:
+        return lambda a1: lambda a2: lambda a3: lambda a4: f(a1, a2, a3, a4)
+    elif arity == 4:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: f(a1, a2, a3, a4, a5)
+    elif arity == 6:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: f(a1, a2, a3, a4, a5, a6)
+    elif arity == 7:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: f(
+            a1, a2, a3, a4, a5, a6, a7
+        )
+    elif arity == 8:
+        return lambda a1: lambda a2: lambda a3: lambda a4: lambda a5: lambda a6: lambda a7: lambda a8: f(
+            a1, a2, a3, a4, a5, a6, a7, a8
+        )
+    else:
+        raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
+
+
 def isArrayLike(x):
     return hasattr(x, "__len__")
 
@@ -251,8 +304,13 @@ def isDisposable(x):
 
 
 def toIterator(x):
+    print("toIterator: ", x)
     return iter(x)
 
 
 def structuralHash(x):
+    return hash(x)
+
+
+def physicalHash(x):
     return hash(x)

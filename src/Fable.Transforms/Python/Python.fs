@@ -926,7 +926,7 @@ module PythonExtensions =
                   | UnaryNot -> Not
                   | UnaryNotBitwise -> Invert
                   // | UnaryTypeof -> "typeof"
-                  //| UnaryVoid ->
+                  // | UnaryVoid ->
                   // | UnaryDelete -> "delete"
                   | _ -> failwith $"Operator {op} not supported"
 
