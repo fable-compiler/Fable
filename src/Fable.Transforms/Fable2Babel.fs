@@ -905,7 +905,7 @@ module Util =
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
-    let transformCurry (com: IBabelCompiler) (ctx: Context) _r expr arity: Expression =
+    let transformCurry (com: IBabelCompiler) (ctx: Context) expr arity: Expression =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
@@ -1517,7 +1517,7 @@ module Util =
         match expr with
         | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
 
-        | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
+        | Fable.Curry(e, arity) -> transformCurry com ctx e arity
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
@@ -1597,8 +1597,8 @@ module Util =
         | Fable.TypeCast(e, t, tag) ->
             [|transformCast com ctx t tag e |> resolveExpr t returnStrategy|]
 
-        | Fable.Curry(e, arity, t, r) ->
-            [|transformCurry com ctx r e arity |> resolveExpr t returnStrategy|]
+        | Fable.Curry(e, arity) ->
+            [|transformCurry com ctx e arity |> resolveExpr e.Type returnStrategy|]
 
         | Fable.Value(kind, r) ->
             [|transformValue com ctx r kind |> resolveExpr kind.Type returnStrategy|]

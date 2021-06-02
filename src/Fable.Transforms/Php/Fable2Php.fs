@@ -904,7 +904,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // close the scope and get captured vars
         let uses = com.RestoreScope()
         PhpFunctionCall( PhpAnonymousFunc([], uses, body), [] )
-    | Fable.Curry(expr, arrity, _,_ ) ->
+    | Fable.Curry(expr, arrity) ->
         failwith "Curry is not implemented"
     | Fable.LetRec(bindings, body) ->
         failwith "LetRec is not implemented"

@@ -516,7 +516,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 | AST.NestedLambda(args, Fable.Import(info,_,r), _) when not info.IsCompilerGenerated ->
                     let t = value.Type
                     let info = resolveImportMemberBinding ident info
-                    return Fable.Let(ident, Fable.Curry(Fable.Import(info,t,r), List.length args, t, None), body)
+                    return Fable.Let(ident, Fable.Curry(Fable.Import(info,t,r), List.length args), body)
                 | _ -> return Fable.Let(ident, value, body)
 
     | FSharpExprPatterns.LetRec(recBindings, body) ->

@@ -31,7 +31,7 @@ let visit f e =
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
     | Test(e, kind, r) -> Test(f e, kind, r)
-    | Curry(e, arity, t, r) -> Curry(f e, arity, t, r)
+    | Curry(e, arity) -> Curry(f e, arity)
     | Lambda(arg, body, name) -> Lambda(arg, f body, name)
     | Delegate(args, body, name) -> Delegate(args, f body, name)
     | ObjectExpr(members, t, baseCall) ->
@@ -114,7 +114,7 @@ let getSubExpressions = function
         | NewAnonymousRecord(exprs, _, _) -> exprs
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
-    | Curry(e, _, _, _) -> [e]
+    | Curry(e, _) -> [e]
     | Lambda(_, body, _) -> [body]
     | Delegate(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
@@ -260,7 +260,7 @@ let noSideEffectBeforeIdent identName expr =
         | TypeCast(e,_,_)
         | Get(e,_,_,_)
         | Test(e,_,_)
-        | Curry(e,_,_,_) -> findIdentOrSideEffect e
+        | Curry(e,_) -> findIdentOrSideEffect e
         | IfThenElse(cond, thenExpr, elseExpr,_) ->
             findIdentOrSideEffect cond || findIdentOrSideEffect thenExpr || findIdentOrSideEffect elseExpr
         // TODO: Check member bodies in ObjectExpr
@@ -373,7 +373,7 @@ module private Transforms =
         visitFromInsideOut (function
             | IdentExpr id as e ->
                 match Map.tryFind id.Name replacements with
-                | Some arity -> Curry(e, arity, id.Type, id.Range)
+                | Some arity -> Curry(e, arity)
                 | None -> e
             | e -> e) body
 
@@ -397,11 +397,11 @@ module private Transforms =
             | None -> true
         match expr, expr with
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
-        | _, Curry(innerExpr, arity2,_,_)
+        | _, Curry(innerExpr, arity2)
             when matches arity arity2 -> innerExpr
-        | _, Get(Curry(innerExpr, arity2,_,_), OptionValue, t, r)
+        | _, Get(Curry(innerExpr, arity2), OptionValue, t, r)
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(Curry(innerExpr, arity2,_,_)),r1),r2)
+        | _, Value(NewOption(Some(Curry(innerExpr, arity2)),r1),r2)
             when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
         | _ ->
             match arity with
@@ -486,11 +486,11 @@ module private Transforms =
         | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
-                | Curry(innerExpr, arity,_,_) ->
+                | Curry(innerExpr, arity) ->
                     ident, innerExpr, Some arity
-                | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
+                | Get(Curry(innerExpr, arity), OptionValue, t, r) ->
                     ident, Get(innerExpr, OptionValue, t, r), Some arity
-                | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
+                | Value(NewOption(Some(Curry(innerExpr, arity)),r1),r2) ->
                     ident, Value(NewOption(Some(innerExpr),r1),r2), Some arity
                 | _ -> ident, value, None
             match arity with
@@ -526,9 +526,9 @@ module private Transforms =
                 let callee = makeImportLib com Any "checkArity" "Util"
                 let info = makeCallInfo None [makeIntConst arity; e] []
                 let e = Call(callee, info, t, r)
-                if arity > 1 then Curry(e, arity, t, r)
+                if arity > 1 then Curry(e, arity)
                 else e
-            | (arity, _), _ when arity > 1 -> Curry(e, arity, t, r)
+            | (arity, _), _ when arity > 1 -> Curry(e, arity)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
@@ -585,9 +585,9 @@ module private Transforms =
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
             match applied with
-            | Curry(applied, uncurriedArity,_,_) ->
+            | Curry(applied, uncurriedArity) ->
                 uncurryApply r t applied args uncurriedArity
-            | Get(Curry(applied, uncurriedArity,_,_), OptionValue, t2, r2) ->
+            | Get(Curry(applied, uncurriedArity), OptionValue, t2, r2) ->
                 uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
