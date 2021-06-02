@@ -1249,12 +1249,14 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
               [_; (_,DeclaredType(ent, []))] ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com exprs fieldNames ent
+                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com exprs fieldNames ent r
                     |> function
-                        | Error errMsg ->
-                            addWarning com ctx.InlinePath r errMsg
+                       | Error errors ->
+                            errors
+                            |> List.iter (fun (range, error) -> addWarning com ctx.InlinePath range error)
                             Some arg
-                        | Ok () -> Some arg
+                       | Ok () ->
+                            Some arg
                 else Some arg
             | _ -> Some arg
         | "op_Dynamic", [left; memb] ->
