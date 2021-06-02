@@ -308,7 +308,7 @@ type Expr =
     // Operations
     | Call of callee: Expr * info: CallInfo * typ: Type * range: SourceLocation option
     | CurriedApply of applied: Expr * args: Expr list * typ: Type * range: SourceLocation option
-    | Curry of Expr * arity: int * Type * SourceLocation option
+    | Curry of Expr * arity: int
     | Operation of OperationKind * typ: Type * range: SourceLocation option
 
     // JS related: imports and statements
@@ -341,7 +341,6 @@ type Expr =
         | CurriedApply(_,_,t,_)
         | TypeCast (_, t,_)
         | Import (_, t, _)
-        | Curry (_, _, t, _)
         | ObjectExpr (_, t, _)
         | Operation (_, t, _)
         | Get (_, _, t, _)
@@ -351,6 +350,7 @@ type Expr =
         | WhileLoop _
         | ForLoop _-> Unit
         | Sequential exprs -> List.tryLast exprs |> Option.map (fun e -> e.Type) |> Option.defaultValue Unit
+        | Curry (expr, _)
         | Let (_, _, expr)
         | LetRec (_, expr)
         | TryCatch (expr, _, _, _)
@@ -367,6 +367,7 @@ type Expr =
         | LetRec _
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
+        | Curry(e, _)
         | Lambda (_, e, _)
         | Delegate (_, e, _)
         | TypeCast (e, _, _) -> e.Range
@@ -375,7 +376,6 @@ type Expr =
         | CurriedApply(_,_,_,r)
         | Emit (_,_,r)
         | Import(_,_,r)
-        | Curry(_,_,_,r)
         | Value (_, r)
         | IfThenElse (_, _, _, r)
         | TryCatch (_, _, _, r)

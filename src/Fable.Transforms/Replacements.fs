@@ -1726,10 +1726,10 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
 let formattableString (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "Create", None, [str; args] -> objExpr ["str", str; "args", args] |> Some
-    | "get_Format", Some x, _ -> get r t x "str" |> Some
-    | "get_ArgumentCount", Some x, _ -> get r t (getSimple x "args") "length" |> Some
-    | "GetArgument", Some x, [idx] -> getExpr r t (getSimple x "args") idx |> Some
-    | "GetArguments", Some x, [] -> get r t x "args" |> Some
+    | "get_Format", Some x, _ -> getAttachedMemberWith r t x "str" |> Some
+    | "get_ArgumentCount", Some x, _ -> getAttachedMemberWith r t (getAttachedMember x "args") "length" |> Some
+    | "GetArgument", Some x, [idx] -> getExpr r t (getAttachedMember x "args") idx |> Some
+    | "GetArguments", Some x, [] -> getAttachedMemberWith r t x "args" |> Some
     | _ -> None
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
