@@ -712,7 +712,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.FSharpFieldGet(callee, calleeType, field) ->
         let r = makeRangeFrom fsExpr
         let! callee = transformCallee com ctx callee calleeType
-        let typ = makeType ctx.GenericArgs fsExpr.Type
+        // let typ = makeType ctx.GenericArgs fsExpr.Type
+        let typ = makeType Map.empty field.FieldType
         return Fable.Get(callee, Fable.FieldGet(FsField.FSharpFieldName field, field.IsMutable), typ, r)
 
     | FSharpExprPatterns.TupleGet(tupleType, tupleElemIndex, IgnoreAddressOf tupleExpr) ->
