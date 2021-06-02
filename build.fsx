@@ -333,6 +333,10 @@ let testReact() =
     runFableWithArgs "tests/React" []
     runInDir "tests/React" "npm i && npm test"
 
+
+let testCompiler() =
+    runInDir "tests/Compiler" "dotnet run -c Release"
+
 let testIntegration() =
     runInDir "tests/Integration" "dotnet run -c Release"
 
@@ -353,6 +357,8 @@ let test() =
     runInDir projectDir "dotnet run"
 
     testReact()
+
+    testCompiler()
 
     testIntegration()
 
@@ -523,6 +529,7 @@ match argsLower with
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
+| "test-compiler"::_ -> testCompiler()
 | "test-integration"::_ -> testIntegration()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
