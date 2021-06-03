@@ -1,3 +1,8 @@
+### 3.2.2
+
+* Check for correct types in Anonymous Record when assigning to Interface with [<EmitIndexer>] via !! @Booksbaum
+* Fix #1973: FormattableString support
+
 ### 3.2.1
 
 * Fix Event issues and and implement FSharpEvent`2 @chkn
