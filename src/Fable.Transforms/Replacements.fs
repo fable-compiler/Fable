@@ -1722,6 +1722,15 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let formattableString (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "Create", None, [str; args] -> objExpr ["str", str; "args", args] |> Some
+    | "get_Format", Some x, _ -> get r t x "str" |> Some
+    | "get_ArgumentCount", Some x, _ -> get r t (getSimple x "args") "length" |> Some
+    | "GetArgument", Some x, [idx] -> getExpr r t (getSimple x "args") idx |> Some
+    | "GetArguments", Some x, [] -> get r t x "args" |> Some
+    | _ -> None
+
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
     | "Cast", [arg] -> Some arg // Erase
@@ -3077,6 +3086,8 @@ let private replacedModules =
     Types.char, chars
     Types.string, strings
     "Microsoft.FSharp.Core.StringModule", stringModule
+    "System.FormattableString", formattableString
+    "System.Runtime.CompilerServices.FormattableStringFactory", formattableString
     "System.Text.StringBuilder", bclType
     Types.array, arrays
     Types.list, lists
