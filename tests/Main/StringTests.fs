@@ -894,4 +894,13 @@ let tests =
 
       testCase "interpolated string with double % should be unescaped" <| fun () ->
             $"{100}%%" |> equal "100%"
+
+      testCase "Can create FormattableString" <| fun () ->
+          let orderAmount = 100
+          let convert (s: FormattableString) = s
+          let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+          s.Format |> equal "You owe: {0:N5} {1} {2}"
+          s.ArgumentCount |> equal 3
+          s.GetArgument(2) |> equal (box true)
+          s.GetArguments() |> equal [|100; 3; true|]
   ]
