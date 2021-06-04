@@ -377,7 +377,7 @@ module AST =
         makeTypedIdent typ name |> IdentExpr
 
     let makeWhileLoop range guardExpr bodyExpr =
-        WhileLoop (guardExpr, bodyExpr, range)
+        WhileLoop (guardExpr, bodyExpr, None, range)
 
     let makeForLoop range isUp ident start limit body =
         ForLoop (ident, start, limit, body, isUp, range)
@@ -464,10 +464,10 @@ module AST =
         emitJs r t args true macro
 
     let makeThrow r t err =
-        emitJsStatement r t [err] "throw $0"
+        NativeInstruction(Throw(err, t), r)
 
     let makeDebugger range =
-        emitJsStatement range Unit [] "debugger"
+        NativeInstruction(Debugger, range)
 
     let destructureTupleArgs = function
         | [MaybeCasted(Value(UnitConstant,_))] -> []

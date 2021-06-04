@@ -10,6 +10,11 @@ let visit f e =
     | Import(info, t, r) ->
         Import({ info with Selector = info.Selector
                            Path = info.Path }, t, r)
+    | NativeInstruction(kind, r) ->
+        match kind with
+        | Throw(e, t) -> NativeInstruction(Throw(f e, t), r)
+        | Break _
+        | Debugger -> e
     | Value(kind, r) ->
         match kind with
         | ThisValue _ | BaseValue _
@@ -73,7 +78,7 @@ let visit f e =
         match kind with
         | ExprSet e2 -> Set(f e, ExprSet(f e2), t, f v, r)
         | FieldSet _ | ValueSet -> Set(f e, kind, t, f v, r)
-    | WhileLoop(e1, e2, r) -> WhileLoop(f e1, f e2, r)
+    | WhileLoop(e1, e2, label, r) -> WhileLoop(f e1, f e2, label, r)
     | ForLoop(i, e1, e2, e3, up, r) -> ForLoop(i, f e1, f e2, f e3, up, r)
     | TryCatch(body, catch, finalizer, r) ->
         TryCatch(f body,
@@ -97,6 +102,11 @@ let getSubExpressions = function
     | IdentExpr _ -> []
     | TypeCast(e,_,_) -> [e]
     | Import(_,_,_) -> []
+    | NativeInstruction(kind, r) ->
+        match kind with
+        | Throw(e, _) -> [e]
+        | Break _
+        | Debugger -> []
     | Value(kind,_) ->
         match kind with
         | ThisValue _ | BaseValue _
@@ -141,7 +151,7 @@ let getSubExpressions = function
         match kind with
         | ExprSet e2 -> [e; e2; v]
         | FieldSet _ | ValueSet -> [e; v]
-    | WhileLoop(e1, e2, _) -> [e1; e2]
+    | WhileLoop(e1, e2, _, _) -> [e1; e2]
     | ForLoop(_, e1, e2, e3, _, _) -> [e1; e2; e3]
     | TryCatch(body, catch, finalizer, _) ->
         match catch with
@@ -225,6 +235,7 @@ let noSideEffectBeforeIdent identName expr =
     let rec findIdentOrSideEffect = function
         | IdentExpr id -> id.Name = identName
         | Import _ | Lambda _ | Delegate _ -> false
+        | NativeInstruction((Throw _|Break _|Debugger),_) -> true
         // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
         | TypeCast(Call(_,i,_,_),_,Some "optimizable:pojo") ->
             match i.Args with

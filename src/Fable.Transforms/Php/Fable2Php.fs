@@ -509,6 +509,8 @@ let rec tryFindMethod methodName (phpType: PhpType) =
 /// convert a Fable expression to a Php expression
 let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     match expr with
+    | Fable.NativeInstruction _ -> failwith "TODO: NativeInstruction"
+
     | Fable.Value(value,range) ->
         // this is a value (number / record instanciation ...)
         convertValue com value range
@@ -908,10 +910,10 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         failwith "Curry is not implemented"
     | Fable.LetRec(bindings, body) ->
         failwith "LetRec is not implemented"
-    | Fable.ForLoop(_,_,_,_,_,_)
-    | Fable.WhileLoop(_,_,_)
-    | Fable.Set(_,_,_,_,_)
-    | Fable.TryCatch(_,_,_,_) ->
+    | Fable.ForLoop _
+    | Fable.WhileLoop _
+    | Fable.Set _
+    | Fable.TryCatch _ ->
         // these constructs should always be embeded in a function
         // and converted using the convertExprToStatement
         failwith "Should not appear in expression"
@@ -1221,7 +1223,7 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                     | None -> []
             )]
 
-    | Fable.WhileLoop(guard, body, _) ->
+    | Fable.WhileLoop(guard, body, _,_) ->
         [ PhpWhileLoop(convertExpr com guard, convertExprToStatement com body Do ) ]
     | Fable.ForLoop(ident, start, limit, body, isUp, _) ->
         let id = fixName ident.Name
