@@ -592,7 +592,8 @@ module Util =
 
         | Fable.TryCatch _
         | Fable.Sequential _ | Fable.Let _ | Fable.LetRec _ | Fable.Set _
-        | Fable.ForLoop _ | Fable.WhileLoop _ -> true
+        | Fable.ForLoop _ | Fable.WhileLoop _
+        | Fable.NativeInstruction((Fable.Throw _ | Fable.Break _ | Fable.Debugger), _) -> true
 
         // TODO: If IsJsSatement is false, still try to infer it? See #2414
         // /^\s*(break|continue|debugger|while|for|switch|if|try|let|const|var)\b/
@@ -982,6 +983,14 @@ module Util =
             // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
             let values = (ofInt tag)::values |> List.toArray
             Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
+
+    let transformNativeInstruction (com: IBabelCompiler) (ctx: Context) r kind: Statement =
+        match kind with
+        | Fable.Throw(TransformExpr com ctx e, _) -> Statement.throwStatement(e, ?loc=r)
+        | Fable.Debugger -> Statement.debuggerStatement(?loc=r)
+        | Fable.Break label ->
+            let label = label |> Option.map Identifier.identifier
+            Statement.breakStatement(?label=label, ?loc=r)
 
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -1588,12 +1597,16 @@ module Util =
             else transformEmit com ctx range info
 
         // These cannot appear in expression position in JS, must be wrapped in a lambda
-        | Fable.WhileLoop _ | Fable.ForLoop _ | Fable.TryCatch _ ->
+        | Fable.WhileLoop _ | Fable.ForLoop _ | Fable.TryCatch _
+        | Fable.NativeInstruction((Fable.Throw _ | Fable.Break _ | Fable.Debugger), _) ->
             iife com ctx expr
 
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
         match expr with
+        | Fable.NativeInstruction(kind, r) ->
+            [|transformNativeInstruction com ctx r kind|]
+
         | Fable.TypeCast(e, t, tag) ->
             [|transformCast com ctx t tag e |> resolveExpr t returnStrategy|]
 
@@ -1687,8 +1700,11 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
-        | Fable.WhileLoop(TransformExpr com ctx guard, body, range) ->
-            [|Statement.whileStatement(guard, transformBlock com ctx None body, ?loc=range)|]
+        | Fable.WhileLoop(TransformExpr com ctx guard, body, label, range) ->
+            let whileLoop = Statement.whileStatement(guard, transformBlock com ctx None body, ?loc=range)
+            match label with
+            | Some label -> [|Statement.labeledStatement(Identifier.identifier(label), whileLoop)|]
+            | None -> [|whileLoop|]
 
         | Fable.ForLoop (var, TransformExpr com ctx start, TransformExpr com ctx limit, body, isUp, range) ->
             let op1, op2 =
