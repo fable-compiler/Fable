@@ -15,9 +15,9 @@ type ReturnStrategy =
     | Target of Identifier
 
 type Import =
-  { Selector: string
-    LocalIdent: string option
-    Path: string }
+  { Module: string
+    LocalIdent: Identifier option
+    Name: string option }
 
 type ITailCallOpportunity =
     abstract Label: string
@@ -76,8 +76,9 @@ type Context =
 type IPythonCompiler =
     inherit Compiler
     abstract GetIdentifier: ctx: Context * name: string -> Python.Identifier
+    abstract GetIdentifierAsExpr: ctx: Context * name: string -> Python.Expression
     abstract GetAllImports: unit -> seq<Import>
-    abstract GetImportExpr: Context * selector: string * path: string * SourceLocation option -> Expression
+    abstract GetImportExpr: Context * moduleName: string * ?name: string * ?loc: SourceLocation -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression * Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement list
     abstract TransformImport: Context * selector:string * path:string -> Expression
@@ -467,10 +468,9 @@ module Util =
     let getIdentifier (com: IPythonCompiler) (ctx: Context) (name: string) =
         let name = Helpers.clean name
 
-        // FIXME:
-        // match name with
-        // | "math" -> com.GetImportExpr(ctx, "math") |> ignore
-        // | _ -> ()
+        match name with
+        | "math" -> com.GetImportExpr(ctx, "math") |> ignore
+        | _ -> ()
 
         Python.Identifier name
 
@@ -552,19 +552,18 @@ module Util =
         | Fable.IfThenElse(_,thenExpr,elseExpr,_) ->
             preferStatement || isPyStatement ctx false thenExpr || isPyStatement ctx false elseExpr
 
-
     let addErrorAndReturnNull (com: Compiler) (range: SourceLocation option) (error: string) =
         addError com [] range error
         Expression.name (Python.Identifier("None"))
 
-    let ident (id: Fable.Ident) =
-        Identifier(id.Name)
+    let ident (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
+        com.GetIdentifier(ctx, id.Name)
 
-    let identAsExpr (id: Fable.Ident) =
-        Expression.identifier(id.Name, ?loc=id.Range)
+    let identAsExpr (com: IPythonCompiler) (ctx: Context) (id: Fable.Ident) =
+        com.GetIdentifierAsExpr(ctx, id.Name)
 
     let thisExpr =
-        Expression.name ("self")
+        Expression.name("self")
 
     let ofInt (i: int) =
         Expression.constant(float i)
@@ -654,8 +653,8 @@ module Util =
 
         [ Statement.assign([var], value) ]
 
-    let restElement (var: Fable.Ident) =
-        let var = Expression.name (ident var)
+    let restElement (var: Python.Identifier) =
+        let var = Expression.name(var)
         Expression.starred(var)
 
     let callSuper (args: Expression list) =
@@ -743,16 +742,6 @@ module Util =
         let expr, stmts' = getExpr r expr (Expression.constant("tag"))
         expr, stmts @ stmts'
 
-    /// Wrap int expressions with `| 0` to help optimization of JS VMs
-    let wrapIntExpression typ (e: Expression) =
-        match e, typ with
-        | Expression.Constant(_), _ -> e
-        // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number(Int8 | Int16 | Int32)
-        | _, Fable.Enum _ ->
-            Expression.binOp(e, BinaryOrBitwise, Expression.constant(0.))
-        | _ -> e
-
     let wrapExprInBlockWithReturn (e, stmts) =
         stmts @ [ Statement.return'(e) ]
 
@@ -804,11 +793,11 @@ module Util =
             yield Statement.continue'(?loc=range)
         ]
 
-    let transformImport (com: IPythonCompiler) ctx r (selector: string) (path: string) =
-        let selector, parts =
-            let parts = Array.toList(selector.Split('.'))
+    let transformImport (com: IPythonCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
+        let name, parts =
+            let parts = Array.toList(name.Split('.'))
             parts.Head, parts.Tail
-        com.GetImportExpr(ctx, selector, path, r)
+        com.GetImportExpr(ctx, moduleName, name)
         |> getParts parts
 
     let transformCast (com: IPythonCompiler) (ctx: Context) t tag e: Expression * Statement list =
@@ -847,7 +836,7 @@ module Util =
     let transformValue (com: IPythonCompiler) (ctx: Context) r value: Expression * Statement list =
         match value with
         | Fable.BaseValue(None,_) -> Expression.identifier("super().__init__"), []
-        | Fable.BaseValue(Some boundIdent,_) -> identAsExpr boundIdent, []
+        | Fable.BaseValue(Some boundIdent,_) -> identAsExpr com ctx boundIdent, []
         | Fable.ThisValue _ -> Expression.identifier("self"), []
         | Fable.TypeInfo t -> transformTypeInfo com ctx r Map.empty t
         | Fable.Null _t -> Expression.identifier("None", ?loc=r), []
@@ -1031,7 +1020,7 @@ module Util =
         match strategy with
         | None | Some ReturnUnit -> Statement.expr(pyExpr)
         // TODO: Where to put these int wrappings? Add them also for function arguments?
-        | Some Return ->  Statement.return'(wrapIntExpression t pyExpr)
+        | Some Return ->  Statement.return'(pyExpr)
         | Some(Assign left) -> Statement.expr(assign None left pyExpr)
         | Some(Target left) -> Statement.expr(assign None (left |> Expression.identifier) pyExpr)
 
@@ -1110,7 +1099,7 @@ module Util =
             catch |> Option.map (fun (param, body) ->
                 let body = transformBlock com ctx returnStrategy body
                 let exn = Expression.identifier("Exception") |> Some
-                let identifier = ident param
+                let identifier = ident com ctx param
                 [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ])
         let finalizer =
             finalizer |> Option.map (transformBlock com ctx None)
@@ -1188,8 +1177,7 @@ module Util =
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr (value: Fable.Expr) kind =
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-        let value', stmts' = com.TransformAsExpr(ctx, value)
-        let value = value' |> wrapIntExpression value.Type
+        let value, stmts' = com.TransformAsExpr(ctx, value)
         let ret, stmts'' =
             match kind with
             | Fable.ValueSet -> expr, stmts @ stmts'
@@ -1207,21 +1195,17 @@ module Util =
             let args, stmts = transformFunction com ctx name args body
             makeArrowFunctionExpression args stmts
         | _ ->
-            if var.IsMutable then
-                com.TransformAsExpr(ctx, value)
-            else
-                let expr, stmts = com.TransformAsExpr(ctx, value)
-                expr |> wrapIntExpression value.Type, stmts
+            com.TransformAsExpr(ctx, value)
 
     let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         printfn "transformBindingAsExpr: %A" (var, value)
         let expr, stmts = transformBindingExprBody com ctx var value
-        expr |> assign None (identAsExpr var), stmts
+        expr |> assign None (identAsExpr com ctx var), stmts
 
     let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if isPyStatement ctx false value then
             printfn "Py statement"
-            let varName, varExpr = Expression.name(var.Name), identAsExpr var
+            let varName, varExpr = Expression.name(var.Name), identAsExpr com ctx var
             ctx.BoundVars.Bind(var.Name)
             let decl = Statement.assign([varName], varExpr)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
@@ -1417,15 +1401,15 @@ module Util =
         let multiVarDecl =
             let boundIdents =
                 targets |> List.collect (fun (idents,_) ->
-                idents) |> List.map (fun id -> ident id, None)
-            multiVarDeclaration ctx ((ident targetId,None)::boundIdents)
+                idents) |> List.map (fun id -> ident com ctx id, None)
+            multiVarDeclaration ctx ((ident com ctx targetId,None)::boundIdents)
         // Transform targets as switch
         let switch2 =
             // TODO: Declare the last case as the default case?
             let cases = targets |> List.mapi (fun i (_,target) -> [makeIntConst i], target)
             transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
         // Transform decision tree
-        let targetAssign = Target(ident targetId)
+        let targetAssign = Target(ident com ctx targetId)
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
@@ -1489,7 +1473,7 @@ module Util =
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
-        | Fable.IdentExpr id -> identAsExpr id, []
+        | Fable.IdentExpr id -> identAsExpr com ctx id, []
 
         | Fable.Import({ Selector = selector; Path = path }, _, r) ->
             transformImport com ctx r selector path, []
@@ -1579,7 +1563,7 @@ module Util =
             stmts @ [ expr |> resolveExpr kind.Type returnStrategy ]
 
         | Fable.IdentExpr id ->
-            [ identAsExpr id |> resolveExpr id.Type returnStrategy ]
+            [ identAsExpr com ctx id |> resolveExpr id.Type returnStrategy ]
 
         | Fable.Import({ Selector = selector; Path = path }, t, r) ->
             [ transformImport com ctx r selector path |> resolveExpr t returnStrategy ]
@@ -1725,7 +1709,7 @@ module Util =
                     |> List.map (fun (id, tcArg) -> id)
                 let varDecls =
                     List.zip args tc.Args
-                    |> List.map (fun (id, tcArg) -> ident id, Some (Expression.identifier(tcArg)))
+                    |> List.map (fun (id, tcArg) -> ident com ctx id, Some (Expression.identifier(tcArg)))
                     |> multiVarDeclaration ctx
 
                 let body = varDecls @ body
@@ -1737,9 +1721,9 @@ module Util =
         let body =
             if declaredVars.Count = 0 then body
             else
-                let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident v, None]
+                let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident com ctx v, None]
                 varDeclStatement @ body
-        args |> List.map (ident >> Arg.arg), body
+        args |> List.map (ident com ctx >> Arg.arg), body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
@@ -1808,7 +1792,7 @@ module Util =
     let getEntityFieldsAsProps (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         if ent.IsFSharpUnion then
             getUnionFieldsAsIdents com ctx ent
-            |> Array.map identAsExpr
+            |> Array.map (identAsExpr com ctx)
         else
             ent.FSharpFields
             |> Seq.map (fun field ->
@@ -1836,9 +1820,9 @@ module Util =
         let reflectionDeclaration, stmts =
             let ta = None
             let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
-            let generics = genArgs |> Array.mapToList identAsExpr
+            let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
-            let args = genArgs |> Array.mapToList (ident >> Arg.arg)
+            let args = genArgs |> Array.mapToList (ident com ctx >> Arg.arg)
             let expr, stmts' = makeFunctionExpression None (args, body)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
             expr |> declareModuleMember ctx ent.IsPublic name false, stmts @ stmts'
@@ -1899,8 +1883,8 @@ module Util =
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
         let args =
-            [ fieldIds.[0] |> ident |> Arg.arg
-              fieldIds.[1] |> ident |> Arg.arg ] //restElement ]
+            [ fieldIds.[0] |> ident com ctx |> Arg.arg
+              fieldIds.[1] |> ident com ctx |> Arg.arg ] //restElement ]
         let body =
             [
                 yield callSuperAsStatement []
@@ -1909,8 +1893,8 @@ module Util =
                     let right =
                         match id.Type with
                         | Fable.Number _ ->
-                            Expression.binOp(identAsExpr id, BinaryOrBitwise, Expression.constant(0.))
-                        | _ -> identAsExpr id
+                            Expression.binOp(identAsExpr com ctx id, BinaryOrBitwise, Expression.constant(0.))
+                        | _ -> identAsExpr com ctx id
 
                     Statement.assign([left], right))
                     //assign None left right |> Statement.expr)
@@ -1945,11 +1929,11 @@ module Util =
                     yield callSuperAsStatement []
                 yield! ent.FSharpFields |> Seq.mapi (fun i field ->
                     let left = get None thisExpr field.Name
-                    let right = wrapIntExpression field.FieldType args.[i]
+                    let right = args.[i]
                     assign None left right |> Statement.expr)
                 |> Seq.toArray
             ]
-        let args = fieldIds |> Array.mapToList (ident >> Arg.arg)
+        let args = fieldIds |> Array.mapToList (ident com ctx >> Arg.arg)
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithImplicitConstructor (com: IPythonCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
@@ -2042,19 +2026,28 @@ module Util =
         [
             for import in imports do
                 match import with
-                | { Selector = selector; LocalIdent = local; Path = path } ->
-                    let path = path |> Helpers.rewriteFableImport
-                    let alias = Alias.alias(Identifier(selector), ?asname=None)
-                    Statement.importFrom (Some(Identifier(path)), [ alias ])
+                | { Name = name; LocalIdent = local; Module = moduleName } ->
+                    let moduleName = moduleName |> Helpers.rewriteFableImport
+                    match name with
+                    | Some name ->
+                        let alias = Alias.alias(Identifier(name), ?asname=None)
+                        Statement.importFrom (Some(Identifier(moduleName)), [ alias ])
+                    | None ->
+                        let alias = Alias.alias(Identifier(moduleName), ?asname=None)
+                        Statement.import([alias])
         ]
 
-    let getIdentForImport (ctx: Context) (path: string) (selector: string) =
-        if System.String.IsNullOrEmpty selector then None
-        else
-            match selector with
-            | "*" | "default" -> Path.GetFileNameWithoutExtension(path)
-            | _ -> selector
-            |> getUniqueNameInRootScope ctx
+    let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
+        match name with
+        | None ->
+            Path.GetFileNameWithoutExtension(moduleName)
+            |> Python.Identifier
+            |> Some
+        | Some name ->
+            match name with
+            | "*"
+            | _ -> name
+            |> Python.Identifier
             |> Some
 
 module Compiler =
@@ -2069,24 +2062,34 @@ module Compiler =
                 if onlyOnceWarnings.Add(msg) then
                     addWarning com [] range msg
 
-            member _.GetImportExpr(ctx, selector, path, r) =
-                let cachedName = path + "::" + selector
+            member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
+                let cachedName = moduleName + "::" + defaultArg name "module"
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
                     match i.LocalIdent with
                     | Some localIdent -> Expression.identifier(localIdent)
                     | None -> Expression.none()
                 | false, _ ->
-                    let localId = getIdentForImport ctx path selector
-                    let i =
-                      { Selector =
-                            if selector = Naming.placeholder then
-                                     "`importMember` must be assigned to a variable"
-                                     |> addError com [] r; selector
-                            else selector
-                        Path = path
-                        LocalIdent = localId }
-                    imports.Add(cachedName, i)
+                    let localId = getIdentForImport ctx moduleName name
+                    match name with
+                    | Some name ->
+                        let i =
+                          { Name =
+                                if name = Naming.placeholder then
+                                         "`importMember` must be assigned to a variable"
+                                         |> addError com [] r; name
+                                else name
+                                |> Some
+                            Module = moduleName
+                            LocalIdent = localId }
+                        imports.Add(cachedName, i)
+                    | None ->
+                        let i =
+                            { Name = None
+                              Module = moduleName
+                              LocalIdent = localId }
+                        imports.Add(cachedName, i)
+
                     match localId with
                     | Some localId -> Expression.identifier(localId)
                     | None -> Expression.none()
@@ -2097,6 +2100,7 @@ module Compiler =
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
             member bcom.TransformImport(ctx, selector, path) = transformImport bcom ctx None selector path
             member bcom.GetIdentifier(ctx, name) = getIdentifier bcom ctx name
+            member bcom.GetIdentifierAsExpr(ctx, name) = getIdentifier bcom ctx name |> Expression.name
 
         interface Compiler with
             member _.Options = com.Options
