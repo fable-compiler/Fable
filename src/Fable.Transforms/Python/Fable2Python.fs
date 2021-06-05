@@ -29,13 +29,40 @@ type UsedNames =
     DeclarationScopes: HashSet<string>
     CurrentDeclarationScope: HashSet<string> }
 
-/// Used for keeping track of existing variable bindings to know if we need to declare an
-/// identifier as nonlocal or global. TODO: can we merge this with UsedNames?
+/// Python specific, used for keeping track of existing variable bindings to
+/// know if we need to declare an identifier as nonlocal or global.
 type BoundVars =
     { GlobalScope: HashSet<string>
       EnclosingScope: HashSet<string>
       LocalScope: HashSet<string> }
 
+    member this.EnterScope () =
+        printfn "EnterScope"
+        let enclosingScope = HashSet<string>()
+        enclosingScope.UnionWith(this.EnclosingScope)
+        enclosingScope.UnionWith(this.LocalScope)
+        { this with LocalScope = HashSet (); EnclosingScope = enclosingScope }
+
+    member this.Bind(name: string) =
+        printfn "Bind: %A" name
+        this.LocalScope.Add name |> ignore
+
+    member this.Bind(ids: Identifier list) =
+        printfn "Bind: %A" ids
+        for (Identifier name) in ids do
+            this.LocalScope.Add name |> ignore
+
+    member this.NonLocals(idents: Identifier list) =
+        printfn "NonLocals: %A" (idents, this)
+        [
+            for ident in idents do
+                let (Identifier name) = ident
+                if not (this.LocalScope.Contains name) && this.EnclosingScope.Contains name then
+                    yield ident
+                else
+                    this.Bind(name)
+                    ()
+        ]
 type Context =
   { File: Fable.File
     UsedNames: UsedNames
@@ -412,8 +439,8 @@ module Helpers =
         let args = args |> List.map fst
         args, stmts
 
-    /// A few statements in the generated Babel AST do not produce any effect, and will not be printet. But they are
-    /// left in the AST and we need to skip them since they are not valid for Python (either).
+    /// A few statements in the generated Python AST do not produce any effect,
+    /// and should not be printet.
     let isProductiveStatement (stmt: Python.Statement) =
         let rec hasNoSideEffects (e: Python.Expression) =
             //printfn $"hasNoSideEffects: {e}"
@@ -536,9 +563,6 @@ module Util =
     let identAsExpr (id: Fable.Ident) =
         Expression.identifier(id.Name, ?loc=id.Range)
 
-    //let identAsPattern (id: Fable.Ident) =
-    //    Pattern.identifier(id.Name, ?loc=id.Range)
-
     let thisExpr =
         Expression.name ("self")
 
@@ -563,16 +587,19 @@ module Util =
         Expression.attribute (value = left, attr = expr, ctx = Load)
 
     let getExpr r (object: Expression) (expr: Expression) =
+        printfn "getExpr: %A" (object, expr)
         match expr with
         | Expression.Constant(value=value) ->
             match value with
             | :? string as str -> memberFromName str
-            | _ -> failwith "Need to be string"
+            | :? int
+            | :? float -> Expression.subscript(value = object, slice = expr, ctx = Load), []
+            | _ -> failwith $"Value {value} needs to be string"
         | Expression.Name({Id=id}) ->
             Expression.attribute (value = object, attr = id, ctx = Load), []
         | e ->
-                let func = Expression.name("getattr")
-                Expression.call(func=func, args=[object; e]), []
+            let func = Expression.name("getattr")
+            Expression.call(func=func, args=[object; e]), []
 
     let rec getParts (parts: string list) (expr: Expression) =
         match parts with
@@ -606,20 +633,26 @@ module Util =
         let afe, stmts = makeArrowFunctionExpression [] body
         Expression.call(afe, []), stmts
 
-    let multiVarDeclaration (variables: (Identifier * Expression option) list) =
+    let multiVarDeclaration (ctx: Context) (variables: (Identifier * Expression option) list) =
         let ids, values =
             variables
             |> List.distinctBy (fun (Identifier(name=name), _value) -> name)
             |> List.map (function
-                | i, Some value -> Expression.name(i, Store), value
-                | i, _ -> Expression.name(i, Store), Expression.none ())
-            |> List.unzip
-            |> fun (ids, values) -> (Expression.tuple(ids), Expression.tuple(values))
+                | i, Some value -> Expression.name(i, Store), value, i
+                | i, _ -> Expression.name(i, Store), Expression.none (), i)
+            |> List.unzip3
+            |> fun (ids, values, ids') ->
+                ctx.BoundVars.Bind(ids')
+                (Expression.tuple(ids), Expression.tuple(values))
 
-        Statement.assign([ids], values)
+        [ Statement.assign([ids], values) ]
 
-    let varDeclaration (var: Expression) (isMutable: bool) value =
-        Statement.assign([var], value)
+    let varDeclaration (ctx: Context) (var: Expression) (isMutable: bool) value =
+        match var with
+        | Name({Id=id}) -> ctx.BoundVars.Bind([id])
+        | _ -> ()
+
+        [ Statement.assign([var], value) ]
 
     let restElement (var: Fable.Ident) =
         let var = Expression.name (ident var)
@@ -760,7 +793,7 @@ module Util =
         [
             // First declare temp variables
             for (KeyValue(argId, tempVar)) in tempVars do
-                yield varDeclaration (Expression.identifier(tempVar)) false (Expression.identifier(argId))
+                yield! varDeclaration ctx (Expression.identifier(tempVar)) false (Expression.identifier(argId))
             // Then assign argument expressions to the original argument identifiers
             // See https://github.com/fable-compiler/Fable/issues/1368#issuecomment-434142713
             for (argId, arg) in zippedArgs do
@@ -827,8 +860,6 @@ module Util =
         | Fable.NewArray (values, typ) -> makeArray com ctx values
         //| Fable.NewArrayFrom (size, typ) -> makeAllocatedFrom com ctx size, []
         | Fable.NewTuple vals -> makeArray com ctx vals
-        // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
-        //     makeList com ctx r headAndTail
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
             let rec getItems acc = function
@@ -996,7 +1027,7 @@ module Util =
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
 
     let resolveExpr t strategy pyExpr: Statement =
-        printfn "resolveExpr: %A" pyExpr
+        //printfn "resolveExpr: %A" pyExpr
         match strategy with
         | None | Some ReturnUnit -> Statement.expr(pyExpr)
         // TODO: Where to put these int wrappings? Add them also for function arguments?
@@ -1155,7 +1186,7 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr (value: Fable.Expr) kind =
-        printfn "transformSet: %A" (fableExpr, value)
+        //printfn "transformSet: %A" (fableExpr, value)
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let value', stmts' = com.TransformAsExpr(ctx, value)
         let value = value' |> wrapIntExpression value.Type
@@ -1166,8 +1197,7 @@ module Util =
             | Some(Fable.ExprKey(TransformExpr com ctx (e, stmts''))) ->
                 let expr, stmts''' = getExpr None expr e
                 expr, stmts @ stmts' @ stmts'' @ stmts'''
-        printfn "Used names: %A" ctx.UsedNames
-        printfn "transformset, assign: %A" (range, ret, value, stmts)
+        //printfn "transformset, assign: %A" (range, ret, value, stmts)
         assign range ret value, stmts
 
     let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
@@ -1192,6 +1222,7 @@ module Util =
         if isPyStatement ctx false value then
             printfn "Py statement"
             let varName, varExpr = Expression.name(var.Name), identAsExpr var
+            ctx.BoundVars.Bind(var.Name)
             let decl = Statement.assign([varName], varExpr)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             List.append [ decl ] body
@@ -1199,8 +1230,8 @@ module Util =
             printfn "Not Py statement"
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = Expression.name(var.Name)
-            let decl = varDeclaration varName var.IsMutable value
-            stmts @ [ decl ]
+            let decl = varDeclaration ctx varName var.IsMutable value
+            stmts @ decl
 
     let transformTest (com: IPythonCompiler) ctx range kind expr: Expression * Statement list =
         match kind with
@@ -1387,7 +1418,7 @@ module Util =
             let boundIdents =
                 targets |> List.collect (fun (idents,_) ->
                 idents) |> List.map (fun id -> ident id, None)
-            multiVarDeclaration ((ident targetId,None)::boundIdents)
+            multiVarDeclaration ctx ((ident targetId,None)::boundIdents)
         // Transform targets as switch
         let switch2 =
             // TODO: Declare the last case as the default case?
@@ -1401,10 +1432,10 @@ module Util =
             let cases = groupSwitchCases (Fable.Number Int32) cases (defaultIndex, defaultBoundValues)
             let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-            [ multiVarDecl; switch1; switch2 ]
+            [ yield! multiVarDecl; switch1; switch2 ]
         | None ->
             let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-            [ yield multiVarDecl; yield! decisionTree; yield switch2 ]
+            [ yield! multiVarDecl; yield! decisionTree; yield switch2 ]
 
     let transformDecisionTreeAsStatements (com: IPythonCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement list =
@@ -1603,7 +1634,11 @@ module Util =
             let expr', stmts = transformSet com ctx range expr value kind
             match expr' with
             | Expression.NamedExpr({ Target = target; Value = value; Loc=loc }) ->
-                stmts @ [ Statement.assign([target], value) ]
+                let nonLocals =
+                    match target with
+                    | Expression.Name({Id=id}) -> [ ctx.BoundVars.NonLocals([id]) |> Statement.nonLocal ]
+                    | _ -> []
+                nonLocals @ stmts @ [ Statement.assign([target], value) ]
             | _ -> stmts @ [ expr' |> resolveExpr expr.Type returnStrategy ]
 
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
@@ -1671,7 +1706,9 @@ module Util =
         let ctx =
             { ctx with TailCallOpportunity = tailcallChance
                        HoistVars = fun ids -> declaredVars.AddRange(ids); true
-                       OptimizeTailCall = fun () -> isTailCallOptimized <- true }
+                       OptimizeTailCall = fun () -> isTailCallOptimized <- true
+                       BoundVars = ctx.BoundVars.EnterScope() }
+
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
@@ -1689,9 +1726,9 @@ module Util =
                 let varDecls =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) -> ident id, Some (Expression.identifier(tcArg)))
-                    |> multiVarDeclaration
+                    |> multiVarDeclaration ctx
 
-                let body = varDecls :: body
+                let body = varDecls @ body
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = body @ [ Statement.break'() ]
                 args', Statement.while'(Expression.constant(true), body)
@@ -1700,8 +1737,8 @@ module Util =
         let body =
             if declaredVars.Count = 0 then body
             else
-                let varDeclStatement = multiVarDeclaration [for v in declaredVars -> ident v, None]
-                varDeclStatement :: body
+                let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident v, None]
+                varDeclStatement @ body
         args |> List.map (ident >> Arg.arg), body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
@@ -1711,7 +1748,7 @@ module Util =
         // Statement.expr(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         Statement.expr(main)
 
-    let declareModuleMember isPublic (membName: Identifier) isMutable (expr: Expression) =
+    let declareModuleMember ctx isPublic (membName: Identifier) isMutable (expr: Expression) =
         let membName = Expression.name(membName)
         match expr with
         // | ClassExpression(body, id, superClass, implements, superTypeParameters, typeParameters, loc) ->
@@ -1728,7 +1765,7 @@ module Util =
         //         ?returnType = returnType,
         //         ?typeParameters = typeParameters)
         | _ ->
-            varDeclaration membName isMutable expr
+            varDeclaration ctx membName isMutable expr
         // if not isPublic then PrivateModuleDeclaration(decl |> Declaration)
         // else ExportNamedDeclaration(decl)
 
@@ -1771,16 +1808,11 @@ module Util =
     let getEntityFieldsAsProps (com: IPythonCompiler) ctx (ent: Fable.Entity) =
         if ent.IsFSharpUnion then
             getUnionFieldsAsIdents com ctx ent
-            |> Array.map (fun id ->
-                let prop = identAsExpr id
-                //let ta = typeAnnotation com ctx id.Type
-                prop)
+            |> Array.map identAsExpr
         else
             ent.FSharpFields
             |> Seq.map (fun field ->
                 let prop, computed = memberFromName field.Name
-                //let ta = typeAnnotation com ctx field.FieldType
-                let isStatic = if field.IsStatic then Some true else None
                 prop)
             |> Seq.toArray
 
@@ -1809,8 +1841,8 @@ module Util =
             let args = genArgs |> Array.mapToList (ident >> Arg.arg)
             let expr, stmts' = makeFunctionExpression None (args, body)
             let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
-            expr |> declareModuleMember ent.IsPublic name false, stmts @ stmts'
-        stmts @ [typeDeclaration; reflectionDeclaration]
+            expr |> declareModuleMember ctx ent.IsPublic name false, stmts @ stmts'
+        stmts @ [typeDeclaration ] @ reflectionDeclaration
 
     let transformModuleFunction (com: IPythonCompiler) ctx (info: Fable.MemberInfo) (membName: string) args body =
         let args, body =
@@ -1848,13 +1880,11 @@ module Util =
         let arguments = Arguments.arguments (self::args)
         FunctionDef.Create(Identifier memb.Name, arguments, body = body)
         |> List.singleton
-        //ClassMember.classMethod(kind, key, args, body, computed_=computed, ``static``=isStatic)
 
     let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
         let makeMethod name args body =
             let key, computed = memberFromName name
-            //ClassMember.classMethod(ClassFunction, key, args, body, computed_=computed, ``static``=isStatic)
             FunctionDef.Create(Identifier name, args, body = body)
         let args, body =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
@@ -1970,7 +2000,7 @@ module Util =
                     if decl.Info.IsValue then
                         let value, stmts = transformAsExpr com ctx decl.Body
                         let name = com.GetIdentifier(ctx, decl.Name)
-                        stmts @ [declareModuleMember decl.Info.IsPublic name decl.Info.IsMutable value]
+                        stmts @ declareModuleMember ctx decl.Info.IsPublic name decl.Info.IsMutable value
                     else
                         transformModuleFunction com ctx decl.Info decl.Name decl.Args decl.Body
 
@@ -2027,7 +2057,7 @@ module Util =
 module Compiler =
     open Util
 
-    type BabelCompiler (com: Compiler) =
+    type PythonCompiler (com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string,  Import>()
 
@@ -2080,7 +2110,7 @@ module Compiler =
             member _.AddLog(msg, severity, ?range, ?fileName:string, ?tag: string) =
                 com.AddLog(msg, severity, ?range=range, ?fileName=fileName, ?tag=tag)
 
-    let makeCompiler com = BabelCompiler(com)
+    let makeCompiler com = PythonCompiler(com)
 
     let transformFile (com: Compiler) (file: Fable.File) =
         let com = makeCompiler com :> IPythonCompiler
