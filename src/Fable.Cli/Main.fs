@@ -190,10 +190,9 @@ module private Util =
 
     let compileFile (cliArgs: CliArgs) dedupTargetDir logger (com: CompilerImpl) = async {
         try
-            let babel =
+            let fable =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
-                |> Fable2Babel.Compiler.transformFile com
 
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
@@ -203,6 +202,7 @@ module private Util =
 
             match com.Options.Language with
             | JavaScript | TypeScript ->
+                let babel = fable |> Fable2Babel.Compiler.transformFile com
                 // write output to file
                 let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
                 do! BabelPrinter.run writer babel
@@ -214,8 +214,16 @@ module private Util =
                     use fs = IO.File.Open(mapPath, IO.FileMode.Create)
                     do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
 
+            | Php ->
+                let php = fable |> Fable2Php.transformFile com
+
+                use w = new IO.StreamWriter(outPath)
+                let ctx = PhpPrinter.Output.Writer.create w
+                PhpPrinter.Output.writeFile ctx php
+                w.Flush()
             | Python ->
                 logger("Generating Python")
+                let babel = fable |> Fable2Babel.Compiler.transformFile com
                 let python = babel |> Babel2Python.Compiler.transformFile com
 
                 let map = { new PythonPrinter.SourceMapGenerator with

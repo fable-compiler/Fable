@@ -13,6 +13,7 @@
     <Compile Include="Fable.Core.Util.fs" />
     <Compile Include="Fable.Core.JS.fs" />
     <Compile Include="Fable.Core.JsInterop.fs" />
+    <Compile Include="Fable.Core.PhpInterop.fs" />
     <Compile Include="Fable.Core.PyInterop.fs" />
     <Compile Include="Fable.Core.Extensions.fs" />
   </ItemGroup>

@@ -10,6 +10,7 @@ module Util =
         with ex -> raise ex
 
     let inline pyNative<'T> : 'T = jsNative
+    let inline phpNative<'T> : 'T = jsNative
 
 module Experimental =
     /// Reads the name of an identifier, a property or a type

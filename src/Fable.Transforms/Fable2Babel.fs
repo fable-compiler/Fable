@@ -905,7 +905,7 @@ module Util =
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
-    let transformCurry (com: IBabelCompiler) (ctx: Context) _r expr arity: Expression =
+    let transformCurry (com: IBabelCompiler) (ctx: Context) expr arity: Expression =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value: Expression =
@@ -1190,7 +1190,11 @@ module Util =
 
     let transformGet (com: IBabelCompiler) ctx range typ fableExpr kind =
         match kind with
-        | Fable.ByKey key ->
+        | Fable.ExprGet(TransformExpr com ctx prop) ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            getExpr range expr prop
+
+        | Fable.FieldGet(fieldName,_) ->
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -1198,9 +1202,7 @@ module Util =
                 | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                 | _ -> fableExpr
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            match key with
-            | Fable.ExprKey(TransformExpr com ctx prop) -> getExpr range expr prop
-            | Fable.FieldKey field -> get range expr field.Name
+            get range expr fieldName
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1226,18 +1228,18 @@ module Util =
         | Fable.UnionTag ->
             getUnionExprTag com ctx range fableExpr
 
-        | Fable.UnionField(index, _) ->
+        | Fable.UnionField(_, fieldIndex) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
+            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt fieldIndex)
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
         let ret =
             match kind with
-            | None -> expr
-            | Some(Fable.FieldKey fi) -> get None expr fi.Name
-            | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None expr e
+            | Fable.ValueSet -> expr
+            | Fable.ExprSet(TransformExpr com ctx e) -> getExpr None expr e
+            | Fable.FieldSet(fieldName, _) -> get None expr fieldName
         assign range ret value
 
     let transformBindingExprBody (com: IBabelCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
@@ -1515,7 +1517,7 @@ module Util =
         match expr with
         | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
 
-        | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
+        | Fable.Curry(e, arity) -> transformCurry com ctx e arity
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
@@ -1595,8 +1597,8 @@ module Util =
         | Fable.TypeCast(e, t, tag) ->
             [|transformCast com ctx t tag e |> resolveExpr t returnStrategy|]
 
-        | Fable.Curry(e, arity, t, r) ->
-            [|transformCurry com ctx r e arity |> resolveExpr t returnStrategy|]
+        | Fable.Curry(e, arity) ->
+            [|transformCurry com ctx e arity |> resolveExpr e.Type returnStrategy|]
 
         | Fable.Value(kind, r) ->
             [|transformValue com ctx r kind |> resolveExpr kind.Type returnStrategy|]
@@ -2011,6 +2013,9 @@ module Util =
             result
 
         match decl with
+        | Fable.ModuleDeclaration decl ->
+            decl.Members |> List.collect (transformDeclaration com ctx)
+
         | Fable.ActionDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 transformAction com ctx decl.Body

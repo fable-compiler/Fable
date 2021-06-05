@@ -31,7 +31,7 @@ let visit f e =
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
     | Test(e, kind, r) -> Test(f e, kind, r)
-    | Curry(e, arity, t, r) -> Curry(f e, arity, t, r)
+    | Curry(e, arity) -> Curry(f e, arity)
     | Lambda(arg, body, name) -> Lambda(arg, f body, name)
     | Delegate(args, body, name) -> Delegate(args, f body, name)
     | ObjectExpr(members, t, baseCall) ->
@@ -60,8 +60,8 @@ let visit f e =
     | Get(e, kind, t, r) ->
         match kind with
         | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag
-        | UnionField _ | ByKey(FieldKey _) -> Get(f e, kind, t, r)
-        | ByKey(ExprKey e2) -> Get(f e, ByKey(ExprKey(f e2)), t, r)
+        | UnionField _ | FieldGet _ -> Get(f e, kind, t, r)
+        | ExprGet e2 -> Get(f e, ExprGet(f e2), t, r)
     | Sequential exprs -> Sequential(List.map f exprs)
     | Let(ident, value, body) -> Let(ident, f value, f body)
     | LetRec(bs, body) ->
@@ -71,9 +71,8 @@ let visit f e =
         IfThenElse(f cond, f thenExpr, f elseExpr, r)
     | Set(e, kind, v, r) ->
         match kind with
-        | Some(ExprKey e2) ->
-            Set(f e, Some(ExprKey(f e2)), f v, r)
-        | Some(FieldKey _) | None -> Set(f e, kind, f v, r)
+        | ExprSet e2 -> Set(f e, ExprSet(f e2), f v, r)
+        | FieldSet _ | ValueSet -> Set(f e, kind, f v, r)
     | WhileLoop(e1, e2, r) -> WhileLoop(f e1, f e2, r)
     | ForLoop(i, e1, e2, e3, up, r) -> ForLoop(i, f e1, f e2, f e3, up, r)
     | TryCatch(body, catch, finalizer, r) ->
@@ -115,7 +114,7 @@ let getSubExpressions = function
         | NewAnonymousRecord(exprs, _, _) -> exprs
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
-    | Curry(e, _, _, _) -> [e]
+    | Curry(e, _) -> [e]
     | Lambda(_, body, _) -> [body]
     | Delegate(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
@@ -132,16 +131,16 @@ let getSubExpressions = function
     | Get(e, kind, _, _) ->
         match kind with
         | ListHead | ListTail | OptionValue | TupleIndex _ | UnionTag
-        | UnionField _ | ByKey(FieldKey _) -> [e]
-        | ByKey(ExprKey e2) -> [e; e2]
+        | UnionField _ | FieldGet _ -> [e]
+        | ExprGet e2 -> [e; e2]
     | Sequential exprs -> exprs
     | Let(_, value, body) -> [value; body]
     | LetRec(bs, body) -> (List.map snd bs) @ [body]
     | IfThenElse(cond, thenExpr, elseExpr, _) -> [cond; thenExpr; elseExpr]
     | Set(e, kind, v, _) ->
         match kind with
-        | Some(ExprKey e2) -> [e; e2; v]
-        | Some(FieldKey _) | None -> [e; v]
+        | ExprSet e2 -> [e; e2; v]
+        | FieldSet _ | ValueSet -> [e; v]
     | WhileLoop(e1, e2, _) -> [e1; e2]
     | ForLoop(_, e1, e2, e3, _, _) -> [e1; e2; e3]
     | TryCatch(body, catch, finalizer, _) ->
@@ -261,7 +260,7 @@ let noSideEffectBeforeIdent identName expr =
         | TypeCast(e,_,_)
         | Get(e,_,_,_)
         | Test(e,_,_)
-        | Curry(e,_,_,_) -> findIdentOrSideEffect e
+        | Curry(e,_) -> findIdentOrSideEffect e
         | IfThenElse(cond, thenExpr, elseExpr,_) ->
             findIdentOrSideEffect cond || findIdentOrSideEffect thenExpr || findIdentOrSideEffect elseExpr
         // TODO: Check member bodies in ObjectExpr
@@ -290,8 +289,6 @@ module private Transforms =
         | Lambda(arg, body, name) -> Some([arg], body, name)
         | Delegate(args, body, name) -> Some(args, body, name)
         | _ -> None
-
-    let (|FieldType|) (fi: Field) = fi.FieldType
 
     let (|ImmediatelyApplicable|_|) = function
         | Lambda(arg, body, _) -> Some(arg, body)
@@ -376,7 +373,7 @@ module private Transforms =
         visitFromInsideOut (function
             | IdentExpr id as e ->
                 match Map.tryFind id.Name replacements with
-                | Some arity -> Curry(e, arity, id.Type, id.Range)
+                | Some arity -> Curry(e, arity)
                 | None -> e
             | e -> e) body
 
@@ -400,11 +397,11 @@ module private Transforms =
             | None -> true
         match expr, expr with
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
-        | _, Curry(innerExpr, arity2,_,_)
+        | _, Curry(innerExpr, arity2)
             when matches arity arity2 -> innerExpr
-        | _, Get(Curry(innerExpr, arity2,_,_), OptionValue, t, r)
+        | _, Get(Curry(innerExpr, arity2), OptionValue, t, r)
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(Curry(innerExpr, arity2,_,_)),r1),r2)
+        | _, Value(NewOption(Some(Curry(innerExpr, arity2)),r1),r2)
             when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
         | _ ->
             match arity with
@@ -489,11 +486,11 @@ module private Transforms =
         | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
-                | Curry(innerExpr, arity,_,_) ->
+                | Curry(innerExpr, arity) ->
                     ident, innerExpr, Some arity
-                | Get(Curry(innerExpr, arity,_,_), OptionValue, t, r) ->
+                | Get(Curry(innerExpr, arity), OptionValue, t, r) ->
                     ident, Get(innerExpr, OptionValue, t, r), Some arity
-                | Value(NewOption(Some(Curry(innerExpr, arity,_,_)),r1),r2) ->
+                | Value(NewOption(Some(Curry(innerExpr, arity)),r1),r2) ->
                     ident, Value(NewOption(Some(innerExpr),r1),r2), Some arity
                 | _ -> ident, value, None
             match arity with
@@ -521,17 +518,17 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
-            match getLambdaTypeArity fieldType, callee.Type with
+        | Get(callee, (FieldGet _ | UnionField _), t, r) ->
+            match getLambdaTypeArity t, callee.Type with
             // For anonymous records, if the lambda returns a generic the actual
             // arity may be higher than expected, so we need a runtime partial application
             | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
                 let callee = makeImportLib com Any "checkArity" "Util"
                 let info = makeCallInfo None [makeIntConst arity; e] []
                 let e = Call(callee, info, t, r)
-                if arity > 1 then Curry(e, arity, t, r)
+                if arity > 1 then Curry(e, arity)
                 else e
-            | (arity, _), _ when arity > 1 -> Curry(e, arity, t, r)
+            | (arity, _), _ when arity > 1 -> Curry(e, arity)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
@@ -568,9 +565,9 @@ module private Transforms =
             let uci = com.GetEntity(ent).UnionCases.[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
-        | Set(e, Some(FieldKey fi), value, r) ->
-            let value = uncurryArgs com false [fi.FieldType] [value]
-            Set(e, Some(FieldKey fi), List.head value, r)
+        | Set(e, FieldSet(fieldName, t), value, r) ->
+            let value = uncurryArgs com false [t] [value]
+            Set(e, FieldSet(fieldName, t), List.head value, r)
         | e -> e
 
     let rec uncurryApplications (com: Compiler) e =
@@ -588,9 +585,9 @@ module private Transforms =
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
             match applied with
-            | Curry(applied, uncurriedArity,_,_) ->
+            | Curry(applied, uncurriedArity) ->
                 uncurryApply r t applied args uncurriedArity
-            | Get(Curry(applied, uncurriedArity,_,_), OptionValue, t2, r2) ->
+            | Get(Curry(applied, uncurriedArity), OptionValue, t2, r2) ->
                 uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None
@@ -614,7 +611,7 @@ let getTransformations (_com: Compiler) =
       fun com e -> visitFromOutsideIn (uncurryApplications com) e
     ]
 
-let transformDeclaration transformations (com: Compiler) file decl =
+let rec transformDeclaration transformations (com: Compiler) file decl =
     let transformExpr (com: Compiler) e =
         List.fold (fun e f -> f com e) e transformations
 
@@ -622,6 +619,13 @@ let transformDeclaration transformations (com: Compiler) file decl =
         { m with Body = transformExpr com m.Body }
 
     match decl with
+    | ModuleDeclaration decl ->
+        let members =
+            decl.Members
+            |> List.map (transformDeclaration transformations com file)
+        { decl with Members = members }
+        |> ModuleDeclaration
+
     | ActionDeclaration decl ->
         { decl with Body = transformExpr com decl.Body }
         |> ActionDeclaration

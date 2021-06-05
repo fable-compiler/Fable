@@ -13,6 +13,7 @@ type Language =
     | JavaScript
     | TypeScript
     | Python
+    | Php
 
 type CompilerOptions =
       abstract TypedArrays: bool

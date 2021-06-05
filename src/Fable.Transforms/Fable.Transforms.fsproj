@@ -25,6 +25,9 @@
     <Compile Include="Python/Fable2Python.fs" />
     <Compile Include="Python/Babel2Python.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
+    <Compile Include="Php/Php.fs" />
+    <Compile Include="Php/Fable2Php.fs" />
+    <Compile Include="Php/PhpPrinter.fs" />
 
     <Compile Include="State.fs" />
   </ItemGroup>

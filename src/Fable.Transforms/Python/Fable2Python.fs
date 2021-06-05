@@ -841,7 +841,7 @@ module Util =
             | _ -> com.TransformAsExpr(ctx, e)
         | _ -> com.TransformAsExpr(ctx, e)
 
-    let transformCurry (com: IPythonCompiler) (ctx: Context) _r expr arity: Expression * Statement list =
+    let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity: Expression * Statement list =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 
     let transformValue (com: IPythonCompiler) (ctx: Context) r value: Expression * Statement list =
@@ -1136,7 +1136,12 @@ module Util =
 
     let transformGet (com: IPythonCompiler) ctx range typ fableExpr kind =
         match kind with
-        | Fable.ByKey key ->
+        | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
+            let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
+            let expr, stmts'' = getExpr range expr prop
+            expr, stmts @ stmts' @ stmts''
+
+        | Fable.FieldGet(fieldName,_) ->
             let fableExpr =
                 match fableExpr with
                 // If we're accessing a virtual member with default implementation (see #701)
@@ -1144,11 +1149,7 @@ module Util =
                 | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                 | _ -> fableExpr
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
-            match key with
-            | Fable.ExprKey(TransformExpr com ctx (prop, stmts')) ->
-                let expr, stmts'' = getExpr range expr prop
-                expr, stmts @ stmts' @ stmts''
-            | Fable.FieldKey field -> get range expr field.Name, stmts
+            get range expr fieldName, stmts
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1186,19 +1187,18 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr (value: Fable.Expr) kind =
-        //printfn "transformSet: %A" (fableExpr, value)
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let value', stmts' = com.TransformAsExpr(ctx, value)
         let value = value' |> wrapIntExpression value.Type
-        let ret, stmts =
+        let ret, stmts'' =
             match kind with
-            | None -> expr, stmts @ stmts'
-            | Some(Fable.FieldKey fi) -> get None expr fi.Name, stmts @ stmts'
-            | Some(Fable.ExprKey(TransformExpr com ctx (e, stmts''))) ->
+            | Fable.ValueSet -> expr, stmts @ stmts'
+            | Fable.ExprSet(TransformExpr com ctx (e, stmts'')) ->
                 let expr, stmts''' = getExpr None expr e
                 expr, stmts @ stmts' @ stmts'' @ stmts'''
-        //printfn "transformset, assign: %A" (range, ret, value, stmts)
-        assign range ret value, stmts
+            | Fable.FieldSet(fieldName, _) ->
+                get None expr fieldName, stmts @ stmts'
+        assign range ret value, stmts''
 
     let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
@@ -1485,7 +1485,7 @@ module Util =
         match expr with
         | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
 
-        | Fable.Curry(e, arity, _, r) -> transformCurry com ctx r e arity
+        | Fable.Curry(e, arity) -> transformCurry com ctx e arity
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
@@ -1570,9 +1570,9 @@ module Util =
             let expr, stmts = transformCast com ctx t tag e
             stmts @ [ expr |> resolveExpr t returnStrategy ]
 
-        | Fable.Curry(e, arity, t, r) ->
-            let expr, stmts = transformCurry com ctx r e arity
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+        | Fable.Curry(e, arity) ->
+            let expr, stmts = transformCurry com ctx e arity
+            stmts @ [ expr |> resolveExpr e.Type returnStrategy ]
 
         | Fable.Value(kind, r) ->
             let expr, stmts = transformValue com ctx r kind
@@ -1990,6 +1990,9 @@ module Util =
             result
 
         match decl with
+        | Fable.ModuleDeclaration decl ->
+            decl.Members |> List.collect (transformDeclaration com ctx)
+
         | Fable.ActionDeclaration decl ->
             withCurrentScope ctx decl.UsedNames <| fun ctx ->
                 transformAction com ctx decl.Body

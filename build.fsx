@@ -357,6 +357,10 @@ let testReact() =
     runFableWithArgs "tests/React" []
     runInDir "tests/React" "npm i && npm test"
 
+
+let testCompiler() =
+    runInDir "tests/Compiler" "dotnet run -c Release"
+
 let testIntegration() =
     runInDir "tests/Integration" "dotnet run -c Release"
 
@@ -377,6 +381,8 @@ let test() =
     runInDir projectDir "dotnet run"
 
     testReact()
+
+    testCompiler()
 
     testIntegration()
 
@@ -546,7 +552,8 @@ let publishPackages restArgs =
         | None -> packages
     for (pkg, buildAction) in packages do
         if System.Char.IsUpper pkg.[0] then
-            pushNuget ("src" </> pkg </> pkg + ".fsproj") ["Pack", "true"] buildAction
+            let projFile = "src" </> pkg </> pkg + ".fsproj"
+            pushFableNuget projFile ["Pack", "true"] buildAction
         else
             pushNpm ("src" </> pkg) buildAction
 
@@ -564,6 +571,7 @@ match argsLower with
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
+| "test-compiler"::_ -> testCompiler()
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "quicktest"::_ ->

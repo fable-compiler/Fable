@@ -33,6 +33,7 @@ type Field =
 
 type UnionCase =
     abstract Name: string
+    abstract FullName: string
     abstract CompiledName: string option
     abstract UnionCaseFields: Field list
 
@@ -140,12 +141,20 @@ type ClassDecl = {
     AttachedMembers: MemberDecl list
 }
 
-type Declaration =
+type ModuleDecl = {
+    Name: string
+    Entity: EntityRef
+    Members: Declaration list
+}
+
+and Declaration =
+    | ModuleDeclaration of ModuleDecl
     | ActionDeclaration of ActionDecl
     | MemberDeclaration of MemberDecl
     | ClassDeclaration of ClassDecl
     member this.UsedNames =
         match this with
+        | ModuleDeclaration d -> Set.empty
         | ActionDeclaration d -> d.UsedNames
         | MemberDeclaration d -> d.UsedNames
         | ClassDeclaration d ->
@@ -259,18 +268,20 @@ type OperationKind =
     | Binary of BinaryOperator * left: Expr * right: Expr
     | Logical of LogicalOperator * left: Expr * right: Expr
 
-type KeyKind =
-    | FieldKey of Field
-    | ExprKey of Expr
-
 type GetKind =
-    | ByKey of KeyKind
     | TupleIndex of int
-    | UnionField of index: int * fieldType: Type
+    | ExprGet of Expr
+    | FieldGet of fieldName: string * isMutable: bool
+    | UnionField of tagIndex: int * fieldIndex: int
     | UnionTag
     | ListHead
     | ListTail
     | OptionValue
+
+type SetKind =
+    | ExprSet of Expr
+    | FieldSet of fieldName: string * fieldType: Type
+    | ValueSet
 
 type TestKind =
     | TypeTest of Type
@@ -297,7 +308,7 @@ type Expr =
     // Operations
     | Call of callee: Expr * info: CallInfo * typ: Type * range: SourceLocation option
     | CurriedApply of applied: Expr * args: Expr list * typ: Type * range: SourceLocation option
-    | Curry of Expr * arity: int * Type * SourceLocation option
+    | Curry of Expr * arity: int
     | Operation of OperationKind * typ: Type * range: SourceLocation option
 
     // JS related: imports and statements
@@ -311,8 +322,8 @@ type Expr =
     // Getters, setters and bindings
     | Let of Ident * Expr * body: Expr
     | LetRec of bindings: (Ident * Expr) list * body: Expr
-    | Get of Expr * GetKind * typ: Type * range: SourceLocation option
-    | Set of Expr * key: KeyKind option * value: Expr * range: SourceLocation option
+    | Get of Expr * kind: GetKind * typ: Type * range: SourceLocation option
+    | Set of Expr * kind: SetKind * value: Expr * range: SourceLocation option
 
     // Control flow
     | Sequential of Expr list
@@ -330,7 +341,6 @@ type Expr =
         | CurriedApply(_,_,t,_)
         | TypeCast (_, t,_)
         | Import (_, t, _)
-        | Curry (_, _, t, _)
         | ObjectExpr (_, t, _)
         | Operation (_, t, _)
         | Get (_, _, t, _)
@@ -340,6 +350,7 @@ type Expr =
         | WhileLoop _
         | ForLoop _-> Unit
         | Sequential exprs -> List.tryLast exprs |> Option.map (fun e -> e.Type) |> Option.defaultValue Unit
+        | Curry (expr, _)
         | Let (_, _, expr)
         | LetRec (_, expr)
         | TryCatch (expr, _, _, _)
@@ -356,6 +367,7 @@ type Expr =
         | LetRec _
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
+        | Curry(e, _)
         | Lambda (_, e, _)
         | Delegate (_, e, _)
         | TypeCast (e, _, _) -> e.Range
@@ -364,7 +376,6 @@ type Expr =
         | CurriedApply(_,_,_,r)
         | Emit (_,_,r)
         | Import(_,_,r)
-        | Curry(_,_,_,r)
         | Value (_, r)
         | IfThenElse (_, _, _, r)
         | TryCatch (_, _, _, r)
@@ -486,7 +497,7 @@ type Expr =
 //             | ListTail -> print e + ".tail"
 //             | OptionValue -> print e + ".Value"
 //             | TupleIndex i
-//             | UnionField(i,_) -> print e + "[" + string i + "]"
+//             | UnionField(_,i) -> print e + "[" + string i + "]"
 //             | UnionTag -> print e + ".Tag"
 //             | ByKey(FieldKey k) -> print e + "." + k.Name
 //             | ByKey(ExprKey e2) -> print e + "[" + print e2 + "]"
