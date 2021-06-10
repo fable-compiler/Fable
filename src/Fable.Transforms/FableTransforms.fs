@@ -23,7 +23,7 @@ let visit f e =
         | NumberConstant _ | RegexConstant _ -> e
         | EnumConstant(exp, ent) -> EnumConstant(f exp, ent) |> makeValue r
         | NewOption(e, t) -> NewOption(Option.map f e, t) |> makeValue r
-        | NewTuple exprs -> NewTuple(List.map f exprs) |> makeValue r
+        | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
         | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r
         | NewArrayFrom(e, t) -> NewArrayFrom(f e, t) |> makeValue r
         | NewList(ht, t) ->
@@ -115,7 +115,7 @@ let getSubExpressions = function
         | NumberConstant _ | RegexConstant _ -> []
         | EnumConstant(e, _) -> [e]
         | NewOption(e, _) -> Option.toList e
-        | NewTuple exprs -> exprs
+        | NewTuple(exprs, _) -> exprs
         | NewArray(exprs, _) -> exprs
         | NewArrayFrom(e, _) -> [e]
         | NewList(ht, _) ->
@@ -262,7 +262,7 @@ let noSideEffectBeforeIdent identName expr =
             | NewOption(Some e,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
             | NewArray(exprs,_)
-            | NewTuple exprs
+            | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_)
             | NewRecord(exprs,_,_)
             | NewAnonymousRecord(exprs,_,_) -> findIdentOrSideEffectInList exprs
@@ -446,7 +446,7 @@ module private Transforms =
                         actualArgs |> List.mapi (fun i _ ->
                             match Map.tryFind i replacements with
                             | Some (expectedArity, actualArity) ->
-                                NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
+                                makeTuple None [makeIntConst expectedArity; makeIntConst actualArity]
                             | None -> makeIntConst 0)
                         |> makeArray Any
                     Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])

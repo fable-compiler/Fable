@@ -130,7 +130,7 @@ module Reflection =
             |]
         match t with
         | Fable.Any -> primitiveTypeInfo "obj"
-        | Fable.GenericParam name ->
+        | Fable.GenericParam(name,_) ->
             match Map.tryFind name genMap with
             | Some t -> t
             | None ->
@@ -165,7 +165,7 @@ module Reflection =
             genericTypeInfo "lambda" [|argType; returnType|]
         | Fable.DelegateType(argTypes, returnType) ->
             genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-        | Fable.Tuple genArgs   -> genericTypeInfo "tuple" (List.toArray genArgs)
+        | Fable.Tuple(genArgs,_)-> genericTypeInfo "tuple" (List.toArray genArgs)
         | Fable.Option genArg   -> genericTypeInfo "option" [|genArg|]
         | Fable.Array genArg    -> genericTypeInfo "array" [|genArg|]
         | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
@@ -375,13 +375,13 @@ module Annotation =
         | Fable.Number kind -> makeNumericTypeAnnotation com ctx kind
         | Fable.Enum _ent -> NumberTypeAnnotation
         | Fable.Option genArg -> makeOptionTypeAnnotation com ctx genArg
-        | Fable.Tuple genArgs -> makeTupleTypeAnnotation com ctx genArgs
+        | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
         | Replacements.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind
         | Fable.LambdaType _ -> Util.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
-        | Fable.GenericParam name -> makeSimpleTypeAnnotation com ctx name
+        | Fable.GenericParam(name,_) -> makeSimpleTypeAnnotation com ctx name
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
         | Fable.AnonymousRecordType(fieldNames, genArgs) ->
@@ -757,7 +757,7 @@ module Util =
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
-            | Fable.GenericParam name -> [name]
+            | Fable.GenericParam(name,_) -> [name]
             | t -> t.Generics |> List.collect getGenParams
         types
         |> List.collect getGenParams
@@ -929,7 +929,7 @@ module Util =
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
         | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
-        | Fable.NewTuple vals -> makeArray com ctx vals
+        | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // | Fable.NewList (headAndTail, _) when List.contains "FABLE_LIBRARY" com.Options.Define ->
         //     makeList com ctx r headAndTail
         // Optimization for bundle size: compile list literals as List.ofArray
@@ -1224,7 +1224,7 @@ module Util =
         | Fable.TupleIndex index ->
             match fableExpr with
             // TODO: Check the erased expressions don't have side effects?
-            | Fable.Value(Fable.NewTuple exprs, _) ->
+            | Fable.Value(Fable.NewTuple(exprs,_), _) ->
                 com.TransformAsExpr(ctx, List.item index exprs)
             | TransformExpr com ctx expr -> getExpr range expr (ofInt index)
 

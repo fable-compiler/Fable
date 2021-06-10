@@ -66,13 +66,35 @@ type FsAtt(att: FSharpAttribute) =
         member _.ConstructorArgs = att.ConstructorArguments |> Seq.mapToList snd
 
 type FsGenParam(gen: FSharpGenericParameter) =
+    static member Constraint(c: FSharpGenericParameterConstraint) =
+        if c.IsCoercesToConstraint then
+            TypeHelpers.makeType Map.empty c.CoercesToTarget
+            |> Fable.Constraint.CoercesTo |> Some
+        elif c.IsMemberConstraint then
+            let d = c.MemberConstraintData // TODO: Full member signature hash?
+            Fable.Constraint.HasMember(d.MemberName, d.MemberIsStatic) |> Some
+        elif c.IsSupportsNullConstraint then Some Fable.Constraint.IsNullable
+        elif c.IsRequiresDefaultConstructorConstraint then Some Fable.Constraint.HasDefaultConstructor
+        elif c.IsNonNullableValueTypeConstraint then Some Fable.Constraint.IsValueType
+        elif c.IsReferenceTypeConstraint then Some Fable.Constraint.IsReferenceType
+        elif c.IsComparisonConstraint then Some Fable.Constraint.HasComparison
+        elif c.IsEqualityConstraint then Some Fable.Constraint.HasEquality
+        elif c.IsUnmanagedConstraint then Some Fable.Constraint.IsUnmanaged
+        else None // TODO: Document these cases
+
+    static member Constraints(gen: FSharpGenericParameter) =
+        gen.Constraints |> Seq.choose FsGenParam.Constraint
+
     interface Fable.GenericParam with
         member _.Name = TypeHelpers.genParamName gen
+        member _.Constraints = FsGenParam.Constraints gen
 
-type FsParam(p: FSharpParameter) =
+type FsParam(name, typ) =
+    new (p: FSharpParameter) = FsParam(p.Name, p.Type)
+    new (p: FSharpAbstractParameter) = FsParam(p.Name, p.Type)
     interface Fable.Parameter with
-        member _.Name = p.Name
-        member _.Type = TypeHelpers.makeType Map.empty p.Type
+        member _.Name = name
+        member _.Type = TypeHelpers.makeType Map.empty typ
 
 type FsDeclaredType(ent: FSharpEntity, genArgs: IList<FSharpType>) =
     interface Fable.DeclaredType with
@@ -85,7 +107,9 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         |> Seq.mapToList (Seq.mapToList (fun p -> upcast FsParam(p)))
 
     static member CallMemberInfo(m: FSharpMemberOrFunctionOrValue): Fable.CallMemberInfo =
-        { CurriedParameterGroups = FsMemberFunctionOrValue.CurriedParameterGroups(m)
+        { CurriedParameterGroups =
+            m.CurriedParameterGroups |> Seq.mapToList (Seq.mapToList (fun p ->
+                { Name = p.Name; Type =  TypeHelpers.makeType Map.empty p.Type }))
           IsInstance = m.IsInstanceMember
           FullName = m.FullName
           CompiledName = m.CompiledName
@@ -239,8 +263,10 @@ type Witness =
         | Fable.Delegate(args,_,_) -> args |> List.map (fun a -> a.Type)
         | _ -> []
 
+type Scope = (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
+
 type Context =
-    { Scope: (FSharpMemberOrFunctionOrValue * Fable.Ident * Fable.Expr option) list
+    { Scope: Scope
       ScopeInlineValues: (FSharpMemberOrFunctionOrValue * FSharpExpr) list
       UsedNamesInRootScope: Set<string>
       UsedNamesInDeclarationScope: HashSet<string>
@@ -329,7 +355,7 @@ module Helpers =
 
     let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
-            let overloadSuffix = OverloadSuffix.getExtensionHash memb
+            let overloadSuffix = FsMemberFunctionOrValue memb |> OverloadSuffix.getExtensionHash
             let entName = FsEnt.Ref memb.ApparentEnclosingEntity |> getEntityMangledName com false
             entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
         else
@@ -341,7 +367,7 @@ module Helpers =
                     | "" -> memb.CompiledName, Naming.NoMemberPart
                     | moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
                 else
-                    let overloadSuffix = OverloadSuffix.getHash ent memb
+                    let overloadSuffix = FsMemberFunctionOrValue memb |> OverloadSuffix.getHash (FsEnt ent)
                     let entName = getEntityMangledName com trimRootModule entFullName
                     if memb.IsInstanceMember
                     then entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
@@ -757,7 +783,9 @@ module TypeHelpers =
     let resolveGenParam ctxTypeArgs (genParam: FSharpGenericParameter) =
         let name = genParamName genParam
         match Map.tryFind name ctxTypeArgs with
-        | None -> Fable.GenericParam name
+        | None ->
+            let constraints = FsGenParam.Constraints genParam |> Seq.toList
+            Fable.GenericParam(name, constraints)
         | Some typ -> typ
 
     let makeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
@@ -872,7 +900,8 @@ module TypeHelpers =
             resolveGenParam ctxTypeArgs t.GenericParameter
         // Tuple
         elif t.IsTupleType then
-            makeGenArgs ctxTypeArgs t.GenericArguments |> Fable.Tuple
+            let genArgs = makeGenArgs ctxTypeArgs t.GenericArguments
+            Fable.Tuple(genArgs, t.IsStructTupleType)
         // Function
         elif t.IsFunctionType then
             let argType = makeType ctxTypeArgs t.GenericArguments.[0]
@@ -1511,7 +1540,8 @@ module Util =
         isReplacementCandidatePrivate isFromDllRef (FsEnt.FullName ent)
 
     let getEntityType (ent: Fable.Entity): Fable.Type =
-        let genArgs = ent.GenericParameters |> List.map (fun x -> Fable.Type.GenericParam(x.Name))
+        let genArgs = ent.GenericParameters |> List.map (fun x ->
+            Fable.Type.GenericParam(x.Name, Seq.toList x.Constraints))
         Fable.Type.DeclaredType(ent.Ref, genArgs)
 
     /// We can add a suffix to the entity name for special methods, like reflection declaration
@@ -1628,7 +1658,7 @@ module Util =
             if isMangledAbstractEntity com entity then
                 let overloadHash =
                     if (isGetter || isSetter) && not indexedProp then ""
-                    else OverloadSuffix.getHash entity memb
+                    else FsMemberFunctionOrValue memb |> OverloadSuffix.getHash (FsEnt entity)
                 getMangledAbstractMemberName entity memb.CompiledName overloadHash, false, false
             else
                 // Indexed properties keep the get_/set_ prefix and are compiled as methods
@@ -1656,7 +1686,9 @@ module Util =
                 IsModuleValue = isModuleValueForCalls ent memb
                 IsInterface = ent.IsInterface
                 CompiledName = memb.CompiledName
-                OverloadSuffix = if ent.IsFSharpModule then "" else OverloadSuffix.getHash ent memb
+                OverloadSuffix =
+                    if ent.IsFSharpModule then ""
+                    else FsMemberFunctionOrValue memb |> OverloadSuffix.getHash (FsEnt ent)
                 GenericArgs = genArgs.Value }
             match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
             | Some e -> Some e
