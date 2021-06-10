@@ -37,8 +37,21 @@ type UnionCase =
     abstract CompiledName: string option
     abstract UnionCaseFields: Field list
 
+[<RequireQualifiedAccess>]
+type Constraint =
+    | HasMember of name: string * isStatic: bool
+    | CoercesTo of target: Type
+    | IsNullable
+    | IsValueType
+    | IsReferenceType
+    | HasDefaultConstructor
+    | HasComparison
+    | HasEquality
+    | IsUnmanaged
+
 type GenericParam =
     abstract Name: string
+    abstract Constraints: Constraint seq
 
 type Parameter =
     abstract Name: string option
@@ -95,12 +108,12 @@ type Type =
     | Number of kind: NumberKind
     | Enum of ref: EntityRef
     | Option of genericArg: Type
-    | Tuple of genericArgs: Type list
+    | Tuple of genericArgs: Type list * isStruct: bool
     | Array of genericArg: Type
     | List of genericArg: Type
     | LambdaType of argType: Type * returnType: Type
     | DelegateType of argTypes: Type list * returnType: Type
-    | GenericParam of name: string
+    | GenericParam of name: string * constraints: Constraint list
     | DeclaredType of ref: EntityRef * genericArgs: Type list
     | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
 
@@ -111,7 +124,7 @@ type Type =
         | List gen -> [ gen ]
         | LambdaType(argType, returnType) -> [ argType; returnType ]
         | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
-        | Tuple gen -> gen
+        | Tuple(gen, _) -> gen
         | DeclaredType (_, gen) -> gen
         | AnonymousRecordType (_, gen) -> gen
         | _ -> []
@@ -199,7 +212,7 @@ type ValueKind =
     | NewArray of values: Expr list * typ: Type
     | NewArrayFrom of value: Expr * typ: Type
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
-    | NewTuple of values: Expr list
+    | NewTuple of values: Expr list * isStruct: bool
     | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
     | NewAnonymousRecord of values: Expr list * fieldNames: string [] * genArgs: Type list
     | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
@@ -220,13 +233,17 @@ type ValueKind =
         | NewArray (_, t) -> Array t
         | NewArrayFrom (_, t) -> Array t
         | NewList (_, t) -> List t
-        | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
+        | NewTuple (exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
         | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewAnonymousRecord (_, fieldNames, genArgs) -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
+type ParamInfo =
+    { Name: string option
+      Type: Type }
+
 type CallMemberInfo =
-    { CurriedParameterGroups: Parameter list list
+    { CurriedParameterGroups: ParamInfo list list
       IsInstance: bool
       FullName: string
       CompiledName: string

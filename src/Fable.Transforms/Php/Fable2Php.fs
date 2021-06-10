@@ -509,12 +509,11 @@ let rec tryFindMethod methodName (phpType: PhpType) =
 /// convert a Fable expression to a Php expression
 let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     match expr with
-    | Fable.NativeInstruction _ -> failwith "TODO: NativeInstruction"
+    | Fable.NativeInstruction _ -> failwith "TODO: Native instruction"
 
     | Fable.Value(value,range) ->
         // this is a value (number / record instanciation ...)
         convertValue com value range
-
 
     | Fable.Operation(Fable.Binary(op, left,right), t, _) ->
         // the result of a binary operation
@@ -967,7 +966,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
 
 
         PhpNew(t, [for arg in args do convertExpr com arg ])
-    | Fable.NewTuple(args) ->
+    | Fable.NewTuple(args,_) ->
 
         PhpNewArray([for arg in args do (PhpArrayNoIndex, convertExpr com arg)])
     | Fable.NewRecord(args, e , _) ->

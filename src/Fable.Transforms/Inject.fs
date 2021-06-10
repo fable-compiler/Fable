@@ -10,12 +10,12 @@ open FSharp2Fable.Patterns
 open FSharp2Fable.TypeHelpers
 
 let private resolveParamGeneric (genArg: Lazy<(string * Fable.Type) list>)= function
-    | Fable.GenericParam genParamName ->
+    | Fable.GenericParam(genParamName, constraints) ->
         genArg.Value
         |> List.tryPick (fun (k,v) -> if k = genParamName then Some v else None)
         // We could add an error here if not found, but it will be added anyways
         // when trying to compile TypeInfo for a generic in Fable2Babel
-        |> Option.defaultValue (Fable.GenericParam genParamName)
+        |> Option.defaultValue (Fable.GenericParam(genParamName, constraints))
     | t -> t
 
 let (|TryDefinition|_|) (NonAbbreviatedType t) =

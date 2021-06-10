@@ -52,7 +52,7 @@ type Helper =
 module Helpers =
     let resolveArgTypes argTypes (genArgs: (string * Type) list) =
         argTypes |> List.map (function
-            | GenericParam name as t ->
+            | GenericParam(name,_) as t ->
                 genArgs |> List.tryPick (fun (name2, t) ->
                     if name = name2 then Some t else None)
                 |> Option.defaultValue t
@@ -209,7 +209,7 @@ let getTypeNameFromFullName (fullname: string) =
 
 let getTypeName com (ctx: Context) r t =
     match t with
-    | GenericParam name ->
+    | GenericParam(name,_) ->
         genericTypeInfoError name
         |> addError com ctx.InlinePath r
     | _ -> ()
@@ -367,8 +367,8 @@ let makeTypeDefinitionInfo r t =
         | Option _ -> Option Any
         | Array _ -> Array Any
         | List _ -> List Any
-        | Tuple genArgs ->
-            genArgs |> List.map (fun _ -> Any) |> Tuple
+        | Tuple(genArgs, isStruct) ->
+            Tuple(genArgs |> List.map (fun _ -> Any), isStruct)
         | DeclaredType(ent, genArgs) ->
             let genArgs = genArgs |> List.map (fun _ -> Any)
             DeclaredType(ent, genArgs)
@@ -880,7 +880,7 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | Builtin BclBigInt as t -> Helper.LibCall(com, "BigInt", "fromInt32", t, [makeIntConst 0])
     | Builtin BclDecimal as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
     | Builtin (BclKeyValuePair(k,v)) ->
-        Value(NewTuple[getZero com ctx k; getZero com ctx v], None)
+        makeTuple None [getZero com ctx k; getZero com ctx v]
     | ListSingleton(CustomOp com ctx "get_Zero" [] m) ->
         FSharp2Fable.Util.makeCallFrom com ctx None t [] None [] m
     | _ -> Value(Null Any, None) // null
@@ -974,7 +974,7 @@ let makePojo (com: Compiler) caseRule keyValueList =
                 let uci = com.GetEntity(ent).UnionCases |> List.item uci
                 let name = defaultArg uci.CompiledName uci.Name
                 makeObjMember caseRule name values::acc |> Some
-            | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values),_)) ->
+            | Some acc, MaybeCasted(Value(NewTuple((StringConst name)::values,_),_)) ->
                 // Don't change the case for tuples in disguise
                 makeObjMember Core.CaseRules.None name values::acc |> Some
             | _ -> None))
@@ -1081,7 +1081,7 @@ let defaultof (com: ICompiler) ctx (t: Type) =
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
-let rec findInScope scope identName =
+let rec findInScope (scope: FSharp2Fable.Scope) (identName: string) =
     match scope with
     | [] -> None
     | (_,ident2,expr)::prevScope ->
@@ -1115,7 +1115,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         match args with
         | [Nameof com ctx name as arg] ->
             if meth = "nameof2"
-            then NewTuple [makeStrConst name; arg] |> makeValue r |> Some
+            then makeTuple r [makeStrConst name; arg] |> Some
             else makeStrConst name |> Some
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r
@@ -1167,7 +1167,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> addError com ctx.InlinePath r
             Some(Naming.unknown, -1))
         |> Option.map (fun (s, i) ->
-            [makeStrConst s; makeIntConst i] |> NewTuple |> makeValue r)
+            makeTuple r [makeStrConst s; makeIntConst i])
 
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
@@ -1276,7 +1276,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 emitJs r t args isStatement macro |> Some
             | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
-            NewTuple [name; value] |> makeValue r |> Some
+            makeTuple r [name; value] |> Some
         | "createObj", _ ->
             Helper.LibCall(com, "Util", "createObj", Any, args) |> asOptimizable "pojo" |> Some
          | "keyValueList", [caseRule; keyValueList] ->
@@ -2330,7 +2330,7 @@ let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
 
 let keyValuePairs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Value(NewTuple args, r) |> Some
+    | ".ctor", _ -> makeTuple r args |> Some
     | "get_Key", Some c -> Get(c, TupleIndex 0, t, r) |> Some
     | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
     | _ -> None
@@ -2939,7 +2939,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         match thisArg with
         | Some(Value(TypeInfo exprType, exprRange) as thisArg) ->
             match exprType with
-            | GenericParam name -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
+            | GenericParam(name,_) -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
             | _ -> ()
             match i.CompiledName with
             | "GetInterface" ->
@@ -2955,7 +2955,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                         let ifcName = getTypeNameFromFullName ifc.Entity.FullName
                         if ifcName.Equals(name, comp) then
                             let genArgs = ifc.GenericArgs |> List.map (function
-                                | GenericParam name as gen -> Map.tryFind name genMap |> Option.defaultValue gen
+                                | GenericParam(name,_) as gen -> Map.tryFind name genMap |> Option.defaultValue gen
                                 | gen -> gen)
                             Some(ifc.Entity, genArgs)
                         else None)
@@ -2997,7 +2997,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                     | DelegateType _ ->
                         let argTypes, returnType = List.splitLast newGen
                         DelegateType(argTypes, returnType)
-                    | Tuple _ -> Tuple newGen
+                    | Tuple (_, isStruct) -> Tuple(newGen, isStruct)
                     | DeclaredType (ent, _) -> DeclaredType(ent, newGen)
                     | t -> t
                 TypeInfo exprType |> makeValue exprRange |> Some

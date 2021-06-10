@@ -333,7 +333,7 @@ module AST =
             | NewList(None,_) | NewOption(None,_) -> false
             | NewOption(Some e,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
-            | NewTuple exprs
+            | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
             // Arrays can be mutable
             | NewArray _ | NewArrayFrom _ -> true
@@ -399,6 +399,9 @@ module AST =
 
     let makeValue r value =
         Value(value, r)
+
+    let makeTuple r values =
+        Value(NewTuple(values, false), r)
 
     let makeArray elementType arrExprs =
         NewArray(arrExprs, elementType) |> makeValue None
@@ -471,7 +474,7 @@ module AST =
 
     let destructureTupleArgs = function
         | [MaybeCasted(Value(UnitConstant,_))] -> []
-        | [MaybeCasted(Value(NewTuple(args),_))] -> args
+        | [MaybeCasted(Value(NewTuple(args,_),_))] -> args
         | args -> args
 
     let makeCall r t argInfo calleeExpr =
@@ -548,7 +551,7 @@ module AST =
         | Option t1, Option t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
-        | Tuple ts1, Tuple ts2 -> listEquals (typeEquals strict) ts1 ts2
+        | Tuple(ts1,_), Tuple(ts2,_) -> listEquals (typeEquals strict) ts1 ts2
         | LambdaType(a1, t1), LambdaType(a2, t2) ->
             typeEquals strict a1 a2 && typeEquals strict t1 t2
         | DelegateType(as1, t1), DelegateType(as2, t2) ->
@@ -556,8 +559,18 @@ module AST =
         | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
             ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _ | _, GenericParam _ when not strict -> true
-        | GenericParam name1, GenericParam name2 -> name1 = name2
+        | GenericParam(name1,_), GenericParam(name2,_) -> name1 = name2
         | _ -> false
+
+    let getNumberFullName = function
+        | Int8    -> Types.int8
+        | UInt8   -> Types.uint8
+        | Int16   -> Types.int16
+        | UInt16  -> Types.uint16
+        | Int32   -> Types.int32
+        | UInt32  -> Types.uint32
+        | Float32 -> Types.float32
+        | Float64 -> Types.float64
 
     let rec getTypeFullName prettify t =
         let getEntityFullName (entRef: EntityRef) gen =
@@ -575,7 +588,7 @@ module AST =
                 fullname + "[" + gen + "]"
         match t with
         | AnonymousRecordType _ -> ""
-        | GenericParam name -> "'" + name
+        | GenericParam(name,_) -> "'" + name
         | Enum ent -> getEntityFullName ent []
         | Regex    -> Types.regex
         | MetaType -> Types.type_
@@ -584,16 +597,7 @@ module AST =
         | Char    -> Types.char
         | String  -> Types.string
         | Any -> Types.object
-        | Number kind ->
-            match kind with
-            | Int8    -> Types.int8
-            | UInt8   -> Types.uint8
-            | Int16   -> Types.int16
-            | UInt16  -> Types.uint16
-            | Int32   -> Types.int32
-            | UInt32  -> Types.uint32
-            | Float32 -> Types.float32
-            | Float64 -> Types.float64
+        | Number kind -> getNumberFullName kind
         | LambdaType(argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType
@@ -605,7 +609,7 @@ module AST =
                 (List.length argTypes + 1)
                 (List.map (getTypeFullName prettify) argTypes |> String.concat ",")
                 (getTypeFullName prettify returnType)
-        | Tuple genArgs ->
+        | Tuple(genArgs,_) ->
             let genArgs = List.map (getTypeFullName prettify) genArgs
             if prettify
             then String.concat " * " genArgs
