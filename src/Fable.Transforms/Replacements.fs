@@ -215,17 +215,22 @@ let getTypeName com (ctx: Context) r t =
     | _ -> ()
     getTypeFullName false t |> getTypeNameFromFullName
 
-let (|Nameof|_|) com ctx = function
-    | IdentExpr ident -> Some ident.DisplayName
-    | Get(_, ByKey(ExprKey(StringConst prop)), _, _) -> Some prop
-    | Get(_, ByKey(FieldKey fi), _, _) -> Some fi.Name
-    | NestedLambda(args, Call(IdentExpr ident, info, _, _), None) ->
+let rec namesof com ctx acc e =
+    match acc, e with
+    | acc, Get(e, ByKey(ExprKey(StringConst prop)), _, _) -> namesof com ctx (prop::acc) e
+    | acc, Get(e, ByKey(FieldKey fi), _, _) -> namesof com ctx (fi.Name::acc) e
+    | [], IdentExpr ident -> ident.DisplayName::acc |> Some
+    | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), None) ->
         if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->
             match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
-        then Some ident.DisplayName
+        then ident.DisplayName::acc |> Some
         else None
-    | Value(TypeInfo t, r) -> getTypeName com ctx r t |> Some
-    | _ -> None
+    | [], Value(TypeInfo t, r) -> (getTypeName com ctx r t)::acc |> Some
+    | [], _ -> None
+    | acc, _ -> Some acc
+
+let (|Namesof|_|) com ctx e = namesof com ctx [] e
+let (|Nameof|_|) com ctx e = namesof com ctx [] e |> Option.bind List.tryLast
 
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
     namesAndReplacements |> List.tryPick (fun (name2, replacement) ->
@@ -1119,19 +1124,21 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r
                makeStrConst Naming.unknown |> Some
-    | _, "nameofLambda" ->
+    | _, ("nameofLambda"|"namesofLambda" as meth) ->
         match args with
-        | [Lambda(_, (Nameof com ctx name), _)] -> Some name
+        | [Lambda(_, (Namesof com ctx names), _)] -> Some names
         | [MaybeCasted(IdentExpr ident)] ->
             match findInScope ctx.Scope ident.Name with
-            | Some(Lambda(_, (Nameof com ctx name), _)) -> Some name
+            | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
             | _ -> None
         | _ -> None
         |> Option.defaultWith (fun () ->
             "Cannot infer name of expression"
             |> addError com ctx.InlinePath r
-            Naming.unknown)
-        |> makeStrConst |> Some
+            [Naming.unknown])
+        |> fun names ->
+            if meth = "namesofLambda" then List.map makeStrConst names |> makeArray String |> Some
+            else List.tryHead names |> Option.map makeStrConst
 
     | _, ("casenameWithFieldCount"|"casenameWithFieldIndex" as meth) ->
         let rec inferCasename = function
