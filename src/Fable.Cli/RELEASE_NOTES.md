@@ -1,3 +1,7 @@
+### 3.2.3
+
+* Experimental.namesofLambda
+
 ### 3.2.2
 
 * Check for correct types in Anonymous Record when assigning to Interface with [<EmitIndexer>] via !! @Booksbaum
