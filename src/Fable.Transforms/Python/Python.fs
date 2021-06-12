@@ -909,6 +909,21 @@ module PythonExtensions =
               Ops = ops
               Loc = loc }
             |> Compare
+
+        static member compare(left, op, comparators, ?loc) : Expression =
+            let op =
+              match op with
+              | BinaryEqual
+              | BinaryEqualStrict -> Eq
+              | BinaryUnequal
+              | BinaryUnequalStrict -> NotEq
+              | BinaryLess -> Lt
+              | BinaryLessOrEqual -> LtE
+              | BinaryGreater -> Gt
+              | BinaryGreaterOrEqual -> GtE
+              | _ -> failwith $"compare: Operator {op} not supported"
+            Expression.compare(left, [op], comparators)
+
         static member none() =
             Expression.name (Identifier(name="None"))
 
@@ -928,7 +943,7 @@ module PythonExtensions =
                   // | UnaryTypeof -> "typeof"
                   // | UnaryVoid ->
                   // | UnaryDelete -> "delete"
-                  | _ -> failwith $"Operator {op} not supported"
+                  | _ -> failwith $"unaryOp: Operator {op} not supported"
 
             Expression.unaryOp(op, operand, ?loc=loc)
 
@@ -967,7 +982,7 @@ module PythonExtensions =
               | BinaryShiftRightZeroFill -> RShift
               | BinaryShiftRightSignPropagating -> RShift
               | BinaryXorBitwise -> BitXor
-              | _ -> failwith $"Operator {op} not supported"
+              | _ -> failwith $"binOp: Operator {op} not supported"
 
             Expression.binOp(left, op, right, ?loc=loc)
 

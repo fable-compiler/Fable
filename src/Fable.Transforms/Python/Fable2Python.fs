@@ -37,23 +37,23 @@ type BoundVars =
       LocalScope: HashSet<string> }
 
     member this.EnterScope () =
-        printfn "EnterScope"
+        // printfn "EnterScope"
         let enclosingScope = HashSet<string>()
         enclosingScope.UnionWith(this.EnclosingScope)
         enclosingScope.UnionWith(this.LocalScope)
         { this with LocalScope = HashSet (); EnclosingScope = enclosingScope }
 
     member this.Bind(name: string) =
-        printfn "Bind: %A" name
+        // printfn "Bind: %A" name
         this.LocalScope.Add name |> ignore
 
     member this.Bind(ids: Identifier list) =
-        printfn "Bind: %A" ids
+        // printfn "Bind: %A" ids
         for (Identifier name) in ids do
             this.LocalScope.Add name |> ignore
 
     member this.NonLocals(idents: Identifier list) =
-        printfn "NonLocals: %A" (idents, this)
+        // printfn "NonLocals: %A" (idents, this)
         [
             for ident in idents do
                 let (Identifier name) = ident
@@ -61,7 +61,6 @@ type BoundVars =
                     yield ident
                 else
                     this.Bind(name)
-                    ()
         ]
 type Context =
   { File: Fable.File
@@ -322,7 +321,9 @@ module Reflection =
             Expression.compare(typeof, [ Eq ], [ Expression.constant(primitiveType)], ?loc=range), stmts
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)): Expression * Statement list=
-            Expression.binOp(expr, BinaryInstanceOf, consExpr, ?loc=range), stmts
+            let func = Expression.name (Python.Identifier("isinstance"))
+            let args = [ expr; consExpr ]
+            Expression.call (func, args), stmts
 
         match typ with
         | Fable.Any -> Expression.constant(true), []
@@ -579,7 +580,6 @@ module Util =
             Expression.name(name), []
         | n when Naming.hasIdentForbiddenChars n -> Expression.constant(n), []
         | n -> Expression.identifier(n), []
-
 
     let get r left memberName =
         let expr = Identifier memberName
@@ -847,7 +847,9 @@ module Util =
         | Fable.NumberConstant (x,_) -> Expression.constant(x, ?loc=r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values
-        //| Fable.NewArrayFrom (size, typ) -> makeAllocatedFrom com ctx size, []
+        | Fable.NewArrayFrom (size, typ) ->
+            let array, stmts = makeArray com ctx []
+            Expression.binOp(array, Mult, Expression.constant(size)), stmts
         | Fable.NewTuple vals -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
@@ -997,7 +999,6 @@ module Util =
         let name = Helpers.getUniqueIdentifier "lifted"
         let stmt = Statement.classDef(name, body=classBody, bases=(baseExpr |> Option.toList) )
         Expression.name (name), [ stmt ]
-        //Expression.call(classExpr, []), []
 
     let transformCallArgs (com: IPythonCompiler) ctx hasSpread args : Expression list * Statement list =
         match args with
@@ -1026,13 +1027,29 @@ module Util =
 
     let transformOperation com ctx range opKind: Expression * Statement list =
         match opKind with
+        | Fable.Unary(UnaryVoid, TransformExpr com ctx (expr, stmts)) ->
+            expr, stmts
         | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) ->
             Expression.unaryOp(op, expr, ?loc=range), stmts
 
-        | Fable.Binary(BinaryEqualStrict, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            Expression.compare(left, [Eq], [right], ?loc=range), stmts @ stmts'
+        | Fable.Binary(BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
+            let func = Expression.name (Python.Identifier("isinstance"))
+            let args = [ left; right ]
+            Expression.call (func, args), stmts' @ stmts
+
         | Fable.Binary(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-            Expression.binOp(left, op, right, ?loc=range), stmts @ stmts'
+            match op with
+            | BinaryEqual
+            | BinaryEqualStrict // FIXME: should use ´is` for objects
+            | BinaryUnequal
+            | BinaryUnequalStrict // FIXME: should use ´is not` for objects
+            | BinaryLess
+            | BinaryLessOrEqual
+            | BinaryGreater
+            | BinaryGreaterOrEqual ->
+                Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+            | _ ->
+                Expression.binOp(left, op, right, ?loc=range), stmts @ stmts'
 
         | Fable.Logical(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
             Expression.boolOp(op, [left; right], ?loc=range), stmts @ stmts'
@@ -1090,7 +1107,7 @@ module Util =
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
     let transformBlock (com: IPythonCompiler) ctx ret expr: Statement list =
-        com.TransformAsStatements(ctx, ret, expr)
+        com.TransformAsStatements(ctx, ret, expr) |> List.choose Helpers.isProductiveStatement
 
     let transformTryCatch com ctx r returnStrategy (body, (catch: option<Fable.Ident * Fable.Expr>), finalizer) =
         // try .. catch statements cannot be tail call optimized
@@ -1204,14 +1221,12 @@ module Util =
 
     let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
         if isPyStatement ctx false value then
-            printfn "Py statement"
             let varName, varExpr = Expression.name(var.Name), identAsExpr com ctx var
             ctx.BoundVars.Bind(var.Name)
             let decl = Statement.assign([varName], varExpr)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             List.append [ decl ] body
         else
-            printfn "Not Py statement"
             let value, stmts = transformBindingExprBody com ctx var value
             let varName = Expression.name(var.Name)
             let decl = varDeclaration ctx varName var.IsMutable value
@@ -1224,7 +1239,7 @@ module Util =
         | Fable.OptionTest nonEmpty ->
             let op = if nonEmpty then BinaryUnequal else BinaryEqual
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.binOp(expr, op, Expression.none(), ?loc=range), stmts
+            Expression.compare(expr, op, [Expression.none()], ?loc=range), stmts
         | Fable.ListTest nonEmpty ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             // let op = if nonEmpty then BinaryUnequal else BinaryEqual
@@ -1293,21 +1308,21 @@ module Util =
             let target = List.rev bindings |> List.fold (fun e (i,v) -> Fable.Let(i,v,e)) target
             com.TransformAsExpr(ctx, target)
 
-    // let transformDecisionTreeSuccessAsStatements (com: IPythonCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Statement list =
-    //     match returnStrategy with
-    //     | Some(Target targetId) as target ->
-    //         let idents, _ = getDecisionTarget ctx targetIndex
-    //         let assignments =
-    //             matchTargetIdentAndValues idents boundValues
-    //             |> List.collect (fun (id, TransformExpr com ctx (value, stmts)) ->
-    //                 let stmt = assign None (identAsExpr id) value |> Statement.expr
-    //                 stmts @ [ stmt ])
-    //         let targetAssignment = assign None (targetId |> Expression.name) (ofInt targetIndex) |> Statement.expr
-    //         [ targetAssignment ] @ assignments
-    //     | ret ->
-    //         let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
-    //         let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toList
-    //         bindings @ (com.TransformAsStatements(ctx, ret, target))
+    let transformDecisionTreeSuccessAsStatements (com: IPythonCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Statement list =
+        match returnStrategy with
+        | Some(Target targetId) as target ->
+            let idents, _ = getDecisionTarget ctx targetIndex
+            let assignments =
+                matchTargetIdentAndValues idents boundValues
+                |> List.collect (fun (id, TransformExpr com ctx (value, stmts)) ->
+                    let stmt = assign None (identAsExpr com ctx id) value |> Statement.expr
+                    stmts @ [ stmt ])
+            let targetAssignment = assign None (targetId |> Expression.name) (ofInt targetIndex) |> Statement.expr
+            [ targetAssignment ] @ assignments
+        | ret ->
+            let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
+            let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toList
+            bindings @ (com.TransformAsStatements(ctx, ret, target))
 
     let transformDecisionTreeAsSwitch expr =
         let (|Equals|_|) = function
@@ -1465,6 +1480,27 @@ module Util =
             else
                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
 
+    let transformSequenceExpr (com: IPythonCompiler) ctx (exprs: Expression list) : Expression * Statement list =
+        let body =
+            exprs
+            |> List.mapi
+                (fun i expr ->
+                     // Return the last expression
+                    if i = exprs.Length - 1 then
+                        [ Statement.return' (expr)]
+                    else
+                        [ Statement.expr(expr) ])
+            |> List.collect id
+            //|> transformBody ReturnStrategy.Return
+
+
+        let name = Helpers.getUniqueIdentifier ("lifted")
+        let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
+
+        let name = Expression.name (name)
+        Expression.call (name), [ func ]
+
+
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list=
         match expr with
         | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
@@ -1519,23 +1555,31 @@ module Util =
             transformSet com ctx range expr value kind
 
         | Fable.Let(ident, value, body) ->
+            printfn "Fable.Let: %A" (ident, value, body)
             if ctx.HoistVars [ident] then
                 let assignment, stmts = transformBindingAsExpr com ctx ident value
                 let expr, stmts' = com.TransformAsExpr(ctx, body)
-                //Expression.sequenceExpression([|assignment; |])
-                expr, stmts @ stmts'
+                let expr, stmts'' = transformSequenceExpr com ctx [ assignment; expr ]
+                expr, stmts @ stmts' @ stmts''
             else iife com ctx expr
 
-        // | Fable.LetRec(bindings, body) ->
-        //     if ctx.HoistVars(List.map fst bindings) then
-        //         let values = bindings |> List.mapToArray (fun (id, value) ->
-        //             transformBindingAsExpr com ctx id value)
-        //         Expression.sequenceExpression(Array.append values [|com.TransformAsExpr(ctx, body)|])
-        //     else iife com ctx expr
+        | Fable.LetRec(bindings, body) ->
+            if ctx.HoistVars(List.map fst bindings) then
+                let values, stmts =
+                    bindings
+                    |> List.map (fun (id, value) -> transformBindingAsExpr com ctx id value)
+                    |> List.unzip
+                    |> (fun (e, s) -> (e, List.collect id s))
 
-        // | Fable.Sequential exprs ->
-        //     List.mapToArray (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        //     |> Expression.sequenceExpression
+                let expr, stmts' = com.TransformAsExpr(ctx, body)
+                let expr, stmts'' = transformSequenceExpr com ctx (values @ [expr])
+                expr, stmts @ stmts' @ stmts''
+            else iife com ctx expr
+
+        | Fable.Sequential exprs ->
+            let exprs, stmts = List.map (fun e -> com.TransformAsExpr(ctx, e)) exprs |> List.unzip
+            printfn "Sequential: %A" (exprs, stmts)
+            Expression.none(), stmts |> List.collect id
 
         | Fable.Emit(info, _, range) ->
             if info.IsJsStatement then iife com ctx expr
@@ -1544,8 +1588,6 @@ module Util =
         // These cannot appear in expression position in JS, must be wrapped in a lambda
         | Fable.WhileLoop _ | Fable.ForLoop _ | Fable.TryCatch _ ->
             iife com ctx expr
-
-        | _ -> failwith $"Expression {expr} not supported."
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement list =
@@ -1655,30 +1697,30 @@ module Util =
         | Fable.TryCatch (body, catch, finalizer, r) ->
             transformTryCatch com ctx r returnStrategy (body, catch, finalizer)
 
-        // | Fable.DecisionTree(expr, targets) ->
-        //     transformDecisionTreeAsStatements com ctx returnStrategy targets expr
+        | Fable.DecisionTree(expr, targets) ->
+            transformDecisionTreeAsStatements com ctx returnStrategy targets expr
 
-        // | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
-        //     transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
+        | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
+            transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
         | Fable.WhileLoop(TransformExpr com ctx (guard, stmts), body, range) ->
             stmts @ [ Statement.while'(guard, transformBlock com ctx None body, ?loc=range) ]
 
-        // | Fable.ForLoop (var, TransformExpr com ctx (start, stmts), TransformExpr com ctx (limit, stmts'), body, isUp, range) ->
-        //     let op1, op2 =
-        //         if isUp
-        //         then BinaryOperator.BinaryLessOrEqual, UpdateOperator.UpdatePlus
-        //         else BinaryOperator.BinaryGreaterOrEqual, UpdateOperator.UpdateMinus
+        | Fable.ForLoop (var, TransformExpr com ctx (start, stmts), TransformExpr com ctx (limit, stmts'), body, isUp, range) ->
+            let limit, step =
+                if isUp
+                then
+                    let limit = Expression.binOp (limit, Add, Expression.constant (1)) // Python `range` has exclusive end.
+                    limit,  1
+                else
+                    limit, -1
 
-        //     let a = start |> varDeclaration (typedIdent com ctx var |> Pattern.Identifier) true
+            let step = Expression.constant(step)
+            let iter = Expression.call (Expression.name (Python.Identifier "range"), args = [ start; limit; step ])
+            let body = transformBlock com ctx None body
+            let target = com.GetIdentifierAsExpr(ctx, var.Name)
 
-        //     [ Statement.for'(
-        //         transformBlock com ctx None body,
-        //         start |> varDeclaration (Expression.identifier(ident var)) true,
-        //         Expression.binOp(identAsExpr var, op1, limit),
-        //         Expression.updateExpression(op2, false, identAsExpr var), ?loc=range)  ]
-
-        | _ -> failwith $"transformAsStatements: Expression {expr} not supported."
+            [ Statement.for'(target = target, iter = iter, body = body) ]
 
     let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Arg list * Statement list =
         let tailcallChance =
