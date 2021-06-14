@@ -385,15 +385,15 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
         Delegate([], value, None)
     let setter =
         let v = makeUniqueIdent ctx t "v"
-        Delegate([v], Set(value, ValueSet, IdentExpr v, None), None)
+        Delegate([v], Set(value, ValueSet, t, IdentExpr v, None), None)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
 
 let makeRefFromMutableField com ctx r t callee key =
     let getter =
         Delegate([], Get(callee, FieldGet(key, true), t, r), None)
     let setter =
-        let v = makeUniqueIdent ctx Any "v"
-        Delegate([v], Set(callee, FieldSet(key, v.Type), IdentExpr v, r), None)
+        let v = makeUniqueIdent ctx t "v"
+        Delegate([v], Set(callee, FieldSet(key), t, IdentExpr v, r), None)
     Helper.LibCall(com, "Types", "FSharpRef", t, [getter; setter], isJsConstructor=true)
 
 // Mutable and public module values are compiled as functions, because
@@ -927,7 +927,7 @@ let makePojoFromLambda com arg =
     | Lambda(_, lambdaBody, _) ->
         (flattenSequential lambdaBody, Some []) ||> List.foldBack (fun statement acc ->
             match acc, statement with
-            | Some acc, Set(_, FieldSet(fieldName, _), value, _) ->
+            | Some acc, Set(_, FieldSet(fieldName), _, value, _) ->
                 objValue (fieldName, value)::acc |> Some
             | _ -> None)
     | _ -> None
@@ -1263,7 +1263,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "op_Dynamic", [left; memb] ->
             getExpr r t left memb |> Some
         | "op_DynamicAssignment", [callee; prop; MaybeLambdaUncurriedAtCompileTime value] ->
-            Set(callee, ExprSet prop, value, r) |> Some
+            setExpr r callee prop value |> Some
         | ("op_Dollar"|"createNew" as m), callee::args ->
             let args = destructureTupleArgs args
             if m = "createNew" then "new $0($1...)" else "$0($1...)"
@@ -1305,7 +1305,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | _ -> None
 
 let getReference r t expr = getAttachedMemberWith r t expr "contents"
-let setReference r expr value = Set(expr, ExprSet(makeStrConst "contents"), value, r)
+let setReference r expr value = setExpr r expr (makeStrConst "contents") value
 let newReference com r t value = Helper.LibCall(com, "Types", "FSharpRef", t, [value], isJsConstructor=true, ?loc=r)
 
 let references (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -1763,7 +1763,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         |> asOptimizable "array"
         |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
-    | "set_Item", Some ar, [idx; value] -> Set(ar, ExprSet(idx), value, r) |> Some
+    | "set_Item", Some ar, [idx; value] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [arg] ->
         "void ($0)" |> emitJsExpr r t [Helper.InstanceCall(ar, "push", t, [arg])] |> Some
     | "Remove", Some ar, [arg] ->
@@ -1864,7 +1864,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ -> getAttachedMemberWith r t arg "length" |> Some
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
-    | "set_Item", Some arg, [idx; value] -> Set(arg, ExprSet(idx), value, r) |> Some
+    | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
     | "Copy", None, [source; target; count] -> copyToArray com r t i [source; makeIntConst 0; target; makeIntConst 0; count]
     | "IndexOf", None, args ->
@@ -1894,7 +1894,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | ("Length" | "Count"), [arg] -> getAttachedMemberWith r t arg "length" |> Some
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
-    | "Set", [ar; idx; value] -> Set(ar, ExprSet(idx), value, r) |> Some
+    | "Set", [ar; idx; value] -> setExpr r ar idx value |> Some
     | "ZeroCreate", [count] -> createArray count None |> Some
     | "Create", [count; value] -> createArray count (Some value) |> Some
     | "Empty", _ ->
@@ -2263,7 +2263,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ar; idx]
     | "GetArray", _, [ar; idx] -> getExpr r t ar idx |> Some
-    | "SetArray", _, [ar; idx; value] -> Set(ar, ExprSet(idx), value, r) |> Some
+    | "SetArray", _, [ar; idx; value] -> setExpr r ar idx value |> Some
     | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
         let upper =
             match upper with
@@ -2640,7 +2640,7 @@ let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ -> Helper.LibCall(com, "Timer", "default", t, args, i.SignatureArgTypes, isJsConstructor=true, ?loc=r) |> Some
     | Naming.StartsWith "get_" meth, Some x, _ -> getAttachedMemberWith r t x meth |> Some
-    | Naming.StartsWith "set_" meth, Some x, [value] -> Set(x, ExprSet(makeStrConst meth), value, r) |> Some
+    | Naming.StartsWith "set_" meth, Some x, [value] -> setExpr r x (makeStrConst meth) value |> Some
     | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | _ -> None
 

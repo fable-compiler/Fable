@@ -480,6 +480,9 @@ module AST =
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
 
+    let setExpr r left memb (value: Expr) =
+        Set(left, ExprSet memb, value.Type, value, r)
+
     let getAttachedMemberWith r t callee membName =
         Get(callee, FieldGet(membName, true), t, r)
 

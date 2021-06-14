@@ -280,7 +280,7 @@ type GetKind =
 
 type SetKind =
     | ExprSet of Expr
-    | FieldSet of fieldName: string * fieldType: Type
+    | FieldSet of fieldName: string
     | ValueSet
 
 type TestKind =
@@ -323,7 +323,7 @@ type Expr =
     | Let of Ident * Expr * body: Expr
     | LetRec of bindings: (Ident * Expr) list * body: Expr
     | Get of Expr * kind: GetKind * typ: Type * range: SourceLocation option
-    | Set of Expr * kind: SetKind * value: Expr * range: SourceLocation option
+    | Set of Expr * kind: SetKind * typ: Type * value: Expr * range: SourceLocation option
 
     // Control flow
     | Sequential of Expr list
@@ -382,7 +382,7 @@ type Expr =
         | Test (_, _, r)
         | Operation (_, _, r)
         | Get (_, _, _, r)
-        | Set (_, _, _, r)
+        | Set (_, _, _, _, r)
         | ForLoop (_,_,_,_,_,r)
         | WhileLoop (_,_,r) -> r
 

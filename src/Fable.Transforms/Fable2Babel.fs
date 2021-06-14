@@ -1232,14 +1232,14 @@ module Util =
             let expr = com.TransformAsExpr(ctx, fableExpr)
             getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt fieldIndex)
 
-    let transformSet (com: IBabelCompiler) ctx range fableExpr (value: Fable.Expr) kind =
+    let transformSet (com: IBabelCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
-        let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression value.Type
+        let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression typ
         let ret =
             match kind with
             | Fable.ValueSet -> expr
             | Fable.ExprSet(TransformExpr com ctx e) -> getExpr None expr e
-            | Fable.FieldSet(fieldName, _) -> get None expr fieldName
+            | Fable.FieldSet(fieldName) -> get None expr fieldName
         assign range ret value
 
     let transformBindingExprBody (com: IBabelCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
@@ -1563,8 +1563,8 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccessAsExpr com ctx idx boundValues
 
-        | Fable.Set(expr, kind, value, range) ->
-            transformSet com ctx range expr value kind
+        | Fable.Set(expr, kind, typ, value, range) ->
+            transformSet com ctx range expr typ value kind
 
         | Fable.Let(ident, value, body) ->
             if ctx.HoistVars [ident] then
@@ -1651,8 +1651,8 @@ module Util =
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toArray
             Array.append bindings (transformAsStatements com ctx returnStrategy body)
 
-        | Fable.Set(expr, kind, value, range) ->
-            [|transformSet com ctx range expr value kind |> resolveExpr expr.Type returnStrategy|]
+        | Fable.Set(expr, kind, typ, value, range) ->
+            [|transformSet com ctx range expr typ value kind |> resolveExpr expr.Type returnStrategy|]
 
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
             let asStatement =

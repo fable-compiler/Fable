@@ -69,10 +69,10 @@ let visit f e =
         LetRec(bs, f body)
     | IfThenElse(cond, thenExpr, elseExpr, r) ->
         IfThenElse(f cond, f thenExpr, f elseExpr, r)
-    | Set(e, kind, v, r) ->
+    | Set(e, kind, t, v, r) ->
         match kind with
-        | ExprSet e2 -> Set(f e, ExprSet(f e2), f v, r)
-        | FieldSet _ | ValueSet -> Set(f e, kind, f v, r)
+        | ExprSet e2 -> Set(f e, ExprSet(f e2), t, f v, r)
+        | FieldSet _ | ValueSet -> Set(f e, kind, t, f v, r)
     | WhileLoop(e1, e2, r) -> WhileLoop(f e1, f e2, r)
     | ForLoop(i, e1, e2, e3, up, r) -> ForLoop(i, f e1, f e2, f e3, up, r)
     | TryCatch(body, catch, finalizer, r) ->
@@ -137,7 +137,7 @@ let getSubExpressions = function
     | Let(_, value, body) -> [value; body]
     | LetRec(bs, body) -> (List.map snd bs) @ [body]
     | IfThenElse(cond, thenExpr, elseExpr, _) -> [cond; thenExpr; elseExpr]
-    | Set(e, kind, v, _) ->
+    | Set(e, kind, _, v, _) ->
         match kind with
         | ExprSet e2 -> [e; e2; v]
         | FieldSet _ | ValueSet -> [e; v]
@@ -565,9 +565,9 @@ module private Transforms =
             let uci = com.GetEntity(ent).UnionCases.[tag]
             let args = uncurryConsArgs args uci.UnionCaseFields
             Value(NewUnion(args, tag, ent, genArgs), r)
-        | Set(e, FieldSet(fieldName, t), value, r) ->
+        | Set(e, FieldSet(fieldName), t, value, r) ->
             let value = uncurryArgs com false [t] [value]
-            Set(e, FieldSet(fieldName, t), List.head value, r)
+            Set(e, FieldSet(fieldName), t, List.head value, r)
         | e -> e
 
     let rec uncurryApplications (com: Compiler) e =

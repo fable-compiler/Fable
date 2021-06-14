@@ -910,7 +910,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         failwith "LetRec is not implemented"
     | Fable.ForLoop(_,_,_,_,_,_)
     | Fable.WhileLoop(_,_,_)
-    | Fable.Set(_,_,_,_)
+    | Fable.Set(_,_,_,_,_)
     | Fable.TryCatch(_,_,_,_) ->
         // these constructs should always be embeded in a function
         // and converted using the convertExprToStatement
@@ -1193,7 +1193,7 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                     yield! convertExprToStatement com expr Do
               yield! convertExprToStatement com exprs.[exprs.Length-1] returnStrategy
                     ]
-    | Fable.Set(expr,kind,value,_) ->
+    | Fable.Set(expr,kind,_typ,value,_) ->
         let left = convertExpr com expr
 
         let leftAssign =
@@ -1204,7 +1204,7 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                     com.AddLocalVar(v, true)
                 | _ -> ()
                 left
-            | Fable.SetKind.FieldSet(fieldName,_) ->
+            | Fable.SetKind.FieldSet(fieldName) ->
                 PhpField(left, Prop.StrField fieldName, None)
             | Fable.SetKind.ExprSet(keyExpr) ->
                 PhpArrayAccess(left, convertExpr com keyExpr)
