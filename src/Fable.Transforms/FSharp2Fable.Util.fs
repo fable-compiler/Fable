@@ -830,29 +830,48 @@ module TypeHelpers =
               Types.int32, Int32
               Types.uint32 , UInt32
               Types.float32, Float32
-              Types.float64, Float64
-               // Units of measure
-              "Microsoft.FSharp.Core.sbyte`1", Int8
-              "Microsoft.FSharp.Core.int16`1", Int16
-              "Microsoft.FSharp.Core.int`1", Int32
-              "Microsoft.FSharp.Core.float32`1", Float32
-              "Microsoft.FSharp.Core.float`1", Float64]
+              Types.float64, Float64]
 
-    let fsharpUMX =
-        dict ["bool`1", Choice1Of2 Fable.Boolean
-              "byte`1", Choice1Of2 (Fable.Number UInt8)
-              "string`1", Choice1Of2 Fable.String
-              "uint64`1", Choice2Of2 Types.uint64
-              "Guid`1", Choice2Of2 Types.guid
-              "TimeSpan`1", Choice2Of2 Types.timespan
-              "DateTime`1", Choice2Of2 Types.datetime
-              "DateTimeOffset`1", Choice2Of2 Types.datetimeOffset]
+    let numbersWithMeasure =
+        dict [
+            "Microsoft.FSharp.Core.sbyte`1", Int8
+            "Microsoft.FSharp.Core.int16`1", Int16
+            "Microsoft.FSharp.Core.int`1", Int32
+            "Microsoft.FSharp.Core.float32`1", Float32
+            "Microsoft.FSharp.Core.float`1", Float64
+            "FSharp.UMX.byte`1", UInt8
+        ]
 
-    let private makeSystemRuntimeType fullName =
-            let r: Fable.EntityRef =
-                { FullName = fullName
-                  Path = Fable.CoreAssemblyName "System.Runtime" }
-            Fable.DeclaredType(r, [])
+    // FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
+    // so we need to hard-code FSharp.UMX types
+    let runtimeTypesWithMeasure =
+        dict [
+            "Microsoft.FSharp.Core.int64`1", Choice2Of2 Types.int64
+            "Microsoft.FSharp.Core.decimal`1", Choice2Of2 Types.decimal
+            "FSharp.UMX.bool`1", Choice1Of2 Fable.Boolean
+            "FSharp.UMX.string`1", Choice1Of2 Fable.String
+            "FSharp.UMX.uint64`1", Choice2Of2 Types.uint64
+            "FSharp.UMX.Guid`1", Choice2Of2 Types.guid
+            "FSharp.UMX.TimeSpan`1", Choice2Of2 Types.timespan
+            "FSharp.UMX.DateTime`1", Choice2Of2 Types.datetime
+            "FSharp.UMX.DateTimeOffset`1", Choice2Of2 Types.datetimeOffset
+        ]
+
+    let private getMeasureFullName (genArgs: IList<FSharpType>) =
+        if genArgs.Count > 0 then
+            // TODO: Check it's effectively measure?
+            // TODO: Raise error if we cannot get the measure fullname?
+            match tryDefinition genArgs.[0] with
+            | Some(_, Some fullname) -> fullname
+            | _ -> Naming.unknown
+        else Naming.unknown
+
+    let private makeRuntimeTypeWithMeasure (genArgs: IList<FSharpType>) fullName =
+        let genArgs = [getMeasureFullName genArgs |> Fable.Measure]
+        let r: Fable.EntityRef =
+            { FullName = fullName
+              Path = Fable.CoreAssemblyName "System.Runtime" }
+        Fable.DeclaredType(r, genArgs)
 
     let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
@@ -875,15 +894,12 @@ module TypeHelpers =
             | Types.option -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Option
             | Types.resizeArray -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
             | Types.list -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
-            | DicContains numberTypes kind -> Fable.Number kind
-            | "Microsoft.FSharp.Core.int64`1" -> makeSystemRuntimeType Types.int64
-            | "Microsoft.FSharp.Core.decimal`1" -> makeSystemRuntimeType Types.decimal
-            // TODO: FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
-            // so we need to hard-cde FSharp.UMX types
-            | Naming.StartsWith "FSharp.UMX." (DicContains fsharpUMX choice) ->
+            | DicContains numberTypes kind -> Fable.Number(kind, None)
+            | DicContains numbersWithMeasure kind -> Fable.Number(kind, getMeasureFullName genArgs |> Some)
+            | DicContains runtimeTypesWithMeasure choice ->
                 match choice with
                 | Choice1Of2 t -> t
-                | Choice2Of2 fullName -> makeSystemRuntimeType fullName
+                | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | _ ->
                 // Special attributes
                 tdef.Attributes |> tryPickAttribute [
@@ -1075,7 +1091,7 @@ module TypeHelpers =
 
                 let (|IntNumber|_|) =
                     function
-                    | Fable.Number (Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32) -> Some ()
+                    | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32), _) -> Some ()
                     | _ -> None
                 let fitsIntoSingle (rules: Allow) (expected: Fable.Type) (actual: Fable.Type) =
                     match expected, actual with

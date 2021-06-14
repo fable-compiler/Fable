@@ -41,6 +41,7 @@ let private getConstraintHash genParams = function
 
 let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type) =
     match t with
+    | Fable.Measure fullname -> fullname
     | Fable.GenericParam(name, constraints) ->
         match genParams.TryGetValue(name) with
         | true, i -> i
@@ -61,9 +62,11 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
     | Fable.DelegateType(argTypes, returnType) ->
         argTypes @ [returnType] |> List.map (getTypeFastFullName genParams) |> String.concat " -> "
     | Fable.AnonymousRecordType(fieldNames, genArgs) ->
-        Seq.zip fieldNames genArgs
-        |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)
-        |> String.concat "; "
+        let fields =
+            Seq.zip fieldNames genArgs
+            |> Seq.map (fun (key, typ) -> key + " : " + getTypeFastFullName genParams typ)
+            |> String.concat "; "
+        "{|" + fields + "|}"
     | Fable.DeclaredType(tdef, genArgs) ->
         let genArgs = genArgs |> Seq.map (getTypeFastFullName genParams) |> String.concat ","
         let genArgs = if genArgs = "" then "" else "[" + genArgs + "]"
@@ -76,7 +79,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
     | Fable.String -> Types.string
     | Fable.Regex -> Types.regex
     | Fable.Enum ref -> ref.FullName
-    | Fable.Number kind -> getNumberFullName kind
+    | Fable.Number(kind, uom) -> getNumberFullName uom kind
 
 // From https://stackoverflow.com/a/37449594
 let private combineHashCodes (hashes: int seq) =

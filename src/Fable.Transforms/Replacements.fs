@@ -188,7 +188,7 @@ let (|NumberExtKind|_|) = function
     | _ -> None
 
 let (|NumberExt|_|) = function
-    | Number n -> Some (JsNumber n)
+    | Number(n, _) -> Some (JsNumber n)
     | Builtin BclInt64 -> Some (Long false)
     | Builtin BclUInt64 -> Some (Long true)
     | Builtin BclDecimal -> Some Decimal
@@ -301,8 +301,8 @@ let makeUniqueIdent ctx t name =
     |> makeTypedIdent t
 
 let makeLongInt com r t signed (x: uint64) =
-    let lowBits = NumberConstant (float (uint32 x), Float64)
-    let highBits = NumberConstant (float (x >>> 32), Float64)
+    let lowBits = NumberConstant (float (uint32 x), Float64, None)
+    let highBits = NumberConstant (float (x >>> 32), Float64, None)
     let unsigned = BoolConstant (not signed)
     let args = [makeValue None lowBits; makeValue None highBits; makeValue None unsigned]
     Helper.LibCall(com, "Long", "fromBits", t, args, ?loc=r)
@@ -315,7 +315,7 @@ let makeDecimalFromExpr com r t (e: Expr) =
     Helper.LibCall(com, "Decimal", "default", t, [e], isJsConstructor=true, ?loc=r)
 
 let makeFloat32 r (x: float32) =
-    Helper.GlobalCall("Math", Number Float32, [NumberConstant (float x, Float32) |> makeValue r], memb="fround")
+    Helper.GlobalCall("Math", Number(Float32, None), [NumberConstant (float x, Float32, None) |> makeValue r], memb="fround")
 
 let makeTypeConst com r (typ: Type) (value: obj) =
     match typ, value with
@@ -328,34 +328,34 @@ let makeTypeConst com r (typ: Type) (value: obj) =
     | String, (:? string as x) -> StringConstant x |> makeValue r
     | Char, (:? char as x) -> CharConstant x |> makeValue r
     // Integer types
-    | Number UInt8, (:? byte as x) -> NumberConstant (float x, UInt8) |> makeValue r
-    | Number Int8, (:? sbyte as x) -> NumberConstant (float x, Int8) |> makeValue r
-    | Number Int16, (:? int16 as x) -> NumberConstant (float x, Int16) |> makeValue r
-    | Number UInt16, (:? uint16 as x) -> NumberConstant (float x, UInt16) |> makeValue r
-    | Number Int32, (:? int as x) -> NumberConstant (float x, Int32) |> makeValue r
-    | Number UInt32, (:? uint32 as x) -> NumberConstant (float x, UInt32) |> makeValue r
+    | Number(UInt8, uom), (:? byte as x) -> NumberConstant(float x, UInt8, uom) |> makeValue r
+    | Number(Int8, uom), (:? sbyte as x) -> NumberConstant(float x, Int8, uom) |> makeValue r
+    | Number(Int16, uom), (:? int16 as x) -> NumberConstant(float x, Int16, uom) |> makeValue r
+    | Number(UInt16, uom), (:? uint16 as x) -> NumberConstant(float x, UInt16, uom) |> makeValue r
+    | Number(Int32, uom), (:? int as x) -> NumberConstant(float x, Int32, uom) |> makeValue r
+    | Number(UInt32, uom), (:? uint32 as x) -> NumberConstant(float x, UInt32, uom) |> makeValue r
     // Float types
-    | Number Float32, (:? float32 as x) -> makeFloat32 r x
-    | Number Float64, (:? float as x) -> NumberConstant (float x, Float64) |> makeValue r
+    | Number(Float32, uom), (:? float32 as x) -> NumberConstant(float x, Float32, uom) |> makeValue r
+    | Number(Float64, uom), (:? float as x) -> NumberConstant(float x, Float64, uom) |> makeValue r
     // Enums
     | Enum _, (:? int64)
     | Enum _, (:? uint64) -> failwith "int64 enums are not supported"
-    | Enum e, (:? byte as x) -> EnumConstant(NumberConstant(float x, UInt8) |> makeValue None, e) |> makeValue r
-    | Enum e, (:? sbyte as x) -> EnumConstant(NumberConstant(float x, Int8) |> makeValue None, e) |> makeValue r
-    | Enum e, (:? int16 as x) -> EnumConstant(NumberConstant(float x, Int16) |> makeValue None, e) |> makeValue r
-    | Enum e, (:? uint16 as x) -> EnumConstant(NumberConstant(float x, UInt16) |> makeValue None, e) |> makeValue r
-    | Enum e, (:? int as x) -> EnumConstant(NumberConstant(float x, Int32) |> makeValue None, e) |> makeValue r
-    | Enum e, (:? uint32 as x) -> EnumConstant(NumberConstant(float x, UInt32) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? byte as x) -> EnumConstant(NumberConstant(float x, UInt8, None) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? sbyte as x) -> EnumConstant(NumberConstant(float x, Int8, None) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? int16 as x) -> EnumConstant(NumberConstant(float x, Int16, None) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? uint16 as x) -> EnumConstant(NumberConstant(float x, UInt16, None) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? int as x) -> EnumConstant(NumberConstant(float x, Int32, None) |> makeValue None, e) |> makeValue r
+    | Enum e, (:? uint32 as x) -> EnumConstant(NumberConstant(float x, UInt32, None) |> makeValue None, e) |> makeValue r
     // TODO: Regex
     | Unit, _ -> UnitConstant |> makeValue r
     // Arrays with small data type (ushort, byte) are represented
     // in F# AST as BasicPatterns.Const
-    | Array (Number kind), (:? (byte[]) as arr) ->
-        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> makeValue None) |> Seq.toList
-        NewArray (values, Number kind) |> makeValue r
-    | Array (Number kind), (:? (uint16[]) as arr) ->
-        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind) |> makeValue None) |> Seq.toList
-        NewArray (values, Number kind) |> makeValue r
+    | Array (Number(kind, uom)), (:? (byte[]) as arr) ->
+        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind, uom) |> makeValue None) |> Seq.toList
+        NewArray (values, Number(kind, uom)) |> makeValue r
+    | Array (Number(kind, uom)), (:? (uint16[]) as arr) ->
+        let values = arr |> Array.map (fun x -> NumberConstant (float x, kind, uom) |> makeValue None) |> Seq.toList
+        NewArray (values, Number(kind, uom)) |> makeValue r
     | _ -> failwithf "Unexpected type %A for literal %O (%s)" typ value (value.GetType().FullName)
 
 let makeTypeInfo r t =
@@ -431,8 +431,8 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Builtin BclGuid when tail.IsEmpty -> head
         | Builtin (BclGuid|BclTimeSpan|BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
-        | Number Int16 -> Helper.LibCall(com, "Util", "int16ToString", String, args)
-        | Number Int32 -> Helper.LibCall(com, "Util", "int32ToString", String, args)
+        | Number(Int16,_) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
+        | Number(Int32,_) -> Helper.LibCall(com, "Util", "int32ToString", String, args)
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
         | Array _ | List _ ->
             Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
@@ -497,7 +497,7 @@ let needToCast typeFrom typeTo =
 /// Conversions to floating point
 let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
-    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
+    | Char -> Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [makeIntConst 0])
     | String -> Helper.LibCall(com, "Double", "parse", targetType, args)
     | NumberExt kind ->
         match kind with
@@ -513,13 +513,13 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
 let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
     | Char ->
-        Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
+        Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [makeIntConst 0])
         |> makeDecimalFromExpr com r targetType
     | String -> makeDecimalFromExpr com r targetType args.Head
     | NumberExt kind ->
         match kind with
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
-        | Long _ -> Helper.LibCall(com, "Long", "toNumber", Number Float64, args)
+        | Long _ -> Helper.LibCall(com, "Long", "toNumber", Number(Float64, None), args)
                     |> makeDecimalFromExpr com r targetType
         | Decimal -> args.Head
         | JsNumber _ -> makeDecimalFromExpr com r targetType args.Head
@@ -531,7 +531,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
 let fastIntFloor expr =
     let inner = makeUnOp None Any expr UnaryNotBitwise
-    makeUnOp None (Number Int32) inner UnaryNotBitwise
+    makeUnOp None (Number(Int32, None)) inner UnaryNotBitwise
 
 let stringToInt com (ctx: Context) r targetType (args: Expr list): Expr =
     let kind =
@@ -551,7 +551,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
     let sourceType = args.Head.Type
     match sourceType with
     | Char ->
-        Helper.InstanceCall(args.Head, "charCodeAt", Number Int32, [makeIntConst 0])
+        Helper.InstanceCall(args.Head, "charCodeAt", Number(Int32, None), [makeIntConst 0])
         |> fromInteger UInt16
     | String -> stringToInt com ctx r targetType args
     | NumberExt kind ->
@@ -559,7 +559,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
         | Long _ -> Helper.LibCall(com, "Long", "fromValue", targetType, args @ [makeBoolConst unsigned])
         | Decimal ->
-            let n = Helper.LibCall(com, "Decimal", "toNumber", Number Float64, args)
+            let n = Helper.LibCall(com, "Decimal", "toNumber", Number(Float64, None), args)
             Helper.LibCall(com, "Long", "fromNumber", targetType, [n; makeBoolConst unsigned])
         | JsNumber (Integer as kind) -> fromInteger kind args.Head
         | JsNumber Float -> Helper.LibCall(com, "Long", "fromNumber", targetType, args @ [makeBoolConst unsigned])
@@ -570,17 +570,17 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
 
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
-    let transformEnumType = function Enum _ -> Number Int32 | t -> t
+    let transformEnumType = function Enum _ -> Number(Int32, None) | t -> t
     let sourceType = transformEnumType args.Head.Type
     let targetType = transformEnumType targetType
     let emitCast typeTo arg =
         match typeTo with
-        | JsNumber Int8 -> emitJsExpr None (Number Int8) [arg] "($0 + 0x80 & 0xFF) - 0x80"
-        | JsNumber Int16 -> emitJsExpr None (Number Int16) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
+        | JsNumber Int8 -> emitJsExpr None (Number(Int8, None)) [arg] "($0 + 0x80 & 0xFF) - 0x80"
+        | JsNumber Int16 -> emitJsExpr None (Number(Int16, None)) [arg] "($0 + 0x8000 & 0xFFFF) - 0x8000"
         | JsNumber Int32 -> fastIntFloor arg
-        | JsNumber UInt8 -> emitJsExpr None (Number UInt8) [arg] "$0 & 0xFF"
-        | JsNumber UInt16 -> emitJsExpr None (Number UInt16) [arg] "$0 & 0xFFFF"
-        | JsNumber UInt32 -> emitJsExpr None (Number UInt32) [arg] "$0 >>> 0"
+        | JsNumber UInt8 -> emitJsExpr None (Number(UInt8, None)) [arg] "$0 & 0xFF"
+        | JsNumber UInt16 -> emitJsExpr None (Number(UInt16, None)) [arg] "$0 & 0xFFFF"
+        | JsNumber UInt32 -> emitJsExpr None (Number(UInt32, None)) [arg] "$0 >>> 0"
         | _ -> failwithf "Unexpected non-integer type %A" typeTo
     match sourceType, targetType with
     | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
@@ -601,11 +601,11 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
 let round com (args: Expr list) =
     match args.Head.Type with
     | Builtin BclDecimal ->
-        let n = Helper.LibCall(com, "Decimal", "toNumber", Number Float64, [args.Head])
-        let rounded = Helper.LibCall(com, "Util", "round", Number Float64, [n])
+        let n = Helper.LibCall(com, "Decimal", "toNumber", Number(Float64, None), [args.Head])
+        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, None), [n])
         rounded::args.Tail
-    | Number Float ->
-        let rounded = Helper.LibCall(com, "Util", "round", Number Float64, [args.Head])
+    | Number(Float,_) ->
+        let rounded = Helper.LibCall(com, "Util", "round", Number(Float64, None), [args.Head])
         rounded::args.Tail
     | _ -> args
 
@@ -646,7 +646,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         Operation(Binary(op, left, right), t, r)
     let truncateUnsigned operation = // see #1550
         match t with
-        | Number UInt32 ->
+        | Number(UInt32,_) ->
             Operation(Binary(BinaryShiftRightZeroFill,operation,makeIntConst 0), t, r)
         | _ -> operation
     let logicOp op left right =
@@ -659,13 +659,13 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | (Operators.division | Operators.divideByInt), [left; right] ->
             match argTypes with
             // Floor result of integer divisions (see #172)
-            | Number Integer::_ -> binOp BinaryDivide left right |> fastIntFloor
+            | Number(Integer,_)::_ -> binOp BinaryDivide left right |> fastIntFloor
             | _ -> binOp BinaryDivide left right
         | Operators.modulus, [left; right] -> binOp BinaryModulus left right
         | Operators.leftShift, [left; right] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [left; right] ->
             match argTypes with
-            | Number UInt32::_ -> binOp BinaryShiftRightZeroFill left right // See #646
+            | Number(UInt32,_)::_ -> binOp BinaryShiftRightZeroFill left right // See #646
             | _ -> binOp BinaryShiftRightSignPropagating left right
         | Operators.bitwiseAnd, [left; right] -> binOp BinaryAndBitwise left right |> truncateUnsigned
         | Operators.bitwiseOr, [left; right] -> binOp BinaryOrBitwise left right |> truncateUnsigned
@@ -675,9 +675,9 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
         | Operators.logicalNot, [operand] -> unOp UnaryNotBitwise operand |> truncateUnsigned
         | Operators.unaryNegation, [operand] ->
             match argTypes with
-            | Number Int8::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int8", t, args, ?loc=r)
-            | Number Int16::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
-            | Number Int32::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
+            | Number(Int8,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int8", t, args, ?loc=r)
+            | Number(Int16,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
+            | Number(Int32,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
             | _ -> unOp UnaryMinus operand
         | _ -> sprintf "Operator %s not found in %A" opName argTypes
                |> addErrorAndReturnNull com ctx.InlinePath r
@@ -705,7 +705,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) argType
 
 let isCompatibleWithJsComparison = function
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt)
-    | Array _ | List _ | Tuple _ | Option _ | MetaType -> false
+    | Array _ | List _ | Tuple _ | Option _ | MetaType | Measure _ -> false
     | Builtin (BclGuid|BclTimeSpan) -> true
     // TODO: Non-record/union declared types without custom equality
     // should be compatible with JS comparison
@@ -734,7 +734,7 @@ let identityHash com r (arg: Expr) =
         // | Builtin (BclInt64|BclUInt64|BclDecimal) -> "fastStructuralHash"
         | DeclaredType _ -> "safeHash"
         | _ -> "identityHash"
-    Helper.LibCall(com, "Util", methodName, Number Int32, [arg], ?loc=r)
+    Helper.LibCall(com, "Util", methodName, Number(Int32, None), [arg], ?loc=r)
 
 let structuralHash (com: ICompiler) r (arg: Expr) =
     let methodName =
@@ -753,7 +753,7 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
             if not ent.IsInterface then "safeHash"
             else "structuralHash"
         | _ -> "structuralHash"
-    Helper.LibCall(com, "Util", methodName, Number Int32, [arg], ?loc=r)
+    Helper.LibCall(com, "Util", methodName, Number(Int32, None), [arg], ?loc=r)
 
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     let is equal expr =
@@ -789,22 +789,22 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     match left.Type with
     | Builtin (BclGuid|BclTimeSpan)
     | Boolean | Char | String | Number _ | Enum _ ->
-        Helper.LibCall(com, "Util", "comparePrimitives", Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "comparePrimitives", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclDateTime|BclDateTimeOffset) ->
-        Helper.LibCall(com, "Date", "compare", Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, "Date", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
-        Helper.LibCall(com, coreModFor bt, "compare", Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, coreModFor bt, "compare", Number(Int32, None), [left; right], ?loc=r)
     | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Array t ->
         let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Array", "compareWith", Number Int32, [f; left; right], ?loc=r)
+        Helper.LibCall(com, "Array", "compareWith", Number(Int32, None), [f; left; right], ?loc=r)
     | List _ ->
-        Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
     | Tuple _ ->
-        Helper.LibCall(com, "Util", "compareArrays", Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compareArrays", Number(Int32, None), [left; right], ?loc=r)
     | _ ->
-        Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
+        Helper.LibCall(com, "Util", "compare", Number(Int32, None), [left; right], ?loc=r)
 
 /// Wraps comparison with the binary operator, like `comparison < 0`
 and compareIf (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
@@ -909,8 +909,8 @@ let makeGenericAdder (com: ICompiler) ctx t =
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
         let x = makeUniqueIdent ctx t "x"
-        let i = makeUniqueIdent ctx (Number Int32) "i"
-        let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i] [t; Number Int32] []
+        let i = makeUniqueIdent ctx (Number(Int32, None)) "i"
+        let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i] [t; Number(Int32, None)] []
         Delegate([x; i], body, None)
     objExpr [
         "GetZero", getZero com ctx t |> makeDelegate []
@@ -956,8 +956,8 @@ let makePojo (com: Compiler) caseRule keyValueList =
 
     let caseRule =
         match caseRule with
-        | Some(Value(NumberConstant(rule, _),_))
-        | Some(Value(EnumConstant(Value(NumberConstant(rule,_),_),_),_)) -> Some rule
+        | Some(Value(NumberConstant(rule,_,_),_))
+        | Some(Value(EnumConstant(Value(NumberConstant(rule,_,_),_),_),_)) -> Some rule
         | _ -> None
         |> Option.map (fun rule -> enum(int rule))
         |> Option.defaultValue Fable.Core.CaseRules.None
@@ -998,7 +998,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
                 args @ [makeEqualityComparer com ctx genArg]
             | Types.arrayCons ->
                 match genArg with
-                | Number numberKind when com.Options.TypedArrays ->
+                | Number(numberKind,_) when com.Options.TypedArrays ->
                     args @ [getTypedArrayName com numberKind |> makeIdentExpr]
                 | _ -> args
             | Types.adder ->
@@ -1630,16 +1630,16 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Equals", Some x, [y] | "Equals", None, [x; y] ->
         makeEqOp r x y BinaryEqualStrict |> Some
     | "Equals", Some x, [y; kind] | "Equals", None, [x; y; kind] ->
-        let left = Helper.LibCall(com, "String", "compare", Number Int32, [x; y; kind])
+        let left = Helper.LibCall(com, "String", "compare", Number(Int32, None), [x; y; kind])
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Contains", Some c, arg::_ ->
         if (List.length args) > 1 then
             addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
-        let left = Helper.InstanceCall(c, "indexOf", Number Int32, [arg])
+        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, None), [arg])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | "StartsWith", Some c, [_str] ->
-        let left = Helper.InstanceCall(c, "indexOf", Number Int32, args)
+        let left = Helper.InstanceCall(c, "indexOf", Number(Int32, None), args)
         makeEqOp r left (makeIntConst 0) BinaryEqualStrict |> Some
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
@@ -1652,8 +1652,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | [ExprType Char]
         | [ExprType String]
-        | [ExprType Char; ExprType(Number Int32)]
-        | [ExprType String; ExprType(Number Int32)] ->
+        | [ExprType Char; ExprType(Number(Int32, None))]
+        | [ExprType String; ExprType(Number(Int32, None))] ->
             Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
@@ -1790,7 +1790,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         let opt = Helper.LibCall(com, "Array", "tryFind", t, [arg; ar], ?loc=r)
         Helper.LibCall(com, "Option", "defaultArg", t, [opt; defaultof com ctx t], ?loc=r) |> Some
     | "Exists", Some ar, [arg] ->
-        let left = Helper.InstanceCall(ar, "findIndex", Number Int32, [arg], ?loc=r)
+        let left = Helper.InstanceCall(ar, "findIndex", Number(Int32, None), [arg], ?loc=r)
         makeEqOp r left (makeIntConst -1) BinaryGreater |> Some
     | "FindLast", Some ar, [arg] ->
         let opt = Helper.LibCall(com, "Array", "tryFindBack", t, [arg; ar], ?loc=r)
@@ -1804,7 +1804,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "Contains", Some (MaybeCasted(ar)), [arg] ->
         match ar.Type with
         | Array _ ->
-            let left = Helper.InstanceCall(ar, "indexOf", Number Int32, [arg], ?loc=r)
+            let left = Helper.InstanceCall(ar, "indexOf", Number(Int32, None), [arg], ?loc=r)
             makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
         | _ -> Helper.InstanceCall(ar, "has", t, args, ?loc=r) |> Some
     | "IndexOf", Some ar, args ->
@@ -1901,7 +1901,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let t = match t with Array t -> t | _ -> Any
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
-        eq (getAttachedMemberWith r (Number Int32) ar "length") (makeIntConst 0) |> Some
+        eq (getAttachedMemberWith r (Number(Int32, None)) ar "length") (makeIntConst 0) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
@@ -2062,7 +2062,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
     let isFloat =
         match i.SignatureArgTypes.Head with
-        | Number (Float32 | Float64) -> true
+        | Number((Float32 | Float64),_) -> true
         | _ -> false
 
     match i.CompiledName, args with
@@ -2071,7 +2071,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "IsInfinity", [_] when isFloat ->
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,
-            str::Value(EnumConstant(Value(NumberConstant(style, _),_),_),_)::_ ->
+            str::Value(EnumConstant(Value(NumberConstant(style,_,_),_),_),_)::_ ->
         let style = int style
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
@@ -2108,7 +2108,7 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         Helper.LibCall(com, "Decimal", "fromInts", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ".ctor", [arg] ->
         match arg.Type with
-        | Array (Number Int32) ->
+        | Array (Number(Int32, None)) ->
             Helper.LibCall(com, "Decimal", "fromIntArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> makeDecimalFromExpr com r t arg |> Some
     | "GetBits", _ ->
@@ -2241,7 +2241,7 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [left; right] ->
         makeEqOp r left right BinaryEqualStrict |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [arg] ->
-        Helper.LibCall(com, "Util", "physicalHash", Number Int32, [arg], ?loc=r) |> Some
+        Helper.LibCall(com, "Util", "physicalHash", Number(Int32, None), [arg], ?loc=r) |> Some
     | ("GenericEqualityComparer"
     |  "GenericEqualityERComparer"
     |  "FastGenericComparer"
@@ -2267,7 +2267,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
         let upper =
             match upper with
-            | Value(NewOption(None,_),_) -> getExpr None (Number Int32) ar (makeStrConst "length")
+            | Value(NewOption(None,_),_) -> getExpr None (Number(Int32, None)) ar (makeStrConst "length")
             | _ -> add upper (makeIntConst 1)
         Helper.InstanceCall(ar, "slice", t, [lower; upper], ?loc=r) |> Some
     | "SetArraySlice", None, args ->
@@ -2452,7 +2452,7 @@ let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     match thisArg, i.CompiledName, args with
     | Some this, "HasFlag", [arg] ->
         // x.HasFlags(y) => (int x) &&& (int y) <> 0
-        makeBinOp r (Number Int32) this arg BinaryAndBitwise
+        makeBinOp r (Number(Int32, None)) this arg BinaryAndBitwise
         |> fun bitwise -> makeEqOp r bitwise (makeIntConst 0) BinaryUnequal
         |> Some
     | None, Patterns.DicContains (dict ["Parse", "parseEnum"
@@ -2487,12 +2487,12 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             match args.Head.Type with
             | Boolean -> "getBytesBoolean"
             | Char | String -> "getBytesChar"
-            | Number Int16 -> "getBytesInt16"
-            | Number Int32 -> "getBytesInt32"
-            | Number UInt16 -> "getBytesUInt16"
-            | Number UInt32 -> "getBytesUInt32"
-            | Number Float32 -> "getBytesSingle"
-            | Number Float64 -> "getBytesDouble"
+            | Number(Int16,_) -> "getBytesInt16"
+            | Number(Int32,_) -> "getBytesInt32"
+            | Number(UInt16,_) -> "getBytesUInt16"
+            | Number(UInt32,_) -> "getBytesUInt32"
+            | Number(Float32,_) -> "getBytesSingle"
+            | Number(Float64,_) -> "getBytesDouble"
             | Builtin BclInt64 -> "getBytesInt64"
             | Builtin BclUInt64 -> "getBytesUInt64"
             | x -> failwithf "Unsupported type in BitConverter.GetBytes(): %A" x
@@ -2563,7 +2563,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             match args.Length, last.Type with
             | 7, Enum ent when ent.FullName = "System.DateTimeKind" ->
                 let args = (List.take 6 args) @ [makeIntConst 0; last]
-                let argTypes = (List.take 6 i.SignatureArgTypes) @ [Number Int32; last.Type]
+                let argTypes = (List.take 6 i.SignatureArgTypes) @ [Number(Int32, None); last.Type]
                 Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc=r) |> Some
             | _ ->
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc=r) |> Some
@@ -2581,12 +2581,12 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "Date", "fromDateTimeOffset", t, [thisArg.Value; kind], [thisArg.Value.Type; kind.Type], ?loc=r) |> Some
     | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
-        let value = Helper.LibCall(com, "Long", "toNumber", Number Float64, args, i.SignatureArgTypes)
+        let value = Helper.LibCall(com, "Long", "toNumber", Number(Float64, None), args, i.SignatureArgTypes)
         let value =
             if i.CompiledName = "FromUnixTimeSeconds"
             then makeBinOp r t value (makeIntConst 1000) BinaryMultiply
             else value
-        Helper.LibCall(com, "DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Number Int32], ?loc=r) |> Some
+        Helper.LibCall(com, "DateOffset", "default", t, [value; makeIntConst 0], [value.Type; Number(Int32, None)], ?loc=r) |> Some
     | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
         let ms = getTime thisArg.Value
@@ -2602,9 +2602,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ticks] ->
-            let ms = Helper.LibCall(com, "Long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number Int32])
-            let ms = Helper.LibCall(com, "Long", "toNumber", Number Float64, [ms], [ms.Type])
-            Helper.LibCall(com, moduleName, "addMilliseconds", Number Float64, [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
+            let ms = Helper.LibCall(com, "Long", "op_Division", i.SignatureArgTypes.Head, [ticks; makeIntConst 10000], [ticks.Type; Number(Int32, None)])
+            let ms = Helper.LibCall(com, "Long", "toNumber", Number(Float64, None), [ms], [ms.Type])
+            Helper.LibCall(com, moduleName, "addMilliseconds", Number(Float64, None), [c; ms], [c.Type; ms.Type], ?loc=r) |> Some
         | _ -> None
     | meth ->
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst

@@ -98,6 +98,7 @@ type Entity =
     abstract IsInterface: bool
 
 type Type =
+    | Measure of fullname: string
     | MetaType
     | Any
     | Unit
@@ -105,7 +106,7 @@ type Type =
     | Char
     | String
     | Regex
-    | Number of kind: NumberKind
+    | Number of kind: NumberKind * uom: string option
     | Enum of ref: EntityRef
     | Option of genericArg: Type
     | Tuple of genericArgs: Type list * isStruct: bool
@@ -127,6 +128,7 @@ type Type =
         | Tuple(gen, _) -> gen
         | DeclaredType (_, gen) -> gen
         | AnonymousRecordType (_, gen) -> gen
+        // TODO: Check numbers with measure?
         | _ -> []
 
 type ActionDecl = {
@@ -205,7 +207,7 @@ type ValueKind =
     | BoolConstant of value: bool
     | CharConstant of value: char
     | StringConstant of value: string
-    | NumberConstant of value: float * kind: NumberKind
+    | NumberConstant of value: float * kind: NumberKind * uom: string option
     | RegexConstant of source: string * flags: RegexFlag list
     | EnumConstant of value: Expr * ref: EntityRef
     | NewOption of value: Expr option * typ: Type
@@ -226,7 +228,7 @@ type ValueKind =
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char
         | StringConstant _ -> String
-        | NumberConstant (_, kind) -> Number kind
+        | NumberConstant (_, kind, uom) -> Number(kind, uom)
         | RegexConstant _ -> Regex
         | EnumConstant (_, ent) -> Enum ent
         | NewOption (_, t) -> Option t
