@@ -1641,7 +1641,7 @@ module Util =
         elif isSetter then
             let membType = memb.CurriedParameterGroups.[0].[0].Type |> makeType Map.empty
             let arg = callInfo.Args |> List.tryHead |> Option.defaultWith makeNull
-            Fable.Set(callee, Fable.FieldSet(name, membType), arg, r)
+            Fable.Set(callee, Fable.FieldSet(name), membType, arg, r)
         else
             getAttachedMember callee name |> makeCall r typ callInfo
 

@@ -764,7 +764,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let t = makeType Map.empty field.FieldType
         let! callee = transformCallee com ctx callee calleeType
         let! value = transformExpr com ctx value
-        return Fable.Set(callee, Fable.FieldSet(FsField.FSharpFieldName field, t), value, r)
+        return Fable.Set(callee, Fable.FieldSet(FsField.FSharpFieldName field), t, value, r)
 
     | FSharpExprPatterns.UnionCaseTag(IgnoreAddressOf unionExpr, unionType) ->
         // TODO: This is an inconsistency. For new unions and union tests we calculate
@@ -790,7 +790,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return makeCall r Fable.Unit info valToSet
         | _ ->
             let valToSet = makeValueFrom com ctx r valToSet
-            return Fable.Set(valToSet, Fable.ValueSet, valueExpr, r)
+            return Fable.Set(valToSet, Fable.ValueSet, valueExpr.Type, valueExpr, r)
 
     | FSharpExprPatterns.NewArray(FableType com ctx elTyp, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
