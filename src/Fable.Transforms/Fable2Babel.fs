@@ -129,6 +129,7 @@ module Reflection =
                     Expression.arrayExpression(generics)
             |]
         match t with
+        | Fable.Measure _
         | Fable.Any -> primitiveTypeInfo "obj"
         | Fable.GenericParam(name,_) ->
             match Map.tryFind name genMap with
@@ -149,7 +150,7 @@ module Reflection =
                     match fi.Name with
                     | "value__" ->
                         match fi.FieldType with
-                        | Fable.Number kind -> numberKind <- kind
+                        | Fable.Number(kind,_) -> numberKind <- kind
                         | _ -> ()
                         None
                     | name ->
@@ -159,7 +160,7 @@ module Reflection =
                 |> Expression.arrayExpression
             [|Expression.stringLiteral(entRef.FullName); numberInfo numberKind; cases |]
             |> libReflectionCall com ctx None "enum"
-        | Fable.Number kind ->
+        | Fable.Number(kind,_) ->
             numberInfo kind
         | Fable.LambdaType(argType, returnType) ->
             genericTypeInfo "lambda" [|argType; returnType|]
@@ -272,6 +273,7 @@ module Reflection =
             Expression.binaryExpression(BinaryInstanceOf, expr, consExpr, ?loc=range)
 
         match typ with
+        | Fable.Measure _ // Dummy, shouldn't be possible to test against a measure type
         | Fable.Any -> Expression.booleanLiteral(true)
         | Fable.Unit -> Expression.binaryExpression(BinaryEqual, com.TransformAsExpr(ctx, expr), Util.undefined None, ?loc=range)
         | Fable.Boolean -> jsTypeof "boolean" expr
@@ -365,14 +367,15 @@ module Annotation =
 
     let typeAnnotation com ctx typ: TypeAnnotationInfo =
         match typ with
-        | Fable.MetaType -> AnyTypeAnnotation
+        | Fable.Measure _
+        | Fable.MetaType
         | Fable.Any -> AnyTypeAnnotation
         | Fable.Unit -> VoidTypeAnnotation
         | Fable.Boolean -> BooleanTypeAnnotation
         | Fable.Char -> StringTypeAnnotation
         | Fable.String -> StringTypeAnnotation
-        | Fable.Regex -> AnyTypeAnnotation
-        | Fable.Number kind -> makeNumericTypeAnnotation com ctx kind
+        | Fable.Regex -> makeSimpleTypeAnnotation com ctx "RegExp"
+        | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Enum _ent -> NumberTypeAnnotation
         | Fable.Option genArg -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
@@ -427,7 +430,7 @@ module Annotation =
 
     let makeArrayTypeAnnotation com ctx genArg =
         match genArg with
-        | Fable.Number kind when com.Options.TypedArrays ->
+        | Fable.Number(kind,_) when com.Options.TypedArrays ->
             let name = getTypedArrayName com kind
             makeSimpleTypeAnnotation com ctx name
         | _ ->
@@ -670,7 +673,7 @@ module Util =
 
     let makeTypedArray (com: IBabelCompiler) ctx t (args: Fable.Expr list) =
         match t with
-        | Fable.Number kind when com.Options.TypedArrays ->
+        | Fable.Number(kind,_) when com.Options.TypedArrays ->
             let jsName = getTypedArrayName com kind
             let args = [|makeArray com ctx args|]
             Expression.newExpression(Expression.identifier(jsName), args)
@@ -679,7 +682,7 @@ module Util =
     let makeTypedAllocatedFrom (com: IBabelCompiler) ctx typ (fableExpr: Fable.Expr) =
         let getArrayCons t =
             match t with
-            | Fable.Number kind when com.Options.TypedArrays ->
+            | Fable.Number(kind,_) when com.Options.TypedArrays ->
                 getTypedArrayName com kind |> Expression.identifier
             | _ -> Expression.identifier("Array")
 
@@ -823,7 +826,7 @@ module Util =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number(Int8 | Int16 | Int32)
+        | _, Fable.Number((Int8 | Int16 | Int32),_)
         | _, Fable.Enum _ ->
             Expression.binaryExpression(BinaryOrBitwise, e, Expression.numericLiteral(0.))
         | _ -> e
@@ -925,7 +928,7 @@ module Util =
         | Fable.BoolConstant x -> Expression.booleanLiteral(x, ?loc=r)
         | Fable.CharConstant x -> Expression.stringLiteral(string x, ?loc=r)
         | Fable.StringConstant x -> Expression.stringLiteral(x, ?loc=r)
-        | Fable.NumberConstant (x,_) -> Expression.numericLiteral(x, ?loc=r)
+        | Fable.NumberConstant (x,_,_) -> Expression.numericLiteral(x, ?loc=r)
         | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeTypedArray com ctx typ values
         | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
@@ -1372,8 +1375,8 @@ module Util =
             | Fable.Operation(Fable.Binary(BinaryEqualStrict, expr, right), _, _) ->
                 Some(expr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number Int32, None)
-                let right = Fable.NumberConstant(float tag, Int32) |> makeValue None
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+                let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
         let sameEvalExprs evalExpr1 evalExpr2 =
@@ -1470,8 +1473,8 @@ module Util =
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases = groupSwitchCases (Fable.Number Int32) cases (defaultIndex, defaultBoundValues)
-            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
+            let cases = groupSwitchCases (Fable.Number(Int32, None)) cases (defaultIndex, defaultBoundValues)
+            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, None))
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
             [|multiVarDecl; switch1; switch2|]
         | None ->
@@ -1817,7 +1820,7 @@ module Util =
         )
 
     let getUnionFieldsAsIdents (_com: IBabelCompiler) _ctx (_ent: Fable.Entity) =
-        let tagId = makeTypedIdent (Fable.Number Int32) "tag"
+        let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
 

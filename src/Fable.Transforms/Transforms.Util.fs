@@ -415,8 +415,8 @@ module AST =
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
-    let makeIntConst (x: int) = NumberConstant (float x, Int32) |> makeValue None
-    let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
+    let makeIntConst (x: int) = NumberConstant (float x, Int32, None) |> makeValue None
+    let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
 
     let getLibPath (com: Compiler) moduleName =
         com.LibraryDir + "/" + moduleName + ".js"
@@ -546,7 +546,8 @@ module AST =
         | Char, Char
         | String, String
         | Regex, Regex -> true
-        | Number kind1, Number kind2 -> kind1 = kind2
+        | Number(kind1, None), Number(kind2, None) -> kind1 = kind2
+        | Number(kind1, Some uom1), Number(kind2, Some uom2) -> uom1 = uom2 && kind1 = kind2
         | Enum ent1, Enum ent2 -> ent1 = ent2
         | Option t1, Option t2
         | Array t1, Array t2
@@ -562,15 +563,20 @@ module AST =
         | GenericParam(name1,_), GenericParam(name2,_) -> name1 = name2
         | _ -> false
 
-    let getNumberFullName = function
-        | Int8    -> Types.int8
-        | UInt8   -> Types.uint8
-        | Int16   -> Types.int16
-        | UInt16  -> Types.uint16
-        | Int32   -> Types.int32
-        | UInt32  -> Types.uint32
-        | Float32 -> Types.float32
-        | Float64 -> Types.float64
+    let getNumberFullName uom kind =
+        let name =
+            match kind with
+            | Int8    -> Types.int8
+            | UInt8   -> Types.uint8
+            | Int16   -> Types.int16
+            | UInt16  -> Types.uint16
+            | Int32   -> Types.int32
+            | UInt32  -> Types.uint32
+            | Float32 -> Types.float32
+            | Float64 -> Types.float64
+        match uom with
+        | None -> name
+        | Some uom -> name + "[" + uom + "]"
 
     let rec getTypeFullName prettify t =
         let getEntityFullName (entRef: EntityRef) gen =
@@ -587,6 +593,7 @@ module AST =
                     else fullname
                 fullname + "[" + gen + "]"
         match t with
+        | Measure fullname -> fullname
         | AnonymousRecordType _ -> ""
         | GenericParam(name,_) -> "'" + name
         | Enum ent -> getEntityFullName ent []
@@ -597,7 +604,7 @@ module AST =
         | Char    -> Types.char
         | String  -> Types.string
         | Any -> Types.object
-        | Number kind -> getNumberFullName kind
+        | Number(kind, uom) -> getNumberFullName uom kind
         | LambdaType(argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType

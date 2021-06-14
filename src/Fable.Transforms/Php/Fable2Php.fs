@@ -52,7 +52,7 @@ let fixExt path = Path.ChangeExtension(path, Path.GetExtension(path).Replace("js
 
 let rec convertType (com: IPhpCompiler)  (t: Fable.Type) =
     match t with
-    | Fable.Type.Number Int32 -> "int"
+    | Fable.Type.Number(Int32,_) -> "int"
     | Fable.Type.String -> "string"
     | Fable.DeclaredType(ref,args) ->
         let ent = com.GetEntity(ref)
@@ -393,8 +393,8 @@ let phpVoid = unscopedIdent "void"
 let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
     match t with
     | Fable.String -> ExType phpString
-    | Fable.Number (Int32|Int16|Int8|UInt16|UInt32|UInt8) -> ExType phpInt
-    | Fable.Number (Float32 | Float64) -> ExType phpFloat
+    | Fable.Number((Int32|Int16|Int8|UInt16|UInt32|UInt8),_) -> ExType phpInt
+    | Fable.Number((Float32|Float64),_) -> ExType phpFloat
     | Fable.Boolean  -> ExType phpBool
     | Fable.Char  -> ExType phpChar
     | Fable.AnonymousRecordType _ -> ExType phpObj
@@ -414,6 +414,8 @@ let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
         match com.TryFindType(ref) with
         | Ok phpType -> InType phpType
         | Error ent -> ExType (getPhpTypeForEntity com ent)
+    | Fable.Measure _ ->
+        failwithf "Measure not supported"
     | Fable.MetaType ->
         failwithf "MetaType not supported"
     | Fable.Regex ->
@@ -984,7 +986,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
         PhpNew( t, [ for arg in args do convertExpr com arg ] )
 
 
-    | Fable.NumberConstant(v,_) ->
+    | Fable.NumberConstant(v,_,_) ->
         PhpConst(PhpConstNumber v)
     | Fable.StringConstant(s) ->
         PhpConst(PhpConstString s)

@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
-            "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--forcePkgs", "--runScript"],
+            "args": ["watch", "--cwd", "src/quicktest", "--exclude", "Fable.Core", "--noCache", "--runScript"],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": true,
             "console": "internalConsole"
