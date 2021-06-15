@@ -56,10 +56,10 @@ and PhpStatement =
     | PhpReturn of PhpExpr
     | PhpExpr of PhpExpr
     | PhpSwitch of PhpExpr * (PhpCase * PhpStatement list) list
-    | PhpBreak
+    | PhpBreak of int option
     | PhpAssign of target:PhpExpr * value:PhpExpr
     | PhpIf of guard: PhpExpr * thenCase: PhpStatement list * elseCase: PhpStatement list
-    | PhpThrow of string * PhpExpr list
+    | PhpThrow of PhpExpr
     | PhpTryCatch of body: PhpStatement list * catch: (string * PhpStatement list) option * finallizer: PhpStatement list 
     | PhpWhileLoop of guard: PhpExpr * body: PhpStatement list
     | PhpFor of ident: string * start: PhpExpr * limit: PhpExpr * isUp: bool * body: PhpStatement list

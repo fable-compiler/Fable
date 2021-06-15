@@ -365,8 +365,15 @@ module Output =
                     writeStatement caseCtx st
 
             writeiln ctx "}"
-        | PhpBreak ->
-            writeiln ctx "break;"
+        | PhpBreak level ->
+            writei ctx "break"
+            match level with
+            | Some l -> 
+                write ctx " "
+                write ctx (string level)
+            | None -> ()
+            writeln ctx ";"
+
         | PhpIf(guard, thenCase, elseCase) ->
             writei ctx "if ("
             writeExpr (Precedence.clear ctx) guard
@@ -382,12 +389,10 @@ module Output =
                 for st in elseCase do
                     writeStatement body st
                 writeiln ctx "}"
-        | PhpThrow(cls,args) ->
-            writei ctx "throw new "
-            write ctx cls
-            write ctx "("
-            writeArgs ctx args
-            writeln ctx ");"
+        | PhpThrow(expr) ->
+            writei ctx "throw "
+            writeExpr ctx expr
+            writeln ctx ";"
         | PhpStatement.PhpDo (PhpConst PhpConstNull)-> ()
         | PhpStatement.PhpDo (expr) ->
             writei ctx ""
