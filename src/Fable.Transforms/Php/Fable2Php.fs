@@ -36,6 +36,9 @@ type IPhpCompiler =
     abstract ClearThisArgument : unit -> unit
     abstract Require : (string option * string) list
     abstract NsUse: PhpType list
+    abstract EnterBreakable: string option -> unit
+    abstract LeaveBreakable: unit -> unit
+    abstract FindLableLevel: string -> int
 
 
 
@@ -52,7 +55,7 @@ let fixExt path = Path.ChangeExtension(path, Path.GetExtension(path).Replace("js
 
 let rec convertType (com: IPhpCompiler)  (t: Fable.Type) =
     match t with
-    | Fable.Type.Number(Int32,_) -> "int"
+    | Fable.Type.Number(Int32, _ ) -> "int"
     | Fable.Type.String -> "string"
     | Fable.DeclaredType(ref,args) ->
         let ent = com.GetEntity(ref)
@@ -580,8 +583,8 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // static function call
         match callee with
         | Fable.Import({Selector = "op_UnaryNegation_Int32"},_,_) -> PhpUnaryOp("-", convertExpr com args.[0])
-        | Fable.Get((Fable.Get(_,_,ty,_) as this), Fable.FieldGet(field, index),_,_) ->
-            failwith "Got it"
+        | Fable.Get(this, Fable.FieldGet(field, index),_,_) ->
+            PhpField(convertExpr com this, Prop.StrField (fixName field), None)
         | Fable.Get((Fable.Get(_,_,ty,_) as this), Fable.ExprGet(Fable.Value(Fable.StringConstant m, None)),_,_)
                 when match ty with Fable.Array _ -> true | _ -> false
                 ->
@@ -1114,12 +1117,12 @@ and convertMatching (com: IPhpCompiler) input guard thenExpr elseExpr expr retur
                       | Target t ->
                             com.AddLocalVar(fixName t, false)
                             PhpAssign(PhpVar(fixName t, None), PhpConst(PhpConstNumber(float i)))
-                            PhpBreak;
+                            PhpBreak None
                       | Return _ ->
                             yield! convertExprToStatement com target returnStrategy
                       | _ ->
                             yield! convertExprToStatement com target returnStrategy
-                            PhpBreak
+                            PhpBreak None
                     ]]
             )
 
@@ -1155,7 +1158,7 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                             | None -> ()
                             match returnStrategy with
                             | Return _ -> ()
-                            | _ -> PhpBreak;
+                            | _ -> PhpBreak None;
                         ]
 
                     ]
@@ -1224,21 +1227,36 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
                     | None -> []
             )]
 
-    | Fable.WhileLoop(guard, body, _,_) ->
-        [ PhpWhileLoop(convertExpr com guard, convertExprToStatement com body Do ) ]
+    | Fable.WhileLoop(guard, body, label,_) ->
+        com.EnterBreakable label
+        let phpGuard = convertExpr com guard
+        let phpBody = convertExprToStatement com body Do
+        com.LeaveBreakable()
+        [ PhpWhileLoop(phpGuard, phpBody ) ]
     | Fable.ForLoop(ident, start, limit, body, isUp, _) ->
+        com.EnterBreakable None
         let id = fixName ident.Name
         let startExpr =  convertExpr com start
         com.AddLocalVar(id, false)
         let limitExpr = convertExpr com limit
         let bodyExpr = convertExprToStatement com body Do
+        com.LeaveBreakable()
 
         [ PhpFor(id,startExpr, limitExpr, isUp, bodyExpr)]
 
 
 
-    | Fable.Emit({ Macro = "throw $0"; CallInfo = { Args = [ Fable.Call( Fable.IdentExpr { Name = cls }, { Args = args },_,_ ) ] }},_,_) ->
-        [ PhpThrow(cls, [ for arg in args -> convertExpr com arg]) ]
+    | Fable.NativeInstruction(Fable.Break label,_) ->
+        let phpLevel =
+            match label with
+            | Some lbl -> com.FindLableLevel lbl |> Some
+            | None -> None
+        [ PhpBreak phpLevel ]
+    | Fable.NativeInstruction(Fable.Debugger, _) ->
+        [ PhpDo (PhpFunctionCall(PhpIdent (unscopedIdent "assert"), [ PhpConst (PhpConstBool false)])) ]
+    | Fable.NativeInstruction(Fable.Throw(expr, _ ),_) ->
+            [ PhpThrow(convertExpr com expr)]
+ 
 
     | _ ->
         match returnStrategy with
@@ -1383,16 +1401,17 @@ type Scope =
 
 type PhpCompiler(com: Fable.Compiler) =
     let mutable types = Map.empty
-    let  mutable decisionTargets = []
-    let  mutable scope = Scope.create(None)
-    let  mutable id = 0
-    let  mutable isImportValue = Map.empty
-    let  mutable classNames = Map.empty
-    let  mutable basePath = ""
-    let  mutable require = Set.empty
-    let  mutable nsUse = Set.empty
-    let  mutable phpNamespace = ""
-    let  mutable thisArgument = None
+    let mutable decisionTargets = []
+    let mutable scope = Scope.create(None)
+    let mutable id = 0
+    let mutable isImportValue = Map.empty
+    let mutable classNames = Map.empty
+    let mutable basePath = ""
+    let mutable require = Set.empty
+    let mutable nsUse = Set.empty
+    let mutable phpNamespace = ""
+    let mutable thisArgument = None
+    let mutable breakable = []
 
     member this.AddType(entref: Fable.EntityRef option, phpType: PhpType) =
         let name =
@@ -1567,6 +1586,11 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.Options = com.Options
         member this.Plugins = com.Plugins
         member this.GetRootModule(fileName) = com.GetRootModule(fileName)
+        member this.EnterBreakable(label) = breakable <- label :: breakable
+        member this.LeaveBreakable() =
+            breakable <- List.tail breakable
+        member this.FindLableLevel(label) = 
+            List.findIndex(function Some v when v = label -> true | _ -> false) breakable
 
 
 let transformFile com (file: Fable.File) =
