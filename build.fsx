@@ -356,7 +356,7 @@ let test() =
 
     runInDir projectDir "dotnet run"
 
-    testReact()
+    // testReact()
 
     testCompiler()
 

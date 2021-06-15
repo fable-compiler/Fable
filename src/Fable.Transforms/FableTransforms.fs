@@ -233,7 +233,12 @@ let noSideEffectBeforeIdent identName expr =
             true
 
     let rec findIdentOrSideEffect = function
-        | IdentExpr id -> id.Name = identName
+        | IdentExpr id ->
+            if id.Name = identName then true
+            elif id.IsMutable then
+                sideEffect <- true
+                true
+            else false
         | Import _ | Lambda _ | Delegate _ -> false
         | NativeInstruction((Throw _|Break _|Debugger),_) -> true
         // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
