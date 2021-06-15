@@ -66,25 +66,3 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
-
-type [<Measure>] px
-type [<Measure>] em
-
-type D1 = D1
-type D2 = D2
-type D3 = D3
-
-type ToLength = ToLength with
-    static member (&.) (ToLength, x: int64<px>) = fun D1 _ _ -> String.Join("", string x, "px")
-    static member (&.) (ToLength, x: int64<em>) = fun D1 D2 _ -> String.Join("", string x, "em")
-
-let inline toLen x : string = (Unchecked.defaultof<ToLength> &. x) D1 D2 D3
-
-let operatorsForOverloads = [
-    testCase "first overload" <| fun () ->
-        toLen 1L<px>
-        |> equal "1px"
-    testCase "second overload" <| fun () ->
-        toLen 1L<em>
-        |> equal "1em"
-]

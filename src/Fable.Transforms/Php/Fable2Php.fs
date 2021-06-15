@@ -408,7 +408,7 @@ let rec convertTypeRef  (com: IPhpCompiler) (t: Fable.Type) =
         | Error ent -> ExType { Name = ent.DisplayName; Namespace = None; Class = None }
     | Fable.Array t -> ArrayRef (convertTypeRef com t)
     | Fable.List _ -> ExType { Name = "FSharpList"; Namespace = Some "FSharpList"; Class = None }
-    | Fable.Option t -> ExType { Name = "object"; Namespace = None; Class = None }
+    | Fable.Option(t,_) -> ExType { Name = "object"; Namespace = None; Class = None }
     | Fable.DeclaredType(ref, _) ->
         let ent = com.GetEntity(ref)
         match com.TryFindType(ref) with
@@ -1007,7 +1007,7 @@ and convertValue (com: IPhpCompiler)  (value: Fable.ValueKind) range =
     | Fable.NewArray(values,_) ->
         PhpNewArray([for v in values -> (PhpArrayNoIndex, convertExpr com v)])
 
-    | Fable.NewOption(opt,_) ->
+    | Fable.NewOption(opt,_,_) ->
         match opt with
         | Some expr -> convertExpr com expr
         | None -> PhpConst(PhpConstNull)

@@ -755,8 +755,8 @@ module Patterns =
             | None -> failwith "Union without definition"
             | Some(tdef, fullName) ->
                 match defaultArg fullName tdef.CompiledName with
-                | Types.valueOption
-                | Types.option -> OptionUnion typ.GenericArguments.[0]
+                | Types.valueOption -> OptionUnion(typ.GenericArguments.[0], true)
+                | Types.option -> OptionUnion(typ.GenericArguments.[0], false)
                 | Types.list -> ListUnion typ.GenericArguments.[0]
                 | _ ->
                     tdef.Attributes |> Seq.tryPick (fun att ->
@@ -890,8 +890,8 @@ module TypeHelpers =
             | Types.string -> Fable.String
             | Types.regex -> Fable.Regex
             | Types.type_ -> Fable.MetaType
-            | Types.valueOption
-            | Types.option -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Option
+            | Types.valueOption -> Fable.Option(makeGenArgs ctxTypeArgs genArgs |> List.head, true)
+            | Types.option -> Fable.Option(makeGenArgs ctxTypeArgs genArgs |> List.head, false)
             | Types.resizeArray -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
             | Types.list -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number(kind, None)
@@ -1047,9 +1047,9 @@ module TypeHelpers =
                     tys
                     |> List.map makeType
                     |> List.distinct
-                | OptionType (UType tys) ->
+                | OptionType (UType tys, isStruct) ->
                     tys
-                    |> List.map (makeType >> Fable.Option)
+                    |> List.map (fun t -> Fable.Option(makeType t, isStruct))
                     |> List.distinct
                 | _ ->
                     makeType ty
@@ -1058,9 +1058,8 @@ module TypeHelpers =
                 match ty with
                 | TypeDefinition tdef ->
                     match FsEnt.FullName tdef with
-                    | Types.valueOption | Types.option ->
-                        ty.GenericArguments.[0]
-                        |> Some
+                    | Types.valueOption -> Some(ty.GenericArguments.[0], true)
+                    | Types.option -> Some(ty.GenericArguments.[0], false)
                     | _ -> None
                 | _ -> None
             and (|UType|_|) (ty: FSharpType) =
@@ -1105,8 +1104,8 @@ module TypeHelpers =
                         // the underlying type of enum in F# is uint32
                         // For practicality: allow in all uint & int fields
                         true
-                    | Fable.Option t1, Fable.Option t2
-                    | Fable.Option t1, t2
+                    | Fable.Option(t1,_), Fable.Option(t2,_)
+                    | Fable.Option(t1,_), t2
                     | t1, t2 ->
                         typeEquals false t1 t2
                 let fitsIntoMulti (rules: Allow) (expected: Fable.Type list) (actual: Fable.Type) =
@@ -1805,7 +1804,7 @@ module Util =
                 foldArgs ((argIdent, argExpr)::acc) (restArgIdents, restArgExprs)
             | (argIdent: FSharpMemberOrFunctionOrValue)::restArgIdents, [] ->
                 let t = makeType ctx.GenericArgs argIdent.FullType
-                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t), None))::acc) (restArgIdents, [])
+                foldArgs ((argIdent, Fable.Value(Fable.NewOption(None, t, false), None))::acc) (restArgIdents, [])
             | [], _ -> List.rev acc
 
         // Log error if the inline function is called recursively
@@ -1879,7 +1878,7 @@ module Util =
                 match condition with
                 | "optional" | "inject" when par.IsOptionalArg ->
                     match arg with
-                    | Fable.Value(Fable.NewOption(None,_),_) ->
+                    | Fable.Value(Fable.NewOption(None,_,_),_) ->
                         match tryFindAtt Atts.inject par.Attributes with
                         | Some _ -> "inject", (com.InjectArgument(ctx, r, genArgs.Value, par))::acc
                         // Don't remove optional arguments if they're not in tail position
