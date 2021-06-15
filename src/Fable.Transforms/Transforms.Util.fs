@@ -287,9 +287,9 @@ module AST =
                 | _, _ -> None
         match expr with
         // Uncurry also function options
-        | Value(NewOption(Some expr, _), r) ->
+        | Value(NewOption(Some expr, _, isStruct), r) ->
             uncurryLambdaInner None [] arity expr
-            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type), r))
+            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type, isStruct), r))
         | _ -> uncurryLambdaInner None [] arity expr
 
     let (|NestedRevLets|_|) expr =
@@ -330,8 +330,8 @@ module AST =
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | EnumConstant(e, _) -> canHaveSideEffects e
-            | NewList(None,_) | NewOption(None,_) -> false
-            | NewOption(Some e,_) -> canHaveSideEffects e
+            | NewList(None,_) | NewOption(None,_,_) -> false
+            | NewOption(Some e,_,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
             | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
@@ -549,10 +549,10 @@ module AST =
         | Number(kind1, None), Number(kind2, None) -> kind1 = kind2
         | Number(kind1, Some uom1), Number(kind2, Some uom2) -> uom1 = uom2 && kind1 = kind2
         | Enum ent1, Enum ent2 -> ent1 = ent2
-        | Option t1, Option t2
+        | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
-        | Tuple(ts1,_), Tuple(ts2,_) -> listEquals (typeEquals strict) ts1 ts2
+        | Tuple(ts1, isStruct1), Tuple(ts2, isStruct2) -> isStruct1 = isStruct2 && listEquals (typeEquals strict) ts1 ts2
         | LambdaType(a1, t1), LambdaType(a2, t2) ->
             typeEquals strict a1 a2 && typeEquals strict t1 t2
         | DelegateType(as1, t1), DelegateType(as2, t2) ->
@@ -616,16 +616,21 @@ module AST =
                 (List.length argTypes + 1)
                 (List.map (getTypeFullName prettify) argTypes |> String.concat ",")
                 (getTypeFullName prettify returnType)
-        | Tuple(genArgs,_) ->
+        | Tuple(genArgs, isStruct) ->
             let genArgs = List.map (getTypeFullName prettify) genArgs
             if prettify
-            then String.concat " * " genArgs
-            else sprintf "System.Tuple`%i[%s]" (List.length genArgs) (String.concat "," genArgs)
+            then (if isStruct then "struct " else "") + String.concat " * " genArgs
+            else
+                let isStruct = if isStruct then "Value" else ""
+                let genArgsLength = List.length genArgs
+                let genArgs = String.concat "," genArgs
+                $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
         | Array gen ->
             (getTypeFullName prettify gen) + "[]"
-        | Option gen ->
+        | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen
-            if prettify then gen + " option" else Types.option + "[" + gen + "]"
+            if prettify then gen + " " + (if isStruct then "v" else "") + "option"
+            else (if isStruct then Types.valueOption else Types.option) + "[" + gen + "]"
         | List gen ->
             let gen = getTypeFullName prettify gen
             if prettify then gen + " list" else Types.list + "[" + gen + "]"

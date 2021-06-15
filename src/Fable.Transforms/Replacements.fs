@@ -364,7 +364,7 @@ let makeTypeInfo r t =
 let makeTypeDefinitionInfo r t =
     let t =
         match t with
-        | Option _ -> Option Any
+        | Option(_, isStruct) -> Option(Any, isStruct)
         | Array _ -> Array Any
         | List _ -> List Any
         | Tuple(genArgs, isStruct) ->
@@ -2009,7 +2009,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
     let toArray r t arg =
         Helper.LibCall(com, "Option", "toArray", Array t, [arg], ?loc=r)
     match i.CompiledName, args with
-    | "None", _ -> NewOption(None, t) |> makeValue r |> Some
+    | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
     | "GetValue", [c] ->
         Helper.LibCall(com, "Option", "value", t, args, ?loc=r) |> Some
     | ("OfObj" | "OfNullable"), _ ->
@@ -2267,7 +2267,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
     | ("GetArraySlice" | "GetStringSlice"), None, [ar; lower; upper] ->
         let upper =
             match upper with
-            | Value(NewOption(None,_),_) -> getExpr None (Number(Int32, None)) ar (makeStrConst "length")
+            | Value(NewOption(None,_,_),_) -> getExpr None (Number(Int32, None)) ar (makeStrConst "length")
             | _ -> add upper (makeIntConst 1)
         Helper.InstanceCall(ar, "slice", t, [lower; upper], ?loc=r) |> Some
     | "SetArraySlice", None, args ->
@@ -2988,7 +2988,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 let newGen = exprType.Generics |> List.map (fun _ -> Any)
                 let exprType =
                     match exprType with
-                    | Option _ -> Option newGen.Head
+                    | Option(_, isStruct) -> Option(newGen.Head, isStruct)
                     | Array _ -> Array newGen.Head
                     | List _ -> List newGen.Head
                     | LambdaType _ ->

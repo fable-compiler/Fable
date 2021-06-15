@@ -108,7 +108,7 @@ type Type =
     | Regex
     | Number of kind: NumberKind * uom: string option
     | Enum of ref: EntityRef
-    | Option of genericArg: Type
+    | Option of genericArg: Type * isStruct: bool
     | Tuple of genericArgs: Type list * isStruct: bool
     | Array of genericArg: Type
     | List of genericArg: Type
@@ -120,7 +120,7 @@ type Type =
 
     member this.Generics =
         match this with
-        | Option gen
+        | Option(gen, _)
         | Array gen
         | List gen -> [ gen ]
         | LambdaType(argType, returnType) -> [ argType; returnType ]
@@ -210,7 +210,7 @@ type ValueKind =
     | NumberConstant of value: float * kind: NumberKind * uom: string option
     | RegexConstant of source: string * flags: RegexFlag list
     | EnumConstant of value: Expr * ref: EntityRef
-    | NewOption of value: Expr option * typ: Type
+    | NewOption of value: Expr option * typ: Type * isStruct: bool
     | NewArray of values: Expr list * typ: Type
     | NewArrayFrom of value: Expr * typ: Type
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
@@ -231,7 +231,7 @@ type ValueKind =
         | NumberConstant (_, kind, uom) -> Number(kind, uom)
         | RegexConstant _ -> Regex
         | EnumConstant (_, ent) -> Enum ent
-        | NewOption (_, t) -> Option t
+        | NewOption (_, t, isStruct) -> Option(t, isStruct)
         | NewArray (_, t) -> Array t
         | NewArrayFrom (_, t) -> Array t
         | NewList (_, t) -> List t

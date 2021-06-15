@@ -167,7 +167,7 @@ module Reflection =
         | Fable.DelegateType(argTypes, returnType) ->
             genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
         | Fable.Tuple(genArgs,_)-> genericTypeInfo "tuple" (List.toArray genArgs)
-        | Fable.Option genArg   -> genericTypeInfo "option" [|genArg|]
+        | Fable.Option(genArg,_)-> genericTypeInfo "option" [|genArg|]
         | Fable.Array genArg    -> genericTypeInfo "array" [|genArg|]
         | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex
@@ -377,7 +377,7 @@ module Annotation =
         | Fable.Regex -> makeSimpleTypeAnnotation com ctx "RegExp"
         | Fable.Number(kind,_) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Enum _ent -> NumberTypeAnnotation
-        | Fable.Option genArg -> makeOptionTypeAnnotation com ctx genArg
+        | Fable.Option(genArg,_) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs,_) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array genArg -> makeArrayTypeAnnotation com ctx genArg
         | Fable.List genArg -> makeListTypeAnnotation com ctx genArg
@@ -954,7 +954,7 @@ module Util =
             | exprs, Some(TransformExpr com ctx tail) ->
                 [|makeArray com ctx exprs; tail|]
                 |> libCall com ctx r "List" "ofArrayWithTail"
-        | Fable.NewOption (value, t) ->
+        | Fable.NewOption (value, t, _) ->
             match value with
             | Some (TransformExpr com ctx e) ->
                 if mustWrapOption t

@@ -68,14 +68,14 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         | [] -> transformStringEnum rule unionCase
         | _ -> sprintf "StringEnum types cannot have fields: %O" tdef.TryFullName
                |> addErrorAndReturnNull com ctx.InlinePath r
-    | OptionUnion typ ->
+    | OptionUnion(typ, isStruct) ->
         let typ = makeType ctx.GenericArgs typ
         let expr =
             match argExprs with
             | [] -> None
             | [expr] -> Some expr
             | _ -> failwith "Unexpected args for Option constructor"
-        Fable.NewOption(expr, typ) |> makeValue r
+        Fable.NewOption(expr, typ, isStruct) |> makeValue r
     | ListUnion typ ->
         let typ = makeType ctx.GenericArgs typ
         let headAndTail =
@@ -747,7 +747,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | StringEnum _ ->
             return "StringEnum types cannot have fields"
             |> addErrorAndReturnNull com ctx.InlinePath r
-        | OptionUnion t ->
+        | OptionUnion(t, _) ->
             return Fable.Get(unionExpr, Fable.OptionValue, makeType ctx.GenericArgs t, r)
         | ListUnion t ->
             let t = makeType ctx.GenericArgs t

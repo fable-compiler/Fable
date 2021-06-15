@@ -22,7 +22,7 @@ let visit f e =
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> e
         | EnumConstant(exp, ent) -> EnumConstant(f exp, ent) |> makeValue r
-        | NewOption(e, t) -> NewOption(Option.map f e, t) |> makeValue r
+        | NewOption(e, t, isStruct) -> NewOption(Option.map f e, t, isStruct) |> makeValue r
         | NewTuple(exprs, isStruct) -> NewTuple(List.map f exprs, isStruct) |> makeValue r
         | NewArray(exprs, t) -> NewArray(List.map f exprs, t) |> makeValue r
         | NewArrayFrom(e, t) -> NewArrayFrom(f e, t) |> makeValue r
@@ -114,7 +114,7 @@ let getSubExpressions = function
         | BoolConstant _ | CharConstant _ | StringConstant _
         | NumberConstant _ | RegexConstant _ -> []
         | EnumConstant(e, _) -> [e]
-        | NewOption(e, _) -> Option.toList e
+        | NewOption(e, _, _) -> Option.toList e
         | NewTuple(exprs, _) -> exprs
         | NewArray(exprs, _) -> exprs
         | NewArrayFrom(e, _) -> [e]
@@ -257,9 +257,9 @@ let noSideEffectBeforeIdent identName expr =
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | EnumConstant(e, _) -> findIdentOrSideEffect e
-            | NewList(None,_) | NewOption(None,_) -> false
+            | NewList(None,_) | NewOption(None,_,_) -> false
             | NewArrayFrom(e,_)
-            | NewOption(Some e,_) -> findIdentOrSideEffect e
+            | NewOption(Some e,_,_) -> findIdentOrSideEffect e
             | NewList(Some(h,t),_) -> findIdentOrSideEffect h || findIdentOrSideEffect t
             | NewArray(exprs,_)
             | NewTuple(exprs,_)
@@ -376,7 +376,7 @@ module private Transforms =
             | t -> acc, t
         match t with
         | LambdaType(_, returnType)
-        | Option(LambdaType(_, returnType)) ->
+        | Option(LambdaType(_, returnType),_) ->
             getLambdaTypeArity 1 returnType
         | _ -> 0, t
 
@@ -412,8 +412,8 @@ module private Transforms =
             when matches arity arity2 -> innerExpr
         | _, Get(Curry(innerExpr, arity2), OptionValue, t, r)
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(Curry(innerExpr, arity2)),r1),r2)
-            when matches arity arity2 -> Value(NewOption(Some(innerExpr),r1),r2)
+        | _, Value(NewOption(Some(Curry(innerExpr, arity2)), t, isStruct), r)
+            when matches arity arity2 -> Value(NewOption(Some(innerExpr), t, isStruct), r)
         | _ ->
             match arity with
             | Some arity -> Replacements.uncurryExprAtRuntime com arity expr
@@ -501,8 +501,8 @@ module private Transforms =
                     ident, innerExpr, Some arity
                 | Get(Curry(innerExpr, arity), OptionValue, t, r) ->
                     ident, Get(innerExpr, OptionValue, t, r), Some arity
-                | Value(NewOption(Some(Curry(innerExpr, arity)),r1),r2) ->
-                    ident, Value(NewOption(Some(innerExpr),r1),r2), Some arity
+                | Value(NewOption(Some(Curry(innerExpr, arity)), t, isStruct), r) ->
+                    ident, Value(NewOption(Some(innerExpr), t, isStruct), r), Some arity
                 | _ -> ident, value, None
             match arity with
             | None -> Let(ident, value, body)

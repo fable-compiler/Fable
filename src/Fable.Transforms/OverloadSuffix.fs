@@ -54,8 +54,8 @@ let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type
         getTypeFastFullName genParams genArg + "[]"
     | Fable.List genArg ->
         getTypeFastFullName genParams genArg + " list"
-    | Fable.Option genArg ->
-        getTypeFastFullName genParams genArg + " option"
+    | Fable.Option(genArg, isStruct) ->
+        (if isStruct then "struct " else "") + (getTypeFastFullName genParams genArg) + " option"
     | Fable.LambdaType(argType, returnType) ->
         [argType; returnType] |> List.map (getTypeFastFullName genParams) |> String.concat " -> "
     // TODO: Use Func` instead?
