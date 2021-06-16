@@ -1,3 +1,8 @@
+### 3.2.4
+
+* Fix #2438: Print JS sequence expressions always between parentheses
+* Don't jump over mutable idents when inlining
+
 ### 3.2.3
 
 * Experimental.namesofLambda
