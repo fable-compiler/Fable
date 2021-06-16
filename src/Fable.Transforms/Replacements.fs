@@ -2545,9 +2545,14 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "WriteLine" -> log com r t i thisArg args |> Some
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
-        // emit i "if (!$0) { debugger; }" i.args |> Some
-        let cond = Operation(Unary(UnaryNot, args.Head), Boolean, r)
-        IfThenElse(cond, makeDebugger r, Value(Null Unit, None), r) |> Some
+        let unit = Value(Null Unit, None)
+        match args with
+        | [] | [Value(BoolConstant true,_)] -> Some unit
+        | [Value(BoolConstant false,_)] -> makeDebugger r |> Some
+        | arg::_ ->
+            // emit i "if (!$0) { debugger; }" i.args |> Some
+            let cond = Operation(Unary(UnaryNot, arg), Boolean, r)
+            IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
