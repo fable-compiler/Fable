@@ -599,16 +599,18 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                                 | _ -> None
                             | _ -> None)
 
-                    let! witnesses = witnesses |> trampolineListMap (fun (traitName, isInstance, args, body) -> trampoline {
+                    // Seems witness act like a stack (that's why we reverse them)
+                    // so a witness may need other witnesses to be resolved
+                    return! (ctx, List.rev witnesses) ||> trampolineListFold (fun ctx (traitName, isInstance, args, body) -> trampoline {
                         let ctx, args = makeFunctionArgs com ctx args
                         let! body = transformExpr com ctx body
-                        return {
+                        let w = {
                             Witness.TraitName = traitName
                             IsInstance = isInstance
                             Expr = Fable.Delegate(args, body, None)
                         }
+                        return { ctx with Witnesses = w::ctx.Witnesses }
                     })
-                    return { ctx with Witnesses = List.append witnesses ctx.Witnesses }
                 }
 
             return makeCallFrom com ctx r typ genArgs callee args memb
