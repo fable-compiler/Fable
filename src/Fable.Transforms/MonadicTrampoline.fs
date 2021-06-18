@@ -20,6 +20,15 @@ type TrampolineBuilder() =
 
 let trampoline = TrampolineBuilder()
 
+let rec trampolineListFold f acc xs =
+    trampoline {
+        match xs with
+        | [] -> return acc
+        | h::t ->
+            let! acc = f acc h
+            return! trampolineListFold f acc t
+    }
+
 let rec trampolineListMapAcc acc f xs =
     trampoline {
         match xs with

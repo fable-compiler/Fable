@@ -428,6 +428,21 @@ type Ideable =
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
 
+type Parse =
+
+    static member inline Parse (_: ^R, _: obj  ) = fun (x:string) -> (^R: (static member Parse : _ -> ^R) x)
+    static member inline Parse (_: ^R, _: Parse) = fun (x:string) -> (^R: (static member Parse : _ * _ -> ^R) (x, Globalization.CultureInfo.InvariantCulture))
+
+    static member Parse (_: bool, _: Parse) = fun (x:string) -> Boolean.Parse (x)
+    static member Parse (_: char, _: Parse) = fun (x:string) -> Char.Parse (x)
+
+    static member inline Invoke (value: string) =    // <-- : 'T added
+        let inline call_2 (a: ^a, b: ^b) = ((^a or ^b) : (static member Parse : _*_ -> _) b, a)
+        let inline call (a: 'a) = fun (x: 'x) -> call_2 (a, Unchecked.defaultof<'r>) x : 'r
+        call Unchecked.defaultof<Parse> value
+
+let inline parse (value: string) :'R = Parse.Invoke value
+
 let doNothing () = ()
 
 let curry (fn: 'a -> 'b -> 'c) =
@@ -569,6 +584,10 @@ let tests5 = [
         let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
         replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
         replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
+
+    testCase "Nested trait calls work" <| fun () -> // See #2468
+        let h: int = parse "123"
+        equal 123 h
 
     testCase "Unit expression arguments are not removed" <| fun () ->
         let mutable x = 0
