@@ -253,8 +253,9 @@ module PrinterExtensions =
         member printer.Print(gl: Global) = printer.Print("(Global)")
 
         member printer.Print(nl: NonLocal) =
-            printer.Print("nonlocal ")
-            printer.PrintCommaSeparatedList nl.Names
+            if List.length nl.Names > 0 then
+                printer.Print("nonlocal ")
+                printer.PrintCommaSeparatedList nl.Names
 
         member printer.Print(af: AsyncFunctionDef) = printer.Print("(AsyncFunctionDef)")
 

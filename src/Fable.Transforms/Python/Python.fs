@@ -913,10 +913,10 @@ module PythonExtensions =
         static member compare(left, op, comparators, ?loc) : Expression =
             let op =
               match op with
-              | BinaryEqual
-              | BinaryEqualStrict -> Eq
-              | BinaryUnequal
-              | BinaryUnequalStrict -> NotEq
+              | BinaryEqual -> Eq
+              | BinaryEqualStrict -> Is
+              | BinaryUnequal -> NotEq
+              | BinaryUnequalStrict -> IsNot
               | BinaryLess -> Lt
               | BinaryLessOrEqual -> LtE
               | BinaryGreater -> Gt
