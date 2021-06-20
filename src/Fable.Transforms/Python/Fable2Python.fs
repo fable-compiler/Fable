@@ -588,18 +588,19 @@ module Util =
 
     let getExpr com ctx r (object: Expression) (expr: Expression) =
         // printfn "getExpr: %A" (object, expr)
-        match expr with
-        | Expression.Constant(value=value) ->
-            match value with
-            | :? string as str -> memberFromName com ctx str
-            | :? int
-            | :? float -> Expression.subscript(value = object, slice = expr, ctx = Load), []
-            | _ -> failwith $"Value {value} needs to be string"
-        | Expression.Name({Id=id}) ->
-            Expression.attribute (value = object, attr = id, ctx = Load), []
-        | e ->
-            let func = Expression.name("getattr")
-            Expression.call(func=func, args=[object; e]), []
+        // match expr with
+        // | Expression.Constant(value=value) ->
+        //     match value with
+        //     | :? string as str -> memberFromName com ctx str
+        //     | :? int
+        //     | :? float -> Expression.subscript(value = object, slice = expr, ctx = Load), []
+        //     | _ -> failwith $"Value {value} needs to be string"
+        // | Expression.Name({Id=id}) ->
+        //     Expression.attribute (value = object, attr = id, ctx = Load), []
+        // | e ->
+        //     let func = Expression.name("getattr")
+        //     Expression.call(func=func, args=[object; e]), []
+        Expression.subscript(value = object, slice = expr, ctx = Load), []
 
     let rec getParts com ctx (parts: string list) (expr: Expression) =
         match parts with
@@ -1167,10 +1168,16 @@ module Util =
                 let exn = Expression.identifier("Exception") |> Some
                 let identifier = ident com ctx param
                 [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ])
-        let finalizer =
-            finalizer |> Option.map (transformBlock com ctx None)
+        let finalizer, stmts =
+            match finalizer with
+            | Some finalizer ->
+                finalizer |>
+                transformBlock com ctx None
+                |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+            | None -> [], []
+
         [ Statement.try'(transformBlock com ctx returnStrategy body,
-            ?handlers=handlers, ?finalBody=finalizer, ?loc=r) ]
+            ?handlers=handlers, finalBody=finalizer, ?loc=r) ]
 
     let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
         let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
@@ -1180,14 +1187,18 @@ module Util =
             | :? bool as value when value -> stmts @ com.TransformAsStatements(ctx, ret, thenStmnt)
             | _ -> stmts @ com.TransformAsStatements(ctx, ret, elseStmnt)
         | guardExpr ->
-            let thenStmnt = transformBlock com ctx ret thenStmnt
-            let ifStatement =
-                match com.TransformAsStatements(ctx, ret, elseStmnt) with
-                | [ ] -> Statement.if'(guardExpr, thenStmnt, ?loc=r)
-                | [ elseStmnt ] -> Statement.if'(guardExpr, thenStmnt, [ elseStmnt ], ?loc=r)
-                | statements -> Statement.if'(guardExpr, thenStmnt, statements, ?loc=r)
-                |> List.singleton
-            stmts @ ifStatement
+            let thenStmnt, stmts' =
+                transformBlock com ctx ret thenStmnt
+                |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+            let ifStatement, stmts'' =
+                let block, stmts =
+                    com.TransformAsStatements(ctx, ret, elseStmnt)
+                    |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+                match block with
+                | [ ] -> Statement.if'(guardExpr, thenStmnt, ?loc=r), stmts
+                | [ elseStmnt ] -> Statement.if'(guardExpr, thenStmnt, [ elseStmnt ], ?loc=r), stmts
+                | statements -> Statement.if'(guardExpr, thenStmnt, statements, ?loc=r), stmts
+            stmts @ stmts' @ stmts'' @ [ ifStatement ]
 
     let transformGet (com: IPythonCompiler) ctx range typ fableExpr kind =
         match kind with
