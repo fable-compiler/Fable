@@ -428,6 +428,8 @@ type Ideable =
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
 
+type Parseable = Parseable with static member Parse (_: string) = Parseable
+
 type Parse =
 
     static member inline Parse (_: ^R, _: obj  ) = fun (x:string) -> (^R: (static member Parse : _ -> ^R) x)
@@ -586,8 +588,12 @@ let tests5 = [
         replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
 
     testCase "Nested trait calls work" <| fun () -> // See #2468
-        let h: int = parse "123"
-        equal 123 h
+        let i: int  = parse "123"
+        let b: bool = parse "true"
+        let p: Parseable = parse ""
+        equal 123 i
+        equal true b
+        equal Parseable p
 
     testCase "Unit expression arguments are not removed" <| fun () ->
         let mutable x = 0
