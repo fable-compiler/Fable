@@ -107,6 +107,8 @@ decimal_type: TypeInfo = TypeInfo("System.Decimal")
 
 def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
     return t1 == t2
+
+
 #   if (t1.fullname === "") { // Anonymous records
 #     return t2.fullname === ""
 #       && equalArraysWith(getRecordElements(t1),

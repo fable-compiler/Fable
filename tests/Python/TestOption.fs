@@ -55,14 +55,14 @@ let ``test Option.IsSome/IsNone works II`` () =
     o2.IsNone |> equal false
     o2.IsSome |> equal true
 
-// [<Fact>]
-// let ``test Option.iter works`` () =
-//     let mutable res = false
-//     let getOnlyOnce =
-//         let mutable value = Some "Hello"
-//         fun () -> match value with Some x -> value <- None; Some x | None -> None
-//     getOnlyOnce() |> Option.iter (fun s -> if s = "Hello" then res <- true)
-//     equal true res
+[<Fact>]
+let ``test Option.iter works`` () =
+    let mutable res = false
+    let getOnlyOnce =
+        let mutable value = Some "Hello"
+        fun () -> match value with Some x -> value <- None; Some x | None -> None
+    getOnlyOnce() |> Option.iter (fun s -> if s = "Hello" then res <- true)
+    equal true res
 
 [<Fact>]
 let ``test Option.map works`` () =

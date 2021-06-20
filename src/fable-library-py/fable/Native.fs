@@ -9,7 +9,7 @@ open Fable.Core.PyInterop
 open Fable.Import
 
 type Cons<'T> =
-    [<Emit("new $0($1)")>]
+    [<Emit("$0($1)")>]
     abstract Allocate : len: int -> 'T []
 
 module Helpers =

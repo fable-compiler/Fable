@@ -8,6 +8,11 @@ let sumFirstTwo (zs: seq<float>) =
     printfn "sumFirstTwo: %A" (first, second)
     first + second
 
+let rec sumFirstSeq (zs: seq<float>) (n: int): float =
+   match n with
+   | 0 -> 0.
+   | 1 -> Seq.head zs
+   | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
 
 [<Fact>]
 let ``test Seq.empty works`` () =
