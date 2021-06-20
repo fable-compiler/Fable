@@ -1105,7 +1105,7 @@ module Util =
         let args =
             exprs
             |> List.append thisArg
-        Expression.emit(macro, args, ?loc=range), stmts @ stmts'
+        emitExpression range macro args, stmts @ stmts'
 
     let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expression * Statement list =
         let callee, stmts = com.TransformAsExpr(ctx, callee)
