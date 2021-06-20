@@ -1581,6 +1581,11 @@ module Util =
         | Fable.ObjectExpr (members, _, baseCall) ->
           transformObjectExpr com ctx members baseCall
 
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="toString"), _, _), info, _, range) ->
+            let func = Expression.name("str")
+            let left, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.call (func, [ left ]), stmts
+
         | Fable.Call(callee, info, _, range) ->
             transformCall com ctx range callee info
 
