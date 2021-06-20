@@ -1153,7 +1153,10 @@ module Util =
             com.TransformAsStatements(ctx, ret, expr) |> List.choose Helpers.isProductiveStatement
         match block with
         | [] -> [ Pass ]
-        | _ -> block
+        | _ ->
+            block
+            |> List.sortBy (function | Statement.NonLocal _ -> 0 | _ -> 1)
+
 
     let transformTryCatch com ctx r returnStrategy (body, (catch: option<Fable.Ident * Fable.Expr>), finalizer) =
         // try .. catch statements cannot be tail call optimized
