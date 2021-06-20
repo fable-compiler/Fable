@@ -669,6 +669,11 @@ module Util =
         let name = Identifier("__init__")
         let self = Arg.arg("self")
         let args = Arguments.arguments (args = self::args)
+        let body =
+            match body with
+            | [] -> [ Pass ]
+            | _ -> body
+
         FunctionDef.Create(name, args, body = body)
 
     let callFunction r funcExpr (args: Expression list) =
@@ -859,7 +864,8 @@ module Util =
         | Fable.NewArray (values, typ) -> makeArray com ctx values
         | Fable.NewArrayFrom (size, typ) ->
             let array, stmts = makeArray com ctx []
-            Expression.binOp(array, Mult, Expression.constant(size)), stmts
+            let size, stmts' = com.TransformAsExpr(ctx, size)
+            Expression.binOp(array, Mult, size), stmts @ stmts'
         | Fable.NewTuple vals -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
@@ -1143,7 +1149,11 @@ module Util =
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
     let transformBlock (com: IPythonCompiler) ctx ret expr: Statement list =
-        com.TransformAsStatements(ctx, ret, expr) |> List.choose Helpers.isProductiveStatement
+        let block =
+            com.TransformAsStatements(ctx, ret, expr) |> List.choose Helpers.isProductiveStatement
+        match block with
+        | [] -> [ Pass ]
+        | _ -> block
 
     let transformTryCatch com ctx r returnStrategy (body, (catch: option<Fable.Ident * Fable.Expr>), finalizer) =
         // try .. catch statements cannot be tail call optimized
