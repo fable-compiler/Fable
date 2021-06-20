@@ -505,7 +505,7 @@ module PrinterExtensions =
             printer.Print(node.Name)
 
             match node.AsName with
-            | Some (Identifier alias) ->
+            | Some (Identifier alias) when Identifier alias <> node.Name->
                 printer.Print(" as ")
                 printer.Print(alias)
             | _ -> ()

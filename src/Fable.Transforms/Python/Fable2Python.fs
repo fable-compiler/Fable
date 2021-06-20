@@ -2127,7 +2127,7 @@ module Util =
                     let moduleName = moduleName |> Helpers.rewriteFableImport
                     match name with
                     | Some name ->
-                        let alias = Alias.alias(Identifier(name), ?asname=None)
+                        let alias = Alias.alias(Identifier(Helpers.clean name), ?asname=local)
                         Statement.importFrom (Some(Identifier(moduleName)), [ alias ])
                     | None ->
                         let alias = Alias.alias(Identifier(moduleName), ?asname=None)
@@ -2144,6 +2144,7 @@ module Util =
             match name with
             | "*"
             | _ -> name
+            |> Helpers.clean
             |> Python.Identifier
             |> Some
 
