@@ -1,7 +1,7 @@
 ### 3.2.5
 
 * Fix #2468: SRTP Parser
-* Only show "Compile file.fs" log in watch compilations
+* Only show Compile file log in watch compilations
 
 ### 3.2.4
 
