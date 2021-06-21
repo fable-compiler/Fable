@@ -406,7 +406,7 @@ module Helpers =
         | "Map" -> "dict"
         | "Int32Array" -> "list"
         | _ ->
-            name.Replace('$', '_').Replace('.', '_').Replace('`', '_')
+            name |> String.map(fun c -> if List.contains c ['.'; '$'; '`'; '*'; ' '] then '_' else c)
 
     let rewriteFableImport moduleName =
         //printfn "ModuleName: %s" moduleName
@@ -645,7 +645,6 @@ module Util =
             |> fun (ids, values, ids') ->
                 ctx.BoundVars.Bind(ids')
                 (Expression.tuple(ids), Expression.tuple(values))
-
         [ Statement.assign([ids], values) ]
 
     let varDeclaration (ctx: Context) (var: Expression) (isMutable: bool) value =
