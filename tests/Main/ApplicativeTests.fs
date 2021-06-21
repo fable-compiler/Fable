@@ -435,13 +435,17 @@ type Parse =
     static member inline Parse (_: ^R, _: obj  ) = fun (x:string) -> (^R: (static member Parse : _ -> ^R) x)
     static member inline Parse (_: ^R, _: Parse) = fun (x:string) -> (^R: (static member Parse : _ * _ -> ^R) (x, Globalization.CultureInfo.InvariantCulture))
 
-    static member inline Parse (_: 'T when ^T: null and ^T: struct, _: Parse) = id
+    static member inline Parse (_: 'T when 'T : enum<_>, _: Parse) = fun x ->
+        (match Enum.TryParse (x) with
+            | (true, v) -> v
+            | _         -> invalidArg "value" ("Requested value '" + x + "' was not found.")
+        ) : 'enum
 
     static member Parse (_: bool              , _: Parse) = fun (x:string) -> Boolean.Parse (x)
     static member Parse (_: char              , _: Parse) = fun  x -> Char.Parse (x)
     static member Parse (_: string            , _: Parse) = id : string->_
     static member Parse (_: Text.StringBuilder, _: Parse) = fun  x -> new Text.StringBuilder (x: string)
-    
+
     static member inline Invoke (value: string) =
         let inline call_2 (a: ^a, b: ^b) = ((^a or ^b) : (static member Parse : _*_ -> _) b, a)
         let inline call (a: 'a) = fun (x: 'x) -> call_2 (a, Unchecked.defaultof<'r>) x : 'r

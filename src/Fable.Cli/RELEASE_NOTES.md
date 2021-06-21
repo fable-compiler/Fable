@@ -1,3 +1,8 @@
+### 3.2.5
+
+* Fix #2468: SRTP Parser
+* Only show "Compile file.fs" log in watch compilations
+
 ### 3.2.4
 
 * Fix #2438: Print JS sequence expressions always between parentheses

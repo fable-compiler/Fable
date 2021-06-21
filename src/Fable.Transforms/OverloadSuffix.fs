@@ -75,6 +75,8 @@ let private getGenericParamConstrainsHash genParams (p: FSharpGenericParameter) 
             "equality"
         elif c.IsUnmanagedConstraint then
             "unmanaged"
+        elif c.IsEnumConstraint then
+            "enum"
         else ""
     p.Constraints |> Seq.map getConstrainHash |> String.concat ","
 
