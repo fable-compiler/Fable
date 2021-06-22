@@ -599,9 +599,11 @@ let tests5 = [
         let i: int  = parse "123"
         let b: bool = parse "true"
         let p: Parseable = parse ""
+        let h : DateTimeOffset = parse "2011-03-04T15:42:19+03:00"
         equal 123 i
         equal true b
         equal Parseable p
+        equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
 
     testCase "Unit expression arguments are not removed" <| fun () ->
         let mutable x = 0

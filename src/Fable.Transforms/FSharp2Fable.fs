@@ -118,34 +118,17 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
         | thisArg::args, _::argTypes when isInstance -> Some thisArg, args, argTypes
         | args, argTypes -> None, args, argTypes
 
-    sourceTypes |> Seq.tryPick (function
-        // Types with specific entry in Fable.AST
-        | Fable.Boolean ->
-            let info = makeCallInfo traitName Types.bool argTypes []
-            Replacements.parseBool com ctx r typ info thisArg args
-        | Fable.Number kind ->
-            let info = makeCallInfo traitName (getNumberFullName kind) argTypes []
-            Replacements.parseNum com ctx r typ info thisArg args
-        | Fable.String ->
-            let info = makeCallInfo traitName Types.string argTypes []
-            Replacements.strings com ctx r typ info thisArg args
-        | Fable.Tuple genArgs as t ->
-            let info = makeCallInfo traitName (getTypeFullName false t) argTypes genArgs
-            Replacements.tuples com ctx r typ info thisArg args
-        | Fable.Option genArg ->
-            let info = makeCallInfo traitName Types.option argTypes [genArg]
-            Replacements.options com ctx r typ info thisArg args
-        | Fable.Array genArg ->
-            let info = makeCallInfo traitName Types.array argTypes [genArg]
-            Replacements.arrays com ctx r typ info thisArg args
-        | Fable.List genArg ->
-            let info = makeCallInfo traitName Types.list argTypes [genArg]
-            Replacements.lists com ctx r typ info thisArg args
-        // Declared types not in Fable AST
-        | Fable.DeclaredType(entity, genArgs) ->
-            let entity = com.GetEntity(entity)
-            resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
-        | _ -> None
+    sourceTypes |> Seq.tryPick (fun t ->
+        match Replacements.tryType t with
+        | Some(entityFullName, makeCall, genArgs) ->
+            let info = makeCallInfo traitName entityFullName argTypes genArgs
+            makeCall com ctx r typ info thisArg args
+        | None ->
+            match t with
+            | Fable.DeclaredType(entity, genArgs) ->
+                let entity = com.GetEntity(entity)
+                resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
+            | _ -> None
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)
 

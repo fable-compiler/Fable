@@ -108,6 +108,7 @@ module Helpers =
 
 open Helpers
 open Fable.Transforms
+
 type BuiltinType =
     | BclGuid
     | BclTimeSpan
@@ -3109,7 +3110,7 @@ let private replacedModules =
     "Microsoft.FSharp.Collections.ComparisonIdentity", fsharpModule
     "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqModule
     "Microsoft.FSharp.Collections.SeqModule", seqModule
-    "System.Collections.Generic.KeyValuePair`2", keyValuePairs
+    Types.keyValuePair, keyValuePairs
     "System.Collections.Generic.Comparer`1", bclType
     "System.Collections.Generic.EqualityComparer`1", bclType
     Types.dictionary, dictionaries
@@ -3279,4 +3280,33 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | _ -> failwith "Unexpected hashset constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
+    | _ -> None
+
+let tryType = function
+    | Fable.Boolean -> Some(Types.bool, parseBool, [])
+    | Fable.Number kind -> Some(getNumberFullName kind, parseNum, [])
+    | Fable.String -> Some(Types.string, strings, [])
+    | Fable.Tuple genArgs as t -> Some(getTypeFullName false t, tuples, genArgs)
+    | Fable.Option genArg -> Some(Types.option, options, [genArg])
+    | Fable.Array genArg -> Some(Types.array, arrays, [genArg])
+    | Fable.List genArg -> Some(Types.list, lists, [genArg])
+    | Builtin kind ->
+        match kind with
+        | BclGuid -> Some(Types.guid, guids, [])
+        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
+        | BclDateTime -> Some(Types.datetime, dates, [])
+        | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
+        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclInt64 -> Some(Types.int64, parseNum, [])
+        | BclUInt64 -> Some(Types.uint64, parseNum, [])
+        | BclDecimal -> Some(Types.decimal, decimals, [])
+        | BclBigInt -> Some(Types.bigint, bigints, [])
+        | BclHashSet genArg -> Some(Types.hashset, hashSets, [genArg])
+        | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [key; value])
+        | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])
+        | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [key; value])
+        | FSharpSet genArg -> Some(Types.fsharpSet, sets, [genArg])
+        | FSharpChoice genArgs -> Some(Types.hashset, hashSets, genArgs)
+        | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
+        | FSharpReference genArg -> Some(Types.reference, references, [genArg])
     | _ -> None
