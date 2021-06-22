@@ -565,20 +565,18 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         let! argExprs = transformExprList com ctx argExprs
         let argTypes = List.map (makeType ctx.GenericArgs) argTypes
 
-        let candidates = ctx.Witnesses |> List.filter (fun w ->
+        let witness = ctx.Witnesses |> List.tryFind (fun w ->
             w.TraitName = traitName
             && w.IsInstance = flags.IsInstance
             && listEquals (typeEquals false) argTypes w.ArgTypes)
 
-        match candidates with
-        | [] ->
+        match witness with
+        | None ->
             let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
             return transformTraitCall com ctx r typ sourceTypes traitName flags argTypes argExprs
-        | [w] ->
+        | Some w ->
             let callInfo = makeCallInfo None argExprs w.ArgTypes
             return makeCall r typ callInfo w.Expr
-        | ws ->
-            return "Cannot resolve witness " + traitName |> addErrorAndReturnNull com ctx.InlinePath r
 
     | FSharpExprPatterns.CallWithWitnesses(callee, memb, ownerGenArgs, membGenArgs, witnesses, args) ->
         match callee with

@@ -1324,6 +1324,62 @@ module Adaptive =
             equal 1 second.[0]
     ]
 
+module FSharpPlus =
+    module Option =
+        let apply f (x: option<'T>) : option<'U> =
+            match f, x with
+            | Some f, Some x -> Some (f x)
+            | _              -> None
+
+    module Array =
+        let apply f x =
+            let lenf, lenx = Array.length f, Array.length x
+            Array.init (lenf * lenx) (fun i -> f.[i / lenx] x.[i % lenx])
+
+    type Map =
+        static member Map ((x: option<_>, f: 'T->'U), _mthd: Map) = Option.map  f x
+        static member Map ((x: _ []     , f: 'T->'U), _mthd: Map) = Array.map   f x
+
+        static member inline Invoke (mapping: 'T->'U) (source: '``Functor<'T>``) : '``Functor<'U>`` =
+            let inline call (mthd: ^M, source: ^I, _output: ^R) = ((^M or ^I or ^R) : (static member Map : (_*_)*_ -> _) (source, mapping), mthd)
+            call (Unchecked.defaultof<Map>, source, Unchecked.defaultof<'``Functor<'U>``>)
+
+    type Return =
+        static member Return (_: option<'a>, _: Return) = fun x -> Some x : option<'a>
+        static member Return (_: 'a []     , _: Return) = fun x -> [|x|]  : 'a []
+
+        static member inline Invoke (x: 'T) : '``Applicative<'T>`` =
+            let inline call (mthd: ^M, output: ^R) = ((^M or ^R) : (static member Return : _*_ -> _) output, mthd)
+            call (Unchecked.defaultof<Return>, Unchecked.defaultof<'``Applicative<'T>``>) x
+
+    type Apply =
+        static member ``<*>`` (f: option<_>, x: option<'T>, _output: option<'U>, _mthd: Apply) = Option.apply f x : option<'U>
+        static member ``<*>`` (f: _ []     , x: 'T []     , _output: 'U []     , _mthd: Apply) = Array.apply  f x  : 'U []
+
+        static member inline Invoke (f: '``Applicative<'T -> 'U>``) (x: '``Applicative<'T>``) : '``Applicative<'U>`` =
+            let inline call (mthd : ^M, input1: ^I1, input2: ^I2, output: ^R) =
+                ((^M or ^I1 or ^I2 or ^R) : (static member ``<*>`` : _*_*_*_ -> _) input1, input2, output, mthd)
+            call(Unchecked.defaultof<Apply>, f, x, Unchecked.defaultof<'``Applicative<'U>``>)
+
+    let inline forInfiniteSeqs (t: seq<_>, isFailure, conversion) =
+            let add x y = y :: x
+            let mutable go = true
+            let mutable r = Return.Invoke []
+            use e = t.GetEnumerator ()
+            while go && e.MoveNext () do
+                if isFailure e.Current then go <- false
+                r <- Apply.Invoke (Map.Invoke add r) e.Current
+            Map.Invoke (List.rev >> conversion) r
+
+    let sequence (t: seq<option<'t>>) =
+        forInfiniteSeqs (t, Option.isNone, List.toSeq) : option<seq<'t>>
+
+    let tests = [
+        testCase "FSharpPlus regression" <| fun () -> // See #2471
+            let expected = Some(seq [1; 2])
+            sequence (seq [Some 1; Some 2]) |> equal expected
+    ]
+
 let tests =
     testList "Applicative" (
         tests1
