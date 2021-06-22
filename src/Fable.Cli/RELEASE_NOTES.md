@@ -1,3 +1,7 @@
+### 3.2.6
+
+* Fix #2471: Trait call regression
+
 ### 3.2.5
 
 * Fix #2468: SRTP Parser
