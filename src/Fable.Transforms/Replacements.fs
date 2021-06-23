@@ -1850,6 +1850,7 @@ let nativeArrayFunctions =
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
+    | (".ctor"|"Create"), _ -> Value(NewTuple args, r) |> Some
     | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
     | "get_Item2", Some x -> Get(x, TupleIndex 1, t, r) |> Some
     | "get_Item3", Some x -> Get(x, TupleIndex 2, t, r) |> Some
@@ -1858,6 +1859,9 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Item6", Some x -> Get(x, TupleIndex 5, t, r) |> Some
     | "get_Item7", Some x -> Get(x, TupleIndex 6, t, r) |> Some
     | "get_Rest", Some x -> Get(x, TupleIndex 7, t, r) |> Some
+    // System.TupleExtensions
+    | "ToValueTuple", _ -> List.tryHead args
+    | "ToTuple", _ -> List.tryHead args
     | _ -> None
 
 let copyToArray (com: ICompiler) r t (i: CallInfo) args =
@@ -3214,7 +3218,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
-    | Naming.StartsWith "System.Tuple" _ -> tuples com ctx r t info thisArg args
+    | Naming.StartsWith "System.Tuple" _
+    | Naming.StartsWith "System.ValueTuple" _ -> tuples com ctx r t info thisArg args
     | Naming.StartsWith "System.Action" _
     | Naming.StartsWith "System.Func" _
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
