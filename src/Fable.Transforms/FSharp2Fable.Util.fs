@@ -770,6 +770,8 @@ module Patterns =
     let (|ContainsAtt|_|) (fullName: string) (ent: FSharpEntity) =
         tryFindAtt fullName ent.Attributes
 
+    let inline (|FableType|) _com (ctx: Context) t = TypeHelpers.makeType ctx.GenericArgs t
+
 module TypeHelpers =
     open Helpers
     open Patterns
@@ -993,32 +995,33 @@ module TypeHelpers =
 
     [<RequireQualifiedAccess; Flags>]
     type private Allow =
-    | TheUsual      = 0b0000
-      /// Enums in F# are uint32
-      /// -> Allow into all int & uint
-    | EnumIntoInt   = 0b0001
-      /// Erased Unions are reduced to `Any`
-      /// -> Cannot distinguish between 'normal' Any (like `obj`) and Erased Union (like Erased Union with string field)
-      ///
-      /// For interface members the FSharp Type is available
-      /// -> `Ux<...>` receive special treatment and its types are extracted
-      /// -> `abstract Value: U2<int,string>` -> extract `int` & `string`
-      /// BUT: for Expressions in Anon Records that's not possible, and `U2<int,string>` is only recognized as `Any`
-      /// -> `{| Value = v |}`: `v: int` and `v: string` are recognized as matching,
-      ///    but `v: U2<int,string>` isn't: only `Any`/`obj` as Type available
-      /// To recognize as matching, we must allow all `Any` expressions for `U2` in interface place.
-      ///
-      /// Note: Only `Ux<...>` are currently handled (on interface side), not other Erased Unions!
-    | AnyIntoErased = 0b0010
-      /// Unlike `AnyIntoErased`, this allows all expressions of type `Any` in all interface properties.
-      /// (The other way is always allow: Expression of all Types fits into `Any`)
-    | AlwaysAny     = 0b0100
+        | TheUsual      = 0b0000
+          /// Enums in F# are uint32
+          /// -> Allow into all int & uint
+        | EnumIntoInt   = 0b0001
+          /// Erased Unions are reduced to `Any`
+          /// -> Cannot distinguish between 'normal' Any (like `obj`) and Erased Union (like Erased Union with string field)
+          ///
+          /// For interface members the FSharp Type is available
+          /// -> `Ux<...>` receive special treatment and its types are extracted
+          /// -> `abstract Value: U2<int,string>` -> extract `int` & `string`
+          /// BUT: for Expressions in Anon Records that's not possible, and `U2<int,string>` is only recognized as `Any`
+          /// -> `{| Value = v |}`: `v: int` and `v: string` are recognized as matching,
+          ///    but `v: U2<int,string>` isn't: only `Any`/`obj` as Type available
+          /// To recognize as matching, we must allow all `Any` expressions for `U2` in interface place.
+          ///
+          /// Note: Only `Ux<...>` are currently handled (on interface side), not other Erased Unions!
+        | AnyIntoErased = 0b0010
+          /// Unlike `AnyIntoErased`, this allows all expressions of type `Any` in all interface properties.
+          /// (The other way is always allow: Expression of all Types fits into `Any`)
+        | AlwaysAny     = 0b0100
+
     let fitsAnonRecordInInterface
         (_com: IFableCompiler)
+        (range: SourceLocation option)
         (argExprs: Fable.Expr list)
         (fieldNames: string array)
         (interface_: Fable.Entity)
-        (range: SourceLocation option)
         =
         match interface_ with
         | :? FsEnt as fsEnt ->
@@ -1302,8 +1305,6 @@ module TypeHelpers =
                | errors -> Error errors
         | _ ->
             Ok () // TODO: Error instead if we cannot check the interface?
-
-    let inline (|FableType|) _com (ctx: Context) t = makeType ctx.GenericArgs t
 
 module Identifiers =
     open Helpers

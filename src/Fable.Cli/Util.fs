@@ -65,6 +65,10 @@ module Log =
         if verbosity = Fable.Verbosity.Verbose then
             always msg.Value
 
+    let verboseOrIf condition (msg: string) =
+        if condition || verbosity = Fable.Verbosity.Verbose then
+            always msg
+
     let warning (msg: string) =
         Console.ForegroundColor <- ConsoleColor.DarkYellow
         Console.Out.WriteLine(msg)

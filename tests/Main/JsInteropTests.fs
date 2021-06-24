@@ -14,6 +14,9 @@ importSideEffects "./js/polyfill.js"
 let inline getNameofLambda (f: 'T->'U) =
     nameofLambda f
 
+let inline getNamesofLambda (f: 'T->'U) =
+    namesofLambda f
+
 [<Global>]
 module GlobalModule =
     [<Emit("var GlobalModule = { add(x, y) { return x + y }, foo: 'bar' }")>]
@@ -102,8 +105,13 @@ type TextStyle =
     [<Emit("$1($2...)")>]
     abstract Apply: f: obj * [<ParamArray>] args: obj[] -> obj
 
+type InnerInnerRecord = {
+    Bar: string
+}
+
 type InnerRecord = {
     Float: float
+    Foo: InnerInnerRecord
 } with
     override this.ToString() =
         sprintf "%.0fx" (this.Float * 5.)
@@ -467,7 +475,7 @@ let tests =
         style.Sum(1.5, 2, 3, 4) |> equal 10.5
 
     testCase "nameof works" <| fun () ->
-        let record = { String = ""; Int = 0; InnerRecord = { Float = 5.0 } }
+        let record = { String = ""; Int = 0; InnerRecord = { Float = 5.0; Foo = { Bar = "z" } } }
         nameof(record) |> equal "record"
         nameof(record.String) |> equal "String"
         nameof(record.Int) |> equal "Int"
@@ -482,6 +490,14 @@ let tests =
 
     testCase "nameofLambda works in inlined functions" <| fun () ->
         getNameofLambda (fun (x:Record) -> x.String) |> equal "String"
+
+    testCase "namesofLambda works" <| fun () ->
+        namesofLambda(fun (x:Record) -> x.InnerRecord.Float) |> equal [|"InnerRecord"; "Float"|]
+        namesofLambda(fun (x:Record) -> x.InnerRecord.Foo.Bar) |> equal [|"InnerRecord"; "Foo"; "Bar"|]
+        namesofLambda(fun (x:Record) -> x.Int) |> equal [|"Int"|]
+
+    testCase "nameofLambda works in inlined functions" <| fun () ->
+        getNamesofLambda(fun (x:Record) -> x.InnerRecord.Foo.Bar) |> equal [|"InnerRecord"; "Foo"; "Bar"|]
 
     testCase "StringEnum attribute works" <| fun () ->
         Vertical |> unbox |> equal "vertical"
@@ -534,7 +550,7 @@ let tests =
 
     testCase "Stringifying an F# type in JS works" <| fun () ->
         let addFooString (x: obj) = importMember "./js/1foo.js"
-        { Float = 7. } |> addFooString |> equal "35x foo"
+        { Float = 7.; Foo = { Bar = "oh" } } |> addFooString |> equal "35x foo"
 
     testCase "JsFunc.Invoke call with param array is spreaded in JS" <| fun () ->
       let fn : Fable.Core.JsInterop.JsFunc = !!(fun (arg:int) -> arg+1) // actual implementation is not important

@@ -21,6 +21,9 @@ module Experimental =
     /// Reads the name of a property or a type from the lambda body
     let inline nameofLambda(f: 'a -> 'b): string = jsNative
 
+    /// Reads the names of an access path from the lambda body. E.g (fun x -> x.foo.bar) gives [|"foo"; "bar"|]
+    let inline namesofLambda(f: 'a -> 'b): string[] = jsNative
+
     /// Reads the case name and field count of a simple match: `casenameWithFieldCount(function Foo _ -> true | _ -> false)`
     let casenameWithFieldCount<'T> (f: 'T -> bool): string * int = jsNative
 

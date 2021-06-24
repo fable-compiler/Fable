@@ -1,3 +1,26 @@
+### 3.2.6
+
+* Fix #2471: Trait call regression
+
+### 3.2.5
+
+* Fix #2468: SRTP Parser
+* Only show Compile file log in watch compilations
+
+### 3.2.4
+
+* Fix #2438: Print JS sequence expressions always between parentheses
+* Don't jump over mutable idents when inlining
+
+### 3.2.3
+
+* Experimental.namesofLambda
+
+### 3.2.2
+
+* Check for correct types in Anonymous Record when assigning to Interface with [<EmitIndexer>] via !! @Booksbaum
+* Fix #1973: FormattableString support
+
 ### 3.2.1
 
 * Fix Event issues and and implement FSharpEvent`2 @chkn

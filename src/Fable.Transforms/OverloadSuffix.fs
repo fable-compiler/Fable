@@ -38,6 +38,7 @@ let private getConstraintHash genParams = function
     | Fable.Constraint.HasDefaultConstructor -> "new"
     | Fable.Constraint.HasComparison -> "comparison"
     | Fable.Constraint.HasEquality -> "equality"
+    | Fable.Constraint.IsEnum -> "enum"
 
 let rec private getTypeFastFullName (genParams: IDictionary<_,_>) (t: Fable.Type) =
     match t with

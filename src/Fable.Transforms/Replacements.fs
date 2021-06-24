@@ -108,6 +108,7 @@ module Helpers =
 
 open Helpers
 open Fable.Transforms
+
 type BuiltinType =
     | BclGuid
     | BclTimeSpan
@@ -215,17 +216,22 @@ let getTypeName com (ctx: Context) r t =
     | _ -> ()
     getTypeFullName false t |> getTypeNameFromFullName
 
-let (|Nameof|_|) com ctx = function
-    | IdentExpr ident -> Some ident.DisplayName
-    | Get(_, ExprGet(StringConst prop), _, _) -> Some prop
-    | Get(_, FieldGet(fieldName, _), _, _) -> Some fieldName
-    | NestedLambda(args, Call(IdentExpr ident, info, _, _), None) ->
+let rec namesof com ctx acc e =
+    match acc, e with
+    | acc, Get(e, ExprGet(StringConst prop), _, _) -> namesof com ctx (prop::acc) e
+    | acc, Get(e, FieldGet(fieldName, _), _, _) -> namesof com ctx (fieldName::acc) e
+    | [], IdentExpr ident -> ident.DisplayName::acc |> Some
+    | [], NestedLambda(args, Call(IdentExpr ident, info, _, _), None) ->
         if List.sameLength args info.Args && List.zip args info.Args |> List.forall (fun (a1, a2) ->
             match a2 with IdentExpr id2 -> a1.Name = id2.Name | _ -> false)
-        then Some ident.DisplayName
+        then ident.DisplayName::acc |> Some
         else None
-    | Value(TypeInfo t, r) -> getTypeName com ctx r t |> Some
-    | _ -> None
+    | [], Value(TypeInfo t, r) -> (getTypeName com ctx r t)::acc |> Some
+    | [], _ -> None
+    | acc, _ -> Some acc
+
+let (|Namesof|_|) com ctx e = namesof com ctx [] e
+let (|Nameof|_|) com ctx e = namesof com ctx [] e |> Option.bind List.tryLast
 
 let (|ReplaceName|_|) (namesAndReplacements: (string*string) list) name =
     namesAndReplacements |> List.tryPick (fun (name2, replacement) ->
@@ -1120,19 +1126,21 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | _ -> "Cannot infer name of expression"
                |> addError com ctx.InlinePath r
                makeStrConst Naming.unknown |> Some
-    | _, "nameofLambda" ->
+    | _, ("nameofLambda"|"namesofLambda" as meth) ->
         match args with
-        | [Lambda(_, (Nameof com ctx name), _)] -> Some name
+        | [Lambda(_, (Namesof com ctx names), _)] -> Some names
         | [MaybeCasted(IdentExpr ident)] ->
             match findInScope ctx.Scope ident.Name with
-            | Some(Lambda(_, (Nameof com ctx name), _)) -> Some name
+            | Some(Lambda(_, (Namesof com ctx names), _)) -> Some names
             | _ -> None
         | _ -> None
         |> Option.defaultWith (fun () ->
             "Cannot infer name of expression"
             |> addError com ctx.InlinePath r
-            Naming.unknown)
-        |> makeStrConst |> Some
+            [Naming.unknown])
+        |> fun names ->
+            if meth = "namesofLambda" then List.map makeStrConst names |> makeArray String |> Some
+            else List.tryHead names |> Option.map makeStrConst
 
     | _, ("casenameWithFieldCount"|"casenameWithFieldIndex" as meth) ->
         let rec inferCasename = function
@@ -1250,7 +1258,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
               [_; (_,DeclaredType(ent, []))] ->
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
-                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com exprs fieldNames ent r
+                    FSharp2Fable.TypeHelpers.fitsAnonRecordInInterface com r exprs fieldNames ent
                     |> function
                        | Error errors ->
                             errors
@@ -1842,7 +1850,14 @@ let nativeArrayFunctions =
             "SortInPlaceWith", "sort" |]
 
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let changeKind isStruct = function
+        | Value(NewTuple(args, _), r)::_ -> Value(NewTuple(args, isStruct), r) |> Some
+        | (ExprType(Tuple(genArgs, _)) as e)::_ -> TypeCast(e, Tuple(genArgs, isStruct), None) |> Some
+        | _ -> None
     match i.CompiledName, thisArg with
+    | (".ctor"|"Create"), _ ->
+        let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+        Value(NewTuple(args, isStruct), r) |> Some
     | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
     | "get_Item2", Some x -> Get(x, TupleIndex 1, t, r) |> Some
     | "get_Item3", Some x -> Get(x, TupleIndex 2, t, r) |> Some
@@ -1851,6 +1866,9 @@ let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     | "get_Item6", Some x -> Get(x, TupleIndex 5, t, r) |> Some
     | "get_Item7", Some x -> Get(x, TupleIndex 6, t, r) |> Some
     | "get_Rest", Some x -> Get(x, TupleIndex 7, t, r) |> Some
+    // System.TupleExtensions
+    | "ToValueTuple", _ -> changeKind true args
+    | "ToTuple", _ -> changeKind false args
     | _ -> None
 
 let copyToArray (com: ICompiler) r t (i: CallInfo) args =
@@ -2539,9 +2557,14 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "WriteLine" -> log com r t i thisArg args |> Some
     | "Break" -> makeDebugger r |> Some
     | "Assert" ->
-        // emit i "if (!$0) { debugger; }" i.args |> Some
-        let cond = Operation(Unary(UnaryNot, args.Head), Boolean, r)
-        IfThenElse(cond, makeDebugger r, Value(Null Unit, None), r) |> Some
+        let unit = Value(Null Unit, None)
+        match args with
+        | [] | [Value(BoolConstant true,_)] -> Some unit
+        | [Value(BoolConstant false,_)] -> makeDebugger r |> Some
+        | arg::_ ->
+            // emit i "if (!$0) { debugger; }" i.args |> Some
+            let cond = Operation(Unary(UnaryNot, arg), Boolean, r)
+            IfThenElse(cond, makeDebugger r, unit, r) |> Some
     | _ -> None
 
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3098,7 +3121,7 @@ let private replacedModules =
     "Microsoft.FSharp.Collections.ComparisonIdentity", fsharpModule
     "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers", seqModule
     "Microsoft.FSharp.Collections.SeqModule", seqModule
-    "System.Collections.Generic.KeyValuePair`2", keyValuePairs
+    Types.keyValuePair, keyValuePairs
     "System.Collections.Generic.Comparer`1", bclType
     "System.Collections.Generic.EqualityComparer`1", bclType
     Types.dictionary, dictionaries
@@ -3202,7 +3225,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | Naming.StartsWith "Fable.Core." _ -> fableCoreLib com ctx r t info thisArg args
     | Naming.EndsWith "Exception" _ -> exceptions com ctx r t info thisArg args
     | "System.Timers.ElapsedEventArgs" -> thisArg // only signalTime is available here
-    | Naming.StartsWith "System.Tuple" _ -> tuples com ctx r t info thisArg args
+    | Naming.StartsWith "System.Tuple" _
+    | Naming.StartsWith "System.ValueTuple" _ -> tuples com ctx r t info thisArg args
     | Naming.StartsWith "System.Action" _
     | Naming.StartsWith "System.Func" _
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
@@ -3268,4 +3292,33 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | _ -> failwith "Unexpected hashset constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
+    | _ -> None
+
+let tryType = function
+    | Fable.Boolean -> Some(Types.bool, parseBool, [])
+    | Fable.Number(kind, uom) -> Some(getNumberFullName uom kind, parseNum, [])
+    | Fable.String -> Some(Types.string, strings, [])
+    | Fable.Tuple(genArgs, _) as t -> Some(getTypeFullName false t, tuples, genArgs)
+    | Fable.Option(genArg, _) -> Some(Types.option, options, [genArg])
+    | Fable.Array genArg -> Some(Types.array, arrays, [genArg])
+    | Fable.List genArg -> Some(Types.list, lists, [genArg])
+    | Builtin kind ->
+        match kind with
+        | BclGuid -> Some(Types.guid, guids, [])
+        | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
+        | BclDateTime -> Some(Types.datetime, dates, [])
+        | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
+        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclInt64 -> Some(Types.int64, parseNum, [])
+        | BclUInt64 -> Some(Types.uint64, parseNum, [])
+        | BclDecimal -> Some(Types.decimal, decimals, [])
+        | BclBigInt -> Some(Types.bigint, bigints, [])
+        | BclHashSet genArg -> Some(Types.hashset, hashSets, [genArg])
+        | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [key; value])
+        | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])
+        | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [key; value])
+        | FSharpSet genArg -> Some(Types.fsharpSet, sets, [genArg])
+        | FSharpChoice genArgs -> Some(Types.hashset, hashSets, genArgs)
+        | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
+        | FSharpReference genArg -> Some(Types.reference, references, [genArg])
     | _ -> None

@@ -48,6 +48,7 @@ type Constraint =
     | HasComparison
     | HasEquality
     | IsUnmanaged
+    | IsEnum
 
 type GenericParam =
     abstract Name: string

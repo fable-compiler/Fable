@@ -561,6 +561,11 @@ module AST =
             ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _ | _, GenericParam _ when not strict -> true
         | GenericParam(name1,_), GenericParam(name2,_) -> name1 = name2
+        // Field names must be already sorted
+        | AnonymousRecordType(fields1, gen1), AnonymousRecordType(fields2, gen2) ->
+            fields1.Length = fields2.Length
+            && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
+            && listEquals (typeEquals strict) gen1 gen2
         | _ -> false
 
     let getNumberFullName uom kind =

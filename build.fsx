@@ -383,8 +383,9 @@ let buildLocalPackage pkgDir =
 
 let testRepos() =
     let repos = [
+        "https://github.com/alfonsogarciacaro/FsToolkit.ErrorHandling:update-fable-3", "npm i && npm test"
         "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
-        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "./fake.sh build -t MochaTest"
+        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore && npm i && dotnet fable tests -o tests/bin --run mocha -r esm tests/bin"
         "https://github.com/alfonsogarciacaro/FSharp.Control.AsyncSeq:nagareyama", "cd tests/fable && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama", "dotnet paket restore && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"
