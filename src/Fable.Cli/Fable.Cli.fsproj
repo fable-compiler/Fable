@@ -5,7 +5,8 @@
     <TargetFramework>net5.0</TargetFramework>
     <Version>3.2.7</Version>
     <PackageVersion>3.2.7</PackageVersion>
-    <PackageReleaseNotes></PackageReleaseNotes>
+    <PackageReleaseNotes>* Fix regression: all files were recompiled in watch mode in 3.2.5
+* Fix #2472: Tuple-related methods</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>

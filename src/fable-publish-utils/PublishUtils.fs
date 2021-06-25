@@ -469,6 +469,7 @@ module Publish =
     let NUGET_PACKAGE_VERSION = @"(<PackageVersion>)(.*?)(<\/PackageVersion>)"
     let NUGET_PACKAGE_RELEASE_NOTES = @"(<PackageReleaseNotes>)([\s\S]*?)(</PackageReleaseNotes>)"
     let VERSION = @"(\d+)\.(\d+)\.(\d+)(\S*)"
+    let VERSION_HEADER = "#+ " + VERSION
 
     let splitPrerelease (version: string) =
         let i = version.IndexOf("-")
@@ -499,9 +500,11 @@ module Publish =
             |> Observable.subscribeWhile (fun line ->
                 match line.Trim() with
                 | "" -> true
-                | Regex VERSION (v::_) ->
+                | Regex VERSION_HEADER [_;major;minor;patch;rest] ->
                     match version with
-                    | "" -> version <- v; true
+                    | "" ->
+                        version <- $"{major}.{minor}.{patch}{rest}"
+                        true
                     | _ ->
                         cont(version, notes.ToArray())
                         // We reached next version section, stop reading
