@@ -266,6 +266,8 @@ module Platform =
 
 open Platform
 
+type NugetInfo = { ApiKey: string; ReleaseVersion: string; ReleaseNotes: string[] }
+
 let (</>) (p1: string) (p2: string): string =
     IO.Path.Combine(p1, p2)
 
@@ -465,6 +467,7 @@ let replaceRegex (pattern: string) (evaluator: Match -> string) (input: string) 
 module Publish =
     let NUGET_VERSION = @"(<Version>)(.*?)(<\/Version>)"
     let NUGET_PACKAGE_VERSION = @"(<PackageVersion>)(.*?)(<\/PackageVersion>)"
+    let NUGET_PACKAGE_RELEASE_NOTES = @"(<PackageReleaseNotes>)([\s\S]*?)(</PackageReleaseNotes>)"
     let VERSION = @"(\d+)\.(\d+)\.(\d+)(\S*)"
 
     let splitPrerelease (version: string) =
@@ -553,11 +556,11 @@ module Publish =
             | Some x -> x
             | None -> failwithf "Cannot find %s in %s" ext dir
 
-    let pushNugetWithKey (projFile: string) props buildAction nugetKey =
+    let pushNugetWithInfo (projFile: string) props buildAction (nugetInfo: NugetInfo) =
         let checkPkgVersion = function
             | Regex NUGET_PACKAGE_VERSION [_;_;pkgVersion;_] -> Some pkgVersion
             | _ -> None
-        let releaseVersion = loadReleaseVersion projFile
+        let releaseVersion = nugetInfo.ReleaseVersion
         if needsPublishing checkPkgVersion releaseVersion projFile then
             buildAction()
             let projDir = dirname projFile
@@ -569,6 +572,11 @@ module Publish =
                 m.Groups.[1].Value + (splitPrerelease releaseVersion |> fst) + m.Groups.[3].Value)
             |> replaceRegex NUGET_PACKAGE_VERSION (fun m ->
                 m.Groups.[1].Value + releaseVersion + m.Groups.[3].Value)
+            |> fun fsproj ->
+                if nugetInfo.ReleaseNotes.Length = 0 then fsproj
+                else
+                    fsproj |> replaceRegex NUGET_PACKAGE_RELEASE_NOTES (fun m ->
+                        m.Groups.[1].Value + (String.concat "\n" nugetInfo.ReleaseNotes) + m.Groups.[3].Value)
             |> writeFile projFile
             try
                 let tempDir = fullPath(projDir </> "temp")
@@ -581,12 +589,12 @@ module Publish =
                     tempDir
                 ]
                 let nupkg = findFileWithExt tempDir ".nupkg"
-                runList ["dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetKey]
+                runList ["dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetInfo.ApiKey]
 
                 // Looks like the `nuget push` command automatically detects the .snupkg symbols
                 // We issue the command below just in case but with --skip-duplicate to prevent errors
                 let snupkg = findFileWithExt tempDir ".snupkg"
-                runList ["dotnet nuget push"; snupkg; "-s nuget.org --skip-duplicate -k"; nugetKey]
+                runList ["dotnet nuget push"; snupkg; "-s nuget.org --skip-duplicate -k"; nugetInfo.ApiKey]
 
                 removeDirRecursive tempDir
             with _ ->
@@ -628,7 +636,8 @@ let pushNuget projFile props buildAction =
         | Some nugetKey -> nugetKey
         | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
 
-    Publish.pushNugetWithKey projFile props buildAction nugetKey
+    { ApiKey = nugetKey; ReleaseVersion = Publish.loadReleaseVersion projFile; ReleaseNotes = [||] }
+    |> Publish.pushNugetWithInfo projFile props buildAction
 
 let pushFableNuget projFile props buildAction =
     let fableNugetKey =
@@ -650,7 +659,11 @@ let pushFableNuget projFile props buildAction =
             | None ->
                 failwith "The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable"
 
-    Publish.pushNugetWithKey projFile props buildAction fableNugetKey
+    async {
+        let! version, notes = Publish.loadReleaseVersionAndNotes projFile
+        { ApiKey = fableNugetKey; ReleaseVersion = version; ReleaseNotes = notes }
+        |> Publish.pushNugetWithInfo projFile props buildAction
+    }
 
 let pushNpm projDir buildAction =
     Publish.pushNpm projDir buildAction

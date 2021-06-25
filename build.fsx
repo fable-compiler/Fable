@@ -509,12 +509,14 @@ let publishPackages restArgs =
         match List.tryHead restArgs with
         | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
         | None -> packages
-    for (pkg, buildAction) in packages do
-        if System.Char.IsUpper pkg.[0] then
-            let projFile = "src" </> pkg </> pkg + ".fsproj"
-            pushFableNuget projFile ["Pack", "true"] buildAction
-        else
-            pushNpm ("src" </> pkg) buildAction
+    async {
+        for (pkg, buildAction) in packages do
+            if System.Char.IsUpper pkg.[0] then
+                let projFile = "src" </> pkg </> pkg + ".fsproj"
+                do! pushFableNuget projFile ["Pack", "true"] buildAction
+            else
+                pushNpm ("src" </> pkg) buildAction
+    } |> runAsyncWorkflow
 
 let minify<'T> =
     argsLower |> List.contains "--no-minify" |> not
