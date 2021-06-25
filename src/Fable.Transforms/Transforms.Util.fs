@@ -542,7 +542,10 @@ module AST =
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
         match typ1, typ2 with
-        | Any, Any
+        | Any, Any -> true
+        | _, Any -> not strict
+        | GenericParam name1, GenericParam name2 -> name1 = name2
+        | GenericParam _, _ | _, GenericParam _ -> not strict
         | Unit, Unit
         | Boolean, Boolean
         | Char, Char
@@ -560,8 +563,6 @@ module AST =
             listEquals (typeEquals strict) as1 as2 && typeEquals strict t1 t2
         | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
             ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
-        | GenericParam _, _ | _, GenericParam _ when not strict -> true
-        | GenericParam name1, GenericParam name2 -> name1 = name2
         // Field names must be already sorted
         | AnonymousRecordType(fields1, gen1), AnonymousRecordType(fields2, gen2) ->
             fields1.Length = fields2.Length

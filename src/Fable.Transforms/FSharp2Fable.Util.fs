@@ -922,23 +922,37 @@ module TypeHelpers =
         else None
 
     let tryFindMember _com (entity: Fable.Entity) genArgs compiledName isInstance (argTypes: Fable.Type list) =
+        let transformArgs (args: IList<IList<FSharpParameter>>) =
+            args |> Seq.collect (fun g -> g |> Seq.map (fun p -> makeType genArgs p.Type) |> Seq.toList) |> Seq.toList
+
         let argsEqual (args1: Fable.Type list) args1Length (args2: IList<IList<FSharpParameter>>) =
-                let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
-                if args1Length = args2Length then
-                    let args2 =
-                        args2
-                        |> Seq.collect (fun g ->
-                            g |> Seq.map (fun p -> makeType genArgs p.Type) |> Seq.toList)
-                    listEquals (typeEquals false) args1 (Seq.toList args2)
-                else false
+            let args2Length = args2 |> Seq.sumBy (fun g -> g.Count)
+            args1Length = args2Length && listEquals (typeEquals false) args1 (transformArgs args2)
+
+        // We assume members here have already similar args (length and types)
+        let tieBreak (args1: Fable.Type list) (ms: FSharpMemberOrFunctionOrValue list) =
+            let getScore (m: FSharpMemberOrFunctionOrValue) =
+                let args2 = transformArgs m.CurriedParameterGroups
+                List.zip args1 args2 |> List.map (function
+                    // TODO: We should actually check the full hierarchy
+                    | Fable.DeclaredType _, Fable.Any -> -1
+                    | _ -> 0) |> List.sum
+            ms |> List.sortBy getScore |> List.head
 
         match entity with
         | :? FsEnt as entity ->
             let argTypesLength = List.length argTypes
-            getOwnAndInheritedFsharpMembers entity.FSharpEntity |> Seq.tryFind (fun m2 ->
-                if m2.IsInstanceMember = isInstance && m2.CompiledName = compiledName
-                then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
-                else false)
+            let candidates =
+                getOwnAndInheritedFsharpMembers entity.FSharpEntity
+                |> Seq.filter (fun m2 ->
+                    if m2.IsInstanceMember = isInstance && m2.CompiledName = compiledName
+                    then argsEqual argTypes argTypesLength m2.CurriedParameterGroups
+                    else false)
+                |> Seq.toList
+            match candidates with
+            | [] -> None
+            | [m] -> Some m
+            | ms -> tieBreak argTypes ms |> Some
         | _ -> None
 
     [<RequireQualifiedAccess; Flags>]
