@@ -31,7 +31,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
             SignatureArgTypes = getArgTypes com baseCons
             CallMemberInfo = None
             HasSpread = false
-            IsJsConstructor = false }
+            IsConstructor = false }
         makeCall r Fable.Unit callInfo baseRef
     | None ->
         if not baseCons.IsImplicitConstructor then
@@ -562,7 +562,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
                 | AST.NestedLambda(args, Fable.Import(info,_,r), _) when not info.IsCompilerGenerated ->
                     let t = value.Type
                     let info = resolveImportMemberBinding ident info
-                    return Fable.Let(ident, Fable.Curry(Fable.Import(info,t,r), List.length args), body)
+                    return Fable.Let(ident, Fable.Extended(Fable.Curry(Fable.Import(info,t,r), List.length args), r), body)
                 | _ -> return Fable.Let(ident, value, body)
 
     | FSharpExprPatterns.LetRec(recBindings, body) ->

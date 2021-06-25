@@ -514,7 +514,7 @@ let rec tryFindMethod methodName (phpType: PhpType) =
 /// convert a Fable expression to a Php expression
 let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     match expr with
-    | Fable.NativeInstruction _ -> failwith "TODO: Native instruction"
+    | Fable.Extended _ -> failwith "TODO: Extended instructions"
 
     | Fable.Value(value,range) ->
         // this is a value (number / record instanciation ...)
@@ -910,8 +910,6 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         // close the scope and get captured vars
         let uses = com.RestoreScope()
         PhpFunctionCall( PhpAnonymousFunc([], uses, body), [] )
-    | Fable.Curry(expr, arrity) ->
-        failwith "Curry is not implemented"
     | Fable.LetRec(bindings, body) ->
         failwith "LetRec is not implemented"
     | Fable.ForLoop _
@@ -1244,19 +1242,18 @@ and convertExprToStatement (com: IPhpCompiler) expr returnStrategy =
 
         [ PhpFor(id,startExpr, limitExpr, isUp, bodyExpr)]
 
-
-
-    | Fable.NativeInstruction(Fable.Break label,_) ->
+    | Fable.Extended(Fable.Break label,_) ->
         let phpLevel =
             match label with
             | Some lbl -> com.FindLableLevel lbl |> Some
             | None -> None
         [ PhpBreak phpLevel ]
-    | Fable.NativeInstruction(Fable.Debugger, _) ->
+    | Fable.Extended(Fable.Debugger, _) ->
         [ PhpDo (PhpFunctionCall(PhpIdent (unscopedIdent "assert"), [ PhpConst (PhpConstBool false)])) ]
-    | Fable.NativeInstruction(Fable.Throw(expr, _ ),_) ->
+    | Fable.Extended(Fable.Throw(expr, _ ),_) ->
             [ PhpThrow(convertExpr com expr)]
- 
+    | Fable.Extended(Fable.Curry(expr, arrity),_) ->
+        failwith "Curry is not implemented"
 
     | _ ->
         match returnStrategy with
@@ -1589,7 +1586,7 @@ type PhpCompiler(com: Fable.Compiler) =
         member this.EnterBreakable(label) = breakable <- label :: breakable
         member this.LeaveBreakable() =
             breakable <- List.tail breakable
-        member this.FindLableLevel(label) = 
+        member this.FindLableLevel(label) =
             List.findIndex(function Some v when v = label -> true | _ -> false) breakable
 
 
