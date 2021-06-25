@@ -444,7 +444,7 @@ module AST =
           SignatureArgTypes = argTypes
           CallMemberInfo = None
           HasSpread = false
-          IsJsConstructor = false }
+          IsConstructor = false }
 
     let emitJs r t args isStatement macro =
         let callInfo =
@@ -453,10 +453,10 @@ module AST =
               SignatureArgTypes = []
               CallMemberInfo = None
               HasSpread = false
-              IsJsConstructor = false }
+              IsConstructor = false }
         let emitInfo =
             { Macro = macro
-              IsJsStatement = isStatement
+              IsStatement = isStatement
               CallInfo = callInfo }
         Emit(emitInfo, t, r)
 
@@ -467,10 +467,10 @@ module AST =
         emitJs r t args true macro
 
     let makeThrow r t err =
-        NativeInstruction(Throw(err, t), r)
+        Extended(Throw(err, t), r)
 
     let makeDebugger range =
-        NativeInstruction(Debugger, range)
+        Extended(Debugger, range)
 
     let destructureTupleArgs = function
         | [MaybeCasted(Value(UnitConstant,_))] -> []

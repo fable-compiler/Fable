@@ -10,9 +10,10 @@ let visit f e =
     | Import(info, t, r) ->
         Import({ info with Selector = info.Selector
                            Path = info.Path }, t, r)
-    | NativeInstruction(kind, r) ->
+    | Extended(kind, r) ->
         match kind with
-        | Throw(e, t) -> NativeInstruction(Throw(f e, t), r)
+        | Curry(e, arity) -> Extended(Curry(f e, arity), r)
+        | Throw(e, t) -> Extended(Throw(f e, t), r)
         | Break _
         | Debugger -> e
     | Value(kind, r) ->
@@ -36,7 +37,6 @@ let visit f e =
         | NewUnion(exprs, uci, ent, genArgs) ->
             NewUnion(List.map f exprs, uci, ent, genArgs) |> makeValue r
     | Test(e, kind, r) -> Test(f e, kind, r)
-    | Curry(e, arity) -> Curry(f e, arity)
     | Lambda(arg, body, name) -> Lambda(arg, f body, name)
     | Delegate(args, body, name) -> Delegate(args, f body, name)
     | ObjectExpr(members, t, baseCall) ->
@@ -102,8 +102,9 @@ let getSubExpressions = function
     | IdentExpr _ -> []
     | TypeCast(e,_,_) -> [e]
     | Import(_,_,_) -> []
-    | NativeInstruction(kind, r) ->
+    | Extended(kind, r) ->
         match kind with
+        | Curry(e, _)
         | Throw(e, _) -> [e]
         | Break _
         | Debugger -> []
@@ -124,7 +125,6 @@ let getSubExpressions = function
         | NewAnonymousRecord(exprs, _, _) -> exprs
         | NewUnion(exprs, _, _, _) -> exprs
     | Test(e, _, _) -> [e]
-    | Curry(e, _) -> [e]
     | Lambda(_, body, _) -> [body]
     | Delegate(_, body, _) -> [body]
     | ObjectExpr(members, _, baseCall) ->
@@ -240,7 +240,8 @@ let noSideEffectBeforeIdent identName expr =
                 true
             else false
         | Import _ | Lambda _ | Delegate _ -> false
-        | NativeInstruction((Throw _|Break _|Debugger),_) -> true
+        | Extended((Throw _|Break _|Debugger),_) -> true
+        | Extended(Curry(e,_),_) -> findIdentOrSideEffect e
         // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
         | TypeCast(Call(_,i,_,_),_,Some "optimizable:pojo") ->
             match i.Args with
@@ -275,8 +276,7 @@ let noSideEffectBeforeIdent identName expr =
         | Let(_,v,b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e,_,_)
         | Get(e,_,_,_)
-        | Test(e,_,_)
-        | Curry(e,_) -> findIdentOrSideEffect e
+        | Test(e,_,_) -> findIdentOrSideEffect e
         | IfThenElse(cond, thenExpr, elseExpr,_) ->
             findIdentOrSideEffect cond || findIdentOrSideEffect thenExpr || findIdentOrSideEffect elseExpr
         // TODO: Check member bodies in ObjectExpr
@@ -389,7 +389,7 @@ module private Transforms =
         visitFromInsideOut (function
             | IdentExpr id as e ->
                 match Map.tryFind id.Name replacements with
-                | Some arity -> Curry(e, arity)
+                | Some arity -> Extended(Curry(e, arity), e.Range)
                 | None -> e
             | e -> e) body
 
@@ -413,11 +413,11 @@ module private Transforms =
             | None -> true
         match expr, expr with
         | MaybeCasted(LambdaUncurriedAtCompileTime arity lambda), _ -> lambda
-        | _, Curry(innerExpr, arity2)
+        | _, Extended(Curry(innerExpr, arity2),_)
             when matches arity arity2 -> innerExpr
-        | _, Get(Curry(innerExpr, arity2), OptionValue, t, r)
+        | _, Get(Extended(Curry(innerExpr, arity2),_), OptionValue, t, r)
             when matches arity arity2 -> Get(innerExpr, OptionValue, t, r)
-        | _, Value(NewOption(Some(Curry(innerExpr, arity2)), t, isStruct), r)
+        | _, Value(NewOption(Some(Extended(Curry(innerExpr, arity2),_)), t, isStruct), r)
             when matches arity arity2 -> Value(NewOption(Some(innerExpr), t, isStruct), r)
         | _ ->
             match arity with
@@ -502,11 +502,11 @@ module private Transforms =
         | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
-                | Curry(innerExpr, arity) ->
+                | Extended(Curry(innerExpr, arity),_) ->
                     ident, innerExpr, Some arity
-                | Get(Curry(innerExpr, arity), OptionValue, t, r) ->
+                | Get(Extended(Curry(innerExpr, arity),_), OptionValue, t, r) ->
                     ident, Get(innerExpr, OptionValue, t, r), Some arity
-                | Value(NewOption(Some(Curry(innerExpr, arity)), t, isStruct), r) ->
+                | Value(NewOption(Some(Extended(Curry(innerExpr, arity),_)), t, isStruct), r) ->
                     ident, Value(NewOption(Some(innerExpr), t, isStruct), r), Some arity
                 | _ -> ident, value, None
             match arity with
@@ -542,9 +542,9 @@ module private Transforms =
                 let callee = makeImportLib com Any "checkArity" "Util"
                 let info = makeCallInfo None [makeIntConst arity; e] []
                 let e = Call(callee, info, t, r)
-                if arity > 1 then Curry(e, arity)
+                if arity > 1 then Extended(Curry(e, arity), e.Range)
                 else e
-            | (arity, _), _ when arity > 1 -> Curry(e, arity)
+            | (arity, _), _ when arity > 1 -> Extended(Curry(e, arity), e.Range)
             | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
@@ -601,9 +601,9 @@ module private Transforms =
             let applied = visitFromOutsideIn (uncurryApplications com) applied
             let args = args |> List.map (visitFromOutsideIn (uncurryApplications com))
             match applied with
-            | Curry(applied, uncurriedArity) ->
+            | Extended(Curry(applied, uncurriedArity),_) ->
                 uncurryApply r t applied args uncurriedArity
-            | Get(Curry(applied, uncurriedArity), OptionValue, t2, r2) ->
+            | Get(Extended(Curry(applied, uncurriedArity),_), OptionValue, t2, r2) ->
                 uncurryApply r t (Get(applied, OptionValue, t2, r2)) args uncurriedArity
             | _ -> CurriedApply(applied, args, t, r) |> Some
         | _ -> None

@@ -1734,7 +1734,7 @@ module Util =
                                 SignatureArgTypes = []
                                 CallMemberInfo = None
                                 HasSpread = false
-                                IsJsConstructor = false }
+                                IsConstructor = false }
                 // Allow combination of Import and Emit attributes
                 let callInfo =
                     match tryGlobalOrImportedMember com Fable.Any memb with
@@ -1751,7 +1751,7 @@ module Util =
                     | _ -> macro
                 let emitInfo: Fable.EmitInfo =
                     { Macro = macro
-                      IsJsStatement = isStatement
+                      IsStatement = isStatement
                       CallInfo = callInfo }
                 Fable.Emit(emitInfo, typ, r) |> Some
             | _ -> None)
@@ -1785,7 +1785,7 @@ module Util =
                 callInstanceMember com r typ callInfo e memb |> Some
 
             | Some classExpr, None when memb.IsConstructor ->
-                Fable.Call(classExpr, { callInfo with IsJsConstructor = true }, typ, r) |> Some
+                Fable.Call(classExpr, { callInfo with IsConstructor = true }, typ, r) |> Some
 
             | Some moduleOrClassExpr, None ->
                 if isModuleValueForCalls e memb then
@@ -1942,7 +1942,7 @@ module Util =
             Args = transformOptionalArguments com ctx r memb genArgs args
             SignatureArgTypes = getArgTypes com memb
             HasSpread = hasParamArray memb
-            IsJsConstructor = false
+            IsConstructor = false
             CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
         }
 

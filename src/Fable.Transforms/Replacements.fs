@@ -14,7 +14,7 @@ type CallInfo = ReplaceCallInfo
 type Helper =
     static member JsConstructorCall(consExpr: Expr, returnType: Type, args: Expr list, ?argTypes, ?loc: SourceLocation) =
         let info = defaultArg argTypes [] |> makeCallInfo None args
-        Call(consExpr, { info with IsJsConstructor = true }, returnType, loc)
+        Call(consExpr, { info with IsConstructor = true }, returnType, loc)
 
     static member InstanceCall(callee: Expr, memb: string, returnType: Type, args: Expr list,
                                ?argTypes: Type list, ?loc: SourceLocation) =
@@ -35,7 +35,7 @@ type Helper =
         let callee = makeImportLib com Any coreMember coreModule
         let info = makeCallInfo thisArg args (defaultArg argTypes [])
         Call(callee, { info with HasSpread = defaultArg hasSpread false
-                                 IsJsConstructor = defaultArg isJsConstructor false }, returnType, loc)
+                                 IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
 
     static member GlobalCall(ident: string, returnType: Type, args: Expr list, ?argTypes: Type list,
                              ?memb: string, ?isJsConstructor: bool, ?loc: SourceLocation) =
@@ -44,7 +44,7 @@ type Helper =
             | Some memb -> getAttachedMember (makeIdentExpr ident) memb
             | None -> makeIdentExpr ident
         let info = makeCallInfo None args (defaultArg argTypes [])
-        Call(callee, { info with IsJsConstructor = defaultArg isJsConstructor false }, returnType, loc)
+        Call(callee, { info with IsConstructor = defaultArg isJsConstructor false }, returnType, loc)
 
     static member GlobalIdent(ident: string, memb: string, typ: Type, ?loc: SourceLocation) =
         getAttachedMemberWith loc typ (makeIdentExpr ident) memb
