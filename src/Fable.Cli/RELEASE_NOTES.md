@@ -1,3 +1,7 @@
+### 3.2.8
+
+* Fix regression in FCS: passing __SOURCE_IDENTIFIER__ to static parameters in type providers
+
 ### 3.2.7
 
 * Fix regression: all files were recompiled in watch mode in 3.2.5
