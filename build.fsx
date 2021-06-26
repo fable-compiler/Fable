@@ -418,20 +418,7 @@ let githubRelease() =
                 let! version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
                 let notes = notes |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""") |> String.concat ","
                 run $"git commit -am \"Release {version}\" && git push"
-                runSilent $"""
-node --eval "require('ghreleases').create({{
-    user: '{user}',
-    token: '{token}',
-}}, 'fable-compiler', 'Fable', {{
-    tag_name: '{version}',
-    name: '{version}',
-    body: [{notes}].join('\n'),
-}}, (err, res) => {{
-    if (err != null) {{
-        console.error(err)
-    }}
-}})"
-"""
+                runSilent $"""node --eval "require('ghreleases').create({{ user: '{user}', token: '{token}', }}, 'fable-compiler', 'Fable', {{ tag_name: '{version}', name: '{version}', body: [{notes}].join('\n'), }}, (err, res) => {{ if (err != null) {{ console.error(err) }} }})" """
                 printfn "Github release %s created successfully" version
             with ex ->
                 printfn "Github release failed: %s" ex.Message
