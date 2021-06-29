@@ -127,7 +127,25 @@ let private transformTraitCall com (ctx: Context) r typ (sourceTypes: Fable.Type
             match t with
             | Fable.DeclaredType(entity, genArgs) ->
                 let entity = com.GetEntity(entity)
-                resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
+                // SRTP only works for records if there are no arguments
+                if isInstance && entity.IsFSharpRecord && List.isEmpty args && Option.isSome thisArg then
+                    let fieldName = Naming.removeGetSetPrefix traitName
+                    entity.FSharpFields |> Seq.tryPick (fun fi ->
+                        if fi.Name = fieldName then
+                            Fable.Get(thisArg.Value, Fable.ByKey(Fable.FieldKey fi), typ, r) |> Some
+                        else None)
+                    |> Option.orElseWith (fun () ->
+                        resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args)
+                else resolveMemberCall entity genArgs traitName isInstance argTypes thisArg args
+            | Fable.AnonymousRecordType(sortedFieldNames, genArgs)
+                    when isInstance && List.isEmpty args && Option.isSome thisArg ->
+                let fieldName = Naming.removeGetSetPrefix traitName
+                Seq.zip sortedFieldNames genArgs
+                |> Seq.tryPick (fun (fi, fiType) ->
+                    if fi = fieldName then
+                        let key = FsField(fi, lazy fiType) :> Fable.Field |> Fable.FieldKey
+                        Fable.Get(thisArg.Value, Fable.ByKey key, typ, r) |> Some
+                    else None)
             | _ -> None
     ) |> Option.defaultWith (fun () ->
         "Cannot resolve trait call " + traitName |> addErrorAndReturnNull com ctx.InlinePath r)

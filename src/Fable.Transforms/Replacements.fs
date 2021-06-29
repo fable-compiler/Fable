@@ -196,8 +196,8 @@ let (|NumberExt|_|) = function
     | Builtin BclBigInt -> Some BigInt
     | _ -> None
 
-let genericTypeInfoError name =
-    sprintf "Cannot get type info of generic parameter %s, please inline or inject a type resolver" name
+let genericTypeInfoError (name: string) =
+    $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
 let getTypeNameFromFullName (fullname: string) =
     let fullname =

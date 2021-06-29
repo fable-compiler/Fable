@@ -340,9 +340,7 @@ let testCompiler() =
 let testIntegration() =
     runInDir "tests/Integration" "dotnet run -c Release"
 
-let test() =
-    buildLibraryIfNotExists()
-
+let testMocha() =
     let projectDir = "tests/Main"
     let buildDir = "build/tests"
 
@@ -354,7 +352,12 @@ let test() =
 
     runMocha buildDir
 
-    runInDir projectDir "dotnet run"
+let test() =
+    buildLibraryIfNotExists()
+
+    testMocha()
+
+    runInDir "tests/Main" "dotnet run"
 
     testReact()
 
@@ -516,6 +519,7 @@ match argsLower with
 // | "download-standalone"::_ -> downloadStandalone()
 // | "coverage"::_ -> coverage()
 | "test"::_ -> test()
+| "test-mocha"::_ -> testMocha()
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
