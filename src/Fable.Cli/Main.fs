@@ -166,7 +166,7 @@ module private Util =
         member _.SourceMap =
             mapGenerator.Force().toJSON()
 
-    let compileFile isWatch (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
+    let compileFile isRecompile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
         try
             let fable =
                 FSharp2Fable.Compiler.transformFile com
@@ -202,7 +202,7 @@ module private Util =
 
 
             "Compiled " + File.getRelativePathFromCwd com.CurrentFile
-            |> Log.verboseOrIf isWatch
+            |> Log.verboseOrIf isRecompile
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -414,8 +414,7 @@ type State =
             |> addTargetDir)
 
 let rec startCompilation (changes: ISet<string>) (state: State) = async {
-    // If the project had F# errors the Fable compilation didn't happen
-    let isWatchCompilation = state.FableCompilationMs > 0L
+    let isFableRecompile = state.FableCompilationMs > 0L
 
     let state =
         match state.CliArgs.RunProcess with
@@ -444,7 +443,9 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 else false, Set.empty, cracked
 
             let dirtyFiles =
-                if isWatchCompilation then
+                // If the project had F# errors the Fable compilation didn't happen
+                // so we need to compile all files
+                if not isFableRecompile then
                     cracked.SourceFiles
                     |> Array.map (fun f -> f.NormalizedFullPath)
                 else
@@ -514,7 +515,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 filesToCompile
                 |> Array.map (fun file ->
                     cracked.MakeCompiler(file, parsed.Project, state.CliArgs.OutDir)
-                    |> compileFile isWatchCompilation state.CliArgs state.GetOrAddDeduplicateTargetDir)
+                    |> compileFile isFableRecompile state.CliArgs state.GetOrAddDeduplicateTargetDir)
                 |> Async.Parallel
 
             Log.always $"Fable compilation finished in %i{ms}ms"

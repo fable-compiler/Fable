@@ -1,3 +1,12 @@
+### 3.2.8
+
+* Fix regression in FCS: passing __SOURCE_IDENTIFIER__ to static parameters in type providers
+
+### 3.2.7
+
+* Fix regression: all files were recompiled in watch mode in 3.2.5
+* Fix #2472: Tuple-related methods
+
 ### 3.2.6
 
 * Fix #2471: Trait call regression

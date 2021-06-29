@@ -1,6 +1,6 @@
 # Fable: F# |> JS
 
-[![Linux Build Status](https://travis-ci.org/fable-compiler/Fable.svg?branch=nagareyama "Linux Build Status")](https://travis-ci.org/fable-compiler/Fable) [![Windows Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5/branch/nagareyama?svg=true "Windows Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Nuget](https://img.shields.io/nuget/v/Fable.svg?maxAge=0&colorB=brightgreen)](https://www.nuget.org/packages/Fable) [![Linux Build Status](https://travis-ci.org/fable-compiler/Fable.svg?branch=nagareyama "Linux Build Status")](https://travis-ci.org/fable-compiler/Fable) [![Windows Build Status](https://ci.appveyor.com/api/projects/status/vlmyxg64my74sik5/branch/nagareyama?svg=true "Windows Build Status")](https://ci.appveyor.com/project/alfonsogarciacaro/fable) [![Join the chat at https://gitter.im/fable-compiler/Fable](https://badges.gitter.im/fable-compiler/Fable.svg)](https://gitter.im/fable-compiler/Fable?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 [Follow us on Twitter!](https://twitter.com/FableCompiler)
 

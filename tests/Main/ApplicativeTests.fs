@@ -419,6 +419,9 @@ let update (model: RecordA) action =
 
 type Item2 = static member inline Invoke value = (^t : (member Item2 : _) value)
 
+type Ideable2 =
+    { Id: string; Name: string }
+
 type Id = Id of string
 
 type Ideable =
@@ -427,6 +430,13 @@ type Ideable =
 
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
+
+let inline getId (x: ^a when ^a:(member Id : string)) =
+    (^a : (member Id : string) x)
+
+let inline wrapId x =
+    let id = getId x
+    "<<<" + id + ">>>"
 
 type Parseable = Parseable with static member Parse (_: string) = Parseable
 
@@ -604,6 +614,19 @@ let tests5 = [
         equal true b
         equal Parseable p
         equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
+
+    testCase "Inline local function can call another inline function with trait call" <| fun _ ->
+        let inline wrapIdLocal x =
+            let id = getId x
+            "<<<" + id + ">>>"
+        let a = wrapId { Ideable2.Id="ABC"; Name="OOOO"}
+        let b = wrapId {| Id = "xyz" |}
+        let c = wrapIdLocal { Ideable2.Id="ABC"; Name="EEEE"}
+        let d = wrapIdLocal {| Id = "xyz" |}
+        equal "<<<ABC>>>" a
+        equal "<<<xyz>>>" b
+        equal "<<<ABC>>>" c
+        equal "<<<xyz>>>" d
 
     testCase "Unit expression arguments are not removed" <| fun () ->
         let mutable x = 0
