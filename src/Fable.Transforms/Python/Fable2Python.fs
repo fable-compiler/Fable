@@ -645,13 +645,13 @@ module Util =
             |> fun (ids, values, ids') ->
                 ctx.BoundVars.Bind(ids')
                 (Expression.tuple(ids), Expression.tuple(values))
+
         [ Statement.assign([ids], values) ]
 
     let varDeclaration (ctx: Context) (var: Expression) (isMutable: bool) value =
         match var with
         | Name({Id=id}) -> ctx.BoundVars.Bind([id])
         | _ -> ()
-
         [ Statement.assign([var], value) ]
 
     let restElement (var: Python.Identifier) =
@@ -1077,7 +1077,7 @@ module Util =
                  | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequal ->
-                printfn "Right: %A" right
+                //printfn "Right: %A" right
                 match right with
                  | Expression.Name({Id=Identifier("None")})  ->
                     let op = BinaryUnequalStrict
@@ -1283,7 +1283,8 @@ module Util =
         if isPyStatement ctx false value then
             let varName, varExpr = Expression.name(var.Name), identAsExpr com ctx var
             ctx.BoundVars.Bind(var.Name)
-            let decl = Statement.assign([varName], varExpr)
+
+            let decl = Statement.assign([varName], Expression.none ())
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             List.append [ decl ] body
         else
@@ -1599,6 +1600,11 @@ module Util =
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
 
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="charCodeAt"), _, _), info, _, range) ->
+            let func = Expression.name("ord")
+            let value, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.call (func, [ value ]), stmts
+
         | Fable.Call(callee, info, _, range) ->
             transformCall com ctx range callee info
 
@@ -1607,6 +1613,21 @@ module Util =
 
         | Fable.Operation(kind, _, range) ->
             transformOperation com ctx range kind
+
+        | Fable.Get(expr, Fable.FieldGet(fieldName="push"), _, _) ->
+            let attr = Python.Identifier("append")
+            let value, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+
+        | Fable.Get(expr, Fable.FieldGet(fieldName="indexOf"), _, _) ->
+            let attr = Python.Identifier("find")
+            let value, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+
+        | Fable.Get(expr, Fable.FieldGet(fieldName="length"), _, _) ->
+            let func = Expression.name("len")
+            let left, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.call (func, [ left ]), stmts
 
         | Fable.Get(expr, kind, typ, range) ->
             transformGet com ctx range typ expr kind
@@ -1836,7 +1857,7 @@ module Util =
             else
                 let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident com ctx v, None]
                 varDeclStatement @ body
-        printfn "Args: %A" (args, body)
+        //printfn "Args: %A" (args, body)
         args |> List.map (ident com ctx >> Arg.arg), body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
