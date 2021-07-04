@@ -686,10 +686,8 @@ module Util =
     let emitExpression range (txt: string) args =
         let value =
             match txt with
-            | "$0.join('')" ->
-                "''.join($0)"
-            | "throw $0" ->
-                "raise $0"
+            | "$0.join('')" -> "''.join($0)"
+            | "throw $0" -> "raise $0"
             | Naming.StartsWith("void ") value
             | Naming.StartsWith("new ") value -> value
             | _ -> txt
@@ -1033,7 +1031,7 @@ module Util =
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
 
     let resolveExpr t strategy pyExpr: Statement =
-        printfn "resolveExpr: %A" pyExpr
+        //printfn "resolveExpr: %A" pyExpr
         match strategy with
         | None | Some ReturnUnit -> exprAsStatement(pyExpr)
         // TODO: Where to put these int wrappings? Add them also for function arguments?
@@ -1252,7 +1250,7 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr (value: Fable.Expr) kind =
-        printfn "transformSet: %A" (fableExpr, value)
+        //printfn "transformSet: %A" (fableExpr, value)
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let value, stmts' = com.TransformAsExpr(ctx, value)
         let ret, stmts'' =
@@ -1275,7 +1273,7 @@ module Util =
             com.TransformAsExpr(ctx, value)
 
     let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        printfn "transformBindingAsExpr: %A" (var, value)
+        //printfn "transformBindingAsExpr: %A" (var, value)
         let expr, stmts = transformBindingExprBody com ctx var value
         expr |> assign None (identAsExpr com ctx var), stmts
 
@@ -1840,7 +1838,7 @@ module Util =
                 // Replace args, see NamedTailCallOpportunity constructor
                 let args' =
                     List.zip args tc.Args
-                    |> List.map (fun (id, tcArg) -> id)
+                    |> List.map (fun (id, tcArg) -> com.GetIdentifier(ctx, tcArg))
                 let varDecls =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) -> ident com ctx id, Some (com.GetIdentifierAsExpr(ctx, tcArg)))
@@ -1851,14 +1849,14 @@ module Util =
                 let body = body @ [ Statement.break'() ]
                 args', Statement.while'(Expression.constant(true), body)
                 |> List.singleton
-            | _ -> args |> List.map id, body
+            | _ -> args |> List.map (ident com ctx), body
         let body =
             if declaredVars.Count = 0 then body
             else
                 let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident com ctx v, None]
                 varDeclStatement @ body
         //printfn "Args: %A" (args, body)
-        args |> List.map (ident com ctx >> Arg.arg), body
+        args |> List.map Arg.arg, body
 
     let declareEntryPoint _com _ctx (funcExpr: Expression) =
         let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
@@ -2102,7 +2100,7 @@ module Util =
         ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx decl =
-        printfn "transformDeclaration: %A" decl
+        //printfn "transformDeclaration: %A" decl
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
