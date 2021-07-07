@@ -103,7 +103,7 @@ let argLanguage args =
     | _ -> JavaScript)
 
 type Runner =
-  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
+  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) =
     let normalizeAbsolutePath (path: string) =
         (if IO.Path.IsPathRooted(path) then path
          else IO.Path.Combine(rootDir, path))
@@ -198,17 +198,9 @@ type Runner =
               RunProcess = runProc
               CompilerOptions = compilerOptions }
 
-        { CliArgs = cliArgs
-          ProjectCrackedAndParsed = None
-          WatchDependencies = Map.empty
-          Watcher = if watch then Some(FsWatcher()) else None
-          DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
-          FableCompilationMs = 0L
-          ErroredFiles = Set.empty
-          TestInfo = testInfo }
+        State.Create(cliArgs, isWatch=watch)
         |> startFirstCompilation
         |> Async.RunSynchronously)
-
 
 let clean args dir =
     let language = argLanguage args
@@ -295,7 +287,7 @@ let main argv =
 
         match argv with
         | ("help"|"--help"|"-h")::_ -> return printHelp()
-        | ("--version")::_ -> return Log.always Literals.VERSION
+        | "--version"::_ -> return Log.always Literals.VERSION
         | argv ->
             let commands, args =
                 argv |> List.splitWhile (fun x ->
@@ -304,7 +296,6 @@ let main argv =
             match commands with
             | ["clean"; dir] -> return clean args dir
             | ["clean"] -> return clean args rootDir
-            | ["test"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, testInfo=TestInfo())
             | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
             | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
             | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=flagEnabled "--watch" args)
