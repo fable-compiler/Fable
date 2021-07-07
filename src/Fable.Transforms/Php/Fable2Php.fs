@@ -889,7 +889,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         let uses = com.RestoreScope()
         PhpFunctionCall(PhpAnonymousFunc([id.Name], uses , phpBody),[phpExpr])
 
-    | Fable.Expr.TypeCast(expr, t,_) ->
+    | Fable.Expr.TypeCast(expr, _) ->
         // for now we ignore casts... should probably be improved
         convertExpr com expr
     | Fable.Expr.Sequential([Fable.Value(Fable.UnitConstant, _) ; body]) ->

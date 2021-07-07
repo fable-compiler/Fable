@@ -302,7 +302,7 @@ module AST =
 
     let (|MaybeCasted|) e =
         let rec inner = function
-            | TypeCast(e,_,_) -> inner e
+            | TypeCast(e,_) -> inner e
             | e -> e
         inner e
 
@@ -323,7 +323,7 @@ module AST =
     let rec canHaveSideEffects = function
         | Import _ -> false
         | Lambda _ | Delegate _ -> false
-        | TypeCast(e,_,_) -> canHaveSideEffects e
+        | TypeCast(e,_) -> canHaveSideEffects e
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true
@@ -438,26 +438,14 @@ module AST =
         Path.getRelativeFileOrDirPath false com.CurrentFile false path
         |> makeImportCompilerGenerated t selector
 
-    let makeCallInfo thisArg args argTypes =
-        { ThisArg = thisArg
-          Args = args
-          SignatureArgTypes = argTypes
-          CallMemberInfo = None
-          HasSpread = false
-          IsConstructor = false }
+    let makeCallInfo thisArg args sigArgTypes =
+        CallInfo.Make(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)
 
     let emitJs r t args isStatement macro =
-        let callInfo =
-            { ThisArg = None
-              Args = args
-              SignatureArgTypes = []
-              CallMemberInfo = None
-              HasSpread = false
-              IsConstructor = false }
         let emitInfo =
             { Macro = macro
               IsStatement = isStatement
-              CallInfo = callInfo }
+              CallInfo = CallInfo.Make(args=args) }
         Emit(emitInfo, t, r)
 
     let emitJsExpr r t args macro =

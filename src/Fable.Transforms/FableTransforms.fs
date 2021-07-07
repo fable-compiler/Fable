@@ -6,7 +6,7 @@ open Fable.AST.Fable
 let visit f e =
     match e with
     | IdentExpr _ -> e
-    | TypeCast(e, t, tag) -> TypeCast(f e, t, tag)
+    | TypeCast(e, t) -> TypeCast(f e, t)
     | Import(info, t, r) ->
         Import({ info with Selector = info.Selector
                            Path = info.Path }, t, r)
@@ -100,7 +100,7 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
 
 let getSubExpressions = function
     | IdentExpr _ -> []
-    | TypeCast(e,_,_) -> [e]
+    | TypeCast(e,_) -> [e]
     | Import(_,_,_) -> []
     | Extended(kind, r) ->
         match kind with
@@ -242,16 +242,15 @@ let noSideEffectBeforeIdent identName expr =
         | Import _ | Lambda _ | Delegate _ -> false
         | Extended((Throw _|Break _|Debugger),_) -> true
         | Extended(Curry(e,_),_) -> findIdentOrSideEffect e
-        // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
-        | TypeCast(Call(_,i,_,_),_,Some "optimizable:pojo") ->
-            match i.Args with
-            | IdentExpr i::_ -> i.Name = identName
-            | _ -> false
         | CurriedApply(callee, args, _, _) ->
             callee::args |> findIdentOrSideEffectInList |> orSideEffect
         | Call(e1, info, _, _) ->
-            e1 :: (Option.toList info.ThisArg) @ info.Args
-            |> findIdentOrSideEffectInList |> orSideEffect
+            match info.OptimizableInto, info.Args with
+            // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
+            | Some "pojo", IdentExpr i::_ -> i.Name = identName
+            | _ ->
+                e1 :: (Option.toList info.ThisArg) @ info.Args
+                |> findIdentOrSideEffectInList |> orSideEffect
         | Operation(kind, _, _) ->
             match kind with
             | Unary(_, operand) -> findIdentOrSideEffect operand
@@ -274,7 +273,7 @@ let noSideEffectBeforeIdent identName expr =
             | NewAnonymousRecord(exprs,_,_) -> findIdentOrSideEffectInList exprs
         | Sequential exprs -> findIdentOrSideEffectInList exprs
         | Let(_,v,b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
-        | TypeCast(e,_,_)
+        | TypeCast(e,_)
         | Get(e,_,_,_)
         | Test(e,_,_) -> findIdentOrSideEffect e
         | IfThenElse(cond, thenExpr, elseExpr,_) ->

@@ -1729,12 +1729,7 @@ module Util =
                 let callInfo =
                     match callInfo with
                     | Some i -> i
-                    | None -> { ThisArg = None
-                                Args = []
-                                SignatureArgTypes = []
-                                CallMemberInfo = None
-                                HasSpread = false
-                                IsConstructor = false }
+                    | None -> Fable.CallInfo.Make()
                 // Allow combination of Import and Emit attributes
                 let callInfo =
                     match tryGlobalOrImportedMember com Fable.Any memb with
@@ -1936,19 +1931,14 @@ module Util =
             let fableMember = FsMemberFunctionOrValue(memb)
             com.ApplyMemberCallPlugin(fableMember, callExpr)
 
-    let makeCallInfoFrom (com: IFableCompiler) ctx r genArgs callee args (memb: FSharpMemberOrFunctionOrValue): Fable.CallInfo =
-        {
-            ThisArg = callee
-            Args = transformOptionalArguments com ctx r memb genArgs args
-            SignatureArgTypes = getArgTypes com memb
-            HasSpread = hasParamArray memb
-            IsConstructor = false
-            CallMemberInfo = Some(FsMemberFunctionOrValue.CallMemberInfo(memb))
-        }
-
     let makeCallFrom (com: IFableCompiler) (ctx: Context) r typ (genArgs: Fable.Type seq) callee args (memb: FSharpMemberOrFunctionOrValue) =
         let genArgs = lazy(matchGenericParamsFrom memb genArgs |> Seq.toList)
-        makeCallInfoFrom com ctx r genArgs callee args memb
+        Fable.CallInfo.Make(
+            ?thisArg = callee,
+            args = transformOptionalArguments com ctx r memb genArgs args,
+            sigArgTypes = getArgTypes com memb,
+            hasSpread = hasParamArray memb,
+            memberInfo = FsMemberFunctionOrValue.CallMemberInfo(memb))
         |> makeCallWithArgInfo com ctx r typ genArgs callee memb
 
     let makeValueFrom (com: IFableCompiler) (ctx: Context) r (v: FSharpMemberOrFunctionOrValue) =

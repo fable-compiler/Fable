@@ -591,7 +591,9 @@ module Util =
         | Fable.Value _ | Fable.Import _  | Fable.IdentExpr _
         | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _
         | Fable.Call _ | Fable.CurriedApply _ | Fable.Operation _
-        | Fable.Get _ | Fable.Test _ | Fable.TypeCast _ -> false
+        | Fable.Get _ | Fable.Test _ -> false
+
+        | Fable.TypeCast(e,_) -> isJsStatement ctx preferStatement e
 
         | Fable.TryCatch _
         | Fable.Sequential _ | Fable.Let _ | Fable.LetRec _ | Fable.Set _
@@ -882,30 +884,12 @@ module Util =
         com.GetImportExpr(ctx, selector, path, r)
         |> getParts parts
 
-    let transformCast (com: IBabelCompiler) (ctx: Context) t tag e: Expression =
-        // HACK: Try to optimize some patterns after FableTransforms
-        let optimized =
-            match tag with
-            | Some (Naming.StartsWith "optimizable:" optimization) ->
-                match optimization, e with
-                | "array", Fable.Call(_,info,_,_) ->
-                    match info.Args with
-                    | [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
-                    | _ -> None
-                | "pojo", Fable.Call(_,info,_,_) ->
-                    match info.Args with
-                    | keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
-                    | keyValueList::_ -> Replacements.makePojo com None keyValueList
-                    | _ -> None
-                | _ -> None
-            | _ -> None
-
-        match optimized, t with
-        | Some e, _ -> com.TransformAsExpr(ctx, e)
+    let transformCast (com: IBabelCompiler) (ctx: Context) t e: Expression =
+        match t with
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
-        | None, Fable.DeclaredType(ent,[_]) ->
+        | Fable.DeclaredType(ent,[_]) ->
             match ent.FullName, e with
             | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
@@ -1128,13 +1112,46 @@ module Util =
         |> List.append thisArg
         |> emitExpression range macro
 
+    let transformAnnotation (com: IBabelCompiler) (ctx: Context) tag e: Expression =
+        // HACK: Try to optimize some patterns after FableTransforms
+        let optimized =
+            match tag with
+            | Naming.StartsWith "optimizable:" optimization ->
+                match optimization, e with
+                | "array", Fable.Call(_,info,_,_) ->
+                    match info.Args with
+                    | [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
+                    | _ -> None
+                | "pojo", Fable.Call(_,info,_,_) ->
+                    match info.Args with
+                    | keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
+                    | keyValueList::_ -> Replacements.makePojo com None keyValueList
+                    | _ -> None
+                | _ -> None
+            | _ -> None
+
+        match optimized with
+        | Some e -> com.TransformAsExpr(ctx, e)
+        | None -> com.TransformAsExpr(ctx, e)
+
     let transformCall (com: IBabelCompiler) ctx range callee (callInfo: Fable.CallInfo) =
-        let callee = com.TransformAsExpr(ctx, callee)
-        let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
-        match callInfo.ThisArg with
-        | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
-        | None when callInfo.IsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
-        | None -> callFunction range callee args
+        // Try to optimize some patterns after FableTransforms
+        let optimized =
+            match callInfo.OptimizableInto, callInfo.Args with
+            | Some "array" , [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), range) |> Some
+            | Some "pojo", keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
+            | Some "pojo", keyValueList::_ -> Replacements.makePojo com None keyValueList
+            | _ -> None
+
+        match optimized with
+        | Some e -> com.TransformAsExpr(ctx, e)
+        | None ->
+            let callee = com.TransformAsExpr(ctx, callee)
+            let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
+            match callInfo.ThisArg with
+            | Some(TransformExpr com ctx thisArg) -> callFunction range callee (thisArg::args)
+            | None when callInfo.IsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
+            | None -> callFunction range callee args
 
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx false args with
@@ -1522,7 +1539,7 @@ module Util =
 
     let rec transformAsExpr (com: IBabelCompiler) ctx (expr: Fable.Expr): Expression =
         match expr with
-        | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
+        | Fable.TypeCast(e, t) -> transformCast com ctx t e
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
@@ -1614,8 +1631,8 @@ module Util =
                 Statement.breakStatement(?label=label, ?loc=r)
             |> Array.singleton
 
-        | Fable.TypeCast(e, t, tag) ->
-            [|transformCast com ctx t tag e |> resolveExpr t returnStrategy|]
+        | Fable.TypeCast(e, t) ->
+            [|transformCast com ctx t e |> resolveExpr t returnStrategy|]
 
         | Fable.Value(kind, r) ->
             [|transformValue com ctx r kind |> resolveExpr kind.Type returnStrategy|]

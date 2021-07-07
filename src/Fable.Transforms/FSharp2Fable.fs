@@ -25,13 +25,7 @@ let private transformBaseConsCall com ctx r (baseEnt: FSharpEntity) (baseCons: F
     let genArgs = genArgs |> Seq.map (makeType ctx.GenericArgs)
     match Replacements.tryBaseConstructor com ctx baseEnt argTypes genArgs baseArgs with
     | Some(baseRef, args) ->
-        let callInfo: Fable.CallInfo =
-          { ThisArg = None
-            Args = args
-            SignatureArgTypes = getArgTypes com baseCons
-            CallMemberInfo = None
-            HasSpread = false
-            IsConstructor = false }
+        let callInfo = Fable.CallInfo.Make(args=args, sigArgTypes=getArgTypes com baseCons)
         makeCall r Fable.Unit callInfo baseRef
     | None ->
         if not baseCons.IsImplicitConstructor then
@@ -469,8 +463,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
         | Some(_, Some fullName) ->
             match fullName with
             | Types.ienumerableGeneric | Types.ienumerable -> return Replacements.toSeq t inpExpr
-            | _ -> return Fable.TypeCast(inpExpr, t, None)
-        | _ -> return Fable.TypeCast(inpExpr, t, None)
+            | _ -> return Fable.TypeCast(inpExpr, t)
+        | _ -> return Fable.TypeCast(inpExpr, t)
 
     // TypeLambda is a local generic lambda
     // e.g, member x.Test() = let typeLambda x = x in typeLambda 1, typeLambda "A"
