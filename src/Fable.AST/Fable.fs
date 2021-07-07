@@ -294,10 +294,20 @@ type EmitInfo =
       IsStatement: bool
       CallInfo: CallInfo }
 
+type ImportKind =
+   | UserImport of isInline: bool
+   | LibraryImport
+   | MemberImport of isInstance: bool * fullPath: string
+   | ClassImport of fullPath: string
+
 type ImportInfo =
     { Selector: string
       Path: string
-      IsCompilerGenerated: bool }
+      Kind: ImportKind }
+    member this.IsCompilerGenerated =
+        match this.Kind with
+        | UserImport isInline -> isInline
+        | LibraryImport | MemberImport _  | ClassImport _ -> true
 
 type OperationKind =
     | Unary of operator: UnaryOperator * operand: Expr
@@ -326,12 +336,14 @@ type TestKind =
     | UnionCaseTest of tag: int
 
 type ExtendedSet =
+    | Return of expr: Expr
     | Break of label: string option
     | Throw of expr: Expr * typ: Type
     | Debugger
     | Curry of expr: Expr * arity: int
     member this.Type =
         match this with
+        | Return e -> e.Type
         | Throw(_,t) -> t
         | Break _ -> Unit
         | Debugger -> Unit

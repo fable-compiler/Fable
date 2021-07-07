@@ -14,6 +14,7 @@ let visit f e =
         match kind with
         | Curry(e, arity) -> Extended(Curry(f e, arity), r)
         | Throw(e, t) -> Extended(Throw(f e, t), r)
+        | Return e -> Extended(Return(f e), r)
         | Break _
         | Debugger -> e
     | Value(kind, r) ->
@@ -101,9 +102,10 @@ let rec visitFromOutsideIn (f: Expr->Expr option) e =
 let getSubExpressions = function
     | IdentExpr _ -> []
     | TypeCast(e,_) -> [e]
-    | Import(_,_,_) -> []
-    | Extended(kind, r) ->
+    | Import _ -> []
+    | Extended(kind, _) ->
         match kind with
+        | Return e
         | Curry(e, _)
         | Throw(e, _) -> [e]
         | Break _
@@ -240,7 +242,7 @@ let noSideEffectBeforeIdent identName expr =
                 true
             else false
         | Import _ | Lambda _ | Delegate _ -> false
-        | Extended((Throw _|Break _|Debugger),_) -> true
+        | Extended((Return _|Throw _|Break _|Debugger),_) -> true
         | Extended(Curry(e,_),_) -> findIdentOrSideEffect e
         | CurriedApply(callee, args, _, _) ->
             callee::args |> findIdentOrSideEffectInList |> orSideEffect

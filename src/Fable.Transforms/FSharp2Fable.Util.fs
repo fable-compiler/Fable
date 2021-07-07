@@ -1573,7 +1573,7 @@ module Util =
             if file = com.CurrentFile then
                 makeTypedIdentExpr (getEntityType ent) entityName
             elif ent.IsPublic then
-                makeImportInternal com Fable.Any entityName file
+                makeInternalClassImport com entityName file
             else
                 error "Cannot inline functions that reference private entities"
 
@@ -1605,7 +1605,7 @@ module Util =
             // If the overload suffix changes, we need to recompile the files that call this member
             if hasOverloadSuffix then
                 com.AddWatchDependency(file)
-            makeImportInternal com typ memberName file
+            makeInternalMemberImport com typ memb.IsInstanceMember memberName file
         else
             defaultArg (memb.TryGetFullDisplayName()) memb.CompiledName
             |> sprintf "Cannot reference private members from other files: %s"
@@ -1840,7 +1840,7 @@ module Util =
 
             match com.Transform(ctx, inExpr.Body) with
             // If this is an import expression, apply the arguments, see #2280
-            | Fable.Import(importInfo, ti, r) as importExpr when not importInfo.IsCompilerGenerated ->
+            | Fable.Import({ Kind = Fable.UserImport _ } as importInfo, ti, r) as importExpr when not importInfo.IsCompilerGenerated ->
                 // Check if import has absorbed the arguments, see #2284
                 let args =
                     let path = importInfo.Path
@@ -1851,7 +1851,7 @@ module Util =
                 // Don't apply args either if this is a class getter, see #2329
                 if List.isEmpty args || memb.IsPropertyGetterMethod then
                     // Set IsCompilerGenerated=true to prevent Fable removing args of surrounding function
-                    Fable.Import({ importInfo with IsCompilerGenerated = true }, ti, r)
+                    Fable.Import({ importInfo with Kind = Fable.UserImport true }, ti, r)
                 else
                     makeCall r t info importExpr
             | body ->

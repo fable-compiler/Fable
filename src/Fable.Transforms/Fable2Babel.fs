@@ -601,7 +601,7 @@ module Util =
 
         | Fable.Extended(kind, _) ->
             match kind with
-            | Fable.Throw _ | Fable.Break _ | Fable.Debugger -> true
+            | Fable.Throw _ | Fable.Return _ | Fable.Break _ | Fable.Debugger -> true
             | Fable.Curry _ -> false
 
         // TODO: If IsJsSatement is false, still try to infer it? See #2414
@@ -1615,8 +1615,7 @@ module Util =
         | Fable.Extended(instruction, _) ->
             match instruction with
             | Fable.Curry(e, arity) -> transformCurry com ctx e arity
-            // TODO: Throw may be valid in expression position depending on the language
-            | Fable.Throw _ | Fable.Break _ | Fable.Debugger -> iife com ctx expr
+            | Fable.Throw _ | Fable.Return _ | Fable.Break _ | Fable.Debugger -> iife com ctx expr
 
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement array =
@@ -1625,6 +1624,7 @@ module Util =
             match kind with
             | Fable.Curry(e, arity) -> transformCurry com ctx e arity |> resolveExpr e.Type returnStrategy
             | Fable.Throw(TransformExpr com ctx e, _) -> Statement.throwStatement(e, ?loc=r)
+            | Fable.Return(TransformExpr com ctx e) -> Statement.returnStatement(e, ?loc=r)
             | Fable.Debugger -> Statement.debuggerStatement(?loc=r)
             | Fable.Break label ->
                 let label = label |> Option.map Identifier.identifier
