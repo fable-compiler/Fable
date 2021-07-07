@@ -84,11 +84,10 @@ module Types =
     let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
 
-    // Types compatible with Inject attribute
+    // Types compatible with Inject attribute (fable library)
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
     let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
     let [<Literal>] arrayCons = "Array.Cons`1"
-    let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
     let [<Literal>] adder = "Fable.Core.IGenericAdder`1"
     let [<Literal>] averager = "Fable.Core.IGenericAverager`1"
 
