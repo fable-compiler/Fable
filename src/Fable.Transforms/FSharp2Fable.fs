@@ -1398,9 +1398,6 @@ type FableCompiler(com: Compiler) =
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
             Replacements.tryCall this ctx r t info thisArg args
 
-        member this.InjectArgument(ctx, r, genArgs, parameter) =
-            Inject.injectArg this ctx r genArgs parameter
-
         member this.GetInlineExpr(memb) =
             let membUniqueName = getMemberUniqueName com memb
             match memb.DeclaringEntity with

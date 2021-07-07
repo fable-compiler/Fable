@@ -91,7 +91,7 @@ type ParamListAttribute() =
 
 type ParamSeqAttribute = ParamListAttribute
 
-/// Experimental: Currently only intended for some specific libraries
+/// Experimental: Currently only intended for fable library
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type InjectAttribute() =
     inherit Attribute()
@@ -100,11 +100,6 @@ type InjectAttribute() =
 [<AttributeUsage(AttributeTargets.Class)>]
 type NoOverloadSuffixAttribute() =
     inherit Attribute()
-
-/// Can be used in an optional argument decorated with Inject attribute
-/// to automatically pass generic information without inlining the method
-type ITypeResolver<'T> =
-    abstract ResolveType: unit -> Type
 
 /// Erased union type to represent one of two possible values.
 /// More info: http://fable.io/docs/interacting.html#Erase-attribute
