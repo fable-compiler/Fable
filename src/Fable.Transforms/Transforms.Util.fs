@@ -177,7 +177,7 @@ module Log =
         let printInlineSource fromPath (p: InlinePath) =
             let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
             match p.FromRange with
-            | Some r -> sprintf "%s(%i,%i)" path r.start.line r.start.column
+            | Some r -> $"%s{path}(%i{r.start.line},%i{r.start.column})"
             | None -> path
         let actualFile, msg =
             match inlinePath with
@@ -424,19 +424,22 @@ module AST =
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
                  Path = path.Trim()
-                 IsCompilerGenerated = false }, t, r)
-
-    let makeImportCompilerGenerated t (selector: string) (path: string) =
-        Import({ Selector = selector.Trim()
-                 Path = path.Trim()
-                 IsCompilerGenerated = true }, t, None)
+                 Kind = UserImport false }, t, r)
 
     let makeImportLib (com: Compiler) t memberName moduleName =
-        makeImportCompilerGenerated t memberName (getLibPath com moduleName)
+        Import({ Selector = memberName
+                 Path = getLibPath com moduleName
+                 Kind = LibraryImport }, t, None)
 
-    let makeImportInternal (com: Compiler) t (selector: string) (path: string) =
-        Path.getRelativeFileOrDirPath false com.CurrentFile false path
-        |> makeImportCompilerGenerated t selector
+    let makeInternalMemberImport (com: Compiler) t isInstance (selector: string) (path: string) =
+        Import({ Selector = selector
+                 Path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                 Kind = MemberImport(isInstance, path) }, t, None)
+
+    let makeInternalClassImport (com: Compiler) (selector: string) (path: string) =
+        Import({ Selector = selector
+                 Path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                 Kind = ClassImport(path) }, Any, None)
 
     let makeCallInfo thisArg args sigArgTypes =
         CallInfo.Make(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)
