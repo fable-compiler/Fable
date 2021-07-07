@@ -260,7 +260,23 @@ type CallInfo =
       SignatureArgTypes: Type list
       CallMemberInfo: CallMemberInfo option
       HasSpread: bool
-      IsConstructor: bool }
+      IsConstructor: bool
+      /// Tag that indicates the call can be optimized away after the AST transformation chain
+      OptimizableInto: string option }
+    static member Make(?thisArg: Expr,
+                       ?args: Expr list,
+                       ?sigArgTypes: Type list,
+                       ?memberInfo: CallMemberInfo,
+                       ?hasSpread: bool,
+                       ?isCons: bool,
+                       ?optimizable: string) =
+        { ThisArg = thisArg
+          Args = defaultArg args []
+          SignatureArgTypes = defaultArg sigArgTypes []
+          CallMemberInfo = memberInfo
+          HasSpread = defaultArg hasSpread false
+          IsConstructor = defaultArg isCons false
+          OptimizableInto = optimizable }
 
 type ReplaceCallInfo =
     { CompiledName: string
@@ -342,7 +358,7 @@ type Expr =
     | ObjectExpr of members: MemberDecl list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
-    | TypeCast of expr: Expr * Type * tag: string option
+    | TypeCast of expr: Expr * Type
     | Test of expr: Expr * kind: TestKind * range: SourceLocation option
 
     // Operations
@@ -382,7 +398,7 @@ type Expr =
         | Extended (kind, _) -> kind.Type
         | Call(_,_,t,_)
         | CurriedApply(_,_,t,_)
-        | TypeCast (_, t,_)
+        | TypeCast (_, t)
         | Import (_, t, _)
         | ObjectExpr (_, t, _)
         | Operation (_, t, _)
@@ -411,7 +427,7 @@ type Expr =
         | DecisionTreeSuccess _ -> None
         | Lambda (_, e, _)
         | Delegate (_, e, _)
-        | TypeCast (e, _, _) -> e.Range
+        | TypeCast (e, _) -> e.Range
         | IdentExpr id -> id.Range
         | Extended(_,r)
         | Call(_,_,_,r)

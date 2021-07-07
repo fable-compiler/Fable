@@ -58,8 +58,9 @@ module Helpers =
                 |> Option.defaultValue t
             | t -> t)
 
-    let asOptimizable optimization e =
-        TypeCast(e, e.Type, Some("optimizable:" + optimization))
+    let asOptimizable optimization = function
+        | Call(e, i, t, r) -> Call(e, { i with OptimizableInto = Some optimization }, t, r)
+        | e -> e
 
     let objValue (k, v): MemberDecl =
         {
@@ -147,7 +148,7 @@ let (|BuiltinDefinition|_|) = function
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
     | Types.reference -> Some(FSharpReference(Any))
-    | (Naming.StartsWith Types.choiceNonGeneric _) -> Some(FSharpChoice [])
+    | Naming.StartsWith Types.choiceNonGeneric _ -> Some(FSharpChoice [])
     | _ -> None
 
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
@@ -510,11 +511,11 @@ let toFloat com (ctx: Context) r targetType (args: Expr list): Expr =
         | BigInt -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
         | Long _ -> Helper.LibCall(com, "Long", "toNumber", targetType, args)
         | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
-        | JsNumber _ -> TypeCast(args.Head, targetType, None)
-    | Enum _ -> TypeCast(args.Head, targetType, None)
+        | JsNumber _ -> TypeCast(args.Head, targetType)
+    | Enum _ -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType, None)
+        TypeCast(args.Head, targetType)
 
 let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
     match args.Head.Type with
@@ -532,7 +533,7 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list): Expr =
     | Enum _ -> makeDecimalFromExpr com r targetType args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType, None)
+        TypeCast(args.Head, targetType)
 
 // Apparently ~~ is faster than Math.floor (see https://coderwall.com/p/9b6ksa/is-faster-than-math-floor)
 let fastIntFloor expr =
@@ -572,7 +573,7 @@ let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list): E
     | Enum _ -> fromInteger Int32 args.Head
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType, None)
+        TypeCast(args.Head, targetType)
 
 /// Conversion to integers (excluding longs and bigints)
 let toInt com (ctx: Context) r targetType (args: Expr list) =
@@ -599,10 +600,10 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
             | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
             | _ -> args.Head
             |> emitCast typeTo
-        else TypeCast(args.Head, targetType, None)
+        else TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
-        TypeCast(args.Head, targetType, None)
+        TypeCast(args.Head, targetType)
 
 let round com (args: Expr list) =
     match args.Head.Type with
@@ -634,7 +635,7 @@ let toSeq t (e: Expr) =
     match e.Type with
     // Convert to array to get 16-bit code units, see #1279
     | String -> stringToCharArray t e
-    | _ -> TypeCast(e, t, None)
+    | _ -> TypeCast(e, t)
 
 let (|ListSingleton|) x = [x]
 
@@ -1419,7 +1420,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
     // KeyValuePair is already compiled as a tuple
-    | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t, None) |> Some
+    | ("KeyValuePattern"|"Identity"|"Box"|"Unbox"|"ToEnum"), [arg] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ -> Operation(Unary(UnaryVoid, args.Head), t, r) |> Some // "void $0" |> emitJsExpr r t args |> Some
     // Number and String conversions
@@ -1852,7 +1853,7 @@ let nativeArrayFunctions =
 let tuples (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let changeKind isStruct = function
         | Value(NewTuple(args, _), r)::_ -> Value(NewTuple(args, isStruct), r) |> Some
-        | (ExprType(Tuple(genArgs, _)) as e)::_ -> TypeCast(e, Tuple(genArgs, isStruct), None) |> Some
+        | (ExprType(Tuple(genArgs, _)) as e)::_ -> TypeCast(e, Tuple(genArgs, isStruct)) |> Some
         | _ -> None
     match i.CompiledName, thisArg with
     | (".ctor"|"Create"), _ ->
@@ -2639,8 +2640,8 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ".ctor" ->
         let meth = match args with [ticks] -> "fromTicks" | _ -> "create"
         Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | "FromMilliseconds" -> TypeCast(args.Head, t, None) |> Some
-    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t, None) |> Some
+    | "FromMilliseconds" -> TypeCast(args.Head, t) |> Some
+    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends of local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r
