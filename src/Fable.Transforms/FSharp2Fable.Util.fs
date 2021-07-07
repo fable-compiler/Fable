@@ -301,8 +301,6 @@ type IFableCompiler =
     abstract Transform: Context * FSharpExpr -> Fable.Expr
     abstract TryReplace: Context * SourceLocation option * Fable.Type *
         info: Fable.ReplaceCallInfo * thisArg: Fable.Expr option * args: Fable.Expr list -> Fable.Expr option
-    abstract InjectArgument: Context * SourceLocation option *
-        genArgs: ((string * Fable.Type) list) * FSharpParameter -> Fable.Expr
     abstract GetInlineExpr: FSharpMemberOrFunctionOrValue -> InlineExpr
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
@@ -1862,25 +1860,20 @@ module Util =
         then inlineExpr com ctx r t genArgs callee info memb |> Some
         else None
 
-    /// Removes optional arguments set to None in tail position and calls the injector if necessary
+    /// Removes optional arguments set to None in tail position
     let transformOptionalArguments (com: IFableCompiler) (ctx: Context) r
                 (memb: FSharpMemberOrFunctionOrValue) (genArgs: Lazy<_>) (args: Fable.Expr list) =
         if memb.CurriedParameterGroups.Count <> 1
             || memb.CurriedParameterGroups.[0].Count <> (List.length args)
         then args
         else
-            (memb.CurriedParameterGroups.[0], args, ("optional", []))
-            |||> Seq.foldBack2 (fun par arg (condition, acc) ->
-                match condition with
-                | "optional" | "inject" when par.IsOptionalArg ->
+            (memb.CurriedParameterGroups.[0], args, (true, []))
+            |||> Seq.foldBack2 (fun par arg (keepChecking, acc) ->
+                if keepChecking && par.IsOptionalArg then
                     match arg with
-                    | Fable.Value(Fable.NewOption(None,_,_),_) ->
-                        match tryFindAtt Atts.inject par.Attributes with
-                        | Some _ -> "inject", (com.InjectArgument(ctx, r, genArgs.Value, par))::acc
-                        // Don't remove optional arguments if they're not in tail position
-                        | None -> condition, if condition = "optional" then acc else arg::acc
-                    | _ -> "inject", arg::acc // Keep checking for injects
-                | _ -> "none", arg::acc)
+                    | Fable.Value(Fable.NewOption(None,_,_),_) -> true, acc
+                    | _ -> false, arg::acc
+                else false, arg::acc)
             |> snd
 
     let hasInterface interfaceFullname (ent: Fable.Entity) =
