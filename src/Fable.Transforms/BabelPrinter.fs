@@ -111,24 +111,24 @@ module PrinterExtensions =
                 printer.Print(";")
                 printer.PrintNewLine()
 
-        member _.IsProductiveStatement(s: Statement) =
-            let rec hasNoSideEffects (e: Expression) =
-                match e with
-                | Undefined(_)
-                | Literal(NullLiteral(_))
-                | Literal(Literal.StringLiteral(_))
-                | Literal(BooleanLiteral(_))
-                | Literal(NumericLiteral(_)) -> true
-                // Constructors of classes deriving from System.Object add an empty object at the end
-                | ObjectExpression(properties, loc) -> properties.Length = 0
-                | UnaryExpression(prefix, argument, operator, loc) when operator = "void" -> hasNoSideEffects argument
-                // Some identifiers may be stranded as the result of imports
-                // intended only for side effects, see #2228
-                | Expression.Identifier(_) -> true
-                | _ -> false
+        member this.HasSideEffects(e: Expression) =
+            match e with
+            | Undefined(_)
+            | Literal(NullLiteral(_))
+            | Literal(Literal.StringLiteral(_))
+            | Literal(BooleanLiteral(_))
+            | Literal(NumericLiteral(_)) -> false
+            // Constructors of classes deriving from System.Object add an empty object at the end
+            | ObjectExpression(properties, loc) -> properties.Length > 0
+            | UnaryExpression(prefix, argument, operator, loc) when operator = "void" -> this.HasSideEffects(argument)
+            // Some identifiers may be stranded as the result of imports
+            // intended only for side effects, see #2228
+            | Expression.Identifier(_) -> false
+            | _ -> true
 
+        member this.IsProductiveStatement(s: Statement) =
             match s with
-            | ExpressionStatement(expr) -> hasNoSideEffects expr |> not
+            | ExpressionStatement(expr) -> this.HasSideEffects(expr)
             | _ -> true
 
         member printer.PrintProductiveStatement(s: Statement, ?printSeparator) =
@@ -208,7 +208,7 @@ module PrinterExtensions =
             printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
         member printer.PrintCommaSeparatedArray(nodes: Expression array) =
-            printer.PrintArray(nodes, (fun p x -> p.SequenceExpressionWithParens(x)), (fun p -> p.Print(", ")))
+            printer.PrintArray(nodes, (fun p x -> p.Print(x)), (fun p -> p.Print(", ")))
 
 
         // TODO: (super) type parameters, implements
@@ -298,11 +298,6 @@ module PrinterExtensions =
             printer.Print(expr)
             printer.Print(")")
 
-        member printer.SequenceExpressionWithParens(expr: Expression) =
-            match expr with
-            | SequenceExpression(_) -> printer.WithParens(expr)
-            | _ -> printer.Print(expr)
-
         /// Surround with parens anything that can potentially conflict with operator precedence
         member printer.ComplexExpressionWithParens(expr: Expression) =
             match expr with
@@ -383,7 +378,18 @@ module PrinterExtensions =
             | SequenceExpression(expressions, loc) ->
                 // A comma-separated sequence of expressions.
                 printer.AddLocation(loc)
-                printer.PrintCommaSeparatedArray(expressions)
+                // TODO: Remove parens if we end up with only one expression
+                // (when the ones before last don't have side effects)
+                printer.Print("(")
+                let last = expressions.Length - 1
+                for i = 0 to last do
+                    let e = expressions.[i]
+                    if i = last then
+                        printer.Print(e)
+                    elif printer.HasSideEffects(e) then
+                        printer.Print(e)
+                        printer.Print(", ")
+                printer.Print(")")
             | FunctionExpression(id, ``params``, body, typeParameters, returnType, loc) ->
                 printer.PrintFunction(id, ``params``, body, returnType, typeParameters, loc)
             | AssignmentExpression(left, right, operator, loc) -> printer.PrintOperation(left, operator, right, loc)
@@ -667,7 +673,7 @@ module PrinterExtensions =
                 | Some e ->
                     printer.Print(" = ")
                     if canConflict then printer.ComplexExpressionWithParens(e)
-                    else printer.SequenceExpressionWithParens(e)
+                    else printer.Print(e)
                 if i < declarations.Length - 1 then
                     printer.Print(", ")
 
@@ -713,7 +719,7 @@ module PrinterExtensions =
             else
                 printer.Print(key)
             printer.Print(": ")
-            printer.SequenceExpressionWithParens(value)
+            printer.Print(value)
 
         member printer.PrintObjectMethod(kind, key, ``params``, body, computed, returnType, typeParameters, loc) =
             printer.AddLocation(loc)

@@ -820,6 +820,7 @@ module PythonExtensions =
         static member continue' (?loc) : Statement = Continue
         static member import(names) : Statement = Import { Names = names }
         static member expr(value) : Statement = { Expr.Value = value } |> Expr
+        static member raise(value) : Statement = { Exception=value; Cause=None} |> Raise
 
         static member try'(body, ?handlers, ?orElse, ?finalBody, ?loc) : Statement =
             Try.try' (body, ?handlers = handlers, ?orElse = orElse, ?finalBody = finalBody, ?loc = loc)

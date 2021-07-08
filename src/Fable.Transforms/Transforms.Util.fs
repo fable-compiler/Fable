@@ -84,11 +84,10 @@ module Types =
     let [<Literal>] printfFormat = "Microsoft.FSharp.Core.PrintfFormat"
     let [<Literal>] createEvent = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.CreateEvent"
 
-    // Types compatible with Inject attribute
+    // Types compatible with Inject attribute (fable library)
     let [<Literal>] comparer = "System.Collections.Generic.IComparer`1"
     let [<Literal>] equalityComparer = "System.Collections.Generic.IEqualityComparer`1"
     let [<Literal>] arrayCons = "Array.Cons`1"
-    let [<Literal>] typeResolver = "Fable.Core.ITypeResolver`1"
     let [<Literal>] adder = "Fable.Core.IGenericAdder`1"
     let [<Literal>] averager = "Fable.Core.IGenericAverager`1"
 
@@ -177,7 +176,7 @@ module Log =
         let printInlineSource fromPath (p: InlinePath) =
             let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
             match p.FromRange with
-            | Some r -> sprintf "%s(%i,%i)" path r.start.line r.start.column
+            | Some r -> $"%s{path}(%i{r.start.line},%i{r.start.column})"
             | None -> path
         let actualFile, msg =
             match inlinePath with
@@ -287,9 +286,9 @@ module AST =
                 | _, _ -> None
         match expr with
         // Uncurry also function options
-        | Value(NewOption(Some expr, _), r) ->
+        | Value(NewOption(Some expr, _, isStruct), r) ->
             uncurryLambdaInner None [] arity expr
-            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type), r))
+            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type, isStruct), r))
         | _ -> uncurryLambdaInner None [] arity expr
 
     let (|NestedRevLets|_|) expr =
@@ -302,7 +301,7 @@ module AST =
 
     let (|MaybeCasted|) e =
         let rec inner = function
-            | TypeCast(e,_,_) -> inner e
+            | TypeCast(e,_) -> inner e
             | e -> e
         inner e
 
@@ -323,17 +322,17 @@ module AST =
     let rec canHaveSideEffects = function
         | Import _ -> false
         | Lambda _ | Delegate _ -> false
-        | TypeCast(e,_,_) -> canHaveSideEffects e
+        | TypeCast(e,_) -> canHaveSideEffects e
         | Value(value,_) ->
             match value with
             | ThisValue _ | BaseValue _ -> true
             | TypeInfo _ | Null _ | UnitConstant | NumberConstant _ | BoolConstant _
             | CharConstant _ | StringConstant _ | RegexConstant _  -> false
             | EnumConstant(e, _) -> canHaveSideEffects e
-            | NewList(None,_) | NewOption(None,_) -> false
-            | NewOption(Some e,_) -> canHaveSideEffects e
+            | NewList(None,_) | NewOption(None,_,_) -> false
+            | NewOption(Some e,_,_) -> canHaveSideEffects e
             | NewList(Some(h,t),_) -> canHaveSideEffects h || canHaveSideEffects t
-            | NewTuple exprs
+            | NewTuple(exprs,_)
             | NewUnion(exprs,_,_,_) -> (false, exprs) ||> List.fold (fun result e -> result || canHaveSideEffects e)
             // Arrays can be mutable
             | NewArray _ | NewArrayFrom _ -> true
@@ -377,7 +376,7 @@ module AST =
         makeTypedIdent typ name |> IdentExpr
 
     let makeWhileLoop range guardExpr bodyExpr =
-        WhileLoop (guardExpr, bodyExpr, range)
+        WhileLoop (guardExpr, bodyExpr, None, range)
 
     let makeForLoop range isUp ident start limit body =
         ForLoop (ident, start, limit, body, isUp, range)
@@ -400,6 +399,9 @@ module AST =
     let makeValue r value =
         Value(value, r)
 
+    let makeTuple r values =
+        Value(NewTuple(values, false), r)
+
     let makeArray elementType arrExprs =
         NewArray(arrExprs, elementType) |> makeValue None
 
@@ -412,8 +414,8 @@ module AST =
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
-    let makeIntConst (x: int) = NumberConstant (float x, Int32) |> makeValue None
-    let makeFloatConst (x: float) = NumberConstant (x, Float64) |> makeValue None
+    let makeIntConst (x: int) = NumberConstant (float x, Int32, None) |> makeValue None
+    let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
 
     let getLibPath (com: Compiler) moduleName =
         com.LibraryDir + "/" + moduleName + ".js"
@@ -421,40 +423,31 @@ module AST =
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
                  Path = path.Trim()
-                 IsCompilerGenerated = false }, t, r)
-
-    let makeImportCompilerGenerated t (selector: string) (path: string) =
-        Import({ Selector = selector.Trim()
-                 Path = path.Trim()
-                 IsCompilerGenerated = true }, t, None)
+                 Kind = UserImport false }, t, r)
 
     let makeImportLib (com: Compiler) t memberName moduleName =
-        makeImportCompilerGenerated t memberName (getLibPath com moduleName)
+        Import({ Selector = memberName
+                 Path = getLibPath com moduleName
+                 Kind = LibraryImport }, t, None)
 
-    let makeImportInternal (com: Compiler) t (selector: string) (path: string) =
-        Path.getRelativeFileOrDirPath false com.CurrentFile false path
-        |> makeImportCompilerGenerated t selector
+    let makeInternalMemberImport (com: Compiler) t isInstance (selector: string) (path: string) =
+        Import({ Selector = selector
+                 Path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                 Kind = MemberImport(isInstance, path) }, t, None)
 
-    let makeCallInfo thisArg args argTypes =
-        { ThisArg = thisArg
-          Args = args
-          SignatureArgTypes = argTypes
-          CallMemberInfo = None
-          HasSpread = false
-          IsJsConstructor = false }
+    let makeInternalClassImport (com: Compiler) (selector: string) (path: string) =
+        Import({ Selector = selector
+                 Path = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                 Kind = ClassImport(path) }, Any, None)
+
+    let makeCallInfo thisArg args sigArgTypes =
+        CallInfo.Make(?thisArg=thisArg, args=args, sigArgTypes=sigArgTypes)
 
     let emitJs r t args isStatement macro =
-        let callInfo =
-            { ThisArg = None
-              Args = args
-              SignatureArgTypes = []
-              CallMemberInfo = None
-              HasSpread = false
-              IsJsConstructor = false }
         let emitInfo =
             { Macro = macro
-              IsJsStatement = isStatement
-              CallInfo = callInfo }
+              IsStatement = isStatement
+              CallInfo = CallInfo.Make(args=args) }
         Emit(emitInfo, t, r)
 
     let emitJsExpr r t args macro =
@@ -464,14 +457,14 @@ module AST =
         emitJs r t args true macro
 
     let makeThrow r t err =
-        emitJsStatement r t [err] "throw $0"
+        Extended(Throw(err, t), r)
 
     let makeDebugger range =
-        emitJsStatement range Unit [] "debugger"
+        Extended(Debugger, range)
 
     let destructureTupleArgs = function
         | [MaybeCasted(Value(UnitConstant,_))] -> []
-        | [MaybeCasted(Value(NewTuple(args),_))] -> args
+        | [MaybeCasted(Value(NewTuple(args,_),_))] -> args
         | args -> args
 
     let makeCall r t argInfo calleeExpr =
@@ -479,6 +472,9 @@ module AST =
 
     let getExpr r t left memb =
         Get(left, ExprGet memb, t, r)
+
+    let setExpr r left memb (value: Expr) =
+        Set(left, ExprSet memb, value.Type, value, r)
 
     let getAttachedMemberWith r t callee membName =
         Get(callee, FieldGet(membName, true), t, r)
@@ -540,12 +536,13 @@ module AST =
         | Char, Char
         | String, String
         | Regex, Regex -> true
-        | Number kind1, Number kind2 -> kind1 = kind2
+        | Number(kind1, None), Number(kind2, None) -> kind1 = kind2
+        | Number(kind1, Some uom1), Number(kind2, Some uom2) -> uom1 = uom2 && kind1 = kind2
         | Enum ent1, Enum ent2 -> ent1 = ent2
-        | Option t1, Option t2
+        | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Array t1, Array t2
         | List t1, List t2 -> typeEquals strict t1 t2
-        | Tuple ts1, Tuple ts2 -> listEquals (typeEquals strict) ts1 ts2
+        | Tuple(ts1, isStruct1), Tuple(ts2, isStruct2) -> isStruct1 = isStruct2 && listEquals (typeEquals strict) ts1 ts2
         | LambdaType(a1, t1), LambdaType(a2, t2) ->
             typeEquals strict a1 a2 && typeEquals strict t1 t2
         | DelegateType(as1, t1), DelegateType(as2, t2) ->
@@ -553,8 +550,28 @@ module AST =
         | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
             ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _ | _, GenericParam _ when not strict -> true
-        | GenericParam name1, GenericParam name2 -> name1 = name2
+        | GenericParam(name1,_), GenericParam(name2,_) -> name1 = name2
+        // Field names must be already sorted
+        | AnonymousRecordType(fields1, gen1), AnonymousRecordType(fields2, gen2) ->
+            fields1.Length = fields2.Length
+            && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
+            && listEquals (typeEquals strict) gen1 gen2
         | _ -> false
+
+    let getNumberFullName uom kind =
+        let name =
+            match kind with
+            | Int8    -> Types.int8
+            | UInt8   -> Types.uint8
+            | Int16   -> Types.int16
+            | UInt16  -> Types.uint16
+            | Int32   -> Types.int32
+            | UInt32  -> Types.uint32
+            | Float32 -> Types.float32
+            | Float64 -> Types.float64
+        match uom with
+        | None -> name
+        | Some uom -> name + "[" + uom + "]"
 
     let rec getTypeFullName prettify t =
         let getEntityFullName (entRef: EntityRef) gen =
@@ -571,8 +588,9 @@ module AST =
                     else fullname
                 fullname + "[" + gen + "]"
         match t with
+        | Measure fullname -> fullname
         | AnonymousRecordType _ -> ""
-        | GenericParam name -> "'" + name
+        | GenericParam(name,_) -> "'" + name
         | Enum ent -> getEntityFullName ent []
         | Regex    -> Types.regex
         | MetaType -> Types.type_
@@ -581,16 +599,7 @@ module AST =
         | Char    -> Types.char
         | String  -> Types.string
         | Any -> Types.object
-        | Number kind ->
-            match kind with
-            | Int8    -> Types.int8
-            | UInt8   -> Types.uint8
-            | Int16   -> Types.int16
-            | UInt16  -> Types.uint16
-            | Int32   -> Types.int32
-            | UInt32  -> Types.uint32
-            | Float32 -> Types.float32
-            | Float64 -> Types.float64
+        | Number(kind, uom) -> getNumberFullName uom kind
         | LambdaType(argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType
@@ -602,16 +611,21 @@ module AST =
                 (List.length argTypes + 1)
                 (List.map (getTypeFullName prettify) argTypes |> String.concat ",")
                 (getTypeFullName prettify returnType)
-        | Tuple genArgs ->
+        | Tuple(genArgs, isStruct) ->
             let genArgs = List.map (getTypeFullName prettify) genArgs
             if prettify
-            then String.concat " * " genArgs
-            else sprintf "System.Tuple`%i[%s]" (List.length genArgs) (String.concat "," genArgs)
+            then (if isStruct then "struct " else "") + String.concat " * " genArgs
+            else
+                let isStruct = if isStruct then "Value" else ""
+                let genArgsLength = List.length genArgs
+                let genArgs = String.concat "," genArgs
+                $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
         | Array gen ->
             (getTypeFullName prettify gen) + "[]"
-        | Option gen ->
+        | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen
-            if prettify then gen + " option" else Types.option + "[" + gen + "]"
+            if prettify then gen + " " + (if isStruct then "v" else "") + "option"
+            else (if isStruct then Types.valueOption else Types.option) + "[" + gen + "]"
         | List gen ->
             let gen = getTypeFullName prettify gen
             if prettify then gen + " list" else Types.list + "[" + gen + "]"

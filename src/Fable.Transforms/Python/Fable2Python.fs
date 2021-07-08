@@ -173,8 +173,9 @@ module Reflection =
                     Expression.list(generics)
             ]
         match t with
+        | Fable.Measure _
         | Fable.Any -> primitiveTypeInfo "obj", []
-        | Fable.GenericParam name ->
+        | Fable.GenericParam(name,_) ->
             match Map.tryFind name genMap with
             | Some t -> t, []
             | None ->
@@ -193,7 +194,7 @@ module Reflection =
                     match fi.Name with
                     | "value__" ->
                         match fi.FieldType with
-                        | Fable.Number kind -> numberKind <- kind
+                        | Fable.Number(kind,_) -> numberKind <- kind
                         | _ -> ()
                         None
                     | name ->
@@ -203,14 +204,14 @@ module Reflection =
                 |> Expression.list
             [ Expression.constant(entRef.FullName); numberInfo numberKind; cases ]
             |> libReflectionCall com ctx None "enum", []
-        | Fable.Number kind ->
+        | Fable.Number(kind,_) ->
             numberInfo kind, []
         | Fable.LambdaType(argType, returnType) ->
             genericTypeInfo "lambda" [|argType; returnType|]
         | Fable.DelegateType(argTypes, returnType) ->
             genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-        | Fable.Tuple genArgs   -> genericTypeInfo "tuple" (List.toArray genArgs)
-        | Fable.Option genArg   -> genericTypeInfo "option" [|genArg|]
+        | Fable.Tuple(genArgs,_)   -> genericTypeInfo "tuple" (List.toArray genArgs)
+        | Fable.Option(genArg,_)   -> genericTypeInfo "option" [|genArg|]
         | Fable.Array genArg    -> genericTypeInfo "array" [|genArg|]
         | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
         | Fable.Regex           -> nonGenericTypeInfo Types.regex, []
@@ -326,6 +327,7 @@ module Reflection =
             Expression.call (func, args), stmts
 
         match typ with
+        | Fable.Measure _ // Dummy, shouldn't be possible to test against a measure type
         | Fable.Any -> Expression.constant(true), []
         | Fable.Unit ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
@@ -530,16 +532,20 @@ module Util =
         match expr with
         | Fable.Value _ | Fable.Import _  | Fable.IdentExpr _
         | Fable.Lambda _ | Fable.Delegate _ | Fable.ObjectExpr _
-        | Fable.Call _ | Fable.CurriedApply _ | Fable.Curry _ | Fable.Operation _
+        | Fable.Call _ | Fable.CurriedApply _ | Fable.Operation _
         | Fable.Get _ | Fable.Test _ | Fable.TypeCast _ -> false
 
         | Fable.TryCatch _
         | Fable.Sequential _ | Fable.Let _ | Fable.LetRec _ | Fable.Set _
         | Fable.ForLoop _ | Fable.WhileLoop _ -> true
+        | Fable.Extended(kind, _) ->
+            match kind with
+            | Fable.Throw _ | Fable.Return _ | Fable.Break _ | Fable.Debugger -> true
+            | Fable.Curry _ -> false
 
         // TODO: If IsJsSatement is false, still try to infer it? See #2414
         // /^\s*(break|continue|debugger|while|for|switch|if|try|let|const|var)\b/
-        | Fable.Emit(i,_,_) -> i.IsJsStatement
+        | Fable.Emit(i,_,_) -> i.IsStatement
 
         | Fable.DecisionTreeSuccess(targetIndex,_, _) ->
             getDecisionTarget ctx targetIndex
@@ -698,7 +704,7 @@ module Util =
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
-            | Fable.GenericParam name -> [name]
+            | Fable.GenericParam(name,_) -> [name]
             | t -> t.Generics |> List.collect getGenParams
         types
         |> List.collect getGenParams
@@ -813,30 +819,12 @@ module Util =
         com.GetImportExpr(ctx, moduleName, name)
         |> getParts com ctx parts
 
-    let transformCast (com: IPythonCompiler) (ctx: Context) t tag e: Expression * Statement list =
-        // HACK: Try to optimize some patterns after FableTransforms
-        let optimized =
-            match tag with
-            | Some (Naming.StartsWith "optimizable:" optimization) ->
-                match optimization, e with
-                | "array", Fable.Call(_,info,_,_) ->
-                    match info.Args with
-                    | [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
-                    | _ -> None
-                | "pojo", Fable.Call(_,info,_,_) ->
-                    match info.Args with
-                    | keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
-                    | keyValueList::_ -> Replacements.makePojo com None keyValueList
-                    | _ -> None
-                | _ -> None
-            | _ -> None
-
-        match optimized, t with
-        | Some e, _ -> com.TransformAsExpr(ctx, e)
+    let transformCast (com: IPythonCompiler) (ctx: Context) t e: Expression * Statement list =
+        match t with
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
-        | None, Fable.DeclaredType(ent,[_]) ->
+        | Fable.DeclaredType(ent,[_]) ->
             match ent.FullName, e with
             | Types.ienumerableGeneric, Replacements.ArrayOrListLiteral(exprs, _) ->
                 makeArray com ctx exprs
@@ -857,14 +845,14 @@ module Util =
         | Fable.BoolConstant x -> Expression.constant(x, ?loc=r), []
         | Fable.CharConstant x -> Expression.constant(string x, ?loc=r), []
         | Fable.StringConstant x -> Expression.constant(x, ?loc=r), []
-        | Fable.NumberConstant (x,_) -> Expression.constant(x, ?loc=r), []
+        | Fable.NumberConstant (x,_,_) -> Expression.constant(x, ?loc=r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values
         | Fable.NewArrayFrom (size, typ) ->
             let array, stmts = makeArray com ctx []
             let size, stmts' = com.TransformAsExpr(ctx, size)
             Expression.binOp(array, Mult, size), stmts @ stmts'
-        | Fable.NewTuple vals -> makeArray com ctx vals
+        | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
             let rec getItems acc = function
@@ -886,7 +874,7 @@ module Util =
                 let expr, stmts' = makeArray com ctx exprs
                 [ expr; tail ]
                 |> libCall com ctx r "List" "ofArrayWithTail", stmts @ stmts'
-        | Fable.NewOption (value, t) ->
+        | Fable.NewOption (value, t, _) ->
             match value with
             | Some (TransformExpr com ctx (e, stmts)) ->
                 if mustWrapOption t
@@ -1110,7 +1098,7 @@ module Util =
         let args, stmts' = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
         match callInfo.ThisArg with
         | Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee (thisArg::args), stmts @ stmts' @ stmts''
-        | None when callInfo.IsJsConstructor -> Expression.call(callee, args, ?loc=range), stmts @ stmts'
+        | None when callInfo.IsConstructor -> Expression.call(callee, args, ?loc=range), stmts @ stmts'
         | None -> callFunction range callee args, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
@@ -1227,7 +1215,7 @@ module Util =
         | Fable.TupleIndex index ->
             match fableExpr with
             // TODO: Check the erased expressions don't have side effects?
-            | Fable.Value(Fable.NewTuple exprs, _) ->
+            | Fable.Value(Fable.NewTuple(exprs, _), _) ->
                 com.TransformAsExpr(ctx, List.item index exprs)
             | TransformExpr com ctx (expr, stmts) ->
                 let expr, stmts' = getExpr com ctx range expr (ofInt index)
@@ -1249,7 +1237,7 @@ module Util =
             let expr, stmts'' = getExpr com ctx range expr (ofInt index)
             expr, stmts @ stmts' @ stmts''
 
-    let transformSet (com: IPythonCompiler) ctx range fableExpr (value: Fable.Expr) kind =
+    let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         //printfn "transformSet: %A" (fableExpr, value)
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let value, stmts' = com.TransformAsExpr(ctx, value)
@@ -1259,7 +1247,7 @@ module Util =
             | Fable.ExprSet(TransformExpr com ctx (e, stmts'')) ->
                 let expr, stmts''' = getExpr com ctx None expr e
                 expr, stmts @ stmts' @ stmts'' @ stmts'''
-            | Fable.FieldSet(fieldName, _) ->
+            | Fable.FieldSet(fieldName) ->
                 get com ctx None expr fieldName, stmts @ stmts'
         assign range ret value, stmts''
 
@@ -1394,8 +1382,8 @@ module Util =
             | Fable.Operation(Fable.Binary(BinaryEqualStrict, expr, right), _, _) ->
                 Some(expr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
-                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number Int32, None)
-                let right = Fable.NumberConstant(float tag, Int32) |> makeValue None
+                let evalExpr = Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, None), None)
+                let right = makeIntConst tag
                 Some(evalExpr, right)
             | _ -> None
         let sameEvalExprs evalExpr1 evalExpr2 =
@@ -1493,8 +1481,8 @@ module Util =
         let ctx = { ctx with DecisionTargets = targets }
         match transformDecisionTreeAsSwitch treeExpr with
         | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases = groupSwitchCases (Fable.Number Int32) cases (defaultIndex, defaultBoundValues)
-            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number Int32)
+            let cases = groupSwitchCases (Fable.Number(Int32, None)) cases (defaultIndex, defaultBoundValues)
+            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, None))
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
             [ yield! multiVarDecl; switch1; switch2 ]
         | None ->
@@ -1568,9 +1556,7 @@ module Util =
 
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list=
         match expr with
-        | Fable.TypeCast(e,t,tag) -> transformCast com ctx t tag e
-
-        | Fable.Curry(e, arity) -> transformCurry com ctx e arity
+        | Fable.TypeCast(e,t) -> transformCast com ctx t e
 
         | Fable.Value(kind, r) -> transformValue com ctx r kind
 
@@ -1641,8 +1627,8 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccessAsExpr com ctx idx boundValues
 
-        | Fable.Set(expr, kind, value, range) ->
-            transformSet com ctx range expr value kind
+        | Fable.Set(expr, kind, typ, value, range) ->
+            transformSet com ctx range expr typ value kind
 
         | Fable.Let(ident, value, body) ->
             // printfn "Fable.Let: %A" (ident, value, body)
@@ -1672,23 +1658,34 @@ module Util =
             Expression.none(), stmts |> List.collect id
 
         | Fable.Emit(info, _, range) ->
-            if info.IsJsStatement then iife com ctx expr
+            if info.IsStatement then iife com ctx expr
             else transformEmit com ctx range info
 
         // These cannot appear in expression position in JS, must be wrapped in a lambda
         | Fable.WhileLoop _ | Fable.ForLoop _ | Fable.TryCatch _ ->
             iife com ctx expr
+        | Fable.Extended(instruction, _) ->
+            match instruction with
+            | Fable.Curry(e, arity) -> transformCurry com ctx e arity
+            | Fable.Throw _ | Fable.Return _ | Fable.Break _ | Fable.Debugger -> iife com ctx expr
+
 
     let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Statement list =
         match expr with
-        | Fable.TypeCast(e, t, tag) ->
-            let expr, stmts = transformCast com ctx t tag e
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+        | Fable.Extended(kind, r) ->
+            match kind with
+            | Fable.Curry(e, arity) ->
+                let expr, stmts = transformCurry com ctx e arity
+                stmts @ [ expr |> resolveExpr e.Type returnStrategy ]
+            | Fable.Throw(TransformExpr com ctx (e, stmts), _) -> stmts @ [Statement.raise(e) ]
+            | Fable.Return(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.return'(e)]
+            | Fable.Debugger -> []
+            | Fable.Break label -> [ Statement.break'() ]
 
-        | Fable.Curry(e, arity) ->
-            let expr, stmts = transformCurry com ctx e arity
-            stmts @ [ expr |> resolveExpr e.Type returnStrategy ]
+        | Fable.TypeCast(e, t) ->
+            let expr, stmts = transformCast com ctx t e
+            stmts @ [ expr |> resolveExpr t returnStrategy ]
 
         | Fable.Value(kind, r) ->
             let expr, stmts = transformValue com ctx r kind
@@ -1726,7 +1723,7 @@ module Util =
 
         | Fable.Emit(info, t, range) ->
             let e, stmts = transformEmit com ctx range info
-            if info.IsJsStatement then
+            if info.IsStatement then
                 stmts @ [ Statement.expr(e) ] // Ignore the return strategy
             else stmts @ [ resolveExpr t returnStrategy e ]
 
@@ -1746,8 +1743,8 @@ module Util =
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toList
             List.append bindings (transformAsStatements com ctx returnStrategy body)
 
-        | Fable.Set(expr, kind, value, range) ->
-            let expr', stmts = transformSet com ctx range expr value kind
+        | Fable.Set(expr, kind, typ, value, range) ->
+            let expr', stmts = transformSet com ctx range expr typ value kind
             match expr' with
             | Expression.NamedExpr({ Target = target; Value = value; Loc=loc }) ->
                 let nonLocals =
@@ -1793,7 +1790,7 @@ module Util =
         | Fable.DecisionTreeSuccess(idx, boundValues, _) ->
             transformDecisionTreeSuccessAsStatements com ctx returnStrategy idx boundValues
 
-        | Fable.WhileLoop(TransformExpr com ctx (guard, stmts), body, range) ->
+        | Fable.WhileLoop(TransformExpr com ctx (guard, stmts), body, label, range) ->
             stmts @ [ Statement.while'(guard, transformBlock com ctx None body, ?loc=range) ]
 
         | Fable.ForLoop (var, TransformExpr com ctx (start, stmts), TransformExpr com ctx (limit, stmts'), body, isUp, range) ->
@@ -1909,7 +1906,7 @@ module Util =
 //         )
 
     let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
-        let tagId = makeTypedIdent (Fable.Number Int32) "tag"
+        let tagId = makeTypedIdent (Fable.Number(Int32, None)) "tag"
         let fieldsId = makeTypedIdent (Fable.Array Fable.Any) "fields"
         [| tagId; fieldsId |]
 

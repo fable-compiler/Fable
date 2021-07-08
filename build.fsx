@@ -366,9 +366,7 @@ let testCompiler() =
 let testIntegration() =
     runInDir "tests/Integration" "dotnet run -c Release"
 
-let test() =
-    buildLibraryIfNotExists()
-
+let testMocha() =
     let projectDir = "tests/Main"
     let buildDir = "build/tests"
 
@@ -380,9 +378,14 @@ let test() =
 
     runMocha buildDir
 
-    runInDir projectDir "dotnet run"
+let test() =
+    buildLibraryIfNotExists()
 
-    testReact()
+    testMocha()
+
+    runInDir "tests/Main" "dotnet run"
+
+    // testReact()
 
     testCompiler()
 
@@ -427,8 +430,9 @@ let buildLocalPackage pkgDir =
 
 let testRepos() =
     let repos = [
+        "https://github.com/alfonsogarciacaro/FsToolkit.ErrorHandling:update-fable-3", "npm i && npm test"
         "https://github.com/fable-compiler/fable-promise:master", "npm i && npm test"
-        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "./fake.sh build -t MochaTest"
+        "https://github.com/alfonsogarciacaro/Thoth.Json:nagareyama", "dotnet paket restore && npm i && dotnet fable tests -o tests/bin --run mocha -r esm tests/bin"
         "https://github.com/alfonsogarciacaro/FSharp.Control.AsyncSeq:nagareyama", "cd tests/fable && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Extras:nagareyama", "dotnet paket restore && npm i && npm test"
         "https://github.com/alfonsogarciacaro/Fable.Jester:nagareyama", "npm i && npm test"
@@ -461,20 +465,7 @@ let githubRelease() =
                 let! version, notes = Publish.loadReleaseVersionAndNotes "src/Fable.Cli"
                 let notes = notes |> Array.map (fun n -> $"""'{n.Replace("'", @"\'").Replace("`", @"\`")}'""") |> String.concat ","
                 run $"git commit -am \"Release {version}\" && git push"
-                runSilent $"""
-node --eval "require('ghreleases').create({{
-    user: '{user}',
-    token: '{token}',
-}}, 'fable-compiler', 'Fable', {{
-    tag_name: '{version}',
-    name: '{version}',
-    body: [{notes}].join('\n'),
-}}, (err, res) => {{
-    if (err != null) {{
-        console.error(err)
-    }}
-}})"
-"""
+                runSilent $"""node --eval "require('ghreleases').create({{ user: '{user}', token: '{token}', }}, 'fable-compiler', 'Fable', {{ tag_name: '{version}', name: '{version}', body: [{notes}].join('\n'), }}, (err, res) => {{ if (err != null) {{ console.error(err) }} }})" """
                 printfn "Github release %s created successfully" version
             with ex ->
                 printfn "Github release failed: %s" ex.Message
@@ -552,12 +543,14 @@ let publishPackages restArgs =
         match List.tryHead restArgs with
         | Some pkg -> packages |> List.filter (fun (name,_) -> name = pkg)
         | None -> packages
-    for (pkg, buildAction) in packages do
-        if System.Char.IsUpper pkg.[0] then
-            let projFile = "src" </> pkg </> pkg + ".fsproj"
-            pushFableNuget projFile ["Pack", "true"] buildAction
-        else
-            pushNpm ("src" </> pkg) buildAction
+    async {
+        for (pkg, buildAction) in packages do
+            if System.Char.IsUpper pkg.[0] then
+                let projFile = "src" </> pkg </> pkg + ".fsproj"
+                do! pushFableNuget projFile ["Pack", "true"] buildAction
+            else
+                pushNpm ("src" </> pkg) buildAction
+    } |> runAsyncWorkflow
 
 let minify<'T> =
     argsLower |> List.contains "--no-minify" |> not
@@ -570,6 +563,7 @@ match argsLower with
 // | "download-standalone"::_ -> downloadStandalone()
 // | "coverage"::_ -> coverage()
 | "test"::_ -> test()
+| "test-mocha"::_ -> testMocha()
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()

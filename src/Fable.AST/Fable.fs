@@ -37,8 +37,22 @@ type UnionCase =
     abstract CompiledName: string option
     abstract UnionCaseFields: Field list
 
+[<RequireQualifiedAccess>]
+type Constraint =
+    | HasMember of name: string * isStatic: bool
+    | CoercesTo of target: Type
+    | IsNullable
+    | IsValueType
+    | IsReferenceType
+    | HasDefaultConstructor
+    | HasComparison
+    | HasEquality
+    | IsUnmanaged
+    | IsEnum
+
 type GenericParam =
     abstract Name: string
+    abstract Constraints: Constraint seq
 
 type Parameter =
     abstract Name: string option
@@ -85,6 +99,7 @@ type Entity =
     abstract IsInterface: bool
 
 type Type =
+    | Measure of fullname: string
     | MetaType
     | Any
     | Unit
@@ -92,28 +107,29 @@ type Type =
     | Char
     | String
     | Regex
-    | Number of NumberKind
-    | Enum of EntityRef
-    | Option of genericArg: Type
-    | Tuple of genericArgs: Type list
+    | Number of kind: NumberKind * uom: string option
+    | Enum of ref: EntityRef
+    | Option of genericArg: Type * isStruct: bool
+    | Tuple of genericArgs: Type list * isStruct: bool
     | Array of genericArg: Type
     | List of genericArg: Type
-    | LambdaType of Type * returnType: Type
-    | DelegateType of Type list * returnType: Type
-    | GenericParam of name: string
-    | DeclaredType of EntityRef * genericArgs: Type list
+    | LambdaType of argType: Type * returnType: Type
+    | DelegateType of argTypes: Type list * returnType: Type
+    | GenericParam of name: string * constraints: Constraint list
+    | DeclaredType of ref: EntityRef * genericArgs: Type list
     | AnonymousRecordType of fieldNames: string [] * genericArgs: Type list
 
     member this.Generics =
         match this with
-        | Option gen
+        | Option(gen, _)
         | Array gen
         | List gen -> [ gen ]
         | LambdaType(argType, returnType) -> [ argType; returnType ]
         | DelegateType(argTypes, returnType) -> argTypes @ [ returnType ]
-        | Tuple gen -> gen
+        | Tuple(gen, _) -> gen
         | DeclaredType (_, gen) -> gen
         | AnonymousRecordType (_, gen) -> gen
+        // TODO: Check numbers with measure?
         | _ -> []
 
 type ActionDecl = {
@@ -184,25 +200,25 @@ type ValueKind =
     // The AST from F# compiler is a bit inconsistent with ThisValue and BaseValue.
     // ThisValue only appears in constructors and not in instance members (where `this` is passed as first argument)
     // BaseValue can appear both in constructor and instance members (where they're associated to this arg)
-    | ThisValue of Type
-    | BaseValue of boundIdent: Ident option * Type
-    | TypeInfo of Type
-    | Null of Type
+    | ThisValue of typ: Type
+    | BaseValue of boundIdent: Ident option * typ: Type
+    | TypeInfo of typ: Type
+    | Null of typ: Type
     | UnitConstant
-    | BoolConstant of bool
-    | CharConstant of char
-    | StringConstant of string
-    | NumberConstant of float * NumberKind
+    | BoolConstant of value: bool
+    | CharConstant of value: char
+    | StringConstant of value: string
+    | NumberConstant of value: float * kind: NumberKind * uom: string option
     | RegexConstant of source: string * flags: RegexFlag list
-    | EnumConstant of Expr * EntityRef
-    | NewOption of value: Expr option * Type
-    | NewArray of Expr list * Type
-    | NewArrayFrom of Expr * Type
-    | NewList of headAndTail: (Expr * Expr) option * Type
-    | NewTuple of Expr list
-    | NewRecord of Expr list * EntityRef * genArgs: Type list
-    | NewAnonymousRecord of Expr list * fieldNames: string [] * genArgs: Type list
-    | NewUnion of Expr list * tag: int * EntityRef * genArgs: Type list
+    | EnumConstant of value: Expr * ref: EntityRef
+    | NewOption of value: Expr option * typ: Type * isStruct: bool
+    | NewArray of values: Expr list * typ: Type
+    | NewArrayFrom of value: Expr * typ: Type
+    | NewList of headAndTail: (Expr * Expr) option * typ: Type
+    | NewTuple of values: Expr list * isStruct: bool
+    | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
+    | NewAnonymousRecord of values: Expr list * fieldNames: string [] * genArgs: Type list
+    | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
     member this.Type =
         match this with
         | ThisValue t
@@ -213,20 +229,24 @@ type ValueKind =
         | BoolConstant _ -> Boolean
         | CharConstant _ -> Char
         | StringConstant _ -> String
-        | NumberConstant (_, kind) -> Number kind
+        | NumberConstant (_, kind, uom) -> Number(kind, uom)
         | RegexConstant _ -> Regex
         | EnumConstant (_, ent) -> Enum ent
-        | NewOption (_, t) -> Option t
+        | NewOption (_, t, isStruct) -> Option(t, isStruct)
         | NewArray (_, t) -> Array t
         | NewArrayFrom (_, t) -> Array t
         | NewList (_, t) -> List t
-        | NewTuple exprs -> exprs |> List.map (fun e -> e.Type) |> Tuple
+        | NewTuple (exprs, isStruct) -> Tuple(exprs |> List.map (fun e -> e.Type), isStruct)
         | NewRecord (_, ent, genArgs) -> DeclaredType(ent, genArgs)
         | NewAnonymousRecord (_, fieldNames, genArgs) -> AnonymousRecordType(fieldNames, genArgs)
         | NewUnion (_, _, ent, genArgs) -> DeclaredType(ent, genArgs)
 
+type ParamInfo =
+    { Name: string option
+      Type: Type }
+
 type CallMemberInfo =
-    { CurriedParameterGroups: Parameter list list
+    { CurriedParameterGroups: ParamInfo list list
       IsInstance: bool
       FullName: string
       CompiledName: string
@@ -240,7 +260,23 @@ type CallInfo =
       SignatureArgTypes: Type list
       CallMemberInfo: CallMemberInfo option
       HasSpread: bool
-      IsJsConstructor: bool }
+      IsConstructor: bool
+      /// Tag that indicates the call can be optimized away after the AST transformation chain
+      OptimizableInto: string option }
+    static member Make(?thisArg: Expr,
+                       ?args: Expr list,
+                       ?sigArgTypes: Type list,
+                       ?memberInfo: CallMemberInfo,
+                       ?hasSpread: bool,
+                       ?isCons: bool,
+                       ?optimizable: string) =
+        { ThisArg = thisArg
+          Args = defaultArg args []
+          SignatureArgTypes = defaultArg sigArgTypes []
+          CallMemberInfo = memberInfo
+          HasSpread = defaultArg hasSpread false
+          IsConstructor = defaultArg isCons false
+          OptimizableInto = optimizable }
 
 type ReplaceCallInfo =
     { CompiledName: string
@@ -255,24 +291,34 @@ type ReplaceCallInfo =
 
 type EmitInfo =
     { Macro: string
-      IsJsStatement: bool
+      IsStatement: bool
       CallInfo: CallInfo }
+
+type ImportKind =
+   | UserImport of isInline: bool
+   | LibraryImport
+   | MemberImport of isInstance: bool * fullPath: string
+   | ClassImport of fullPath: string
 
 type ImportInfo =
     { Selector: string
       Path: string
-      IsCompilerGenerated: bool }
+      Kind: ImportKind }
+    member this.IsCompilerGenerated =
+        match this.Kind with
+        | UserImport isInline -> isInline
+        | LibraryImport | MemberImport _  | ClassImport _ -> true
 
 type OperationKind =
-    | Unary of UnaryOperator * Expr
-    | Binary of BinaryOperator * left: Expr * right: Expr
-    | Logical of LogicalOperator * left: Expr * right: Expr
+    | Unary of operator: UnaryOperator * operand: Expr
+    | Binary of operator: BinaryOperator * left: Expr * right: Expr
+    | Logical of operator: LogicalOperator * left: Expr * right: Expr
 
 type GetKind =
-    | TupleIndex of int
-    | ExprGet of Expr
+    | TupleIndex of index: int
+    | ExprGet of expr: Expr
     | FieldGet of fieldName: string * isMutable: bool
-    | UnionField of tagIndex: int * fieldIndex: int
+    | UnionField of caseIndex: int * fieldIndex: int
     | UnionTag
     | ListHead
     | ListTail
@@ -280,54 +326,78 @@ type GetKind =
 
 type SetKind =
     | ExprSet of Expr
-    | FieldSet of fieldName: string * fieldType: Type
+    | FieldSet of fieldName: string
     | ValueSet
 
 type TestKind =
-    | TypeTest of Type
+    | TypeTest of typ: Type
     | OptionTest of isSome: bool
     | ListTest of isCons: bool
     | UnionCaseTest of tag: int
 
+type ExtendedSet =
+    | Return of expr: Expr
+    | Break of label: string option
+    | Throw of expr: Expr * typ: Type
+    | Debugger
+    | Curry of expr: Expr * arity: int
+    member this.Type =
+        match this with
+        | Return e -> e.Type
+        | Throw(_,t) -> t
+        | Break _ -> Unit
+        | Debugger -> Unit
+        /// Used in the uncurrying transformations, we'll try to remove the curried expressions
+        /// with beta reduction but in some cases it may be necessary to do it at runtime
+        | Curry (expr, _) -> expr.Type
+
 type Expr =
-    // Values and Idents
-    | Value of ValueKind * SourceLocation option
-    | IdentExpr of Ident
+    /// The extended set contains instructions that are not used in the first FSharp2Fable pass
+    /// but later when making the AST closer to a C-like language
+    | Extended of instruction: ExtendedSet * range: SourceLocation option
+
+    /// Identifiers that reference another expression
+    | IdentExpr of ident: Ident
+
+    /// Common and literal values
+    | Value of kind: ValueKind * range: SourceLocation option
 
     // Closures
     /// Lambdas are curried, they always have a single argument (which can be unit)
     | Lambda of arg: Ident * body: Expr * name: string option
     /// Delegates are uncurried functions, can have none or multiple arguments
     | Delegate of args: Ident list * body: Expr * name: string option
-    | ObjectExpr of MemberDecl list * Type * baseCall: Expr option
+    | ObjectExpr of members: MemberDecl list * typ: Type * baseCall: Expr option
 
     // Type cast and tests
-    | TypeCast of Expr * Type * tag: string option
-    | Test of Expr * TestKind * range: SourceLocation option
+    | TypeCast of expr: Expr * Type
+    | Test of expr: Expr * kind: TestKind * range: SourceLocation option
 
     // Operations
+    /// Calls to class/module members
     | Call of callee: Expr * info: CallInfo * typ: Type * range: SourceLocation option
+    /// Application of arguments to a lambda (or delegate)
     | CurriedApply of applied: Expr * args: Expr list * typ: Type * range: SourceLocation option
-    | Curry of Expr * arity: int
-    | Operation of OperationKind * typ: Type * range: SourceLocation option
+    /// Operations that can be defined with native operators
+    | Operation of kind: OperationKind * typ: Type * range: SourceLocation option
 
-    // JS related: imports and statements
-    | Import of ImportInfo * Type * SourceLocation option
-    | Emit of EmitInfo * Type * SourceLocation option
+    // Imports and code emissions
+    | Import of info: ImportInfo * typ: Type * range: SourceLocation option
+    | Emit of info: EmitInfo * typ: Type * range: SourceLocation option
 
     // Pattern matching
-    | DecisionTree of Expr * targets: (Ident list * Expr) list
-    | DecisionTreeSuccess of targetIndex: int * boundValues: Expr list * Type
+    | DecisionTree of expr: Expr * targets: (Ident list * Expr) list
+    | DecisionTreeSuccess of targetIndex: int * boundValues: Expr list * typ: Type
 
     // Getters, setters and bindings
-    | Let of Ident * Expr * body: Expr
+    | Let of ident: Ident * value: Expr * body: Expr
     | LetRec of bindings: (Ident * Expr) list * body: Expr
     | Get of Expr * kind: GetKind * typ: Type * range: SourceLocation option
-    | Set of Expr * kind: SetKind * value: Expr * range: SourceLocation option
+    | Set of Expr * kind: SetKind * typ: Type * value: Expr * range: SourceLocation option
 
     // Control flow
-    | Sequential of Expr list
-    | WhileLoop of guard: Expr * body: Expr * range: SourceLocation option
+    | Sequential of exprs: Expr list
+    | WhileLoop of guard: Expr * body: Expr * label: string option * range: SourceLocation option
     | ForLoop of ident: Ident * start: Expr * limit: Expr * body: Expr * isUp: bool * range: SourceLocation option
     | TryCatch of body: Expr * catch: (Ident * Expr) option * finalizer: Expr option * range: SourceLocation option
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr * range: SourceLocation option
@@ -337,9 +407,10 @@ type Expr =
         | Test _ -> Boolean
         | Value (kind, _) -> kind.Type
         | IdentExpr id -> id.Type
+        | Extended (kind, _) -> kind.Type
         | Call(_,_,t,_)
         | CurriedApply(_,_,t,_)
-        | TypeCast (_, t,_)
+        | TypeCast (_, t)
         | Import (_, t, _)
         | ObjectExpr (_, t, _)
         | Operation (_, t, _)
@@ -350,7 +421,6 @@ type Expr =
         | WhileLoop _
         | ForLoop _-> Unit
         | Sequential exprs -> List.tryLast exprs |> Option.map (fun e -> e.Type) |> Option.defaultValue Unit
-        | Curry (expr, _)
         | Let (_, _, expr)
         | LetRec (_, expr)
         | TryCatch (expr, _, _, _)
@@ -367,11 +437,11 @@ type Expr =
         | LetRec _
         | DecisionTree _
         | DecisionTreeSuccess _ -> None
-        | Curry(e, _)
         | Lambda (_, e, _)
         | Delegate (_, e, _)
-        | TypeCast (e, _, _) -> e.Range
+        | TypeCast (e, _) -> e.Range
         | IdentExpr id -> id.Range
+        | Extended(_,r)
         | Call(_,_,_,r)
         | CurriedApply(_,_,_,r)
         | Emit (_,_,r)
@@ -382,9 +452,9 @@ type Expr =
         | Test (_, _, r)
         | Operation (_, _, r)
         | Get (_, _, _, r)
-        | Set (_, _, _, r)
+        | Set (_, _, _, _, r)
         | ForLoop (_,_,_,_,_,r)
-        | WhileLoop (_,_,r) -> r
+        | WhileLoop (_,_,_,r) -> r
 
 // module PrettyPrint =
 //     let rec printType (t: Type) = "T" // TODO

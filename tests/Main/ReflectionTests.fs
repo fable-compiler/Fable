@@ -518,11 +518,6 @@ open Fable.Core.Reflection
 type R1 = { x: int }
 type R2 = { y: int }
 
-type Helper =
-    static member Make(values: obj[], [<Inject>] ?res: ITypeResolver<'U>) =
-        let t = res.Value.ResolveType()
-        FSharpValue.MakeRecord(t, values) :?> 'U
-
 type Maybe<'t> =
     | Just of 't
     | Nothing
@@ -530,15 +525,13 @@ type Maybe<'t> =
 type RecWithGenDU<'t> = { Other: 't; Value : Maybe<string> }
 type GenericTestRecord<'t> = { Other: 't; Value : Maybe<string> }
 
-// helper class to extract the name of an injected type
+// helper class to extract the name of a type argument
 type Types() =
-    static member getNameOf<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : string =
-        let resolvedType = resolver.Value.ResolveType()
-        resolvedType.Name
+    static member inline getNameOf<'t> () : string =
+        typeof<'t>.Name
 
-    static member get<'t> ([<Inject>] ?resolver: ITypeResolver<'t>) : System.Type =
-        let resolvedType = resolver.Value.ResolveType()
-        resolvedType
+    static member inline get<'t> () : System.Type =
+        typeof<'t>
 
 type MyUnion20 =
     | Union20_A
@@ -549,12 +542,6 @@ type MyRecord20 =
       FieldB: string }
 
 let fableTests = [
-    testCase "ITypeResolver can be injected" <| fun () ->
-        let x: R1 = Helper.Make [|box 5|]
-        let y: R2 = Helper.Make [|box 10|]
-        equal x { x = 5 }
-        equal y { y = 10 }
-
     testCase "Recursively reading generic arguments of nested generic types works" <| fun () ->
         let typeInfo = Types.get<Maybe<Maybe<int>>>()
 

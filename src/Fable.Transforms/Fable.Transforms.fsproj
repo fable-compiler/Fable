@@ -16,9 +16,9 @@
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="ReplacementsInject.fs" />
     <Compile Include="Replacements.fs" />
-    <Compile Include="Inject.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
+    <!-- <Compile Include="Fable2Extended.fs" /> -->
     <Compile Include="Fable2Babel.fs" />
     <Compile Include="BabelPrinter.fs" />
     <Compile Include="Python/Python.fs" />
