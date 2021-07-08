@@ -808,7 +808,7 @@ module Util =
                 let arg = FableTransforms.replaceValues tempVarReplacements arg
                 let arg, stmts = com.TransformAsExpr(ctx, arg)
                 yield! stmts
-                yield assign None (com.GetIdentifierAsExpr(ctx, argId)) arg |> exprAsStatement
+                yield! assign None (com.GetIdentifierAsExpr(ctx, argId)) arg |> exprAsStatement ctx
             yield Statement.continue'(?loc=range)
         ]
 
@@ -1018,14 +1018,14 @@ module Util =
                 rest @ [ Expression.starred(expr) ], stmts @ stmts'
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
 
-    let resolveExpr t strategy pyExpr: Statement =
+    let resolveExpr (ctx: Context) t strategy pyExpr: Statement list =
         //printfn "resolveExpr: %A" pyExpr
         match strategy with
-        | None | Some ReturnUnit -> exprAsStatement(pyExpr)
+        | None | Some ReturnUnit -> exprAsStatement ctx pyExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
-        | Some Return ->  Statement.return'(pyExpr)
-        | Some(Assign left) -> exprAsStatement(assign None left pyExpr)
-        | Some(Target left) -> exprAsStatement(assign None (left |> Expression.identifier) pyExpr)
+        | Some Return ->  [ Statement.return'(pyExpr) ]
+        | Some(Assign left) -> exprAsStatement ctx (assign None left pyExpr)
+        | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
     let transformOperation com ctx range opKind: Expression * Statement list =
         match opKind with
@@ -1120,7 +1120,7 @@ module Util =
             optimizeTailCall com ctx range tc args
         | _ ->
             let expr, stmts = transformCall com ctx range callee callInfo
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
     let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args =
         // Warn when there's a recursive call that couldn't be optimized?
@@ -1130,7 +1130,7 @@ module Util =
             optimizeTailCall com ctx range tc args
         | _ ->
             let expr, stmts = transformCurriedApply com ctx range callee args
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
@@ -1355,11 +1355,16 @@ module Util =
             let target = List.rev bindings |> List.fold (fun e (i,v) -> Fable.Let(i,v,e)) target
             com.TransformAsExpr(ctx, target)
 
-    let exprAsStatement (expr: Expression) : Statement =
+    let exprAsStatement (ctx: Context) (expr: Expression) : Statement list =
         match expr with
         | NamedExpr({Target=target; Value=value; Loc=loc }) ->
-            Statement.assign([target], value)
-        | _ -> Statement.expr(expr)
+            let nonLocals =
+                match target with
+                | Expression.Name({Id=id}) -> [ ctx.BoundVars.NonLocals([id]) |> Statement.nonLocal ]
+                | _ -> []
+
+            nonLocals @ [ Statement.assign([target], value) ]
+        | _ -> [ Statement.expr(expr) ]
 
     let transformDecisionTreeSuccessAsStatements (com: IPythonCompiler) (ctx: Context) returnStrategy targetIndex boundValues: Statement list =
         match returnStrategy with
@@ -1368,10 +1373,10 @@ module Util =
             let assignments =
                 matchTargetIdentAndValues idents boundValues
                 |> List.collect (fun (id, TransformExpr com ctx (value, stmts)) ->
-                    let stmt = assign None (identAsExpr com ctx id) value |> exprAsStatement
-                    stmts @ [ stmt ])
-            let targetAssignment = assign None (targetId |> Expression.name) (ofInt targetIndex) |> exprAsStatement
-            [ targetAssignment ] @ assignments
+                    let stmts' = assign None (identAsExpr com ctx id) value |> exprAsStatement ctx
+                    stmts @ stmts')
+            let targetAssignment = assign None (targetId |> Expression.name) (ofInt targetIndex) |> exprAsStatement ctx
+            targetAssignment @ assignments
         | ret ->
             let bindings, target = getDecisionTargetAndBindValues com ctx targetIndex boundValues
             let bindings = bindings |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v) |> Seq.toList
@@ -1533,19 +1538,25 @@ module Util =
             else
                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
 
-    let transformSequenceExpr (com: IPythonCompiler) ctx (exprs: Expression list) : Expression * Statement list =
+    let transformSequenceExpr (com: IPythonCompiler) ctx (exprs: Fable.Expr list) : Expression * Statement list =
+        //printfn "transformSequenceExpr, exprs: %A" exprs.Length
         let body =
             exprs
-            |> List.mapi
-                (fun i expr ->
-                     // Return the last expression
-                    if i = exprs.Length - 1 then
-                        [ Statement.return' (expr)]
-                    else
-                        [ exprAsStatement expr ])
-            |> List.collect id
-            //|> transformBody ReturnStrategy.Return
+            |> List.collecti
+                (fun i e ->
+                    let expr, stmts = com.TransformAsExpr(ctx, e)
 
+                    // Return the last expression
+                    if i = exprs.Length - 1 then
+                        Statement.return' (expr) :: stmts
+                    else
+                        exprAsStatement ctx expr @ stmts)
+        // let expr =
+        //     Expression.subscript(
+        //         Expression.tuple(exprs),
+        //         Expression.constant(-1))
+        // expr, []
+        //printfn "transformSequenceExpr, body: %A" body
 
         let name = Helpers.getUniqueIdentifier ("lifted")
         let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
@@ -1553,6 +1564,23 @@ module Util =
         let name = Expression.name (name)
         Expression.call (name), [ func ]
 
+    let transformSequenceExpr' (com: IPythonCompiler) ctx (exprs: Expression list) (stmts: Statement list) : Expression * Statement list =
+        //printfn "transformSequenceExpr', exprs: %A" exprs.Length
+        let body =
+            exprs
+            |> List.collecti
+                (fun i expr ->
+                    // Return the last expression
+                    if i = exprs.Length - 1 then
+                        stmts @ [ Statement.return' (expr) ]
+                    else
+                        exprAsStatement ctx expr)
+
+        let name = Helpers.getUniqueIdentifier ("lifted")
+        let func = FunctionDef.Create(name = name, args = Arguments.arguments [], body = body)
+
+        let name = Expression.name (name)
+        Expression.call (name), [ func ]
 
     let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list=
         match expr with
@@ -1584,6 +1612,11 @@ module Util =
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
 
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="split"), _, _), { Args=[Fable.Value(kind=Fable.StringConstant(""))]}, _, range) ->
+            let func = Expression.name("list")
+            let value, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.call (func, [ value ]), stmts
+
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="charCodeAt"), _, _), info, _, range) ->
             let func = Expression.name("ord")
             let value, stmts = com.TransformAsExpr(ctx, expr)
@@ -1603,15 +1636,31 @@ module Util =
             let value, stmts = com.TransformAsExpr(ctx, expr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
 
+        | Fable.Get(expr, Fable.FieldGet(fieldName="toLocaleUpperCase"), _, _) ->
+            let attr = Python.Identifier("upper")
+            let value, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | Fable.Get(expr, Fable.FieldGet(fieldName="toLocaleLowerCase"), _, _) ->
+            let attr = Python.Identifier("lower")
+            let value, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.Get(expr, Fable.FieldGet(fieldName="indexOf"), _, _) ->
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, expr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
 
+        | Fable.Get(Fable.IdentExpr({Name = "String"}), Fable.FieldGet(fieldName="fromCharCode"), _, _) ->
+            let func = Expression.name("chr")
+            func, []
         | Fable.Get(expr, Fable.FieldGet(fieldName="length"), _, _) ->
             let func = Expression.name("len")
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
+
+        | Fable.Get(Fable.IdentExpr({Name=name;Type=Fable.AnonymousRecordType(_)}) as expr, Fable.FieldGet(fieldName=index), _, _) ->
+            let left, stmts = com.TransformAsExpr(ctx, expr)
+            let index = Expression.constant(index)
+            Expression.subscript (left, index), stmts
 
         | Fable.Get(expr, kind, typ, range) ->
             transformGet com ctx range typ expr kind
@@ -1628,15 +1677,23 @@ module Util =
             transformDecisionTreeSuccessAsExpr com ctx idx boundValues
 
         | Fable.Set(expr, kind, typ, value, range) ->
-            transformSet com ctx range expr typ value kind
+            let expr', stmts = transformSet com ctx range expr typ value kind
+            match expr' with
+            | Expression.NamedExpr({ Target = target; Value = _; Loc=_ }) ->
+                let nonLocals =
+                    match target with
+                    | Expression.Name({Id=id}) -> [ ctx.BoundVars.NonLocals([id]) |> Statement.nonLocal ]
+                    | _ -> []
+                expr', nonLocals @ stmts
+            | _ -> expr', stmts
 
         | Fable.Let(ident, value, body) ->
-            // printfn "Fable.Let: %A" (ident, value, body)
+            //printfn "Fable.Let: %A" (ident, value, body)
             if ctx.HoistVars [ident] then
                 let assignment, stmts = transformBindingAsExpr com ctx ident value
-                let expr, stmts' = com.TransformAsExpr(ctx, body)
-                let expr, stmts'' = transformSequenceExpr com ctx [ assignment; expr ]
-                expr, stmts @ stmts' @ stmts''
+                let bodyExpr, stmts' = com.TransformAsExpr(ctx, body)
+                let expr, stmts'' = transformSequenceExpr' com ctx [ assignment; bodyExpr ] (stmts @ stmts')
+                expr, stmts''
             else iife com ctx expr
 
         | Fable.LetRec(bindings, body) ->
@@ -1648,14 +1705,11 @@ module Util =
                     |> (fun (e, s) -> (e, List.collect id s))
 
                 let expr, stmts' = com.TransformAsExpr(ctx, body)
-                let expr, stmts'' = transformSequenceExpr com ctx (values @ [expr])
+                let expr, stmts'' = transformSequenceExpr' com ctx (values @ [expr]) []
                 expr, stmts @ stmts' @ stmts''
             else iife com ctx expr
 
-        | Fable.Sequential exprs ->
-            let exprs, stmts = List.map (fun e -> com.TransformAsExpr(ctx, e)) exprs |> List.unzip
-            // printfn "Sequential: %A" (exprs, stmts)
-            Expression.none(), stmts |> List.collect id
+        | Fable.Sequential exprs -> transformSequenceExpr com ctx exprs
 
         | Fable.Emit(info, _, range) ->
             if info.IsStatement then iife com ctx expr
@@ -1677,7 +1731,7 @@ module Util =
             match kind with
             | Fable.Curry(e, arity) ->
                 let expr, stmts = transformCurry com ctx e arity
-                stmts @ [ expr |> resolveExpr e.Type returnStrategy ]
+                stmts @ (expr |> resolveExpr ctx e.Type returnStrategy)
             | Fable.Throw(TransformExpr com ctx (e, stmts), _) -> stmts @ [Statement.raise(e) ]
             | Fable.Return(TransformExpr com ctx (e, stmts)) -> stmts @ [ Statement.return'(e)]
             | Fable.Debugger -> []
@@ -1685,35 +1739,35 @@ module Util =
 
         | Fable.TypeCast(e, t) ->
             let expr, stmts = transformCast com ctx t e
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Value(kind, r) ->
             let expr, stmts = transformValue com ctx r kind
-            stmts @ [ expr |> resolveExpr kind.Type returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx kind.Type returnStrategy)
 
         | Fable.IdentExpr id ->
-            [ identAsExpr com ctx id |> resolveExpr id.Type returnStrategy ]
+            identAsExpr com ctx id |> resolveExpr ctx id.Type returnStrategy
 
         | Fable.Import({ Selector = selector; Path = path }, t, r) ->
-            [ transformImport com ctx r selector path |> resolveExpr t returnStrategy ]
+            transformImport com ctx r selector path |> resolveExpr ctx t returnStrategy
 
         | Fable.Test(expr, kind, range) ->
             let expr, stmts = transformTest com ctx range kind expr
-            stmts @ [ expr |> resolveExpr Fable.Boolean returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx Fable.Boolean returnStrategy)
 
         | Fable.Lambda(arg, body, name) ->
             let args, body = transformFunction com ctx name [arg] body
             let expr', stmts = makeArrowFunctionExpression args body
-            stmts @ [ expr' |> resolveExpr expr.Type returnStrategy ]
+            stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
         | Fable.Delegate(args, body, name) ->
             let args, body = transformFunction com ctx name args body
             let expr', stmts = makeArrowFunctionExpression args body
-            stmts @ [ expr' |> resolveExpr expr.Type returnStrategy ]
+            stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
         | Fable.ObjectExpr (members, t, baseCall) ->
             let expr, stmts = transformObjectExpr com ctx members baseCall
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Call(callee, info, typ, range) ->
             transformCallAsStatements com ctx range typ returnStrategy callee info
@@ -1725,15 +1779,15 @@ module Util =
             let e, stmts = transformEmit com ctx range info
             if info.IsStatement then
                 stmts @ [ Statement.expr(e) ] // Ignore the return strategy
-            else stmts @ [ resolveExpr t returnStrategy e ]
+            else stmts @ resolveExpr ctx t returnStrategy e
 
         | Fable.Operation(kind, t, range) ->
             let expr, stmts = transformOperation com ctx range kind
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Get(expr, kind, t, range) ->
             let expr, stmts = transformGet com ctx range t expr kind
-            stmts @ [ expr |> resolveExpr t returnStrategy ]
+            stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
         | Fable.Let(ident, value, body) ->
             let binding = transformBindingAsStatements com ctx ident value
@@ -1752,7 +1806,7 @@ module Util =
                     | Expression.Name({Id=id}) -> [ ctx.BoundVars.NonLocals([id]) |> Statement.nonLocal ]
                     | _ -> []
                 nonLocals @ stmts @ [ Statement.assign([target], value) ]
-            | _ -> stmts @ [ expr' |> resolveExpr expr.Type returnStrategy ]
+            | _ -> stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
         | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
             let asStatement =
@@ -1772,7 +1826,7 @@ module Util =
                 stmts
                 @ stmts'
                 @ stmts''
-                @ [ Expression.ifExp(guardExpr', thenExpr', elseExpr', ?loc=r) |> resolveExpr thenExpr.Type returnStrategy ]
+                @ (Expression.ifExp(guardExpr', thenExpr', elseExpr', ?loc=r) |> resolveExpr ctx thenExpr.Type returnStrategy)
 
         | Fable.Sequential statements ->
             let lasti = (List.length statements) - 1
@@ -2057,11 +2111,11 @@ module Util =
         let body = [
                 if Option.isSome baseExpr then
                     yield callSuperAsStatement []
-                yield! ent.FSharpFields |> Seq.mapi (fun i field ->
+
+                yield! (ent.FSharpFields |> List.collecti (fun i field ->
                     let left = get com ctx None thisExpr field.Name
                     let right = args.[i]
-                    assign None left right |> exprAsStatement)
-                |> Seq.toArray
+                    assign None left right |> exprAsStatement ctx))
             ]
         let args = fieldIds |> Array.mapToList (ident com ctx >> Arg.arg)
         declareType com ctx ent entName args body baseExpr classMembers
