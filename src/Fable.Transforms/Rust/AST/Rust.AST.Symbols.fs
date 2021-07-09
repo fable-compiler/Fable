@@ -84,6 +84,86 @@ module kw =
     let Raw =                "raw"
     let Union =              "union"
 
+    let RustKeywords = [
+        // Special reserved identifiers used internally for elided lifetimes
+        // unnamed method parameters crate root module error recovery etc.
+        Empty
+        PathRoot
+        DollarCrate
+        Underscore
+
+        // Keywords that are used in stable Rust.
+        As
+        Break
+        Const
+        Continue
+        Crate
+        Else
+        Enum
+        Extern
+        False
+        Fn
+        For
+        If
+        Impl
+        In
+        Let
+        Loop
+        Match
+        Mod
+        Move
+        Mut
+        Pub
+        Ref
+        Return
+        SelfLower
+        SelfUpper
+        Static
+        Struct
+        Super
+        Trait
+        True
+        Type
+        Unsafe
+        Use
+        Where
+        While
+
+        // Keywords that are used in unstable Rust or reserved for future use.
+        Abstract
+        Become
+        Box
+        Do
+        Final
+        Macro
+        Override
+        Priv
+        Typeof
+        Unsized
+        Virtual
+        Yield
+
+        // Edition-specific keywords that are used in stable Rust.
+        Async
+        Await
+        Dyn
+
+        // Edition-specific keywords that are used in unstable Rust or reserved for future use.
+        Try
+
+        // Special lifetime names
+        UnderscoreLifetime
+        StaticLifetime
+
+        // Weak keywords have special meaning only in specific contexts.
+        Auto
+        Catch
+        Default
+        MacroRules
+        Raw
+        Union
+    ]
+
 // Pre-interned symbols that can be referred to with `rustc_span::sym::*`.
 //
 // The symbol is the stringified identifier unless otherwise specified, in

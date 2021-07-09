@@ -107,6 +107,8 @@ module Helpers =
             |> addError com ctx.InlinePath r
             Any)
 
+    let isRustLang (com: ICompiler) = com.Options.Language = Rust
+
 open Helpers
 open Fable.Transforms
 
@@ -594,7 +596,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo  ->
-        if needToCast typeFrom typeTo then
+        if not (isRustLang com) && needToCast typeFrom typeTo then
             match typeFrom with
             | Long _ -> Helper.LibCall(com, "Long", "toInt", targetType, args)
             | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)

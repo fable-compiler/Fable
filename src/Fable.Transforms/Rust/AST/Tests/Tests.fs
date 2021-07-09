@@ -62,7 +62,6 @@ type TestClass () =
         let varstr = variant_to_string(var_)
         assert_eq(varstr, "principal_skinner")
 
-
     [<TestMethod>]
     member _.test_crate_to_string() =
         let sm: SourceMap = SourceMap()
@@ -74,7 +73,7 @@ type TestClass () =
         let edition: Edition = Edition.Edition2021
 
         let str = print_crate(sm, krate, filename, input, ann, is_expanded, edition)
-        let expected = "fn main() { let a = vec![1,2,3,4,5]; println!(\"{:?}\",a); }\n"
+        let expected = "pub fn main() { let a = vec![1,2,3,4,5]; println!(\"{:?}\",a); }\n"
         assert_eq(str, expected)
 
 let run() =

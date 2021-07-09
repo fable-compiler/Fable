@@ -531,7 +531,7 @@ type State with
         for segment in segments do //.iter().enumerate() do
             i <- i + 1
             if i > 0 then
-                self.s.word(".")
+                self.s.word("::")
             self.print_path_segment(segment, colons_before_params)
 
     member self.print_path_segment(segment: ast.PathSegment, colons_before_params: bool) =
@@ -621,7 +621,7 @@ type State with
             | token.TokenKind.Comma -> ","
             | token.TokenKind.Semi -> ";"
             | token.TokenKind.Colon -> ":"
-            | token.TokenKind.ModSep -> "."
+            | token.TokenKind.ModSep -> "::"
             | token.TokenKind.RArrow -> "->"
             | token.TokenKind.LArrow -> "<-"
             | token.TokenKind.FatArrow -> "=>"
@@ -733,7 +733,7 @@ type State with
 
     member self.print_generic_args(args: ast.GenericArgs, colons_before_params: bool) =
         if colons_before_params then
-            self.s.word(".")
+            self.s.word("::")
 
         match args with
             | ast.GenericArgs.AngleBracketed(data) ->
@@ -1997,7 +1997,7 @@ type State with
             self.print_path(path, false, depth)
         self.s.word(">")
         for item_segment in path.segments.[qself.position..] do
-            self.s.word(".")
+            self.s.word("::")
             self.print_ident(item_segment.ident)
             match item_segment.args with
             | None -> ()
@@ -2343,14 +2343,14 @@ type State with
             | ast.UseTreeKind.Glob ->
                 if not(tree.prefix.segments.is_empty()) then
                     self.print_path(tree.prefix, false, 0)
-                    self.s.word(".")
+                    self.s.word("::")
                 self.s.word("*")
             | ast.UseTreeKind.Nested(items) ->
                 if tree.prefix.segments.is_empty() then
                     self.s.word("{")
                 else
                     self.print_path(tree.prefix, false, 0)
-                    self.s.word(".{")
+                    self.s.word("::{")
                 self.commasep(pp.Breaks.Inconsistent, items, fun (this, (tree, _)) ->
                     this.print_use_tree(tree)
                 )

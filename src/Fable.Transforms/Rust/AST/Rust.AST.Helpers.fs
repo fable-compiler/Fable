@@ -8,7 +8,11 @@ open Fable.Transforms.Rust.AST.Types
 module Idents =
 
     let mkIdent (symbol: Symbol): Ident =
+        let symbol = symbol.Replace("$", "_")
         Ident.from_str(symbol)
+
+    let inline mkVec (items: _ seq) =
+        Vec(items)
 
 [<AutoOpen>]
 module TokenLiterals =
@@ -41,10 +45,6 @@ module TokenLiterals =
 
 [<AutoOpen>]
 module Tokens =
-
-    let dummyDelimSpan: token.DelimSpan =
-        { open_ = DUMMY_SP
-          close = DUMMY_SP }
 
     let mkToken kind: token.Token =
         { kind = kind
@@ -101,61 +101,61 @@ module Tokens =
 [<AutoOpen>]
 module TokenTrees =
 
-    let mkIdentTokenTreeToken symbol: token.TokenTree =
+    let mkTokenTree kind: token.TokenTree =
+        kind
+        |> mkToken
+        |> token.TokenTree.Token
+
+    let mkIdentTokenTree symbol: token.TokenTree =
         symbol
         |> mkIdentToken
         |> token.TokenTree.Token
 
-    let mkRawIdentTokenTreeToken symbol: token.TokenTree =
+    let mkRawIdentTokenTree symbol: token.TokenTree =
         symbol
         |> mkRawIdentToken
         |> token.TokenTree.Token
 
-    let mkBoolTokenTreeToken symbol: token.TokenTree =
+    let mkBoolTokenTree symbol: token.TokenTree =
         symbol
         |> mkBoolToken
         |> token.TokenTree.Token
 
-    let mkCharTokenTreeToken symbol: token.TokenTree =
+    let mkCharTokenTree symbol: token.TokenTree =
         symbol
         |> mkCharToken
         |> token.TokenTree.Token
 
-    let mkIntTokenTreeToken symbol: token.TokenTree =
+    let mkIntTokenTree symbol: token.TokenTree =
         symbol
         |> mkIntToken
         |> token.TokenTree.Token
 
-    let mkFloatTokenTreeToken symbol: token.TokenTree =
+    let mkFloatTokenTree symbol: token.TokenTree =
         symbol
         |> mkFloatToken
         |> token.TokenTree.Token
 
-    let mkStrTokenTreeToken symbol: token.TokenTree =
+    let mkStrTokenTree symbol: token.TokenTree =
         symbol
         |> mkStrToken
         |> token.TokenTree.Token
 
-    let mkErrTokenTreeToken symbol: token.TokenTree =
+    let mkErrTokenTree symbol: token.TokenTree =
         symbol
         |> mkErrToken
         |> token.TokenTree.Token
 
-    let mkRawStrTokenTreeToken raw symbol: token.TokenTree =
+    let mkRawStrTokenTree raw symbol: token.TokenTree =
         symbol
         |> mkRawStrToken raw
-        |> token.TokenTree.Token
-
-    let commaTokenTreeToken: token.TokenTree =
-        token.TokenKind.Comma
-        |> mkToken
         |> token.TokenTree.Token
 
 [<AutoOpen>]
 module Literals =
 
     let mkBoolLit (value: bool): Lit =
-        { token = mkBoolTokenLit (string value)
+        { token = mkBoolTokenLit ((string value).ToLowerInvariant())
           kind = LitKind.Bool(value)
           span = DUMMY_SP }
 
@@ -202,21 +202,17 @@ module Paths =
           segments = segments
           tokens = None }
 
-    let mkPathFromIdents (idents: Vec<Ident>): Path =
-        idents.map (fun ident -> mkPathSegment ident None)
+    let mkGenericPath (symbols: Vec<Symbol>) genArgs: Path =
+        let len = symbols.len()
+        let args i = if i < len - 1 then None else genArgs
+        symbols
+        |> Seq.mapi (fun i s -> mkPathSegment (mkIdent s) (args i))
+        |> mkVec
         |> mkPath
 
-    let mkPathFromSymbols (symbols: Vec<Symbol>): Path =
-        symbols.map(mkIdent)
-        |> mkPathFromIdents
-
-    let mkGenericPathFromSymbol (symbol: Symbol) args: Path =
-        let ident = mkIdent symbol
-        let segments = [mkPathSegment ident args] |> Vec
-        mkPath segments
-
-    let mkPathFromSymbol (symbol: Symbol): Path =
-        mkGenericPathFromSymbol symbol None
+    let mkPathFromName (name: Symbol) genArgs: Path =
+        let symbols = name.Split('.') |> mkVec
+        mkGenericPath symbols genArgs
 
 [<AutoOpen>]
 module Patterns =
@@ -227,19 +223,28 @@ module Patterns =
           span = DUMMY_SP
           tokens = None }
 
-    let mkIdentPat ident isRef isMut: Pat =
+    let mkIdentPat (name: Symbol) isRef isMut: Pat =
+        let ident = mkIdent name
         let mut =
             if isMut then Mutability.Mut else Mutability.Not
         let binding =
             if isRef
             then BindingMode.ByRef(mut)
             else BindingMode.ByValue(mut)
-        let kind = PatKind.Ident(binding, ident, None)
-        mkPat kind
+        PatKind.Ident(binding, ident, None)
+        |> mkPat
 
-    let mkSymbolPat (symbol: Symbol) isRef isMut: Pat =
-        let ident = mkIdent(symbol)
-        mkIdentPat ident isRef isMut
+    let mkLitPat expr: Pat =
+        PatKind.Lit(expr)
+        |> mkPat
+
+    let WILD_PAT: Pat =
+        PatKind.Wild
+        |> mkPat
+
+    let mkTupleStructPat (path: Path) (elts: Vec<Pat>): Pat =
+        PatKind.TupleStruct(path, elts)
+        |> mkPat
 
 [<AutoOpen>]
 module Visibilities =
@@ -268,6 +273,28 @@ module BinOps =
         respan(DUMMY_SP, kind)
 
 [<AutoOpen>]
+module Attrs =
+
+    let mkAttr kind style: Attribute =
+        { kind = kind
+          id = 0u
+          style = style
+          span = DUMMY_SP }
+
+    let mkAttrItem path args: AttrItem =
+        { path = path
+          args = args
+          tokens = None }
+
+    let mkPathAttr (name: Symbol) (value: Symbol): Attribute =
+        let path = mkPathFromName name None
+        let args = MacArgs.Eq(DUMMY_SP, mkStrToken value)
+        let item = mkAttrItem path args
+        let kind = AttrKind.Normal(item, None)
+        let style = AttrStyle.Outer
+        mkAttr kind style
+
+[<AutoOpen>]
 module Locals =
 
     let mkLocal pat ty init attrs: Local =
@@ -278,6 +305,11 @@ module Locals =
           span = DUMMY_SP
           attrs = attrs
           tokens = None }
+
+    let mkIdentLocal symbol init: Local =
+        let pat = mkIdentPat symbol false false
+        let ty = None
+        mkLocal pat ty (Some init) (mkVec [])
 
 [<AutoOpen>]
 module Statements =
@@ -290,18 +322,76 @@ module Statements =
 [<AutoOpen>]
 module Blocks =
 
-    let mkBlock stmts: Block =
-        { stmts = stmts
+    let mkBlock (stmts: Stmt seq): Block =
+        { stmts = mkVec stmts
           id = DUMMY_NODE_ID
           rules = BlockCheckMode.Default
           span = DUMMY_SP
           tokens = None }
 
-    let mkExprBlock expr: Block =
-        [expr |> StmtKind.Expr |> mkStmt] |> Vec |> mkBlock
+    let mkExprBlock (expr: Expr): Block =
+        match expr.kind with
+        | ExprKind.Block(block, None) -> block
+        | _ -> [expr |> StmtKind.Expr |> mkStmt] |> mkBlock
 
-    let mkSemiBlock expr: Block =
-        [expr |> StmtKind.Semi |> mkStmt] |> Vec |> mkBlock
+    let mkSemiBlock (expr: Expr): Block =
+        match expr.kind with
+        | ExprKind.Block(block, None) -> block
+        | _ -> [expr |> StmtKind.Semi |> mkStmt] |> mkBlock
+
+[<AutoOpen>]
+module Arms =
+
+    let mkArm attrs pat guard body: Arm =
+        { attrs = attrs
+          pat = pat
+          guard = guard
+          body = body
+          span = DUMMY_SP
+          id = DUMMY_NODE_ID
+          is_placeholder = false }
+
+[<AutoOpen>]
+module MacroArgs =
+
+    let DUMMY_DELIMSPAN: token.DelimSpan =
+        { open_ = DUMMY_SP
+          close = DUMMY_SP }
+
+    let mkDelimitedMacArgs (delim: MacDelimiter) (kind: token.TokenKind) (tokens: token.Token seq): MacArgs =
+        let count = tokens |> Seq.length
+        let args: token.TokenStream =
+            tokens
+            |> Seq.mapi (fun i tok ->
+                let ttt = tok |> token.TokenTree.Token
+                let sep = kind |> mkTokenTree
+                if i < count - 1 then
+                    [ (ttt, token.Spacing.Joint);
+                      (sep, token.Spacing.Alone) ]
+                else
+                    [ (ttt, token.Spacing.Alone) ]
+            )
+            |> Seq.concat
+            |> mkVec
+        MacArgs.Delimited(DUMMY_DELIMSPAN, delim, args)
+
+[<AutoOpen>]
+module MacCalls =
+
+    let mkMacCall symbol delim kind (tokens: token.Token seq): MacCall =
+        { path = mkPathFromName symbol None
+          args = mkDelimitedMacArgs delim kind tokens
+          prior_type_ascription = None }
+
+    let mkCommaDelimitedMacCall symbol delim (tokens: token.Token seq): MacCall =
+        let kind = token.TokenKind.Comma
+        mkMacCall symbol delim kind tokens
+
+    let mkBracketCommaDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
+        mkCommaDelimitedMacCall symbol MacDelimiter.Bracket tokens
+
+    let mkParensCommaDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
+        mkCommaDelimitedMacCall symbol MacDelimiter.Parenthesis tokens
 
 [<AutoOpen>]
 module Exprs =
@@ -310,7 +400,7 @@ module Exprs =
         { id = DUMMY_NODE_ID
           kind = kind
           span = DUMMY_SP
-          attrs = Vec []
+          attrs = mkVec []
           tokens = None }
 
     let mkBoolLitExpr value: Expr =
@@ -355,12 +445,12 @@ module Exprs =
         |> ExprKind.Lit
         |> mkExpr
 
-    let mkPathExpr (symbols: Vec<Symbol>): Expr =
-        ExprKind.Path(None, mkPathFromSymbols symbols)
+    let mkPathExpr path: Expr =
+        ExprKind.Path(None, path)
         |> mkExpr
 
-    let mkQualifiedPathExpr (qualified: Option<QSelf>) (symbols: Vec<Symbol>): Expr =
-        ExprKind.Path(qualified, mkPathFromSymbols symbols)
+    let mkQualifiedPathExpr (qualified: Option<QSelf>) path: Expr =
+        ExprKind.Path(qualified, path)
         |> mkExpr
 
     let mkStructExpr path fields rest: Expr =
@@ -378,6 +468,10 @@ module Exprs =
         ExprKind.Tup(elements)
         |> mkExpr
 
+    let mkCastExpr ty expr: Expr =
+        ExprKind.Cast(expr, ty)
+        |> mkExpr
+
     let mkUnaryExpr op arg: Expr =
         ExprKind.Unary(op, arg)
         |> mkExpr
@@ -392,14 +486,6 @@ module Exprs =
 
     let mkAssignExpr left right: Expr =
         ExprKind.Assign(left, right, DUMMY_SP)
-        |> mkExpr
-
-    let mkCallExpr callee args: Expr =
-        ExprKind.Call(callee, args)
-        |> mkExpr
-
-    let mkMethodCallExpr callee args: Expr =
-        ExprKind.MethodCall(callee, args, DUMMY_SP)
         |> mkExpr
 
     let mkBlockExpr block: Expr =
@@ -421,11 +507,61 @@ module Exprs =
         ExprKind.If(ifExpr, thenBlock, elseBlock)
         |> mkExpr
 
+    let mkWhileExpr condExpr bodyExpr: Expr =
+        let bodyBlock = mkSemiBlock bodyExpr
+        ExprKind.While(condExpr, bodyBlock, None)
+        |> mkExpr
+
+    let mkForLoopExpr var rangeExpr bodyExpr: Expr =
+        let bodyBlock = mkSemiBlock bodyExpr
+        ExprKind.ForLoop(var, rangeExpr, bodyBlock, None)
+        |> mkExpr
+
+    let mkTryBlockExpr bodyExpr: Expr =
+        let bodyBlock = mkExprBlock bodyExpr
+        ExprKind.TryBlock(bodyBlock)
+        |> mkExpr
+
+    let mkRangeExpr fromExpr toExpr isClosed: Expr =
+        let rangeLimit =
+            if isClosed then RangeLimits.Closed else RangeLimits.HalfOpen
+        ExprKind.Range(fromExpr, toExpr, rangeLimit)
+        |> mkExpr
+
+    let mkParenExpr expr: Expr =
+        ExprKind.Paren(expr)
+        |> mkExpr
+
+    let mkClosureExpr (decl: FnDecl) (body: Expr): Expr =
+        ExprKind.Closure(CaptureBy.Ref, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
+        |> mkExpr
+
+    let mkCallExpr (callee: Expr) args: Expr =
+        ExprKind.Call(callee, args)
+        |> mkExpr
+
+    let mkMethodCallExpr (symbol: Symbol) genArgs args: Expr =
+        let callee = mkPathSegment (mkIdent symbol) genArgs
+        ExprKind.MethodCall(callee, args, DUMMY_SP)
+        |> mkExpr
+
+    let mkMacCallExpr (mac: MacCall): Expr =
+        ExprKind.MacCall mac
+        |> mkExpr
+
+    let mkMatchExpr expr (arms: Arm seq): Expr =
+        ExprKind.Match(expr, mkVec arms)
+        |> mkExpr
+
+    let mkLetExpr pat expr: Expr =
+        ExprKind.Let(pat, expr)
+        |> mkExpr
+
     let mkEmitExpr symbol: Expr =
         mkErrLitExpr symbol
 
     let TODO_EXPR name: Expr =
-        mkStrLit ("TODO_" + name)
+        mkStrLit ("TODO_EXPR_" + name)
         |> ExprKind.Lit |> mkExpr
 
 [<AutoOpen>]
@@ -459,6 +595,17 @@ module Stmts =
         mkEmitExpr symbol
         |> mkSemiStmt
 
+    let mkMacCallStmt (mac: MacCall): Stmt =
+        let macCallStmt: MacCallStmt = {
+            mac = mac
+            style = MacStmtStyle.Semicolon
+            attrs = mkVec []
+            tokens = None
+        }
+        macCallStmt
+        |> StmtKind.MacCall
+        |> mkStmt
+
 [<AutoOpen>]
 module Types =
 
@@ -468,21 +615,26 @@ module Types =
           span = DUMMY_SP
           tokens = None }
 
+    let mkBareFnTy generic_params decl: BareFnTy =
+        { unsafety = Unsafety.No
+          ext = Extern.None
+          generic_params = generic_params
+          decl = decl }
+
     let mkRefTy ty: Ty =
         TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Not })
         |> mkTy
 
-    let mkPathTy (symbols: Vec<Symbol>): Ty =
-        TyKind.Path(None, mkPathFromSymbols symbols)
-        |> mkTy
-
-    let mkGenericTy (symbol: Symbol) (attrs: GenericArgs option): Ty =
-        TyKind.Path(None, mkGenericPathFromSymbol symbol attrs)
+    let mkPathTy (name: Symbol) (attrs: GenericArgs option): Ty =
+        TyKind.Path(None, mkPathFromName name attrs)
         |> mkTy
 
     let mkArrayTy ty (size: Expr): Ty =
         TyKind.Array(ty, mkAnonConst size)
         |> mkTy
+
+    let TODO_TYPE name: Ty =
+        mkPathTy ("TODO_TYPE_" + name) None
 
 [<AutoOpen>]
 module Params =
@@ -503,18 +655,23 @@ module Params =
           is_placeholder = is_placeholder
           kind = kind }
 
-    let mkParamFromType ident ty isRef isMut: Param =
-        let attrs: AttrVec = Vec()
+    let mkParamFromType symbol ty isRef isMut: Param =
+        let attrs: AttrVec = mkVec []
         let is_placeholder = false
-        let pat = mkIdentPat ident isRef isMut
+        let pat = mkIdentPat symbol isRef isMut
         mkParam attrs ty pat is_placeholder
 
-    let mkGenericParamFromType ident ty: GenericParam =
-        let attrs: AttrVec = Vec()
-        let bounds: GenericBounds = Vec()
+    let mkGenericParamFromType symbol ty: GenericParam =
+        let ident = mkIdent symbol
+        let attrs: AttrVec = mkVec []
+        let bounds: GenericBounds = mkVec []
         let is_placeholder = false
         let kind = GenericParamKind.Type (Some ty)
         mkGenericParam ident attrs bounds is_placeholder kind
+
+    let mkInferredParam symbol isRef isMut: Param =
+        let ty = TyKind.Infer |> mkTy
+        mkParamFromType symbol ty isRef isMut
 
 [<AutoOpen>]
 module Generic =
@@ -525,7 +682,7 @@ module Generic =
           span = DUMMY_SP }
 
     let NO_WHERE_CLAUSE =
-        Vec() |> mkWhereClause false
+        mkVec [] |> mkWhereClause false
 
     let mkGenerics params_: Generics =
         { params_ = params_
@@ -533,14 +690,14 @@ module Generic =
           span = DUMMY_SP }
 
     let NO_GENERICS =
-        Vec() |> mkGenerics
+        mkVec [] |> mkGenerics
 
-    let mkGenericArgs (tys: Vec<Ty>): GenericArgs option =
-        if tys.Count = 0 then None
+    let mkGenericArgs (tys: Ty seq): GenericArgs option =
+        if Seq.isEmpty tys then None
         else
             let genArgs: AngleBracketedArgs = {
                 span = DUMMY_SP
-                args = tys.map(GenericArg.Type >> AngleBracketedArg.Arg)
+                args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg) |> mkVec
             }
             genArgs |> GenericArgs.AngleBracketed |> Some
 
@@ -557,10 +714,10 @@ module Funcs =
         mkFnHeader Unsafety.No Asyncness.No Constness.No Extern.None
 
     let VOID_RETURN_TY: FnRetTy =
-        FnRetTy.Default DUMMY_SP
+        FnRetTy.Default(DUMMY_SP)
 
     let NO_PARAMS: Vec<Param> =
-        Vec()
+        mkVec []
 
     let mkFnSig header decl: FnSig =
         { header = header
@@ -579,24 +736,47 @@ module Funcs =
 [<AutoOpen>]
 module Items =
 
-    let mkItem kind ident: Item =
-        { attrs = Vec []
+    let mkItem attrs kind ident: Item =
+        { attrs = attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
-          vis = INHERITED_VIS
+          vis = PUBLIC_VIS
           ident = ident
           kind = kind
           tokens = None }
 
-    let TODO_ITEM name: Item =
-        mkIdent ("TODO_" + name)
-        |> mkItem (ItemKind.ExternCrate None)
-
-    let mkFnItem name kind: Item =
+    let mkFnItem name attrs kind: Item =
         mkIdent (name)
-        |> mkItem (ItemKind.Fn kind)
+        |> mkItem attrs (ItemKind.Fn kind)
 
-    let mkModItem name items: Item =
+    let mkUseItem symbols kind: Item =
+        let attrs = mkVec []
+        let useTree = {
+            prefix = mkGenericPath symbols None
+            kind = kind
+            span = DUMMY_SP
+        }
+        mkIdent ""
+        |> mkItem attrs (ItemKind.Use(useTree))
+
+    let mkSimpleUseItem symbols (alias: Ident option): Item =
+        UseTreeKind.Simple(alias, DUMMY_NODE_ID, DUMMY_NODE_ID)
+        |> mkUseItem symbols
+
+    let mkGlobUseItem symbols: Item =
+        UseTreeKind.Glob
+        |> mkUseItem symbols
+
+    let mkModItem name attrs items: Item =
         let kind = ModKind.Loaded(items, Inline.Yes, DUMMY_SP)
         mkIdent (name)
-        |> mkItem (ItemKind.Mod(Unsafety.No, kind))
+        |> mkItem attrs (ItemKind.Mod(Unsafety.No, kind))
+
+    let mkUnloadedModItem name attrs: Item =
+        mkIdent (name)
+        |> mkItem attrs (ItemKind.Mod(Unsafety.No, ModKind.Unloaded))
+
+    let TODO_ITEM name: Item =
+        let attrs = mkVec []
+        mkIdent ("TODO_ITEM_" + name)
+        |> mkItem attrs (ItemKind.ExternCrate None)
