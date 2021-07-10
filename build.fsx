@@ -150,6 +150,14 @@ let buildLibraryIfNotExists() =
     if not (pathExists (baseDir </> "build/fable-library")) then
         buildLibrary()
 
+    // runFableWithArgs ("watch " + libDir) [
+    //     "--outDir " + buildDir
+    //     "--fableLib " + buildDir
+    //     "--exclude Fable.Core"
+    //     "--define FX_NO_BIGINT"
+    //     "--define FABLE_LIBRARY"
+    // ]
+
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
     let buildDirTs = "build/fable-library-ts"
@@ -178,6 +186,7 @@ let testJsFast() =
     ]
 
     runFableWithArgs "src/fable-compiler-js/src" [
+        "--forcePkgs"
         "--exclude Fable.Core"
         "--define LOCAL_TEST"
     ]
