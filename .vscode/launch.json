@@ -73,7 +73,7 @@
             "name": "Run bench-compiler (Node)",
             "program": "${workspaceRoot}/src/fable-standalone/test/bench-compiler/out-node/app.js",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib", "--eraseTypes"],
             "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
         },
         {
@@ -82,7 +82,7 @@
             "name": "Run bench-compiler (.NET)",
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net5.0/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
-            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib"],
+            "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib", "--eraseTypes"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {

@@ -14,6 +14,7 @@ type Language =
     | TypeScript
 
 type CompilerOptions =
+      abstract EraseTypes: bool
       abstract TypedArrays: bool
       abstract ClampByteArrays: bool
       abstract Language: Language

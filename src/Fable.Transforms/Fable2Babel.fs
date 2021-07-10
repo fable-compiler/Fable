@@ -310,6 +310,12 @@ module Reflection =
                 let ent = com.GetEntity(ent)
                 if ent.IsInterface then
                     warnAndEvalToFalse "interfaces"
+                elif FSharp2Fable.Util.isErasedEntity com ent then
+                    let expr = com.TransformAsExpr(ctx, expr)
+                    let idx = if ent.IsFSharpUnion then 1 else 0
+                    let actual = Util.getExpr None expr (Util.ofInt idx)
+                    let expected = Util.ofString ent.FullName
+                    Expression.binaryExpression(BinaryEqualStrict, actual, expected, ?loc=range)
                 else
                     match tryJsConstructor com ctx ent with
                     | Some cons ->
@@ -382,6 +388,7 @@ module Annotation =
         | Fable.LambdaType _ -> Util.uncurryLambdaType typ ||> makeFunctionTypeAnnotation com ctx typ
         | Fable.DelegateType(argTypes, returnType) -> makeFunctionTypeAnnotation com ctx typ argTypes returnType
         | Fable.GenericParam name -> makeSimpleTypeAnnotation com ctx name
+        | Replacements.ErasedType com (_, _, _, genArgs) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.DeclaredType(ent, genArgs) ->
             makeEntityTypeAnnotation com ctx ent genArgs
         | Fable.AnonymousRecordType(fieldNames, genArgs) ->
@@ -813,9 +820,18 @@ module Util =
     let getUnionCaseName (uci: Fable.UnionCase) =
         match uci.CompiledName with Some cname -> cname | None -> uci.Name
 
+    // let getUnionCaseFullName (uci: Fable.UnionCase) =
+    //     uci.XmlDocSig
+    //     |> Naming.replacePrefix "T:Microsoft.FSharp." "FSharp."
+    //     |> Naming.replacePrefix "T:" ""
+
     let getUnionExprTag (com: IBabelCompiler) ctx r (fableExpr: Fable.Expr) =
         let expr = com.TransformAsExpr(ctx, fableExpr)
-        getExpr r expr (Expression.stringLiteral("tag"))
+        match fableExpr.Type with
+        | Replacements.ErasedType com _ ->
+            getExpr r expr (ofInt 0)
+        | _ ->
+            getExpr r expr (Expression.stringLiteral("tag"))
 
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Expression) =
@@ -961,27 +977,39 @@ module Util =
             com.TransformAsExpr(ctx, x)
         | Fable.NewRecord(values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
-            let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-            let consRef = ent |> jsConstructor com ctx
-            let typeParamInst =
-                if com.Options.Language = TypeScript && (ent.FullName = Types.reference)
-                then makeGenTypeParamInst com ctx genArgs
-                else None
-            Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
+            let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
+            if FSharp2Fable.Util.isErasedEntity com ent then
+                let recordName = ent.FullName |> ofString
+                recordName::values |> List.toArray |> Expression.arrayExpression
+            else
+                let consRef = ent |> jsConstructor com ctx
+                let typeParamInst =
+                    if com.Options.Language = TypeScript && (ent.FullName = Types.reference)
+                    then makeGenTypeParamInst com ctx genArgs
+                    else None
+                Expression.newExpression(consRef, values |> List.toArray, ?typeArguments=typeParamInst, ?loc=r)
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-            Array.zip fieldNames values |> makeJsObject
+            if com.Options.EraseTypes then
+                values |> Expression.arrayExpression
+            else
+                Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
-            let consRef = ent |> jsConstructor com ctx
-            let typeParamInst =
-                if com.Options.Language = TypeScript
-                then makeGenTypeParamInst com ctx genArgs
-                else None
-            // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
-            let values = (ofInt tag)::values |> List.toArray
-            Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
+            if FSharp2Fable.Util.isErasedEntity com ent then
+                let caseTag = tag |> ofInt
+                let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
+                caseTag::caseName::values |> List.toArray |> Expression.arrayExpression
+            else
+                let consRef = ent |> jsConstructor com ctx
+                let typeParamInst =
+                    if com.Options.Language = TypeScript
+                    then makeGenTypeParamInst com ctx genArgs
+                    else None
+                // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
+                let values = (ofInt tag)::values |> List.toArray
+                Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
 
     let enumerator2iterator com ctx =
         let enumerator = Expression.callExpression(get None (Expression.identifier("this")) "GetEnumerator", [||])
@@ -1200,7 +1228,14 @@ module Util =
             let expr = com.TransformAsExpr(ctx, fableExpr)
             match key with
             | Fable.ExprKey(TransformExpr com ctx prop) -> getExpr range expr prop
-            | Fable.FieldKey field -> get range expr field.Name
+            | Fable.FieldKey field ->
+                match fableExpr.Type with
+                | Replacements.ErasedType com (fieldNames, offset, _, _) ->
+                    let indexOpt = fieldNames |> Array.tryFindIndex (fun name -> name = field.Name)
+                    match indexOpt with
+                    | Some index -> getExpr range expr (ofInt (offset + index))
+                    | _ -> get range expr field.Name
+                | _ -> get range expr field.Name
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1228,7 +1263,11 @@ module Util =
 
         | Fable.UnionField(index, _) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
+            match fableExpr.Type with
+            | Replacements.ErasedType com (_, offset, _, _) ->
+                getExpr range expr (ofInt (offset + index))
+            | _ ->
+                getExpr range (getExpr None expr (Expression.stringLiteral("fields"))) (ofInt index)
 
     let transformSet (com: IBabelCompiler) ctx range fableExpr (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1236,7 +1275,14 @@ module Util =
         let ret =
             match kind with
             | None -> expr
-            | Some(Fable.FieldKey fi) -> get None expr fi.Name
+            | Some(Fable.FieldKey field) ->
+                match fableExpr.Type with
+                | Replacements.ErasedType com (fieldNames, offset, _, _) ->
+                    let indexOpt = fieldNames |> Array.tryFindIndex (fun name -> name = field.Name)
+                    match indexOpt with
+                    | Some index -> getExpr None expr (ofInt (offset + index))
+                    | _ -> get None expr field.Name
+                | _ -> get None expr field.Name
             | Some(Fable.ExprKey(TransformExpr com ctx e)) -> getExpr None expr e
         assign range ret value
 

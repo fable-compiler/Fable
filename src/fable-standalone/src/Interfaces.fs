@@ -67,7 +67,9 @@ type IFableManager =
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> string[]
     abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Completion[]
     abstract CompileToBabelAst: fableLibrary: string * parseResults: IParseResults * fileName: string
+                                * ?eraseTypes: bool
                                 * ?typedArrays: bool
-                                * ?typescript: bool -> IBabelResult
+                                * ?typescript: bool
+                                -> IBabelResult
     abstract PrintBabelAst: babelResult: IBabelResult * IWriter -> Async<unit>
     abstract FSharpAstToString: parseResults: IParseResults * fileName: string -> string
