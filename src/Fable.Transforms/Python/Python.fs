@@ -182,7 +182,7 @@ type Keyword =
 ///  - defaults is a list of default values for arguments that can be passed positionally. If there are fewer defaults,
 ///    they correspond to the last n arguments.
 type Arguments =
-    { PosOnlyArgs: Arg list
+    { PosOnlyArgs: Arg list // https://www.python.org/dev/peps/pep-0570/
       Args: Arg list
       VarArg: Arg option
       KwOnlyArgs: Arg list
@@ -1063,7 +1063,7 @@ module PythonExtensions =
 
     type Arguments with
 
-        static member arguments(?posonlyargs, ?args, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?defaults) =
+        static member arguments(?args, ?posonlyargs, ?vararg, ?kwonlyargs, ?kwDefaults, ?kwarg, ?defaults) =
             { PosOnlyArgs = defaultArg posonlyargs []
               Args = defaultArg args []
               VarArg = vararg
@@ -1071,6 +1071,7 @@ module PythonExtensions =
               KwDefaults = defaultArg kwDefaults []
               KwArg = kwarg
               Defaults = defaultArg defaults [] }
+        static member empty = Arguments.arguments()
 
     type For with
 
