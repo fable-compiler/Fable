@@ -150,7 +150,9 @@ module PrinterExtensions =
             printer.Print(kw.Value)
 
         member printer.Print(arguments: Arguments) =
-            printer.PrintCommaSeparatedList(arguments.PosOnlyArgs)
+            if not arguments.PosOnlyArgs.IsEmpty then
+                printer.PrintCommaSeparatedList(arguments.PosOnlyArgs)
+                printer.Print(", /")
 
             let args = arguments.Args |> List.map AST.Arg
             let defaults = arguments.Defaults
@@ -244,16 +246,20 @@ module PrinterExtensions =
             printer.PrintBlock(ifElse.Body)
             printElse ifElse.Else
 
-        member printer.Print(ri: Raise) = printer.Print("(Raise)")
+        member printer.Print(ri: Raise) =
+            printer.Print("raise ")
+            printer.Print(ri.Exception)
 
         member printer.Print(func: FunctionDef) =
             printer.PrintFunction(Some func.Name, func.Args, func.Body, func.Returns, func.DecoratorList, isDeclaration = true)
             printer.PrintNewLine()
 
-        member printer.Print(gl: Global) = printer.Print("(Global)")
+        member printer.Print(gl: Global) =
+            printer.Print("global ")
+            printer.PrintCommaSeparatedList(gl.Names)
 
         member printer.Print(nl: NonLocal) =
-            if List.length nl.Names > 0 then
+            if not (List.isEmpty nl.Names) then
                 printer.Print("nonlocal ")
                 printer.PrintCommaSeparatedList nl.Names
 

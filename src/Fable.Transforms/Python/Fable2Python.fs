@@ -594,19 +594,16 @@ module Util =
 
     let getExpr com ctx r (object: Expression) (expr: Expression) =
         // printfn "getExpr: %A" (object, expr)
-        // match expr with
-        // | Expression.Constant(value=value) ->
-        //     match value with
-        //     | :? string as str -> memberFromName com ctx str
-        //     | :? int
-        //     | :? float -> Expression.subscript(value = object, slice = expr, ctx = Load), []
-        //     | _ -> failwith $"Value {value} needs to be string"
-        // | Expression.Name({Id=id}) ->
-        //     Expression.attribute (value = object, attr = id, ctx = Load), []
-        // | e ->
+        match expr with
+        | Expression.Constant(value=name) when (name :? string) ->
+            let name = name :?> string |> Identifier
+            Expression.attribute (value = object, attr = name, ctx = Load), []
+        | Expression.Name({Id=name}) ->
+            Expression.attribute (value = object, attr = name, ctx = Load), []
+        | e ->
         //     let func = Expression.name("getattr")
         //     Expression.call(func=func, args=[object; e]), []
-        Expression.subscript(value = object, slice = expr, ctx = Load), []
+            Expression.subscript(value = object, slice = e, ctx = Load), []
 
     let rec getParts com ctx (parts: string list) (expr: Expression) =
         match parts with
@@ -2010,7 +2007,7 @@ module Util =
         let classCons = makeClassConstructor consArgs consBody
         let classFields = Array.empty
         let classMembers = List.append [ classCons ] classMembers
-        printfn "ClassMembers: %A" classMembers
+        //printfn "ClassMembers: %A" classMembers
         let classBody =
             let body = [ yield! classFields; yield! classMembers ]
             //printfn "Body: %A" body
