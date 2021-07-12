@@ -1688,6 +1688,11 @@ module Util =
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
 
+        | Fable.Get(expr, Fable.FieldGet(fieldName="message"), _, _) ->
+            let func = Expression.name("str")
+            let left, stmts = com.TransformAsExpr(ctx, expr)
+            Expression.call (func, [ left ]), stmts
+
         | Fable.Get(Fable.IdentExpr({Name=name;Type=Fable.AnonymousRecordType(_)}) as expr, Fable.FieldGet(fieldName=index), _, _) ->
             let left, stmts = com.TransformAsExpr(ctx, expr)
             let index = Expression.constant(index)
