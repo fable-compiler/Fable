@@ -70,6 +70,10 @@ let jsTypeof (x: obj): string = jsNative
 [<Emit("$0 instanceof $1")>]
 let jsInstanceof (x: obj) (cons: obj): bool = jsNative
 
+/// Check if object is callable, i.e a function.
+[<Emit("typeof $0 == \"function\"")>]
+let inline callable(x: obj) = jsNative
+
 [<Emit("this")>]
 let jsThis<'T> : 'T = jsNative
 

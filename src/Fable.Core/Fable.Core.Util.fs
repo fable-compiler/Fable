@@ -9,6 +9,7 @@ module Util =
         try failwith "JS only" // try/catch is just for padding so it doesn't get optimized
         with ex -> raise ex
 
+    let inline pyNative<'T> : 'T = jsNative
     let inline phpNative<'T> : 'T = jsNative
 
 module Experimental =

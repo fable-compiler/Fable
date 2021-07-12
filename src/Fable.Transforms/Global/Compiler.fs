@@ -14,6 +14,7 @@ type CompilerOptionsHelper =
                        ?clampByteArrays) =
         let define = defaultArg define []
         let isDebug = List.contains "DEBUG" define
+
         { new CompilerOptions with
               member _.Define = define
               member _.DebugMode = isDebug
