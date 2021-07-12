@@ -479,9 +479,7 @@ module PrinterExtensions =
                 |> List.mapi (fun i n -> (i, n))
 
             for i, (key, value) in nodes do
-                printer.Print("\"")
                 printer.Print(key)
-                printer.Print("\"")
                 printer.Print(": ")
                 printer.Print(value)
 

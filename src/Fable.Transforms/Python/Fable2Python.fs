@@ -53,7 +53,7 @@ type BoundVars =
             this.LocalScope.Add name |> ignore
 
     member this.NonLocals(idents: Identifier list) =
-        printfn "NonLocals: %A" (idents, this)
+        // printfn "NonLocals: %A" (idents, this)
         [
             for ident in idents do
                 let (Identifier name) = ident
@@ -589,8 +589,14 @@ module Util =
         | n -> com.GetIdentifierAsExpr(ctx, n), []
 
     let get (com: IPythonCompiler) ctx r left memberName =
-        let expr = com.GetIdentifier(ctx, memberName)
-        Expression.attribute (value = left, attr = expr, ctx = Load)
+        // printfn "get: %A" (left, memberName)
+        match left with
+        | Expression.Dict(_) ->
+            let expr = Expression.constant(memberName)
+            Expression.subscript (value = left, slice = expr, ctx = Load)
+        | _ ->
+            let expr = com.GetIdentifier(ctx, memberName)
+            Expression.attribute (value = left, attr = expr, ctx = Load)
 
     let getExpr com ctx r (object: Expression) (expr: Expression) =
         // printfn "getExpr: %A" (object, expr)
@@ -598,14 +604,15 @@ module Util =
         | Expression.Constant(value=name) when (name :? string) ->
             let name = name :?> string |> Identifier
             Expression.attribute (value = object, attr = name, ctx = Load), []
-        | Expression.Name({Id=name}) ->
-            Expression.attribute (value = object, attr = name, ctx = Load), []
+        //| Expression.Name({Id=name}) ->
+        //    Expression.attribute (value = object, attr = name, ctx = Load), []
         | e ->
         //     let func = Expression.name("getattr")
         //     Expression.call(func=func, args=[object; e]), []
             Expression.subscript(value = object, slice = e, ctx = Load), []
 
     let rec getParts com ctx (parts: string list) (expr: Expression) =
+        printfn "getParts"
         match parts with
         | [] -> expr
         | m::ms -> get com ctx None expr m |> getParts com ctx ms
@@ -621,7 +628,8 @@ module Util =
 
     let makeJsObject com ctx (pairs: seq<string * Expression>) =
         pairs |> Seq.map (fun (name, value) ->
-           let prop, computed = memberFromName com ctx name
+           //let prop, computed = memberFromName com ctx name
+           let prop = Expression.constant(name)
            prop, value)
         |> Seq.toList
         |> List.unzip
@@ -1027,9 +1035,13 @@ module Util =
         | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
     let transformOperation com ctx range opKind: Expression * Statement list =
+        //printfn "transformOperation: %A" opKind
         match opKind with
         | Fable.Unary(UnaryVoid, TransformExpr com ctx (expr, stmts)) ->
             expr, stmts
+        // Transform `~(~(a/b))` to `a // b`
+        | Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Binary(BinaryOperator.BinaryDivide, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')))))) ->
+            Expression.binOp(left, FloorDiv, right), stmts @ stmts'
         | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) ->
             Expression.unaryOp(op, expr, ?loc=range), stmts
 
