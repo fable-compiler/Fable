@@ -151,18 +151,16 @@ type Runner =
 
         let configuration =
             let defaultConfiguration = if watch then "Debug" else "Release"
-            let configurationArg = argValue "--configuration" args |> Option.defaultValue defaultConfiguration
-            if String.IsNullOrWhiteSpace configurationArg then
-                defaultConfiguration
-            else
-                configurationArg
+            match argValue "--configuration" args with
+            | None -> defaultConfiguration
+            | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
+            | Some configurationArg -> configurationArg
 
         let define =
             argValues "--define" args
             |> List.append [
                 "FABLE_COMPILER"
                 "FABLE_COMPILER_3"
-                configuration.ToUpperInvariant()
             ]
             |> List.distinct
 

@@ -270,18 +270,13 @@ let getSourcesFromFsproj (projFile: string) =
         | path -> [ path ])
 
 let private isUsefulOption (opt : string) =
-    match opt with
-    // We manage DEBUG (and maybe later TRACE) through CLI
-    | "--define:DEBUG"
-    | "--define:TRACE" -> false
-    | _ ->
-        [ "--define"
-          "--nowarn"
-          "--warnon"
-        //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
-        //   "--langversion" // See getBasicCompilerArgs
-        ]
-        |> List.exists opt.StartsWith
+    [ "--define"
+      "--nowarn"
+      "--warnon"
+    //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
+    //   "--langversion" // See getBasicCompilerArgs
+    ]
+    |> List.exists opt.StartsWith
 
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
