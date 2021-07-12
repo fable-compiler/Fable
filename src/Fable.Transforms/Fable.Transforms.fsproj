@@ -24,6 +24,7 @@
     <Compile Include="Php/Php.fs" />
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />
+    <Compile Include="Dart/DartPrinter.fs" />
 
     <Compile Include="State.fs" />
   </ItemGroup>

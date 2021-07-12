@@ -82,6 +82,16 @@ module Log =
 module File =
     open System.IO
 
+    let changeFsExtension isInFableHiddenDir filePath fileExt =
+        let fileExt =
+            // Prevent conflicts in package sources as they may include
+            // native files with same name as the F# .fs file
+            if fileExt <> Fable.CompilerOptionsHelper.DefaultExtension
+                && isInFableHiddenDir then
+                    Fable.CompilerOptionsHelper.DefaultExtension
+            else fileExt
+        Fable.Path.replaceExtension fileExt filePath
+
     /// File.ReadAllText fails with locked files. See https://stackoverflow.com/a/1389172
     let readAllTextNonBlocking (path: string) =
         if File.Exists(path) then

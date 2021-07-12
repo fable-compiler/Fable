@@ -117,15 +117,6 @@ module private Util =
         | Some watchDependencies ->
             watchDependencies |> Array.exists (fun p -> Set.contains p dirtyFiles)
 
-    let changeFsExtension isInFableHiddenDir filePath fileExt =
-        let fileExt =
-            // Prevent conflicts in package sources as they may include
-            // JS files with same name as the F# .fs file
-            if fileExt = ".js" && isInFableHiddenDir then
-                CompilerOptionsHelper.DefaultExtension
-            else fileExt
-        Path.replaceExtension fileExt filePath
-
     let getOutJsPath (cliArgs: CliArgs) dedupTargetDir file =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let isInFableHiddenDir = Naming.isInFableHiddenDir file
@@ -133,73 +124,19 @@ module private Util =
         | Some outDir ->
             let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
             let absPath = Imports.getTargetAbsolutePath dedupTargetDir file projDir outDir
-            changeFsExtension isInFableHiddenDir absPath fileExt
+            File.changeFsExtension isInFableHiddenDir absPath fileExt
         | None ->
-            changeFsExtension isInFableHiddenDir file fileExt
-
-    type FileWriter(sourcePath: string, targetPath: string, cliArgs: CliArgs, dedupTargetDir) =
-        // In imports *.ts extensions have to be converted to *.js extensions instead
-        let fileExt =
-            let fileExt = cliArgs.CompilerOptions.FileExtension
-            if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
-        let targetDir = Path.GetDirectoryName(targetPath)
-        let stream = new IO.StreamWriter(targetPath)
-        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
-        interface BabelPrinter.Writer with
-            member _.Write(str) =
-                stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeJsStringLiteral(str) =
-                Web.HttpUtility.JavaScriptStringEncode(str)
-            member _.MakeImportPath(path) =
-                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
-                if path.EndsWith(".fs") then
-                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    changeFsExtension isInFableHiddenDir path fileExt
-                else path
-            member _.Dispose() = stream.Dispose()
-            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
-                if cliArgs.SourceMaps then
-                    let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
-                    let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
-                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
-        member _.SourceMap =
-            mapGenerator.Force().toJSON()
+            File.changeFsExtension isInFableHiddenDir file fileExt
 
     let compileFile isRecompile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
         try
-            let fable =
-                FSharp2Fable.Compiler.transformFile com
-                |> FableTransforms.transformFile com
-
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
             // ensure directory exists
             let dir = IO.Path.GetDirectoryName outPath
             if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
-            match com.Options.Language with
-            | JavaScript | TypeScript ->
-                let babel = fable |> Fable2Babel.Compiler.transformFile com
-                // write output to file
-                let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-                do! BabelPrinter.run writer babel
-
-                // write source map to file
-                if cliArgs.SourceMaps then
-                    let mapPath = outPath + ".map"
-                    do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                    use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-                    do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
-
-            | Php ->
-                let php = fable |> Fable2Php.transformFile com
-                
-                use w = new IO.StreamWriter(outPath)
-                let ctx = PhpPrinter.Output.Writer.create w
-                PhpPrinter.Output.writeFile ctx php
-                w.Flush()
-
+            do! Pipeline.compileFile com cliArgs dedupTargetDir outPath
 
             "Compiled " + File.getRelativePathFromCwd com.CurrentFile
             |> Log.verboseOrIf isRecompile
@@ -286,7 +223,7 @@ type FsWatcher() =
         watcher.EnableRaisingEvents <- true
 
         observable
-        |> Observable.choose (fun (fullPath) ->
+        |> Observable.choose (fun fullPath ->
             let fullPath = Path.normalizePath fullPath
             if filePaths.Contains(fullPath)
             then Some fullPath

@@ -11,58 +11,60 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Core.Testing
 
-let log (o: obj) =
-   printfn "%A" o
+let add x y = x * y + 4
 
-let equal expected actual =
-   let areEqual = expected = actual
-   printfn "%A = %A > %b" expected actual areEqual
-   if not areEqual then
-       failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
+// let log (o: obj) =
+//    printfn "%A" o
 
-let throwsError (expected: string) (f: unit -> 'a): unit =
-   let success =
-       try
-           f () |> ignore
-           true
-       with e ->
-           if not <| String.IsNullOrEmpty(expected) then
-               equal e.Message expected
-           false
-   // TODO better error messages
-   equal false success
+// let equal expected actual =
+//    let areEqual = expected = actual
+//    printfn "%A = %A > %b" expected actual areEqual
+//    if not areEqual then
+//        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
-let testCase (msg: string) f: unit =
-   try
-       printfn "%s" msg
-       f ()
-   with ex ->
-       printfn "%s" ex.Message
-       if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
-           printfn "%s" ex.StackTrace
-   printfn ""
+// let throwsError (expected: string) (f: unit -> 'a): unit =
+//    let success =
+//        try
+//            f () |> ignore
+//            true
+//        with e ->
+//            if not <| String.IsNullOrEmpty(expected) then
+//                equal e.Message expected
+//            false
+//    // TODO better error messages
+//    equal false success
 
-let testCaseAsync msg f =
-   testCase msg (fun () ->
-       async {
-           try
-               do! f ()
-           with ex ->
-               printfn "%s" ex.Message
-               if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
-                   printfn "%s" ex.StackTrace
-       } |> Async.StartImmediate)
+// let testCase (msg: string) f: unit =
+//    try
+//        printfn "%s" msg
+//        f ()
+//    with ex ->
+//        printfn "%s" ex.Message
+//        if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
+//            printfn "%s" ex.StackTrace
+//    printfn ""
 
-let measureTime (f: unit -> unit) = emitJsStatement () """
-   //js
-   const startTime = process.hrtime();
-   f();
-   const elapsed = process.hrtime(startTime);
-   console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);
-   //!js
-"""
+// let testCaseAsync msg f =
+//    testCase msg (fun () ->
+//        async {
+//            try
+//                do! f ()
+//            with ex ->
+//                printfn "%s" ex.Message
+//                if ex.Message <> null && ex.Message.StartsWith("[ASSERT ERROR]") |> not then
+//                    printfn "%s" ex.StackTrace
+//        } |> Async.StartImmediate)
 
-// Write here your unit test, you can later move it
-// to Fable.Tests project. For example:
-// testCase "Addition works" <| fun () ->
-//     2 + 2 |> equal 4
+// let measureTime (f: unit -> unit) = emitJsStatement () """
+//    //js
+//    const startTime = process.hrtime();
+//    f();
+//    const elapsed = process.hrtime(startTime);
+//    console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);
+//    //!js
+// """
+
+// // Write here your unit test, you can later move it
+// // to Fable.Tests project. For example:
+// // testCase "Addition works" <| fun () ->
+// //     2 + 2 |> equal 4
