@@ -352,8 +352,28 @@ let testMocha() =
 
     runMocha buildDir
 
+let testDefineConstants() =
+    [ "tests/DefineConstants/DebugWithExtraDefines", "Debug"
+      "tests/DefineConstants/CustomConfiguration", "Test"
+      "tests/DefineConstants/ReleaseNoExtraDefines", String.Empty ]
+    |> List.iter (fun (projectDir, configuration) ->
+        let buildDir = "build/"+ projectDir
+
+        cleanDirs [ buildDir ]
+        runFableWithArgs projectDir [
+            "--outDir " + buildDir
+            "--exclude Fable.Core"
+            if not(String.IsNullOrEmpty configuration) then
+                "--configuration " + configuration
+        ]
+
+        runMocha buildDir
+    )
+
 let test() =
     buildLibraryIfNotExists()
+
+    testDefineConstants()
 
     testMocha()
 
@@ -520,6 +540,7 @@ match argsLower with
 // | "coverage"::_ -> coverage()
 | "test"::_ -> test()
 | "test-mocha"::_ -> testMocha()
+| "test-define-constants"::_ -> testDefineConstants()
 | "test-js"::_ -> testJs(minify)
 | "test-js-fast"::_ -> testJsFast()
 | "test-react"::_ -> testReact()
