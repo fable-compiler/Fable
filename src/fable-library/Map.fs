@@ -542,8 +542,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
 
     // We use .NET generics per-instantiation static fields to avoid allocating a new object for each empty
     // set (it is just a lookup into a .NET table of type-instantiation-indexed static fields).
-    // FABLE NOTE: In JS, static fields prevent tree shaking (see #2480), for fable-library prefer functions or else
-    static let empty() =
+    static let empty =
         let comparer = LanguagePrimitives.FastGenericComparer<'Key>
         new Map<'Key, 'Value>(comparer, MapTree.empty)
 
@@ -565,7 +564,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     //     serializedData <- null
 
     static member Empty : Map<'Key, 'Value> =
-        empty()
+        empty
 
     static member Create(ie : IEnumerable<_>) : Map<'Key, 'Value> =
         let comparer = LanguagePrimitives.FastGenericComparer<'Key>
