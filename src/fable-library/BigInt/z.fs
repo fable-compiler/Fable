@@ -14,6 +14,11 @@ namespace BigInt
     open System
     open System.Globalization
 
+    module private Constants =
+        let smallLim = 4096
+        let smallPosTab = Array.init smallLim BigNatModule.ofInt32
+
+    open Constants
 
     // INVARIANT: signInt = 1 or -1
     //            value(z) = signInt * v
@@ -25,11 +30,12 @@ namespace BigInt
 #endif
     type BigInteger(signInt:int, v : BigNat) =
 
-        static let smallLim =  4096
-        static let smallPosTab = Array.init smallLim BigNatModule.ofInt32
-        static let one = BigInteger(1)
-        static let two = BigInteger(2)
-        static let zero = BigInteger(0)
+        // FABLE NOTE: In JS, static fields prevent tree shaking (see #2480), for fable-library prefer functions or else
+        // static let smallLim =  4096
+        // static let smallPosTab = Array.init smallLim BigNatModule.ofInt32
+        // static let one = BigInteger(1)
+        // static let two = BigInteger(2)
+        // static let zero = BigInteger(0)
 
         static member internal nat n =
             if BigNatModule.isSmall n && BigNatModule.getSmall n < smallLim
@@ -144,9 +150,9 @@ namespace BigInt
             then BigInteger(-1,BigInteger.nat (BigNatModule.add (BigNatModule.ofInt64 System.Int64.MaxValue) BigNatModule.one) )
             else BigInteger(-1,BigInteger.nat (BigNatModule.ofInt64 (-n)))
 
-        static member One = one
-        static member Two = two
-        static member Zero = zero
+        static member One = BigInteger(1)
+        static member Two = BigInteger(2)
+        static member Zero = BigInteger(0)
 
         static member (~-) (z:BigInteger)  =
             match z.SignInt with

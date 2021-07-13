@@ -124,6 +124,9 @@ module PrinterExtensions =
             // Some identifiers may be stranded as the result of imports
             // intended only for side effects, see #2228
             | Expression.Identifier(_) -> false
+            // Sometimes empty IIFE remain in the AST
+            | CallExpression(ArrowFunctionExpression(_,(BlockStatement body),_,_,_),_,_) ->
+                body |> Array.exists this.IsProductiveStatement
             | _ -> true
 
         member this.IsProductiveStatement(s: Statement) =

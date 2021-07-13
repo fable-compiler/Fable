@@ -614,6 +614,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
 
     // We use .NET generics per-instantiation static fields to avoid allocating a new object for each empty
     // set (it is just a lookup into a .NET table of type-instantiation-indexed static fields).
+    // FABLE NOTE: In JS, static fields prevent tree shaking (see #2480), for fable-library prefer functions or else
 
     // [<System.Runtime.Serialization.OnSerializingAttribute>]
     // member __.OnSerializing(context: System.Runtime.Serialization.StreamingContext) =
