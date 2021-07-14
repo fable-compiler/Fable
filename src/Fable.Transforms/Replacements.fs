@@ -1007,7 +1007,8 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
                 match genArg with
                 | Number(numberKind,_) when com.Options.TypedArrays ->
                     args @ [getTypedArrayName com numberKind |> makeIdentExpr]
-                | _ -> args
+                | _ ->
+                    args @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
             | Types.adder ->
                 args @ [makeGenericAdder com ctx genArg]
             | Types.averager ->

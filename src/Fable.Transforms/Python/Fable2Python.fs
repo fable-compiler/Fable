@@ -339,6 +339,7 @@ module Reflection =
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
+            printfn "Fable.Array: %A" (expr, stmts)
             libCall com ctx None "Util" "isArrayLike" [ expr ], stmts
         | Fable.List _ ->
             jsInstanceof (libValue com ctx "List" "FSharpList") expr
@@ -499,6 +500,7 @@ module Util =
         | args -> args
 
     let getUniqueNameInRootScope (ctx: Context) name =
+        let name = Helpers.clean name
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
             ctx.UsedNames.RootScope.Contains(name)
             || ctx.UsedNames.DeclarationScopes.Contains(name))
@@ -589,7 +591,7 @@ module Util =
         | n -> com.GetIdentifierAsExpr(ctx, n), []
 
     let get (com: IPythonCompiler) ctx r left memberName =
-        // printfn "get: %A" (left, memberName)
+        printfn "get: %A" (left, memberName)
         match left with
         | Expression.Dict(_) ->
             let expr = Expression.constant(memberName)
@@ -599,7 +601,7 @@ module Util =
             Expression.attribute (value = left, attr = expr, ctx = Load)
 
     let getExpr com ctx r (object: Expression) (expr: Expression) =
-        // printfn "getExpr: %A" (object, expr)
+        printfn "getExpr: %A" (object, expr)
         match expr with
         | Expression.Constant(value=name) when (name :? string) ->
             let name = name :?> string |> Identifier
@@ -612,7 +614,6 @@ module Util =
             Expression.subscript(value = object, slice = e, ctx = Load), []
 
     let rec getParts com ctx (parts: string list) (expr: Expression) =
-        printfn "getParts"
         match parts with
         | [] -> expr
         | m::ms -> get com ctx None expr m |> getParts com ctx ms
@@ -729,7 +730,7 @@ module Util =
         | Attached of isStatic: bool
 
     let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
-        printfn "getMemberArgsAndBody"
+        // printfn "getMemberArgsAndBody"
         let funcName, genTypeParams, args, body =
             match kind, args with
             | Attached(isStatic=false), (thisArg::args) ->
@@ -886,7 +887,7 @@ module Util =
             | Some (TransformExpr com ctx (e, stmts)) ->
                 if mustWrapOption t
                 then libCall com ctx r "Option" "some" [ e ], stmts
-                else e, []
+                else e, stmts
             | None -> undefined r, []
         | Fable.EnumConstant(x,_) ->
             com.TransformAsExpr(ctx, x)
@@ -1185,10 +1186,10 @@ module Util =
                 |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
             | None -> [], []
 
-        [ Statement.try'(transformBlock com ctx returnStrategy body,
-            ?handlers=handlers, finalBody=finalizer, ?loc=r) ]
+        stmts @ [ Statement.try'(transformBlock com ctx returnStrategy body, ?handlers=handlers, finalBody=finalizer, ?loc=r) ]
 
     let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
+        printfn "transformIfStatement"
         let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
         match expr with
         | Constant(value=value) when (value :? bool) ->
@@ -1203,6 +1204,7 @@ module Util =
                 let block, stmts =
                     com.TransformAsStatements(ctx, ret, elseStmnt)
                     |> List.partition (function | Statement.NonLocal (_) -> false | _ -> true )
+
                 match block with
                 | [ ] -> Statement.if'(guardExpr, thenStmnt, ?loc=r), stmts
                 | [ elseStmnt ] -> Statement.if'(guardExpr, thenStmnt, [ elseStmnt ], ?loc=r), stmts
@@ -1211,10 +1213,36 @@ module Util =
 
     let transformGet (com: IPythonCompiler) ctx range typ fableExpr kind =
         match kind with
+
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop
             expr, stmts @ stmts' @ stmts''
+
+        | Fable.FieldGet(fieldName="message") ->
+            let func = Expression.name("str")
+            let left, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.call (func, [ left ]), stmts
+        | Fable.FieldGet(fieldName="push") ->
+            let attr = Python.Identifier("append")
+            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | Fable.FieldGet(fieldName="length") ->
+            let func = Expression.name("len")
+            let left, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.call (func, [ left ]), stmts
+        | Fable.FieldGet(fieldName="toLocaleUpperCase") ->
+            let attr = Python.Identifier("upper")
+            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | Fable.FieldGet(fieldName="toLocaleLowerCase") ->
+            let attr = Python.Identifier("lower")
+            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | Fable.FieldGet(fieldName="indexOf") ->
+            let attr = Python.Identifier("find")
+            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
 
         | Fable.FieldGet(fieldName,_) ->
             let fableExpr =
@@ -1224,6 +1252,7 @@ module Util =
                 | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                 | _ -> fableExpr
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
+            printfn "Fable.FieldGet: %A" fieldName
             get com ctx range expr fieldName, stmts
 
         | Fable.ListHead ->
@@ -1262,18 +1291,19 @@ module Util =
             expr, stmts @ stmts' @ stmts''
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
-        //printfn "transformSet: %A" (fableExpr, value)
+        // printfn "transformSet: %A" (fableExpr, value)
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
         let value, stmts' = com.TransformAsExpr(ctx, value)
         let ret, stmts'' =
             match kind with
-            | Fable.ValueSet -> expr, stmts @ stmts'
+            | Fable.ValueSet ->
+                expr, []
             | Fable.ExprSet(TransformExpr com ctx (e, stmts'')) ->
                 let expr, stmts''' = getExpr com ctx None expr e
-                expr, stmts @ stmts' @ stmts'' @ stmts'''
+                expr, stmts'' @ stmts'''
             | Fable.FieldSet(fieldName) ->
-                get com ctx None expr fieldName, stmts @ stmts'
-        assign range ret value, stmts''
+                get com ctx None expr fieldName, []
+        assign range ret value, stmts @ stmts' @ stmts''
 
     let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
         match value with
@@ -1662,36 +1692,9 @@ module Util =
         | Fable.Operation(kind, _, range) ->
             transformOperation com ctx range kind
 
-        | Fable.Get(expr, Fable.FieldGet(fieldName="push"), _, _) ->
-            let attr = Python.Identifier("append")
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-
-        | Fable.Get(expr, Fable.FieldGet(fieldName="toLocaleUpperCase"), _, _) ->
-            let attr = Python.Identifier("upper")
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        | Fable.Get(expr, Fable.FieldGet(fieldName="toLocaleLowerCase"), _, _) ->
-            let attr = Python.Identifier("lower")
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        | Fable.Get(expr, Fable.FieldGet(fieldName="indexOf"), _, _) ->
-            let attr = Python.Identifier("find")
-            let value, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-
         | Fable.Get(Fable.IdentExpr({Name = "String"}), Fable.FieldGet(fieldName="fromCharCode"), _, _) ->
             let func = Expression.name("chr")
             func, []
-        | Fable.Get(expr, Fable.FieldGet(fieldName="length"), _, _) ->
-            let func = Expression.name("len")
-            let left, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ left ]), stmts
-
-        | Fable.Get(expr, Fable.FieldGet(fieldName="message"), _, _) ->
-            let func = Expression.name("str")
-            let left, stmts = com.TransformAsExpr(ctx, expr)
-            Expression.call (func, [ left ]), stmts
 
         | Fable.Get(Fable.IdentExpr({Name=name;Type=Fable.AnonymousRecordType(_)}) as expr, Fable.FieldGet(fieldName=index), _, _) ->
             let left, stmts = com.TransformAsExpr(ctx, expr)
@@ -2275,7 +2278,7 @@ module Util =
             match name with
             | "*"
             | _ -> name
-            |> Helpers.clean
+            |> getUniqueNameInRootScope ctx
             |> Python.Identifier
             |> Some
 
@@ -2292,6 +2295,7 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
+                // printfn "GetImportExpr: %A" (moduleName, name)
                 let cachedName = moduleName + "::" + defaultArg name "module"
                 match imports.TryGetValue(cachedName) with
                 | true, i ->

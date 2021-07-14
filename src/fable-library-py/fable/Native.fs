@@ -29,11 +29,11 @@ module Helpers =
         if callable cons then
             cons.Allocate(len)
         else
-            JS.Constructors.Array.Create(len)
+            PY.Constructors.Array.Create(len)
 
-    let inline isDynamicArrayImpl arr = JS.Constructors.Array.isArray arr
+    let inline isDynamicArrayImpl arr = PY.Constructors.Array.isArray arr
 
-    let inline isTypedArrayImpl arr = JS.Constructors.ArrayBuffer.isView arr
+    let inline isTypedArrayImpl arr = PY.Constructors.ArrayBuffer.isView arr
 
     // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
     //     !!target?set(source, offset)
