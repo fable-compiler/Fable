@@ -43,7 +43,8 @@ module Helpers =
 
     let inline fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] = !! array?fill (value, start, start + count)
 
-    let inline foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State =
+    [<Emit("functools.reduce($0, $2, $1)")>]
+    let foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State =
         !! array?reduce (System.Func<'State, 'T, 'State>(folder), state)
 
     let inline foldIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T []) : 'State =
@@ -88,7 +89,8 @@ module Helpers =
 
     let inline filterImpl (predicate: 'T -> bool) (array: 'T []) : 'T [] = !! array?filter (predicate)
 
-    let inline reduceImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = !! array?reduce (reduction)
+    [<Emit("functools.reduce($1, $0)")>]
+    let reduceImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = pyNative
 
     let inline reduceBackImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = !! array?reduceRight (reduction)
 

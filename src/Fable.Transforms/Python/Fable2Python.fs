@@ -339,7 +339,6 @@ module Reflection =
         | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
         | Fable.Array _ | Fable.Tuple _ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            printfn "Fable.Array: %A" (expr, stmts)
             libCall com ctx None "Util" "isArrayLike" [ expr ], stmts
         | Fable.List _ ->
             jsInstanceof (libValue com ctx "List" "FSharpList") expr
@@ -591,7 +590,7 @@ module Util =
         | n -> com.GetIdentifierAsExpr(ctx, n), []
 
     let get (com: IPythonCompiler) ctx r left memberName =
-        printfn "get: %A" (left, memberName)
+        // printfn "get: %A" (left, memberName)
         match left with
         | Expression.Dict(_) ->
             let expr = Expression.constant(memberName)
@@ -601,7 +600,7 @@ module Util =
             Expression.attribute (value = left, attr = expr, ctx = Load)
 
     let getExpr com ctx r (object: Expression) (expr: Expression) =
-        printfn "getExpr: %A" (object, expr)
+        // printfn "getExpr: %A" (object, expr)
         match expr with
         | Expression.Constant(value=name) when (name :? string) ->
             let name = name :?> string |> Identifier
@@ -750,7 +749,6 @@ module Util =
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
         let args, body = transformFunction com ctx funcName args body
 
-        printfn "hasSpread: %A" hasSpread
         // let args =
         //     let len = args.Args.Length
         //     if not hasSpread || len = 0 then args
@@ -1100,6 +1098,9 @@ module Util =
         let thisArg, stmts = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList |> Helpers.unzipArgs
         let exprs, stmts' = transformCallArgs com ctx info.HasSpread info.Args
 
+        if macro.StartsWith("functools") then
+            com.GetImportExpr(ctx, "functools") |> ignore
+
         let args =
             exprs
             |> List.append thisArg
@@ -1354,31 +1355,60 @@ module Util =
             let actual, stmts = getUnionExprTag com ctx None expr
             Expression.compare(actual, [Eq], [ expected ], ?loc=range), stmts
 
-    let transformSwitch (com: IPythonCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement =
-        // let cases =
-        //     cases |> List.collect (fun (guards, expr) ->
-        //         // Remove empty branches
-        //         match returnStrategy, expr, guards with
-        //         | None, Fable.Value(Fable.UnitConstant,_), _
-        //         | _, _, [] -> []
-        //         | _, _, guards ->
-        //             let guards, lastGuard = List.splitLast guards
-        //             let guards = guards |> List.map (fun e -> SwitchCase.switchCase([||], com.TransformAsExpr(ctx, e)))
-        //             let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-        //             let caseBody =
-        //                 match returnStrategy with
-        //                 | Some Return -> caseBody
-        //                 | _ -> Array.append caseBody [|Statement.break'()|]
-        //             guards @ [SwitchCase.switchCase(caseBody, com.TransformAsExpr(ctx, lastGuard))]
-        //         )
-        // let cases =
-        //     match defaultCase with
-        //     | Some expr ->
-        //         let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
-        //         cases @ [SwitchCase.switchCase(consequent defaultCaseBody)]
-        //     | None -> cases
-        // Statement.switchStatement(com.TransformAsExpr(ctx, evalExpr), List.toArray cases)
-        Statement.expr(Expression.name("Not implemented"))
+    let transformSwitch (com: IPythonCompiler) ctx useBlocks returnStrategy evalExpr cases defaultCase: Statement list =
+        let cases =
+            cases |> List.collect (fun (guards, expr) ->
+                // Remove empty branches
+                match returnStrategy, expr, guards with
+                | None, Fable.Value(Fable.UnitConstant,_), _
+                | _, _, [] -> []
+                | _, _, guards ->
+                    let guards, lastGuard = List.splitLast guards
+                    let guards = guards |> List.map (fun e ->
+                        let expr, stmts = com.TransformAsExpr(ctx, e)
+                        (stmts, Some expr))
+                    let caseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
+                    let caseBody =
+                        match returnStrategy with
+                        | Some Return -> caseBody
+                        | _ -> List.append caseBody [ Statement.break'() ]
+                    let expr, stmts = com.TransformAsExpr(ctx, lastGuard)
+                    guards @ [(stmts @ caseBody, Some expr)]
+                )
+        let cases =
+            match defaultCase with
+            | Some expr ->
+                let defaultCaseBody = com.TransformAsStatements(ctx, returnStrategy, expr)
+                cases @ [(defaultCaseBody, None)]
+            | None -> cases
+
+        let value, stmts = com.TransformAsExpr(ctx, evalExpr)
+
+        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list): Python.Statement list option =
+            match cases with
+            | [] -> None
+            | (body, test) :: cases ->
+                match test with
+                | None -> body |> Some
+                | Some test ->
+                    let expr = Expression.compare (left = value, ops = [ Eq ], comparators = [ test ])
+
+                    let test =
+                        match fallThrough with
+                        | Some ft -> Expression.boolOp (op = Or, values = [ ft; expr ])
+                        | _ -> expr
+
+                    // Check for fallthrough
+                    if body.IsEmpty then
+                        ifThenElse (Some test) cases
+                    else
+                        [ Statement.if' (test = test, body = body, ?orelse = ifThenElse None cases) ]
+                        |> Some
+
+        let result = cases |> ifThenElse None
+        match result with
+        | Some ifStmt -> stmts @ ifStmt
+        | None -> []
 
     let matchTargetIdentAndValues idents values =
         if List.isEmpty idents then []
@@ -1546,10 +1576,10 @@ module Util =
             let cases = groupSwitchCases (Fable.Number(Int32, None)) cases (defaultIndex, defaultBoundValues)
             let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, None))
             let switch1 = transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-            [ yield! multiVarDecl; switch1; switch2 ]
+            multiVarDecl @ switch1 @ switch2
         | None ->
             let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-            [ yield! multiVarDecl; yield! decisionTree; yield switch2 ]
+            multiVarDecl @ decisionTree @ switch2
 
     let transformDecisionTreeAsStatements (com: IPythonCompiler) (ctx: Context) returnStrategy
                         (targets: (Fable.Ident list * Fable.Expr) list) (treeExpr: Fable.Expr): Statement list =
@@ -1567,7 +1597,7 @@ module Util =
                 let cases = cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
                     [caseExpr], Fable.DecisionTreeSuccess(targetIndex, boundValues, t))
                 let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-                [ transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase) ]
+                transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)
             | None ->
                 com.TransformAsStatements(ctx, returnStrategy, treeExpr)
         | targetsWithMultiRefs ->
@@ -1589,7 +1619,7 @@ module Util =
                     let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
                     let ctx = { ctx with DecisionTargets = targets }
                     let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
-                    [ transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase) ]
+                    transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)
                 | None ->
                     transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
             else
