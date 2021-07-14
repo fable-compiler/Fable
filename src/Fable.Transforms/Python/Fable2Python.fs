@@ -943,11 +943,13 @@ module Util =
                 // so use a class expression instead. See https://github.com/fable-compiler/Fable/pull/2165#issuecomment-695835444
                 m.Info.IsSetter || (m.Info.IsGetter && canHaveSideEffects m.Body))
 
-        let makeMethod prop computed hasSpread args body =
+        let makeMethod prop hasSpread args body decorators =
             let args, body =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
-            let name = Identifier("test")
-            FunctionDef.Create(name, args, body)
+            let name = com.GetIdentifier(ctx, prop)
+            let self = Arg.arg("self")
+            let args = { args with Args = self::args.Args }
+            FunctionDef.Create(name, args, body, decorators)
 
         let members =
             members |> List.collect (fun memb ->
@@ -955,25 +957,25 @@ module Util =
                 let prop, computed = memberFromName com ctx memb.Name
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
-                if info.IsValue || (not compileAsClass && info.IsGetter) then
-                    let expr, stmts = com.TransformAsExpr(ctx, memb.Body)
-                    stmts @ [ Statement.assign([prop], expr) ]
-                    //[ObjectMember.objectProperty(prop, expr, computed_=computed)]
-                elif info.IsGetter then
-                    let arguments = memb.Args
-                    [ makeMethod prop computed false memb.Args memb.Body ]
+                // if info.IsValue || (not compileAsClass && info.IsGetter) then
+                //     let expr, stmts = com.TransformAsExpr(ctx, memb.Body)
+                //     stmts @ [ Statement.assign([prop], expr) ]
+                if info.IsGetter then
+                    let decorators = [ Expression.name("property") ]
+                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
-                    [makeMethod prop computed false memb.Args memb.Body]
+                    let decorators = [ Expression.name ("property") ]
+                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsEnumerator then
-                    let method = makeMethod prop computed info.HasSpread memb.Args memb.Body
+                    let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
                     let iterator =
                         let body = enumerator2iterator com ctx
                         let name = com.GetIdentifier(ctx, "__iter__")
                         let args = Arguments.arguments()
                         FunctionDef.Create(name = name, args = args, body = body)
-                    [method; iterator]
+                    [ method; iterator]
                 else
-                    [makeMethod prop computed info.HasSpread memb.Args memb.Body]
+                    [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ]
             )
 
         // let classMembers =
@@ -1004,9 +1006,9 @@ module Util =
             match classMembers with
             | [] -> [ Pass]
             | _ -> classMembers
-        let name = Helpers.getUniqueIdentifier "lifted"
+        let name = Helpers.getUniqueIdentifier "ObjectExpr"
         let stmt = Statement.classDef(name, body=classBody, bases=(baseExpr |> Option.toList) )
-        Expression.name (name), [ stmt ]
+        Expression.call(Expression.name (name)), [ stmt ]
 
     let transformCallArgs (com: IPythonCompiler) ctx hasSpread args : Expression list * Statement list =
         match args with
