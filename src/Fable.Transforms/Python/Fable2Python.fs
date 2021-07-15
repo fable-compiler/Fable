@@ -589,10 +589,10 @@ module Util =
         | n when Naming.hasIdentForbiddenChars n -> Expression.constant(n), []
         | n -> com.GetIdentifierAsExpr(ctx, n), []
 
-    let get (com: IPythonCompiler) ctx r left memberName =
+    let get (com: IPythonCompiler) ctx r left memberName subscript =
         // printfn "get: %A" (left, memberName)
-        match left with
-        | Expression.Dict(_) ->
+        match subscript with
+        | true ->
             let expr = Expression.constant(memberName)
             Expression.subscript (value = left, slice = expr, ctx = Load)
         | _ ->
@@ -615,7 +615,7 @@ module Util =
     let rec getParts com ctx (parts: string list) (expr: Expression) =
         match parts with
         | [] -> expr
-        | m::ms -> get com ctx None expr m |> getParts com ctx ms
+        | m::ms -> get com ctx None expr m false |> getParts com ctx ms
 
     let makeArray (com: IPythonCompiler) ctx exprs =
         let expr, stmts = exprs |> List.map (fun e -> com.TransformAsExpr(ctx, e)) |> Helpers.unzipArgs
@@ -693,7 +693,7 @@ module Util =
 
     let callFunctionWithThisContext com ctx r funcExpr (args: Expression list) =
         let args = thisExpr::args
-        Expression.call(get com ctx None funcExpr "call", args, ?loc=r)
+        Expression.call(get com ctx None funcExpr "call" false, args, ?loc=r)
 
     let emitExpression range (txt: string) args =
         let value =
@@ -907,7 +907,7 @@ module Util =
         | _ -> failwith $"transformValue: value {value} not supported!"
 
     let enumerator2iterator com ctx =
-        let enumerator = Expression.call(get com ctx None (Expression.identifier("self")) "GetEnumerator", [])
+        let enumerator = Expression.call(get com ctx None (Expression.identifier("self")) "GetEnumerator" false, [])
         [ Statement.return'(libCall com ctx None "Util" "toIterator" [ enumerator ]) ]
 
     let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -1214,9 +1214,12 @@ module Util =
                 | statements -> Statement.if'(guardExpr, thenStmnt, statements, ?loc=r), stmts
             stmts @ stmts' @ stmts'' @ [ ifStatement ]
 
-    let transformGet (com: IPythonCompiler) ctx range typ fableExpr kind =
-        match kind with
+    let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
 
+        //printfn "transformGet: %A" fableExpr
+        printfn "transformGet: %A" (fableExpr.Type)
+
+        match kind with
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop
@@ -1255,8 +1258,12 @@ module Util =
                 | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
                 | _ -> fableExpr
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
+            let subscript =
+                match fableExpr.Type with
+                | Fable.AnonymousRecordType(_) -> true
+                | _ -> false
             printfn "Fable.FieldGet: %A" fieldName
-            get com ctx range expr fieldName, stmts
+            get com ctx range expr fieldName subscript, stmts
 
         | Fable.ListHead ->
             // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1305,7 +1312,7 @@ module Util =
                 let expr, stmts''' = getExpr com ctx None expr e
                 expr, stmts'' @ stmts'''
             | Fable.FieldSet(fieldName) ->
-                get com ctx None expr fieldName, []
+                get com ctx None expr fieldName false, []
         assign range ret value, stmts @ stmts' @ stmts''
 
     let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.Ident) (value: Fable.Expr) =
@@ -1728,10 +1735,10 @@ module Util =
             let func = Expression.name("chr")
             func, []
 
-        | Fable.Get(Fable.IdentExpr({Name=name;Type=Fable.AnonymousRecordType(_)}) as expr, Fable.FieldGet(fieldName=index), _, _) ->
-            let left, stmts = com.TransformAsExpr(ctx, expr)
-            let index = Expression.constant(index)
-            Expression.subscript (left, index), stmts
+        // | Fable.Get(Fable.IdentExpr({Name=name;Type=Fable.AnonymousRecordType(_)}) as expr, Fable.FieldGet(fieldName=index), _, _) ->
+        //     let left, stmts = com.TransformAsExpr(ctx, expr)
+        //     let index = Expression.constant(index)
+        //     Expression.subscript (left, index), stmts
 
         | Fable.Get(expr, kind, typ, range) ->
             transformGet com ctx range typ expr kind
@@ -2134,7 +2141,7 @@ module Util =
         [
             yield makeMethod memb.Name arguments body
             if memb.Info.IsEnumerator then
-                yield makeMethod "Symbol.iterator" (Arguments.arguments []) (enumerator2iterator com ctx)
+                yield makeMethod "__iter__" (Arguments.arguments [self]) (enumerator2iterator com ctx)
         ]
 
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -2148,7 +2155,7 @@ module Util =
             [
                 yield callSuperAsStatement []
                 yield! fieldIds |> Array.map (fun id ->
-                    let left = get com ctx None thisExpr id.Name
+                    let left = get com ctx None thisExpr id.Name false
                     let right =
                         match id.Type with
                         | Fable.Number _ ->
@@ -2188,7 +2195,7 @@ module Util =
                     yield callSuperAsStatement []
 
                 yield! (ent.FSharpFields |> List.collecti (fun i field ->
-                    let left = get com ctx None thisExpr field.Name
+                    let left = get com ctx None thisExpr field.Name false
                     let right = args.[i]
                     assign None left right |> exprAsStatement ctx))
             ]

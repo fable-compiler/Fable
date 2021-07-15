@@ -303,9 +303,32 @@ def isDisposable(x):
     return x is not None and isinstance(x, IDisposable)
 
 
-def toIterator(x):
-    print("toIterator: ", x)
-    return iter(x)
+def toIterator(en):
+    print("toIterator: ", en)
+
+    class Iterator:
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            has_next = getattr(en, "System_Collections_IEnumerator_MoveNext")()
+            if not has_next:
+                raise StopIteration
+            return getattr(en, "System_Collections_IEnumerator_get_Current")()
+
+    return Iterator()
+
+
+def stringHash(s):
+    h = 5381
+    for c in s:
+        h = (h * 33) ^ ord(c)
+
+    return h
+
+
+def numberHash(x):
+    return x * 2654435761 | 0
 
 
 def structuralHash(x):

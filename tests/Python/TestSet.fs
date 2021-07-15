@@ -27,3 +27,15 @@ let ``test Set.Count works`` () =
     let xs = Set.empty |> Set.add 1
     xs.Count
     |> equal 1
+
+[<Fact>]
+let ``test Seq.isEmpty function works on Set`` () =
+    let xs = set [1]
+    xs |> Seq.isEmpty
+    |> equal false
+
+[<Fact>]
+let ``test Set.add works`` () =
+    let xs = Set.empty |> Set.add 1
+    Set.count xs
+    |> equal 1
