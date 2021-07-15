@@ -59,10 +59,6 @@ let pyTypeof (x: obj): string = pyNative
 [<Emit("isinstance($0, $1)")>]
 let pyInstanceof (x: obj) (cons: obj): bool = pyNative
 
-/// Check if object is callable, i.e a function.
-[<Emit("callable($0)")>]
-let callable(x: obj) = pyNative
-
 /// Works like `ImportAttribute` (same semantics as ES6 imports).
 /// You can use "*" or "default" selectors.
 let import<'T> (selector: string) (path: string):'T = pyNative

@@ -431,9 +431,10 @@ let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: Cons<'U>) =
         match chooser array.[i] with
         | None -> ()
         | Some y -> pushImpl res y |> ignore
-    if callable cons
-    then map id res cons
-    else res // avoid extra copy
+
+    match box cons with
+    | null -> res // avoid extra copy
+    | _ -> map id res cons
 
 let foldIndexed folder (state: 'State) (array: 'T[]) =
     // if isTypedArrayImpl array then
