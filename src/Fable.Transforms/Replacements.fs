@@ -1008,6 +1008,7 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
                 | Number(numberKind,_) when com.Options.TypedArrays ->
                     args @ [getTypedArrayName com numberKind |> makeIdentExpr]
                 | _ ->
+                    // TODO: Remove None args in tail position in Fable2Babel
                     args @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
             | Types.adder ->
                 args @ [makeGenericAdder com ctx genArg]

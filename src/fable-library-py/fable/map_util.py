@@ -4,6 +4,14 @@ K = TypeVar("K")
 V = TypeVar("V")
 
 
+def addToSet(v, set):
+    if set.has(v):
+        return False
+
+    set.add(v)
+    return True
+
+
 def addToDict(dict: Dict[K, V], k: K, v: V):
     if k in dict:
         raise Exception("An item with the same key has already been added. Key: " + str(k))
