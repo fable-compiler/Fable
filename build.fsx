@@ -572,13 +572,13 @@ match argsLower with
 | "test-py"::_ -> testPython()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
 | "jupyter" :: _ ->
     buildLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src/fable.out"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src/fable.out"
 
 | "run"::_ ->
     buildLibraryIfNotExists()
