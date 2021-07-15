@@ -18,15 +18,15 @@ type WithDelegates =
       Del6: System.Action<int>
       Del7: System.Action<int, string> }
 
-type TestType =
+type MyType =
     | Union1 of string
 
-type TestType2 =
+type MyType2 =
     | Union2 of string
 
-type TestType3 = class end
-type TestType4 = class end
-type TestType5 = class end
+type MyType3 = class end
+type MyType4 = class end
+type MyType5 = class end
 
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
@@ -62,9 +62,9 @@ let ``test typedefof works`` () =
 [<Fact>]
 let ``test IsGenericType works`` () =
     typeof<int list>.IsGenericType |> equal true
-    typeof<TestType>.IsGenericType |> equal false
+    typeof<MyType>.IsGenericType |> equal false
     let t1 = typeof<int list>
-    let t2 = typeof<TestType>
+    let t2 = typeof<MyType>
     let t3 = typeof<string>
     t1.IsGenericType |> equal true
     t2.IsGenericType |> equal false
@@ -82,8 +82,8 @@ let ``test GetGenericTypeDefinition works`` () =
 
 [<Fact>]
 let ``test Comparing generic types works`` () =
-    let t1 = typeof<GenericRecord<string, TestType>>
-    let t2 = typeof<GenericRecord<string, TestType>>
+    let t1 = typeof<GenericRecord<string, MyType>>
+    let t2 = typeof<GenericRecord<string, MyType>>
     let t3 = typeof<GenericRecord<string, int>>
     t1 = t2 |> equal true
     t1 = t3 |> equal false
@@ -115,7 +115,7 @@ let inline fullname<'T> () = typeof<'T>.FullName |> normalize
 
 [<Fact>]
 let ``test Type Namespace`` () =
-    let x = typeof<TestType>.Namespace
+    let x = typeof<MyType>.Namespace
     #if FABLE_COMPILER
     equal "Fable.Tests.Reflection" x
     #else
@@ -124,13 +124,13 @@ let ``test Type Namespace`` () =
 
 [<Fact>]
 let ``test Type FullName`` () =
-    let x = typeof<TestType>.FullName
-    x |> normalize |> equal "Fable.Tests.Reflection.TestType"
+    let x = typeof<MyType>.FullName
+    x |> normalize |> equal "Fable.Tests.Reflection.MyType"
 
 [<Fact>]
 let ``test Type Name`` () =
-    let x = typeof<TestType>.Name
-    equal "TestType" x
+    let x = typeof<MyType>.Name
+    equal "MyType" x
 
 
 #endif

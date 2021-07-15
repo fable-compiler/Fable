@@ -521,6 +521,8 @@ module MapTree =
             then Some(en.Current, en)
             else None)
 
+open Fable.Core
+
 [<Sealed>]
 [<CompiledName("FSharpMap")>]
 [<Fable.Core.NoOverloadSuffix>]
@@ -861,7 +863,8 @@ let ofList (elements: ('Key * 'Value) list) =
     Map<_, _>.Create elements
 
 // [<CompiledName("OfSeq")>]
-let ofSeq elements =
+let ofSeq elements ([<Inject>] comparer: IComparer<'T>) =
+    // FIXME: should use comparer
     Map<_, _>.Create elements
 
 // [<CompiledName("OfArray")>]

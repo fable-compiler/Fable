@@ -938,7 +938,7 @@ module Util =
             None
 
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression * Statement list =
-        printfn "transformObjectExpr"
+        // printfn "transformObjectExpr"
         let compileAsClass =
             Option.isSome baseCall || members |> List.exists (fun m ->
                 // Optimization: Object literals with getters and setters are very slow in V8
@@ -1222,8 +1222,8 @@ module Util =
 
     let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
 
-        //printfn "transformGet: %A" fableExpr
-        printfn "transformGet: %A" (fableExpr.Type)
+        // printfn "transformGet: %A" fableExpr
+        // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
@@ -2130,7 +2130,7 @@ module Util =
         |> List.singleton
 
     let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
-        printfn "transformAttachedMethod"
+        // printfn "transformAttachedMethod"
         let isStatic = not memb.Info.IsInstance
         let makeMethod name args body =
             let key, computed = memberFromName com ctx name
