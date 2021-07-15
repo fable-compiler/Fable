@@ -748,6 +748,7 @@ module Util =
 
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
         let args, body = transformFunction com ctx funcName args body
+        // TODO: add self argument in this function
 
         // let args =
         //     let len = args.Args.Length
@@ -937,6 +938,7 @@ module Util =
             None
 
     let transformObjectExpr (com: IPythonCompiler) ctx (members: Fable.MemberDecl list) baseCall: Expression * Statement list =
+        printfn "transformObjectExpr"
         let compileAsClass =
             Option.isSome baseCall || members |> List.exists (fun m ->
                 // Optimization: Object literals with getters and setters are very slow in V8
@@ -957,10 +959,14 @@ module Util =
                 let prop, computed = memberFromName com ctx memb.Name
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
-                // if info.IsValue || (not compileAsClass && info.IsGetter) then
-                //     let expr, stmts = com.TransformAsExpr(ctx, memb.Body)
-                //     stmts @ [ Statement.assign([prop], expr) ]
-                if info.IsGetter then
+                if info.IsValue || (not compileAsClass && info.IsGetter) then
+                     let expr, stmts = com.TransformAsExpr(ctx, memb.Body)
+                     let stmts =
+                        let decorators = [ Expression.name ("staticmethod") ]
+                        stmts |> List.map (function | FunctionDef(def) -> FunctionDef({ def with DecoratorList = decorators}) | ex -> ex)
+                     stmts @ [ Statement.assign([prop], expr) ]
+                elif info.IsGetter then
+                    printfn "IsGetter: %A" prop
                     let decorators = [ Expression.name("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
@@ -975,6 +981,7 @@ module Util =
                         FunctionDef.Create(name = name, args = args, body = body)
                     [ method; iterator]
                 else
+                    printfn "Got here: %A" (memb.Name, info.IsValue)
                     [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ]
             )
 
@@ -1192,7 +1199,7 @@ module Util =
         stmts @ [ Statement.try'(transformBlock com ctx returnStrategy body, ?handlers=handlers, finalBody=finalizer, ?loc=r) ]
 
     let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
-        printfn "transformIfStatement"
+        // printfn "transformIfStatement"
         let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
         match expr with
         | Constant(value=value) when (value :? bool) ->
@@ -1734,11 +1741,6 @@ module Util =
         | Fable.Get(Fable.IdentExpr({Name = "String"}), Fable.FieldGet(fieldName="fromCharCode"), _, _) ->
             let func = Expression.name("chr")
             func, []
-
-        // | Fable.Get(Fable.IdentExpr({Name=name;Type=Fable.AnonymousRecordType(_)}) as expr, Fable.FieldGet(fieldName=index), _, _) ->
-        //     let left, stmts = com.TransformAsExpr(ctx, expr)
-        //     let index = Expression.constant(index)
-        //     Expression.subscript (left, index), stmts
 
         | Fable.Get(expr, kind, typ, range) ->
             transformGet com ctx range typ expr kind
