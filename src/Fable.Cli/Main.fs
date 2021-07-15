@@ -222,21 +222,13 @@ module private Util =
                 let ctx = PhpPrinter.Output.Writer.create w
                 PhpPrinter.Output.writeFile ctx php
                 w.Flush()
+
             | Python ->
                 let python = fable |> Fable2Python.Compiler.transformFile com
                 let map = { new PythonPrinter.SourceMapGenerator with
                                 member _.AddMapping(_,_,_,_,_) = () }
                 let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
                 do! PythonPrinter.run writer map python
-
-                // logger("Generating Python from Babel")
-                // let babel = fable |> Fable2Babel.Compiler.transformFile com
-                // let python = babel |> Babel2Python.Compiler.transformFile com
-                // let map = { new PythonPrinter.SourceMapGenerator with
-                //                 member _.AddMapping(_,_,_,_,_) = () }
-                // let outPath = outPath.Replace(".fs", "2.fs")
-                // let writer = new PythonFileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-                // do! PythonPrinter.run writer map python
 
             "Compiled " + File.getRelativePathFromCwd com.CurrentFile
             |> Log.verboseOrIf isRecompile

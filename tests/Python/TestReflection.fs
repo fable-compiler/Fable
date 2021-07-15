@@ -103,12 +103,6 @@ let getName3 (t:System.Type) = function
     | "name" -> t.Name
     | _ -> t.FullName
 
-// Fable 2 cannot check types unknown at compile time
-// let getName4 (o:obj) = function
-//     | "namespace" -> o.GetType().Namespace
-//     | "name" -> o.GetType().Name
-//     | _ -> o.GetType().FullName
-
 type Firm = { name: string }
 
 let normalize (x: string) =
