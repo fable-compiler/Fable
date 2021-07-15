@@ -65,7 +65,7 @@ let rec substitute row col (x:Sudoku) =
 
 let getFirstSolution = substitute 0 0 >> Seq.head
 
-//[<Fact>]
+[<Fact>]
 let testsSudoku () =
     let solution =
         [[0; 0; 8;  3; 0; 0;  6; 0; 0]

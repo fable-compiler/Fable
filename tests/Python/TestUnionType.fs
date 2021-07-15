@@ -158,7 +158,8 @@ let ``test Comprehensive active patterns can return values`` () =
     measure 10 |> equal "bar"
     measure 5 |> equal "foo"
 
-let ``Partial active patterns which don't return values work`` () = // See #478
+[<Fact>]
+let ``test Partial active patterns which don't return values work`` () = // See #478
     let isFunctional = function
         | FSharp -> "yes"
         | "scala" -> "fifty-fifty"
@@ -167,7 +168,8 @@ let ``Partial active patterns which don't return values work`` () = // See #478
     isFunctional "smalltalk" |> equal "dunno"
     isFunctional "fsharp" |> equal "yes"
 
-let ``Active patterns can be combined with union case matching`` () = // See #306
+[<Fact>]
+let ``test Active patterns can be combined with union case matching`` () = // See #306
     let test = function
         | Some(A n, Some(A m)) -> n + m
         | _ -> 0
