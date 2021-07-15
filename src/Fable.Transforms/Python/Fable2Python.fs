@@ -1060,8 +1060,9 @@ module Util =
         | Fable.Binary(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
             match op with
             | BinaryEqualStrict ->
-                match right with
-                 | Expression.Constant(_)  ->
+                match right, left with
+                 | Expression.Constant(_), _
+                 | _, Expression.Constant(_)  ->
                     let op = BinaryEqual
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
                  | _ ->
@@ -1300,10 +1301,10 @@ module Util =
             let expr, stmts = getUnionExprTag com ctx range fableExpr
             expr, stmts
 
-        | Fable.UnionField(index, _) ->
+        | Fable.UnionField(_, fieldIndex) ->
             let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts' = getExpr com ctx None expr (Expression.constant("fields"))
-            let expr, stmts'' = getExpr com ctx range expr (ofInt index)
+            let expr, stmts'' = getExpr com ctx range expr (ofInt fieldIndex)
             expr, stmts @ stmts' @ stmts''
 
     let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =

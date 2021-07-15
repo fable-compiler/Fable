@@ -87,3 +87,29 @@ let ``test Union cases matches with no arguments can be generated`` () =
     | Female -> true
     | Male -> false
     |> equal false
+
+[<Fact>]
+let ``test Union cases matches with one argument can be generated`` () =
+    let x = Left "abc"
+    match x with
+    | Left data -> data
+    | Right _ -> failwith "unexpected"
+    |> equal "abc"
+
+[<Fact>]
+let ``test Union methods can be generated`` () =
+    let x = Left 5
+    x.AsString()
+    |> equal "5"
+
+[<Fact>]
+let ``test Nested pattern matching works`` () =
+    let x = Right(Left 5)
+    match x with
+    | Left _ -> failwith "unexpected"
+    | Right x ->
+        match x with
+        | Left x -> x
+        | Right _ -> failwith "unexpected"
+    |> equal 5
+
