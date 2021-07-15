@@ -133,4 +133,89 @@ let ``test Type Name`` () =
     equal "MyType" x
 
 
+[<Fact>]
+let ``test Get fullname of generic types with inline function`` () =
+    fullname<MyType3>() |> equal "Fable.Tests.Reflection.MyType3"
+    fullname<MyType4>() |> equal "Fable.Tests.Reflection.MyType4"
+
+
+[<Fact>]
+let ``test Type name is accessible`` () =
+    let x = { name = "" }
+    getName<Firm> "name" |> equal "Firm"
+    getName2 x "name" |> equal "Firm"
+    getName3 typedefof<Firm> "name" |> equal "Firm"
+    // getName4 x "name" |> equal "Firm"
+
+[<Fact>]
+let ``test Type namespace is accessible`` () =
+    let test (x: string) =
+        x.StartsWith("Fable.Tests") |> equal true
+    let x = { name = "" }
+    getName<Firm> "namespace" |> test
+    getName2 x "namespace" |> test
+    getName3 typedefof<Firm> "namespace" |> test
+    // getName4 x "namespace" |> test
+
+[<Fact>]
+let ``test Type full name is accessible`` () =
+    let test (x: string) =
+        x.Replace("+", ".") |> equal "Fable.Tests.Reflection.Firm"
+    let x = { name = "" }
+    getName<Firm> "fullname" |> test
+    getName2 x "fullname" |> test
+    getName3 typedefof<Firm> "fullname" |> test
+    // getName4 x "fullname" |> test
+
+// FSharpType and FSharpValue reflection tests
+open FSharp.Reflection
+
+exception MyException of String: string * Int: int
+
+let flip f b a = f a b
+
+type MyRecord = {
+    String: string
+    Int: int
+}
+
+type MyUnion =
+    | StringCase of SomeString: string * string
+    | IntCase of SomeInt: int
+
+type RecordF = { F : int -> string }
+
+type AsyncRecord = {
+  asyncProp : Async<string>
+}
+
+type MyList<'T> =
+| Nil
+| Cons of 'T * MyList<'T>
+
+let inline create<'T when 'T: (new: unit->'T)> () = new 'T()
+
+type A() = member __.Value = 5
+
+type B() = member __.Value = 10
+
+type AnonRec1 = {| name: string; child: {| name: string |} |}
+type AnonRec2 = {| numbers: int list |}
+
+type RecordGetValueType = {
+    Firstname : string
+    Age : int
+}
+
+[<Fact>]
+let ``test Reflection: Array`` () =
+    let arType = typeof<int[]>
+    let liType = typeof<int list>
+    equal true arType.IsArray
+    equal false liType.IsArray
+    let elType = arType.GetElementType()
+    typeof<int> = elType |> equal true
+    typeof<bool> = elType |> equal false
+    liType.GetElementType() |> equal null
+
 #endif

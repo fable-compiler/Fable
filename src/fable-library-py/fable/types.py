@@ -183,4 +183,22 @@ def toString(x, callStack=0):
 str = str
 Exception = Exception
 
+
+class FSharpException(Exception, IComparable):
+    def toJSON(self):
+        return recordToJSON(self)
+
+    def toString(self):
+        return recordToString(self)
+
+    def GetHashCode(self):
+        recordGetHashCode(self)
+
+    def Equals(self, other: FSharpException):
+        return recordEquals(self, other)
+
+    def CompareTo(self, other: FSharpException):
+        return recordCompareTo(self, other)
+
+
 __all__ = ["Attribute", "Exception", "FSharpRef", "str", "Union"]

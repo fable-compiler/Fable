@@ -59,6 +59,10 @@ def union_type(
     return t
 
 
+def lambda_type(argType: TypeInfo, returnType: TypeInfo):
+    return TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType])
+
+
 def delegate_type(*generics):
     return TypeInfo("System.Func` %d" % len(generics), list(generics))
 
@@ -67,14 +71,6 @@ def record_type(
     fullname: str, generics: List[TypeInfo], construct: Constructor, fields: Callable[[], List[FieldInfo]]
 ) -> TypeInfo:
     return TypeInfo(fullname, generics, construct, fields=fields)
-
-
-def full_name(t: TypeInfo) -> str:
-    gen = t.generics if t.generics is not None else []
-    if len(gen):
-        return t.fullname + "[" + ",".join(map(full_name, gen)) + "]"
-
-    return t.fullname
 
 
 def option_type(generic: TypeInfo) -> TypeInfo:
@@ -130,7 +126,7 @@ def name(info):
 
     else:
         i = info.fullname.rfind(".");
-        return info.fullname if i == -1 else info.fullname.substr[i + 1:]
+        return info.fullname if i == -1 else info.fullname[i + 1:]
 
 
 def fullName(t):
@@ -146,6 +142,14 @@ def fullName(t):
 def namespace(t):
     i = t.fullname.rfind(".")
     return "" if i == -1 else t.fullname[0: i]
+
+
+def isArray(t: TypeInfo) -> bool:
+    return t.fullname.endswith("[]")
+
+
+def getElementType(t: TypeInfo) -> Optional[TypeInfo]:
+    return t.generics[0] if isArray(t) else None
 
 
 #   if (t1.fullname === "") { // Anonymous records

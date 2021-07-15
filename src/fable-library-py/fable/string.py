@@ -443,7 +443,7 @@ def padRight(string: str, len: int, ch: Optional[str] = None) -> str:
 
 
 def replace(string: str, search: str, replace: str):
-    return re.sub(search, replace, string)
+    return string.replace(search, replace)
 
 
 def replicate(n: int, x: str) -> str:
