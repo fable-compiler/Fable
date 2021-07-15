@@ -59,6 +59,10 @@ def union_type(
     return t
 
 
+def delegate_type(*generics):
+    return TypeInfo("System.Func` %d" % len(generics), list(generics))
+
+
 def record_type(
     fullname: str, generics: List[TypeInfo], construct: Constructor, fields: Callable[[], List[FieldInfo]]
 ) -> TypeInfo:
@@ -107,6 +111,41 @@ decimal_type: TypeInfo = TypeInfo("System.Decimal")
 
 def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
     return t1 == t2
+
+
+def isGenericType(t):
+    return t.generics is not None and len(t.generics)
+
+
+def getGenericTypeDefinition(t):
+    return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
+
+
+def name(info):
+    if isinstance(info, list):
+        return info[0]
+
+    elif isinstance(info, CaseInfo):
+        return info.name
+
+    else:
+        i = info.fullname.rfind(".");
+        return info.fullname if i == -1 else info.fullname.substr[i + 1:]
+
+
+def fullName(t):
+    gen = t.generics if t.generics is not None and not isinstance(t, list) else []
+    if len(gen):
+        gen = ",".join([ fullName(x) for x in gen])
+        return f"${t.fullname}[{gen}]"
+
+    else:
+        return t.fullname
+
+
+def namespace(t):
+    i = t.fullname.rfind(".")
+    return "" if i == -1 else t.fullname[0: i]
 
 
 #   if (t1.fullname === "") { // Anonymous records

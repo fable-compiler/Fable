@@ -28,9 +28,9 @@
     <Compile Include="../../fable-library/List.fs" />
     <Compile Include="../../fable-library/Seq.fs" />
     <!-- <Compile Include="Seq2.fs" /> -->
-    <!-- <Compile Include="Range.fs" /> -->
+    <Compile Include="../../fable-library/Range.fs" />
     <Compile Include="../../fable-library/Set.fs" />
-    <!-- <Compile Include="Map.fs" /> -->
+    <Compile Include="../../fable-library/Map.fs" />
     <!-- <Compile Include="AsyncBuilder.fs" /> -->
     <!-- <Compile Include="Async.fs" /> -->
   </ItemGroup>

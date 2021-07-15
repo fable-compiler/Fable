@@ -966,7 +966,7 @@ module Util =
                         stmts |> List.map (function | FunctionDef(def) -> FunctionDef({ def with DecoratorList = decorators}) | ex -> ex)
                      stmts @ [ Statement.assign([prop], expr) ]
                 elif info.IsGetter then
-                    printfn "IsGetter: %A" prop
+                    // printfn "IsGetter: %A" prop
                     let decorators = [ Expression.name("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
@@ -981,7 +981,6 @@ module Util =
                         FunctionDef.Create(name = name, args = args, body = body)
                     [ method; iterator]
                 else
-                    printfn "Got here: %A" (memb.Name, info.IsValue)
                     [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ]
             )
 
@@ -1269,7 +1268,7 @@ module Util =
                 match fableExpr.Type with
                 | Fable.AnonymousRecordType(_) -> true
                 | _ -> false
-            printfn "Fable.FieldGet: %A" fieldName
+            // printfn "Fable.FieldGet: %A" fieldName
             get com ctx range expr fieldName subscript, stmts
 
         | Fable.ListHead ->
