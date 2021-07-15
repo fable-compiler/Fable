@@ -13,9 +13,6 @@ type Cons<'T> =
     abstract Allocate: len: int -> 'T[]
 
 module Helpers =
-    /// Use PyInterop.callable
-    let inline callable(x: obj) = callable x
-
     [<Emit("Array.from($0)")>]
     let arrayFrom (xs: 'T seq): 'T[] = jsNative
 

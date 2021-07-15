@@ -13,9 +13,6 @@ type Cons<'T> =
     abstract Allocate : len: int -> 'T []
 
 module Helpers =
-    /// Use PyInterop.callable
-    let inline callable(x: obj) = callable x
-
     [<Emit("[$0]")>]
     let arrayFrom (xs: 'T seq) : 'T [] = pyNative
 
@@ -26,11 +23,10 @@ module Helpers =
     let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = pyNative
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
-        if callable cons then
-            cons.Allocate(len)
-        else
+        if isNull (box cons) then
             PY.Constructors.Array.Create(len)
-
+        else
+            cons.Allocate(len)
     let inline isDynamicArrayImpl arr = PY.Constructors.Array.isArray arr
 
     // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
