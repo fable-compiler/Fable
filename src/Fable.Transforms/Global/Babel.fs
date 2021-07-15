@@ -1,9 +1,6 @@
 // fsharplint:disable MemberNames InterfaceNames
 namespace rec Fable.AST.Babel
 
-/// Babel AST. Note that this AST is a bit fragile in the sense that you cannot refer to all the types and union
-/// constructors fully qualified. Thus you must fully open the namespace in referring files.
-
 open Fable.AST
 
 /// The type field is a string representing the AST variant type.
