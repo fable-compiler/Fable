@@ -33,8 +33,6 @@ module Helpers =
 
     let inline isDynamicArrayImpl arr = PY.Constructors.Array.isArray arr
 
-    let inline isTypedArrayImpl arr = PY.Constructors.ArrayBuffer.isView arr
-
     // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
     //     !!target?set(source, offset)
 
