@@ -23,4 +23,4 @@ type ITimer =
     abstract Create : float * (unit -> unit) -> ITimer
 
 [<Import("Timer", "threading")>]
-let Timer : ITimer = pyNative
+let Timer : ITimer = nativeOnly

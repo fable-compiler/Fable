@@ -8,24 +8,24 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
 
+[<AllowNullLiteral>]
 type Cons<'T> =
     [<Emit("new $0($1)")>]
     abstract Allocate: len: int -> 'T[]
 
 module Helpers =
     [<Emit("Array.from($0)")>]
-    let arrayFrom (xs: 'T seq): 'T[] = jsNative
+    let arrayFrom (xs: 'T seq): 'T[] = nativeOnly
 
     [<Emit("new Array($0)")>]
-    let allocateArray (len: int): 'T[] = jsNative
+    let allocateArray (len: int): 'T[] = nativeOnly
 
     [<Emit("new $0.constructor($1)")>]
-    let allocateArrayFrom (xs: 'T[]) (len: int): 'T[] = jsNative
+    let allocateArrayFrom (xs: 'T[]) (len: int): 'T[] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] =
-        if jsTypeof cons = "function"
-        then cons.Allocate(len)
-        else JS.Constructors.Array.Create(len)
+        if isNull cons then JS.Constructors.Array.Create(len)
+        else cons.Allocate(len)
 
     let inline isDynamicArrayImpl arr =
         JS.Constructors.Array.isArray arr
@@ -38,7 +38,7 @@ module Helpers =
 
     [<Emit("$0.concat(...$1)")>]
     let inline concatImpl (array1: 'T[]) (arrays: 'T[] seq): 'T[] =
-        jsNative
+        nativeOnly
 
     let inline fillImpl (array: 'T[]) (value: 'T) (start: int) (count: int): 'T[] =
         !!array?fill(value, start, start + count)
@@ -112,7 +112,7 @@ module Helpers =
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature
     [<Emit("$1.sort($0)")>]
-    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = jsNative //!!array?sort(comparer)
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = nativeOnly //!!array?sort(comparer)
 
     [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]
-    let copyToTypedArray (src: 'T[]) (srci: int) (trg: 'T[]) (trgi: int) (cnt: int): unit = jsNative
+    let copyToTypedArray (src: 'T[]) (srci: int) (trg: 'T[]) (trgi: int) (cnt: int): unit = nativeOnly

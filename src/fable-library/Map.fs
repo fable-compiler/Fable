@@ -506,13 +506,13 @@ module MapTree =
     let mkIEnumerator m =
         let mutable i = mkIterator m
         { new IEnumerator<_> with
-              member __.Current = current i
+              member _.Current = current i
           interface System.Collections.IEnumerator with
-              member __.Current = box (current i)
-              member __.MoveNext() = moveNext i
-              member __.Reset() = i <- mkIterator m
+              member _.Current = box (current i)
+              member _.MoveNext() = moveNext i
+              member _.Reset() = i <- mkIterator m
           interface System.IDisposable with
-              member __.Dispose() = ()}
+              member _.Dispose() = ()}
 
     let toSeq s =
         let en = mkIEnumerator s
@@ -525,7 +525,7 @@ open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpMap")>]
-[<Fable.Core.NoOverloadSuffix>]
+[<NoOverloadSuffix>]
 type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonConditionalOn>]'Value when 'Key : comparison >(comparer: IComparer<'Key>, tree: MapTree<'Key, 'Value>) =
 
     // [<System.NonSerialized>]
@@ -544,33 +544,33 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
 
     // We use .NET generics per-instantiation static fields to avoid allocating a new object for each empty
     // set (it is just a lookup into a .NET table of type-instantiation-indexed static fields).
-    static let empty =
-        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-        new Map<'Key, 'Value>(comparer, MapTree.empty)
+//    static let empty =
+//        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
+//        new Map<'Key, 'Value>(comparer, MapTree.empty)
 
     // [<System.Runtime.Serialization.OnSerializingAttribute>]
-    // member __.OnSerializing(context: System.Runtime.Serialization.StreamingContext) =
+    // member _.OnSerializing(context: System.Runtime.Serialization.StreamingContext) =
     //     ignore context
     //     serializedData <- MapTree.toArray tree |> Array.map (fun (k, v) -> KeyValuePair(k, v))
 
     // Do not set this to null, since concurrent threads may also be serializing the data
     //[<System.Runtime.Serialization.OnSerializedAttribute>]
-    //member __.OnSerialized(context: System.Runtime.Serialization.StreamingContext) =
+    //member _.OnSerialized(context: System.Runtime.Serialization.StreamingContext) =
     //    serializedData <- null
 
     // [<System.Runtime.Serialization.OnDeserializedAttribute>]
-    // member __.OnDeserialized(context: System.Runtime.Serialization.StreamingContext) =
+    // member _.OnDeserialized(context: System.Runtime.Serialization.StreamingContext) =
     //     ignore context
     //     comparer <- LanguagePrimitives.FastGenericComparer<'Key>
     //     tree <- serializedData |> Array.map (fun (KeyValue(k, v)) -> (k, v)) |> MapTree.ofArray comparer
     //     serializedData <- null
 
-    static member Empty : Map<'Key, 'Value> =
-        empty
+    static member Empty comparer: Map<'Key, 'Value> =
+        Map<'Key, 'Value>(comparer, MapTree.empty)
 
-    static member Create(ie : IEnumerable<_>) : Map<'Key, 'Value> =
-        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-        new Map<_, _>(comparer, MapTree.ofSeq comparer ie)
+//    static member Create(ie : IEnumerable<_>) : Map<'Key, 'Value> =
+//        let comparer = LanguagePrimitives.FastGenericComparer<'Key>
+//        new Map<_, _>(comparer, MapTree.ofSeq comparer ie)
 
     // [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
     member internal m.Comparer = comparer
@@ -650,7 +650,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     member m.Remove key =
         new Map<'Key, 'Value>(comparer, MapTree.remove comparer key tree)
 
-    member __.TryGetValue(key: 'Key, value: byref<'Value>) =
+    member _.TryGetValue(key: 'Key, value: byref<'Value>) =
         match MapTree.tryFind comparer key tree with
         | Some v -> value <- v; true
         | None -> false
@@ -698,18 +698,18 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
             loop()
         | _ -> false
 
-    interface Fable.Core.Symbol_wellknown with
+    interface Symbol_wellknown with
         member _.``Symbol.toStringTag`` = "FSharpMap"
 
-    interface Fable.Core.IJsonSerializable with
+    interface IJsonSerializable with
         member this.toJSON(_key) =
-            Fable.Core.JS.Constructors.Array.from(this) |> box
+            JS.Constructors.Array.from(this) |> box
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
-        member __.GetEnumerator() = MapTree.mkIEnumerator tree
+        member _.GetEnumerator() = MapTree.mkIEnumerator tree
 
     interface System.Collections.IEnumerable with
-        member __.GetEnumerator() = MapTree.mkIEnumerator tree :> System.Collections.IEnumerator
+        member _.GetEnumerator() = MapTree.mkIEnumerator tree :> System.Collections.IEnumerator
 
     interface System.IComparable with
         member m.CompareTo(obj: obj) =
@@ -755,7 +755,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
     //     member m.Values = seq { for kvp in m -> kvp.Value }
     //     member m.ContainsKey key = m.ContainsKey key
 
-    interface Fable.Core.JS.Map<'Key,'Value> with
+    interface JS.Map<'Key,'Value> with
         member m.size = m.Count
         member m.clear() = failwith "Map cannot be mutated"; ()
         member m.delete(_) = failwith "Map cannot be mutated"; false
@@ -763,7 +763,7 @@ type Map<[<EqualityConditionalOn>]'Key, [<EqualityConditionalOn; ComparisonCondi
         member m.get(k) = m.Item(k)
         member m.has(k) = m.ContainsKey(k)
         member m.keys() = m |> Seq.map (fun p -> p.Key)
-        member m.set(k, v) = failwith "Map cannot be mutated"; m :> Fable.Core.JS.Map<'Key,'Value>
+        member m.set(k, v) = failwith "Map cannot be mutated"; m :> JS.Map<'Key,'Value>
         member m.values() = m |> Seq.map (fun p -> p.Value)
         member m.forEach(f, ?thisArg) = m |> Seq.iter (fun p -> f p.Value p.Key m)
 
@@ -859,18 +859,16 @@ let tryFindKey predicate (table : Map<_, _>) =
     table |> Seq.tryPick (fun kvp -> let k = kvp.Key in if predicate k kvp.Value then Some k else None)
 
 // [<CompiledName("OfList")>]
-let ofList (elements: ('Key * 'Value) list) =
-    Map<_, _>.Create elements
+let ofList (elements: ('Key * 'Value) list) ([<Inject>] comparer: IComparer<'Key>) =
+    Map<_, _>(comparer, MapTree.ofSeq comparer elements)
 
 // [<CompiledName("OfSeq")>]
 let ofSeq elements ([<Inject>] comparer: IComparer<'T>) =
-    // FIXME: should use comparer
-    Map<_, _>.Create elements
+    Map<_, _>(comparer, MapTree.ofSeq comparer elements)
 
 // [<CompiledName("OfArray")>]
-let ofArray (elements: ('Key * 'Value) array) =
-    let comparer = LanguagePrimitives.FastGenericComparer<'Key>
-    new Map<_, _>(comparer, MapTree.ofArray comparer elements)
+let ofArray (elements: ('Key * 'Value) array) ([<Inject>] comparer: IComparer<'Key>) =
+    Map<_, _>(comparer, MapTree.ofSeq comparer elements)
 
 // [<CompiledName("ToList")>]
 let toList (table: Map<_, _>) =
@@ -881,8 +879,8 @@ let toArray (table: Map<_, _>) =
     table.ToArray()
 
 // [<CompiledName("Empty")>]
-let empty<'Key, 'Value  when 'Key : comparison> =
-    Map<'Key, 'Value>.Empty
+let empty<'Key, 'Value  when 'Key : comparison> ([<Inject>] comparer: IComparer<'Key>) : Map<'Key, 'Value> =
+    Map<'Key, 'Value>.Empty comparer
 
 // [<CompiledName("Count")>]
 let count (table: Map<_, _>) =

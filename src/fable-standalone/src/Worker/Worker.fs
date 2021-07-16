@@ -11,12 +11,12 @@ let PROJECT_NAME = "project.fsproj"
 type IFableInit =
     abstract member init: unit -> IFableManager
 
-let [<Global>] self: obj = jsNative
-let [<Global>] importScripts(_path: string): unit = jsNative
+let [<Global>] self: obj = nativeOnly
+let [<Global>] importScripts(_path: string): unit = nativeOnly
 
 // Load FCS+Fable bundle
 importScripts "bundle.min.js"
-let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = jsNative
+let [<Global("__FABLE_STANDALONE__")>] FableInit: IFableInit = nativeOnly
 
 let getAssemblyReader(_getBlobUrl: string->string, _refs: string[]): JS.Promise<string->byte[]> = importMember "./util.js"
 let escapeJsStringLiteral (str: string): string = importMember "./util.js"

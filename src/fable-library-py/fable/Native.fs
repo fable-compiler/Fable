@@ -8,22 +8,23 @@ open Fable.Core
 open Fable.Core.PyInterop
 open Fable.Import
 
+[<AllowNullLiteral>]
 type Cons<'T> =
     [<Emit("$0($1)")>]
     abstract Allocate : len: int -> 'T []
 
 module Helpers =
     [<Emit("[$0]")>]
-    let arrayFrom (xs: 'T seq) : 'T [] = pyNative
+    let arrayFrom (xs: 'T seq) : 'T [] = nativeOnly
 
     [<Emit("[$0]*len")>]
-    let allocateArray (len: int) : 'T [] = pyNative
+    let allocateArray (len: int) : 'T [] = nativeOnly
 
     [<Emit("[x for x in xs]")>]
-    let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = pyNative
+    let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
-        if isNull (box cons) then
+        if isNull cons then
             PY.Constructors.Array.Create(len)
         else
             cons.Allocate(len)
@@ -33,7 +34,7 @@ module Helpers =
     //     !!target?set(source, offset)
 
     [<Emit("$0+$1")>]
-    let inline concatImpl (array1: 'T []) (arrays: 'T [] seq) : 'T [] = pyNative
+    let inline concatImpl (array1: 'T []) (arrays: 'T [] seq) : 'T [] = nativeOnly
 
     let inline fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] = !! array?fill (value, start, start + count)
 
@@ -84,14 +85,14 @@ module Helpers =
     let inline filterImpl (predicate: 'T -> bool) (array: 'T []) : 'T [] = !! array?filter (predicate)
 
     [<Emit("functools.reduce($1, $0)")>]
-    let reduceImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = pyNative
+    let reduceImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = nativeOnly
 
     let inline reduceBackImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = !! array?reduceRight (reduction)
 
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature
     [<Emit("$1.sort($0)")>]
-    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T []) : unit = pyNative //!!array?sort(comparer)
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T []) : unit = nativeOnly //!!array?sort(comparer)
 
     [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]
-    let copyToTypedArray (src: 'T []) (srci: int) (trg: 'T []) (trgi: int) (cnt: int) : unit = pyNative
+    let copyToTypedArray (src: 'T []) (srci: int) (trg: 'T []) (trgi: int) (cnt: int) : unit = nativeOnly

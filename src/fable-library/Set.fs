@@ -481,13 +481,13 @@ module SetTree =
     let mkIEnumerator s =
         let mutable i = mkIterator s
         { new IEnumerator<_> with
-              member __.Current = current i
+              member _.Current = current i
           interface System.Collections.IEnumerator with
-              member __.Current = box (current i)
-              member __.MoveNext() = moveNext i
-              member __.Reset() = i <- mkIterator s
+              member _.Current = box (current i)
+              member _.MoveNext() = moveNext i
+              member _.Reset() = i <- mkIterator s
           interface System.IDisposable with
-              member __.Dispose() = () }
+              member _.Dispose() = () }
 
     /// Set comparison.  Note this can be expensive.
     let rec compareStacks (comparer: IComparer<'T>) (l1:SetTree<'T> list) (l2:SetTree<'T> list) : int =
@@ -592,7 +592,7 @@ open Fable.Core
 
 [<Sealed>]
 [<CompiledName("FSharpSet")>]
-[<Fable.Core.NoOverloadSuffix>]
+[<NoOverloadSuffix>]
 // [<CompiledName("FSharpSet`1")>]
 // [<DebuggerTypeProxy(typedefof<SetDebugView<_>>)>]
 // [<DebuggerDisplay("Count = {Count}")>]
@@ -616,17 +616,17 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     // set (it is just a lookup into a .NET table of type-instantiation-indexed static fields).
 
     // [<System.Runtime.Serialization.OnSerializingAttribute>]
-    // member __.OnSerializing(context: System.Runtime.Serialization.StreamingContext) =
+    // member _.OnSerializing(context: System.Runtime.Serialization.StreamingContext) =
     //     ignore context
     //     serializedData <- SetTree.toArray tree
 
     // Do not set this to null, since concurrent threads may also be serializing the data
     //[<System.Runtime.Serialization.OnSerializedAttribute>]
-    //member __.OnSerialized(context: System.Runtime.Serialization.StreamingContext) =
+    //member _.OnSerialized(context: System.Runtime.Serialization.StreamingContext) =
     //    serializedData <- null
 
     // [<System.Runtime.Serialization.OnDeserializedAttribute>]
-    // member __.OnDeserialized(context: System.Runtime.Serialization.StreamingContext) =
+    // member _.OnDeserialized(context: System.Runtime.Serialization.StreamingContext) =
     //     ignore context
     //     comparer <- LanguagePrimitives.FastGenericComparer<'T>
     //     tree <- SetTree.ofArray comparer serializedData
@@ -773,7 +773,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
             SetTree.compare this.Comparer this.Tree that.Tree = 0
         | _ -> false
 
-    interface Fable.Core.Symbol_wellknown with
+    interface Symbol_wellknown with
         member _.``Symbol.toStringTag`` = "FSharpSet"
 
     interface IJsonSerializable with
@@ -801,9 +801,9 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
     interface System.Collections.IEnumerable with
         member s.GetEnumerator() = SetTree.mkIEnumerator s.Tree :> System.Collections.IEnumerator
 
-    interface Fable.Core.JS.Set<'T> with
+    interface JS.Set<'T> with
         member s.size = s.Count
-        member s.add(k) = failwith "Set cannot be mutated"; s :> Fable.Core.JS.Set<'T>
+        member s.add(k) = failwith "Set cannot be mutated"; s :> JS.Set<'T>
         member s.clear() = failwith "Set cannot be mutated"; ()
         member s.delete(k) = failwith "Set cannot be mutated"; false
         member s.has(k) = s.Contains(k)
@@ -934,27 +934,27 @@ let maxElement (set: Set<'T>) = set.MaximumElement
 
 // Helpers to replicate HashSet methods
 
-let unionWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) =
+let unionWith (s1: JS.Set<'T>) (s2: 'T seq) =
     (s1, s2) ||> Seq.fold (fun acc x -> acc.add x)
 
-let intersectWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+let intersectWith (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     let s2 = ofSeq s2 comparer
     for x in s1.keys() do
         if not (s2.Contains x) then
             s1.delete x |> ignore
 
-let exceptWith (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) =
+let exceptWith (s1: JS.Set<'T>) (s2: 'T seq) =
     for x in s2 do
         s1.delete x |> ignore
 
-let isSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+let isSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
 
-let isSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+let isSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
 
-let isProperSubsetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+let isProperSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isProperSubset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
 
-let isProperSupersetOf (s1: Fable.Core.JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
+let isProperSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) ([<Inject>] comparer: IComparer<'T>) =
     isProperSuperset (ofSeq (s1.values()) comparer) (ofSeq s2 comparer)
