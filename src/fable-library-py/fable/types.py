@@ -99,10 +99,10 @@ def recordCompareTo(self, other):
         return 0
 
     else:
-        for name in self.keys():
-            if self[name] < other.get(name):
+        for name in self.__dict__.keys():
+            if self.__dict__[name] < other.__dict__.get(name):
                 return -1
-            elif self[name] > other.get(name):
+            elif self.__dict__[name] > other.__dict__.get(name):
                 return 1
 
         return 0
@@ -129,7 +129,7 @@ class Record(IComparable):
         return recordCompareTo(self, other)
 
     def __lt__(self, other: Any) -> bool:
-        raise NotImplementedError
+        return True if self.CompareTo(other) == -1 else False
 
     def __eq__(self, other: Any) -> bool:
         return self.Equals(other)

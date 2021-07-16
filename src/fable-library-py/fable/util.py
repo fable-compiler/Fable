@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 from threading import RLock
 from typing import Callable, Iterable, List, TypeVar, Optional
 
-from libcst import Call
-
 T = TypeVar("T")
 
 

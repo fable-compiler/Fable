@@ -196,6 +196,11 @@ let buildLibraryPy() =
     runInDir buildDirPy ("python3 --version")
     runInDir buildDirPy ("python3 ./setup.py develop")
 
+let buildPyLibraryIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    if not (pathExists (baseDir </> "build/fable-library-py")) then
+        buildLibraryPy()
+
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
 let testJsFast() =
@@ -395,7 +400,7 @@ let test() =
         testJsFast()
 
 let testPython() =
-    buildLibraryJsIfNotExists() // NOTE: fable-library-py needs to be built separately.
+    buildPyLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
 
     let projectDir = "tests/Python"
     let buildDir = "build/tests/Python"
@@ -574,11 +579,11 @@ match argsLower with
     buildLibraryJsIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
-    buildLibraryJsIfNotExists()
+    buildPyLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
 | "jupyter" :: _ ->
-    buildLibraryJsIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src/fable.out"
+    buildPyLibraryIfNotExists ()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> ../Fable.Jupyter/src/fable.out"
 
 | "run"::_ ->
     buildLibraryJsIfNotExists()

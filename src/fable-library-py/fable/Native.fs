@@ -36,7 +36,9 @@ module Helpers =
     [<Emit("$0+$1")>]
     let inline concatImpl (array1: 'T []) (arrays: 'T [] seq) : 'T [] = nativeOnly
 
-    let inline fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] = !! array?fill (value, start, start + count)
+    [<Emit("$0[:$2]+([$1]*$3)")>]
+    let inline fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] = nativeOnly
+
 
     [<Emit("functools.reduce($0, $2, $1)")>]
     let foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State =
