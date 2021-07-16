@@ -14,7 +14,6 @@ namespace BigInt
     open System
     open System.Globalization
 
-
     // INVARIANT: signInt = 1 or -1
     //            value(z) = signInt * v
     // NOTE: 0 has two repns (+1,0) or (-1,0).

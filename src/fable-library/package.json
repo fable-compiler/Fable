@@ -1,4 +1,5 @@
 {
   "private": true,
-  "type": "module"
+  "name": "fable-library",
+  "sideEffects": false
 }

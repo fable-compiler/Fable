@@ -2138,7 +2138,7 @@ module Util =
         if System.String.IsNullOrEmpty selector then None
         else
             match selector with
-            | "*" | "default" -> Path.GetFileNameWithoutExtension(path)
+            | "*" | "default" -> Path.GetFileNameWithoutExtension(path).Replace("-", "_")
             | _ -> selector
             |> getUniqueNameInRootScope ctx
             |> Some

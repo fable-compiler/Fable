@@ -1,3 +1,8 @@
+### 3.2.9
+
+* Don't print JS files in watch mode if there're F# errors
+* Fix SRTP with local inline functions
+
 ### 3.2.8
 
 * Fix regression in FCS: passing __SOURCE_IDENTIFIER__ to static parameters in type providers

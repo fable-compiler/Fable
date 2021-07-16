@@ -42,16 +42,19 @@ module Js =
             |> FableTransforms.transformFile com
             |> Fable2Babel.Compiler.transformFile com
 
-        // write output to file
-        use writer = new BabelWriter(cliArgs, dedupTargetDir, com.CurrentFile, outPath)
-        do! BabelPrinter.run writer babel
+        let! sourceMap = async {
+            use writer = new BabelWriter(cliArgs, dedupTargetDir, com.CurrentFile, outPath)
+            do! BabelPrinter.run writer babel
+            return if cliArgs.SourceMaps then Some writer.SourceMap else None
+        }
 
-        // write source map to file
-        if cliArgs.SourceMaps then
+        match sourceMap with
+        | Some sourceMap ->
             let mapPath = outPath + ".map"
             do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
             use fs = IO.File.Open(mapPath, IO.FileMode.Create)
-            do! writer.SourceMap.SerializeAsync(fs) |> Async.AwaitTask
+            do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
+        | None -> ()
     }
 
 module Python =
