@@ -12,6 +12,7 @@ type Verbosity =
 type Language =
     | JavaScript
     | TypeScript
+    | Python
     | Php
     | Dart
 

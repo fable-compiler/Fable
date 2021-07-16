@@ -201,3 +201,7 @@ docs/tools/FSharp.Formatting.svclog
 .ionide.debug
 *.bak
 project.lock.json
+
+# Python
+.eggs/
+__pycache__/

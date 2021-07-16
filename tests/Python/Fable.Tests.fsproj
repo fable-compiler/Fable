@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="5.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" />
+    <PackageReference Include="XUnit" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Util.fs" />
+    <Compile Include="TestSeq.fs" />
+    <Compile Include="TestList.fs" />
+    <Compile Include="TestMath.fs" />
+    <Compile Include="TestFn.fs" />
+    <Compile Include="TestString.fs" />
+    <Compile Include="TestRecordType.fs" />
+    <Compile Include="TestReflection.fs" />
+    <Compile Include="TestSet.fs" />
+    <Compile Include="TestOption.fs" />
+    <Compile Include="TestUnionType.fs" />
+    <Compile Include="TestLoops.fs" />
+    <Compile Include="TestAsync.fs" />
+    <Compile Include="TestMap.fs" />
+    <!-- <Compile Include="TestSudoku.fs" /> -->
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+</Project>

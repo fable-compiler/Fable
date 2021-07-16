@@ -442,123 +442,123 @@ module JS =
         abstract warn: ?message: obj * [<ParamArray>] optionalParams: obj[] -> unit
         abstract table: ?data: obj -> unit
 
-    let [<Global>] NaN: float = jsNative
-    let [<Global>] Infinity: float = jsNative
-    let [<Global>] Math: Math = jsNative
-    let [<Global>] JSON: JSON = jsNative
-    let [<Global>] eval: string -> string = jsNative
-    let [<Global>] isFinite: float -> bool = jsNative
-    let [<Global>] isNaN: float -> bool = jsNative
-    let [<Global>] parseFloat: string -> float = jsNative
-    let [<Global>] parseInt: string -> int -> int = jsNative
-    let [<Global>] decodeURI: string -> string = jsNative
-    let [<Global>] decodeURIComponent: string -> string = jsNative
-    let [<Global>] encodeURI: string -> string = jsNative
-    let [<Global>] encodeURIComponent: string -> string = jsNative
-    let [<Global>] console : Console = jsNative
-    let [<Global>] setTimeout (callback: unit -> unit) (ms: int): int = jsNative
-    let [<Global>] clearTimeout (token: int): unit = jsNative
-    let [<Global>] setInterval(callback: unit -> unit) (ms: int) : int = jsNative
-    let [<Global>] clearInterval (token: int): unit = jsNative
-    let [<Emit("debugger")>] debugger () : unit = jsNative
-    let [<Emit("void 0")>] undefined<'a> : 'a = jsNative
+    let [<Global>] NaN: float = nativeOnly
+    let [<Global>] Infinity: float = nativeOnly
+    let [<Global>] Math: Math = nativeOnly
+    let [<Global>] JSON: JSON = nativeOnly
+    let [<Global>] eval: string -> string = nativeOnly
+    let [<Global>] isFinite: float -> bool = nativeOnly
+    let [<Global>] isNaN: float -> bool = nativeOnly
+    let [<Global>] parseFloat: string -> float = nativeOnly
+    let [<Global>] parseInt: string -> int -> int = nativeOnly
+    let [<Global>] decodeURI: string -> string = nativeOnly
+    let [<Global>] decodeURIComponent: string -> string = nativeOnly
+    let [<Global>] encodeURI: string -> string = nativeOnly
+    let [<Global>] encodeURIComponent: string -> string = nativeOnly
+    let [<Global>] console : Console = nativeOnly
+    let [<Global>] setTimeout (callback: unit -> unit) (ms: int): int = nativeOnly
+    let [<Global>] clearTimeout (token: int): unit = nativeOnly
+    let [<Global>] setInterval(callback: unit -> unit) (ms: int) : int = nativeOnly
+    let [<Global>] clearInterval (token: int): unit = nativeOnly
+    let [<Emit("debugger")>] debugger () : unit = nativeOnly
+    let [<Emit("void 0")>] undefined<'a> : 'a = nativeOnly
 
     [<Literal>]
     let private CONSTRUCTORS_WARNING = "JS constructors are now in Fable.Core.JS.Constructors module to prevent conflicts with modules with same name"
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Number: NumberConstructor = jsNative
+    let [<Global>] Number: NumberConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Object: ObjectConstructor = jsNative
+    let [<Global>] Object: ObjectConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Date: DateConstructor = jsNative
+    let [<Global>] Date: DateConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Map: MapConstructor = jsNative
+    let [<Global>] Map: MapConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] WeakMap: WeakMapConstructor = jsNative
+    let [<Global>] WeakMap: WeakMapConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Set: SetConstructor = jsNative
+    let [<Global>] Set: SetConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] WeakSet: WeakSetConstructor = jsNative
+    let [<Global>] WeakSet: WeakSetConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Promise: PromiseConstructor = jsNative
+    let [<Global>] Promise: PromiseConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] RegExp: RegExpConstructor = jsNative
+    let [<Global>] RegExp: RegExpConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Array: ArrayConstructor = jsNative
+    let [<Global>] Array: ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] DataView: DataViewConstructor = jsNative
+    let [<Global>] DataView: DataViewConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
+    let [<Global>] ArrayBuffer: ArrayBufferConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = jsNative
+    let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Int8Array: Int8ArrayConstructor = jsNative
+    let [<Global>] Int8Array: Int8ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Uint8Array: Uint8ArrayConstructor = jsNative
+    let [<Global>] Uint8Array: Uint8ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = jsNative
+    let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Int16Array: Int16ArrayConstructor = jsNative
+    let [<Global>] Int16Array: Int16ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Uint16Array: Uint16ArrayConstructor = jsNative
+    let [<Global>] Uint16Array: Uint16ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Int32Array: Int32ArrayConstructor = jsNative
+    let [<Global>] Int32Array: Int32ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Uint32Array: Uint32ArrayConstructor = jsNative
+    let [<Global>] Uint32Array: Uint32ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Float32Array: Float32ArrayConstructor = jsNative
+    let [<Global>] Float32Array: Float32ArrayConstructor = nativeOnly
 
     [<Obsolete(CONSTRUCTORS_WARNING)>]
-    let [<Global>] Float64Array: Float64ArrayConstructor = jsNative
+    let [<Global>] Float64Array: Float64ArrayConstructor = nativeOnly
 
     // [<ObsoleCONSTRUCTORS_WARNING)>]
-    // let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
+    // let [<Global>] BigInt64Array: BigInt64ArrayConstructor = nativeOnly
 
     [<RequireQualifiedAccess>]
     module Constructors =
 
-        let [<Global>] Number: NumberConstructor = jsNative
-        let [<Global>] Object: ObjectConstructor = jsNative
-        let [<Global>] Date: DateConstructor = jsNative
-        let [<Global>] Map: MapConstructor = jsNative
-        let [<Global>] WeakMap: WeakMapConstructor = jsNative
-        let [<Global>] Set: SetConstructor = jsNative
-        let [<Global>] WeakSet: WeakSetConstructor = jsNative
-        let [<Global>] Promise: PromiseConstructor = jsNative
-        let [<Global>] RegExp: RegExpConstructor = jsNative
-        let [<Global>] Array: ArrayConstructor = jsNative
-        let [<Global>] DataView: DataViewConstructor = jsNative
-        let [<Global>] ArrayBuffer: ArrayBufferConstructor = jsNative
-        let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = jsNative
-        let [<Global>] Int8Array: Int8ArrayConstructor = jsNative
-        let [<Global>] Uint8Array: Uint8ArrayConstructor = jsNative
-        let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = jsNative
-        let [<Global>] Int16Array: Int16ArrayConstructor = jsNative
-        let [<Global>] Uint16Array: Uint16ArrayConstructor = jsNative
-        let [<Global>] Int32Array: Int32ArrayConstructor = jsNative
-        let [<Global>] Uint32Array: Uint32ArrayConstructor = jsNative
-        let [<Global>] Float32Array: Float32ArrayConstructor = jsNative
-        let [<Global>] Float64Array: Float64ArrayConstructor = jsNative
-        let [<Global>] BigInt64Array: BigInt64ArrayConstructor = jsNative
-        // let [<Global>] BigUint64Array: BigUint64ArrayConstructor = jsNative
+        let [<Global>] Number: NumberConstructor = nativeOnly
+        let [<Global>] Object: ObjectConstructor = nativeOnly
+        let [<Global>] Date: DateConstructor = nativeOnly
+        let [<Global>] Map: MapConstructor = nativeOnly
+        let [<Global>] WeakMap: WeakMapConstructor = nativeOnly
+        let [<Global>] Set: SetConstructor = nativeOnly
+        let [<Global>] WeakSet: WeakSetConstructor = nativeOnly
+        let [<Global>] Promise: PromiseConstructor = nativeOnly
+        let [<Global>] RegExp: RegExpConstructor = nativeOnly
+        let [<Global>] Array: ArrayConstructor = nativeOnly
+        let [<Global>] DataView: DataViewConstructor = nativeOnly
+        let [<Global>] ArrayBuffer: ArrayBufferConstructor = nativeOnly
+        let [<Global>] ArrayBufferView: ArrayBufferViewConstructor = nativeOnly
+        let [<Global>] Int8Array: Int8ArrayConstructor = nativeOnly
+        let [<Global>] Uint8Array: Uint8ArrayConstructor = nativeOnly
+        let [<Global>] Uint8ClampedArray: Uint8ClampedArrayConstructor = nativeOnly
+        let [<Global>] Int16Array: Int16ArrayConstructor = nativeOnly
+        let [<Global>] Uint16Array: Uint16ArrayConstructor = nativeOnly
+        let [<Global>] Int32Array: Int32ArrayConstructor = nativeOnly
+        let [<Global>] Uint32Array: Uint32ArrayConstructor = nativeOnly
+        let [<Global>] Float32Array: Float32ArrayConstructor = nativeOnly
+        let [<Global>] Float64Array: Float64ArrayConstructor = nativeOnly
+        let [<Global>] BigInt64Array: BigInt64ArrayConstructor = nativeOnly
+        // let [<Global>] BigUint64Array: BigUint64ArrayConstructor = nativeOnly

@@ -19,6 +19,7 @@
     <Compile Include="System.Collections.Generic.fs" />
     <Compile Include="FSharp.Collections.fs" />
     <Compile Include="FSharp.Core.fs" />
+    <Compile Include="Native.fs" />
     <Compile Include="MutableMap.fs" />
     <Compile Include="MutableSet.fs" />
     <Compile Include="Choice.fs" />

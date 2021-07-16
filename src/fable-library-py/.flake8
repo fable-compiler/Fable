@@ -1,0 +1,3 @@
+[flake8]
+ignore = E731, T484, T400 # Do not assign a lambda expression, use a def
+max-line-length = 121
