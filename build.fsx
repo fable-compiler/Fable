@@ -97,7 +97,7 @@ module Unused =
             else "bin\\tools\\reportgenerator.exe"
 
         // if not (pathExists "build/fable-library") then
-        //     buildLibrary()
+        //     buildLibraryJs()
 
         cleanDirs ["build/tests"]
         runFable "tests"
@@ -113,7 +113,7 @@ module Unused =
 
 // TARGETS ---------------------------
 
-let buildLibraryWithOptions (opts: {| watch: bool |}) =
+let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
     let baseDir = __SOURCE_DIRECTORY__
 
     let projectDir = baseDir </> "src/fable-library"
@@ -142,13 +142,13 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
         runTypeScript projectDir
         runFableWithArgs projectDir fableOpts
 
-let buildLibrary() = buildLibraryWithOptions {| watch = false |}
-let watchLibrary() = buildLibraryWithOptions {| watch = true |}
+let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
+let watchLibraryJs() = buildLibraryJsWithOptions {| watch = true |}
 
-let buildLibraryIfNotExists() =
+let buildLibraryJsIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library")) then
-        buildLibrary()
+        buildLibraryJs()
 
 let buildLibraryTs() =
     let projectDir = "src/fable-library"
@@ -221,7 +221,7 @@ let testJsFast() =
 
 
 let buildStandalone (opts: {| minify: bool; watch: bool |}) =
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
 
     printfn "Building standalone%s..." (if opts.minify then "" else " (no minification)")
 
@@ -384,7 +384,7 @@ let testMocha() =
     runMocha buildDir
 
 let test() =
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
 
     testMocha()
 
@@ -400,7 +400,11 @@ let test() =
         testJsFast()
 
 let testPython() =
+<<<<<<< HEAD
     buildPyLibraryIfNotExists() // NOTE: fable-library-py needs to be built seperatly.
+=======
+    buildLibraryJsIfNotExists() // NOTE: fable-library-py needs to be built separately.
+>>>>>>> 2f59b1e062bf132e8bd127e25c64e400db3055d4
 
     let projectDir = "tests/Python"
     let buildDir = "build/tests/Python"
@@ -430,7 +434,7 @@ let buildLocalPackage pkgDir =
     buildLocalPackageWith pkgDir
         "tool install fable"
         (resolveDir "src/Fable.Cli/Fable.Cli.fsproj") (fun version ->
-            buildLibrary()
+            buildLibraryJs()
             updateVersionInFableTransforms version)
 
 let testRepos() =
@@ -536,7 +540,7 @@ let packages =
      "Fable.Core", doNothing
      "Fable.Cli", (fun () ->
         Publish.loadReleaseVersion "src/Fable.Cli" |> updateVersionInFableTransforms
-        buildLibrary())
+        buildLibraryJs())
      "fable-metadata", doNothing
      "fable-publish-utils", doNothing
      "fable-standalone", fun () -> buildStandalone {|minify=true; watch=false|}
@@ -576,17 +580,17 @@ match argsLower with
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
 | "quicktest"::_ ->
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
 | "jupyter" :: _ ->
     buildPyLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src/fable.out"
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> ../Fable.Jupyter/src/fable.out"
 
 | "run"::_ ->
-    buildLibraryIfNotExists()
+    buildLibraryJsIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args
     let restArgs = args |> List.skip 1 |> String.concat " "
     run $"""dotnet run -c Release -p {resolveDir "src/Fable.Cli"} -- {restArgs}"""
@@ -599,8 +603,8 @@ match argsLower with
     let pkgInstallCmd = buildLocalPackageWith (resolveDir "temp/pkg") "add package Fable.Core" (resolveDir "src/Fable.Core/Fable.Core.fsproj") ignore
     printfn $"\nFable.Core package has been created, use the following command to install it:\n    {pkgInstallCmd}\n"
 
-| ("watch-library")::_ -> watchLibrary()
-| ("fable-library"|"library")::_ -> buildLibrary()
+| ("watch-library")::_ -> watchLibraryJs()
+| ("fable-library"|"library")::_ -> buildLibraryJs()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
