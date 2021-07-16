@@ -384,7 +384,7 @@ def concat(*xs: Iterable[Any]) -> str:
 
 
 def join(delimiter: str, xs: Iterable[Any]) -> str:
-    return delimiter.join(xs)
+    return delimiter.join((str(x) for x in xs))
 
 
 # export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {

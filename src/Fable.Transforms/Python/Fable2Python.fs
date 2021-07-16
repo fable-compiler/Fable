@@ -1933,6 +1933,7 @@ module Util =
                     let limit = Expression.binOp (limit, Add, Expression.constant (1)) // Python `range` has exclusive end.
                     limit,  1
                 else
+                    let limit = Expression.binOp (limit, Sub, Expression.constant (1)) // Python `range` has exclusive end.
                     limit, -1
 
             let step = Expression.constant(step)
