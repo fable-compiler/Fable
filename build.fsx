@@ -170,6 +170,32 @@ let buildLibraryTs() =
     runInDir buildDirTs "npm run tsc -- --init --target es2020 --module es2020 --allowJs"
     runInDir buildDirTs ("npm run tsc -- --outDir ../../" + buildDirJs)
 
+let buildLibraryPy() =
+    let libraryDir = "src/fable-library-py"
+    let projectDir = libraryDir + "/fable"
+    let buildDirPy = "build/fable-library-py"
+
+    cleanDirs [buildDirPy]
+
+    runFableWithArgs projectDir [
+        "--outDir " + buildDirPy </> "fable"
+        "--fableLib " + buildDirPy </> "fable"
+        "--lang Python"
+        "--exclude Fable.Core"
+    ]
+    // Copy *.py from projectDir to buildDir
+    copyDirRecursive libraryDir buildDirPy
+    copyDirNonRecursive (buildDirPy </> "fable/fable-library") (buildDirPy </> "fable")
+    //copyFile (buildDirPy </> "fable/fable-library/*.py") (buildDirPy </> "fable")
+    copyFile (buildDirPy </> "fable/system.text.py") (buildDirPy </> "fable/system_text.py")
+    copyFile (buildDirPy </> "fable/fsharp.core.py") (buildDirPy </> "fable/fsharp_core.py")
+    copyFile (buildDirPy </> "fable/fsharp.collections.py") (buildDirPy </> "fable/fsharp_collections.py")
+    //copyFile (buildDirPy </> "fable/async.py") (buildDirPy </> "fable/async_.py")
+    removeFile (buildDirPy </> "fable/system.text.py")
+
+    runInDir buildDirPy ("python3 --version")
+    runInDir buildDirPy ("python3 ./setup.py develop")
+
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
 let testJsFast() =
@@ -368,6 +394,24 @@ let test() =
     if envVarOrNone "APPVEYOR" |> Option.isSome then
         testJsFast()
 
+let testPython() =
+    buildLibraryIfNotExists() // NOTE: fable-library-py needs to be built seperatly.
+
+    let projectDir = "tests/Python"
+    let buildDir = "build/tests/Python"
+
+    cleanDirs [buildDir]
+    runInDir projectDir "dotnet test"
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+        "--lang Python"
+    ]
+
+    runInDir buildDir "touch __init__.py" // So relative imports works.
+    runInDir buildDir "pytest"
+
+
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
     action version
@@ -525,9 +569,16 @@ match argsLower with
 | "test-react"::_ -> testReact()
 | "test-compiler"::_ -> testCompiler()
 | "test-integration"::_ -> testIntegration()
+| "test-py"::_ -> testPython()
 | "quicktest"::_ ->
     buildLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
+| "quicktest-py"::_ ->
+    buildLibraryIfNotExists()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
+| "jupyter" :: _ ->
+    buildLibraryIfNotExists ()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> /Users/dbrattli/Developer/GitHub/Fable.Jupyter/src/fable.out"
 
 | "run"::_ ->
     buildLibraryIfNotExists()
@@ -546,6 +597,7 @@ match argsLower with
 | ("watch-library")::_ -> watchLibrary()
 | ("fable-library"|"library")::_ -> buildLibrary()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
+| ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
 | ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}

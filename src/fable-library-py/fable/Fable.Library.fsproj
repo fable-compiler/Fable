@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+    <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Timer.fs" />
+    <Compile Include="../../fable-library/Global.fs" />
+    <!-- <Compile Include="BigInt/n.fsi" /> -->
+    <!-- <Compile Include="BigInt/n.fs" /> -->
+    <!-- <Compile Include="BigInt/z.fsi" /> -->
+    <!-- <Compile Include="BigInt/z.fs" /> -->
+    <!-- <Compile Include="BigInt.fs" /> -->
+    <!-- <Compile Include="BigInt/q.fsi"/> -->
+    <!-- <Compile Include="BigInt/q.fs"/> -->
+    <Compile Include="../../fable-library/System.Text.fs" />
+    <!-- <Compile Include="System.Collections.Generic.fs" /> -->
+    <Compile Include="../../fable-library/FSharp.Collections.fs" />
+    <Compile Include="../../fable-library/FSharp.Core.fs" />
+    <Compile Include="Native.fs" />
+    <!-- <Compile Include="MutableMap.fs" /> -->
+    <!-- <Compile Include="MutableSet.fs" /> -->
+    <Compile Include="../../fable-library/Choice.fs" />
+    <Compile Include="../../fable-library/Array.fs" />
+    <Compile Include="../../fable-library/List.fs" />
+    <Compile Include="../../fable-library/Seq.fs" />
+    <!-- <Compile Include="Seq2.fs" /> -->
+    <Compile Include="../../fable-library/Range.fs" />
+    <Compile Include="../../fable-library/Set.fs" />
+    <Compile Include="../../fable-library/Map.fs" />
+    <!-- <Compile Include="AsyncBuilder.fs" /> -->
+    <!-- <Compile Include="Async.fs" /> -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Fable.Core\Fable.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

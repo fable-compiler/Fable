@@ -398,7 +398,6 @@ type ImportSpecifier =
     /// A namespace import specifier, e.g., * as foo in import * as foo from "mod".
     | ImportNamespaceSpecifier of local: Identifier
 
-
 /// An exported variable binding, e.g., {foo} in export {foo} or {bar as foo} in export {bar as foo}.
 /// The exported field refers to the name exported in the module.
 /// The local field refers to the binding into the local module scope.
@@ -409,7 +408,6 @@ type ExportSpecifier =
     | ExportSpecifier of local: Identifier * exported: Identifier
 
 // Type Annotations
-
 type TypeAnnotationInfo =
     | AnyTypeAnnotation
     | VoidTypeAnnotation

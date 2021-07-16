@@ -1007,7 +1007,9 @@ let injectArg com (ctx: Context) r moduleName methName (genArgs: (string * Type)
                 match genArg with
                 | Number(numberKind,_) when com.Options.TypedArrays ->
                     args @ [getTypedArrayName com numberKind |> makeIdentExpr]
-                | _ -> args
+                | _ ->
+                    // TODO: Remove None args in tail position in Fable2Babel
+                    args @ [ Expr.Value(ValueKind.NewOption(None, genArg, false), None) ]
             | Types.adder ->
                 args @ [makeGenericAdder com ctx genArg]
             | Types.averager ->
@@ -1110,10 +1112,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, "op_ErasedCast" -> List.tryHead args
     | _, ".ctor" -> typedObjExpr t [] |> Some
+    | _, "pyNative"
     | _, "jsNative"
     | _, "phpNative" ->
         // TODO: Fail at compile time?
-        addWarning com ctx.InlinePath r "jsNative is being compiled without replacement, this will fail at runtime."
+        addWarning com ctx.InlinePath r $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
         let runtimeMsg =
             "A function supposed to be replaced by JS native code has been called, please check."
             |> StringConstant |> makeValue None
@@ -1201,6 +1204,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | _ -> None
+    | "Fable.Core.PyInterop", _
     | "Fable.Core.JsInterop", _ ->
         match i.CompiledName, args with
         | "importDynamic", [path] ->
