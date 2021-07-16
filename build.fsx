@@ -400,7 +400,7 @@ let test() =
         testJsFast()
 
 let testPython() =
-    buildPyLibraryIfNotExists() // NOTE: fable-library-py needs to be built seperatly.
+    buildPyLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
 
     let projectDir = "tests/Python"
     let buildDir = "build/tests/Python"

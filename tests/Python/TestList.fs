@@ -212,6 +212,91 @@ let ``test List.fold2 works`` () =
     List.fold2 (fun x y z -> x + y + z) 0 xs ys
     |> equal 20
 
+// FIXME: need to handle reduce from right in native.fs
+// [<Fact>]
+// let ``test List.foldBack works`` () =
+//     [1; 2; 3; 4]
+//     |> List.foldBack (fun x acc -> acc - x) <| 100
+//     |> equal 90
+
+// [<Fact>]
+// let ``test List.foldBack with composition works`` () =
+//     [1; 2; 3; 4]
+//     |> List.foldBack (fun x acc -> acc >> (+) x) <| id <| 2
+//     |> equal 12
+
+// [<Fact>]
+let ``test List.forall works`` () =
+    [1; 2; 3; 4]
+    |> List.forall (fun x -> x < 5)
+    |> equal true
+
+[<Fact>]
+let ``test List.forall2 works`` () =
+    ([1; 2; 3; 4], [1; 2; 3; 4])
+    ||> List.forall2 (=)
+    |> equal true
+
+[<Fact>]
+let ``test List.head works`` () =
+    [1; 2; 3; 4]
+    |> List.head
+    |> equal 1
+
+[<Fact>]
+let ``test List.init works`` () =
+    let xs = List.init 4 float
+    xs.Head + xs.Tail.Head
+    |> equal 1.
+
+[<Fact>]
+let ``test List.isEmpty works`` () =
+    List.isEmpty [1] |> equal false
+    List.isEmpty [] |> equal true
+
+[<Fact>]
+let ``test List.iter works`` () =
+    let xs = [1; 2; 3; 4]
+    let mutable total = 0
+    xs |> List.iter (fun x ->
+    total <- total + x)
+    equal 10 total
+
+[<Fact>]
+let ``test List.iter2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [2; 4; 6; 8]
+    let total = ref 0
+    List.iter2 (fun x y ->
+    total := !total + (y - x)
+    ) xs ys
+    equal 10 !total
+
+[<Fact>]
+let ``test List.iteri works`` () =
+    let mutable total = 0
+    [1; 2; 3; 4]
+    |> List.iteri (fun i x ->
+        total <- total + (i * x))
+    equal 20 total
+
+[<Fact>]
+let ``test List.iteri2 works`` () =
+    let mutable total = 0
+    let xs = [1; 2; 3; 4]
+    let ys = [2; 4; 6; 8]
+    List.iteri2 (fun i x y ->
+    total <- total + i * (y - x)
+    ) xs ys
+    equal 20 total
+
+[<Fact>]
+let ``test List.length works II`` () =
+    let xs = [1; 2; 3; 4]
+    List.length xs
+    |> equal 4
+
+
 [<Fact>]
 let ``test List.map works`` () =
     let xs = [1; 2; 3; 4]

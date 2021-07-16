@@ -9,9 +9,9 @@ module Testing =
 
     type Assert =
         [<Emit("assert $0 == $1")>]
-        static member AreEqual(actual: 'T, expected: 'T, ?msg: string): unit = pyNative
+        static member AreEqual(actual: 'T, expected: 'T, ?msg: string): unit = nativeOnly
         [<Emit("assert not $0 == $1")>]
-        static member NotEqual(actual: 'T, expected: 'T, ?msg: string): unit = pyNative
+        static member NotEqual(actual: 'T, expected: 'T, ?msg: string): unit = nativeOnly
 
     let equal expected actual: unit = Assert.AreEqual(actual, expected)
     let notEqual expected actual: unit = Assert.NotEqual(actual, expected)
