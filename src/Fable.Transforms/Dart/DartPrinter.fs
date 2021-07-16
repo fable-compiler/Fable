@@ -86,7 +86,6 @@ module PrinterExtensions =
             printer.PrintNewLine()
             printer.PushIndentation()
             for node in nodes do
-                printer.Print("return ") // TODO HACK
                 printNode printer node
                 printSeparator printer
             printer.PopIndentation()
@@ -214,6 +213,12 @@ module PrinterExtensions =
             | IdentExpr i -> printer.Print(i.Name)
             | Value(kind,_) -> printer.PrintValue(kind)
             | Operation(kind,_,_) -> printer.PrintOperation(kind)
+            | Extended(kind,_) ->
+                match kind with
+                | Return e ->
+                    printer.Print("return ")
+                    printer.Print(e)
+                | _ -> printer.AddError("TODO: Print extended set")
             | _ -> printer.AddError("TODO: Print expression")
 
         member printer.PrintArray(items: 'a array, printItem: Printer -> 'a -> unit, printSeparator: Printer -> unit) =
@@ -223,7 +228,11 @@ module PrinterExtensions =
                     printSeparator printer
 
         member printer.PrintCommaSeparatedArray(nodes: Ident array) =
-            printer.PrintArray(nodes, (fun p x -> p.Print(x.Name)), (fun p -> p.Print(", ")))
+            printer.PrintArray(nodes, (fun p x ->
+                p.Print(x.Type)
+                p.Print(" ")
+                p.Print(x.Name)
+            ), (fun p -> p.Print(", ")))
 
         member printer.PrintFunctionDeclaration(name: string, args: Ident list, body: Expr) =
             printer.Print(body.Type)

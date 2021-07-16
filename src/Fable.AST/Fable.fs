@@ -181,8 +181,8 @@ and Declaration =
             ||> List.fold (fun acc m -> Set.union acc m.UsedNames)
 
 type File(decls, ?usedRootNames) =
-    member __.Declarations: Declaration list = decls
-    member __.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
+    member _.Declarations: Declaration list = decls
+    member _.UsedNamesInRootScope: Set<string> = defaultArg usedRootNames Set.empty
 
 type Ident =
     { Name: string

@@ -37,11 +37,11 @@ module Js =
             mapGenerator.Force().toJSON()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
-        let fable =
+        let babel =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
+            |> Fable2Babel.Compiler.transformFile com
 
-        let babel = fable |> Fable2Babel.Compiler.transformFile com
         // write output to file
         use writer = new BabelWriter(cliArgs, dedupTargetDir, com.CurrentFile, outPath)
         do! BabelPrinter.run writer babel
@@ -129,9 +129,10 @@ module Dart =
             member _.Dispose() = stream.Dispose()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
-        let fable =
+        let _imports, fable =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
+            |> Fable2Extended.Compiler.transformFile com
 
         use writer = new DartWriter(com, cliArgs, dedupTargetDir, outPath)
         do! DartPrinter.run writer fable
