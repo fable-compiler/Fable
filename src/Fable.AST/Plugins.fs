@@ -14,6 +14,7 @@ type Language =
     | TypeScript
     | Python
     | Php
+    | Dart
 
 type CompilerOptions =
       abstract TypedArrays: bool

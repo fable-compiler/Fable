@@ -94,6 +94,7 @@ let defaultFileExt language args =
     | TypeScript -> Path.replaceExtension ".ts" fileExt
     | Python -> Path.replaceExtension ".py" fileExt
     | Php -> ".php"
+    | Dart -> ".dart"
     | _ -> fileExt
 
 let argLanguage args =
@@ -105,6 +106,7 @@ let argLanguage args =
     | "ts" | "typescript" | "TypeScript" -> TypeScript
     | "py" | "python" | "Python" -> Python
     | "php" | "Php" | "PHP" -> Php
+    | "dart" -> Dart
     | _ -> JavaScript)
 
 type Runner =
