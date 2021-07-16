@@ -434,9 +434,9 @@ module Helpers =
                 let name =
                     moduleName.Replace("/", "")
                     |> dashify
-                string(name.[0]) + name.[1..].Replace(".", "_")
+                string(name.[0]) + name.[1..]
 
-            //printfn "-> Module: %A" moduleName
+            // printfn "-> Module: %A" moduleName
             moduleName
 
     let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
