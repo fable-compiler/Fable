@@ -1991,12 +1991,15 @@ module Util =
         let args = Arguments.arguments(args |> List.map Arg.arg)
         args, body
 
-    let declareEntryPoint _com _ctx (funcExpr: Expression) =
-        let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
-        let main = Expression.call(funcExpr, [ argv ])
+    let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expression) =
+        com.GetImportExpr(ctx, "sys") |> ignore
+        let args =emitExpression None "sys.argv[1:]" []
+        let test = Expression.compare(Expression.name("__name__"), [ ComparisonOperator.Eq ], [Expression.constant("__main__")])
+        let main = Expression.call(funcExpr, [ args ]) |> Statement.expr |> List.singleton
+        Statement.if'(test, main)
         // Don't exit the process after leaving main, as there may be a server running
         // Statement.expr(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
-        Statement.expr(main)
+
 
     let declareModuleMember ctx isPublic (membName: Identifier) isMutable (expr: Expression) =
         let membName = Expression.name(membName)
