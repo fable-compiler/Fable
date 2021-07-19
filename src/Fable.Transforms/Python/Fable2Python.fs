@@ -76,7 +76,7 @@ type IPythonCompiler =
     inherit Compiler
     abstract GetIdentifier: ctx: Context * name: string -> Python.Identifier
     abstract GetIdentifierAsExpr: ctx: Context * name: string -> Python.Expression
-    abstract GetAllImports: unit -> seq<Import>
+    abstract GetAllImports: unit -> Import list
     abstract GetImportExpr: Context * moduleName: string * ?name: string * ?loc: SourceLocation -> Expression
     abstract TransformAsExpr: Context * Fable.Expr -> Expression * Statement list
     abstract TransformAsStatements: Context * ReturnStrategy option * Fable.Expr -> Statement list
@@ -394,7 +394,7 @@ module Helpers =
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
-        //printfn $"clean: {name}"
+        // printfn $"clean: {name}"
         match name with
         | "this" -> "self"
         | "async" -> "async_"
@@ -407,6 +407,7 @@ module Helpers =
         | "len" -> "len_"
         | "Map" -> "dict"
         | "Int32Array" -> "list"
+        | "Infinity" -> "float('inf')"
         | _ ->
             name |> String.map(fun c -> if List.contains c ['.'; '$'; '`'; '*'; ' '] then '_' else c)
 
@@ -501,8 +502,9 @@ module Util =
     let getUniqueNameInRootScope (ctx: Context) name =
         let name = Helpers.clean name
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
-            ctx.UsedNames.RootScope.Contains(name)
-            || ctx.UsedNames.DeclarationScopes.Contains(name))
+            name <> "str" // Do not rewrite `str`
+            && (ctx.UsedNames.RootScope.Contains(name)
+            || ctx.UsedNames.DeclarationScopes.Contains(name)))
         ctx.UsedNames.RootScope.Add(name) |> ignore
         name
 
@@ -661,6 +663,7 @@ module Util =
         [ Statement.assign([ids], values) ]
 
     let varDeclaration (ctx: Context) (var: Expression) (isMutable: bool) value =
+        // printfn "varDeclaration: %A" (var, value)
         match var with
         | Name({Id=id}) -> ctx.BoundVars.Bind([id])
         | _ -> ()
@@ -852,7 +855,11 @@ module Util =
         | Fable.BoolConstant x -> Expression.constant(x, ?loc=r), []
         | Fable.CharConstant x -> Expression.constant(string x, ?loc=r), []
         | Fable.StringConstant x -> Expression.constant(x, ?loc=r), []
-        | Fable.NumberConstant (x,_,_) -> Expression.constant(x, ?loc=r), []
+        | Fable.NumberConstant (x,_,_) ->
+            match x with
+            | x when x = infinity -> Expression.name("float('inf')"), []
+            | x when x = -infinity -> Expression.name("float('-inf')"), []
+            | _ -> Expression.constant(x, ?loc=r), []
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values
         | Fable.NewArrayFrom (size, typ) ->
@@ -1990,12 +1997,12 @@ module Util =
         let args = Arguments.arguments(args |> List.map Arg.arg)
         args, body
 
-    let declareEntryPoint _com _ctx (funcExpr: Expression) =
-        let argv = emitExpression None "typeof process === 'object' ? process.argv.slice(2) : []" []
-        let main = Expression.call(funcExpr, [ argv ])
-        // Don't exit the process after leaving main, as there may be a server running
-        // Statement.expr(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
-        Statement.expr(main)
+    let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expression) =
+        com.GetImportExpr(ctx, "sys") |> ignore
+        let args = emitExpression None "sys.argv[1:]" []
+        let test = Expression.compare(Expression.name("__name__"), [ ComparisonOperator.Eq ], [Expression.constant("__main__")])
+        let main = Expression.call(funcExpr, [ args ]) |> Statement.expr |> List.singleton
+        Statement.if'(test, main)
 
     let declareModuleMember ctx isPublic (membName: Identifier) isMutable (expr: Expression) =
         let membName = Expression.name(membName)
@@ -2292,21 +2299,29 @@ module Util =
                 else
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-    let transformImports (imports: Import seq) : Statement list =
-        let statefulImports = ResizeArray()
+    let transformImports (imports: Import list) : Statement list =
         // printfn "Imports: %A" imports
-
+        let imports =
+            imports
+            |> List.map (fun im ->
+                let moduleName = im.Module |> Helpers.rewriteFableImport
+                match im.Name with
+                | Some "default" ->
+                    Some moduleName, Alias.alias(im.LocalIdent.Value)
+                | Some name ->
+                    Some moduleName, Alias.alias(Identifier(Helpers.clean name), ?asname=im.LocalIdent)
+                | None ->
+                    None, Alias.alias(Identifier(moduleName), ?asname=None))
+            |> List.groupBy fst
+            |> List.map (fun (a, b) -> a, List.map snd b)
         [
-            for import in imports do
-                match import with
-                | { Name = name; LocalIdent = local; Module = moduleName } ->
-                    let moduleName = moduleName |> Helpers.rewriteFableImport
-                    match name with
-                    | Some name ->
-                        let alias = Alias.alias(Identifier(Helpers.clean name), ?asname=local)
-                        Statement.importFrom (Some(Identifier(moduleName)), [ alias ])
-                    | None ->
-                        let alias = Alias.alias(Identifier(moduleName), ?asname=None)
+            for (moduleName, alias) in imports do
+                match moduleName with
+                | Some name ->
+                    Statement.importFrom (Some(Identifier(name)), alias)
+                | None ->
+                    // Do not put multiple imports on a single line. flake8(E401)
+                    for alias in alias do
                         Statement.import([alias])
         ]
 
@@ -2318,7 +2333,7 @@ module Util =
             |> Some
         | Some name ->
             match name with
-            | "*"
+            | "*" | "default" -> Path.GetFileNameWithoutExtension(moduleName)
             | _ -> name
             |> getUniqueNameInRootScope ctx
             |> Python.Identifier
@@ -2347,6 +2362,7 @@ module Compiler =
                 | false, _ ->
                     let localId = getIdentForImport ctx moduleName name
                     match name with
+                    | Some "toString" -> () // Do not import `str` in Python
                     | Some name ->
                         let i =
                           { Name =
@@ -2369,7 +2385,7 @@ module Compiler =
                     | Some localId -> Expression.identifier(localId)
                     | None -> Expression.none()
 
-            member _.GetAllImports() = imports.Values :> _
+            member _.GetAllImports() = imports.Values :> Import seq |> List.ofSeq
             member bcom.TransformAsExpr(ctx, e) = transformAsExpr bcom ctx e
             member bcom.TransformAsStatements(ctx, ret, e) = transformAsStatements bcom ctx ret e
             member bcom.TransformFunction(ctx, name, args, body) = transformFunction bcom ctx name args body
