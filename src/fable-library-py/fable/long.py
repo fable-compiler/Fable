@@ -36,6 +36,3 @@ def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optiona
     #         return LongLib.fromString(str, unsigned, res.radix);
 
     # raise Exception("Input string was not in a correct format.");
-
-
-str = str  # FIXME: remove str imports in the compiler.
