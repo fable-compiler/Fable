@@ -16,7 +16,8 @@ def fromParts(low: int, mid: int, high: int, isNegative: bool, scale: int):
     print("mid: ", mid)
     print("high: ", high)
     print("scale: ", scale)
-    return Decimal()
+    negative = -1 if isNegative else 1
+    return Decimal(low * negative) / Decimal(pow(10, scale))
 
 
 def op_Addition(x: Decimal, y: Decimal):

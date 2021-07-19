@@ -89,10 +89,6 @@ def equals(a, b):
     return a == b
 
 
-def equal(a, b):
-    return a == b
-
-
 def compare(a, b):
     if a == b:
         return 0
