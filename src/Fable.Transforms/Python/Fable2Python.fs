@@ -412,9 +412,9 @@ module Helpers =
             name |> String.map(fun c -> if List.contains c ['.'; '$'; '`'; '*'; ' '] then '_' else c)
 
     let rewriteFableImport moduleName =
-        //printfn "ModuleName: %s" moduleName
+        // printfn "ModuleName: %s" moduleName
         let _reFableLib =
-            Regex(".*(\/fable-library.*)?\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
+            Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
         let dashify = applyCaseRule CaseRules.SnakeCase
@@ -427,18 +427,21 @@ module Helpers =
 
             let moduleName = String.concat "." [ "fable"; pymodule ]
 
-            //printfn "-> Module: %A" moduleName
+            // printfn "-> Module: %A" moduleName
             moduleName
-        else
+        elif moduleName.Contains(".fs") then
             // Modules should have short, all-lowercase names.
             let moduleName =
                 let name =
-                    moduleName.Replace("/", "")
+                    Path.GetFileNameWithoutExtension(moduleName)
                     |> dashify
-                string(name.[0]) + name.[1..]
+                    |> clean
+                $".{name}"
 
             // printfn "-> Module: %A" moduleName
             moduleName
+        else
+            moduleName |> dashify |> clean
 
     let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id
