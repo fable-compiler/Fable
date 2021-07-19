@@ -30,7 +30,10 @@ class TypeInfo:
     enum_cases: Optional[List[EnumCase]] = None
 
     def __str__(self) -> str:
-        return full_name(self)
+        return fullName(self)
+
+    def __eq__(self, other) -> bool:
+        return self.fullname == other.fullname and self.generics == other.generics
 
 
 def class_type(
@@ -132,7 +135,7 @@ def name(info):
 def fullName(t):
     gen = t.generics if t.generics is not None and not isinstance(t, list) else []
     if len(gen):
-        gen = ",".join([ fullName(x) for x in gen])
+        gen = ",".join([fullName(x) for x in gen])
         return f"${t.fullname}[{gen}]"
 
     else:
