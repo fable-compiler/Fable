@@ -780,8 +780,13 @@ module Util =
         stmts @ [ Statement.return'(e) ]
 
     let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
-        let name = Helpers.getUniqueIdentifier "lifted"
-        let func = FunctionDef.Create(name = name, args = args, body = body)
+        // Need to be able to receive unit for arrow expressions
+        let arguments =
+            match args.Args with
+            | [] -> Arguments.arguments [ Arg.arg (Python.Identifier("_"), Expression.name (Python.Identifier("None"))) ]
+            | _ -> args
+        let name = Helpers.getUniqueIdentifier "arrow"
+        let func = FunctionDef.Create(name = name, args = arguments, body = body)
         Expression.name (name), [ func ]
 
     let makeFunction name (args, (body: Expression)) : Statement =
