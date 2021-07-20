@@ -60,8 +60,8 @@ class IEquatable(ABC):
     def GetHashCode(self):
         return hash(self)
 
-    def Equals(self, other):
-        return self.Equals(other)
+    # def Equals(self, other):
+    #     return self.Equals(other)
 
     @abstractmethod
     def __eq__(self, other):
@@ -298,7 +298,7 @@ def isDisposable(x):
 
 
 def toIterator(en):
-    print("toIterator: ", en)
+    #print("toIterator: ", en)
 
     class Iterator:
         def __iter__(self):
