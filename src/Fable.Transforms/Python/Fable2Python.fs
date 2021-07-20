@@ -590,6 +590,7 @@ module Util =
         // printfn "MemberName: %A" memberName
         match memberName with
         | "ToString" -> Expression.identifier("__str__")
+        | "Equals" -> Expression.identifier("__eq__")
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name(name)
@@ -1739,6 +1740,11 @@ module Util =
             let func = Expression.name("str")
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
+
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="Equals"), _, _), info, _, range) ->
+            let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
+            let left, stmts' = com.TransformAsExpr(ctx, expr)
+            Expression.compare (left, [Eq], [right]), stmts @ stmts'
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="split"), _, _), { Args=[Fable.Value(kind=Fable.StringConstant(""))]}, _, range) ->
             let func = Expression.name("list")
