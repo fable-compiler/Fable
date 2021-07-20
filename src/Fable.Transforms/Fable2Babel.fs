@@ -2101,9 +2101,7 @@ module Util =
                     let localId = Identifier.identifier(localId)
                     match import.Selector with
                     | "*" -> ImportNamespaceSpecifier(localId)
-                    | "default" | "" ->
-                        printfn "LocalId: %A" localId
-                        ImportDefaultSpecifier(localId)
+                    | "default" | "" -> ImportDefaultSpecifier(localId)
                     | memb -> ImportMemberSpecifier(localId, Identifier.identifier(memb)))
             import.Path, specifier)
         |> Seq.groupBy fst
@@ -2113,9 +2111,7 @@ module Util =
                 ||> Seq.fold (fun (mems, defs, alls) x ->
                     match x with
                     | ImportNamespaceSpecifier(_) -> mems, defs, x::alls
-                    | ImportDefaultSpecifier(_) ->
-                        printfn "ImportDefaultSpecifier: %A" (x)
-                        mems, x::defs, alls
+                    | ImportDefaultSpecifier(_) -> mems, x::defs, alls
                     | _ -> x::mems, defs, alls)
             // We used to have trouble when mixing member, default and namespace imports,
             // issue an import statement for each kind just in case
