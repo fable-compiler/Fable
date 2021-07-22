@@ -318,8 +318,12 @@ module Reflection =
             |> addWarning com [] range
             Expression.constant(false)
 
-        let jsTypeof (primitiveType: string) (Util.TransformExpr com ctx (expr, stmts)): Expression * Statement list =
-            let typeof = Expression.unaryOp(UnaryTypeof, expr)
+        let pyTypeof (primitiveType: string) (Util.TransformExpr com ctx (expr, stmts)): Expression * Statement list =
+            let typeof =
+                let func = Expression.name (Python.Identifier("type"))
+                let str = Expression.name (Python.Identifier("str"))
+                let typ = Expression.call (func, [expr])
+                Expression.call (str, [typ])
             Expression.compare(typeof, [ Eq ], [ Expression.constant(primitiveType)], ?loc=range), stmts
 
         let jsInstanceof consExpr (Util.TransformExpr com ctx (expr, stmts)): Expression * Statement list=
@@ -333,11 +337,11 @@ module Reflection =
         | Fable.Unit ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             Expression.compare(expr, [ Is ],  [ Util.undefined None ], ?loc=range), stmts
-        | Fable.Boolean -> jsTypeof "boolean" expr
-        | Fable.Char | Fable.String _ -> jsTypeof "string" expr
-        | Fable.Number _ | Fable.Enum _ -> jsTypeof "number" expr
+        | Fable.Boolean -> pyTypeof "<class 'bool'>" expr
+        | Fable.Char | Fable.String _ -> pyTypeof "<class 'str'>" expr
+        | Fable.Number _ | Fable.Enum _ -> pyTypeof "<class 'int'>" expr
         | Fable.Regex -> jsInstanceof (Expression.identifier("RegExp")) expr
-        | Fable.LambdaType _ | Fable.DelegateType _ -> jsTypeof "function" expr
+        | Fable.LambdaType _ | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
         | Fable.Array _ | Fable.Tuple _ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             libCall com ctx None "Util" "isArrayLike" [ expr ], stmts
@@ -442,7 +446,8 @@ module Helpers =
             // printfn "-> Module: %A" moduleName
             moduleName
         else
-            moduleName |> dashify |> clean
+            // Cannot dashify / clean here since Python modules are separated by dots
+            moduleName
 
     let unzipArgs (args: (Python.Expression * Python.Statement list) list): Python.Expression list * Python.Statement list =
         let stmts = args |> List.map snd |> List.collect id
@@ -608,7 +613,7 @@ module Util =
             Expression.attribute (value = left, attr = expr, ctx = Load)
 
     let getExpr com ctx r (object: Expression) (expr: Expression) =
-        // printfn "getExpr: %A" (object, expr)
+        //printfn "getExpr: %A" (object, expr)
         match expr with
         | Expression.Constant(value=name) when (name :? string) ->
             let name = name :?> string |> Identifier
@@ -738,7 +743,7 @@ module Util =
         | Attached of isStatic: bool
 
     let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
-        // printfn "getMemberArgsAndBody"
+        // printfn "getMemberArgsAndBody: %A" hasSpread
         let funcName, genTypeParams, args, body =
             match kind, args with
             | Attached(isStatic=false), (thisArg::args) ->
@@ -759,14 +764,10 @@ module Util =
         let args, body = transformFunction com ctx funcName args body
         // TODO: add self argument in this function
 
-        // let args =
-        //     let len = args.Args.Length
-        //     if not hasSpread || len = 0 then args
-        //     else [
-        //         if len > 1 then
-        //             yield! args.[..len-2]
-        //         // FIXME: yield restElement args.[len-1]
-        //     ]
+        let args =
+            let len = args.Args.Length
+            if not hasSpread || len = 0 then args
+            else { args with VarArg = Some args.Args.[len-1]; Args = args.Args.[..len-2] }
 
         args, body
 
@@ -876,9 +877,21 @@ module Util =
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values
         | Fable.NewArrayFrom (size, typ) ->
-            let array, stmts = makeArray com ctx []
-            let size, stmts' = com.TransformAsExpr(ctx, size)
-            Expression.binOp(array, Mult, size), stmts @ stmts'
+            let args =
+                match size with
+                | Fable.Value(kind=Fable.ValueKind.NumberConstant(value=0.0)) ->
+                    [ Fable.Expr.Value(Fable.ValueKind.NewOption(None, typ, false), None) ]
+                | _ ->
+                    []
+
+            let array, stmts = makeArray com ctx args
+            match args with
+            | [] ->
+                array, stmts
+            | _ ->
+                let size, stmts' = com.TransformAsExpr(ctx, size)
+                Expression.binOp(array, Mult, size), stmts @ stmts'
+
         | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
         | Fable.NewList (headAndTail, _) ->
@@ -1062,10 +1075,15 @@ module Util =
         | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
     let transformOperation com ctx range opKind: Expression * Statement list =
-        //printfn "transformOperation: %A" opKind
+        // printfn "transformOperation: %A" opKind
         match opKind with
         | Fable.Unary(UnaryVoid, TransformExpr com ctx (expr, stmts)) ->
             expr, stmts
+        | Fable.Unary(UnaryTypeof, TransformExpr com ctx (expr, stmts)) ->
+            let func = Expression.name (Python.Identifier("type"))
+            let args = [ expr ]
+            Expression.call (func, args), stmts
+
         // Transform `~(~(a/b))` to `a // b`
         | Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Binary(BinaryOperator.BinaryDivide, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')))))) ->
             Expression.binOp(left, FloorDiv, right), stmts @ stmts'
@@ -1088,8 +1106,9 @@ module Util =
                  | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequalStrict ->
-                match right with
-                 | Expression.Constant(_)  ->
+                match right, left with
+                 | Expression.Constant(_), _
+                 | _, Expression.Constant(_) ->
                     let op = BinaryUnequal
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
                  | _ ->
@@ -1243,15 +1262,15 @@ module Util =
 
     let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
 
-        // printfn "transformGet: %A" fableExpr
+        // printfn "transformGet: %A" kind
         // printfn "transformGet: %A" (fableExpr.Type)
 
         match kind with
-        | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
-            let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
-            let expr, stmts'' = getExpr com ctx range expr prop
-            expr, stmts @ stmts' @ stmts''
-
+        | Fable.ExprGet(Fable.Value(kind=Fable.StringConstant("length")))
+        | Fable.FieldGet(fieldName="length") ->
+            let func = Expression.name("len")
+            let left, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.call (func, [ left ]), stmts
         | Fable.FieldGet(fieldName="message") ->
             let func = Expression.name("str")
             let left, stmts = com.TransformAsExpr(ctx, fableExpr)
@@ -1260,10 +1279,6 @@ module Util =
             let attr = Python.Identifier("append")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-        | Fable.FieldGet(fieldName="length") ->
-            let func = Expression.name("len")
-            let left, stmts = com.TransformAsExpr(ctx, fableExpr)
-            Expression.call (func, [ left ]), stmts
         | Fable.FieldGet(fieldName="toLocaleUpperCase") ->
             let attr = Python.Identifier("upper")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
@@ -1276,6 +1291,11 @@ module Util =
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+
+        | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
+            let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
+            let expr, stmts'' = getExpr com ctx range expr prop
+            expr, stmts @ stmts' @ stmts''
 
         | Fable.FieldGet(fieldName,_) ->
             let fableExpr =
@@ -1736,6 +1756,17 @@ module Util =
         | Fable.ObjectExpr (members, _, baseCall) ->
           transformObjectExpr com ctx members baseCall
 
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="slice"), _, _), info, _, range) ->
+            let left, stmts = com.TransformAsExpr(ctx, expr)
+            let args, stmts' = info.Args |> List.map (fun arg -> com.TransformAsExpr(ctx, arg)) |> List.unzip |> (fun (e, s) -> (e, List.collect id s))
+            let slice =
+                match args with
+                | [ lower ] -> Expression.slice(lower=lower)
+                | [ Expression.Name({Id=Identifier("None")}); upper ] -> Expression.slice(upper=upper)
+                | [ lower; upper ] -> Expression.slice(lower=lower, upper=upper)
+                | _ -> failwith $"Array slice with {args.Length} not supported"
+            Expression.subscript (left, slice), stmts
+
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="toString"), _, _), info, _, range) ->
             let func = Expression.name("str")
             let left, stmts = com.TransformAsExpr(ctx, expr)
@@ -2108,7 +2139,6 @@ module Util =
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) baseExpr classMembers : Statement list =
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration, stmts =
-            let ta = None
             let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
             let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
             let body, stmts = transformReflectionInfo com ctx None ent generics
@@ -2168,7 +2198,8 @@ module Util =
         |> List.singleton
 
     let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
-        // printfn "transformAttachedMethod"
+        // printfn "transformAttachedMethod: %A" memb
+
         let isStatic = not memb.Info.IsInstance
         let makeMethod name args body =
             let key = memberFromName com ctx name |> nameFromKey com ctx

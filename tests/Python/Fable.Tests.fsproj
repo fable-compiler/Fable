@@ -33,8 +33,9 @@
     <Compile Include="TestLoops.fs" />
     <Compile Include="TestAsync.fs" />
     <Compile Include="TestMap.fs" />
+    <Compile Include="TestArray.fs" />
     <Compile Include="TestArithmetic.fs" />
-    <!-- <Compile Include="TestSudoku.fs" /> -->
+    <Compile Include="TestSudoku.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

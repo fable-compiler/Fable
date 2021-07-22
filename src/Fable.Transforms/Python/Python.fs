@@ -32,11 +32,8 @@ type Expression =
     | Tuple of Tuple
     | Starred of value: Expression * ctx: ExpressionContext
     | List of elts: Expression list * ctx: ExpressionContext
+    | Slice of lower: Expression option * upper: Expression option * step: Expression option
 
-// member val Lineno: int = 0 with get, set
-// member val ColOffset: int = 0 with get, set
-// member val EndLineno: int option = None with get, set
-// member val EndColOffset: int option = None with get, set
 type Operator =
     | Add
     | Sub
@@ -106,11 +103,6 @@ type Statement =
     | ImportFrom of ImportFrom
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
-
-// member val Lineno: int = 0 with get, set
-// member val ColOffset: int = 0 with get, set
-// member val EndLineno: int option = None with get, set
-// member val EndColOffset: int option = None with get, set
 
 type Module = { Body: Statement list }
 
@@ -881,6 +873,7 @@ module PythonExtensions =
 
         static member dict(keys, values) : Expression = { Keys = keys; Values = values } |> Dict
         static member tuple(elts, ?loc) : Expression = { Elements = elts; Loc = loc } |> Tuple
+        static member slice(?lower, ?upper, ?slice) : Expression = Slice(lower, upper, slice)
 
         static member ifExp(test, body, orElse, ?loc) : Expression =
             { Test = test

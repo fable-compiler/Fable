@@ -13,6 +13,10 @@ def op_LeftShift(self, numBits):
     return self << numBits
 
 
+def op_Addition(a, b):
+    return a + b
+
+
 def op_Multiply(a, b):
     return a * b
 

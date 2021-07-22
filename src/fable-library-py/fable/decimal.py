@@ -12,13 +12,26 @@ get_MinValue = MIN_EMIN
 
 
 def fromParts(low: int, mid: int, high: int, isNegative: bool, scale: int):
-    sign = Decimal(-1) if isNegative else Decimal(1)
-    dlow = Decimal(low)
-    dmid = Decimal(mid << 32)
-    dhigh = Decimal(high << 64)
-    dscale = Decimal(pow(10, scale))
+    sign = -1 if isNegative else 1
 
-    return (dlow + dmid + dhigh) / dscale * sign
+    if low < 0:
+        low = 0x100000000 + low
+
+    if mid < 0:
+        mid = 0xffffffff00000000 + mid + 1
+    else:
+        mid = mid << 32
+
+    if high < 0:
+        high = 0xffffffff0000000000000000 + high + 1
+    else:
+        high = high << 64
+
+    value = Decimal((low + mid + high) * sign)
+    if scale:
+        dscale = Decimal(pow(10, scale))
+        return value / dscale
+    return value
 
 
 def op_Addition(x: Decimal, y: Decimal):
