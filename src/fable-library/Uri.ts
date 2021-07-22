@@ -28,6 +28,7 @@ export class Uri {
 
   private static isAbsoluteUri(uri: string): boolean {
     try {
+      // tslint:disable-next-line no-unused-expression
       new URL(uri);
       return true;
     } catch {
@@ -95,8 +96,7 @@ export class Uri {
       : Uri.tryCreateWithBase(value, kindOrUri);
   }
 
-  public static create(baseUri: Uri, relativeUri: string): Uri;
-  public static create(baseUri: Uri, relativeUri: Uri): Uri;
+  public static create(baseUri: Uri, relativeUri: string | Uri): Uri;
   public static create(uriString: string, uriKind: UriKind): Uri;
   public static create(
     value: string | Uri,
@@ -116,12 +116,7 @@ export class Uri {
 
   public static tryCreate(
     baseUri: Uri,
-    relativeUri: string,
-    result: FSharpRef<Uri>
-  ): boolean;
-  public static tryCreate(
-    baseUri: Uri,
-    relativeUri: Uri,
+    relativeUri: string | Uri,
     result: FSharpRef<Uri>
   ): boolean;
   public static tryCreate(
