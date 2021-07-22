@@ -52,9 +52,8 @@ export class Uri {
       case UriKind.RelativeOrAbsolute:
         return ok(new Uri({ value: uri, kind }));
       default:
-        return error(
-          "A URI can only be constructed from a string if a Kind is specified."
-        );
+        const never: never = kind;
+        return never;
     }
   }
 
