@@ -8,7 +8,7 @@ export const enum UriKind {
 
 type State =
   | { value: URL; kind: UriKind.Absolute }
-  | { value: string; kind: UriKind.Relative | UriKind.RelativeOrAbsolute };
+  | { value: string; kind: UriKind.Relative };
 
 type Result<T> = { tag: "ok"; value: T } | { tag: "error"; error: string };
 
@@ -39,19 +39,33 @@ export class Uri {
   private static tryCreateWithKind(uri: string, kind: UriKind): Result<Uri> {
     switch (kind) {
       case UriKind.Absolute:
-        try {
-          return ok(new Uri({ value: new URL(uri), kind }));
-        } catch {
-          return error(
-            "Invalid URI: The format of the URI could not be determined."
-          );
-        }
+        return Uri.isAbsoluteUri(uri)
+          ? ok(new Uri({ value: new URL(uri), kind }))
+          : uri.startsWith("/")
+          ? uri.startsWith("//")
+            ? ok(
+                new Uri({
+                  value: new URL(
+                    `file://${uri.substring(
+                      Array.from(uri).findIndex((c) => c !== "/"),
+                      uri.length
+                    )}`
+                  ),
+                  kind,
+                })
+              )
+            : ok(new Uri({ value: new URL(`file://${uri}`), kind }))
+          : error(
+              "Invalid URI: The format of the URI could not be determined."
+            );
       case UriKind.Relative:
         return Uri.isAbsoluteUri(uri)
           ? error("URI is not a relative path.")
           : ok(new Uri({ value: uri, kind }));
       case UriKind.RelativeOrAbsolute:
-        return ok(new Uri({ value: uri, kind }));
+        return Uri.isAbsoluteUri(uri)
+          ? ok(new Uri({ value: new URL(uri), kind: UriKind.Absolute }))
+          : ok(new Uri({ value: uri, kind: UriKind.Relative }));
       default:
         const never: never = kind;
         return never;
@@ -71,14 +85,14 @@ export class Uri {
             kind: UriKind.Absolute,
           })
         )
-      : relativeUri.uri.kind !== UriKind.Relative
-      ? error("Relative URI should have Relative kind")
-      : ok(
+      : relativeUri.uri.kind === UriKind.Relative
+      ? ok(
           new Uri({
             value: new URL(relativeUri.uri.value, baseUri.uri.value),
             kind: UriKind.Absolute,
           })
-        );
+        )
+      : ok(baseUri);
   }
 
   private static tryCreateImpl(
@@ -143,17 +157,23 @@ export class Uri {
   }
 
   public toString() {
-    return decodeURIComponent(this.asUrl().toString());
+    switch (this.uri.kind) {
+      case UriKind.Absolute:
+        return decodeURIComponent(this.asUrl().toString());
+      case UriKind.Relative:
+        return this.uri.value;
+      default:
+        const never: never = this.uri;
+        return never;
+    }
   }
 
   private asUrl(): URL {
     switch (this.uri.kind) {
       case UriKind.Absolute:
         return this.uri.value;
-      case UriKind.RelativeOrAbsolute:
-        return new URL(this.uri.value);
       case UriKind.Relative:
-        throw new Error("relative url can not parse as a URI");
+        throw new Error("This operation is not supported for a relative URI.");
       default:
         const never: never = this.uri;
         return never;
@@ -161,12 +181,7 @@ export class Uri {
   }
 
   get isAbsoluteUri() {
-    try {
-      this.asUrl();
-      return true;
-    } catch {
-      return false;
-    }
+    return this.uri.kind === UriKind.Absolute;
   }
 
   get absoluteUri(): string {
