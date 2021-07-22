@@ -600,6 +600,12 @@ module PrinterExtensions =
             | Compare (cp) -> printer.Print(cp)
             | Dict (di) -> printer.Print(di)
             | Tuple (tu) -> printer.Print(tu)
+            | Slice (lower, upper, step) ->
+                if lower.IsSome then
+                    printer.Print(lower.Value)
+                printer.Print(":")
+                if upper.IsSome then
+                    printer.Print(upper.Value)
             | Starred (ex, ctx) ->
                 printer.Print("*")
                 printer.Print(ex)

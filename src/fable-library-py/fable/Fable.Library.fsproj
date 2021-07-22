@@ -17,7 +17,7 @@
     <!-- <Compile Include="BigInt/q.fsi"/> -->
     <!-- <Compile Include="BigInt/q.fs"/> -->
     <Compile Include="../../fable-library/System.Text.fs" />
-    <!-- <Compile Include="System.Collections.Generic.fs" /> -->
+    <Compile Include="../../fable-library/System.Collections.Generic.fs" />
     <Compile Include="../../fable-library/FSharp.Collections.fs" />
     <Compile Include="../../fable-library/FSharp.Core.fs" />
     <Compile Include="Native.fs" />
@@ -27,7 +27,7 @@
     <Compile Include="../../fable-library/Array.fs" />
     <Compile Include="../../fable-library/List.fs" />
     <Compile Include="../../fable-library/Seq.fs" />
-    <!-- <Compile Include="Seq2.fs" /> -->
+    <Compile Include="../../fable-library/Seq2.fs" />
     <Compile Include="../../fable-library/Range.fs" />
     <Compile Include="../../fable-library/Set.fs" />
     <Compile Include="../../fable-library/Map.fs" />

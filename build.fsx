@@ -185,6 +185,7 @@ let buildLibraryPy() =
         "--fableLib " + buildDirPy </> "fable"
         "--lang Python"
         "--exclude Fable.Core"
+        "--define FABLE_LIBRARY"
     ]
     // Copy *.py from projectDir to buildDir
     copyDirRecursive libraryDir buildDirPy

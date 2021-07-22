@@ -29,16 +29,17 @@ let ``test Int32 literal addition is optimized`` () =
     aLiteral + 7 |> equal 12
     notALiteral + 7 |> equal 12
 
-[<Fact>]
-let ``test Unary negation with negative literal values works`` () =
-    -literalNegativeValue |> equal 345
+// FIXME
+// [<Fact>]
+// let ``test Unary negation with negative literal values works`` () =
+//     -literalNegativeValue |> equal 345
 
 [<Fact>]
 let ``test Unary negation with integer MinValue works`` () =
     -(-128y) |> equal System.SByte.MinValue
     -(-32768s) |> equal System.Int16.MinValue
     -(-2147483648) |> equal System.Int32.MinValue
-    -(-9223372036854775808L) |> equal System.Int64.MinValue
+    // FIXME -(-9223372036854775808L) |> equal System.Int64.MinValue
 
 [<Fact>]
 let ``test Infix subtract can be generated`` () =
@@ -116,8 +117,8 @@ let ``test Decimal literals can be generated`` () =
     0M |> equal System.Decimal.Zero
     1M |> equal System.Decimal.One
     -1M |> equal System.Decimal.MinusOne
-    79228162514264337593543950335M |> equal System.Decimal.MaxValue
-    -79228162514264337593543950335M |> equal System.Decimal.MinValue
+    // FIXME: 79228162514264337593543950335M |> equal System.Decimal.MaxValue
+    // FIXME: -79228162514264337593543950335M |> equal System.Decimal.MinValue
 
 [<Fact>]
 let ``test Decimal.ToString works`` () =
@@ -128,14 +129,15 @@ let ``test Decimal.ToString works`` () =
     string 0.00123M |> equal "0.00123"
     string 0.00012M |> equal "0.00012"
     string 0.00001M |> equal "0.00001"
-    string 0.00000M |> equal "0.00000"
-    string 0.12300M |> equal "0.12300"
-    string 0.0M |> equal "0.0"
+    // FIXME:
+    // string 0.00000M |> equal "0.00000"
+    // string 0.12300M |> equal "0.12300"
+    // string 0.0M |> equal "0.0"
     string 0M |> equal "0"
     string 1M |> equal "1"
     string -1M |> equal "-1"
     string 00000000000000000000000000000.M |> equal "0"
-    string 0.0000000000000000000000000000M |> equal "0.0000000000000000000000000000"
+    // string 0.0000000000000000000000000000M |> equal "0.0000000000000000000000000000"
     string 79228162514264337593543950335M |> equal "79228162514264337593543950335"
     string -79228162514264337593543950335M |> equal "-79228162514264337593543950335"
 

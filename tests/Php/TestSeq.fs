@@ -5,7 +5,6 @@ open Util.Testing
 let sumFirstTwo (zs: seq<float>) =
     let second = Seq.skip 1 zs |> Seq.head
     let first = Seq.head zs
-    printfn "sumFirstTwo: %A" (first, second)
     first + second
 
 

@@ -8,7 +8,7 @@ from .async_builder import (
     protected_cont,
     protected_return,
 )
-from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2
+from .choice import Choice_makeChoice1Of2, Choice_makeChoice2Of2  # type: ignore
 
 
 class Async:
