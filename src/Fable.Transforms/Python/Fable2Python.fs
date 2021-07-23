@@ -406,15 +406,17 @@ module Helpers =
         | "from" -> "from_"
         | "class" -> "class_"
         | "for" -> "for_"
+        | "except" -> "except_"
         | "Math" -> "math"
         | "Error" -> "Exception"
         | "toString" -> "str"
         | "len" -> "len_"
         | "Map" -> "dict"
+        | "Set" -> "set"
         | "Int32Array" -> "list"
         | "Infinity" -> "float('inf')"
         | _ ->
-            name |> String.map(fun c -> if List.contains c ['.'; '$'; '`'; '*'; ' '] then '_' else c)
+            name |> String.map(fun c -> if List.contains c ['-'; '.'; '$'; '`'; '*'; ' '; '@'] then '_' else c)
 
     let rewriteFableImport moduleName =
         // printfn "ModuleName: %s" moduleName
@@ -458,7 +460,7 @@ module Helpers =
     /// and should not be printet.
     let isProductiveStatement (stmt: Python.Statement) =
         let rec hasNoSideEffects (e: Python.Expression) =
-            //printfn $"hasNoSideEffects: {e}"
+            // printfn $"hasNoSideEffects: {e}"
 
             match e with
             | Constant _ -> true
@@ -877,20 +879,20 @@ module Util =
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values
         | Fable.NewArrayFrom (size, typ) ->
-            let args =
-                match size with
-                | Fable.Value(kind=Fable.ValueKind.NumberConstant(value=0.0)) ->
-                    [ Fable.Expr.Value(Fable.ValueKind.NewOption(None, typ, false), None) ]
-                | _ ->
-                    []
+            // printfn "NewArrayFrom: %A" (size, size.Type, typ)
+            let arg, stmts = com.TransformAsExpr(ctx, size)
 
-            let array, stmts = makeArray com ctx args
-            match args with
-            | [] ->
-                array, stmts
+            match size with
+            | Fable.Value(kind=Fable.ValueKind.NumberConstant(value=0.0)) ->
+                Expression.list [], []
             | _ ->
-                let size, stmts' = com.TransformAsExpr(ctx, size)
-                Expression.binOp(array, Mult, size), stmts @ stmts'
+                match size.Type with
+                | Fable.Type.Number(_) ->
+                    let array = Expression.list [ Expression.constant(0) ]
+                    Expression.binOp(array, Mult, arg), stmts
+                | _ ->
+                    let name = Expression.name("list")
+                    Expression.call(name, [arg]), stmts
 
         | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
@@ -1066,7 +1068,7 @@ module Util =
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
 
     let resolveExpr (ctx: Context) t strategy pyExpr: Statement list =
-        //printfn "resolveExpr: %A" pyExpr
+        // printfn "resolveExpr: %A" (pyExpr, strategy)
         match strategy with
         | None | Some ReturnUnit -> exprAsStatement ctx pyExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
@@ -1087,6 +1089,9 @@ module Util =
         // Transform `~(~(a/b))` to `a // b`
         | Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Binary(BinaryOperator.BinaryDivide, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')))))) ->
             Expression.binOp(left, FloorDiv, right), stmts @ stmts'
+        | Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Unary(UnaryOperator.UnaryNotBitwise, TransformExpr com ctx (left, stmts)))) ->
+            let name = Expression.name("int")
+            Expression.call(name, [left]), stmts
         | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) ->
             Expression.unaryOp(op, expr, ?loc=range), stmts
 
@@ -1155,12 +1160,19 @@ module Util =
         emitExpression range macro args, stmts @ stmts'
 
     let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expression * Statement list =
-        let callee, stmts = com.TransformAsExpr(ctx, callee)
+        // printfn "transformCall: %A" callee
+        let callee', stmts = com.TransformAsExpr(ctx, callee)
         let args, stmts' = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
-        match callInfo.ThisArg with
-        | Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee (thisArg::args), stmts @ stmts' @ stmts''
-        | None when callInfo.IsConstructor -> Expression.call(callee, args, ?loc=range), stmts @ stmts'
-        | None -> callFunction range callee args, stmts @ stmts'
+        match callee, callInfo.ThisArg with
+        | Fable.Get(expr, Fable.FieldGet(fieldName="set"), _, _), _ ->
+            let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
+            let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
+            let value, stmts'' = com.TransformAsExpr(ctx, expr)
+            Expression.none(), Statement.assign([Expression.subscript (value, right)], arg) :: stmts @ stmts' @ stmts''
+
+        | _, Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg::args), stmts @ stmts' @ stmts''
+        | _, None when callInfo.IsConstructor -> Expression.call(callee', args, ?loc=range), stmts @ stmts'
+        | _, None -> callFunction range callee' args, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
         match transformCallArgs com ctx false args with
@@ -1291,7 +1303,6 @@ module Util =
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop
@@ -1458,6 +1469,9 @@ module Util =
                     if body.IsEmpty then
                         ifThenElse (Some test) cases
                     else
+                        // Remove any break statements from body
+                        let body = body |> List.filter (function | Statement.Break -> false | _ -> true)
+
                         [ Statement.if' (test = test, body = body, ?orelse = ifThenElse None cases) ]
                         |> Some
 
@@ -1498,6 +1512,8 @@ module Util =
     let exprAsStatement (ctx: Context) (expr: Expression) : Statement list =
         // printfn "exprAsStatement: %A" expr
         match expr with
+        // A single None will be removed (i.e transformCall may return None)
+        | Name({Id=Identifier "None"}) -> []
         | NamedExpr({Target=target; Value=value; Loc=loc }) ->
             let nonLocals =
                 match target with
@@ -1731,7 +1747,8 @@ module Util =
         let name = Expression.name (name)
         Expression.call (name), [ func ]
 
-    let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list=
+    let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list =
+        //printfn "transformAsExpr: %A" expr
         match expr with
         | Fable.TypeCast(e,t) -> transformCast com ctx t e
 
@@ -1756,6 +1773,11 @@ module Util =
         | Fable.ObjectExpr (members, _, baseCall) ->
           transformObjectExpr com ctx members baseCall
 
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="has"), _, _), info, _, range) ->
+            let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
+            let value, stmts' = com.TransformAsExpr(ctx, expr)
+            Expression.compare (value, [ComparisonOperator.In], [right]), stmts @ stmts'
+
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="slice"), _, _), info, _, range) ->
             let left, stmts = com.TransformAsExpr(ctx, expr)
             let args, stmts' = info.Args |> List.map (fun arg -> com.TransformAsExpr(ctx, arg)) |> List.unzip |> (fun (e, s) -> (e, List.collect id s))
@@ -1765,7 +1787,7 @@ module Util =
                 | [ Expression.Name({Id=Identifier("None")}); upper ] -> Expression.slice(upper=upper)
                 | [ lower; upper ] -> Expression.slice(lower=lower, upper=upper)
                 | _ -> failwith $"Array slice with {args.Length} not supported"
-            Expression.subscript (left, slice), stmts
+            Expression.subscript (left, slice), stmts @ stmts'
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="toString"), _, _), info, _, range) ->
             let func = Expression.name("str")
@@ -2477,7 +2499,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-
+        // printfn "file: %A" file.Declarations
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope

@@ -10,7 +10,7 @@ open Fable.Import
 
 [<AllowNullLiteral>]
 type Cons<'T> =
-    [<Emit("$0($1)")>]
+    [<Emit("$0([0]*$1)")>]
     abstract Allocate : len: int -> 'T []
 
 module Helpers =

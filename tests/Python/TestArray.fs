@@ -124,3 +124,96 @@ let ``test Array slice with non-numeric arrays work`` () =
     xs.[1..2] <- [|"X";"X";"X";"X"|]
     equal xs.[2] "X"
     equal xs.[3] "D"
+
+[<Fact>]
+let ``test Array literals work`` () =
+    let x = [| 1; 2; 3; 4; 5 |]
+    equal 5 x.Length
+
+[<Fact>]
+let ``test Array indexer getter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    x.[2] |> equal 3.
+
+[<Fact>]
+let ``test Array indexer setter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    x.[3] <- 10.
+    equal 10. x.[3]
+
+[<Fact>]
+let ``test Array getter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.get x 2 |> equal 3.
+
+[<Fact>]
+let ``test Array setter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.set x 3 10.
+    equal 10. x.[3]
+
+[<Fact>]
+let ``test Array.Length works`` () =
+    let xs = [| 1.; 2.; 3.; 4. |]
+    xs.Length |> equal 4
+
+[<Fact>]
+let ``test Array.zeroCreate works`` () =
+    let xs = Array.zeroCreate 2
+    equal 2 xs.Length
+    equal 0 xs.[1]
+
+// See https://github.com/fable-compiler/repl/issues/96
+[<Fact>]
+let ``test Array.zeroCreate works with KeyValuePair`` () =
+    let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
+    equal 0. a.[1].Key
+    equal false a.[2].Value
+
+[<Fact>]
+let ``test Array.create works`` () =
+    let xs = Array.create 2 5
+    equal 2 xs.Length
+    Array.sum xs |> equal 10
+
+[<Fact>]
+let ``test Array.blit works`` () =
+    let xs = [| 1..10 |]
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4        // [|0; 0; 0; 0; 0; 4; 5; 6; 7; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0|]
+    ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
+
+[<Fact>]
+let ``test Array.blit works with non typed arrays`` () =
+    let xs = [| 'a'..'h' |] |> Array.map string
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
+
+[<Fact>]
+let ``test Array.copy works`` () =
+    let xs = [| 1; 2; 3; 4 |]
+    let ys = Array.copy xs
+    xs.[0] <- 0                   // Ensure a deep copy
+    ys |> Array.sum |> equal 10
+
+[<Fact>]
+let ``test Array.distinct works`` () =
+    let xs = [| 1; 1; 1; 2; 2; 3; 3 |]
+    let ys = xs |> Array.distinct
+    ys |> Array.length |> equal 3
+    ys |> Array.sum |> equal 6
+
+[<Fact>]
+let ``test Array.distinct with tuples works`` () =
+    let xs = [|(1, 2); (2, 3); (1, 2)|]
+    let ys = xs |> Array.distinct
+    ys |> Array.length |> equal 2
+    ys |> Array.sumBy fst |> equal 3
+
+[<Fact>]
+let ``test Array.distinctBy works`` () =
+    let xs = [| 4; 4; 4; 6; 6; 5; 5 |]
+    let ys = xs |> Array.distinctBy (fun x -> x % 2)
+    ys |> Array.length |> equal 2
+    ys |> Array.head >= 4 |> equal true
