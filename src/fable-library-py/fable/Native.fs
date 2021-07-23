@@ -14,13 +14,13 @@ type Cons<'T> =
     abstract Allocate : len: int -> 'T []
 
 module Helpers =
-    [<Emit("[$0]")>]
+    [<Emit("list($0)")>]
     let arrayFrom (xs: 'T seq) : 'T [] = nativeOnly
 
-    [<Emit("[$0]*len")>]
+    [<Emit("[None]*$0")>]
     let allocateArray (len: int) : 'T [] = nativeOnly
 
-    [<Emit("[x for x in xs]")>]
+    [<Emit("[x for i, x in enumerate($0)] if i < len")>]
     let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
@@ -34,15 +34,14 @@ module Helpers =
     //     !!target?set(source, offset)
 
     [<Emit("$0+$1")>]
-    let inline concatImpl (array1: 'T []) (arrays: 'T [] seq) : 'T [] = nativeOnly
+    let concatImpl (array1: 'T []) (arrays: 'T [] seq) : 'T [] = nativeOnly
 
     [<Emit("$0[:$2]+([$1]*$3)")>]
-    let inline fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] = nativeOnly
+    let fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] = nativeOnly
 
 
     [<Emit("functools.reduce($0, $2, $1)")>]
-    let foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State =
-        !! array?reduce (System.Func<'State, 'T, 'State>(folder), state)
+    let foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State = nativeOnly
 
     let inline foldIndexedImpl (folder: 'State -> 'T -> int -> 'State) (state: 'State) (array: 'T []) : 'State =
         !! array?reduce (System.Func<'State, 'T, int, 'State>(folder), state)
@@ -62,13 +61,17 @@ module Helpers =
     // Typed arrays not supported, only dynamic ones do
     let inline spliceImpl (array: 'T []) (start: int) (deleteCount: int) : 'T [] = !! array?splice (start, deleteCount)
 
-    let inline reverseImpl (array: 'T []) : 'T [] = !! array?reverse ()
+    [<Emit("$0[::-1]")>]
+    let reverseImpl (array: 'T []) : 'T [] = nativeOnly
 
-    let inline copyImpl (array: 'T []) : 'T [] = !! array?slice ()
+    [<Emit("$0[:]")>]
+    let copyImpl (array: 'T []) : 'T [] = nativeOnly
 
-    let inline skipImpl (array: 'T []) (count: int) : 'T [] = !! array?slice (count)
+    [<Emit("$0[$1:]")>]
+    let skipImpl (array: 'T []) (count: int) : 'T [] = nativeOnly
 
-    let inline subArrayImpl (array: 'T []) (start: int) (count: int) : 'T [] = !! array?slice (start, start + count)
+    [<Emit("$0[$1:$1+$2]")>]
+    let subArrayImpl (array: 'T []) (start: int) (count: int) : 'T [] = nativeOnly
 
     let inline indexOfImpl (array: 'T []) (item: 'T) (start: int) : int = !! array?indexOf (item, start)
 

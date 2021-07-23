@@ -179,3 +179,30 @@ let ``test Async.Ignore works`` () =
         res := true
     } |> Async.StartImmediate
     equal true !res
+
+[<Fact>]
+let ``test MailboxProcessor.post works`` () =
+    async {
+        let mutable res = None
+        let agent = new MailboxProcessor<int>(fun inbox ->
+            let rec messageLoop() = async {
+                let! msg = inbox.Receive()
+                match msg with
+                | 3 -> () // Finish loop
+                | _ ->
+                    res <- Some msg
+                    return! messageLoop()
+            }
+            messageLoop()
+        )
+        agent.Post(1)
+        equal None res // Mailbox hasn't started yet
+        agent.Start()
+        agent.Post(2)
+        // Not necessary in the JS implementation, but in .NET
+        // MailboxProcessor works in the background so we must wait a bit
+        do! Async.Sleep 200
+        equal (Some 2) res
+        agent.Post(3)
+        equal (Some 2) res  // Mailbox has finished
+    } |> Async.StartImmediate

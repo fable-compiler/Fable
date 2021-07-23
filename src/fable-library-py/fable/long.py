@@ -13,6 +13,18 @@ def op_LeftShift(self, numBits):
     return self << numBits
 
 
+def op_Addition(a, b):
+    return a + b
+
+
+def op_Multiply(a, b):
+    return a * b
+
+
+def op_UnaryNegation(value):
+    return -value
+
+
 def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optional[int] = None):
     return int(string)
     # res = isValid(str, style, radix)
@@ -28,6 +40,3 @@ def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optiona
     #         return LongLib.fromString(str, unsigned, res.radix);
 
     # raise Exception("Input string was not in a correct format.");
-
-
-str = str  # FIXME: remove str imports in the compiler.
