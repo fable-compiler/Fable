@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import functools
 from threading import RLock
 from typing import Callable, Iterable, List, TypeVar, Optional
 
@@ -95,6 +96,26 @@ def compare(a, b):
     if a < b:
         return -1
     return 1
+
+
+def compareArrays(a, b):
+    return compare(a, b)
+
+
+def equalArraysWith(x, y, eq):
+    if x is None:
+        return y is None
+    if y is None:
+        return False
+
+    if len(x) != len(y):
+        return False
+
+    return eq(x, y)
+
+
+def equalArrays(x, y):
+    return equalArraysWith(x, y, equals)
 
 
 def comparePrimitives(x, y) -> int:
@@ -298,8 +319,6 @@ def isDisposable(x):
 
 
 def toIterator(en):
-    #print("toIterator: ", en)
-
     class Iterator:
         def __iter__(self):
             return self
@@ -311,6 +330,10 @@ def toIterator(en):
             return getattr(en, "System_Collections_IEnumerator_get_Current")()
 
     return Iterator()
+
+
+def safeHash(x):
+    return hash(x)
 
 
 def stringHash(s):
@@ -325,8 +348,23 @@ def numberHash(x):
     return x * 2654435761 | 0
 
 
+def combineHashCodes(hashes):
+    if not hashes:
+        return 0
+
+    return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
+
+
 def structuralHash(x):
     return hash(x)
+
+
+def arrayHash(xs):
+    hashes = []
+    for i, x in enumerate(xs):
+        hashes.append(structuralHash(x))
+
+    return combineHashCodes(hashes)
 
 
 def physicalHash(x):

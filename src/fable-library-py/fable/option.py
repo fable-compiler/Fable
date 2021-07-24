@@ -5,6 +5,24 @@ class Some:
     def __init__(self, value):
         self.value = value
 
+    def __eq__(self, other):
+        if self is other:
+            return True
+
+        if other is None:
+            return False
+
+        if self.value == other.value:
+            return True
+
+        return False
+
+    def __str__(self):
+        return f"Some {self.value}"
+
+    def __repr__(self):
+        return str(self)
+
 
 def defaultArg(value, default_value):
     return option.default_arg(option.of_optional(value), default_value)

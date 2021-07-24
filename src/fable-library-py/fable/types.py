@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractstaticmethod
 from typing import Any, Generic, Iterable, List, TypeVar, Union as Union_, Callable, Optional, cast
+from .util import equals
 
 from .util import IComparable
 
@@ -91,7 +92,11 @@ def recordEquals(self, other):
     if self is other:
         return True
 
-    return False
+    for name in self.__dict__.keys():
+        if not equals(self.__dict__[name], other.__dict__[name]):
+            return False
+
+    return True
 
 
 def recordCompareTo(self, other):
@@ -106,6 +111,10 @@ def recordCompareTo(self, other):
                 return 1
 
         return 0
+
+
+def recordToString(self):
+    return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
 
 
 def recordGetHashCode(self):

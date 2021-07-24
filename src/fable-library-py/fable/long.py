@@ -8,6 +8,8 @@ def fromBits(lowBits: int, highBits: int, unsigned: bool):
 
     return ret
 
+def fromInt(x):
+    return x
 
 def op_LeftShift(self, numBits):
     return self << numBits

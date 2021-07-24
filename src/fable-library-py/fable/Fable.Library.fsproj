@@ -21,8 +21,8 @@
     <Compile Include="../../fable-library/FSharp.Collections.fs" />
     <Compile Include="../../fable-library/FSharp.Core.fs" />
     <Compile Include="Native.fs" />
-    <!-- <Compile Include="MutableMap.fs" /> -->
-    <!-- <Compile Include="MutableSet.fs" /> -->
+    <Compile Include="../../fable-library/MutableMap.fs" />
+    <Compile Include="../../fable-library/MutableSet.fs" />
     <Compile Include="../../fable-library/Choice.fs" />
     <Compile Include="../../fable-library/Array.fs" />
     <Compile Include="../../fable-library/List.fs" />
