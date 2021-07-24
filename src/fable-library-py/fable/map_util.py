@@ -1,9 +1,3 @@
-from typing import Dict, TypeVar
-
-K = TypeVar("K")
-V = TypeVar("V")
-
-
 def addToSet(v, set):
     if v in set:
         return False
@@ -12,11 +6,11 @@ def addToSet(v, set):
     return True
 
 
-def addToDict(dict: Dict[K, V], k: K, v: V):
+def addToDict(dict, k, v):
     if k in dict:
         raise Exception("An item with the same key has already been added. Key: " + str(k))
 
-    dict[k] = v
+    dict.set(k, v)
 
 
 def tryGetValue(map, key, defaultValue):

@@ -1166,6 +1166,7 @@ module Util =
 
         match callee, callInfo.ThisArg with
         | Fable.Get(expr, Fable.FieldGet(fieldName="set"), _, _), _ ->
+            // printfn "Type: %A" expr.Type
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
             let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
             let value, stmts'' = com.TransformAsExpr(ctx, expr)
@@ -1300,6 +1301,10 @@ module Util =
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="toLocaleLowerCase") ->
             let attr = Python.Identifier("lower")
+            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | Fable.FieldGet(fieldName="findIndex") ->
+            let attr = Python.Identifier("index")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="indexOf") ->
