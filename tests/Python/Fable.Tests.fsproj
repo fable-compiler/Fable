@@ -20,7 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
+    <Compile Include="TestComparison.fs" />
     <Compile Include="TestSeq.fs" />
+    <Compile Include="TestSeqExpression.fs" />
     <Compile Include="TestList.fs" />
     <Compile Include="TestMath.fs" />
     <Compile Include="TestFn.fs" />
@@ -29,11 +31,14 @@
     <Compile Include="TestReflection.fs" />
     <Compile Include="TestSet.fs" />
     <Compile Include="TestOption.fs" />
+    <Compile Include="TestResult.fs" />
+    <Compile Include="TestTupleType.fs" />
     <Compile Include="TestUnionType.fs" />
     <Compile Include="TestLoops.fs" />
     <Compile Include="TestAsync.fs" />
     <Compile Include="TestMap.fs" />
     <Compile Include="TestArray.fs" />
+    <!-- <Compile Include="TestResizeArray.fs" /> -->
     <Compile Include="TestArithmetic.fs" />
     <Compile Include="TestSudoku.fs" />
     <Compile Include="Main.fs" />

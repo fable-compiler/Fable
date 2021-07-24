@@ -319,8 +319,6 @@ def isDisposable(x):
 
 
 def toIterator(en):
-    #print("toIterator: ", en)
-
     class Iterator:
         def __iter__(self):
             return self
@@ -332,6 +330,10 @@ def toIterator(en):
             return getattr(en, "System_Collections_IEnumerator_get_Current")()
 
     return Iterator()
+
+
+def safeHash(x):
+    return hash(x)
 
 
 def stringHash(s):

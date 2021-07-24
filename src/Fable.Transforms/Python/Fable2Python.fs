@@ -1791,6 +1791,7 @@ module Util =
             let args, stmts' = info.Args |> List.map (fun arg -> com.TransformAsExpr(ctx, arg)) |> List.unzip |> (fun (e, s) -> (e, List.collect id s))
             let slice =
                 match args with
+                | [] ->  Expression.slice()
                 | [ lower ] -> Expression.slice(lower=lower)
                 | [ Expression.Name({Id=Identifier("None")}); upper ] -> Expression.slice(upper=upper)
                 | [ lower; upper ] -> Expression.slice(lower=lower, upper=upper)
