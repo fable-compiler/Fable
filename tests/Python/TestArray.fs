@@ -217,3 +217,74 @@ let ``test Array.distinctBy works`` () =
     let ys = xs |> Array.distinctBy (fun x -> x % 2)
     ys |> Array.length |> equal 2
     ys |> Array.head >= 4 |> equal true
+
+[<Fact>]
+let ``test Array.distinctBy with tuples works`` () =
+      let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
+      let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
+      ys |> Array.length |> equal 2
+      ys |> Array.head |> fst >= 4 |> equal true
+
+// FIXME: this test currently hangs
+// [<Fact>]
+// let ``test Array distinctBy works on large array`` () =
+//     let xs = [| 0 .. 50000 |]
+//     let ys =
+//         Array.append xs xs
+//         |> Array.distinctBy(fun x -> x.ToString())
+//     ys |> equal xs
+
+[<Fact>]
+let ``test Array.sub works`` () =
+    let xs = [|0..99|]
+    let ys = Array.sub xs 5 10    // [|5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]
+    ys |> Array.sum |> equal 95
+
+[<Fact>]
+let ``test Array.fill works`` () =
+    let xs = Array.zeroCreate 4   // [|0; 0; 0; 0|]
+    Array.fill xs 1 2 3           // [|0; 3; 3; 0|]
+    xs |> Array.sum |> equal 6
+
+[<Fact>]
+let ``test Array.empty works`` () =
+    let xs = Array.empty<int>
+    xs.Length |> equal 0
+
+[<Fact>]
+let ``test Array.append works`` () =
+    let xs1 = [|1; 2; 3; 4|]
+    let zs1 = Array.append [|0|] xs1
+    zs1.[0] + zs1.[1] |> equal 1
+    let xs2 = [|"a"; "b"; "c"|]
+    let zs2 = Array.append [|"x";"y"|] xs2
+    zs2.[1] + zs2.[3] |> equal "yb"
+
+[<Fact>]
+let ``test Array.average works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.average xs
+    |> equal 2.5
+
+[<Fact>]
+let ``test Array.averageBy works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.averageBy (fun x -> x * 2.) xs
+    |> equal 5.
+
+[<Fact>]
+let ``test Array.average works with custom types`` () =
+    [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.average |> equal (MyNumber 2)
+
+[<Fact>]
+let ``test Array.averageBy works with custom types`` () =
+    [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+    |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+
+[<Fact>]
+let ``test Array.choose with ints works`` () =
+    let xs = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
+    let result = xs |> Array.choose (fun i ->
+        if i % 2 = 1 then Some i
+        else None)
+    result.Length |> equal 5

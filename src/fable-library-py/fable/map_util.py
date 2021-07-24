@@ -20,7 +20,7 @@ def addToDict(dict: Dict[K, V], k: K, v: V):
 
 
 def tryGetValue(map, key, defaultValue):
-    print("tryGetValue", (map, key))
+    # print("tryGetValue", (map, key))
     if key in map:
         defaultValue.contents = map.get(key)
         return True

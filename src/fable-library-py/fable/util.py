@@ -98,6 +98,10 @@ def compare(a, b):
     return 1
 
 
+def compareArrays(a, b):
+    return compare(a, b)
+
+
 def equalArraysWith(x, y, eq):
     if x is None:
         return y is None

@@ -1163,12 +1163,15 @@ module Util =
         // printfn "transformCall: %A" callee
         let callee', stmts = com.TransformAsExpr(ctx, callee)
         let args, stmts' = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
+
         match callee, callInfo.ThisArg with
         | Fable.Get(expr, Fable.FieldGet(fieldName="set"), _, _), _ ->
             let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
             let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
             let value, stmts'' = com.TransformAsExpr(ctx, expr)
             Expression.none(), Statement.assign([Expression.subscript (value, right)], arg) :: stmts @ stmts' @ stmts''
+        | Fable.Get(expr, Fable.FieldGet(fieldName="sort"), _, _), _ ->
+            callFunction range callee' [], stmts @ stmts'
 
         | _, Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg::args), stmts @ stmts' @ stmts''
         | _, None when callInfo.IsConstructor -> Expression.call(callee', args, ?loc=range), stmts @ stmts'
