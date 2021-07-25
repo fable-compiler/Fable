@@ -409,7 +409,6 @@ module Helpers =
         | "except" -> "except_"
         | "Math" -> "math"
         | "Error" -> "Exception"
-        | "toString" -> "str"
         | "len" -> "len_"
         | "Map" -> "dict"
         | "Set" -> "set"
@@ -2469,7 +2468,6 @@ module Compiler =
                 | false, _ ->
                     let localId = getIdentForImport ctx moduleName name
                     match name with
-                    | Some "toString" -> () // Do not import `str` in Python
                     | Some name ->
                         let i =
                           { Name =

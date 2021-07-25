@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 import functools
 from threading import RLock
 from typing import Callable, Iterable, List, TypeVar, Optional
+from enum import Enum
+import math
 
 T = TypeVar("T")
 
@@ -84,6 +86,12 @@ class IComparable(IEquatable):
     @abstractmethod
     def __lt__(self, other):
         raise NotImplementedError
+
+
+class DateKind(Enum):
+    Unspecified = 0
+    UTC = 1
+    Local = 2
 
 
 def equals(a, b):
@@ -369,3 +377,13 @@ def arrayHash(xs):
 
 def physicalHash(x):
     return hash(x)
+
+
+def round(value, digits=0):
+    m = pow(10, digits)
+    n = +(value * m if digits else value).toFixed(8)
+    i = math.floor(n)
+    f = n - i
+    e = 1e-8
+    r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else __builtins__.round(n)
+    return r / m if digits else r

@@ -18,12 +18,12 @@ def fromParts(low: int, mid: int, high: int, isNegative: bool, scale: int):
         low = 0x100000000 + low
 
     if mid < 0:
-        mid = 0xffffffff00000000 + mid + 1
+        mid = 0xFFFFFFFF00000000 + mid + 1
     else:
         mid = mid << 32
 
     if high < 0:
-        high = 0xffffffff0000000000000000 + high + 1
+        high = 0xFFFFFFFF0000000000000000 + high + 1
     else:
         high = high << 64
 
@@ -36,3 +36,7 @@ def fromParts(low: int, mid: int, high: int, isNegative: bool, scale: int):
 
 def op_Addition(x: Decimal, y: Decimal):
     return x + y
+
+
+def toString(x):
+    return str(x)
