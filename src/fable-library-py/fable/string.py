@@ -136,7 +136,7 @@ def continuePrint(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) ->
     return arg.cont(cont)
 
 
-def toConsole(arg: Union[IPrintfFormat, str]) -> Union[Any, Callable[[str], Any]]:
+def toConsole(arg: Union[IPrintfFormat, Any]) -> Union[Any, Callable[[str], Any]]:
     return continuePrint(print, arg)
 
 

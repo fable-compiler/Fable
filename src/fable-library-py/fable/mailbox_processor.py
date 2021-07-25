@@ -91,7 +91,6 @@ class MailboxProcessor:
             waiting for further messages. Raises a TimeoutException if
             the timeout is exceeded.
         """
-        print("receive")
         def callback(conts):
             if self.continuation:
                 raise Exception("Receive can only be called once!")
@@ -143,4 +142,10 @@ def startInstance(mbox):
     startImmediate(mbox.body(mbox))
 
 
-__all__ = ["AsyncReplyChannel", "MailboxProcessor", "receive", "post", "startInstance"]
+def start(body, cancellationToken=None):
+    mbox = MailboxProcessor(body, cancellationToken)
+    startInstance(mbox)
+    return mbox
+
+
+__all__ = ["AsyncReplyChannel", "MailboxProcessor", "receive", "post", "start", "startInstance"]

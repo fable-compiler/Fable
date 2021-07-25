@@ -769,7 +769,7 @@ module Util =
         let args =
             let len = args.Args.Length
             if not hasSpread || len = 0 then args
-            else { args with VarArg = Some args.Args.[len-1]; Args = args.Args.[..len-2] }
+            else { args with VarArg = Some { args.Args.[len-1] with Annotation = None } ; Args = args.Args.[..len-2] }
 
         args, body
 
@@ -794,9 +794,16 @@ module Util =
         let func = FunctionDef.Create(name = name, args = arguments, body = body)
         Expression.name (name), [ func ]
 
-    let makeFunction name (args, (body: Expression)) : Statement =
+    let makeFunction name (args: Arguments, (body: Expression)) : Statement =
+        // printfn "Name: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
-        FunctionDef.Create(name = name, args = args, body = body)
+        let arguments =
+            match args.Args with
+            | [] -> Arguments.arguments [ Arg.arg (Python.Identifier("_"), Expression.name (Python.Identifier("None"))) ]
+            // So we can also receive unit
+            | [ { Arg=arg; Annotation=None} ] -> Arguments.arguments [ Arg.arg (arg, Expression.name (Python.Identifier("None"))) ]
+            | _ -> args
+        FunctionDef.Create(name = name, args = arguments, body = body)
 
     let makeFunctionExpression (com: IPythonCompiler) ctx name (args, (body: Expression)) : Expression * Statement list=
         let ctx = { ctx with BoundVars = ctx.BoundVars.EnterScope() }
@@ -991,7 +998,8 @@ module Util =
         let members =
             members |> List.collect (fun memb ->
                 let info = memb.Info
-                let prop = memberFromName com ctx memb.Name
+                //let prop = memberFromName com ctx memb.Name
+                let prop = com.GetIdentifierAsExpr(ctx, memb.Name)
                 // If compileAsClass is false, it means getters don't have side effects
                 // and can be compiled as object fields (see condition above)
                 if info.IsValue || (not compileAsClass && info.IsGetter) then
@@ -1803,8 +1811,8 @@ module Util =
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="Equals"), _, _), info, _, range) ->
-            let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="Equals"), _, _), { Args=[arg]}, _, range) ->
+            let right, stmts = com.TransformAsExpr(ctx, arg)
             let left, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [Eq], [right]), stmts @ stmts'
 
@@ -2073,8 +2081,16 @@ module Util =
         //         let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident com ctx v, None]
         //         varDeclStatement @ body
         //printfn "Args: %A" (args, body)
-        let args = Arguments.arguments(args |> List.map Arg.arg)
-        args, body
+
+        //let args = Arguments.arguments(args |> List.map Arg.arg)
+        let arguments =
+            match args with
+            | [] -> Arguments.arguments [ Arg.arg (Python.Identifier("_"), Expression.name (Python.Identifier("None"))) ]
+            // So we can also receive unit
+            | [ arg ] -> Arguments.arguments [ Arg.arg (arg, Expression.name (Python.Identifier("None"))) ]
+            | _ -> Arguments.arguments(args |> List.map Arg.arg)
+
+        arguments, body
 
     let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expression) =
         com.GetImportExpr(ctx, "sys") |> ignore
