@@ -1,6 +1,3 @@
-from expression.core import option
-
-
 class Some:
     def __init__(self, value):
         self.value = value
@@ -24,20 +21,34 @@ class Some:
         return str(self)
 
 
-def defaultArg(value, default_value):
-    return option.default_arg(option.of_optional(value), default_value)
+def defaultArg(opt, default_value):
+    return value(opt) if opt is not None else default_value
 
 
-def defaultArgWith(value, default_value):
-    return option.default_arg(option.of_optional(value), default_value())
+def defaultArgWith(opt, def_thunk):
+    return value(opt) if opt is not None else def_thunk()
 
 
-def map(mapping, value):
-    return option.of_optional(value).map(mapping).default_value(None)
+def filter(predicate, opt):
+    if opt is not None:
+        return opt if predicate(value(opt)) else None
+    return opt
 
 
-def toArray(value):
-    return option.of_optional(value).to_list()
+def map(mapping, opt):
+    return some(mapping(value(opt))) if opt is not None else None
+
+
+def map2(mapping, opt1, opt2):
+    return mapping(value(opt1), value(opt2)) if (opt1 is not None and opt2 is not None) else None
+
+
+def map3(mapping, opt1, opt2, opt3):
+    return (
+        mapping(value(opt1), value(opt2), value(opt3))
+        if (opt1 is not None and opt2 is not None and opt3 is not None)
+        else None
+    )
 
 
 def some(x):
@@ -51,4 +62,38 @@ def value(x):
         return x.value if isinstance(x, Some) else x
 
 
-__all__ = ["defaultArg", "defaultArgWith", "map", "some", "Some", "toArray", "value"]
+def ofNullable(x):
+    return x
+
+
+def toNullable(x):
+    return None if x is None else value(x)
+
+
+def flatten(x):
+    return None if x is None else value(x)
+
+
+def toArray(opt):
+    return [] if opt is None else [value(opt)]
+
+
+def bind(binder, opt):
+    return binder(value(opt)) if opt is not None else None
+
+
+__all__ = [
+    "bind",
+    "defaultArg",
+    "defaultArgWith",
+    "flatten",
+    "map",
+    "map2",
+    "map3",
+    "ofNullable",
+    "some",
+    "Some",
+    "toArray",
+    "toNullable",
+    "value",
+]

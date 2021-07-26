@@ -8,8 +8,10 @@ def fromBits(lowBits: int, highBits: int, unsigned: bool):
 
     return ret
 
+
 def fromInt(x):
     return x
+
 
 def op_LeftShift(self, numBits):
     return self << numBits
@@ -42,3 +44,7 @@ def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optiona
     #         return LongLib.fromString(str, unsigned, res.radix);
 
     # raise Exception("Input string was not in a correct format.");
+
+
+def toString(x):
+    return str(x)

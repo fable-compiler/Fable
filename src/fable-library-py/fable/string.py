@@ -29,90 +29,6 @@ interpolateRegExp: Pattern[str] = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.
 formatRegExp: Pattern[str] = re.compile(r"\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}")
 
 
-# const enum StringComparison {
-#   CurrentCulture = 0,
-#   CurrentCultureIgnoreCase = 1,
-#   InvariantCulture = 2,
-#   InvariantCultureIgnoreCase = 3,
-#   Ordinal = 4,
-#   OrdinalIgnoreCase = 5,
-# }
-
-# function cmp(x: string, y: string, ic: boolean | StringComparison) {
-#   function isIgnoreCase(i: boolean | StringComparison) {
-#     return i === true ||
-#       i === StringComparison.CurrentCultureIgnoreCase ||
-#       i === StringComparison.InvariantCultureIgnoreCase ||
-#       i === StringComparison.OrdinalIgnoreCase;
-#   }
-#   function isOrdinal(i: boolean | StringComparison) {
-#     return i === StringComparison.Ordinal ||
-#       i === StringComparison.OrdinalIgnoreCase;
-#   }
-#   if (x == null) { return y == null ? 0 : -1; }
-#   if (y == null) { return 1; } // everything is bigger than null
-
-#   if (isOrdinal(ic)) {
-#     if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
-#     return (x === y) ? 0 : (x < y ? -1 : 1);
-#   } else {
-#     if (isIgnoreCase(ic)) { x = x.toLocaleLowerCase(); y = y.toLocaleLowerCase(); }
-#     return x.localeCompare(y);
-#   }
-# }
-
-# export function compare(...args: any[]): number {
-#   switch (args.length) {
-#     case 2: return cmp(args[0], args[1], false);
-#     case 3: return cmp(args[0], args[1], args[2]);
-#     case 4: return cmp(args[0], args[1], args[2] === true);
-#     case 5: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), false);
-#     case 6: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5]);
-#     case 7: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5] === true);
-#     default: throw new Error("String.compare: Unsupported number of parameters");
-#   }
-# }
-
-# export function compareOrdinal(x: string, y: string) {
-#   return cmp(x, y, StringComparison.Ordinal);
-# }
-
-# export function compareTo(x: string, y: string) {
-#   return cmp(x, y, StringComparison.CurrentCulture);
-# }
-
-# export function startsWith(str: string, pattern: string, ic: number) {
-#   if (str.length >= pattern.length) {
-#     return cmp(str.substr(0, pattern.length), pattern, ic) === 0;
-#   }
-#   return false;
-# }
-
-# export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
-#   if (str == null || str === "") {
-#     return -1;
-#   }
-#   const startIndex = (args.length > 0) ? args[0] : 0;
-#   if (startIndex < 0) {
-#     throw new Error("Start index cannot be negative");
-#   }
-#   const length = (args.length > 1) ? args[1] : str.length - startIndex;
-#   if (length < 0) {
-#     throw new Error("Length cannot be negative");
-#   }
-#   if (length > str.length - startIndex) {
-#     throw new Error("Invalid startIndex and length");
-#   }
-#   str = str.substr(startIndex, length);
-#   for (const c of anyOf) {
-#     const index = str.indexOf(c);
-#     if (index > -1) {
-#       return index + startIndex;
-#     }
-#   }
-#   return -1;
-# }
-
 IPrintfFormatContinuation = Callable[[Callable[[str], Any]], Callable[[str], Any]]
 
 
@@ -136,7 +52,7 @@ def continuePrint(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) ->
     return arg.cont(cont)
 
 
-def toConsole(arg: Union[IPrintfFormat, str]) -> Union[Any, Callable[[str], Any]]:
+def toConsole(arg: Union[IPrintfFormat, Any]) -> Union[Any, Callable[[str], Any]]:
     return continuePrint(print, arg)
 
 

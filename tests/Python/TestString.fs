@@ -118,22 +118,22 @@ let ``test Storing result of Seq.tail and printing the result several times work
     containsInOrder ["Hello"; "Hola"] a |> equal true
     containsInOrder ["Hello"; "Hola"] b |> equal true
 
-// [<Fact>] FIXME: we should get this working as well.
-// let ``test sprintf \"%X\" works`` () =
-//     //These should all be the Native JS Versions (except int64 / uint64)
-//     //See #1530 for more information.
+[<Fact>]
+let ``test sprintf \"%X\" works`` () =
+    //These should all be the Native JS Versions (except int64 / uint64)
+    //See #1530 for more information.
 
-//     sprintf "255: %X" 255 |> equal "255: FF"
-//     sprintf "255: %x" 255 |> equal "255: ff"
-//     sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
-//     sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
-//     sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
-//     sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
-//     sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
-//     sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
-//     sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
-//     sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
-//     sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
+    sprintf "255: %X" 255 |> equal "255: FF"
+    sprintf "255: %x" 255 |> equal "255: ff"
+//    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+//    sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
+//    sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
+    sprintf "1 <<< 31: %x" (1 <<< 31) |> equal "1 <<< 31: 80000000"
+    sprintf "1u <<< 31: %x" (1u <<< 31) |> equal "1u <<< 31: 80000000"
+    sprintf "2147483649L: %x" 2147483649L |> equal "2147483649L: 80000001"
+    sprintf "2147483650uL: %x" 2147483650uL |> equal "2147483650uL: 80000002"
+    sprintf "1L <<< 63: %x" (1L <<< 63) |> equal "1L <<< 63: 8000000000000000"
+    sprintf "1uL <<< 63: %x" (1uL <<< 63) |> equal "1uL <<< 63: 8000000000000000"
 
 [<Fact>]
 let ``test sprintf integers with sign and padding works`` () =
@@ -268,3 +268,45 @@ let ``test Conversion string to uint32 works`` () =
 let ``test Conversion string to uint64 works`` () =
     equal 5uL (uint64 "5")
     equal "5" (string 5uL)
+
+[<Fact>]
+let ``test Conversion string to single works`` () =
+    equal 5.f (float32 "5.0")
+    equal -5.f (float32 "-5.0")
+    (string 5.f).StartsWith("5") |> equal true
+    equal 5.25f (float32 "5.25")
+    (string 5.25f).StartsWith("5.25") |> equal true
+
+[<Fact>]
+let ``test Conversion string to double works`` () =
+    equal 5. (float "5.0")
+    equal -5. (float "-5.0")
+    (string 5.).StartsWith("5") |> equal true
+    equal 5.25 (float "5.25")
+    (string 5.25).StartsWith("5.25") |> equal true
+
+
+[<Fact>]
+let ``test Conversion string to decimal works`` () =
+    equal 5.m (decimal "5.0")
+    equal -5.m (decimal "-5.0")
+    (string 5.m).StartsWith("5") |> equal true
+    equal 5.25m (decimal "5.25")
+    (string 5.25m).StartsWith("5.25") |> equal true
+
+// System.String - constructors
+
+[<Fact>]
+let ``test String.ctor(char[]) works`` () =
+    System.String([|'f'; 'a'; 'b'; 'l'; 'e'|])
+    |> equal "fable"
+
+// [<Fact>]
+// let ``test String.ctor(char, int) works`` () =
+//     System.String('f', 5)
+//     |> equal "fffff"
+
+// [<Fact>]
+// let ``test String.ctor(char[], int, int) works`` () =
+//     System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3)
+//     |> equal "abl"

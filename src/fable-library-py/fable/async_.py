@@ -22,7 +22,7 @@ def empty_continuation(x=None):
 default_cancellation_token = CancellationToken()
 
 
-def createCancellationToken(arg):
+def createCancellationToken(arg=None):
     print("createCancellationToken()", arg)
     cancelled, number = (arg, False) if isinstance(arg, bool) else (False, True)
     token = CancellationToken(cancelled)
