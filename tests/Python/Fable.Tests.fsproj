@@ -41,6 +41,9 @@
     <!-- <Compile Include="TestResizeArray.fs" /> -->
     <Compile Include="TestArithmetic.fs" />
     <Compile Include="TestSudoku.fs" />
+    <Compile Include="TestDateTime.fs" />
+    <Compile Include="TestPyInterop.fs" />
+
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

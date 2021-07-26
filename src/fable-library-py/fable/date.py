@@ -137,3 +137,41 @@ def toString(date, format, provider=None):
         return dateToStringWithOffset(date, format)
 
     return dateToStringWithKind(date, format)
+
+
+def now():
+    return datetime.now()
+
+
+def utcNow():
+    return datetime.utcnow()
+
+
+def toLocalTime(date):
+    return date.astimezone()
+
+
+def compare(x, y):
+    if x == y:
+        return 0
+
+    if x < y:
+        return -1
+
+    return 1
+
+
+def equals(x, y):
+    return x == y
+
+
+def maxValue():
+    return datetime.max
+
+
+def minValue():
+    return datetime.min
+
+
+def op_Addition(x, y):
+    return x + y
