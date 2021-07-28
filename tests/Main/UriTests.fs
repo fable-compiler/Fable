@@ -43,29 +43,11 @@ let tests =
 
         Util.throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
 
-    testCase "Uri from relative uri with leading forward slash as kind Absolute works with file:// protocol" <| fun _ ->
-        let uri = Uri("/test", UriKind.Absolute)
-        equal "file" uri.Scheme
-        equal "" uri.Host
-        equal "/test" uri.AbsolutePath
-        equal "/test" uri.PathAndQuery
-        equal "file:///test" uri.AbsoluteUri
+    testCase "Uri from relative uri with kind Absolute fails" <| fun _ ->
+        let createInvalidUri () =
+            Uri("hello.html")
 
-    testCase "Uri from relative uri with two leading forward slashes as kind Absolute works with file:// protocol" <| fun _ ->
-        let uri = Uri("//test", UriKind.Absolute)
-        equal "file" uri.Scheme
-        equal "test" uri.Host
-        equal "/" uri.AbsolutePath
-        equal "/" uri.PathAndQuery
-        equal "file://test/" uri.AbsoluteUri
-
-    testCase "Uri from relative uri with three leading forward slashes as kind Absolute works with file:// protocol" <| fun _ ->
-        let uri = Uri("///test", UriKind.Absolute)
-        equal "file" uri.Scheme
-        equal "test" uri.Host
-        equal "/" uri.AbsolutePath
-        equal "/" uri.PathAndQuery
-        equal "file://test/" uri.AbsoluteUri
+        Util.throwsError "Invalid URI: The format of the URI could not be determined." createInvalidUri
 
     testCase "Uri from baseUri with relative string works" <| fun _ ->
         let uri = Uri(Uri("http://www.test2.com/"), "/hello?a=b#c")
@@ -125,17 +107,9 @@ let tests =
         let (valid, _) = Uri.TryCreate("http://www.test1.com/hello?a=b#c", UriKind.Relative)
         equal false valid
 
-    testCase "TryCreate from relative string with kind Absolute works" <| fun _ ->
-        let (valid, uri) = Uri.TryCreate("/hello.html", UriKind.Absolute)
-        equal true valid
-        equal true uri.IsAbsoluteUri
-        equal "file" uri.Scheme
-        equal "" uri.Host
-        equal "/hello.html" uri.AbsolutePath
-        equal "/hello.html" uri.PathAndQuery
-        equal "" uri.Query
-        equal "" uri.Fragment
-        equal "file:///hello.html" uri.AbsoluteUri
+    testCase "TryCreate from relative string with kind Absolute fails" <| fun _ ->
+        let (valid, uri) = Uri.TryCreate("hello?a=b#c", UriKind.Absolute)
+        equal false valid
 
     testCase "TryCreate from relative string with kind RelativeOrAbsolute works" <| fun _ ->
         let (valid, uri) = Uri.TryCreate("hello?a=b#c", UriKind.RelativeOrAbsolute)

@@ -41,20 +41,6 @@ export class Uri {
       case UriKind.Absolute:
         return Uri.isAbsoluteUri(uri)
           ? ok(new Uri({ value: new URL(uri), kind }))
-          : uri.startsWith("/")
-          ? uri.startsWith("//")
-            ? ok(
-                new Uri({
-                  value: new URL(
-                    `file://${uri.substring(
-                      Array.from(uri).findIndex((c) => c !== "/"),
-                      uri.length
-                    )}`
-                  ),
-                  kind,
-                })
-              )
-            : ok(new Uri({ value: new URL(`file://${uri}`), kind }))
           : error(
               "Invalid URI: The format of the URI could not be determined."
             );
