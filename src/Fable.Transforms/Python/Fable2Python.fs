@@ -1204,19 +1204,24 @@ module Util =
             let expr, stmts = transformCurriedApply com ctx range callee args
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
+    let getNonLocals (body: Statement list) =
+        let body, nonLocals =
+            body
+            |> List.partition (function | Statement.NonLocal _ -> false | _ -> true)
+
+        let nonLocal =
+            nonLocals
+            |> List.collect (function | Statement.NonLocal(nl) -> nl.Names | _ -> [])
+            |> List.distinct
+            |> Statement.nonLocal
+        [ nonLocal ], body
+
     let transformBody (com: IPythonCompiler) ctx ret (body: Statement list) : Statement list =
         match body with
         | [] -> [ Pass ]
         | _ ->
-            let body, nonLocals =
-                body
-                |> List.partition (function | Statement.NonLocal _ -> false | _ -> true)
-
-            let nonLocal =
-                nonLocals
-                |> List.collect (function | Statement.NonLocal(nl) -> nl.Names | _ -> [])
-                |> Statement.nonLocal
-            nonLocal :: body
+            let nonLocals, body = getNonLocals body
+            nonLocals @ body
 
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
@@ -1454,12 +1459,12 @@ module Util =
 
         let value, stmts = com.TransformAsExpr(ctx, evalExpr)
 
-        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list): Python.Statement list option =
+        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list) : Python.Statement list =
             match cases with
-            | [] -> None
+            | [] -> []
             | (body, test) :: cases ->
                 match test with
-                | None -> body |> Some
+                | None -> body
                 | Some test ->
                     let expr = Expression.compare (left = value, ops = [ Eq ], comparators = [ test ])
 
@@ -1481,13 +1486,14 @@ module Util =
                                 | [] -> [ Statement.Pass ]
                                 | body ->  body
 
-                        [ Statement.if' (test = test, body = body, ?orelse = ifThenElse None cases) ]
-                        |> Some
+                        let nonLocals, body = getNonLocals body
+                        let nonLocals, orElse = ifThenElse None cases |> List.append nonLocals |> getNonLocals
+                        nonLocals @ [ Statement.if'(test = test, body = body, orelse = orElse) ]
 
         let result = cases |> ifThenElse None
         match result with
-        | Some ifStmt -> stmts @ ifStmt
-        | None -> []
+        | [] -> []
+        | ifStmt -> stmts @ ifStmt
 
     let matchTargetIdentAndValues idents values =
         if List.isEmpty idents then []

@@ -106,5 +106,5 @@ def start(computation, cancellation_token=None):
     return startWithContinuations(computation, cancellation_token=cancellation_token)
 
 
-def startImmediate(computation):
-    return start(computation)
+def startImmediate(computation, cancellation_token=None):
+    return start(computation, cancellation_token)

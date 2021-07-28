@@ -44,12 +44,14 @@ def printf(input: str) -> IPrintfFormat:
     return IPrintfFormat(input=input, cont=format)
 
 
-def continuePrint(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -> Union[Any, Callable[[str], Any]]:
+def continuePrint(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -> Any:
+    """Print continuation."""
     # print("continuePrint", cont)
-    if isinstance(arg, str):
-        return cont(arg)
+    if isinstance(arg, IPrintfFormat):
+        ret = arg.cont(cont)
+        return ret
 
-    return arg.cont(cont)
+    return cont(arg)
 
 
 def toConsole(arg: Union[IPrintfFormat, Any]) -> Union[Any, Callable[[str], Any]]:
@@ -60,7 +62,9 @@ def toConsoleError(arg: Union[IPrintfFormat, str]):
     return continuePrint(lambda x: print(x), arg)
 
 
-def toText(arg: Union[IPrintfFormat, str]) -> Union[str, Callable]:
+# Set return to `Any` since `Union[str, Callable]` will make type
+# checkers really unhappy.
+def toText(arg: Union[IPrintfFormat, str]) -> Any:
     cont: Callable[[str], Any] = lambda x: x
     return continuePrint(cont, arg)
 
@@ -439,6 +443,6 @@ def replicate(n: int, x: str) -> str:
 
 def substring(string: str, startIndex: int, length: Optional[int] = None) -> str:
     if length is not None:
-        return string[startIndex:startIndex + length]
+        return string[startIndex : startIndex + length]
 
     return string[startIndex:]

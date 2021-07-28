@@ -7,8 +7,8 @@ from .types import Union as FsUnion
 
 Constructor = Callable[..., Any]
 
-EnumCase = Union[str, int]
-FieldInfo = Union[str, "TypeInfo"]
+EnumCase = List[Union[str, int]]
+FieldInfo = List[Union[str, "TypeInfo"]]
 
 
 @dataclass
@@ -132,8 +132,8 @@ def name(info):
         return info.fullname if i == -1 else info.fullname[i + 1:]
 
 
-def fullName(t):
-    gen = t.generics if t.generics is not None and not isinstance(t, list) else []
+def fullName(t: TypeInfo) -> str:
+    gen = t.generics if t.generics and not isArray(t) else []
     if len(gen):
         gen = ",".join([fullName(x) for x in gen])
         return f"${t.fullname}[{gen}]"
@@ -142,7 +142,7 @@ def fullName(t):
         return t.fullname
 
 
-def namespace(t):
+def namespace(t: TypeInfo) -> str:
     i = t.fullname.rfind(".")
     return "" if i == -1 else t.fullname[0: i]
 
@@ -152,8 +152,7 @@ def isArray(t: TypeInfo) -> bool:
 
 
 def getElementType(t: TypeInfo) -> Optional[TypeInfo]:
-    return t.generics[0] if isArray(t) else None
-
+    return (t.generics[0] if t.generics else None) if isArray(t) else None
 
 #   if (t1.fullname === "") { // Anonymous records
 #     return t2.fullname === ""

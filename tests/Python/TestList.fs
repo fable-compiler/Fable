@@ -1,6 +1,10 @@
 module Fable.Tests.List
 
 open Util.Testing
+
+let tryListChoose xss =
+    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+    xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
 let rec sumFirstList (zs: float list) (n: int): float =
     match n with
     | 0 -> 0.
@@ -561,6 +565,141 @@ let ``test List.toSeq works`` () =
     |> Seq.tail |> Seq.head
     |> equal 2
 
+[<Fact>]
+let ``test List.tryPick works`` () =
+    [1; 2]
+    |> List.tryPick (function
+        | 2 -> Some 2
+        | _ -> None)
+    |> function
+    | Some x -> x
+    | None -> 0
+    |> equal 2
+
+[<Fact>]
+let ``test List.tryFind works`` () =
+    [1; 2]
+    |> List.tryFind ((=) 5)
+    |> equal None
+
+[<Fact>]
+let ``test List.tryFindIndex works`` () =
+    let xs = [1; 2]
+    let ys = xs |> List.tryFindIndex ((=) 2)
+    ys.Value |> equal 1
+    xs |> List.tryFindIndex ((=) 5) |> equal None
+
+// FIXME: AttributeError: 'list' object has no attribute 'reduceRight'
+// [<Fact>]
+// let ``test List.unzip works`` () =
+//     let xs = [1, 2]
+//     let ys, zs = xs |> List.unzip
+//     ys.Head + zs.Head
+//     |> equal 3
+
+// FIXME: AttributeError: 'list' object has no attribute 'reduceRight'
+// [<Fact>]
+// let ``test List.unzip3 works`` () =
+//     let xs = [(1, 2, 3); (4, 5, 6)]
+//     let ys, zs, ks = xs |> List.unzip3
+//     ys.[1] + zs.[1] + ks.[1]
+//     |> equal 15
+
+[<Fact>]
+let ``test List.zip works`` () =
+    let xs = [1; 2; 3]
+    let ys = [4; 5; 6]
+    let zs = List.zip xs ys
+    let x, y = zs.Tail.Head
+    equal 2 x
+    equal 5 y
+
+[<Fact>]
+let ``test List snail to append works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [0]
+    let zs = ys @ xs
+    zs.Head + zs.Tail.Head
+    |> equal 1
+
+[<Fact>]
+let ``test List slice works`` () =
+    let xs = [1; 2; 3; 4]
+    xs.[..2] |> List.sum |> equal 6
+    xs.[2..] |> List.sum |> equal 7
+    xs.[1..2] |> List.sum |> equal 5
+    xs.[0..-1] |> List.sum |> equal 0
+
+[<Fact>]
+let ``test List.truncate works`` () =
+    [1..3] = (List.truncate 3 [1..5]) |> equal true
+    [1..5] = (List.truncate 10 [1..5]) |> equal true
+    [] = (List.truncate 0 [1..5]) |> equal true
+    ["str1";"str2"] = (List.truncate 2 ["str1";"str2";"str3"]) |> equal true
+    [] = (List.truncate 0 []) |> equal true
+    [] = (List.truncate 1 []) |> equal true
+
+[<Fact>]
+let ``test List.choose works with generic arguments`` () =
+    let res = tryListChoose [ Some [ "a" ] ]
+    equal ["a"] res
+
+[<Fact>]
+let ``test List.collect works`` () =
+    let xs = [[1]; [2]; [3]; [4]]
+    let ys = xs |> List.collect id
+    ys.Head + ys.Tail.Head
+    |> equal 3
+
+    let list1 = [10.; 20.; 30.]
+    let collectList = List.collect (fun x -> [for i in 1.0..3.0 -> x * i]) list1
+    sumFirstList collectList 9 |> equal 360.
+
+    let xs = [[1.; 2.]; [3.]; [4.; 5.; 6.;]; [7.]]
+    let ys = xs |> List.collect id
+    sumFirstList ys 5
+    |> equal 15.
+
+// FIXME: AttributeError: 'list' object has no attribute 'forEach'
+//[<Fact>]
+// let ``test List.concat works`` () =
+//     let xs = [[1]; [2]; [3]; [4]]
+//     let ys = xs |> List.concat
+//     ys.Head  + ys.Tail.Head
+//     |> equal 3
+
+//     let xs1 = [[1.; 2.; 3.]; [4.; 5.; 6.]; [7.; 8.; 9.]]
+//     let ys1 = xs1 |> List.concat
+//     sumFirstList ys1 7
+//     |> equal 28.
+
+[<Fact>]
+let ``test List.contains works`` () =
+    let xs = [1; 2; 3; 4]
+    xs |> List.contains 2 |> equal true
+    xs |> List.contains 0 |> equal false
+
+[<Fact>]
+let ``test List.contains lambda doesn't clash`` () =
+    let modifyList current x =
+        let contains = current |> List.contains x
+        match contains with
+            | true -> current |> (List.filter (fun a -> a <> x))
+            | false -> x::current
+    let l = [1;2;3;4]
+    (modifyList l 1) |> List.contains 1 |> equal false
+    (modifyList l 5) |> List.contains 5 |> equal true
+
+[<Fact>]
+let ``test List.average works`` () =
+    List.average [1.; 2.; 3.; 4.]
+    |> equal 2.5
+
+[<Fact>]
+let ``test List.averageBy works`` () =
+    [1.; 2.; 3.; 4.]
+    |> List.averageBy (fun x -> x * 2.)
+    |> equal 5.
 
 
 [<Fact>]
@@ -571,7 +710,7 @@ let ``test List.singleton works`` () =
 
 
 [<Fact>]
-let ``test List.collect works`` () =
+let ``test List.collect works II`` () =
     let xs = ["a"; "fable"; "bar" ]
     xs
     |> List.collect (fun a -> [a.Length])
