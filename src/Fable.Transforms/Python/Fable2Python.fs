@@ -1,10 +1,12 @@
 module rec Fable.Transforms.Fable2Python
 
+open System
+open System.Collections.Generic
+open System.Text.RegularExpressions
+
 open Fable
 open Fable.AST
 open Fable.AST.Python
-open System.Collections.Generic
-open System.Text.RegularExpressions
 open Fable.Naming
 open Fable.Core
 
@@ -415,11 +417,15 @@ module Helpers =
         | "Int32Array" -> "list"
         | "Infinity" -> "float('inf')"
         | _ ->
-            name |> String.map(fun c -> if List.contains c ['-'; '.'; '$'; '`'; '*'; ' '; '@'] then '_' else c)
+            name
+            |> (fun str -> str.Replace("$0020", "_"))
+            |> String.map(fun c -> if List.contains c ['-'; '.'; '$'; '`'; '*'; ' '; '@'] then '_' else c)
 
     let rewriteFableImport moduleName =
         // printfn "ModuleName: %s" moduleName
         let _reFableLib =
+            Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
+        let _reFable =
             Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
@@ -783,9 +789,12 @@ module Util =
         stmts @ [ Statement.return'(e) ]
 
     let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
-        let name = Helpers.getUniqueIdentifier "arrow"
-        let func = FunctionDef.Create(name = name, args = args, body = body)
-        Expression.name (name), [ func ]
+        match body with
+            | [ Statement.Return({Value=Some expr}) ] -> Expression.lambda(args, expr), []
+            | _ ->
+                let name = Helpers.getUniqueIdentifier "arrow"
+                let func = FunctionDef.Create(name = name, args = args, body = body)
+                Expression.name (name), [ func ]
 
     let makeFunction name (args: Arguments, (body: Expression)) : Statement =
         // printfn "Name: %A" name
@@ -980,28 +989,21 @@ module Util =
 
             let name = com.GetIdentifier(ctx, prop)
             let self = Arg.arg("self")
-            let args = { args with Args = self::args.Args }
+            let args =
+                match decorators with
+                // Remove extra parameters from getters, i.e _unit=None
+                | [Expression.Name({Id=Identifier("property")})]  -> { args with Args = [ self ]; Defaults=[] }
+                | _ -> { args with Args = self::args.Args }
             FunctionDef.Create(name, args, body, decorators)
 
         let members =
             members |> List.collect (fun memb ->
                 let info = memb.Info
-                //let prop = memberFromName com ctx memb.Name
-                let prop = com.GetIdentifierAsExpr(ctx, memb.Name)
-                // If compileAsClass is false, it means getters don't have side effects
-                // and can be compiled as object fields (see condition above)
-                if info.IsValue || (not compileAsClass && info.IsGetter) then
-                     let expr, stmts = com.TransformAsExpr(ctx, memb.Body)
-                     let stmts =
-                        let decorators = [ Expression.name ("staticmethod") ]
-                        stmts |> List.map (function | FunctionDef(def) -> FunctionDef({ def with DecoratorList = decorators}) | ex -> ex)
-                     stmts @ [ Statement.assign([prop], expr) ]
-                elif info.IsGetter then
-                    // printfn "IsGetter: %A" prop
+                if info.IsGetter || info.IsValue then
                     let decorators = [ Expression.name("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
-                    let decorators = [ Expression.name ("property") ]
+                    let decorators = [ Expression.name ($"{memb.Name}.setter") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsEnumerator then
                     let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
