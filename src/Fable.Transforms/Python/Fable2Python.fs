@@ -2059,6 +2059,14 @@ module Util =
                 transformBlock com ctx (Some Return) body
             else
                 transformAsExpr com ctx body |> wrapExprInBlockWithReturn
+
+        let isUnit =
+            List.tryLast args
+            |> Option.map (function
+                | { Type=Fable.GenericParam(_)} -> true
+                | _ -> false)
+            |> Option.defaultValue false
+
         let args, body =
             match isTailCallOptimized, tailcallChance with
             | true, Some tc ->
@@ -2077,19 +2085,12 @@ module Util =
                 args', Statement.while'(Expression.constant(true), body)
                 |> List.singleton
             | _ -> args |> List.map (ident com ctx), body
-        // let body =
-        //     if declaredVars.Count = 0 then body
-        //     else
-        //         let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident com ctx v, None]
-        //         varDeclStatement @ body
-        //printfn "Args: %A" (args, body)
 
-        //let args = Arguments.arguments(args |> List.map Arg.arg)
         let arguments =
-            match args with
-            | [] -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
+            match args, isUnit with
+            | [], _ -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
             // So we can also receive unit
-            | [ arg ] -> Arguments.arguments(args=[ Arg.arg(arg) ], defaults=[ Expression.none() ])
+            | _, true -> Arguments.arguments(args |> List.map Arg.arg, defaults=[ Expression.none() ])
             | _ -> Arguments.arguments(args |> List.map Arg.arg)
 
         arguments, body
