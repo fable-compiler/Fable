@@ -450,7 +450,7 @@ module PrinterExtensions =
             if (List.isEmpty >> not) node.Args.Args then
                 printer.Print(" ")
 
-            printer.PrintCommaSeparatedList(node.Args.Args)
+            printer.Print(node.Args)
             printer.Print(": ")
 
             printer.Print(node.Body)

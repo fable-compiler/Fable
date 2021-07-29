@@ -1,10 +1,12 @@
 module rec Fable.Transforms.Fable2Python
 
+open System
+open System.Collections.Generic
+open System.Text.RegularExpressions
+
 open Fable
 open Fable.AST
 open Fable.AST.Python
-open System.Collections.Generic
-open System.Text.RegularExpressions
 open Fable.Naming
 open Fable.Core
 
@@ -397,6 +399,8 @@ module Helpers =
         let idx = index.Current.ToString()
         Python.Identifier($"{name}_{idx}")
 
+    let toSnakeCase = applyCaseRule CaseRules.SnakeCase
+
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
         // printfn $"clean: {name}"
@@ -415,20 +419,24 @@ module Helpers =
         | "Int32Array" -> "list"
         | "Infinity" -> "float('inf')"
         | _ ->
-            name |> String.map(fun c -> if List.contains c ['-'; '.'; '$'; '`'; '*'; ' '; '@'] then '_' else c)
+            name
+            |> (fun str -> if Char.IsLower(str.[0]) then toSnakeCase str else str)
+            |> (fun str -> str.Replace("$0020", "_"))
+            |> String.map(fun c -> if List.contains c ['-'; '.'; '$'; '`'; '*'; ' '; '@'] then '_' else c)
 
     let rewriteFableImport moduleName =
         // printfn "ModuleName: %s" moduleName
         let _reFableLib =
             Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
+        // let _reFable =
+        //     Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
-        let dashify = applyCaseRule CaseRules.SnakeCase
 
         if m.Groups.Count > 1 then
             let pymodule =
                 m.Groups.["module"].Value
-                |> dashify
+                |> toSnakeCase
                 |> clean
 
             let moduleName = String.concat "." [ "fable"; pymodule ]
@@ -440,7 +448,7 @@ module Helpers =
             let moduleName =
                 let name =
                     Path.GetFileNameWithoutExtension(moduleName)
-                    |> dashify
+                    |> toSnakeCase
                     |> clean
                 $".{name}"
 
@@ -510,13 +518,12 @@ module Util =
         | args -> args
 
     let getUniqueNameInRootScope (ctx: Context) name =
-        let name = Helpers.clean name
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
             name <> "str" // Do not rewrite `str`
             && (ctx.UsedNames.RootScope.Contains(name)
             || ctx.UsedNames.DeclarationScopes.Contains(name)))
         ctx.UsedNames.RootScope.Add(name) |> ignore
-        name
+        Helpers.clean name
 
     let getUniqueNameInDeclarationScope (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
@@ -783,9 +790,12 @@ module Util =
         stmts @ [ Statement.return'(e) ]
 
     let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
-        let name = Helpers.getUniqueIdentifier "arrow"
-        let func = FunctionDef.Create(name = name, args = args, body = body)
-        Expression.name (name), [ func ]
+        match body with
+            | [ Statement.Return({Value=Some expr}) ] -> Expression.lambda(args, expr), []
+            | _ ->
+                let name = Helpers.getUniqueIdentifier "arrow"
+                let func = FunctionDef.Create(name = name, args = args, body = body)
+                Expression.name (name), [ func ]
 
     let makeFunction name (args: Arguments, (body: Expression)) : Statement =
         // printfn "Name: %A" name
@@ -980,28 +990,21 @@ module Util =
 
             let name = com.GetIdentifier(ctx, prop)
             let self = Arg.arg("self")
-            let args = { args with Args = self::args.Args }
+            let args =
+                match decorators with
+                // Remove extra parameters from getters, i.e _unit=None
+                | [Expression.Name({Id=Identifier("property")})]  -> { args with Args = [ self ]; Defaults=[] }
+                | _ -> { args with Args = self::args.Args }
             FunctionDef.Create(name, args, body, decorators)
 
         let members =
             members |> List.collect (fun memb ->
                 let info = memb.Info
-                //let prop = memberFromName com ctx memb.Name
-                let prop = com.GetIdentifierAsExpr(ctx, memb.Name)
-                // If compileAsClass is false, it means getters don't have side effects
-                // and can be compiled as object fields (see condition above)
-                if info.IsValue || (not compileAsClass && info.IsGetter) then
-                     let expr, stmts = com.TransformAsExpr(ctx, memb.Body)
-                     let stmts =
-                        let decorators = [ Expression.name ("staticmethod") ]
-                        stmts |> List.map (function | FunctionDef(def) -> FunctionDef({ def with DecoratorList = decorators}) | ex -> ex)
-                     stmts @ [ Statement.assign([prop], expr) ]
-                elif info.IsGetter then
-                    // printfn "IsGetter: %A" prop
+                if info.IsGetter || info.IsValue then
                     let decorators = [ Expression.name("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
-                    let decorators = [ Expression.name ("property") ]
+                    let decorators = [ Expression.name ($"{memb.Name}.setter") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsEnumerator then
                     let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
@@ -1204,19 +1207,24 @@ module Util =
             let expr, stmts = transformCurriedApply com ctx range callee args
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
+    let getNonLocals (body: Statement list) =
+        let body, nonLocals =
+            body
+            |> List.partition (function | Statement.NonLocal _ -> false | _ -> true)
+
+        let nonLocal =
+            nonLocals
+            |> List.collect (function | Statement.NonLocal(nl) -> nl.Names | _ -> [])
+            |> List.distinct
+            |> Statement.nonLocal
+        [ nonLocal ], body
+
     let transformBody (com: IPythonCompiler) ctx ret (body: Statement list) : Statement list =
         match body with
         | [] -> [ Pass ]
         | _ ->
-            let body, nonLocals =
-                body
-                |> List.partition (function | Statement.NonLocal _ -> false | _ -> true)
-
-            let nonLocal =
-                nonLocals
-                |> List.collect (function | Statement.NonLocal(nl) -> nl.Names | _ -> [])
-                |> Statement.nonLocal
-            nonLocal :: body
+            let nonLocals, body = getNonLocals body
+            nonLocals @ body
 
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
@@ -1454,12 +1462,12 @@ module Util =
 
         let value, stmts = com.TransformAsExpr(ctx, evalExpr)
 
-        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list): Python.Statement list option =
+        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list) : Python.Statement list =
             match cases with
-            | [] -> None
+            | [] -> []
             | (body, test) :: cases ->
                 match test with
-                | None -> body |> Some
+                | None -> body
                 | Some test ->
                     let expr = Expression.compare (left = value, ops = [ Eq ], comparators = [ test ])
 
@@ -1481,13 +1489,14 @@ module Util =
                                 | [] -> [ Statement.Pass ]
                                 | body ->  body
 
-                        [ Statement.if' (test = test, body = body, ?orelse = ifThenElse None cases) ]
-                        |> Some
+                        let nonLocals, body = getNonLocals body
+                        let nonLocals, orElse = ifThenElse None cases |> List.append nonLocals |> getNonLocals
+                        nonLocals @ [ Statement.if'(test = test, body = body, orelse = orElse) ]
 
         let result = cases |> ifThenElse None
         match result with
-        | Some ifStmt -> stmts @ ifStmt
-        | None -> []
+        | [] -> []
+        | ifStmt -> stmts @ ifStmt
 
     let matchTargetIdentAndValues idents values =
         if List.isEmpty idents then []
@@ -2379,7 +2388,8 @@ module Util =
         ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx decl =
-        //printfn "transformDeclaration: %A" decl
+        // printfn "transformDeclaration: %A" decl
+        // printfn "ctx.UsedNames: %A" ctx.UsedNames
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
@@ -2459,6 +2469,7 @@ module Util =
         ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
+        // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
@@ -2549,7 +2560,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-        // printfn "file: %A" file.Declarations
+        // printfn "file: %A" file.UsedNamesInRootScope
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope

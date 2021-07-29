@@ -1,4 +1,4 @@
-def addToSet(v, set):
+def add_to_set(v, set):
     if v in set:
         return False
 
@@ -6,14 +6,14 @@ def addToSet(v, set):
     return True
 
 
-def addToDict(dict, k, v):
+def add_to_dict(dict, k, v):
     if k in dict:
         raise Exception("An item with the same key has already been added. Key: " + str(k))
 
     dict.set(k, v)
 
 
-def tryGetValue(map, key, defaultValue):
+def try_get_value(map, key, defaultValue):
     # print("tryGetValue", (map, key))
     if key in map:
         defaultValue.contents = map.get(key)
@@ -22,7 +22,7 @@ def tryGetValue(map, key, defaultValue):
     return False
 
 
-def getItemFromDict(map, key):
+def get_item_from_dict(map, key):
     if key in map:
         return map.get(key)
     else:

@@ -63,9 +63,6 @@ class IEquatable(ABC):
     def GetHashCode(self):
         return hash(self)
 
-    # def Equals(self, other):
-    #     return self.Equals(other)
-
     @abstractmethod
     def __eq__(self, other):
         return NotImplemented
@@ -101,16 +98,17 @@ def equals(a, b):
 def compare(a, b):
     if a == b:
         return 0
-    if a < b:
+
+    if hasattr(a, "__lt__") and a < b:
         return -1
     return 1
 
 
-def compareArrays(a, b):
+def compare_arrays(a, b):
     return compare(a, b)
 
 
-def equalArraysWith(x, y, eq):
+def equal_arrays_with(x, y, eq):
     if x is None:
         return y is None
     if y is None:
@@ -122,11 +120,11 @@ def equalArraysWith(x, y, eq):
     return eq(x, y)
 
 
-def equalArrays(x, y):
-    return equalArraysWith(x, y, equals)
+def equal_arrays(x, y):
+    return equal_arrays_with(x, y, equals)
 
 
-def comparePrimitives(x, y) -> int:
+def compare_primitives(x, y) -> int:
     return 0 if x == y else (-1 if x < y else 1)
 
 
@@ -138,17 +136,17 @@ def max(comparer, x, y):
     return x if comparer(x, y) > 0 else y
 
 
-def assertEqual(actual, expected, msg=None) -> None:
+def assert_equal(actual, expected, msg=None) -> None:
     if actual != expected:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
-def assertNotEqual(actual: T, expected: T, msg: Optional[str] = None) -> None:
+def assert_not_equal(actual: T, expected: T, msg: Optional[str] = None) -> None:
     if actual == expected:
         raise Exception(msg or f"Expected: ${expected} - Actual: ${actual}")
 
 
-def createAtom(value=None):
+def create_atom(value=None):
     atom = value
 
     def _(value=None, isSetter=None):
@@ -163,7 +161,8 @@ def createAtom(value=None):
     return _
 
 
-def createObj(fields):
+def create_obj(fields):
+    # TODO: return dict(filelds) ?
     obj = {}
 
     for k, v in fields:
@@ -172,7 +171,7 @@ def createObj(fields):
     return obj
 
 
-def int16ToString(i, radix=10):
+def int16to_string(i, radix=10):
     if radix == 10:
         return "{:d}".format(i)
     if radix == 16:
@@ -182,7 +181,7 @@ def int16ToString(i, radix=10):
     return str(i)
 
 
-def int32ToString(i: int, radix: int = 10) -> str:
+def int32to_string(i: int, radix: int = 10) -> str:
     if radix == 10:
         return "{:d}".format(i)
     if radix == 16:
@@ -254,7 +253,7 @@ class Enumerator(IEnumerator):
         return
 
 
-def getEnumerator(o):
+def get_enumerator(o):
     attr = getattr(o, "GetEnumerator", None)
     if attr:
         return attr()
@@ -318,15 +317,15 @@ def curry(arity: int, f: Callable) -> Callable:
         raise Exception("Currying to more than 8-arity is not supported: %d" % arity)
 
 
-def isArrayLike(x):
+def is_array_like(x):
     return hasattr(x, "__len__")
 
 
-def isDisposable(x):
+def is_disposable(x):
     return x is not None and isinstance(x, IDisposable)
 
 
-def toIterator(en):
+def to_iterator(en):
     class Iterator:
         def __iter__(self):
             return self
@@ -340,11 +339,11 @@ def toIterator(en):
     return Iterator()
 
 
-def safeHash(x):
+def safe_hash(x):
     return hash(x)
 
 
-def stringHash(s):
+def string_hash(s):
     h = 5381
     for c in s:
         h = (h * 33) ^ ord(c)
@@ -352,30 +351,30 @@ def stringHash(s):
     return h
 
 
-def numberHash(x):
+def number_hash(x):
     return x * 2654435761 | 0
 
 
-def combineHashCodes(hashes):
+def combine_hash_codes(hashes):
     if not hashes:
         return 0
 
     return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
 
 
-def structuralHash(x):
+def structural_hash(x):
     return hash(x)
 
 
-def arrayHash(xs):
+def array_hash(xs):
     hashes = []
     for i, x in enumerate(xs):
-        hashes.append(structuralHash(x))
+        hashes.append(structural_hash(x))
 
-    return combineHashCodes(hashes)
+    return combine_hash_codes(hashes)
 
 
-def physicalHash(x):
+def physical_hash(x):
     return hash(x)
 
 

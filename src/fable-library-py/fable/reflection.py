@@ -7,8 +7,8 @@ from .types import Union as FsUnion
 
 Constructor = Callable[..., Any]
 
-EnumCase = Union[str, int]
-FieldInfo = Union[str, "TypeInfo"]
+EnumCase = List[Union[str, int]]
+FieldInfo = List[Union[str, "TypeInfo"]]
 
 
 @dataclass
@@ -30,7 +30,7 @@ class TypeInfo:
     enum_cases: Optional[List[EnumCase]] = None
 
     def __str__(self) -> str:
-        return fullName(self)
+        return full_name(self)
 
     def __eq__(self, other) -> bool:
         return self.fullname == other.fullname and self.generics == other.generics
@@ -112,11 +112,11 @@ def equals(t1: TypeInfo, t2: TypeInfo) -> bool:
     return t1 == t2
 
 
-def isGenericType(t):
+def is_generic_type(t):
     return t.generics is not None and len(t.generics)
 
 
-def getGenericTypeDefinition(t):
+def get_generic_type_definition(t):
     return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
 
 
@@ -128,31 +128,31 @@ def name(info):
         return info.name
 
     else:
-        i = info.fullname.rfind(".");
-        return info.fullname if i == -1 else info.fullname[i + 1:]
+        i = info.fullname.rfind(".")
+        return info.fullname if i == -1 else info.fullname[i + 1 :]
 
 
-def fullName(t):
-    gen = t.generics if t.generics is not None and not isinstance(t, list) else []
+def full_name(t: TypeInfo) -> str:
+    gen = t.generics if t.generics and not is_array(t) else []
     if len(gen):
-        gen = ",".join([fullName(x) for x in gen])
+        gen = ",".join([full_name(x) for x in gen])
         return f"${t.fullname}[{gen}]"
 
     else:
         return t.fullname
 
 
-def namespace(t):
+def namespace(t: TypeInfo) -> str:
     i = t.fullname.rfind(".")
-    return "" if i == -1 else t.fullname[0: i]
+    return "" if i == -1 else t.fullname[0:i]
 
 
-def isArray(t: TypeInfo) -> bool:
+def is_array(t: TypeInfo) -> bool:
     return t.fullname.endswith("[]")
 
 
-def getElementType(t: TypeInfo) -> Optional[TypeInfo]:
-    return t.generics[0] if isArray(t) else None
+def get_element_type(t: TypeInfo) -> Optional[TypeInfo]:
+    return (t.generics[0] if t.generics else None) if is_array(t) else None
 
 
 #   if (t1.fullname === "") { // Anonymous records

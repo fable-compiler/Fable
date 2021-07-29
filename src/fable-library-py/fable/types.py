@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractstaticmethod
-from typing import Any, Generic, Iterable, List, TypeVar, Union as Union_, Callable, Optional, cast
+from typing import Any, Generic, Iterable, List, Tuple, TypeVar, Union as Union_, Callable, Optional, cast
 from .util import equals
 
 from .util import IComparable
@@ -37,7 +37,7 @@ class FSharpRef:
 class Union(IComparable):
     def __init__(self):
         self.tag: int
-        self.fields: List[int] = []
+        self.fields: Tuple[int, ...] = ()
 
     @abstractstaticmethod
     def cases() -> List[str]:
@@ -123,7 +123,7 @@ def recordGetHashCode(self):
 
 class Record(IComparable):
     def toJSON(self) -> str:
-        return recordToJSON(this)
+        return record_to_JSON(self)
 
     def __str__(self) -> str:
         return recordToString(self)
@@ -151,24 +151,24 @@ class Attribute:
     pass
 
 
-def seqToString(self):
+def seq_to_string(self):
     str = "["
 
     for count, x in enumerate(self):
         if count == 0:
-            str += toString(x)
+            str += to_string(x)
 
         elif count == 100:
             str += "; ..."
             break
 
         else:
-            str += "; " + toString(x)
+            str += "; " + to_string(x)
 
     return str + "]"
 
 
-def toString(x, callStack=0):
+def to_string(x, callStack=0):
     if x is not None:
         # if (typeof x.toString === "function") {
         #    return x.toString();
@@ -177,7 +177,7 @@ def toString(x, callStack=0):
             return str(x)
 
         if isinstance(x, Iterable):
-            return seqToString(x)
+            return seq_to_string(x)
 
         # else: // TODO: Date?
         #     const cons = Object.getPrototypeOf(x).constructor;
@@ -189,12 +189,23 @@ def toString(x, callStack=0):
     return str(x)
 
 
-Exception = Exception
+class Exception(Exception):
+    def __init__(self, msg=None):
+        self.msg = msg
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+
+        if other is None:
+            return False
+
+        return self.msg == other.msg
 
 
 class FSharpException(Exception, IComparable):
     def toJSON(self):
-        return recordToJSON(self)
+        return record_to_JSON(self)
 
     def __str__(self):
         return recordToString(self)
@@ -209,4 +220,4 @@ class FSharpException(Exception, IComparable):
         return recordCompareTo(self, other)
 
 
-__all__ = ["Attribute", "Exception", "FSharpRef", "str", "Union"]
+__all__ = ["Attribute", "Exception", "FSharpRef", "to_string", "Union"]

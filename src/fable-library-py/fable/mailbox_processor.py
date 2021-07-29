@@ -6,7 +6,7 @@ from threading import RLock
 
 from expression.system import CancellationToken, OperationCanceledError
 
-from .async_ import fromContinuations, startImmediate
+from .async_ import from_continuations, start_immediate
 
 
 class AsyncReplyChannel:
@@ -80,7 +80,7 @@ class MailboxProcessor:
             continuation = conts
             check_completion()
 
-        return fromContinuations(callback)
+        return from_continuations(callback)
 
     def receive(self):
         """Receive message from mailbox.
@@ -91,6 +91,7 @@ class MailboxProcessor:
             waiting for further messages. Raises a TimeoutException if
             the timeout is exceeded.
         """
+
         def callback(conts):
             if self.continuation:
                 raise Exception("Receive can only be called once!")
@@ -99,7 +100,7 @@ class MailboxProcessor:
 
             self.__process_events()
 
-        return fromContinuations(callback)
+        return from_continuations(callback)
 
     def __process_events(self):
         # Cancellation of async workflows is more tricky in Python than
@@ -125,7 +126,7 @@ class MailboxProcessor:
     @staticmethod
     def start(body, cancellation_token=None):
         mbox = MailboxProcessor(body, cancellation_token)
-        startImmediate(body(mbox))
+        start_immediate(body(mbox))
         return mbox
 
 
@@ -138,14 +139,14 @@ def post(mbox, msg):
     return mbox.post(msg)
 
 
-def startInstance(mbox):
-    startImmediate(mbox.body(mbox))
+def start_instance(mbox):
+    start_immediate(mbox.body(mbox))
 
 
 def start(body, cancellationToken=None):
     mbox = MailboxProcessor(body, cancellationToken)
-    startInstance(mbox)
+    start_instance(mbox)
     return mbox
 
 
-__all__ = ["AsyncReplyChannel", "MailboxProcessor", "receive", "post", "start", "startInstance"]
+__all__ = ["AsyncReplyChannel", "MailboxProcessor", "receive", "post", "start", "start_instance"]

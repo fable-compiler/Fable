@@ -17,13 +17,13 @@ def parse(string: str, style, unsigned, bitsize, radix: int = 10) -> int:
     # throw new Error("Input string was not in a correct format.");
 
 
-def op_UnaryNegation_Int8(x):
+def op_unary_negation_int8(x):
     return x if x == -128 else -x
 
 
-def op_UnaryNegation_Int16(x):
+def op_unary_negation_int16(x):
     return x if x == -32768 else -x
 
 
-def op_UnaryNegation_Int32(x):
+def op_unary_negation_int32(x):
     return x if x == -2147483648 else -x
