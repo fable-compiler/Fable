@@ -15,7 +15,8 @@ from typing import Any, Callable, Iterable, Match, NoReturn, Optional, Pattern, 
 # import "./RegExp.js"
 # import "./Types.js"
 from .numeric import to_fixed, to_precision, to_exponential, to_hex, multiply
-from .types import toString
+from .types import to_string
+from .date import to_string as date_to_string
 
 # import { escape }
 # import { toString as dateToString }
@@ -40,11 +41,11 @@ class IPrintfFormat(ABC):
 
 def printf(input: str) -> IPrintfFormat:
     # print("printf: ", input)
-    format: IPrintfFormatContinuation = fsFormat(input)
+    format: IPrintfFormatContinuation = fs_format(input)
     return IPrintfFormat(input=input, cont=format)
 
 
-def continuePrint(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -> Any:
+def continue_print(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -> Any:
     """Print continuation."""
     # print("continuePrint", cont)
     if isinstance(arg, IPrintfFormat):
@@ -54,29 +55,29 @@ def continuePrint(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) ->
     return cont(arg)
 
 
-def toConsole(arg: Union[IPrintfFormat, Any]) -> Union[Any, Callable[[str], Any]]:
-    return continuePrint(print, arg)
+def to_console(arg: Union[IPrintfFormat, Any]) -> Union[Any, Callable[[str], Any]]:
+    return continue_print(print, arg)
 
 
-def toConsoleError(arg: Union[IPrintfFormat, str]):
-    return continuePrint(lambda x: print(x), arg)
+def to_console_error(arg: Union[IPrintfFormat, str]):
+    return continue_print(lambda x: print(x), arg)
 
 
 # Set return to `Any` since `Union[str, Callable]` will make type
 # checkers really unhappy.
-def toText(arg: Union[IPrintfFormat, str]) -> Any:
+def to_text(arg: Union[IPrintfFormat, str]) -> Any:
     cont: Callable[[str], Any] = lambda x: x
-    return continuePrint(cont, arg)
+    return continue_print(cont, arg)
 
 
-def toFail(arg: Union[IPrintfFormat, str]):
+def to_fail(arg: Union[IPrintfFormat, str]):
     def fail(msg: str):
         raise Exception(msg)
 
-    return continuePrint(fail, arg)
+    return continue_print(fail, arg)
 
 
-def formatReplacement(rep: Any, flags: Any, padLength: Any, precision: Any, format: Any):
+def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, format: Any):
     # print("Got here", rep, format)
     sign = ""
     flags = flags or ""
@@ -110,9 +111,9 @@ def formatReplacement(rep: Any, flags: Any, padLength: Any, precision: Any, form
             rep = str(rep)
 
     elif isinstance(rep, datetime):
-        rep = dateToString(rep)
+        rep = date_to_string(rep)
     else:
-        rep = toString(rep)
+        rep = to_string(rep)
 
     if padLength is not None:
         padLength = int(padLength)
@@ -143,7 +144,7 @@ def interpolate(string: str, values: Any) -> str:
         result += string[strIdx:matchIndex].replace("%%", "%")
         [_, flags, padLength, precision, format] = match.groups()
         # print(match.groups())
-        result += formatReplacement(values[valIdx], flags, padLength, precision, format)
+        result += format_replacement(values[valIdx], flags, padLength, precision, format)
         valIdx += 1
 
         strIdx = match.end()
@@ -158,7 +159,7 @@ def formatOnce(str2: str, rep: Any):
     def match(m: Match[str]):
         prefix, flags, padLength, precision, format = m.groups()
         # print("prefix: ", [prefix])
-        once: str = formatReplacement(rep, flags, padLength, precision, format)
+        once: str = format_replacement(rep, flags, padLength, precision, format)
         # print("once:", [once])
         return prefix + once.replace("%", "%%")
 
@@ -166,7 +167,7 @@ def formatOnce(str2: str, rep: Any):
     return ret
 
 
-def createPrinter(string: str, cont: Callable[..., Any]):
+def create_printer(string: str, cont: Callable[..., Any]):
     # print("createPrinter", string)
 
     def _(*args: Any):
@@ -178,18 +179,18 @@ def createPrinter(string: str, cont: Callable[..., Any]):
 
         # print("strCopy", strCopy)
         if fsFormatRegExp.search(strCopy):
-            return createPrinter(strCopy, cont)
+            return create_printer(strCopy, cont)
         return cont(strCopy.replace("%%", "%"))
 
     return _
 
 
-def fsFormat(str: str):
+def fs_format(str: str):
     # print("fsFormat: ", [str])
 
     def _(cont: Callable[..., Any]):
         if fsFormatRegExp.search(str):
-            return createPrinter(str, cont)
+            return create_printer(str, cont)
         return cont(str)
 
     return _
@@ -250,9 +251,9 @@ def format(string: str, *args: Any) -> str:
                 rep = sign + rep
 
         elif isinstance(rep, datetime):
-            rep = dateToString(rep, pattern or format)
+            rep = date_to_string(rep, pattern or format)
         else:
-            rep = toString(rep)
+            rep = to_string(rep)
 
         try:
             padLength = int((padLength or " ")[1:])
@@ -268,7 +269,7 @@ def format(string: str, *args: Any) -> str:
     return ret
 
 
-def endsWith(string: str, search: str) -> bool:
+def ends_with(string: str, search: str) -> bool:
     return string.endswith(search)
 
 
@@ -291,11 +292,11 @@ def initialize(n: int, f: Callable[[int], str]) -> str:
 # }
 
 
-def isNullOrEmpty(string: Optional[str]):
+def is_null_or_empty(string: Optional[str]):
     not isinstance(string, str) or not len(string)
 
 
-def isNullOrWhiteSpace(string: Optional[Any]) -> bool:
+def is_null_or_white_space(string: Optional[Any]) -> bool:
     return not isinstance(string, str) or string.isspace()
 
 

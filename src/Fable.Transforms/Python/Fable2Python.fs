@@ -399,6 +399,8 @@ module Helpers =
         let idx = index.Current.ToString()
         Python.Identifier($"{name}_{idx}")
 
+    let toSnakeCase = applyCaseRule CaseRules.SnakeCase
+
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
         // printfn $"clean: {name}"
@@ -418,6 +420,7 @@ module Helpers =
         | "Infinity" -> "float('inf')"
         | _ ->
             name
+            |> (fun str -> if Char.IsLower(str.[0]) then toSnakeCase str else str)
             |> (fun str -> str.Replace("$0020", "_"))
             |> String.map(fun c -> if List.contains c ['-'; '.'; '$'; '`'; '*'; ' '; '@'] then '_' else c)
 
@@ -425,16 +428,15 @@ module Helpers =
         // printfn "ModuleName: %s" moduleName
         let _reFableLib =
             Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
-        let _reFable =
-            Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
+        // let _reFable =
+        //     Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
-        let dashify = applyCaseRule CaseRules.SnakeCase
 
         if m.Groups.Count > 1 then
             let pymodule =
                 m.Groups.["module"].Value
-                |> dashify
+                |> toSnakeCase
                 |> clean
 
             let moduleName = String.concat "." [ "fable"; pymodule ]
@@ -446,7 +448,7 @@ module Helpers =
             let moduleName =
                 let name =
                     Path.GetFileNameWithoutExtension(moduleName)
-                    |> dashify
+                    |> toSnakeCase
                     |> clean
                 $".{name}"
 
@@ -516,13 +518,12 @@ module Util =
         | args -> args
 
     let getUniqueNameInRootScope (ctx: Context) name =
-        let name = Helpers.clean name
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
             name <> "str" // Do not rewrite `str`
             && (ctx.UsedNames.RootScope.Contains(name)
             || ctx.UsedNames.DeclarationScopes.Contains(name)))
         ctx.UsedNames.RootScope.Add(name) |> ignore
-        name
+        Helpers.clean name
 
     let getUniqueNameInDeclarationScope (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
@@ -2387,7 +2388,8 @@ module Util =
         ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx decl =
-        //printfn "transformDeclaration: %A" decl
+        // printfn "transformDeclaration: %A" decl
+        // printfn "ctx.UsedNames: %A" ctx.UsedNames
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
@@ -2467,6 +2469,7 @@ module Util =
         ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
+        // printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
@@ -2557,7 +2560,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-        // printfn "file: %A" file.Declarations
+        // printfn "file: %A" file.UsedNamesInRootScope
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope

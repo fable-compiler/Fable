@@ -1,2 +1,2 @@
-def totalSeconds(ts):
+def total_seconds(ts):
     return ts / 1000

@@ -21,11 +21,11 @@ class Some:
         return str(self)
 
 
-def defaultArg(opt, default_value):
+def default_arg(opt, default_value):
     return value(opt) if opt is not None else default_value
 
 
-def defaultArgWith(opt, def_thunk):
+def default_arg_with(opt, def_thunk):
     return value(opt) if opt is not None else def_thunk()
 
 
@@ -62,11 +62,11 @@ def value(x):
         return x.value if isinstance(x, Some) else x
 
 
-def ofNullable(x):
+def of_nullable(x):
     return x
 
 
-def toNullable(x):
+def to_nullable(x):
     return None if x is None else value(x)
 
 
@@ -74,7 +74,7 @@ def flatten(x):
     return None if x is None else value(x)
 
 
-def toArray(opt):
+def to_array(opt):
     return [] if opt is None else [value(opt)]
 
 

@@ -5,7 +5,7 @@ import re
 formatRegExp = re.compile(r"(\w)\1*")
 
 
-def op_Subtraction(x, y):
+def op_subtraction(x, y):
     return x - y
 
 
@@ -24,7 +24,7 @@ def year(d):
     return d.year
 
 
-def dateToStringWithCustomFormat(date, format, utc):
+def date_to_string_with_custom_format(date, format, utc):
     def match(m):
         match = m.group()
         m = match[:1]
@@ -113,7 +113,7 @@ def dateToStringWithCustomFormat(date, format, utc):
 #         return dateToStringWithCustomFormat(d, format, True)
 
 
-def dateToStringWithKind(date, format=None):
+def date_to_string_with_kind(date, format=None):
     utc = date.tzinfo == timezone.utc
     if not format:
         return date.isoformat() if utc else str(date)
@@ -129,25 +129,25 @@ def dateToStringWithKind(date, format=None):
             raise Exception("Unrecognized Date print format")
 
     else:
-        return dateToStringWithCustomFormat(date, format, utc)
+        return date_to_string_with_custom_format(date, format, utc)
 
 
-def toString(date, format, provider=None):
+def to_string(date, format, provider=None):
     if date.tzinfo:
-        return dateToStringWithOffset(date, format)
+        return date_to_string_with_offset(date, format)
 
-    return dateToStringWithKind(date, format)
+    return date_to_string_with_kind(date, format)
 
 
 def now():
     return datetime.now()
 
 
-def utcNow():
+def utc_now():
     return datetime.utcnow()
 
 
-def toLocalTime(date):
+def to_local_time(date):
     return date.astimezone()
 
 
@@ -165,13 +165,13 @@ def equals(x, y):
     return x == y
 
 
-def maxValue():
+def max_value():
     return datetime.max
 
 
-def minValue():
+def min_value():
     return datetime.min
 
 
-def op_Addition(x, y):
+def op_addition(x, y):
     return x + y

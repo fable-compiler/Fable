@@ -1,7 +1,7 @@
 from typing import Optional
 
 
-def fromBits(lowBits: int, highBits: int, unsigned: bool):
+def from_bits(lowBits: int, highBits: int, unsigned: bool):
     ret = lowBits + (highBits << 32)
     if ret > 0x7FFFFFFFFFFFFFFF:
         return ret - 0x10000000000000000
@@ -9,23 +9,23 @@ def fromBits(lowBits: int, highBits: int, unsigned: bool):
     return ret
 
 
-def fromInt(x):
+def from_int(x):
     return x
 
 
-def op_LeftShift(self, numBits):
+def op_left_shift(self, numBits):
     return self << numBits
 
 
-def op_Addition(a, b):
+def op_addition(a, b):
     return a + b
 
 
-def op_Multiply(a, b):
+def op_multiply(a, b):
     return a * b
 
 
-def op_UnaryNegation(value):
+def op_unary_negation(value):
     return -value
 
 
@@ -46,5 +46,5 @@ def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optiona
     # raise Exception("Input string was not in a correct format.");
 
 
-def toString(x):
+def to_string(x):
     return str(x)

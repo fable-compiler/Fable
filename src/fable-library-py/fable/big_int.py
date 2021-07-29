@@ -1,22 +1,22 @@
-def fromZero():
+def from_zero():
     return 0
 
 
-def fromOne():
+def from_one():
     return 1
 
 
-def fromInt32(x):
+def from_int32(x):
     return x
 
 
-def fromInt64(x):
+def from_int64(x):
     return x
 
 
-def fromString(x):
+def from_string(x):
     return int(x)
 
 
-def op_Addition(a, b):
+def op_addition(a, b):
     return a + b

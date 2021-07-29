@@ -22,7 +22,7 @@ def empty_continuation(x=None):
 default_cancellation_token = CancellationToken()
 
 
-def createCancellationToken(arg=None):
+def create_cancellation_token(arg=None):
     print("createCancellationToken()", arg)
     cancelled, number = (arg, False) if isinstance(arg, bool) else (False, True)
     token = CancellationToken(cancelled)
@@ -38,7 +38,7 @@ def cancel(token: CancellationToken):
     token.cancel()
 
 
-def cancelAfter(token: CancellationToken, ms: int):
+def cancel_after(token: CancellationToken, ms: int):
     print("cancelAfter()", ms / 1000.0)
     timer = Timer(ms / 1000.0, token.cancel)
     timer.start()
@@ -65,7 +65,7 @@ def ignore(computation):
     return protected_bind(computation, lambda _x: protected_return())
 
 
-def catchAsync(work):
+def catch_async(work):
     def cont(ctx: IAsyncContext):
         def on_success(x):
             ctx.on_success(Choice_makeChoice1Of2(x))
@@ -79,14 +79,14 @@ def catchAsync(work):
     return protected_cont(cont)
 
 
-def fromContinuations(f):
+def from_continuations(f):
     def cont(ctx: IAsyncContext):
         f([ctx.on_success, ctx.on_error, ctx.on_cancel])
 
     return protected_cont(cont)
 
 
-def startWithContinuations(
+def start_with_continuations(
     computation, continuation=None, exception_continuation=None, cancellation_continuation=None, cancellation_token=None
 ):
     trampoline = Trampoline()
@@ -103,8 +103,8 @@ def startWithContinuations(
 
 
 def start(computation, cancellation_token=None):
-    return startWithContinuations(computation, cancellation_token=cancellation_token)
+    return start_with_continuations(computation, cancellation_token=cancellation_token)
 
 
-def startImmediate(computation, cancellation_token=None):
+def start_immediate(computation, cancellation_token=None):
     return start(computation, cancellation_token)
