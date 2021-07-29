@@ -2450,7 +2450,12 @@ module Util =
                 let moduleName = im.Module |> Helpers.rewriteFableImport
                 match im.Name with
                 | Some "default" ->
-                    Some moduleName, Alias.alias(im.LocalIdent.Value)
+                    // printfn "modules: %A" (moduleName, im.LocalIdent.Value)
+                    let (Identifier local) = im.LocalIdent.Value
+                    if moduleName <> local then
+                        Some moduleName, Alias.alias(im.LocalIdent.Value)
+                    else
+                        None, Alias.alias(im.LocalIdent.Value)
                 | Some name ->
                     Some moduleName, Alias.alias(Identifier(Helpers.clean name), ?asname=im.LocalIdent)
                 | None ->
@@ -2560,7 +2565,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-        // printfn "file: %A" file.UsedNamesInRootScope
+        // printfn "file: %A" file.Declarations
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope
