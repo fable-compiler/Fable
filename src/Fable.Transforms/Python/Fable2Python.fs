@@ -397,7 +397,9 @@ module Helpers =
     let getUniqueIdentifier (name: string): Python.Identifier =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
-        Python.Identifier($"{name}_{idx}")
+        let deliminator =
+            if Char.IsLower name.[0] then "_" else ""
+        Python.Identifier($"{name}{deliminator}{idx}")
 
     let toSnakeCase = applyCaseRule CaseRules.SnakeCase
 
@@ -729,7 +731,7 @@ module Util =
         Expression.emit (value, args, ?loc=range)
 
     let undefined range: Expression =
-        Expression.name(identifier = Identifier("None"), ?loc=range)
+        Expression.none()
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -790,6 +792,11 @@ module Util =
         stmts @ [ Statement.return'(e) ]
 
     let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
+        let args =
+            match args.Args with
+            | [] -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
+            | _ -> args
+
         match body with
             | [ Statement.Return({Value=Some expr}) ] -> Expression.lambda(args, expr), []
             | _ ->
@@ -2039,7 +2046,7 @@ module Util =
 
             [ Statement.for'(target = target, iter = iter, body = body) ]
 
-    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Arguments * Statement list =
+    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) : Arguments * Statement list =
         let tailcallChance =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
@@ -2052,6 +2059,7 @@ module Util =
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true
                        BoundVars = ctx.BoundVars.EnterScope() }
 
+        // printfn "Args: %A" (name, args, body)
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
@@ -2088,7 +2096,7 @@ module Util =
 
         let arguments =
             match args, isUnit with
-            | [], _ -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
+            | [], true -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
             // So we can also receive unit
             | _, true -> Arguments.arguments(args |> List.map Arg.arg, defaults=[ Expression.none() ])
             | _ -> Arguments.arguments(args |> List.map Arg.arg)
