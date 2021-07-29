@@ -397,7 +397,9 @@ module Helpers =
     let getUniqueIdentifier (name: string): Python.Identifier =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
-        Python.Identifier($"{name}_{idx}")
+        let deliminator =
+            if Char.IsLower name.[0] then "_" else ""
+        Python.Identifier($"{name}{deliminator}{idx}")
 
     let toSnakeCase = applyCaseRule CaseRules.SnakeCase
 
@@ -729,7 +731,7 @@ module Util =
         Expression.emit (value, args, ?loc=range)
 
     let undefined range: Expression =
-        Expression.name(identifier = Identifier("None"), ?loc=range)
+        Expression.none()
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -790,6 +792,11 @@ module Util =
         stmts @ [ Statement.return'(e) ]
 
     let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
+        let args =
+            match args.Args with
+            | [] -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
+            | _ -> args
+
         match body with
             | [ Statement.Return({Value=Some expr}) ] -> Expression.lambda(args, expr), []
             | _ ->
@@ -2039,7 +2046,7 @@ module Util =
 
             [ Statement.for'(target = target, iter = iter, body = body) ]
 
-    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Arguments * Statement list =
+    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) : Arguments * Statement list =
         let tailcallChance =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
@@ -2052,6 +2059,7 @@ module Util =
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true
                        BoundVars = ctx.BoundVars.EnterScope() }
 
+        // printfn "Args: %A" (name, args, body)
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
@@ -2059,6 +2067,14 @@ module Util =
                 transformBlock com ctx (Some Return) body
             else
                 transformAsExpr com ctx body |> wrapExprInBlockWithReturn
+
+        let isUnit =
+            List.tryLast args
+            |> Option.map (function
+                | { Type=Fable.GenericParam(_)} -> true
+                | _ -> false)
+            |> Option.defaultValue false
+
         let args, body =
             match isTailCallOptimized, tailcallChance with
             | true, Some tc ->
@@ -2077,19 +2093,12 @@ module Util =
                 args', Statement.while'(Expression.constant(true), body)
                 |> List.singleton
             | _ -> args |> List.map (ident com ctx), body
-        // let body =
-        //     if declaredVars.Count = 0 then body
-        //     else
-        //         let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident com ctx v, None]
-        //         varDeclStatement @ body
-        //printfn "Args: %A" (args, body)
 
-        //let args = Arguments.arguments(args |> List.map Arg.arg)
         let arguments =
-            match args with
-            | [] -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
+            match args, isUnit with
+            | [], true -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
             // So we can also receive unit
-            | [ arg ] -> Arguments.arguments(args=[ Arg.arg(arg) ], defaults=[ Expression.none() ])
+            | _, true -> Arguments.arguments(args |> List.map Arg.arg, defaults=[ Expression.none() ])
             | _ -> Arguments.arguments(args |> List.map Arg.arg)
 
         arguments, body
@@ -2450,7 +2459,12 @@ module Util =
                 let moduleName = im.Module |> Helpers.rewriteFableImport
                 match im.Name with
                 | Some "default" ->
-                    Some moduleName, Alias.alias(im.LocalIdent.Value)
+                    // printfn "modules: %A" (moduleName, im.LocalIdent.Value)
+                    let (Identifier local) = im.LocalIdent.Value
+                    if moduleName <> local then
+                        Some moduleName, Alias.alias(im.LocalIdent.Value)
+                    else
+                        None, Alias.alias(im.LocalIdent.Value)
                 | Some name ->
                     Some moduleName, Alias.alias(Identifier(Helpers.clean name), ?asname=im.LocalIdent)
                 | None ->
@@ -2560,7 +2574,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-        // printfn "file: %A" file.UsedNamesInRootScope
+        // printfn "file: %A" file.Declarations
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope
