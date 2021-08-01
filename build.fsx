@@ -607,10 +607,6 @@ match argsLower with
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
-| "jupyter" :: _ ->
-    buildPyLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> ../Fable.Jupyter/src/fable.out"
-
 | "run"::_ ->
     buildLibraryJsIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args

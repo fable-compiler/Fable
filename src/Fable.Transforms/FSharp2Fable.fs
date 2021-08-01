@@ -1396,7 +1396,9 @@ type FableCompiler(com: Compiler) =
             transformExpr this ctx fsExpr |> run
 
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
-            Replacements.tryCall this ctx r t info thisArg args
+            match this.Options.Language with
+            | Python -> Python.Replacements.tryCall this ctx r t info thisArg args
+            | _ -> Replacements.tryCall this ctx r t info thisArg args
 
         member this.GetInlineExpr(memb) =
             let membUniqueName = getMemberUniqueName com memb

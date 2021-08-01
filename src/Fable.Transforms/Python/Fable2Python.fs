@@ -7,7 +7,7 @@ open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Python
-open Fable.Naming
+open Fable.Python
 open Fable.Core
 
 type ReturnStrategy =
@@ -401,13 +401,13 @@ module Helpers =
             if Char.IsLower name.[0] then "_" else ""
         Python.Identifier($"{name}{deliminator}{idx}")
 
-    let toSnakeCase = applyCaseRule CaseRules.SnakeCase
+    let toSnakeCase = Naming.applyCaseRule CaseRules.SnakeCase
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
         // printfn $"clean: {name}"
         match name with
-        | "this" -> "self"
+        //| "this" -> "self"
         | "async" -> "async_"
         | "from" -> "from_"
         | "class" -> "class_"
@@ -415,7 +415,7 @@ module Helpers =
         | "except" -> "except_"
         | "Math" -> "math"
         | "Error" -> "Exception"
-        | "len" -> "len_"
+        //| "len" -> "len_"
         | "Map" -> "dict"
         | "Set" -> "set"
         | "Int32Array" -> "list"
@@ -478,6 +478,8 @@ module Helpers =
             | _ -> false
 
         match stmt with
+        // Remove `self = self`
+        | Statement.Assign { Targets = [ Name {Id=Identifier("self")}]; Value = Name {Id=Identifier("self")}} -> None
         | Expr expr ->
             if hasNoSideEffects expr.Value then
                 None
@@ -2103,6 +2105,7 @@ module Util =
 
         arguments, body
 
+    // Declares a Python entry point, i.e `if __name__ == "__main__"`
     let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expression) =
         com.GetImportExpr(ctx, "sys") |> ignore
         let args = emitExpression None "sys.argv[1:]" []
