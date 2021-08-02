@@ -1493,9 +1493,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _ | "PowInteger", _ | "op_Exponentiation", _ ->
-        match resolveArgTypes i.SignatureArgTypes i.GenericArgs with
+        let argTypes = resolveArgTypes i.SignatureArgTypes i.GenericArgs
+        match argTypes with
         | Builtin (BclDecimal)::_  ->
             Helper.LibCall(com, "Decimal", "pow", t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+        | CustomOp com ctx "Pow" argTypes m ->
+            let genArgs = i.GenericArgs |> Seq.map snd
+            FSharp2Fable.Util.makeCallFrom com ctx r t genArgs None args m |> Some
         | _ -> math r t args i.SignatureArgTypes "pow" |> Some
     | ("Ceiling" | "Floor" as meth), _ ->
         let meth = Naming.lowerFirst meth
