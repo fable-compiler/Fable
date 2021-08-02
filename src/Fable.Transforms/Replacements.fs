@@ -1065,10 +1065,12 @@ let tryCoreOp com r t coreModule coreMember args =
 let emptyGuid () =
     makeStrConst "00000000-0000-0000-0000-000000000000"
 
-let defaultof (com: ICompiler) ctx (t: Type) =
+let rec defaultof (com: ICompiler) ctx (t: Type) =
     match t with
     | Number _ -> makeIntConst 0
     | Boolean -> makeBoolConst false
+    // TODO: Non-struct tuples should default to null
+    | Tuple args -> args |> List.map (defaultof com ctx) |> NewTuple |> makeValue None
     | Builtin BclTimeSpan
     | Builtin BclDateTime
     | Builtin BclDateTimeOffset

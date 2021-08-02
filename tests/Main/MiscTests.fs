@@ -994,6 +994,13 @@ let tests =
         Unchecked.defaultof<ValueType> |> equal x
         x.X |> equal 0
 
+    testCase "Unchecked.defaultof works with tuples" <| fun () -> // See #2491
+        // TODO: Non-struct tuples
+        // let y: (int*int) = Unchecked.defaultof<_>
+        // equal null (box y)
+        let x: struct (int*int) = Unchecked.defaultof<_>
+        equal (struct(0, 0)) x
+
     testCase "Pattern matching optimization works (switch statement)" <| fun () ->
         let mutable x = ""
         let i = 4
