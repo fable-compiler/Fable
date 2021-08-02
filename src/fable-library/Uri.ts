@@ -1,4 +1,4 @@
-import { FSharpRef } from "./Types";
+import { FSharpRef, Result } from "./Types";
 
 export const enum UriKind {
   RelativeOrAbsolute = 0,
@@ -9,8 +9,6 @@ export const enum UriKind {
 type State =
   | { value: URL; kind: UriKind.Absolute }
   | { value: string; kind: UriKind.Relative };
-
-type Result<T> = { tag: "ok"; value: T } | { tag: "error"; error: string };
 
 const ok = <T>(value: T): Result<T> => ({
   tag: "ok",

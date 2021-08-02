@@ -1,5 +1,9 @@
 import { IComparable, IEquatable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
 
+// This type is only used internally for .ts files in the library
+// F# Result type is in Choice.fs
+export type Result<T> = { tag: "ok"; value: T } | { tag: "error"; error: string };
+
 export function seqToString<T>(self: Iterable<T>): string {
   let count = 0;
   let str = "[";

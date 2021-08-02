@@ -147,7 +147,8 @@ let (|BuiltinDefinition|_|) = function
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
     | Types.reference -> Some(FSharpReference(Any))
-    | (Naming.StartsWith Types.choiceNonGeneric _) -> Some(FSharpChoice [])
+    | (Naming.StartsWith Types.choiceNonGeneric genArgs) ->
+        List.replicate (int genArgs.[1..]) Any |> FSharpChoice |> Some
     | _ -> None
 
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
@@ -1030,7 +1031,9 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
     | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Choice" |> Some
-    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice$2" "Choice" |> Some
+    | BuiltinDefinition(FSharpChoice genArgs) ->
+        let membName = $"FSharpChoice${List.length genArgs}"
+        makeImportLib com Any membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -3318,7 +3321,7 @@ let tryType = function
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [key; value])
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [key; value])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [genArg])
-        | FSharpChoice genArgs -> Some(Types.hashset, hashSets, genArgs)
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [genArg1; genArg2])
+        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.reference, references, [genArg])
     | _ -> None

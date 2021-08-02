@@ -878,4 +878,10 @@ let tests =
     testCase "Two records of different type with same shape are not equal" <| fun () ->
         areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord2.Foo = 2; Bar = "oh" } |> equal false
         areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord1.Foo = 2; Bar = "oh" } |> equal true
+
+#if FABLE_COMPILER
+    testCase "Choice with arity 3+ is represented correctly" <| fun () -> // See #2485
+        Choice2Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice2Of3"
+        Choice3Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice3Of3"
+#endif
   ]
