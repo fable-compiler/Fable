@@ -1,3 +1,12 @@
+### 3.2.10
+
+* Support System.Uri.TryCreate @Choc13
+* Fix #2477: Don't drop "DEBUG" and "TRACE" DefineConstants @stroborobo
+* Fix #2480: Improve tree shaking with fable-libray
+* Fix #2485: Proper representation of Choice with 3 or more items
+* Fix #2491: Unchecked.defaultof with struct tuples
+* Fix #2496: Custom Pow operator
+
 ### 3.2.9
 
 * Don't print JS files in watch mode if there're F# errors

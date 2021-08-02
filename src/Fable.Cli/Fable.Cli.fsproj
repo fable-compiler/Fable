@@ -3,10 +3,14 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.2.9</Version>
-    <PackageVersion>3.2.9</PackageVersion>
-    <PackageReleaseNotes>* Don't print JS files in watch mode if there're F# errors
-* Fix SRTP with local inline functions</PackageReleaseNotes>
+    <Version>3.2.10</Version>
+    <PackageVersion>3.2.10</PackageVersion>
+    <PackageReleaseNotes>* Support System.Uri.TryCreate @Choc13
+* Fix #2477: Don't drop "DEBUG" and "TRACE" DefineConstants @stroborobo
+* Fix #2480: Improve tree shaking with fable-libray
+* Fix #2485: Proper representation of Choice with 3 or more items
+* Fix #2491: Unchecked.defaultof with struct tuples
+* Fix #2496: Custom Pow operator</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
