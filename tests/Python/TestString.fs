@@ -301,12 +301,47 @@ let ``test String.ctor(char[]) works`` () =
     System.String([|'f'; 'a'; 'b'; 'l'; 'e'|])
     |> equal "fable"
 
-// [<Fact>]
-// let ``test String.ctor(char, int) works`` () =
-//     System.String('f', 5)
-//     |> equal "fffff"
+[<Fact>]
+let ``test String.ctor(char, int) works`` () =
+    System.String('f', 5)
+    |> equal "fffff"
 
-// [<Fact>]
-// let ``test String.ctor(char[], int, int) works`` () =
-//     System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3)
-//     |> equal "abl"
+[<Fact>]
+let ``test String.ctor(char[], int, int) works`` () =
+    System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3)
+    |> equal "abl"
+
+// System.String - static methods
+
+[<Fact>]
+let ``test System.String.Equals works`` () =
+    System.String.Equals("abc", "abc") |> equal true
+    System.String.Equals("ABC", "abc") |> equal false
+    System.String.Equals("abc", "abd") |> equal false
+    "abc".Equals("abc") |> equal true
+    "ABC".Equals("abc") |> equal false
+    "abc".Equals("abd") |> equal false
+    System.String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
+    System.String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
+    "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
+    "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
+
+[<Fact>]
+let ``test String.Compare works`` () =
+    "ABC".CompareTo("abc") > 0 |> equal true
+    System.String.Compare("abc", "abc") |> equal 0
+    System.String.Compare("ABC", "abc") |> equal 1
+    System.String.Compare("abc", "abd") |> equal -1
+    System.String.Compare("bbc", "abd") |> equal 1
+    System.String.Compare("ABC", "abc", false) |> equal 1
+    System.String.Compare("ABC", "abc", true) |> equal 0
+    System.String.Compare("ABC", "abd", true) |> equal -1
+    System.String.Compare("BBC", "abd", true) |> equal 1
+    System.String.Compare("ABC", "abc", StringComparison.CurrentCulture) > 0 |> equal true
+    System.String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
+    System.String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
+    System.String.Compare("abc", 0, "bcd", 0, 3) |> equal -1
+    System.String.Compare("abc", 1, "bcd", 0, 2) |> equal 0
+    System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.CurrentCulture) > 0 |> equal true
+    System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.Ordinal) < 0 |> equal true
+    System.String.Compare("ABC", 1, "bcd", 0, 2, StringComparison.OrdinalIgnoreCase) |> equal 0

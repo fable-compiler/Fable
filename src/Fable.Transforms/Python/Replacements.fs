@@ -1636,13 +1636,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match fstArg.Type with
         | Char ->
             match args with
-            | [_; _] -> emitJsExpr r t args "Array($1 + 1).join($0)" |> Some // String(char, int)
+            | [_; _] -> emitJsExpr r t args "$0 * $1" |> Some // String(char, int)
             | _ -> "Unexpected arguments in System.String constructor."
                    |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Array _ ->
             match args with
-            | [_] -> emitJsExpr r t args "$0.join('')" |> Some // String(char[])
-            | [_; _; _] -> emitJsExpr r t args "$0.join('').substr($1, $2)" |> Some // String(char[], int, int)
+            | [_] -> emitJsExpr r t args "''.join($0)" |> Some // String(char[])
+            | [_; _; _] -> emitJsExpr r t args "''.join($0)[$1:$2+1]" |> Some // String(char[], int, int)
             | _ -> "Unexpected arguments in System.String constructor."
                    |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ ->

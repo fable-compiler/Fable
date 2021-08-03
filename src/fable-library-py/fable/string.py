@@ -3,24 +3,11 @@ from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Iterable, Match, NoReturn, Optional, Pattern, Union, TypeVar
+from enum import Enum
 
-# import multiply
-# import Numeric
-# import toExponential
-# import toFixed
-# import toHex
-# import toPrecision
-# import "./Date.js"
-# import "./Numeric.js"
-# import "./RegExp.js"
-# import "./Types.js"
 from .numeric import to_fixed, to_precision, to_exponential, to_hex, multiply
 from .types import to_string
 from .date import to_string as date_to_string
-
-# import { escape }
-# import { toString as dateToString }
-# import { toString }
 
 T = TypeVar("T")
 
@@ -447,3 +434,64 @@ def substring(string: str, startIndex: int, length: Optional[int] = None) -> str
         return string[startIndex : startIndex + length]
 
     return string[startIndex:]
+
+
+class StringComparison(Enum):
+    CurrentCulture = 0
+    CurrentCultureIgnoreCase = 1
+    InvariantCulture = 2
+    InvariantCultureIgnoreCase = 3
+    Ordinal = 4
+    OrdinalIgnoreCase = 5
+
+
+def cmp(x: str, y: str, ic: Union[bool, StringComparison]) -> int:
+    def is_ignore_case(i: Union[bool, StringComparison]) -> bool:
+        return (
+            i is True
+            or i == StringComparison.CurrentCultureIgnoreCase.value
+            or i == StringComparison.InvariantCultureIgnoreCase.value
+            or i == StringComparison.OrdinalIgnoreCase.value
+        )
+
+    def is_ordinal(i: Union[bool, StringComparison]) -> bool:
+        return i == StringComparison.Ordinal.value or i == StringComparison.OrdinalIgnoreCase.value
+
+    if not x:
+        return 0 if not y else -1
+    if not y:
+        return 1  # everything is bigger than None
+
+    if is_ordinal(ic):
+        if is_ignore_case(ic):
+            x = x.lower()
+            y = y.lower()
+
+        return 0 if x == y else -1 if x < y else 1
+    elif is_ignore_case(ic):
+        x = x.lower()
+        y = y.lower()
+
+    return 0 if x == y else -1 if x < y else 1
+
+
+def compare(*args: Any) -> int:
+    length = len(args)
+
+    if length == 2:
+        return cmp(args[0], args[1], False)
+    if length == 3:
+        return cmp(args[0], args[1], args[2])
+    if length == 4:
+        return cmp(args[0], args[1], args[2])
+    if length == 5:
+        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], False)
+    if length == 6:
+        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], args[5])
+    if length == 7:
+        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], args[5])
+    raise Exception("String.compare: Unsupported number of parameters")
+
+
+def compare_to(x: str, y: str) -> int:
+    return cmp(x, y, StringComparison.CurrentCulture)
