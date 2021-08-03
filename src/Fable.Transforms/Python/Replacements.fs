@@ -54,6 +54,7 @@ type Helper =
 
 module Helpers =
     let getIdentUniqueName (ctx: Context) name =
+        // printfn "getIdentUniqueName: %A" name
         let name =
             (name, Naming.NoMemberPart)
             ||> Naming.sanitizeIdent (FSharp2Fable.Helpers.isUsedName ctx)
@@ -1043,8 +1044,8 @@ let tryEntityRef (com: Compiler) entFullName =
     | BuiltinDefinition BclDecimal -> makeImportLib com Any "default" "Decimal" |> Some
     | BuiltinDefinition BclBigInt -> makeImportLib com Any "BigInteger" "BigInt/z" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Choice" |> Some
-    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice$2" "Choice" |> Some
+    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult_2" "Choice" |> Some
+    | BuiltinDefinition(FSharpChoice _) -> makeImportLib com Any "FSharpChoice_2" "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
     // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
@@ -1340,8 +1341,8 @@ let getMangledNames (i: CallInfo) (thisArg: Expr option) =
     let isStatic = Option.isNone thisArg
     let pos = i.DeclaringEntityFullName.LastIndexOf('.')
     let moduleName = i.DeclaringEntityFullName.Substring(0, pos).Replace("Microsoft.", "")
-    let entityName = i.DeclaringEntityFullName.Substring(pos + 1) |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
-    let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
+    let entityName = i.DeclaringEntityFullName.Substring(pos + 1) |> Naming.cleanNameAsPyIdentifier
+    let memberName = i.CompiledName |> Naming.cleanNameAsPyIdentifier
     let mangledName = Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
     moduleName, mangledName
 
@@ -1781,7 +1782,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [ArrayOrListLiteral(vals,_)] ->
         makeArray Any vals |> Some
     | ".ctor", _, args ->
-        Helper.GlobalCall("Array", t, args, memb="from", ?loc=r)
+        Helper.GlobalCall("list", t, args, ?loc=r)
         |> asOptimizable "array"
         |> Some
     | "get_Item", Some ar, [idx] -> getExpr r t ar idx |> Some
@@ -3301,7 +3302,7 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | [Number _; IEqualityComparer], [_; eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected dictionary constructor"
-        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Dictionary"
+        let entityName = Naming.cleanNameAsPyIdentifier "Dictionary"
         Some(makeImportLib com Any entityName "MutableMap", args)
     | Types.hashset ->
         let args =
@@ -3315,7 +3316,7 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | [IEqualityComparer], [eqComp] ->
                 [makeArray Any []; makeComparerFromEqualityComparer eqComp]
             | _ -> failwith "Unexpected hashset constructor"
-        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
+        let entityName = Naming.cleanNameAsPyIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
     | _ -> None
 

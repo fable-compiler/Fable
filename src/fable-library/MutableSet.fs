@@ -2,6 +2,7 @@
 namespace Fable.Collections
 
 open System.Collections.Generic
+open Native
 
 [<Sealed>]
 [<CompiledName("HashSet")>]
@@ -70,7 +71,8 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
     // let's add `toJSON` for consistency with the types within fable-library.
     interface Fable.Core.IJsonSerializable with
         member this.toJSON(_key) =
-            Fable.Core.JS.Constructors.Array.from(this) |> box
+            Helpers.arrayFrom(this) |> box
+
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator(): System.Collections.IEnumerator =

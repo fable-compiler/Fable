@@ -401,30 +401,18 @@ module Helpers =
             if Char.IsLower name.[0] then "_" else ""
         Python.Identifier($"{name}{deliminator}{idx}")
 
-    let toSnakeCase = Naming.applyCaseRule CaseRules.SnakeCase
-
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
         // printfn $"clean: {name}"
         match name with
-        //| "this" -> "self"
-        | "async" -> "async_"
-        | "from" -> "from_"
-        | "class" -> "class_"
-        | "for" -> "for_"
-        | "except" -> "except_"
         | "Math" -> "math"
         | "Error" -> "Exception"
-        //| "len" -> "len_"
         | "Map" -> "dict"
         | "Set" -> "set"
         | "Int32Array" -> "list"
         | "Infinity" -> "float('inf')"
         | _ ->
-            name
-            |> (fun str -> if Char.IsLower(str.[0]) then toSnakeCase str else str)
-            |> (fun str -> str.Replace("$0020", "_"))
-            |> String.map(fun c -> if List.contains c ['-'; '.'; '$'; '`'; '*'; ' '; '@'] then '_' else c)
+            (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport moduleName =
         // printfn "ModuleName: %s" moduleName
@@ -434,14 +422,12 @@ module Helpers =
         //     Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
-
         if m.Groups.Count > 1 then
             let pymodule =
-                m.Groups.["module"].Value
-                |> toSnakeCase
-                |> clean
+                let lower = m.Groups.["module"].Value |> Naming.applyCaseRule CaseRules.SnakeCase
+                (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-            let moduleName = String.concat "." [ "fable"; pymodule ]
+            let moduleName = $"fable.{pymodule}"
 
             // printfn "-> Module: %A" moduleName
             moduleName
@@ -449,9 +435,9 @@ module Helpers =
             // Modules should have short, all-lowercase names.
             let moduleName =
                 let name =
-                    Path.GetFileNameWithoutExtension(moduleName)
-                    |> toSnakeCase
-                    |> clean
+                    let lower = Path.GetFileNameWithoutExtension(moduleName) |> Naming.applyCaseRule CaseRules.SnakeCase
+                    (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+
                 $".{name}"
 
             // printfn "-> Module: %A" moduleName
@@ -611,8 +597,11 @@ module Util =
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name(name)
-        | n when Naming.hasIdentForbiddenChars n -> Expression.constant(n)
-        | n -> com.GetIdentifierAsExpr(ctx, n)
+        | n when Naming.hasIdentForbiddenChars n ->
+            (n, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+            |> Expression.constant
+        | n ->
+            com.GetIdentifierAsExpr(ctx, n)
 
     let get (com: IPythonCompiler) ctx r left memberName subscript =
         // printfn "get: %A" (left, memberName)
@@ -651,7 +640,7 @@ module Util =
         |> List.map (fun x -> Expression.constant(x))
         |> Expression.list
 
-    let makeJsObject com ctx (pairs: seq<string * Expression>) =
+    let makePyObject com ctx (pairs: seq<string * Expression>) =
         pairs |> Seq.map (fun (name, value) ->
            //let prop, computed = memberFromName com ctx name
            let prop = Expression.constant(name)
@@ -945,7 +934,7 @@ module Util =
             Expression.call(consRef, values, ?loc=r), stmts @ stmts'
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values, stmts = values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
-            List.zip (List.ofArray fieldNames) values |> makeJsObject com ctx , stmts
+            List.zip (List.ofArray fieldNames) values |> makePyObject com ctx , stmts
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values, stmts = List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
@@ -2164,7 +2153,7 @@ module Util =
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+            let name = (field.Name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name -> Naming.pyBuiltins.Contains name)
             let typ = field.FieldType
             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
@@ -2469,6 +2458,7 @@ module Util =
                     else
                         None, Alias.alias(im.LocalIdent.Value)
                 | Some name ->
+                    let name = Naming.toSnakeCase name
                     Some moduleName, Alias.alias(Identifier(Helpers.clean name), ?asname=im.LocalIdent)
                 | None ->
                     None, Alias.alias(Identifier(moduleName), ?asname=None))

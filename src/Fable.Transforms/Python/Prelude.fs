@@ -1,6 +1,7 @@
 namespace Fable.Python
 
 open Fable
+open System
 
 module Naming =
     open Fable.Core
@@ -24,6 +25,17 @@ module Naming =
         | CaseRules.SnakeCaseAllCaps -> (dashify "_" name).ToUpperInvariant()
         | CaseRules.KebabCase -> dashify "-" name
         | CaseRules.None | _ -> name
+
+    let toSnakeCase (name: string) =
+        if Char.IsLower(name.[0]) then
+            Naming.applyCaseRule CaseRules.SnakeCase name
+        else
+            name
+
+    let cleanNameAsPyIdentifier (name: string) =
+        if name = ".ctor" then "_ctor"
+        else name.Replace('.','_').Replace('`','_')
+
 
     let pyKeywords =
         // https://docs.python.org/3/reference/lexical_analysis.html#keywords
@@ -64,8 +76,11 @@ module Naming =
             "if"
             "or"
             "yield"
+        ]
 
-            // Other globals we should stay away from https://docs.python.org/3/library/functions.html
+    // Other global builtins we should avoid https://docs.python.org/3/library/functions.html
+    let pyBuiltins =
+        System.Collections.Generic.HashSet [
             "len"
             "str"
             "int"
@@ -89,6 +104,8 @@ module Naming =
             // Other names
             "self"
         ]
+    let reflectionSuffix = "_reflection"
+
 
     let preventConflicts conflicts originalName =
         let rec check originalName n =
@@ -117,7 +134,7 @@ module Naming =
                     let c = ident.[i]
                     if isIdentChar i c
                     then string c
-                    elif c = '$'
+                    elif c = '$' || c = '_' || c = ' ' || c = '*' || c = '.'
                     then "_"
                     else "_" + System.String.Format("{0:X}", int c).PadLeft(4, '0')
                 })
@@ -140,10 +157,14 @@ module Naming =
                 | Naming.NoMemberPart -> "")
 
     let sanitizeIdent conflicts name part =
+
         let result =
             // Replace Forbidden Chars
             buildName sanitizeIdentForbiddenChars name part
+            |> toSnakeCase
             |> checkPyKeywords
             // Check if it already exists
             |> preventConflicts conflicts
+
+        //printfn "py: %A" (name, result)
         result

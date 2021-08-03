@@ -55,7 +55,7 @@ def continue_print(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -
     return cont(arg)
 
 
-def to_console(arg: Union[IPrintfFormat, Any]) -> Union[Any, Callable[[str], Any]]:
+def to_console(arg: Union[IPrintfFormat, Any]) -> Any:
     return continue_print(print, arg)
 
 

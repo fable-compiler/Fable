@@ -78,7 +78,7 @@ let ``test List.length works`` () =
 
 
 [<Fact>]
-let ``test List.IsEmpty works`` () =
+let ``test xs.IsEmpty works`` () =
     let xs = [1; 2; 3; 4]
     let ys = []
     equal false xs.IsEmpty
@@ -92,17 +92,17 @@ let ``test List.Equals works`` () =
     xs.Equals(xs) |> equal true
 
 [<Fact>]
-let ``test List.Head works`` () =
+let ``test xs.Head works`` () =
     let xs = [1; 2; 3; 4]
     equal 1 xs.Head
 
 [<Fact>]
-let ``test List.Tail works`` () =
+let ``test xs.Tail works`` () =
     let xs = [1; 2; 3; 4]
     equal 2 xs.Tail.Head
 
 [<Fact>]
-let ``test List.Item works`` () =
+let ``test xs.Item works`` () =
     let xs = [1; 2; 3; 4]
     equal 4 xs.[3]
 

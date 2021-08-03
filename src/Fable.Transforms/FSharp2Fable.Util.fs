@@ -350,7 +350,8 @@ module Helpers =
         let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
         (entityName, Naming.NoMemberPart)
         ||> match com.Options.Language with
-            | Python -> Python.Naming.sanitizeIdent (fun _ -> false)
+            | Python ->
+                Python.Naming.sanitizeIdent Python.Naming.pyBuiltins.Contains
             | _ -> Naming.sanitizeIdent (fun _ -> false)
 
     let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
@@ -381,8 +382,9 @@ module Helpers =
         let part = part.Replace(cleanNameAsJsIdentifier)
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Python.Naming.sanitizeIdent (fun _ -> false) name part
+            | Python -> Python.Naming.sanitizeIdent Python.Naming.pyBuiltins.Contains name part
             | _ ->  Naming.sanitizeIdent (fun _ -> false) name part
+        printfn "getMemberDeclarationName: %A" name
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary
@@ -1322,7 +1324,7 @@ module Identifiers =
         let sanitizedName =
             (fsRef.CompiledName, Naming.NoMemberPart)
             ||> match _com.Options.Language with
-                | Python -> Python.Naming.sanitizeIdent (isUsedName ctx)
+                | Python -> Python.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Python.Naming.pyBuiltins.Contains name)
                 | _ -> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName

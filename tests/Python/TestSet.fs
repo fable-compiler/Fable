@@ -16,7 +16,7 @@ let ``test Set.isEmpty works`` () =
     Set.isEmpty ys |> equal false
 
 [<Fact>]
-let ``test Set.IsEmpty works`` () =
+let ``test xs.IsEmpty works`` () =
     let xs = Set.empty<int>
     xs.IsEmpty |> equal true
     let ys = set [1; 1]

@@ -1251,10 +1251,15 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
                     match getEntityDeclarationName com entRef with
                     | "" -> usedNames
                     | entName ->
+                        let reflectionSuffix =
+                            match com.Options.Language with
+                            | Python -> Python.Naming.reflectionSuffix
+                            | _ -> Naming.reflectionSuffix
+
                         addUsedRootName com entName usedNames
                         // Fable will inject an extra declaration for reflection,
                         // so add also the name with the reflection suffix
-                        |> addUsedRootName com (entName + Naming.reflectionSuffix)
+                        |> addUsedRootName com (entName + reflectionSuffix)
             | sub ->
                 getUsedRootNames com usedNames sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->

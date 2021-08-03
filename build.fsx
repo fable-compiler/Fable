@@ -195,7 +195,6 @@ let buildLibraryPy() =
     copyFile (buildDirPy </> "fable/fsharp.core.py") (buildDirPy </> "fable/fsharp_core.py")
     copyFile (buildDirPy </> "fable/fsharp.collections.py") (buildDirPy </> "fable/fsharp_collections.py")
     copyFile (buildDirPy </> "fable/system.collections.generic.py") (buildDirPy </> "fable/system_collections_generic.py")
-    //copyFile (buildDirPy </> "fable/async.py") (buildDirPy </> "fable/async_.py")
     removeFile (buildDirPy </> "fable/system.text.py")
 
     runInDir buildDirPy ("python3 --version")

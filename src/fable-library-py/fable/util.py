@@ -215,7 +215,7 @@ class IEnumerator(IDisposable):
 
     def __getattr__(self, name):
         return {
-            "System_Collections_Generic_IEnumerator_1_get_Current": self.Current,
+            "System_Collections_Generic_IEnumerator_00601_get_Current": self.Current,
             "System_Collections.IEnumerator_get_Current": self.Current,
             "System_Collections_IEnumerator_MoveNext": self.MoveNext,
             "System_Collections.IEnumerator_Reset": self.Reset,
