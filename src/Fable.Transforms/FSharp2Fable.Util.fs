@@ -351,7 +351,7 @@ module Helpers =
         (entityName, Naming.NoMemberPart)
         ||> match com.Options.Language with
             | Python ->
-                Python.Naming.sanitizeIdent Python.Naming.pyBuiltins.Contains
+                Fable.Python.Naming.sanitizeIdent Fable.Python.Naming.pyBuiltins.Contains
             | _ -> Naming.sanitizeIdent (fun _ -> false)
 
     let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
@@ -382,9 +382,8 @@ module Helpers =
         let part = part.Replace(cleanNameAsJsIdentifier)
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Python.Naming.sanitizeIdent Python.Naming.pyBuiltins.Contains name part
+            | Python -> Fable.Python.Naming.sanitizeIdent Fable.Python.Naming.pyBuiltins.Contains name part
             | _ ->  Naming.sanitizeIdent (fun _ -> false) name part
-        printfn "getMemberDeclarationName: %A" name
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary

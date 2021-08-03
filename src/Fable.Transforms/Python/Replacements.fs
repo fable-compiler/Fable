@@ -106,7 +106,7 @@ module Helpers =
         Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
 
     let error msg =
-        Helper.JsConstructorCall(makeIdentExpr "Error", Any, [msg])
+        Helper.JsConstructorCall(makeIdentExpr "Exception", Any, [msg])
 
     let s txt = Value(StringConstant txt, None)
 
@@ -1054,7 +1054,7 @@ let tryEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
-    | Types.exception_ -> makeIdentExpr "Error" |> Some
+    | Types.exception_ -> makeIdentExpr "Exception" |> Some
     | _ -> None
 
 let tryJsConstructor com (ent: Entity) =
@@ -2451,7 +2451,7 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.JsConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
+    | ".ctor", _ -> Helper.JsConstructorCall(makeIdentExpr "Exception", t, args, ?loc=r) |> Some
     | "get_Message", Some e -> getAttachedMemberWith r t e "message" |> Some
     | "get_StackTrace", Some e -> getAttachedMemberWith r t e "stack" |> Some
     | _ -> None

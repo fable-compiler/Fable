@@ -406,7 +406,6 @@ module Helpers =
         // printfn $"clean: {name}"
         match name with
         | "Math" -> "math"
-        | "Error" -> "Exception"
         | "Map" -> "dict"
         | "Set" -> "set"
         | "Int32Array" -> "list"
