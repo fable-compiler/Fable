@@ -7,7 +7,7 @@
   <!-- <Import Project="fssrgen.targets" /> -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <!-- <RollForward>Major</RollForward> -->
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
@@ -46,7 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
+    <PackageReference Include="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 
   <Target Name="GenerateCode" AfterTargets="Restore" BeforeTargets="BeforeBuild" DependsOnTargets="CallFsLex;CallFsYacc"></Target>

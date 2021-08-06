@@ -376,3 +376,142 @@ type Expr =
         | Set (_, _, _, r)
         | ForLoop (_,_,_,_,_,r)
         | WhileLoop (_,_,r) -> r
+
+// module PrettyPrint =
+//     let rec printType (t: Type) = "T" // TODO
+
+//     let rec printMultiWithSep separator start' exprs end' =
+//         start' + (exprs |> List.map print |> String.concat separator) + end'
+
+//     and printMulti start' exprs end' =
+//         printMultiWithSep ", " start' exprs end'
+
+//     and printFun (args: Ident list, body) =
+//         let args = args |> List.map (fun a -> a.Name) |> String.concat ", "
+//         $"({args}) => {print body}"
+
+//     and printBinaryOp e1 op e2 =
+//         match op with
+//         | BinaryEqual -> print e1 + " == " + print e2
+//         | BinaryUnequal -> print e1 + " != " + print e2
+//         | BinaryEqualStrict -> print e1 + " === " + print e2
+//         | BinaryUnequalStrict -> print e1 + " !== " + print e2
+//         | BinaryLess -> print e1 + " < " + print e2
+//         | BinaryLessOrEqual -> print e1 + " <= " + print e2
+//         | BinaryGreater -> print e1 + " > " + print e2
+//         | BinaryGreaterOrEqual -> print e1 + " >= " + print e2
+//         | BinaryShiftLeft -> print e1 + " << " + print e2
+//         | BinaryShiftRightSignPropagating -> print e1 + " >> " + print e2
+//         | BinaryShiftRightZeroFill -> print e1 + " >>> " + print e2
+//         | BinaryMinus -> print e1 + " - " + print e2
+//         | BinaryPlus -> print e1 + " + " + print e2
+//         | BinaryMultiply -> print e1 + " * " + print e2
+//         | BinaryDivide -> print e1 + " / " + print e2
+//         | BinaryModulus -> print e1 + " % " + print e2
+//         | BinaryExponent -> print e1 + " ** " + print e2
+//         | BinaryOrBitwise -> print e1 + " | " + print e2
+//         | BinaryXorBitwise -> print e1 + " ^ " + print e2
+//         | BinaryAndBitwise -> print e1 + " & " + print e2
+//         | BinaryIn -> print e1 + " in " + print e2
+//         | BinaryInstanceOf -> print e1 + " instanceof " + print e2
+
+//     and printUnaryOp op e =
+//         match op with
+//         | UnaryMinus -> "-" + print e
+//         | UnaryPlus -> "+" + print e
+//         | UnaryNot -> "!" + print e
+//         | UnaryNotBitwise -> "~" + print e
+//         | UnaryTypeof -> "typeof " + print e
+//         | UnaryVoid -> "void " + print e
+//         | UnaryDelete -> "delete " + print e
+
+//     and print = function
+//         | IdentExpr i -> i.Name
+//         | TypeCast(e,t,_) -> $"{print e} :> {printType t}"
+//         | Import(_,_,_) -> "import"
+//         | Value(kind,_) ->
+//             match kind with
+//             | ThisValue _ -> "this"
+//             | BaseValue _ -> "base"
+//             | TypeInfo t -> $"typeof<{printType t}>"
+//             | Null _  -> "base"
+//             | UnitConstant -> "()"
+//             | BoolConstant x -> string x
+//             | CharConstant x -> "'" + string x + "'"
+//             | StringConstant x -> "\"" + string x + "\""
+//             | NumberConstant(x, kind) ->
+//                 match kind with
+//                 | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> string(int x)
+//                 | Float32 | Float64 -> string x
+//             | RegexConstant(x,_) -> "/" + string x + "/" // TODO: flags
+//             | EnumConstant(e, _) -> "enum " + print e
+//             | NewOption(Some e, _) -> "Some " + print e
+//             | NewOption(None, _) -> "None"
+//             | NewTuple exprs -> printMulti "(" exprs ")"
+//             | NewArray(exprs, _) -> printMulti "[|" exprs "|]"
+//             | NewArrayFrom(e, _) -> $"array({print e})"
+//             | NewList(ht, _) -> "list"
+//                 // match ht with Some(h,t) -> [h;t] | None -> []
+//             | NewRecord(exprs, _, _) -> printMulti "{" exprs "}"
+//             | NewAnonymousRecord(exprs, _, _) -> printMulti "{" exprs "}"
+//             | NewUnion(exprs, _, _, _) -> printMulti "union(" exprs ")"
+//         | Curry(e, _, _, _) ->  $"curry({print e})"
+//         | Lambda(arg, body, _) -> printFun ([arg], body)
+//         | Delegate(args, body, _) -> printFun (args, body)
+//         | ObjectExpr(members, _, baseCall) -> "object"
+//             // let members = members |> List.map (fun m -> m.Body)
+//             // match baseCall with Some b -> b::members | None -> members
+//         | CurriedApply(callee, args, _, _) -> print callee + printMultiWithSep ")(" "(" args ")"
+//         | Call(e1, info, _, _) ->
+//             let args = (Option.toList info.ThisArg) @ info.Args
+//             print e1 + printMulti "(" args ")"
+//         | Emit(info, _, _) ->
+//             let args = (Option.toList info.CallInfo.ThisArg) @ info.CallInfo.Args
+//             $"""emit({info.Macro},{printMulti "(" args ")"})"""
+//         | Operation(kind, _, _) ->
+//             match kind with
+//             | Unary(op, operand) -> printUnaryOp op operand
+//             | Binary(op, e1, e2) -> printBinaryOp e1 op e2
+//             | Logical(op, e1, e2) ->
+//                 match op with
+//                 | LogicalOr -> print e1 + " || " + print e2
+//                 | LogicalAnd -> print e1 + " && " + print e2
+//         | Test(e, kind, _) ->
+//             match kind with
+//             | TypeTest t -> $"""{print e} :? {printType t}"""
+//             | OptionTest isSome -> $"""{print e}.Is{if isSome then "Some" else "None"}"""
+//             | ListTest isNotEmpty -> $"""{print e}.Is{if isNotEmpty then "Not" else ""}Empty"""
+//             | UnionCaseTest tag -> $"""{print e}.Tag == {tag}"""
+//         | Get(e, kind, _, _) ->
+//             match kind with
+//             | ListHead -> print e + ".head"
+//             | ListTail -> print e + ".tail"
+//             | OptionValue -> print e + ".Value"
+//             | TupleIndex i
+//             | UnionField(i,_) -> print e + "[" + string i + "]"
+//             | UnionTag -> print e + ".Tag"
+//             | ByKey(FieldKey k) -> print e + "." + k.Name
+//             | ByKey(ExprKey e2) -> print e + "[" + print e2 + "]"
+//         | Sequential exprs -> printMultiWithSep "; " "" exprs ""
+//         | Let(v, value, body) -> $"""let {v.Name} = {print value} in {print body}"""
+//         | LetRec(bs, body) -> "let rec"
+//         | IfThenElse(cond, thenExpr, elseExpr, _) ->
+//             $"""if ({print cond}) {{{print thenExpr}}} else {{{print elseExpr}}}"""
+//         | Set(e, kind, v, _) ->
+//             let kind =
+//                 match kind with
+//                 | Some(ExprKey e2) -> $"""[{print e2}]"""
+//                 | Some(FieldKey fi) -> $""".{fi.Name}"""
+//                 | None -> ""
+//             $"""{print e}{kind} <- {print v}"""
+//         | WhileLoop(e1, e2, _) ->
+//             $"""while ({print e1}) {{{print e2}}}"""
+//         | ForLoop(v, e1, e2, e3, isUp, _) ->
+//             $"""for {v.Name} = {print e1} {if isUp then "" else "down"}to {print e2} do {print e3}"""
+//         | TryCatch(body, catch, finalizer, _) ->
+//             $"""try {{{print body}}} {match catch with Some(_,c) -> "catch {" + print c + "} " | None -> ""}{match finalizer with Some c -> "finally {" + print c + "} " | None -> ""}"""
+//         | DecisionTree(expr, targets) ->
+//             let targets = targets |> List.map printFun |> String.concat "; "
+//             $"""match({print expr}) targets({targets})"""
+//         | DecisionTreeSuccess(idx, boundValues, _) ->
+//             $"""target({idx}, {printMulti "[" boundValues "]"})"""

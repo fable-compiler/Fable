@@ -1,4 +1,4 @@
-module Array
+module ArrayModule
 
 // Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"
@@ -8,7 +8,9 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
 
-type Cons<'T> = interface end
+type Cons<'T> =
+    [<Emit("new $0($1)")>]
+    abstract Allocate: len: int -> 'T[]
 
 module Helpers =
     [<Emit("Array.from($0)")>]
@@ -20,12 +22,10 @@ module Helpers =
     [<Emit("new $0.constructor($1)")>]
     let allocateArrayFrom (xs: 'T[]) (len: int): 'T[] = jsNative
 
-    [<Emit("new ($0 || Array)($1)")>]
-    let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] = jsNative
-
-    // In some functions the constructor for typed arrays will be passed as last argument
-    [<Emit("new (arguments[arguments.length - 1] || Array)($1)")>]
-    let allocateArrayFromLastArg (len: int): 'T[] = jsNative
+    let allocateArrayFromCons (cons: Cons<'T>) (len: int): 'T[] =
+        if jsTypeof cons = "function"
+        then cons.Allocate(len)
+        else JS.Constructors.Array.Create(len)
 
     let inline isDynamicArrayImpl arr =
         JS.Constructors.Array.isArray arr
@@ -58,6 +58,10 @@ module Helpers =
     // Typed arrays not supported, only dynamic ones do
     let inline pushImpl (array: 'T[]) (item: 'T): int =
         !!array?push(item)
+
+    // Typed arrays not supported, only dynamic ones do
+    let inline insertImpl (array: 'T[]) (index: int) (item: 'T): 'T[] =
+        !!array?splice(index, 0, item)
 
     // Typed arrays not supported, only dynamic ones do
     let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int): 'T[] =
@@ -108,8 +112,10 @@ module Helpers =
     // Inlining in combination with dynamic application may cause problems with uncurrying
     // Using Emit keeps the argument signature
     [<Emit("$1.sort($0)")>]
-    let inline sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit =
-        !!array?sort(comparer)
+    let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T[]): unit = jsNative //!!array?sort(comparer)
+
+    [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]
+    let copyToTypedArray (src: 'T[]) (srci: int) (trg: 'T[]) (trgi: int) (cnt: int): unit = jsNative
 
 open Helpers
 
@@ -252,28 +258,6 @@ let collect (mapping: 'T -> 'U[]) (array: 'T[]) ([<Inject>] cons: Cons<'U>): 'U[
     concat mapped cons
     // collectImpl mapping array // flatMap not widely available yet
 
-let countBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * int)[] =
-    let dict = Dictionary<'Key, int>(eq)
-    let keys: 'Key[] = [||]
-    for value in array do
-        let key = projection value
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            dict.[key] <- prev + 1
-        | false, _ ->
-            dict.[key] <- 1
-            pushImpl keys key |> ignore
-    let result =
-        map (fun key -> key, dict.[key]) keys Unchecked.defaultof<_>
-    result
-
-let distinctBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>) =
-    let hashSet = HashSet<'Key>(eq)
-    array |> filter (projection >> hashSet.Add)
-
-let distinct (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
-    distinctBy id array eq
-
 let where predicate (array: _[]) = filterImpl predicate array
 
 let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
@@ -284,28 +268,6 @@ let contains<'T> (value: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>
             if eq.Equals (value, array.[i]) then true
             else loop (i + 1)
     loop 0
-
-let except (itemsToExclude: seq<'T>) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>): 'T[] =
-    if array.Length = 0 then
-        array
-    else
-        let cached = HashSet(itemsToExclude, eq)
-        array |> filterImpl cached.Add
-
-let groupBy (projection: 'T -> 'Key) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T[])[] =
-    let dict = Dictionary<'Key, ResizeArray<'T>>(eq)
-    let keys: 'Key[] = [||]
-    for v in array do
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            prev.Add(v)
-        | false, _ ->
-            dict.Add(key, ResizeArray [|v|])
-            pushImpl keys key |> ignore
-    let result =
-        map (fun key -> key, arrayFrom dict.[key]) keys Unchecked.defaultof<_>
-    result
 
 let empty cons = allocateArrayFromCons cons 0
 
@@ -412,7 +374,15 @@ let addInPlace (x: 'T) (array: 'T[]) =
 
 let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
-    Seq.iter (fun x -> pushImpl array x |> ignore) range
+    for x in range do
+        addInPlace x array
+
+let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
+    // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
+    let mutable i = index
+    for x in range do
+        insertImpl array i x |> ignore
+        i <- i + 1
 
 let removeInPlace (item: 'T) (array: 'T[]) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
@@ -438,6 +408,39 @@ let copyTo (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
     let diff = targetIndex - sourceIndex
     for i = sourceIndex to sourceIndex + count - 1 do
         target.[i + diff] <- source.[i]
+
+// More performant method to copy arrays, see #2352
+let copyToTypedArray (source: 'T[]) sourceIndex (target: 'T[]) targetIndex count =
+    try
+        Helpers.copyToTypedArray source sourceIndex target targetIndex count
+    with _ ->
+        // If these are not typed arrays (e.g. they come from JS), default to `copyTo`
+        copyTo source sourceIndex target targetIndex count
+
+// Performance test for above method
+// let numloops = 10000
+
+// do
+//     let src: uint8[] = Array.zeroCreate 16384
+//     let trg: uint8[] = Array.zeroCreate 131072
+
+//     measureTime <| fun () ->
+//         for _ in 1 .. numloops do
+//           let rec loopi i =
+//             if i < trg.Length then
+//               Array.blit src 0 trg i src.Length
+//               loopi (i + src.Length) in loopi 0
+
+// do
+//     let src: char[] = Array.zeroCreate 16384
+//     let trg: char[] = Array.zeroCreate 131072
+
+//     measureTime <| fun () ->
+//         for _ in 1 .. numloops do
+//           let rec loopi i =
+//             if i < trg.Length then
+//               Array.blit src 0 trg i src.Length
+//               loopi (i + src.Length) in loopi 0
 
 let indexOf (array: 'T[]) (item: 'T) (start: int option) (count: int option) =
     let start = defaultArg start 0
@@ -531,10 +534,14 @@ let tryFindIndexBack predicate (array: _[]) =
     loop (array.Length - 1)
 
 let choose (chooser: 'T->'U option) (array: 'T[]) ([<Inject>] cons: Cons<'U>) =
-    let f x = chooser x |> Option.isSome
-    let g x = chooser x |> Option.get
-    let arr = filterImpl f array
-    map g arr cons
+    let res: 'U[] = [||]
+    for i = 0 to array.Length - 1 do
+        match chooser array.[i] with
+        | None -> ()
+        | Some y -> pushImpl res y |> ignore
+    if jsTypeof cons = "function"
+    then map id res cons
+    else res // avoid extra copy
 
 let foldIndexed folder (state: 'State) (array: 'T[]) =
     // if isTypedArrayImpl array then
@@ -637,6 +644,15 @@ let sortByDescending (projection: 'a->'b) (xs: 'a[]) ([<Inject>] comparer: IComp
 let sortWith (comparer: 'T -> 'T -> int) (xs: 'T[]): 'T[] =
     sortInPlaceWith comparer (copyImpl xs)
 
+let allPairs (xs: 'T1[]) (ys: 'T2[]): ('T1 * 'T2)[] =
+    let len1 = xs.Length
+    let len2 = ys.Length
+    let res = allocateArray (len1 * len2)
+    for i = 0 to xs.Length-1 do
+        for j = 0 to ys.Length-1 do
+            res.[i * len2 + j] <- (xs.[i], ys.[j])
+    res
+
 let unfold<'T, 'State> (generator: 'State -> ('T*'State) option) (state: 'State): 'T[] =
     let res: 'T[] = [||]
     let rec loop state =
@@ -729,6 +745,11 @@ let exactlyOne (array: 'T[]) =
     if array.Length = 1 then array.[0]
     elif array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
     else invalidArg "array" "Input array too long"
+
+let tryExactlyOne (array: 'T[]) =
+    if array.Length = 1
+    then Some (array.[0])
+    else None
 
 let head (array: 'T[]) =
     if array.Length = 0 then invalidArg "array" LanguagePrimitives.ErrorStrings.InputArrayEmptyString

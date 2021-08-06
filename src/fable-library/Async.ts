@@ -7,7 +7,6 @@ import { protectedCont } from "./AsyncBuilder.js";
 import { protectedBind } from "./AsyncBuilder.js";
 import { protectedReturn } from "./AsyncBuilder.js";
 import { FSharpChoice$2, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
-import { map } from "./Seq.js";
 
 // Implemented just for type references
 export class Async<_T> { }
@@ -102,7 +101,7 @@ export function ignore<T>(computation: IAsync<T>) {
 }
 
 export function parallel<T>(computations: Iterable<IAsync<T>>) {
-  return awaitPromise(Promise.all(map((w) => startAsPromise(w), computations)));
+  return awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w))));
 }
 
 export function sleep(millisecondsDueTime: number) {

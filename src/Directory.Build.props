@@ -2,9 +2,23 @@
     <PropertyGroup>
         <PackageProjectUrl>http://fable.io</PackageProjectUrl>
         <RepositoryUrl>https://github.com/fable-compiler/Fable.git</RepositoryUrl>
-        <PackageLicense>https://raw.githubusercontent.com/fable-compiler/Fable/master/LICENSE</PackageLicense>
-        <PackageIconUrl>https://raw.githubusercontent.com/fable-compiler/Fable/master/docs/img/fable_logo.png</PackageIconUrl>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageIcon>fable_logo.png</PackageIcon>
         <PackageTags>fsharp;fable;javascript;f#;js</PackageTags>
         <Authors>Alfonso García-Caro Núñez</Authors>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+        <!-- For SourceLink. See: https://github.com/dotnet/sourcelink#using-source-link-in-net-projects -->
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     </PropertyGroup>
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)\..\fable_logo.png" Pack="true" Visible="false" PackagePath="" />
+        <None Include="$(MSBuildThisFileDirectory)\..\LICENSE" Pack="true" Visible="false" PackagePath=""/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+    </ItemGroup>
 </Project>

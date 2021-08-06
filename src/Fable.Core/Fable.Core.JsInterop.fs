@@ -58,8 +58,31 @@ let jsOptions<'T> (f: 'T->unit): 'T = jsNative
 /// Create an empty JS object: {}
 let createEmpty<'T> : 'T = jsNative
 
+/// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
+let toPlainJsObj(o: 'T): obj = jsNative
+
 /// Get the JS function constructor for class types
 let jsConstructor<'T> : obj = jsNative
+
+[<Emit("typeof $0")>]
+let jsTypeof (x: obj): string = jsNative
+
+[<Emit("$0 instanceof $1")>]
+let jsInstanceof (x: obj) (cons: obj): bool = jsNative
+
+[<Emit("this")>]
+let jsThis<'T> : 'T = jsNative
+
+[<Emit("$0 in $1")>]
+let jsIn (key: string) (target: obj): bool = jsNative
+
+/// Alias of `jsIn`
+[<Emit("$0 in $1")>]
+let isIn (key: string) (target: obj): bool = jsNative
+
+/// JS non-strict null checking
+[<Emit("$0 == null")>]
+let isNullOrUndefined (target: obj): bool = jsNative
 
 /// Makes an expression the default export for the JS module.
 /// Used to interact with JS tools that require a default export.
@@ -91,23 +114,8 @@ let importSideEffects (path: string): unit = jsNative
 let importDynamic<'T> (path: string): JS.Promise<'T> = jsNative
 
 /// Imports a reference from an external file dynamically at runtime
-/// ATTENTION: Needs fable-compiler 2.3, pass the reference directly in argument position (avoid pipes)
+/// ATTENTION: Pass the reference directly in argument position (avoid pipes)
 let importValueDynamic (x: 'T): JS.Promise<'T> = jsNative
-
-/// Used when you need to send an F# record to a JS library accepting only plain JS objects (POJOs)
-let toPlainJsObj(o: 'T): obj = jsNative
-
-/// Compiles to JS `this` keyword.
-///
-/// ## Sample
-///     jqueryMethod(fun x y -> jsThis?add(x, y))
-let [<Emit("this")>] jsThis<'T> : 'T = jsNative
-
-/// JS `in` operator
-let [<Emit("$0 in $1")>] isIn (key: string) (target: obj): bool = jsNative
-
-/// JS non-strict null checking
-let [<Emit("$0 == null")>] isNullOrUndefined (target: obj): bool = jsNative
 
 /// Use it when importing a constructor from a JS library.
 type [<AllowNullLiteral>] JsConstructor =

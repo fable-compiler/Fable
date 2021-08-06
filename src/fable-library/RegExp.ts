@@ -75,11 +75,25 @@ export function replace(
       limit--;
       const match: any = [];
       const len = arguments.length;
-      for (let i = 0; i < len - 2; i++) {
-        match.push(arguments[i]);
+      // arguments: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace#specifying_a_function_as_a_parameter
+      // * match: matched substring
+      // * p1, p2, ...: nth capture group string
+      // * offset: offset of matched substring
+      // * string: whole string examined
+      // * groups: named capturing groups
+      //           ONLY if regex contains a named capture group AND browser supports named groups
+      // -> last element can be groups OR input string
+      // -> check if last element is string
+      const withGroups = typeof arguments[len - 1] !== "string"
+      let pLast = withGroups ? len - 3 : len - 2;
+      for (let i = 0; i < pLast; i++) {
+        match.push(arguments[i])
       }
-      match.index = arguments[len - 2];
-      match.input = arguments[len - 1];
+      match.index = arguments[pLast++];
+      match.input = arguments[pLast++];
+      if (withGroups) {
+        match.groups = arguments[pLast];
+      }
       res = (replacement as MatchEvaluator)(match);
     }
     return res;
@@ -94,8 +108,13 @@ export function replace(
     limit = limit == null ? -1 : limit;
     return input.substring(0, offset) + input.substring(offset).replace(reg as RegExp, replacer);
   } else {
-    // $0 doesn't work with JS regex, see #1155
-    replacement = replacement.replace(/\$0/g, (_s) => "$&");
+    replacement =
+      replacement
+      // $0 doesn't work with JS regex, see #1155
+      .replace(/\$0/g, (_s) => "$&")
+      // named groups in replacement are `${name}` in .Net, but `$<name>` in JS (in regex: groups are `(?<name>...)` in both)
+      .replace(/\${([^}]+)}/g, "\$<$1>")
+      ;
     if (limit != null) {
       let m: RegExpExecArray;
       const sub1 = input.substring(offset);

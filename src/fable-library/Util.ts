@@ -79,6 +79,57 @@ export function sameConstructor<T>(x: T, y: T) {
   return Object.getPrototypeOf(x).constructor === Object.getPrototypeOf(y).constructor;
 }
 
+export interface IEnumerator<T> extends IDisposable {
+  ["System.Collections.Generic.IEnumerator`1.get_Current"](): T | undefined;
+  ["System.Collections.IEnumerator.get_Current"](): T | undefined;
+  ["System.Collections.IEnumerator.MoveNext"](): boolean;
+  ["System.Collections.IEnumerator.Reset"](): void;
+  Dispose(): void;
+}
+
+export interface IEnumerable<T> extends Iterable<T> {
+  GetEnumerator(): IEnumerator<T>;
+}
+
+export class Enumerator<T> implements IEnumerator<T> {
+  private current?: T;
+  constructor(private iter: Iterator<T>) { }
+  public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
+    return this.current;
+  }
+  public ["System.Collections.IEnumerator.get_Current"]() {
+    return this.current;
+  }
+  public ["System.Collections.IEnumerator.MoveNext"]() {
+    const cur = this.iter.next();
+    this.current = cur.value;
+    return !cur.done;
+  }
+  public ["System.Collections.IEnumerator.Reset"]() {
+    throw new Error("JS iterators cannot be reset");
+  }
+  public Dispose() {
+    return;
+  }
+}
+
+export function getEnumerator<T>(o: Iterable<T>): IEnumerator<T> {
+  return typeof (o as any).GetEnumerator === "function"
+    ? (o as IEnumerable<T>).GetEnumerator()
+    : new Enumerator(o[Symbol.iterator]());
+}
+
+export function toIterator<T>(en: IEnumerator<T>): IterableIterator<T> {
+  return {
+    [Symbol.iterator]() { return this; },
+    next() {
+      const hasNext = en["System.Collections.IEnumerator.MoveNext"]();
+      const current = hasNext ? en["System.Collections.IEnumerator.get_Current"]() : undefined;
+      return { done: !hasNext, value: current } as IteratorResult<T>;
+    },
+  };
+}
+
 export class Comparer<T> implements IComparer<T> {
   public Compare: (x: T, y: T) => number;
 
@@ -538,11 +589,7 @@ const CURRIED_KEY = "__CURRIED__";
 
 export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
-  if (f == null) { return undefined; }
-
-  // The function is already uncurried
-  if (f.length > 1) {
-    // if (CURRIED_KEY in f) { // This doesn't always work
+  if (f == null || f.length > 1) {
     return f;
   }
 
@@ -579,7 +626,9 @@ export function uncurry(arity: number, f: Function) {
 }
 
 export function curry(arity: number, f: Function): Function | undefined {
-  if (f == null) { return undefined; }
+  if (f == null || f.length === 1) {
+    return f;
+  }
   if (CURRIED_KEY in f) {
     return (f as any)[CURRIED_KEY];
   }
@@ -605,6 +654,12 @@ export function curry(arity: number, f: Function): Function | undefined {
     default:
       throw new Error("Currying to more than 8-arity is not supported: " + arity);
   }
+}
+
+export function checkArity(arity: number, f: Function): Function {
+  return f.length > arity
+    ? (...args1: any[]) => (...args2: any[]) => f.apply(undefined, args1.concat(args2))
+    : f;
 }
 
 export function partialApply(arity: number, f: Function, args: any[]): any {

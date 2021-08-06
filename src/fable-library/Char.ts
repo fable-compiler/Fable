@@ -1,35 +1,14 @@
-// Adapted from: https://github.com/hakatashi/general-category
-import * as Encoding from "./Encoding.js";
-import packedUnicode from "./Unicode.9.0.0.js";
-
-function decodeVByteToIntegerArray(buffer: Uint8Array) {
-  const ret = [];
-  let carried = 0;
-  let register = 0;
-  for (let i = 0; i < buffer.length; ++i) {
-    const byte = buffer[i] ^ 0xFF;
-    register += (byte & 127) << carried * 7;
-    carried++;
-    if ((byte & 128) !== 0) {
-      ret.push(register - 1);
-      carried = register = 0;
-    }
-  }
-  return ret;
-}
+import * as Unicode from "./Unicode.13.0.0.js";
 
 function getCategoryFunc() {
-  // unpack Unicode ranges and categories (delta encoded, vbyte encoded, utf8 encoded)
-  const unicodeBuffer = Encoding.get_UTF8().getBytes(packedUnicode);
-  const unicodeDeltas = decodeVByteToIntegerArray(unicodeBuffer);
-  const codepoints = new Uint32Array(unicodeDeltas.length / 2);
-  const categories = new Uint8Array(unicodeDeltas.length / 2);
-  const categoryEnum = new Uint8Array(
-    [14, 15, 29, 17, 16, 1, 3, 4, 2, 0, 6, 7, 5, 8, 9, 10, 18, 19, 21, 23, 22, 24, 20, 26, 27, 25, 28, 12, 13, 11]);
-  let currentCodepoint = 0;
-  for (let i = 0; i < unicodeDeltas.length; i += 2) {
-    codepoints[i / 2] = (currentCodepoint += unicodeDeltas[i]);
-    categories[i / 2] = unicodeDeltas[i + 1];
+  // unpack Unicode codepoint ranges (delta encoded) and general categories
+  const offset = 35; // offsets unprintable characters
+  const a1 = [...Unicode.rangeDeltas].map((ch) => (ch.codePointAt(0) ?? 0) - offset);
+  const a2 = [...Unicode.categories].map((ch) => (ch.codePointAt(0) ?? 0) - offset);
+  const codepoints = new Uint32Array(a1);
+  const categories = new Uint8Array(a2);
+  for (let i = 1; i < codepoints.length; ++i) {
+    codepoints[i] += codepoints[i - 1];
   }
   // binary search in unicode ranges
   return (cp: number) => {
@@ -47,41 +26,41 @@ function getCategoryFunc() {
         lo = mid;
       }
     }
-    return categoryEnum[categories[lo]];
+    return categories[lo];
   };
 }
 
 export const enum UnicodeCategory {
-  Control = 14,
-  Format = 15,
-  OtherNotAssigned = 29,
-  PrivateUse = 17,
-  Surrogate = 16,
-  LowercaseLetter = 1,
-  ModifierLetter = 3,
-  OtherLetter = 4,
-  TitlecaseLetter = 2,
-  UppercaseLetter = 0,
-  SpacingCombiningMark = 6,
-  EnclosingMark = 7,
-  NonSpacingMark = 5,
-  DecimalDigitNumber = 8,
-  LetterNumber = 9,
-  OtherNumber = 10,
-  ConnectorPunctuation = 18,
-  DashPunctuation = 19,
-  ClosePunctuation = 21,
-  FinalQuotePunctuation = 23,
-  InitialQuotePunctuation = 22,
-  OtherPunctuation = 24,
-  OpenPunctuation = 20,
-  CurrencySymbol = 26,
-  ModifierSymbol = 27,
-  MathSymbol = 25,
-  OtherSymbol = 28,
-  LineSeparator = 12,
-  ParagraphSeparator = 13,
-  SpaceSeparator = 11,
+  UppercaseLetter,
+  LowercaseLetter,
+  TitlecaseLetter,
+  ModifierLetter,
+  OtherLetter,
+  NonSpacingMark,
+  SpacingCombiningMark,
+  EnclosingMark,
+  DecimalDigitNumber,
+  LetterNumber,
+  OtherNumber,
+  SpaceSeparator,
+  LineSeparator,
+  ParagraphSeparator,
+  Control,
+  Format,
+  Surrogate,
+  PrivateUse,
+  ConnectorPunctuation,
+  DashPunctuation,
+  OpenPunctuation,
+  ClosePunctuation,
+  InitialQuotePunctuation,
+  FinalQuotePunctuation,
+  OtherPunctuation,
+  MathSymbol,
+  CurrencySymbol,
+  ModifierSymbol,
+  OtherSymbol,
+  OtherNotAssigned,
 }
 
 const isControlMask = 1 << UnicodeCategory.Control;

@@ -52,10 +52,12 @@ Commands:
 Arguments:
   --cwd             Working directory
   -o|--outDir       Redirect compilation output to a directory
-  --extension       Extension for generated JS files (default .fs.js)
+  -e|--extension    Extension for generated JS files (default .fs.js)
   -s|--sourceMaps   Enable source maps
 
   --define          Defines a symbol for use in conditional compilation
+  --configuration   The configuration to use when parsing .fsproj with MSBuild,
+                    default is 'Debug' in watch mode, or 'Release' otherwise
   --verbose         Print more info during compilation
   --typedArrays     Compile numeric arrays as JS typed arrays (default true)
 
@@ -67,12 +69,13 @@ Arguments:
 
   --yes             Automatically reply 'yes' (e.g. with `clean` command)
   --noRestore       Skip `dotnet restore`
-  --forcePkgs       Force a new copy of package sources into `.fable` folder
+  --noCache         Recompile all files, including sources from packages
   --exclude         Don't merge sources of referenced projects with specified pattern
                     (Intended for plugin development)
+  --sourceMapsRoot  Set the value of the `sourceRoot` property in generated source maps
 
   --optimize        Compile with optimized F# AST (experimental)
-  --typescript      Compile to TypeScript (experimental)
+  --lang|--language Compile to JavaScript (default) or TypeScript (experimental)
 
   Environment variables:
    DOTNET_USE_POLLING_FILE_WATCHER
@@ -81,15 +84,26 @@ Arguments:
    Docker mounted volumes, and other virtual file systems.
 """
 
-let defaultFileExt isTypescript args =
+let defaultFileExt language args =
     let fileExt =
         match argValueMulti ["-o"; "--outDir"] args with
         | Some _ -> ".js"
         | None -> CompilerOptionsHelper.DefaultExtension
-    if isTypescript then Path.replaceExtension ".ts" fileExt else fileExt
+    match language with
+        | TypeScript -> Path.replaceExtension ".ts" fileExt
+        | _ -> fileExt
+
+let argLanguage args =
+    argValue "--lang" args
+    |> Option.orElse (argValue "--language" args)
+    |> Option.orElse (tryFlag "--typescript" args |> Option.map (fun _ -> "typescript")) // Compatibility with "--typescript".
+    |> Option.defaultValue "JavaScript"
+    |> (function
+    | "ts" | "typescript" | "TypeScript" -> TypeScript
+    | _ -> JavaScript)
 
 type Runner =
-  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch, ?testInfo) =
+  static member Run(args: string list, rootDir: string, runProc: RunProcess option, ?fsprojPath: string, ?watch) =
     let normalizeAbsolutePath (path: string) =
         (if IO.Path.IsPathRooted(path) then path
          else IO.Path.Combine(rootDir, path))
@@ -120,35 +134,42 @@ type Runner =
 
     // TODO: Remove this check when typed arrays are compatible with typescript
     |> Result.bind (fun projFile ->
-        let typescript = flagEnabled "--typescript" args
+        let language = argLanguage args
         let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
-        if typescript && typedArrays then
+        if language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
         else
-            Ok(projFile, typescript, typedArrays)
+            Ok(projFile, language, typedArrays)
     )
 
-    |> Result.bind (fun (projFile, typescript, typedArrays) ->
+    |> Result.bind (fun (projFile, language, typedArrays) ->
         let verbosity =
             if flagEnabled "--verbose" args then
                 Log.makeVerbose()
                 Verbosity.Verbose
             else Verbosity.Normal
 
+        let configuration =
+            let defaultConfiguration = if watch then "Debug" else "Release"
+            match argValue "--configuration" args with
+            | None -> defaultConfiguration
+            | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
+            | Some configurationArg -> configurationArg
+
         let define =
             argValues "--define" args
             |> List.append [
                 "FABLE_COMPILER"
                 "FABLE_COMPILER_3"
-                if watch then "DEBUG"
             ]
             |> List.distinct
 
         let fileExt =
-            argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
+            argValueMulti ["-e"; "--extension"] args
+            |> Option.defaultValue (defaultFileExt language args)
 
         let compilerOptions =
-            CompilerOptionsHelper.Make(typescript = typescript,
+            CompilerOptionsHelper.Make(language=language,
                                        typedArrays = typedArrays,
                                        fileExtension = fileExt,
                                        define = define,
@@ -159,10 +180,12 @@ type Runner =
             { ProjectFile = Path.normalizeFullPath projFile
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
+              Configuration = configuration
               OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
               SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
-              ForcePkgs = flagEnabled "--forcePkgs" args
+              SourceMapsRoot = argValue "--sourceMapsRoot" args
               NoRestore = flagEnabled "--noRestore" args
+              NoCache = flagEnabled "--noCache" args || flagEnabled "--forcePkgs" args // backwards compatibility
               Exclude = argValue "--exclude" args
               Replace =
                 argValues "--replace" args
@@ -173,23 +196,22 @@ type Runner =
               RunProcess = runProc
               CompilerOptions = compilerOptions }
 
-        { CliArgs = cliArgs
-          ProjectCrackedAndParsed = None
-          WatchDependencies = Map.empty
-          Watcher = if watch then Some(FsWatcher()) else None
-          DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
-          FableCompilationMs = 0L
-          ErroredFiles = Set.empty
-          TestInfo = testInfo }
+        State.Create(cliArgs, isWatch=watch)
         |> startFirstCompilation
         |> Async.RunSynchronously)
 
-
 let clean args dir =
-    let typescript = flagEnabled "--typescript" args
+    let language = argLanguage args
     let ignoreDirs = set ["bin"; "obj"; "node_modules"]
+
     let fileExt =
-        argValue "--extension" args |> Option.defaultValue (defaultFileExt typescript args)
+        argValueMulti ["-e"; "--extension"] args
+        |> Option.defaultValue (defaultFileExt language args)
+
+    let dir =
+        argValueMulti ["-o"; "--outDir"] args
+        |> Option.defaultValue dir
+        |> IO.Path.GetFullPath
 
     // clean is a potentially destructive operation, we need a permission before proceeding
     Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, dir)
@@ -263,7 +285,7 @@ let main argv =
 
         match argv with
         | ("help"|"--help"|"-h")::_ -> return printHelp()
-        | ("--version")::_ -> return Log.always Literals.VERSION
+        | "--version"::_ -> return Log.always Literals.VERSION
         | argv ->
             let commands, args =
                 argv |> List.splitWhile (fun x ->
@@ -272,13 +294,12 @@ let main argv =
             match commands with
             | ["clean"; dir] -> return clean args dir
             | ["clean"] -> return clean args rootDir
-            | ["test"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, testInfo=TestInfo())
             | ["watch"; path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=true)
             | ["watch"] -> return! Runner.Run(args, rootDir, runProc, watch=true)
             | [path] -> return! Runner.Run(args, rootDir, runProc, fsprojPath=path, watch=flagEnabled "--watch" args)
             | [] -> return! Runner.Run(args, rootDir, runProc, watch=flagEnabled "--watch" args)
-            | _ -> return Log.always "Unexpected arguments. Use `fable --help` to see available options."
+            | _ -> return! Error "Unexpected arguments. Use `fable --help` to see available options."
     }
     |> function
         | Ok _ -> 0
-        | Error msg -> Log.always msg; 1
+        | Error msg -> Log.error msg; 1

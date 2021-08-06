@@ -1,304 +1,498 @@
-module List
+module ListModule
 
-// Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
-#nowarn "1204"
-
-open System.Collections.Generic
 open Fable.Core
 
-[<Import("List", "${outDir}/Types.js"); EmitConstructor>]
-let private newList ([<ParamList>] args: obj list): 'a list = jsNative
+module SR =
+    let indexOutOfBounds = "The index was outside the range of elements in the list."
+    let inputListWasEmpty = "List was empty"
+    let inputMustBeNonNegative = "The input must be non-negative."
+    let inputSequenceEmpty = "The input sequence was empty."
+    let inputSequenceTooLong = "The input sequence contains more than one element."
+    let keyNotFoundAlt = "An index satisfying the predicate was not found in the collection."
+    let listsHadDifferentLengths = "The lists had different lengths."
+    let notEnoughElements = "The input sequence has an insufficient number of elements."
 
-let empty<'a> : 'a list = newList []
-let singleton (x: 'a): 'a list = newList [x; empty]
-let cons (x: 'a) (xs: 'a list): 'a list = newList [x; xs]
+[<CustomEquality; CustomComparison>]
+[<CompiledName("FSharpList")>]
+type LinkedList<'T when 'T: comparison> =
+    { head: 'T; mutable tail: LinkedList<'T> option }
 
-let head = function
-    | x::_ -> x
-    | _ -> failwith "List was empty"
+    static member Empty: 'T list = { head = Unchecked.defaultof<'T>; tail = None }
+    static member Cons (x: 'T, xs: 'T list) = { head = x; tail = Some xs }
 
-let tryHead = function
-    | x::_ -> Some x
-    | _ -> None
+    static member inline internal ConsNoTail (x: 'T) = { head = x; tail = None }
+    member inline internal xs.SetConsTail (t: 'T list) = xs.tail <- Some t
+    member inline internal xs.AppendConsNoTail (x: 'T) =
+        let t = List.ConsNoTail x
+        xs.SetConsTail t
+        t
 
-let tail = function
-    | _::xs -> xs
-    | _ -> failwith "List was empty"
+    member xs.IsEmpty = xs.tail.IsNone
 
-let rec last = function
-    | [] -> failwith "List was empty"
-    | [x] -> x
-    | _::xs -> last xs
+    member xs.Length =
+        let rec loop i xs =
+            match xs.tail with
+            | None -> i
+            | Some t -> loop (i + 1) t
+        loop 0 xs
 
-let rec tryLast = function
-    | [] -> None
-    | [x] -> Some x
-    | _::xs -> tryLast xs
+    member xs.Head =
+        match xs.tail with
+        | None -> invalidArg "list" SR.inputListWasEmpty
+        | Some _ -> xs.head
+
+    member xs.Tail =
+        match xs.tail with
+        | None -> invalidArg "list" SR.inputListWasEmpty
+        | Some t -> t
+
+    member xs.Item with get (index) =
+        let rec loop i xs =
+            match xs.tail with
+            | None -> invalidArg "index" SR.indexOutOfBounds
+            | Some t ->
+                if i = index then xs.head
+                else loop (i + 1) t
+        loop 0 xs
+
+    override xs.ToString() =
+        "[" + System.String.Join("; ", xs) + "]"
+
+    override xs.Equals(other: obj) =
+        if obj.ReferenceEquals(xs, other)
+        then true
+        else
+            let ys = other :?> 'T list
+            let rec loop xs ys =
+                match xs.tail, ys.tail with
+                | None, None -> true
+                | None, Some _ -> false
+                | Some _, None -> false
+                | Some xt, Some yt ->
+                    if xs.head = ys.head
+                    then loop xt yt
+                    else false
+            loop xs ys
+
+    override xs.GetHashCode() =
+        let inline combineHash i x y = (x <<< 1) + y + 631 * i
+        let iMax = 18 // limit the hash
+        let rec loop i h (xs: 'T list) =
+            match xs.tail with
+            | None -> h
+            | Some t ->
+                if i > iMax then h
+                else loop (i + 1) (combineHash i h (hash xs.head)) t
+        loop 0 0 xs
+
+    interface IJsonSerializable with
+        member this.toJSON(_key) =
+            JS.Constructors.Array.from(this) |> box
+
+    interface System.IComparable with
+        member xs.CompareTo(other: obj) =
+            let ys = other :?> 'T list
+            let rec loop xs ys =
+                match xs.tail, ys.tail with
+                | None, None -> 0
+                | None, Some _ -> -1
+                | Some _, None -> 1
+                | Some xt, Some yt ->
+                    let c = compare xs.head ys.head
+                    if c = 0 then loop xt yt else c
+            loop xs ys
+
+    interface System.Collections.Generic.IEnumerable<'T> with
+        member xs.GetEnumerator(): System.Collections.Generic.IEnumerator<'T> =
+            new ListEnumerator<'T>(xs) :> System.Collections.Generic.IEnumerator<'T>
+
+    interface System.Collections.IEnumerable with
+        member xs.GetEnumerator(): System.Collections.IEnumerator =
+            ((xs :> System.Collections.Generic.IEnumerable<'T>).GetEnumerator() :> System.Collections.IEnumerator)
+
+and ListEnumerator<'T when 'T: comparison>(xs: 'T list) =
+    let mutable it = xs
+    let mutable current = Unchecked.defaultof<'T>
+    interface System.Collections.Generic.IEnumerator<'T> with
+        member __.Current = current
+    interface System.Collections.IEnumerator with
+        member __.Current = box (current)
+        member __.MoveNext() =
+            match it.tail with
+            | None -> false
+            | Some t ->
+                current <- it.head
+                it <- t
+                true
+        member __.Reset() =
+            it <- xs
+            current <- Unchecked.defaultof<'T>
+    interface System.IDisposable with
+        member __.Dispose() = ()
+
+and 'T list when 'T: comparison = LinkedList<'T>
+and List<'T> when 'T: comparison = LinkedList<'T>
+
+// [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+// [<RequireQualifiedAccess>]
+// module List =
+
+let inline indexNotFound() = raise (System.Collections.Generic.KeyNotFoundException(SR.keyNotFoundAlt))
+
+let empty () = List.Empty
+
+let cons (x: 'T) (xs: 'T list) = List.Cons(x, xs)
+
+let singleton x = List.Cons(x, List.Empty)
+
+let isEmpty (xs: 'T list) = xs.IsEmpty
+
+let length (xs: 'T list) = xs.Length
+
+let head (xs: 'T list) = xs.Head
+
+let tryHead (xs: 'T list) =
+    if xs.IsEmpty then None
+    else Some xs.Head
+
+let tail (xs: 'T list) = xs.Tail
+
+let rec tryLast (xs: 'T list) =
+    if xs.IsEmpty then None
+    else
+        let t = xs.Tail
+        if t.IsEmpty then Some xs.Head
+        else tryLast t
+
+let last (xs: 'T list) =
+    match tryLast xs with
+    | Some x -> x
+    | None -> failwith SR.inputListWasEmpty
 
 let compareWith (comparer: 'T -> 'T -> int) (xs: 'T list) (ys: 'T list): int =
-    if obj.ReferenceEquals(xs, ys)
-    then 0
-    else
-        let rec loop xs ys =
-            match xs, ys with
-            | [], [] -> 0
-            | [], _ -> -1
-            | _, [] -> 1
-            | x::xs, y::ys ->
-                match comparer x y with
-                | 0 -> loop xs ys
-                | res -> res
-        loop xs ys
+    let rec loop (xs: 'T list) (ys: 'T list) =
+        match xs.IsEmpty, ys.IsEmpty with
+        | true, true -> 0
+        | true, false -> -1
+        | false, true -> 1
+        | false, false ->
+            let c = comparer xs.Head ys.Head
+            if c = 0 then loop xs.Tail ys.Tail else c
+    loop xs ys
 
-let rec foldIndexedAux f i acc = function
-    | [] -> acc
-    | x::xs -> foldIndexedAux f (i+1) (f i acc x) xs
-
-let foldIndexed<'a,'acc> f (state: 'acc) (xs: 'a list) =
-    foldIndexedAux f 0 state xs
-
-let rec fold<'a,'acc> f (state: 'acc) (xs: 'a list) =
-    match xs with
-    | [] -> state
-    | h::t -> fold f (f state h) t
-
-let reverse xs =
-    fold (fun acc x -> x::acc) [] xs
-
-let foldBack<'a,'acc> f (xs: 'a list) (state: 'acc) =
-    fold (fun acc x -> f x acc) state (reverse xs)
-
-let toSeq (xs: 'a list): 'a seq =
-    Seq.map id xs
-
-let ofSeq (xs: 'a seq): 'a list =
-    Seq.fold (fun acc x -> x::acc) [] xs
-    |> reverse
-
-let concat (lists: seq<'a list>) =
-    Seq.fold (fold (fun acc x -> x::acc)) [] lists
-    |> reverse
-
-let rec foldIndexed2Aux f i acc bs cs =
-    match bs, cs with
-    | [], [] -> acc
-    | x::xs, y::ys -> foldIndexed2Aux f (i+1) (f i acc x y) xs ys
-    | _ -> invalidOp "Lists had different lengths"
-
-let foldIndexed2<'a, 'b, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) =
-    foldIndexed2Aux f 0 state xs ys
-
-let fold2<'a, 'b, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) =
-    Seq.fold2 f state xs ys
-
-let foldBack2<'a, 'b, 'acc> f (xs: 'a list) (ys: 'b list) (state: 'acc) =
-    Seq.foldBack2 f xs ys state
-
-let unfold f state =
-    let rec unfoldInner acc state =
-        match f state with
-        | None -> reverse acc
-        | Some (x,state) -> unfoldInner (x::acc) state
-    unfoldInner [] state
-
-let rec foldIndexed3Aux f i acc bs cs ds =
-    match bs, cs, ds with
-    | [], [], [] -> acc
-    | x::xs, y::ys, z::zs -> foldIndexed3Aux f (i+1) (f i acc x y z) xs ys zs
-    | _ -> invalidOp "Lists had different lengths"
-
-let foldIndexed3<'a, 'b, 'c, 'acc> f (seed: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
-    foldIndexed3Aux f 0 seed xs ys zs
-
-let fold3<'a, 'b, 'c, 'acc> f (state: 'acc) (xs: 'a list) (ys: 'b list) (zs: 'c list) =
-    foldIndexed3 (fun _ acc x y z -> f acc x y z) state xs ys zs
-
-let scan<'a, 'acc> f (state: 'acc) (xs: 'a list) =
-    Seq.scan f state xs |> ofSeq
-
-let scanBack<'a, 'acc> f (xs: 'a list) (state: 'acc) =
-    Seq.scanBack f xs state |> ofSeq
-
-let length xs =
-    fold (fun acc _ -> acc + 1) 0 xs
-
-let append xs ys =
-    fold (fun acc x -> x::acc) ys (reverse xs)
-
-let collect (f: 'a -> 'b list) (xs: 'a list) =
-    Seq.collect f xs |> ofSeq
-
-let map f xs =
-    fold (fun acc x -> f x::acc) [] xs
-    |> reverse
-
-let mapIndexed f xs =
-    foldIndexed (fun i acc x -> f i x::acc) [] xs
-    |> reverse
-
-let indexed xs =
-    mapIndexed (fun i x -> (i,x)) xs
-
-let map2 f xs ys =
-    fold2 (fun acc x y -> f x y::acc) [] xs ys
-    |> reverse
-
-let mapIndexed2 f xs ys =
-    foldIndexed2 (fun i acc x y  -> f i x y:: acc) [] xs ys
-    |> reverse
-
-let map3 f xs ys zs =
-    fold3 (fun acc x y z -> f x y z::acc) [] xs ys zs
-    |> reverse
-
-let mapIndexed3 f xs ys zs =
-    foldIndexed3 (fun i acc x y z -> f i x y z:: acc) [] xs ys zs
-    |> reverse
-
-let mapFold (f: 'S -> 'T -> 'R * 'S) s xs =
-    let foldFn (nxs, fs) x =
-        let nx, fs = f fs x
-        nx::nxs, fs
-    let nxs, s = fold foldFn ([], s) xs
-    reverse nxs, s
-
-let mapFoldBack (f: 'T -> 'S -> 'R * 'S) xs s =
-    mapFold (fun s v -> f v s) s (reverse xs)
-
-let iterate f xs =
-    fold (fun () x -> f x) () xs
-
-let iterate2 f xs ys =
-    fold2 (fun () x y -> f x y) () xs ys
-
-let iterateIndexed f xs =
-    foldIndexed (fun i () x -> f i x) () xs
-
-let iterateIndexed2 f xs ys =
-    foldIndexed2 (fun i () x y -> f i x y) () xs ys
-
-let ofArrayWithTail (xs: IList<'T>) (tail: 'T list) =
-    let mutable res = tail
-    for i = xs.Count - 1 downto 0 do
-        res <- xs.[i]::res
+let toArray (xs: 'T list) =
+    let len = xs.Length
+    let res = Array.zeroCreate len
+    let rec loop i (xs: 'T list) =
+        if not xs.IsEmpty then
+            res.[i] <- xs.Head
+            loop (i + 1) xs.Tail
+    loop 0 xs
     res
 
-let ofArray (xs: IList<'T>) =
-    // Array.foldBack (fun x acc -> x::acc) xs []
-    ofArrayWithTail xs []
+// let rec fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+//     if xs.IsEmpty then state
+//     else fold folder (folder state xs.Head) xs.Tail
 
-let isEmpty = function
-    | [] -> true
-    | _ -> false
+let fold (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    let mutable acc = state
+    let mutable xs = xs
+    while not xs.IsEmpty do
+        acc <- folder acc xs.Head
+        xs <- xs.Tail
+    acc
 
-let rec tryPickIndexedAux f i = function
-    | [] -> None
-    | x::xs ->
-        let result = f i x
-        match result with
-        | Some _ -> result
-        | None -> tryPickIndexedAux f (i+1) xs
+let reverse (xs: 'T list) =
+    fold (fun acc x -> List.Cons(x, acc)) List.Empty xs
 
-let tryPickIndexed f xs =
-    tryPickIndexedAux f 0 xs
+let foldBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+    // fold (fun acc x -> folder x acc) state (reverse xs)
+    Array.foldBack folder (toArray xs) state
+
+let foldIndexed (folder: int -> 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    let rec loop i acc (xs: 'T list) =
+        if xs.IsEmpty then acc
+        else loop (i + 1) (folder i acc xs.Head) xs.Tail
+    loop 0 state xs
+
+// let rec fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
+//     if xs.IsEmpty || ys.IsEmpty then state
+//     else fold2 folder (folder state xs.Head ys.Head) xs.Tail ys.Tail
+
+let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 list) (ys: 'T2 list) =
+    let mutable acc = state
+    let mutable xs = xs
+    let mutable ys = ys
+    while not xs.IsEmpty && not ys.IsEmpty do
+        acc <- folder acc xs.Head ys.Head
+        xs <- xs.Tail
+        ys <- ys.Tail
+    acc
+
+let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 list) (ys: 'T2 list) (state: 'State) =
+    // fold2 (fun acc x y -> folder x y acc) state (reverse xs) (reverse ys)
+    Array.foldBack2 folder (toArray xs) (toArray ys) state
+
+let unfold (gen: 'State -> ('T * 'State) option) (state: 'State) =
+    let rec loop acc (node: 'T list) =
+        match gen acc with
+        | None -> node
+        | Some (x, acc) -> loop acc (node.AppendConsNoTail x)
+    let root = List.Empty
+    let node = loop state root
+    node.SetConsTail List.Empty
+    root.Tail
+
+let iterate action xs =
+    fold (fun () x -> action x) () xs
+
+let iterate2 action xs ys =
+    fold2 (fun () x y -> action x y) () xs ys
+
+let iterateIndexed action xs =
+    fold (fun i x -> action i x; i + 1) 0 xs |> ignore
+
+let iterateIndexed2 action xs ys =
+    fold2 (fun i x y -> action i x y; i + 1) 0 xs ys |> ignore
+
+let toSeq (xs: 'T list): 'T seq =
+    xs :> System.Collections.Generic.IEnumerable<'T>
+
+let ofArrayWithTail (xs: 'T[]) (tail: 'T list) =
+    let mutable res = tail
+    for i = xs.Length - 1 downto 0 do
+        res <- List.Cons(xs.[i], res)
+    res
+
+let ofArray (xs: 'T[]) =
+    ofArrayWithTail xs List.Empty
+
+let ofSeq (xs: seq<'T>): 'T list =
+    match xs with
+    | :? array<'T> as xs -> ofArray xs
+    | :? list<'T> as xs -> xs
+    | _ ->
+        let root = List.Empty
+        let mutable node = root
+        for x in xs do
+            node <- node.AppendConsNoTail x
+        node.SetConsTail List.Empty
+        root.Tail
+
+let concat (lists: seq<'T list>) =
+    let root = List.Empty
+    let mutable node = root
+    let action xs = node <- fold (fun acc x -> acc.AppendConsNoTail x) node xs
+    match lists with
+    | :? array<'T list> as xs -> Array.iter action xs
+    | :? list<'T list> as xs -> iterate action xs
+    | _ -> for xs in lists do action xs
+    node.SetConsTail List.Empty
+    root.Tail
+
+let scan (folder: 'State -> 'T -> 'State) (state: 'State) (xs: 'T list) =
+    let root = List.Empty
+    let mutable node = root.AppendConsNoTail state
+    let mutable acc = state
+    let mutable xs = xs
+    while not xs.IsEmpty do
+        acc <- folder acc xs.Head
+        node <- node.AppendConsNoTail acc
+        xs <- xs.Tail
+    node.SetConsTail List.Empty
+    root.Tail
+
+let scanBack (folder: 'T -> 'State -> 'State) (xs: 'T list) (state: 'State) =
+    Array.scanBack folder (toArray xs) state
+    |> ofArray
+
+let append (xs: 'T list) (ys: 'T list) =
+    fold (fun acc x -> List.Cons(x, acc)) ys (reverse xs)
+
+let collect (mapping: 'T -> 'U list) (xs: 'T list) =
+    let root = List.Empty
+    let mutable node = root
+    let mutable ys = xs
+    while not ys.IsEmpty do
+        let mutable zs = mapping ys.Head
+        while not zs.IsEmpty do
+            node <- node.AppendConsNoTail zs.Head
+            zs <- zs.Tail
+        ys <- ys.Tail
+    node.SetConsTail List.Empty
+    root.Tail
+
+let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
+    let root = List.Empty
+    let folder i (acc: 'U list) x = acc.AppendConsNoTail (mapping i x)
+    let node = foldIndexed folder root xs
+    node.SetConsTail List.Empty
+    root.Tail
+
+let map (mapping: 'T -> 'U) (xs: 'T list) =
+    let root = List.Empty
+    let folder (acc: 'U list) x = acc.AppendConsNoTail (mapping x)
+    let node = fold folder root xs
+    node.SetConsTail List.Empty
+    root.Tail
+
+let indexed xs =
+    mapIndexed (fun i x -> (i, x)) xs
+
+let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
+    let root = List.Empty
+    let folder (acc: 'U list) x y = acc.AppendConsNoTail (mapping x y)
+    let node = fold2 folder root xs ys
+    node.SetConsTail List.Empty
+    root.Tail
+
+let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
+    let rec loop i (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) =
+        if xs.IsEmpty || ys.IsEmpty then acc
+        else
+            let node = acc.AppendConsNoTail (mapping i xs.Head ys.Head)
+            loop (i + 1) node xs.Tail ys.Tail
+    let root = List.Empty
+    let node = loop 0 root xs ys
+    node.SetConsTail List.Empty
+    root.Tail
+
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
+    let rec loop (acc: 'U list) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
+        if xs.IsEmpty || ys.IsEmpty || zs.IsEmpty then acc
+        else
+            let node = acc.AppendConsNoTail (mapping xs.Head ys.Head zs.Head)
+            loop node xs.Tail ys.Tail zs.Tail
+    let root = List.Empty
+    let node = loop root xs ys zs
+    node.SetConsTail List.Empty
+    root.Tail
+
+let mapFold (mapping: 'State -> 'T -> 'Result * 'State) (state: 'State) (xs: 'T list) =
+    let folder (node: 'Result list, st) x =
+        let r, st = mapping st x
+        node.AppendConsNoTail r, st
+    let root = List.Empty
+    let node, state = fold folder (root, state) xs
+    node.SetConsTail List.Empty
+    root.Tail, state
+
+let mapFoldBack (mapping: 'T -> 'State -> 'Result * 'State) (xs: 'T list) (state: 'State) =
+    mapFold (fun acc x -> mapping x acc) state (reverse xs)
 
 let tryPick f xs =
-    tryPickIndexed (fun _ x -> f x) xs
+    let rec loop (xs: 'T list) =
+        if xs.IsEmpty then None
+        else
+            match f xs.Head with
+            | Some _  as res -> res
+            | None -> loop xs.Tail
+    loop xs
 
 let pick f xs =
     match tryPick f xs with
-    | None -> invalidOp "List did not contain any matching elements"
     | Some x -> x
-
-let tryFindIndexed f xs =
-    tryPickIndexed (fun i x -> if f i x then Some x else None) xs
+    | None -> indexNotFound()
 
 let tryFind f xs =
-    tryPickIndexed (fun _ x -> if f x then Some x else None) xs
-
-let findIndexed f xs =
-    match tryFindIndexed f xs with
-    | None -> invalidOp "List did not contain any matching elements"
-    | Some x -> x
+    tryPick (fun x -> if f x then Some x else None) xs
 
 let find f xs =
-    findIndexed (fun _ x -> f x) xs
-
-let findBack f xs =
-    xs |> reverse |> find f
+    match tryFind f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
 let tryFindBack f xs =
-    xs |> reverse |> tryFind f
+    xs |> toArray |> Array.tryFindBack f
+
+let findBack f xs =
+    match tryFindBack f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
 let tryFindIndex f xs: int option =
-    tryPickIndexed (fun i x -> if f x then Some i else None) xs
-
-let tryFindIndexBack f xs: int option =
-    List.toArray xs
-    |> Array.tryFindIndexBack f
+    let rec loop i (xs: 'T list) =
+        if xs.IsEmpty then None
+        else
+            if f xs.Head
+            then Some i
+            else loop (i + 1) xs.Tail
+    loop 0 xs
 
 let findIndex f xs: int =
     match tryFindIndex f xs with
-    | None -> invalidOp "List did not contain any matching elements"
     | Some x -> x
+    | None -> indexNotFound()
+
+let tryFindIndexBack f xs: int option =
+    xs |> toArray |> Array.tryFindIndexBack f
 
 let findIndexBack f xs: int =
-    List.toArray xs
-    |> Array.findIndexBack f
+    match tryFindIndexBack f xs with
+    | Some x -> x
+    | None -> indexNotFound()
 
-let item n xs =
-    findIndexed (fun i _ -> n = i) xs
+let tryItem n (xs: 'T list) =
+    let rec loop i (xs: 'T list) =
+        if xs.IsEmpty then None
+        else
+            if i = n then Some xs.Head
+            else loop (i + 1) xs.Tail
+    loop 0 xs
 
-let tryItem n xs =
-    tryFindIndexed (fun i _ -> n = i) xs
+let item n (xs: 'T list) = xs.Item(n)
 
-let filter f xs =
-    fold (fun acc x ->
-        if f x then x::acc
-        else acc) [] xs |> reverse
+let filter f (xs: 'T list) =
+    let root = List.Empty
+    let folder (acc: 'T list) x =
+        if f x then acc.AppendConsNoTail x else acc
+    let node = fold folder root xs
+    node.SetConsTail List.Empty
+    root.Tail
 
-let partition f xs =
-    fold (fun (lacc, racc) x ->
-        if f x then x::lacc, racc
-        else lacc,x::racc) ([],[]) (reverse xs)
+let partition f (xs: 'T list) =
+    let root1, root2 = List.Empty, List.Empty
+    let folder (lacc: 'T list, racc: 'T list) x =
+        if f x
+        then lacc.AppendConsNoTail x, racc
+        else lacc, racc.AppendConsNoTail x
+    let node1, node2 = fold folder (root1, root2) xs
+    node1.SetConsTail List.Empty
+    node2.SetConsTail List.Empty
+    root1.Tail, root2.Tail
 
-let choose f xs =
-    fold (fun acc x ->
+let choose f (xs: 'T list) =
+    let root = List.Empty
+    let folder (acc: 'T list) x =
         match f x with
-        | Some y -> y:: acc
-        | None -> acc) [] xs |> reverse
+        | Some y -> acc.AppendConsNoTail y
+        | None -> acc
+    let node = fold folder root xs
+    node.SetConsTail List.Empty
+    root.Tail
 
-let contains<'T> (value: 'T) (list: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
-    let rec loop xs =
-        match xs with
-        | [] -> false
-        | v::rest ->
-            if eq.Equals (value, v)
-            then true
-            else loop rest
-    loop list
+let contains (value: 'T) (xs: 'T list) ([<Inject>] eq: System.Collections.Generic.IEqualityComparer<'T>) =
+    tryFindIndex (fun v -> eq.Equals (value, v)) xs
+    |> Option.isSome
 
-let except (itemsToExclude: seq<'t>) (array: 't list) ([<Inject>] eq: IEqualityComparer<'t>): 't list =
-    if isEmpty array then array
-    else
-        let cached = HashSet(itemsToExclude, eq)
-        array |> filter cached.Add
-
-let initialize n f =
-    let mutable xs = []
-    for i = 0 to n-1 do xs <- (f i)::xs
-    reverse xs
+let initialize n (f: int -> 'T) =
+    let root = List.Empty
+    let mutable node = root
+    for i = 0 to n - 1 do
+        node <- node.AppendConsNoTail (f i)
+    node.SetConsTail List.Empty
+    root.Tail
 
 let replicate n x =
     initialize n (fun _ -> x)
 
-let reduce f = function
-    | [] -> invalidOp "List was empty"
-    | h::t -> fold f h t
+let reduce f (xs: 'T list) =
+    if xs.IsEmpty then invalidOp SR.inputListWasEmpty
+    else fold f (head xs) (tail xs)
 
-let reduceBack f = function
-    | [] -> invalidOp "List was empty"
-    | h::t -> foldBack f t h
+let reduceBack f (xs: 'T list) =
+    if xs.IsEmpty then invalidOp SR.inputListWasEmpty
+    else foldBack f (tail xs) (head xs)
 
 let forAll f xs =
     fold (fun acc x -> acc && f x) true xs
@@ -306,21 +500,20 @@ let forAll f xs =
 let forAll2 f xs ys =
     fold2 (fun acc x y -> acc && f x y) true xs ys
 
-let rec exists f = function
-    | [] -> false
-    | x::xs -> f x || exists f xs
+let exists f xs =
+    tryFindIndex f xs |> Option.isSome
 
-let rec exists2 f bs cs =
-    match bs, cs with
-    | [], [] -> false
-    | x::xs, y::ys -> f x y || exists2 f xs ys
-    | _ -> invalidOp "Lists had different lengths"
+let rec exists2 (f: 'T1 -> 'T2 -> bool) (xs: 'T1 list) (ys: 'T2 list) =
+    match xs.IsEmpty, ys.IsEmpty with
+    | true, true -> false
+    | false, false -> f xs.Head ys.Head || exists2 f xs.Tail ys.Tail
+    | _ -> invalidArg "list2" SR.listsHadDifferentLengths
 
 let unzip xs =
-    foldBack (fun (x, y) (lacc, racc) -> x::lacc, y::racc) xs ([],[])
+    foldBack (fun (x, y) (lacc, racc) -> List.Cons(x, lacc), List.Cons(y, racc)) xs (List.Empty, List.Empty)
 
 let unzip3 xs =
-    foldBack (fun (x, y, z) (lacc, macc, racc) -> x::lacc, y::macc, z::racc) xs ([],[],[])
+    foldBack (fun (x, y, z) (lacc, macc, racc) -> List.Cons(x, lacc), List.Cons(y, macc), List.Cons(z, racc)) xs (List.Empty, List.Empty, List.Empty)
 
 let zip xs ys =
     map2 (fun x y -> x, y) xs ys
@@ -328,201 +521,176 @@ let zip xs ys =
 let zip3 xs ys zs =
     map3 (fun x y z -> x, y, z) xs ys zs
 
-let sort (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y)) (List.toArray xs) |> ofArray
+let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
+    let arr = toArray xs
+    Array.sortInPlaceWith comparer arr // Note: In JS this sort is stable
+    arr |> ofArray
 
-let sortBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y)) (List.toArray xs) |> ofArray
+let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
+    sortWith (fun x y -> comparer.Compare(x, y)) xs
 
-let sortDescending (xs: 'T list) ([<Inject>] comparer: IComparer<'T>): 'T list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(x, y) * -1) (List.toArray xs) |> ofArray
+let sortBy (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
+    sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
 
-let sortByDescending (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a list =
-    Array.sortInPlaceWith (fun x y -> comparer.Compare(projection x, projection y) * -1) (List.toArray xs) |> ofArray
+let sortDescending (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
+    sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
 
-let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list): 'T list =
-    Array.sortInPlaceWith comparer (List.toArray xs) |> ofArray
+let sortByDescending (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
+    sortWith (fun x y -> comparer.Compare(projection x, projection y) * -1) xs
 
 let sum (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T>): 'T =
     fold (fun acc x -> adder.Add(acc, x)) (adder.GetZero()) xs
 
-let sumBy (f: 'T -> 'T2) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'T2>): 'T2 =
+let sumBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] adder: IGenericAdder<'U>): 'U =
     fold (fun acc x -> adder.Add(acc, f x)) (adder.GetZero()) xs
 
-let maxBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let maxBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>): 'T =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then y else x) xs
 
-let max (li:'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
-    reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) li
+let max xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T =
+    reduce (fun x y -> if comparer.Compare(y, x) > 0 then y else x) xs
 
-let minBy (projection: 'a -> 'b) (xs: 'a list) ([<Inject>] comparer: IComparer<'b>): 'a =
+let minBy (projection: 'T -> 'U) xs ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>): 'T =
     reduce (fun x y -> if comparer.Compare(projection y, projection x) > 0 then x else y) xs
 
-let min (xs: 'a list) ([<Inject>] comparer: IComparer<'a>): 'a =
+let min (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>): 'T =
     reduce (fun x y -> if comparer.Compare(y, x) > 0 then x else y) xs
 
 let average (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T>): 'T =
-    let total = fold (fun acc x -> averager.Add(acc, x)) (averager.GetZero()) xs
-    averager.DivideByInt(total, length xs)
+    let mutable count = 0
+    let folder acc x = count <- count + 1; averager.Add(acc, x)
+    let total = fold folder (averager.GetZero()) xs
+    averager.DivideByInt(total, count)
 
-let averageBy (f: 'T -> 'T2) (xs: 'T list) ([<Inject>] averager: IGenericAverager<'T2>): 'T2 =
-    let total = fold (fun acc x -> averager.Add(acc, f x)) (averager.GetZero()) xs
-    averager.DivideByInt(total, length xs)
+let averageBy (f: 'T -> 'U) (xs: 'T list) ([<Inject>] averager: IGenericAverager<'U>): 'U =
+    let mutable count = 0
+    let inline folder acc x = count <- count + 1; averager.Add(acc, f x)
+    let total = fold folder (averager.GetZero()) xs
+    averager.DivideByInt(total, count)
 
-let permute f xs =
-    xs
-    |> List.toArray
+let permute f (xs: 'T list) =
+    toArray xs
     |> Array.permute f
     |> ofArray
 
 let chunkBySize (chunkSize: int) (xs: 'T list): 'T list list =
-    xs
-    |> List.toArray
+    toArray xs
     |> Array.chunkBySize chunkSize
+    |> Array.map ofArray
     |> ofArray
-    |> map ofArray
 
-let skip i xs =
-    let rec skipInner i xs =
-        match i, xs with
-        | 0, _ -> xs
-        | _, [] -> failwith "The input sequence has an insufficient number of elements."
-        | _, _::xs -> skipInner (i - 1) xs
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> xs
-    | 1, _::xs -> xs
-    | i, xs -> skipInner i xs
+let allPairs (xs: 'T1 list) (ys: 'T2 list): ('T1 * 'T2) list =
+    let root = List.Empty
+    let mutable node = root
+    iterate (fun x ->
+        iterate (fun y ->
+            node <- node.AppendConsNoTail (x, y)
+        ) ys) xs
+    node.SetConsTail List.Empty
+    root.Tail
 
-let rec skipWhile predicate xs =
-    match xs with
-    | h::t when predicate h -> skipWhile predicate t
-    | _ -> xs
+let rec skip count (xs: 'T list) =
+    if count <= 0 then xs
+    elif xs.IsEmpty then invalidArg "list" SR.notEnoughElements
+    else skip (count - 1) xs.Tail
 
-// TODO: Is there a more efficient algorithm?
-let rec takeSplitAux error i acc xs =
-    match i, xs with
-    | 0, _ -> reverse acc, xs
-    | _, [] ->
-        if error then
-            failwith "The input sequence has an insufficient number of elements."
-        else
-            reverse acc, xs
-    | _, x::xs -> takeSplitAux error (i - 1) (x::acc) xs
+let rec skipWhile predicate (xs: 'T list) =
+    if xs.IsEmpty then xs
+    elif not (predicate xs.Head) then xs
+    else skipWhile predicate xs.Tail
 
-let take i xs =
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> []
-    | 1, x::_ -> [x]
-    | i, xs -> takeSplitAux true i [] xs |> fst
+let take count (xs: 'T list) =
+    if count < 0 then invalidArg "count" SR.inputMustBeNonNegative
+    let rec loop i (acc: 'T list) (xs: 'T list) =
+        if i <= 0 then acc
+        elif xs.IsEmpty then invalidArg "list" SR.notEnoughElements
+        else loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
+    let root = List.Empty
+    let node = loop count root xs
+    node.SetConsTail List.Empty
+    root.Tail
 
-let rec takeWhile predicate (xs: 'T list) =
-    match xs with
-    | [] -> xs
-    | x::([] as nil) -> if predicate x then xs else nil
-    | x::xs ->
-        if not (predicate x) then []
-        else x::(takeWhile predicate xs)
+let takeWhile predicate (xs: 'T list) =
+    let rec loop (acc: 'T list) (xs: 'T list) =
+        if xs.IsEmpty then acc
+        elif not (predicate xs.Head) then acc
+        else loop (acc.AppendConsNoTail xs.Head) xs.Tail
+    let root = List.Empty
+    let node = loop root xs
+    node.SetConsTail List.Empty
+    root.Tail
 
-let truncate i xs =
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> []
-    | 1, x::_ -> [x]
-    | i, xs -> takeSplitAux false i [] xs |> fst
+let truncate count (xs: 'T list) =
+    let rec loop i (acc: 'T list) (xs: 'T list) =
+        if i <= 0 then acc
+        elif xs.IsEmpty then acc
+        else loop (i - 1) (acc.AppendConsNoTail xs.Head) xs.Tail
+    let root = List.Empty
+    let node = loop count root xs
+    node.SetConsTail List.Empty
+    root.Tail
 
-let splitAt i xs =
-    match i, xs with
-    | i, _ when i < 0 -> failwith "The input must be non-negative."
-    | 0, _ -> [],xs
-    | 1, x::xs -> [x],xs
-    | i, xs -> takeSplitAux true i [] xs
+let getSlice (startIndex: int option) (endIndex: int option) (xs: 'T list) =
+    let len = length xs
+    let startIndex = defaultArg startIndex 0
+    let endIndex = defaultArg endIndex (len - 1)
+    if startIndex < 0 then invalidArg "startIndex" SR.indexOutOfBounds
+    elif endIndex >= len then invalidArg "endIndex" SR.indexOutOfBounds
+    elif endIndex < startIndex then List.Empty
+    else xs |> skip startIndex |> take (endIndex - startIndex + 1)
 
-let outOfRange() = failwith "Index out of range"
-
-let getSlice (lower: int option) (upper: int option) (xs: 'T list) =
-    let lower = defaultArg lower 0
-    let hasUpper = Option.isSome upper
-    if lower < 0 then outOfRange()
-    elif hasUpper && upper.Value < lower then []
-    else
-        let mutable lastIndex = -1
-        let res =
-            ([], xs) ||> foldIndexed (fun i acc x ->
-                lastIndex <- i
-                if lower <= i && (not hasUpper || i <= upper.Value) then x::acc
-                else acc)
-        if lower > (lastIndex + 1) || (hasUpper && upper.Value > lastIndex) then outOfRange()
-        reverse res
-
-let distinctBy (projection: 'T -> 'Key) (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'Key>) =
-    let hashSet = HashSet<'Key>(eq)
-    xs |> filter (projection >> hashSet.Add)
-
-let distinct (xs: 'T list) ([<Inject>] eq: IEqualityComparer<'T>) =
-    distinctBy id xs eq
+let splitAt index (xs: 'T list) =
+    if index < 0 then invalidArg "index" SR.inputMustBeNonNegative
+    if index > xs.Length then invalidArg "index" SR.notEnoughElements
+    take index xs, skip index xs
 
 let exactlyOne (xs: 'T list) =
-    match xs with
-    | [] -> invalidArg "list" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString
-    | [x] -> x
-    | x1::x2::xs -> invalidArg "list" "Input list too long"
+    if xs.IsEmpty
+    then invalidArg "list" SR.inputSequenceEmpty
+    else
+        if xs.Tail.IsEmpty then xs.Head
+        else invalidArg "list" SR.inputSequenceTooLong
 
-let groupBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>): ('Key * 'T list) list =
-    let dict = Dictionary<'Key, 'T list>(eq)
-    let mutable keys = []
-    xs |> iterate (fun v ->
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            dict.[key] <- v::prev
-        | false, _ ->
-            dict.Add(key, [v])
-            keys <- key::keys )
-    let mutable result = []
-    keys |> iterate (fun key -> result <- (key, reverse dict.[key]) :: result)
-    result
+let tryExactlyOne (xs: 'T list) =
+    if not (xs.IsEmpty) && xs.Tail.IsEmpty
+    then Some (xs.Head)
+    else None
 
-let countBy (projection: 'T -> 'Key) (xs: 'T list)([<Inject>] eq: IEqualityComparer<'Key>) =
-    let dict = Dictionary<'Key, int>(eq)
-    let mutable keys = []
-    xs |> iterate (fun v ->
-        let key = projection v
-        match dict.TryGetValue(key) with
-        | true, prev ->
-            dict.[key] <- prev + 1
-        | false, _ ->
-            dict.[key] <- 1
-            keys <- key::keys )
-    let mutable result = []
-    keys |> iterate (fun key -> result <- (key, dict.[key]) :: result)
-    result
+let where predicate (xs: 'T list) =
+    filter predicate xs
 
-let where predicate source =
-    filter predicate source
-
-let pairwise source =
-    Seq.pairwise source
-    |> ofSeq
-
-let windowed (windowSize: int) (source: 'T list): 'T list list =
-    if windowSize <= 0 then
-        failwith "windowSize must be positive"
-    let mutable res = []
-    for i = length source downto windowSize do
-        res <- (getSlice (Some(i-windowSize)) (Some(i-1)) source) :: res
-    res
-
-let splitInto (chunks: int) (source: 'T list): 'T list list =
-    source
-    |> List.toArray
-    |> Array.splitInto chunks
+let pairwise (xs: 'T list) =
+    toArray xs
+    |> Array.pairwise
     |> ofArray
-    |> map ofArray
+
+let windowed (windowSize: int) (xs: 'T list): 'T list list =
+    toArray xs
+    |> Array.windowed windowSize
+    |> Array.map ofArray
+    |> ofArray
+
+let splitInto (chunks: int) (xs: 'T list): 'T list list =
+    toArray xs
+    |> Array.splitInto chunks
+    |> Array.map ofArray
+    |> ofArray
 
 let transpose (lists: seq<'T list>): 'T list list =
     lists
-    |> Seq.transpose
-    |> Seq.map ofSeq
-    |> ofSeq
+    |> Array.ofSeq
+    |> Array.map toArray
+    |> Array.transpose
+    |> Array.map ofArray
+    |> ofArray
+
+// let init = initialize
+// let iter = iterate
+// let iter2 = iterate2
+// let iteri = iterateIndexed
+// let iteri2 = iterateIndexed2
+// let forall = forAll
+// let forall2 = forAll2
+// let mapi = mapIndexed
+// let mapi2 = mapIndexed2
+// let rev = reverse

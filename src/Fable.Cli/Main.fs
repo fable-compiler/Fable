@@ -3,6 +3,8 @@ module Fable.Cli.Main
 open System
 open System.Collections.Generic
 open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Diagnostics
 
 open Fable
 open Fable.AST
@@ -34,7 +36,7 @@ module private Util =
         |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
         |> function
             | Some t ->
-                sprintf "Loaded %s from %s" r.TypeFullName (File.getRelativePathFromCwd r.DllPath)
+                $"Loaded %s{r.TypeFullName} from %s{File.getRelativePathFromCwd r.DllPath}"
                 |> Log.always; t
             | None -> failwithf "Cannot find %s in %s" r.TypeFullName r.DllPath
 
@@ -56,6 +58,7 @@ module private Util =
     //                 failwithf "Fable.Core v%i.%i detected, expecting v%i.%i" actualMajor actualMinor expectedMajor expectedMinor
     //             // else printfn "Fable.Core version matches"
 
+    // Some conditions assume that if FableCompilationMs is 0 compilation didn't happen, so make sure it's at least 1L
     let measureTime (f: unit -> 'a) =
         let sw = Diagnostics.Stopwatch.StartNew()
         let res = f()
@@ -73,7 +76,7 @@ module private Util =
         let rec innerStack (ex: Exception) =
             if isNull ex.InnerException then ex.StackTrace else innerStack ex.InnerException
         let stack = innerStack ex
-        sprintf "[ERROR] %s\n%s\n%s" file ex.Message stack
+        $"[ERROR] %s{file}\n%s{ex.Message}\n%s{stack}"
 
     let formatLog (log: Log) =
         match log.FileName with
@@ -85,23 +88,25 @@ module private Util =
                 | Severity.Error -> "error"
                 | Severity.Info -> "info"
             match log.Range with
-            | Some r -> sprintf "%s(%i,%i): (%i,%i) %s %s: %s" file r.start.line r.start.column r.``end``.line r.``end``.column severity log.Tag log.Message
-            | None -> sprintf "%s(1,1): %s %s: %s" file severity log.Tag log.Message
+            | Some r -> $"%s{file}(%i{r.start.line},%i{r.start.column}): (%i{r.``end``.line},%i{r.``end``.column}) %s{severity} %s{log.Tag}: %s{log.Message}"
+            | None -> $"%s{file}(1,1): %s{severity} %s{log.Tag}: %s{log.Message}"
 
     let getFSharpErrorLogs (proj: Project) =
         proj.Errors
         |> Array.map (fun er ->
             let severity =
                 match er.Severity with
-                | FSharpErrorSeverity.Warning -> Severity.Warning
-                | FSharpErrorSeverity.Error -> Severity.Error
+                | FSharpDiagnosticSeverity.Hidden
+                | FSharpDiagnosticSeverity.Info -> Severity.Info
+                | FSharpDiagnosticSeverity.Warning -> Severity.Warning
+                | FSharpDiagnosticSeverity.Error -> Severity.Error
 
             let range =
-                { start={ line=er.StartLineAlternate; column=er.StartColumn+1}
-                  ``end``={ line=er.EndLineAlternate; column=er.EndColumn+1}
+                { start={ line=er.StartLine; column=er.StartColumn+1}
+                  ``end``={ line=er.EndLine; column=er.EndColumn+1}
                   identifierName = None }
 
-            let msg = sprintf "%s (code %i)" er.Message er.ErrorNumber
+            let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
 
             Log.Make(severity, msg, fileName=er.FileName, range=range, tag="FSHARP")
         )
@@ -139,6 +144,7 @@ module private Util =
             if fileExt.EndsWith(".ts") then Path.replaceExtension ".js" fileExt else fileExt
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
+        let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator(?sourceRoot = cliArgs.SourceMapsRoot))
         interface BabelPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
@@ -152,35 +158,20 @@ module private Util =
                     changeFsExtension isInFableHiddenDir path fileExt
                 else path
             member _.Dispose() = stream.Dispose()
+            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) =
+                if cliArgs.SourceMaps then
+                    let generated: SourceMapSharp.Util.MappingIndex = { line = genLine; column = genCol }
+                    let original: SourceMapSharp.Util.MappingIndex = { line = srcLine; column = srcCol }
+                    mapGenerator.Force().AddMapping(generated, original, source=sourcePath, ?name=name)
+        member _.SourceMap =
+            mapGenerator.Force().toJSON()
 
-    let compileFile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
+    let compileFile isRecompile (cliArgs: CliArgs) dedupTargetDir (com: CompilerImpl) = async {
         try
             let babel =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
                 |> Fable2Babel.Compiler.transformFile com
-
-            let mapPrinter, mapGen =
-                if cliArgs.SourceMaps then
-                    let mapGenerator = SourceMapSharp.SourceMapGenerator()
-
-                    let print outPath = async {
-                        let mapPath = outPath + ".map"
-                        do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
-                        use sw = IO.File.OpenWrite(mapPath)
-                        do! Text.Json.JsonSerializer.SerializeAsync(sw, mapGenerator.toJSON()) |> Async.AwaitTask
-                    }
-
-                    print, { new BabelPrinter.SourceMapGenerator with
-                        member _.AddMapping(orLine, orCol, genLine, genCol, name) =
-                            let generated: SourceMapSharp.Util.MappingIndex =
-                                {line = genLine; column = genCol}
-                            let original: SourceMapSharp.Util.MappingIndex =
-                                {line = orLine; column = orCol}
-                            mapGenerator.AddMapping(generated, original, source=com.CurrentFile, ?name=name) }
-                else
-                    Async.ignore, { new BabelPrinter.SourceMapGenerator with
-                        member _.AddMapping(_,_,_,_,_) = () }
 
             let outPath = getOutJsPath cliArgs dedupTargetDir com.CurrentFile
 
@@ -189,11 +180,23 @@ module private Util =
             if not (IO.Directory.Exists dir) then IO.Directory.CreateDirectory dir |> ignore
 
             // write output to file
-            let writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
-            do! BabelPrinter.run writer mapGen babel
-            do! mapPrinter outPath
+            let! sourceMap = async {
+                use writer = new FileWriter(com.CurrentFile, outPath, cliArgs, dedupTargetDir)
+                do! BabelPrinter.run writer babel
+                return if cliArgs.SourceMaps then Some writer.SourceMap else None
+            }
 
-            Log.always("Compiled " + File.getRelativePathFromCwd com.CurrentFile)
+            // write source map to file
+            match sourceMap with
+            | Some sourceMap ->
+                let mapPath = outPath + ".map"
+                do! IO.File.AppendAllLinesAsync(outPath, [$"//# sourceMappingURL={IO.Path.GetFileName(mapPath)}"]) |> Async.AwaitTask
+                use fs = IO.File.Open(mapPath, IO.FileMode.Create)
+                do! sourceMap.SerializeAsync(fs) |> Async.AwaitTask
+            | None -> ()
+
+            "Compiled " + File.getRelativePathFromCwd com.CurrentFile
+            |> Log.verboseOrIf isRecompile
 
             return Ok {| File = com.CurrentFile
                          Logs = com.Logs
@@ -205,7 +208,7 @@ module private Util =
 
 module FileWatcherUtil =
     let getCommonBaseDir (files: string list) =
-        let withTrailingSep d = sprintf "%s%c" d IO.Path.DirectorySeparatorChar
+        let withTrailingSep d = $"%s{d}%c{IO.Path.DirectorySeparatorChar}"
         files
         |> List.map IO.Path.GetDirectoryName
         |> List.distinct
@@ -262,7 +265,7 @@ type FsWatcher() =
     do
         watcher.OnFileChange.Add(fun path -> observable.Trigger(path))
         watcher.OnError.Add(fun ev ->
-            Log.always("Watcher found and error, some events may have been lost.")
+            Log.always("Watcher found an error, some events may have been lost.")
             Log.verbose(lazy ev.GetException().Message)
         )
 
@@ -277,7 +280,7 @@ type FsWatcher() =
         watcher.EnableRaisingEvents <- true
 
         observable
-        |> Observable.choose (fun (fullPath) ->
+        |> Observable.choose (fun fullPath ->
             let fullPath = Path.normalizePath fullPath
             if filePaths.Contains(fullPath)
             then Some fullPath
@@ -298,30 +301,33 @@ type File(normalizedFullPath: string) =
             sourceHash <- Some h
             h, lazy source
 
-type ProjectCracked(sourceFiles: File array,
+type ProjectCracked(projFile: string,
+                    sourceFiles: File array,
                     fableCompilerOptions: CompilerOptions,
                     crackerResponse: CrackerResponse) =
 
+    member _.ProjectFile = projFile
     member _.FableOptions = fableCompilerOptions
     member _.ProjectOptions = crackerResponse.ProjectOptions
     member _.Packages = crackerResponse.Packages
     member _.SourceFiles = sourceFiles
 
-    member _.MakeCompiler(currentFile, project) =
+    member _.MakeCompiler(currentFile, project, outDir) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
-        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir)
+        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir, ?outDir=outDir)
 
     member _.MapSourceFiles(f) =
-        ProjectCracked(Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
+        ProjectCracked(projFile, Array.map f sourceFiles, fableCompilerOptions, crackerResponse)
 
     static member Init(cliArgs: CliArgs) =
         let res =
             CrackerOptions(fableOpts = cliArgs.CompilerOptions,
                            fableLib = cliArgs.FableLibraryPath,
                            outDir = cliArgs.OutDir,
+                           configuration = cliArgs.Configuration,
                            exclude = cliArgs.Exclude,
                            replace = cliArgs.Replace,
-                           forcePkgs = cliArgs.ForcePkgs,
+                           noCache = cliArgs.NoCache,
                            noRestore = cliArgs.NoRestore,
                            projFile = cliArgs.ProjectFile)
             |> getFullProjectOpts
@@ -329,10 +335,10 @@ type ProjectCracked(sourceFiles: File array,
         Log.verbose(lazy
             let proj = File.getRelativePathFromCwd cliArgs.ProjectFile
             let opts = res.ProjectOptions.OtherOptions |> String.concat "\n   "
-            sprintf "F# PROJECT: %s\n   %s" proj opts)
+            $"F# PROJECT: %s{proj}\n   %s{opts}")
 
         let sourceFiles = getSourceFiles res.ProjectOptions |> Array.map File
-        ProjectCracked(sourceFiles, cliArgs.CompilerOptions, res)
+        ProjectCracked(cliArgs.ProjectFile, sourceFiles, cliArgs.CompilerOptions, res)
 
 type ProjectParsed(project: Project, checker: InteractiveChecker) =
 
@@ -343,7 +349,7 @@ type ProjectParsed(project: Project, checker: InteractiveChecker) =
             let sourceReader f = fileDic.[f].ReadSource()
             let filePaths = config.SourceFiles |> Array.map (fun file -> file.NormalizedFullPath)
             checker.ParseAndCheckProject(config.ProjectOptions.ProjectFileName, filePaths, sourceReader)
-        Log.always(sprintf "F# compilation finished in %ims" ms)
+        Log.always $"F# compilation finished in %i{ms}ms"
         result
 
     member _.Project = project
@@ -358,7 +364,8 @@ type ProjectParsed(project: Project, checker: InteractiveChecker) =
                 InteractiveChecker.Create(config.ProjectOptions)
 
         let checkResults = checkProject config checker
-        let proj = Project(checkResults,
+        let proj = Project(config.ProjectFile,
+                           checkResults,
                            getPlugin=loadType,
                            optimizeFSharpAst=config.FableOptions.OptimizeFSharpAst)
         ProjectParsed(proj, checker)
@@ -368,30 +375,15 @@ type ProjectParsed(project: Project, checker: InteractiveChecker) =
         let proj = this.Project.Update(checkResults)
         ProjectParsed(proj, checker)
 
-type TestInfo private (current, iterations, times: int64 list) =
-    new (?iterations) = TestInfo(0, defaultArg iterations 50, [])
-    member _.LogFileName = "fable-perf-log.txt"
-    member _.CurrentIteration: int = current
-    member _.TotalIterations: int = iterations
-    member _.AverageMilliseconds =
-        let total = List.sum times
-        total / int64(List.length times)
-    member _.MedianMilliseconds =
-        let times = List.sort times
-        let len = List.length times
-        List.item (len / 2 + len % 2) times
-    member this.NextIteration(spentMs) =
-        TestInfo(this.CurrentIteration + 1, this.TotalIterations, spentMs::times)
-
 type State =
     { CliArgs: CliArgs
       ProjectCrackedAndParsed: (ProjectCracked * ProjectParsed) option
-      FableCompilationMs: int64
       WatchDependencies: Map<string, string[]>
+      PendingFilesToCompile: string[]
       ErroredFiles: Set<string>
       DeduplicateDic: Collections.Concurrent.ConcurrentDictionary<string, string>
       Watcher: FsWatcher option
-      TestInfo: TestInfo option }
+      HasCompiledOnce: bool }
     member this.GetOrAddDeduplicateTargetDir (importDir: string) addTargetDir =
         // importDir must be trimmed and normalized by now, but lower it just in case
         // as some OS use case insensitive paths
@@ -399,6 +391,16 @@ type State =
         this.DeduplicateDic.GetOrAdd(importDir, fun _ ->
             set this.DeduplicateDic.Values
             |> addTargetDir)
+
+    static member Create(cliArgs, isWatch: bool) =
+        { CliArgs = cliArgs
+          ProjectCrackedAndParsed = None
+          WatchDependencies = Map.empty
+          Watcher = if isWatch then Some(FsWatcher()) else None
+          DeduplicateDic = Collections.Concurrent.ConcurrentDictionary()
+          PendingFilesToCompile = [||]
+          ErroredFiles = Set.empty
+          HasCompiledOnce = false }
 
 let rec startCompilation (changes: ISet<string>) (state: State) = async {
     let state =
@@ -428,8 +430,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 else false, Set.empty, cracked
 
             let dirtyFiles =
-                // If the project had F# errors the Fable compilation didn't happen
-                if state.FableCompilationMs = 0L then
+                // If Fable compilation didn't happen yet (because of errors) just compile all files
+                if not state.HasCompiledOnce then
                     cracked.SourceFiles
                     |> Array.map (fun f -> f.NormalizedFullPath)
                 else
@@ -467,7 +469,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 cracked.SourceFiles
                 |> Array.map (fun f -> f.NormalizedFullPath)
                 |> fun files ->
-                    if Option.isNone state.Watcher then files
+                    if Option.isNone state.Watcher || state.CliArgs.NoCache then files
                     else
                         // Skip files that have a more recent JS version
                         let skipped =
@@ -485,24 +487,27 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
         filesToCompile
         |> Array.filter (fun file -> file.EndsWith(".fs") || file.EndsWith(".fsx"))
         |> Array.append (Set.toArray state.ErroredFiles)
+        |> Array.append state.PendingFilesToCompile
         |> Array.distinct
 
     let logs = getFSharpErrorLogs parsed.Project
     let hasFSharpError = logs |> Array.exists (fun l -> l.Severity = Severity.Error)
 
-    let! logs, watchDependencies, state = async {
+    let! logs, state = async {
         // Skip Fable compilation if there are F# errors
         if hasFSharpError then
-            return logs, state.WatchDependencies, state
+            return
+                if not state.HasCompiledOnce then logs, state
+                else logs, { state with PendingFilesToCompile = filesToCompile }
         else
             let! results, ms = measureTimeAsync <| fun () ->
                 filesToCompile
                 |> Array.map (fun file ->
-                    cracked.MakeCompiler(file, parsed.Project)
-                    |> compileFile state.CliArgs state.GetOrAddDeduplicateTargetDir)
+                    cracked.MakeCompiler(file, parsed.Project, state.CliArgs.OutDir)
+                    |> compileFile state.HasCompiledOnce state.CliArgs state.GetOrAddDeduplicateTargetDir)
                 |> Async.Parallel
 
-            Log.always(sprintf "Fable compilation finished in %ims" ms)
+            Log.always $"Fable compilation finished in %i{ms}ms"
 
             let logs, watchDependencies =
                 ((logs, state.WatchDependencies), results)
@@ -516,7 +521,9 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                         Log.verbose(lazy e.Exception.StackTrace)
                         Array.append logs [|log|], deps)
 
-            return logs, watchDependencies, { state with FableCompilationMs = ms }
+            return logs, { state with HasCompiledOnce = true
+                                      PendingFilesToCompile = [||]
+                                      WatchDependencies = watchDependencies }
     }
 
     // Sometimes errors are duplicated
@@ -536,13 +543,13 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
     |> Array.iter (formatLog >> Log.warning)
 
     let newErrors =
-        logs
-        |> Array.filter (fun x -> x.Severity = Severity.Error)
-        |> Array.fold (fun errors log ->
-            Log.error(formatLog log)
-            match log.FileName with
-            | Some file -> Set.add file errors
-            | None -> errors) Set.empty
+        (Set.empty, logs) ||> Array.fold (fun errors log ->
+            if log.Severity = Severity.Error then
+                Log.error(formatLog log)
+                match log.FileName with
+                | Some file -> Set.add file errors
+                | None -> errors
+            else errors)
 
     let errorMsg =
         if Set.isEmpty newErrors then None
@@ -577,8 +584,8 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
                 let exitCode = Process.runSync workingDir exeFile args
                 (if exitCode = 0 then None else Some "Run process failed"), state
 
-    match state.Watcher, state.TestInfo with
-    | Some watcher, _ ->
+    match state.Watcher with
+    | Some watcher ->
         let oldErrors =
             state.ErroredFiles
             |> Set.filter (fun file -> not(Array.contains file filesToCompile))
@@ -596,29 +603,11 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
 
         return!
             { state with ProjectCrackedAndParsed = Some(cracked, parsed)
-                         WatchDependencies = watchDependencies
                          ErroredFiles = Set.union oldErrors newErrors }
             |> startCompilation changes
 
-    | None, None ->
+    | None ->
         return match errorMsg with Some e -> Error e | None -> Ok()
-
-    | None, Some info ->
-        let info = info.NextIteration(state.FableCompilationMs)
-        if info.CurrentIteration < info.TotalIterations then
-            return!
-                { state with ProjectCrackedAndParsed = Some(cracked, parsed)
-                             TestInfo = Some info }
-                |> startCompilation (caseInsensitiveSet filesToCompile)
-        else
-            let log = sprintf "Completed %i iterations, average: %ims, median: %ims"
-                        info.TotalIterations
-                        info.AverageMilliseconds
-                        info.MedianMilliseconds
-            Log.always(log)
-            let perfLog = IO.Path.Combine(state.CliArgs.RootDir, info.LogFileName)
-            IO.File.AppendAllText(perfLog, log + "\n")
-            return Ok()
 }
 
 let startFirstCompilation state =

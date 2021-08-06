@@ -4,16 +4,16 @@ type bigint = BigInt.BigInteger
 
 let isBigInt (x: obj) = x :? bigint
 
-let tryParse str res =
+let tryParse (str: string) (res: byref<_>) =
     try
-        res := bigint.Parse str
+        res <- bigint.Parse str
         true
     with _ ->
         false
 
-let divRem x y (remainder: _ ref) =
+let divRem x y (remainder: byref<_>) =
     let quotient, remainder' = bigint.DivRem(x, y)
-    remainder := remainder'
+    remainder <- remainder'
     quotient
 
 let parse = bigint.Parse
@@ -88,7 +88,7 @@ let private flipTwosComplement currByte lowBitFound =
     | 0uy, false -> 0uy, false // Haven't found first bit yet and no chance to do so with zero byte
     | _, false ->
         // Found first byte containing a 1, flip higher bits and all future bytes
-        let firstBitIndex = [0..7] |> List.find (fun i -> currByte &&& (1uy <<< i) > 0uy)
+        let firstBitIndex = [|0;1;2;3;4;5;6;7|] |> Array.find (fun i -> currByte &&& (1uy <<< i) > 0uy)
         (currByte ^^^ (0b11111110uy <<< firstBitIndex)) &&& 255uy, true
 
 // Spec:
@@ -148,7 +148,7 @@ let fromByteArray (bytes:byte array) =
                 |> fun value -> if isPositive then value else bigint(-1) * value
             else
                 let bytesToProcess = min bytesRemaining 4
-                for i in 0 .. bytesToProcess - 1 do buffer.[i] <- bytes.[currIndex + i] // fill buffer with up to 4 bytes
+                for i = 0 to bytesToProcess - 1 do buffer.[i] <- bytes.[currIndex + i] // fill buffer with up to 4 bytes
                 if isPositive then
                     Array.fill buffer bytesToProcess (4 - bytesToProcess) 0uy // clear any unfilled bytes in buffer
                     let value =
@@ -170,19 +170,3 @@ let fromByteArray (bytes:byte array) =
                         ||| (uint32 b3 <<< 24)
                     loop (value :: accumUInt32) (currIndex + bytesToProcess) (bytesRemaining - bytesToProcess) lowBitFound
         loop [] 0 bytes.Length false
-
-let makeRangeStepFunction (step: bigint) (last: bigint) =
-    let stepComparedWithZero = compare step zero
-    if stepComparedWithZero = 0 then
-        failwith "The step of a range cannot be zero"
-    let stepGreaterThanZero = stepComparedWithZero > 0
-    fun (x: bigint) ->
-        let comparedWithLast = compare x last
-        if (stepGreaterThanZero && comparedWithLast <= 0)
-            || (not stepGreaterThanZero && comparedWithLast >= 0) then
-            Some (x, x + step)
-        else None
-
-let range (first: bigint) (step: bigint) (last: bigint) =
-    let stepFn = makeRangeStepFunction step last
-    Seq.delay(fun () -> Seq.unfold stepFn first)

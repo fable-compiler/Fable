@@ -1,3 +1,25 @@
+### 3.2.8
+
+* Experimental.namesofLambda
+
+### 3.2.7
+
+* Publish with icon and symbols @cartermp
+
+### 3.2.6
+
+* Experimental `casenameWithFieldIndex`
+
+### 3.2.5
+
+* Add `Compiler.extension`
+
+### 3.2.4
+
+* Add Object.values, Object.entries @kerams
+* Add JsInterop.jsTypeof/jsInstanceof
+* Add JS.Constructors.Array.Create/from
+
 ### 3.2.3
 
 * Fix incompatibility with Feliz @TIHan

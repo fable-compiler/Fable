@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
@@ -13,8 +13,9 @@
     <Compile Include="InjectProcessor.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
-    <PackageReference Include="Dotnet.ProjInfo" Version="0.39.1" />
-    <PackageReference Include="FSharp.Compiler.Service" Version="35.0.0" />
+    <PackageReference Include="FSharp.Core" Version="5.0.1" />
+    <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
+    <!-- <PackageReference Include="FSharp.Compiler.Service" Version="35.0.0" /> -->
+    <Reference Include="../../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
 </Project>

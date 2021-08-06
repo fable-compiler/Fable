@@ -516,7 +516,13 @@ module AST =
         | Float32 -> "Float32Array"
         | Float64 -> "Float64Array"
 
+    /// Used to compare arg idents of a lambda wrapping a function call
     let argEquals (argIdents: Ident list) argExprs =
+        // When the lambda has a single unit arg, usually the method call has no args
+        // so we ignore single unit args just in case
+        let argIdents = match argIdents with [i] when i.Type = Unit -> [] | _ -> argIdents
+        let argExprs = match argExprs with [Value(UnitConstant,_)] -> [] | _ -> argExprs
+
         if List.sameLength argIdents argExprs |> not then false
         else
             (true, List.zip argIdents argExprs)
@@ -556,7 +562,23 @@ module AST =
             ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _ | _, GenericParam _ when not strict -> true
         | GenericParam name1, GenericParam name2 -> name1 = name2
+        // Field names must be already sorted
+        | AnonymousRecordType(fields1, gen1), AnonymousRecordType(fields2, gen2) ->
+            fields1.Length = fields2.Length
+            && Array.zip fields1 fields2 |> Array.forall (fun (f1, f2) -> f1 = f2)
+            && listEquals (typeEquals strict) gen1 gen2
         | _ -> false
+
+    let getNumberFullName kind =
+        match kind with
+        | Int8    -> Types.int8
+        | UInt8   -> Types.uint8
+        | Int16   -> Types.int16
+        | UInt16  -> Types.uint16
+        | Int32   -> Types.int32
+        | UInt32  -> Types.uint32
+        | Float32 -> Types.float32
+        | Float64 -> Types.float64
 
     let rec getTypeFullName prettify t =
         let getEntityFullName (entRef: EntityRef) gen =
@@ -583,16 +605,7 @@ module AST =
         | Char    -> Types.char
         | String  -> Types.string
         | Any -> Types.object
-        | Number kind ->
-            match kind with
-            | Int8    -> Types.int8
-            | UInt8   -> Types.uint8
-            | Int16   -> Types.int16
-            | UInt16  -> Types.uint16
-            | Int32   -> Types.int32
-            | UInt32  -> Types.uint32
-            | Float32 -> Types.float32
-            | Float64 -> Types.float64
+        | Number kind -> getNumberFullName kind
         | LambdaType(argType, returnType) ->
             let argType = getTypeFullName prettify argType
             let returnType = getTypeFullName prettify returnType

@@ -419,6 +419,9 @@ let update (model: RecordA) action =
 
 type Item2 = static member inline Invoke value = (^t : (member Item2 : _) value)
 
+type Ideable2 =
+    { Id: string; Name: string }
+
 type Id = Id of string
 
 type Ideable =
@@ -427,6 +430,38 @@ type Ideable =
 
 let inline replaceById< ^t when ^t : (member Id : Id)> (newItem : ^t) (ar: ^t[]) =
     Array.map (fun (x: ^t) -> if (^t : (member Id : Id) newItem) = (^t : (member Id : Id) x) then newItem else x) ar
+
+let inline getId (x: ^a when ^a:(member Id : string)) =
+    (^a : (member Id : string) x)
+
+let inline wrapId x =
+    let id = getId x
+    "<<<" + id + ">>>"
+
+type Parseable = Parseable with static member Parse (_: string) = Parseable
+
+type Parse =
+
+    static member inline Parse (_: ^R, _: obj  ) = fun (x:string) -> (^R: (static member Parse : _ -> ^R) x)
+    static member inline Parse (_: ^R, _: Parse) = fun (x:string) -> (^R: (static member Parse : _ * _ -> ^R) (x, Globalization.CultureInfo.InvariantCulture))
+
+    static member inline Parse (_: 'T when 'T : enum<_>, _: Parse) = fun x ->
+        (match Enum.TryParse (x) with
+            | (true, v) -> v
+            | _         -> invalidArg "value" ("Requested value '" + x + "' was not found.")
+        ) : 'enum
+
+    static member Parse (_: bool              , _: Parse) = fun (x:string) -> Boolean.Parse (x)
+    static member Parse (_: char              , _: Parse) = fun  x -> Char.Parse (x)
+    static member Parse (_: string            , _: Parse) = id : string->_
+    static member Parse (_: Text.StringBuilder, _: Parse) = fun  x -> new Text.StringBuilder (x: string)
+
+    static member inline Invoke (value: string) =
+        let inline call_2 (a: ^a, b: ^b) = ((^a or ^b) : (static member Parse : _*_ -> _) b, a)
+        let inline call (a: 'a) = fun (x: 'x) -> call_2 (a, Unchecked.defaultof<'r>) x : 'r
+        call Unchecked.defaultof<Parse> value
+
+let inline parse (value: string) = Parse.Invoke value
 
 let doNothing () = ()
 
@@ -569,6 +604,29 @@ let tests5 = [
         let ar = [| {Id=Id"foo"; Name="Sarah"}; {Id=Id"bar"; Name="James"} |]
         replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
         replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
+
+    testCase "Nested trait calls work" <| fun () -> // See #2468
+        let i: int  = parse "123"
+        let b: bool = parse "true"
+        let p: Parseable = parse ""
+        let h : DateTimeOffset = parse "2011-03-04T15:42:19+03:00"
+        equal 123 i
+        equal true b
+        equal Parseable p
+        equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
+
+    testCase "Inline local function can call another inline function with trait call" <| fun _ ->
+        let inline wrapIdLocal x =
+            let id = getId x
+            "<<<" + id + ">>>"
+        let a = wrapId { Ideable2.Id="ABC"; Name="OOOO"}
+        let b = wrapId {| Id = "xyz" |}
+        let c = wrapIdLocal { Ideable2.Id="ABC"; Name="EEEE"}
+        let d = wrapIdLocal {| Id = "xyz" |}
+        equal "<<<ABC>>>" a
+        equal "<<<xyz>>>" b
+        equal "<<<ABC>>>" c
+        equal "<<<xyz>>>" d
 
     testCase "Unit expression arguments are not removed" <| fun () ->
         let mutable x = 0
@@ -901,6 +959,39 @@ let mul x y = x * y
 
 let addOne (add: int->int->int) x = add 1 x
 let pointFree_addOne = addOne
+let fortyTwo x y = x + "42" + y
+let fortyTwo2 x y () z = 42 + (FSharp.Core.Operators.int x) + (FSharp.Core.Operators.int y) + z
+let wrap someFun () () = someFun "4" "6"
+let doesWork someFun = wrap someFun
+let doesNotWork = wrap
+
+type RFoo<'a,'b> = { foo: 'a -> 'b }
+type RFoo2<'a> = { foo: 'a }
+
+let applyFooInRecord (f: RFoo<'a,'b>) (a: 'a) = f.foo a
+let applyFooInRecord2 (f: RFoo2<'a -> 'b>) (a: 'a) = f.foo a
+let applyFooInRecord3 (f: RFoo2<'a -> 'b -> 'c>) (a: 'a) (b: 'b) = f.foo a b
+let applyFooInAnonRecord (f: {| foo: 'a -> 'b|}) (a: 'a) = f.foo a
+
+type Wrapper() =
+    member _.doesNotWorki = wrap
+    static member doesNotWork = wrap
+    member _.doesNotWorki2 = wrap
+    static member doesNotWork2 = wrap
+
+type Fn = bool -> int -> string
+
+type Thing =
+    | In of Fn
+    | Out of Fn
+
+let findThing (things:Thing list) =
+    let folder (a : Fn option) t =
+        match t with
+        | In x -> Some x // Found an In, set accumulator
+        | _ -> a // pass accumulator through unchanged
+
+    things |> List.fold folder None  // Searching for an "In x"
 
 let tests7 = [
     testCase "SRTP with ActivePattern works" <| fun () ->
@@ -1175,6 +1266,63 @@ let tests7 = [
         d 42 42 |> equal [3; 2; 1; 0; 42; 42]
         let s = Seq.fold folder state [0..3]
         s 15 20 |> equal [3; 2; 1; 0; 15; 20]
+
+    testCase "Assigning a function with arity > 1 to a scoped mutable variable #2046" <| fun _ ->
+        let mutable state = fortyTwo
+        state "a" "b" |> equal "a42b"
+        state <- fun x y -> x + "32" + y
+        state "a" "b" |> equal "a32b"
+
+    testCase "Uncurrying works with generic records returning lambdas" <| fun () ->
+        applyFooInRecord { foo = fun x y -> x ** y } 5. 2. |> equal 25.
+        let f = applyFooInRecord { foo = fun x y z -> x ** y + z } 5.
+        f 3. 2. |> equal 127.
+        applyFooInRecord2 { foo = fun x y -> x ** y } 5. 2. |> equal 25.
+        let f = applyFooInRecord2 { foo = fun x y z -> x ** y + z } 5.
+        f 3. 2. |> equal 127.
+        applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5. 2. 1. |> equal 24.
+        let f = applyFooInRecord3 { foo = fun x y z -> x ** y - z } 5.
+        f 3. 3. |> equal 122.
+
+    testCase "Uncurrying works with generic anonymous records returning lambdas" <| fun () ->
+        applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5. 2. |> equal 25.
+        let f = applyFooInAnonRecord {| foo = fun x y -> x ** y |} 5.
+        f 3. |> equal 125.
+
+    testCase "Curried functions being mangled via DU, List.fold and match combination #2356" <| fun _ ->
+        let testData = [ In (fun b i -> "fly"); Out (fun b i -> "fade")]
+
+        let test = match findThing testData with
+                            | Some f -> f true 1
+                            | None -> "nothing"
+        test |> equal "fly"
+
+    testCase "Option uncurrying #2116" <| fun _ ->
+        let optionFn = Some (fun x y -> x + y)
+
+        let list = List.choose id [optionFn]
+        List.length list |> equal 1
+        let x =
+            match list with
+            | [f] -> f 3 4
+            | _ -> -1
+        equal 7 x
+
+    testCase "Iterating list of functions #2047" <| fun _ ->
+        let mutable s = "X"
+        for someFun in [fortyTwo] do
+            s <- s + someFun "y" "z" + s
+        equal "Xy42zX" s
+
+    testCase "Aliasing a function wrapping a multi-arity function in point-free style #2045" <| fun _ ->
+        equal "4426" <| doesWork fortyTwo () ()
+        equal "4426" <| doesNotWork fortyTwo () ()
+        equal "4426" <| Wrapper().doesNotWorki fortyTwo () ()
+        equal "4426" <| Wrapper.doesNotWork fortyTwo () ()
+        equal 56 <| doesWork fortyTwo2 () () () 4
+        equal 56 <| doesNotWork fortyTwo2 () () () 4
+        equal 56 <| Wrapper().doesNotWorki2 fortyTwo2 () () () 4
+        equal 56 <| Wrapper.doesNotWork2 fortyTwo2 () () () 4
 ]
 
 module Adaptive =
@@ -1197,6 +1345,62 @@ module Adaptive =
             let first, second = simple ()
             equal 4 first.[0]
             equal 1 second.[0]
+    ]
+
+module FSharpPlus =
+    module Option =
+        let apply f (x: option<'T>) : option<'U> =
+            match f, x with
+            | Some f, Some x -> Some (f x)
+            | _              -> None
+
+    module Array =
+        let apply f x =
+            let lenf, lenx = Array.length f, Array.length x
+            Array.init (lenf * lenx) (fun i -> f.[i / lenx] x.[i % lenx])
+
+    type Map =
+        static member Map ((x: option<_>, f: 'T->'U), _mthd: Map) = Option.map  f x
+        static member Map ((x: _ []     , f: 'T->'U), _mthd: Map) = Array.map   f x
+
+        static member inline Invoke (mapping: 'T->'U) (source: '``Functor<'T>``) : '``Functor<'U>`` =
+            let inline call (mthd: ^M, source: ^I, _output: ^R) = ((^M or ^I or ^R) : (static member Map : (_*_)*_ -> _) (source, mapping), mthd)
+            call (Unchecked.defaultof<Map>, source, Unchecked.defaultof<'``Functor<'U>``>)
+
+    type Return =
+        static member Return (_: option<'a>, _: Return) = fun x -> Some x : option<'a>
+        static member Return (_: 'a []     , _: Return) = fun x -> [|x|]  : 'a []
+
+        static member inline Invoke (x: 'T) : '``Applicative<'T>`` =
+            let inline call (mthd: ^M, output: ^R) = ((^M or ^R) : (static member Return : _*_ -> _) output, mthd)
+            call (Unchecked.defaultof<Return>, Unchecked.defaultof<'``Applicative<'T>``>) x
+
+    type Apply =
+        static member ``<*>`` (f: option<_>, x: option<'T>, _output: option<'U>, _mthd: Apply) = Option.apply f x : option<'U>
+        static member ``<*>`` (f: _ []     , x: 'T []     , _output: 'U []     , _mthd: Apply) = Array.apply  f x  : 'U []
+
+        static member inline Invoke (f: '``Applicative<'T -> 'U>``) (x: '``Applicative<'T>``) : '``Applicative<'U>`` =
+            let inline call (mthd : ^M, input1: ^I1, input2: ^I2, output: ^R) =
+                ((^M or ^I1 or ^I2 or ^R) : (static member ``<*>`` : _*_*_*_ -> _) input1, input2, output, mthd)
+            call(Unchecked.defaultof<Apply>, f, x, Unchecked.defaultof<'``Applicative<'U>``>)
+
+    let inline forInfiniteSeqs (t: seq<_>, isFailure, conversion) =
+            let add x y = y :: x
+            let mutable go = true
+            let mutable r = Return.Invoke []
+            use e = t.GetEnumerator ()
+            while go && e.MoveNext () do
+                if isFailure e.Current then go <- false
+                r <- Apply.Invoke (Map.Invoke add r) e.Current
+            Map.Invoke (List.rev >> conversion) r
+
+    let sequence (t: seq<option<'t>>) =
+        forInfiniteSeqs (t, Option.isNone, List.toSeq) : option<seq<'t>>
+
+    let tests = [
+        testCase "FSharpPlus regression" <| fun () -> // See #2471
+            let expected = Some(seq [1; 2])
+            sequence (seq [Some 1; Some 2]) |> equal expected
     ]
 
 let tests =

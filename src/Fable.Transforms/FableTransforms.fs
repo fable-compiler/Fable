@@ -224,7 +224,12 @@ let noSideEffectBeforeIdent identName expr =
             true
 
     let rec findIdentOrSideEffect = function
-        | IdentExpr id -> id.Name = identName
+        | IdentExpr id ->
+            if id.Name = identName then true
+            elif id.IsMutable then
+                sideEffect <- true
+                true
+            else false
         | Import _ | Lambda _ | Delegate _ -> false
         // HACK: let beta reduction jump over keyValueList/createObj in Fable.React
         | TypeCast(Call(_,i,_,_),_,Some "optimizable:pojo") ->
@@ -365,12 +370,12 @@ module private Transforms =
         let rec getLambdaTypeArity acc = function
             | LambdaType(_, returnType) ->
                 getLambdaTypeArity (acc + 1) returnType
-            | _ -> acc
+            | t -> acc, t
         match t with
         | LambdaType(_, returnType)
         | Option(LambdaType(_, returnType)) ->
             getLambdaTypeArity 1 returnType
-        | _ -> 0
+        | _ -> 0, t
 
     let curryIdentsInBody replacements body =
         visitFromInsideOut (function
@@ -383,7 +388,7 @@ module private Transforms =
     let uncurryIdentsAndReplaceInBody (idents: Ident list) body =
         let replacements =
             (Map.empty, idents) ||> List.fold (fun replacements id ->
-                let arity = getLambdaTypeArity id.Type
+                let arity, _ = getLambdaTypeArity id.Type
                 if arity > 1
                 then Map.add id.Name arity replacements
                 else replacements)
@@ -416,30 +421,32 @@ module private Transforms =
     let checkSubArguments com expectedType (expr: Expr) =
         match expectedType, expr with
         | NestedLambdaType(expectedArgs,_), ExprType(NestedLambdaType(actualArgs,_)) ->
-            let actualArgs = List.truncate expectedArgs.Length actualArgs
-            let _, replacements =
-                ((0, Map.empty), expectedArgs, actualArgs)
-                |||> List.fold2 (fun (index, replacements) expected actual ->
-                    match expected, actual with
-                    | GenericParam _, NestedLambdaType(args2, _) when List.isMultiple args2 ->
-                        index + 1, Map.add index (0, List.length args2) replacements
-                    | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
-                            when not(List.sameLength args1 args2) ->
-                        let expectedArity = List.length args1
-                        let actualArity = List.length args2
-                        index + 1, Map.add index (expectedArity, actualArity) replacements
-                    | _ -> index + 1, replacements)
-            if Map.isEmpty replacements
-            then expr
+            let expectedLength = List.length expectedArgs
+            if List.length actualArgs < expectedLength then expr
             else
-                let mappings =
-                    actualArgs |> List.mapi (fun i _ ->
-                        match Map.tryFind i replacements with
-                        | Some (expectedArity, actualArity) ->
-                            NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
-                        | None -> makeIntConst 0)
-                    |> makeArray Any
-                Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])
+                let actualArgs = List.truncate expectedLength actualArgs
+                let _, replacements =
+                    ((0, Map.empty), expectedArgs, actualArgs)
+                    |||> List.fold2 (fun (index, replacements) expected actual ->
+                        match expected, actual with
+                        | GenericParam _, NestedLambdaType(args2, _) when List.isMultiple args2 ->
+                            index + 1, Map.add index (0, List.length args2) replacements
+                        | NestedLambdaType(args1, _), NestedLambdaType(args2, _)
+                                when not(List.sameLength args1 args2) ->
+                            let expectedArity = List.length args1
+                            let actualArity = List.length args2
+                            index + 1, Map.add index (expectedArity, actualArity) replacements
+                        | _ -> index + 1, replacements)
+                if Map.isEmpty replacements then expr
+                else
+                    let mappings =
+                        actualArgs |> List.mapi (fun i _ ->
+                            match Map.tryFind i replacements with
+                            | Some (expectedArity, actualArity) ->
+                                NewTuple [makeIntConst expectedArity; makeIntConst actualArity] |> makeValue None
+                            | None -> makeIntConst 0)
+                        |> makeArray Any
+                    Replacements.Helper.LibCall(com, "Util", "mapCurriedArgs", expectedType, [expr; mappings])
         | _ -> expr
 
     let uncurryArgs com autoUncurrying argTypes args =
@@ -460,7 +467,7 @@ module private Transforms =
             | Any when autoUncurrying -> uncurryExpr com None arg
             | _ ->
                 let arg = checkSubArguments com expectedType arg
-                let arity = getLambdaTypeArity expectedType
+                let arity, _ = getLambdaTypeArity expectedType
                 if arity > 1
                 then uncurryExpr com (Some arity) arg
                 else arg)
@@ -469,7 +476,8 @@ module private Transforms =
         let curryIdentInBody identName (args: Ident list) body =
             curryIdentsInBody (Map [identName, List.length args]) body
         match e with
-        | Let(ident, NestedLambdaWithSameArity(args, fnBody, _), letBody) when List.isMultiple args ->
+        | Let(ident, NestedLambdaWithSameArity(args, fnBody, _), letBody) when List.isMultiple args
+                                                                          && not ident.IsMutable ->
             let fnBody = curryIdentInBody ident.Name args fnBody
             let letBody = curryIdentInBody ident.Name args letBody
             Let(ident, Delegate(args, fnBody, None), letBody)
@@ -483,7 +491,7 @@ module private Transforms =
         | e -> e
 
     let propagateUncurryingThroughLets (_: Compiler) = function
-        | Let(ident, value, body) ->
+        | Let(ident, value, body) when not ident.IsMutable ->
             let ident, value, arity =
                 match value with
                 | Curry(innerExpr, arity,_,_) ->
@@ -504,7 +512,7 @@ module private Transforms =
         if m.Info.IsValue then m
         else { m with Body = uncurryIdentsAndReplaceInBody m.Args m.Body }
 
-    let uncurryReceivedArgs (_: Compiler) e =
+    let uncurryReceivedArgs (com: Compiler) e =
         match e with
         // TODO: This breaks cases when we actually need to import a curried function
         // // Sometimes users type imports as lambdas but if they come from JS they're not curried
@@ -518,11 +526,18 @@ module private Transforms =
             let body = uncurryIdentsAndReplaceInBody args body
             Delegate(args, body, name)
         // Uncurry also values received from getters
-        | Get(_, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
-            let arity = getLambdaTypeArity fieldType
-            if arity > 1
-            then Curry(e, arity, t, r)
-            else e
+        | Get(callee, (ByKey(FieldKey(FieldType fieldType)) | UnionField(_,fieldType)), t, r) ->
+            match getLambdaTypeArity fieldType, callee.Type with
+            // For anonymous records, if the lambda returns a generic the actual
+            // arity may be higher than expected, so we need a runtime partial application
+            | (arity, GenericParam _), AnonymousRecordType _ when arity > 0 ->
+                let callee = makeImportLib com Any "checkArity" "Util"
+                let info = makeCallInfo None [makeIntConst arity; e] []
+                let e = Call(callee, info, t, r)
+                if arity > 1 then Curry(e, arity, t, r)
+                else e
+            | (arity, _), _ when arity > 1 -> Curry(e, arity, t, r)
+            | _ -> e
         | ObjectExpr(members, t, baseCall) ->
             ObjectExpr(List.map uncurryMemberArgs members, t, baseCall)
         | e -> e

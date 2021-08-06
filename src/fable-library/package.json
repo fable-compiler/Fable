@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "name": "fable-library",
+  "sideEffects": false
+}

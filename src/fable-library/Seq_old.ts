@@ -1,5 +1,5 @@
-import Decimal, { makeRangeStepFunction as makeDecimalRangeStepFunction } from "./Decimal.js";
-import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long.js";
+// import Decimal, { makeRangeStepFunction as makeDecimalRangeStepFunction } from "./Decimal.js";
+// import Long, { makeRangeStepFunction as makeLongRangeStepFunction } from "./Long.js";
 import { Option, some, value } from "./Option.js";
 import { compare, equals, IComparer, IDisposable } from "./Util.js";
 
@@ -618,28 +618,28 @@ export function pairwise<T>(xs: Iterable<T>): IterableIterator<[T, T]> {
   });
 }
 
-export function rangeChar(first: string, last: string) {
-  const firstNum = first.charCodeAt(0);
-  const lastNum = last.charCodeAt(0);
-  return delay(() => unfold((x) => x <= lastNum ? [String.fromCharCode(x), x + 1] : undefined, firstNum));
-}
+// export function rangeChar(first: string, last: string) {
+//   const firstNum = first.charCodeAt(0);
+//   const lastNum = last.charCodeAt(0);
+//   return delay(() => unfold((x) => x <= lastNum ? [String.fromCharCode(x), x + 1] : undefined, firstNum));
+// }
 
-export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean): IterableIterator<Long> {
-  const stepFn = makeLongRangeStepFunction(step, last, unsigned) as (arg: Long) => Option<[Long, Long]>;
-  return delay(() => unfold(stepFn, first));
-}
+// export function rangeLong(first: Long, step: Long, last: Long, unsigned: boolean): IterableIterator<Long> {
+//   const stepFn = makeLongRangeStepFunction(step, last, unsigned) as (arg: Long) => Option<[Long, Long]>;
+//   return delay(() => unfold(stepFn, first));
+// }
 
-export function rangeDecimal(first: Decimal, step: Decimal, last: Decimal): IterableIterator<Decimal> {
-  const stepFn = makeDecimalRangeStepFunction(step, last) as (arg: Decimal) => Option<[Decimal, Decimal]>;
-  return delay(() => unfold(stepFn, first));
-}
+// export function rangeDecimal(first: Decimal, step: Decimal, last: Decimal): IterableIterator<Decimal> {
+//   const stepFn = makeDecimalRangeStepFunction(step, last) as (arg: Decimal) => Option<[Decimal, Decimal]>;
+//   return delay(() => unfold(stepFn, first));
+// }
 
-export function rangeNumber(first: number, step: number, last: number) {
-  if (step === 0) {
-    throw new Error("Step cannot be 0");
-  }
-  return delay(() => unfold((x) => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : undefined, first));
-}
+// export function rangeNumber(first: number, step: number, last: number) {
+//   if (step === 0) {
+//     throw new Error("Step cannot be 0");
+//   }
+//   return delay(() => unfold((x) => step > 0 && x <= last || step < 0 && x >= last ? [x, x + step] : undefined, first));
+// }
 
 export function readOnly<T>(xs: Iterable<T>) {
   return map((x) => x, xs);

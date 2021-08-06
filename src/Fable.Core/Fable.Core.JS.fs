@@ -20,7 +20,9 @@ module JS =
         abstract set: v: obj -> unit
 
     and [<AllowNullLiteral>] ArrayConstructor =
+        [<Emit "new $0($1...)">] abstract Create: size: int -> 'T[]
         abstract isArray: arg: obj -> bool
+        abstract from: arg: obj -> 'T[]
 
     and [<AllowNullLiteral>] NumberConstructor =
         abstract isNaN: float -> bool
@@ -49,6 +51,8 @@ module JS =
         abstract isFrozen: o: obj -> bool
         abstract isExtensible: o: obj -> bool
         abstract keys: o: obj -> ResizeArray<string>
+        abstract values: o: obj -> ResizeArray<obj>
+        abstract entries: o: obj -> ResizeArray<string * obj>
         abstract assign: target: 'T * source: 'U -> obj
         abstract assign: target: 'T * source1: 'U * source2: 'V -> obj
         abstract assign: target: 'T * source1: 'U * source2: 'V * source3: 'W -> obj

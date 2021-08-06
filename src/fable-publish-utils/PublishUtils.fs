@@ -266,6 +266,8 @@ module Platform =
 
 open Platform
 
+type NugetInfo = { ApiKey: string; ReleaseVersion: string; ReleaseNotes: string[] }
+
 let (</>) (p1: string) (p2: string): string =
     IO.Path.Combine(p1, p2)
 
@@ -465,7 +467,9 @@ let replaceRegex (pattern: string) (evaluator: Match -> string) (input: string) 
 module Publish =
     let NUGET_VERSION = @"(<Version>)(.*?)(<\/Version>)"
     let NUGET_PACKAGE_VERSION = @"(<PackageVersion>)(.*?)(<\/PackageVersion>)"
+    let NUGET_PACKAGE_RELEASE_NOTES = @"(<PackageReleaseNotes>)([\s\S]*?)(</PackageReleaseNotes>)"
     let VERSION = @"(\d+)\.(\d+)\.(\d+)(\S*)"
+    let VERSION_HEADER = "#+ " + VERSION
 
     let splitPrerelease (version: string) =
         let i = version.IndexOf("-")
@@ -496,9 +500,11 @@ module Publish =
             |> Observable.subscribeWhile (fun line ->
                 match line.Trim() with
                 | "" -> true
-                | Regex VERSION (v::_) ->
+                | Regex VERSION_HEADER [_;major;minor;patch;rest] ->
                     match version with
-                    | "" -> version <- v; true
+                    | "" ->
+                        version <- $"{major}.{minor}.{patch}{rest}"
+                        true
                     | _ ->
                         cont(version, notes.ToArray())
                         // We reached next version section, stop reading
@@ -544,18 +550,23 @@ module Publish =
                 sprintf "Already version %s, no need to publish" releaseVersion |> print
             not sameVersion
 
-    let pushNuget (projFile: string) props buildAction =
+    let private findFileWithExt (dir: string) (ext: string) =
+        IO.Directory.GetFiles(dir) |> Seq.tryPick (fun path ->
+            if path.EndsWith(ext)
+            then Some(dir </> path)
+            else None)
+        |> function
+            | Some x -> x
+            | None -> failwithf "Cannot find %s in %s" ext dir
+
+    let pushNugetWithInfo (projFile: string) props buildAction (nugetInfo: NugetInfo) =
         let checkPkgVersion = function
             | Regex NUGET_PACKAGE_VERSION [_;_;pkgVersion;_] -> Some pkgVersion
             | _ -> None
-        let releaseVersion = loadReleaseVersion projFile
+        let releaseVersion = nugetInfo.ReleaseVersion
         if needsPublishing checkPkgVersion releaseVersion projFile then
             buildAction()
             let projDir = dirname projFile
-            let nugetKey =
-                match envVarOrNone "NUGET_KEY" with
-                | Some nugetKey -> nugetKey
-                | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
             // Restore dependencies here so they're updated to latest project versions
             runList ["dotnet restore"; projDir]
             // Update the project file
@@ -564,6 +575,11 @@ module Publish =
                 m.Groups.[1].Value + (splitPrerelease releaseVersion |> fst) + m.Groups.[3].Value)
             |> replaceRegex NUGET_PACKAGE_VERSION (fun m ->
                 m.Groups.[1].Value + releaseVersion + m.Groups.[3].Value)
+            |> fun fsproj ->
+                if nugetInfo.ReleaseNotes.Length = 0 then fsproj
+                else
+                    fsproj |> replaceRegex NUGET_PACKAGE_RELEASE_NOTES (fun m ->
+                        m.Groups.[1].Value + (String.concat "\n" nugetInfo.ReleaseNotes) + m.Groups.[3].Value)
             |> writeFile projFile
             try
                 let tempDir = fullPath(projDir </> "temp")
@@ -575,16 +591,14 @@ module Publish =
                     "-c Release -o"
                     tempDir
                 ]
-                let nupkg =
-                    IO.Directory.GetFiles(tempDir)
-                    |> Seq.tryPick (fun path ->
-                        if path.EndsWith(".nupkg")
-                        then Some(tempDir </> path)
-                        else None)
-                    |> function
-                        | Some x -> x
-                        | None -> failwithf "Cannot find .nupgk for %s" projDir
-                runList ["dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetKey]
+                let nupkg = findFileWithExt tempDir ".nupkg"
+                runList ["dotnet nuget push"; nupkg; "-s nuget.org -k"; nugetInfo.ApiKey]
+
+                // Looks like the `nuget push` command automatically detects the .snupkg symbols
+                // We issue the command below just in case but with --skip-duplicate to prevent errors
+                let snupkg = findFileWithExt tempDir ".snupkg"
+                runList ["dotnet nuget push"; snupkg; "-s nuget.org --skip-duplicate -k"; nugetInfo.ApiKey]
+
                 removeDirRecursive tempDir
             with _ ->
                 filenameWithoutExtension projFile
@@ -620,7 +634,39 @@ module Publish =
 let doNothing () = ()
 
 let pushNuget projFile props buildAction =
-    Publish.pushNuget projFile props buildAction
+    let nugetKey =
+        match envVarOrNone "NUGET_KEY" with
+        | Some nugetKey -> nugetKey
+        | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
+
+    { ApiKey = nugetKey; ReleaseVersion = Publish.loadReleaseVersion projFile; ReleaseNotes = [||] }
+    |> Publish.pushNugetWithInfo projFile props buildAction
+
+let pushFableNuget projFile props buildAction =
+    let fableNugetKey =
+        match envVarOrNone "FABLE_NUGET_KEY" with
+        | Some nugetKey -> nugetKey
+        | None ->
+            match envVarOrNone "NUGET_KEY" with
+            | Some _nugetKey ->
+                failwith """
+    The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable
+
+    We recently created a Fable org on NuGet, if you are a member of this organisation you need to generate a new
+    nuget key specifing Fable as the owner of the key.
+
+    We are now using FABLE_NUGET_KEY for the Fable's key so you can keep hosting your personnal key inside NUGET_KEY.
+
+    More information can be found at: https://github.com/fable-compiler/Fable/issues/2455
+    """
+            | None ->
+                failwith "The Nuget API key must be set in a FABLE_NUGET_KEY environmental variable"
+
+    async {
+        let! version, notes = Publish.loadReleaseVersionAndNotes projFile
+        { ApiKey = fableNugetKey; ReleaseVersion = version; ReleaseNotes = notes }
+        |> Publish.pushNugetWithInfo projFile props buildAction
+    }
 
 let pushNpm projDir buildAction =
     Publish.pushNpm projDir buildAction

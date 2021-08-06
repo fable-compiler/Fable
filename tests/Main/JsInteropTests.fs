@@ -14,6 +14,9 @@ importSideEffects "./js/polyfill.js"
 let inline getNameofLambda (f: 'T->'U) =
     nameofLambda f
 
+let inline getNamesofLambda (f: 'T->'U) =
+    namesofLambda f
+
 [<Global>]
 module GlobalModule =
     [<Emit("var GlobalModule = { add(x, y) { return x + y }, foo: 'bar' }")>]
@@ -102,8 +105,13 @@ type TextStyle =
     [<Emit("$1($2...)")>]
     abstract Apply: f: obj * [<ParamArray>] args: obj[] -> obj
 
+type InnerInnerRecord = {
+    Bar: string
+}
+
 type InnerRecord = {
     Float: float
+    Foo: InnerInnerRecord
 } with
     override this.ToString() =
         sprintf "%.0fx" (this.Float * 5.)
@@ -157,6 +165,7 @@ type JsOptions =
 
 [<Fable.Core.AttachMembers>]
 type ClassWithAttachments(v, ?sign) =
+    static let secretSauce = "wasabi"
     let mutable x = v
     member _.Times with get() = x and set(y) = x <- x + y
     member this.SaySomethingTo(name: string, ?format) =
@@ -166,6 +175,7 @@ type ClassWithAttachments(v, ?sign) =
         String.Format(format, name)
     static member GreetingFormat = "Hello {0}"
     static member GetGrettingEnding(times, sign) = String.replicate times sign
+    member _.WithSecretSauce(food) = $"{food} with lots of {secretSauce}"
 
 type ClassWithAttachmentsChild() =
     inherit ClassWithAttachments(3, "?")
@@ -184,6 +194,11 @@ let tests =
         x.Times <- 3
         x.SaySomethingTo("Tanaka") |> equal "Hello Tanaka!!!!!"
 
+    testCase "Class with attached members can have static constructors" <| fun _ ->
+        let x = ClassWithAttachments(2)
+        x.WithSecretSauce("Nuggets")
+        |> equal "Nuggets with lots of wasabi"
+
     testCase "Class with attached members can be inherited" <| fun _ ->
         let x = ClassWithAttachmentsChild()
         x.dileHola("Pepe") |> equal "Hola, Pepe???"
@@ -193,6 +208,26 @@ let tests =
         x.dileHola("Pepe") |> equal "Hola, Pepe???"
 
 #if FABLE_COMPILER
+    testCase "List can be JSON serialized" <| fun () ->
+        let x = [3; 2; 1]
+        JS.JSON.stringify(x)
+        |> equal "[3,2,1]"
+
+    testCase "Set can be JSON serialized" <| fun () ->
+        let x = set ["b"; "a"; "b"]
+        JS.JSON.stringify(x)
+        |> equal """["a","b"]"""
+
+    testCase "Map can be JSON serialized" <| fun () ->
+        let x = Map [ "b", 3; "a", 1; "b", 2]
+        JS.JSON.stringify(x)
+        |> equal """[["a",1],["b",2]]"""
+
+    testCase "BigInt can be JSON serialized" <| fun () ->
+        let x = 291865927421743871985719734712342981734987481I
+        JS.JSON.stringify(x)
+        |> equal "\"291865927421743871985719734712342981734987481\""
+
     testCase "Class with attached members can be sent to JS" <| fun _ ->
         let handleClass (cons: obj): string = importMember "./js/1foo.js"
         jsConstructor<ClassWithAttachments>
@@ -440,7 +475,7 @@ let tests =
         style.Sum(1.5, 2, 3, 4) |> equal 10.5
 
     testCase "nameof works" <| fun () ->
-        let record = { String = ""; Int = 0; InnerRecord = { Float = 5.0 } }
+        let record = { String = ""; Int = 0; InnerRecord = { Float = 5.0; Foo = { Bar = "z" } } }
         nameof(record) |> equal "record"
         nameof(record.String) |> equal "String"
         nameof(record.Int) |> equal "Int"
@@ -455,6 +490,14 @@ let tests =
 
     testCase "nameofLambda works in inlined functions" <| fun () ->
         getNameofLambda (fun (x:Record) -> x.String) |> equal "String"
+
+    testCase "namesofLambda works" <| fun () ->
+        namesofLambda(fun (x:Record) -> x.InnerRecord.Float) |> equal [|"InnerRecord"; "Float"|]
+        namesofLambda(fun (x:Record) -> x.InnerRecord.Foo.Bar) |> equal [|"InnerRecord"; "Foo"; "Bar"|]
+        namesofLambda(fun (x:Record) -> x.Int) |> equal [|"Int"|]
+
+    testCase "nameofLambda works in inlined functions" <| fun () ->
+        getNamesofLambda(fun (x:Record) -> x.InnerRecord.Foo.Bar) |> equal [|"InnerRecord"; "Foo"; "Bar"|]
 
     testCase "StringEnum attribute works" <| fun () ->
         Vertical |> unbox |> equal "vertical"
@@ -507,7 +550,7 @@ let tests =
 
     testCase "Stringifying an F# type in JS works" <| fun () ->
         let addFooString (x: obj) = importMember "./js/1foo.js"
-        { Float = 7. } |> addFooString |> equal "35x foo"
+        { Float = 7.; Foo = { Bar = "oh" } } |> addFooString |> equal "35x foo"
 
     testCase "JsFunc.Invoke call with param array is spreaded in JS" <| fun () ->
       let fn : Fable.Core.JsInterop.JsFunc = !!(fun (arg:int) -> arg+1) // actual implementation is not important

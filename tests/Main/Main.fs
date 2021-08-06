@@ -3,6 +3,7 @@ open System
 
 let allTests =
   [|
+    UtilTests.tests
     Applicative.tests
     Arithmetic.tests
     Arrays.tests

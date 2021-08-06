@@ -2,9 +2,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>3.1.1</Version>
-    <PackageVersion>3.1.1</PackageVersion>
+    <TargetFramework>net5.0</TargetFramework>
+    <Version>3.2.10</Version>
+    <PackageVersion>3.2.10</PackageVersion>
+    <PackageReleaseNotes>* Support System.Uri.TryCreate @Choc13
+* Fix #2477: Don't drop "DEBUG" and "TRACE" DefineConstants @stroborobo
+* Fix #2480: Improve tree shaking with fable-libray
+* Fix #2485: Proper representation of Choice with 3 or more items
+* Fix #2491: Unchecked.defaultof with struct tuples
+* Fix #2496: Custom Pow operator</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
@@ -30,14 +36,15 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
+    <!-- <ProjectReference Include="../../../fsharp/src/fsharp/FSharp.Compiler.Service/FSharp.Compiler.Service.fsproj" /> -->
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="../../lib/fcs/FSharp.Core.dll" />
+    <!-- <Reference Include="../../lib/fcs/FSharp.Core.dll" /> -->
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
-    <PackageReference Include="source-map-sharp" Version="1.0.2" />
-    <!-- <PackageReference Include="FSharp.Core" Version="5.0.0" /> -->
+    <PackageReference Include="source-map-sharp" Version="1.0.7" />
+    <PackageReference Include="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 </Project>

@@ -7,18 +7,18 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/38.0.0-dev": {
+      "FSharp.Compiler.Service/39.0.0-dev": {
         "dependencies": {
-          "FSharp.Core": "5.0.0-dev",
-          "Microsoft.Build.Framework": "16.6.0",
-          "Microsoft.Build.Tasks.Core": "16.6.0",
-          "Microsoft.Build.Utilities.Core": "16.6.0",
-          "Microsoft.NETFramework.ReferenceAssemblies": "1.0.0-preview.2",
+          "FSharp.Core": "5.0.1-dev",
+          "FSharp.DependencyManager.Nuget": "5.0.1-dev",
+          "Microsoft.Build.Framework": "16.9.0",
+          "Microsoft.Build.Tasks.Core": "16.9.0",
+          "Microsoft.Build.Utilities.Core": "16.9.0",
           "Microsoft.SourceLink.AzureRepos.Git": "1.1.0-beta-20206-02",
           "Microsoft.SourceLink.GitHub": "1.1.0-beta-20206-02",
           "NETStandard.Library": "2.0.3",
           "System.Buffers": "4.5.1",
-          "System.Collections.Immutable": "1.7.1",
+          "System.Collections.Immutable": "5.0.0",
           "System.Diagnostics.Process": "4.3.0",
           "System.Diagnostics.TraceSource": "4.3.0",
           "System.Linq.Expressions": "4.3.0",
@@ -27,7 +27,7 @@
           "System.Net.Requests": "4.3.0",
           "System.Net.Security": "4.3.0",
           "System.Reflection.Emit": "4.3.0",
-          "System.Reflection.Metadata": "1.8.1",
+          "System.Reflection.Metadata": "5.0.0",
           "System.Reflection.TypeExtensions": "4.3.0",
           "System.Runtime": "4.3.0",
           "System.Runtime.InteropServices": "4.3.0",
@@ -38,7 +38,7 @@
           "System.Threading.Tasks.Parallel": "4.3.0",
           "System.Threading.Thread": "4.3.0",
           "System.Threading.ThreadPool": "4.3.0",
-          "XliffTasks": "1.0.0-beta.20520.1"
+          "XliffTasks": "1.0.0-beta.21258.1"
         },
         "runtime": {
           "FSharp.Compiler.Service.dll": {}
@@ -85,56 +85,58 @@
           }
         }
       },
-      "Microsoft.Build.Framework/16.6.0": {
+      "Microsoft.Build.Framework/16.9.0": {
         "dependencies": {
           "System.Security.Permissions": "4.7.0"
         },
         "runtime": {
           "lib/netstandard2.0/Microsoft.Build.Framework.dll": {
             "assemblyVersion": "15.1.0.0",
-            "fileVersion": "16.6.0.22303"
+            "fileVersion": "16.9.0.11203"
           }
         }
       },
-      "Microsoft.Build.Tasks.Core/16.6.0": {
+      "Microsoft.Build.Tasks.Core/16.9.0": {
         "dependencies": {
-          "Microsoft.Build.Framework": "16.6.0",
-          "Microsoft.Build.Utilities.Core": "16.6.0",
+          "Microsoft.Build.Framework": "16.9.0",
+          "Microsoft.Build.Utilities.Core": "16.9.0",
           "Microsoft.Win32.Registry": "4.3.0",
           "System.CodeDom": "4.4.0",
-          "System.Collections.Immutable": "1.7.1",
-          "System.Reflection.Metadata": "1.8.1",
+          "System.Collections.Immutable": "5.0.0",
+          "System.Reflection.Metadata": "5.0.0",
           "System.Reflection.TypeExtensions": "4.3.0",
           "System.Resources.Extensions": "4.6.0",
+          "System.Runtime.InteropServices": "4.3.0",
+          "System.Security.Cryptography.Pkcs": "4.7.0",
+          "System.Security.Cryptography.Xml": "4.7.0",
           "System.Security.Permissions": "4.7.0",
           "System.Threading.Tasks.Dataflow": "4.9.0"
         },
         "runtime": {
           "lib/netstandard2.0/Microsoft.Build.Tasks.Core.dll": {
             "assemblyVersion": "15.1.0.0",
-            "fileVersion": "16.6.0.22303"
+            "fileVersion": "16.9.0.11203"
           }
         }
       },
       "Microsoft.Build.Tasks.Git/1.1.0-beta-20206-02": {},
-      "Microsoft.Build.Utilities.Core/16.6.0": {
+      "Microsoft.Build.Utilities.Core/16.9.0": {
         "dependencies": {
-          "Microsoft.Build.Framework": "16.6.0",
+          "Microsoft.Build.Framework": "16.9.0",
           "Microsoft.Win32.Registry": "4.3.0",
-          "System.Collections.Immutable": "1.7.1",
+          "System.Collections.Immutable": "5.0.0",
           "System.Security.Permissions": "4.7.0",
           "System.Text.Encoding.CodePages": "4.0.1"
         },
         "runtime": {
           "lib/netstandard2.0/Microsoft.Build.Utilities.Core.dll": {
             "assemblyVersion": "15.1.0.0",
-            "fileVersion": "16.6.0.22303"
+            "fileVersion": "16.9.0.11203"
           }
         }
       },
       "Microsoft.NETCore.Platforms/1.1.0": {},
       "Microsoft.NETCore.Targets/1.1.0": {},
-      "Microsoft.NETFramework.ReferenceAssemblies/1.0.0-preview.2": {},
       "Microsoft.SourceLink.AzureRepos.Git/1.1.0-beta-20206-02": {
         "dependencies": {
           "Microsoft.Build.Tasks.Git": "1.1.0-beta-20206-02",
@@ -263,14 +265,14 @@
           }
         }
       },
-      "System.Collections.Immutable/1.7.1": {
+      "System.Collections.Immutable/5.0.0": {
         "dependencies": {
           "System.Memory": "4.5.4"
         },
         "runtime": {
           "lib/netstandard2.0/System.Collections.Immutable.dll": {
-            "assemblyVersion": "1.2.5.0",
-            "fileVersion": "4.700.20.21406"
+            "assemblyVersion": "5.0.0.0",
+            "fileVersion": "5.0.20.51904"
           }
         }
       },
@@ -654,14 +656,14 @@
           "System.Runtime": "4.3.0"
         }
       },
-      "System.Reflection.Metadata/1.8.1": {
+      "System.Reflection.Metadata/5.0.0": {
         "dependencies": {
-          "System.Collections.Immutable": "1.7.1"
+          "System.Collections.Immutable": "5.0.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Reflection.Metadata.dll": {
-            "assemblyVersion": "1.4.5.0",
-            "fileVersion": "4.700.20.21406"
+            "assemblyVersion": "5.0.0.0",
+            "fileVersion": "5.0.20.51904"
           }
         }
       },
@@ -815,19 +817,12 @@
           "runtime.native.System.Security.Cryptography.OpenSsl": "4.3.0"
         }
       },
-      "System.Security.Cryptography.Cng/4.3.0": {
-        "dependencies": {
-          "Microsoft.NETCore.Platforms": "1.1.0",
-          "System.IO": "4.3.0",
-          "System.Resources.ResourceManager": "4.3.0",
-          "System.Runtime": "4.3.0",
-          "System.Runtime.Extensions": "4.3.0",
-          "System.Runtime.Handles": "4.3.0",
-          "System.Runtime.InteropServices": "4.3.0",
-          "System.Security.Cryptography.Algorithms": "4.3.0",
-          "System.Security.Cryptography.Encoding": "4.3.0",
-          "System.Security.Cryptography.Primitives": "4.3.0",
-          "System.Text.Encoding": "4.3.0"
+      "System.Security.Cryptography.Cng/4.7.0": {
+        "runtime": {
+          "lib/netstandard2.0/System.Security.Cryptography.Cng.dll": {
+            "assemblyVersion": "4.3.0.0",
+            "fileVersion": "4.700.19.56404"
+          }
         }
       },
       "System.Security.Cryptography.Csp/4.3.0": {
@@ -886,6 +881,19 @@
           }
         }
       },
+      "System.Security.Cryptography.Pkcs/4.7.0": {
+        "dependencies": {
+          "System.Buffers": "4.5.1",
+          "System.Memory": "4.5.4",
+          "System.Security.Cryptography.Cng": "4.7.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.Security.Cryptography.Pkcs.dll": {
+            "assemblyVersion": "4.0.4.0",
+            "fileVersion": "4.700.19.56404"
+          }
+        }
+      },
       "System.Security.Cryptography.Primitives/4.3.0": {
         "dependencies": {
           "System.Diagnostics.Debug": "4.3.0",
@@ -920,7 +928,7 @@
           "System.Runtime.InteropServices": "4.3.0",
           "System.Runtime.Numerics": "4.3.0",
           "System.Security.Cryptography.Algorithms": "4.3.0",
-          "System.Security.Cryptography.Cng": "4.3.0",
+          "System.Security.Cryptography.Cng": "4.7.0",
           "System.Security.Cryptography.Csp": "4.3.0",
           "System.Security.Cryptography.Encoding": "4.3.0",
           "System.Security.Cryptography.OpenSsl": "4.3.0",
@@ -930,6 +938,18 @@
           "runtime.native.System": "4.3.0",
           "runtime.native.System.Net.Http": "4.3.0",
           "runtime.native.System.Security.Cryptography.OpenSsl": "4.3.0"
+        }
+      },
+      "System.Security.Cryptography.Xml/4.7.0": {
+        "dependencies": {
+          "System.Security.Cryptography.Pkcs": "4.7.0",
+          "System.Security.Permissions": "4.7.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.Security.Cryptography.Xml.dll": {
+            "assemblyVersion": "4.0.3.0",
+            "fileVersion": "4.700.19.56404"
+          }
         }
       },
       "System.Security.Permissions/4.7.0": {
@@ -1061,8 +1081,8 @@
           }
         }
       },
-      "XliffTasks/1.0.0-beta.20520.1": {},
-      "FSharp.Core/5.0.0-dev": {
+      "XliffTasks/1.0.0-beta.21258.1": {},
+      "FSharp.Core/5.0.1-dev": {
         "dependencies": {
           "System.Linq.Queryable": "4.3.0",
           "System.Net.Requests": "4.3.0",
@@ -1072,68 +1092,136 @@
           "FSharp.Core.dll": {}
         },
         "resources": {
-          "zh-Hans/FSharp.Core.resources.dll": {
-            "locale": "zh-Hans"
-          },
-          "zh-Hant/FSharp.Core.resources.dll": {
-            "locale": "zh-Hant"
-          },
-          "pl/FSharp.Core.resources.dll": {
-            "locale": "pl"
-          },
-          "ja/FSharp.Core.resources.dll": {
-            "locale": "ja"
-          },
           "it/FSharp.Core.resources.dll": {
             "locale": "it"
-          },
-          "cs/FSharp.Core.resources.dll": {
-            "locale": "cs"
           },
           "ru/FSharp.Core.resources.dll": {
             "locale": "ru"
           },
+          "pl/FSharp.Core.resources.dll": {
+            "locale": "pl"
+          },
           "pt-BR/FSharp.Core.resources.dll": {
             "locale": "pt-BR"
           },
-          "de/FSharp.Core.resources.dll": {
-            "locale": "de"
+          "ja/FSharp.Core.resources.dll": {
+            "locale": "ja"
+          },
+          "cs/FSharp.Core.resources.dll": {
+            "locale": "cs"
           },
           "ko/FSharp.Core.resources.dll": {
             "locale": "ko"
           },
-          "fr/FSharp.Core.resources.dll": {
-            "locale": "fr"
-          },
-          "es/FSharp.Core.resources.dll": {
-            "locale": "es"
+          "zh-Hans/FSharp.Core.resources.dll": {
+            "locale": "zh-Hans"
           },
           "tr/FSharp.Core.resources.dll": {
             "locale": "tr"
+          },
+          "fr/FSharp.Core.resources.dll": {
+            "locale": "fr"
+          },
+          "zh-Hant/FSharp.Core.resources.dll": {
+            "locale": "zh-Hant"
+          },
+          "de/FSharp.Core.resources.dll": {
+            "locale": "de"
+          },
+          "es/FSharp.Core.resources.dll": {
+            "locale": "es"
+          }
+        }
+      },
+      "FSharp.DependencyManager.Nuget/5.0.1-dev": {
+        "dependencies": {
+          "FSharp.Core": "5.0.1-dev",
+          "System.Collections.Immutable": "5.0.0",
+          "System.Diagnostics.Process": "4.3.0",
+          "System.Diagnostics.TraceSource": "4.3.0",
+          "System.Linq.Expressions": "4.3.0",
+          "System.Linq.Queryable": "4.3.0",
+          "System.Net.Requests": "4.3.0",
+          "System.Net.Security": "4.3.0",
+          "System.Reflection.Emit": "4.3.0",
+          "System.Reflection.Metadata": "5.0.0",
+          "System.Reflection.TypeExtensions": "4.3.0",
+          "System.Runtime": "4.3.0",
+          "System.Runtime.InteropServices": "4.3.0",
+          "System.Runtime.Loader": "4.3.0",
+          "System.Security.Claims": "4.3.0",
+          "System.Security.Cryptography.Algorithms": "4.3.0",
+          "System.Security.Principal": "4.3.0",
+          "System.Threading.Tasks.Parallel": "4.3.0",
+          "System.Threading.Thread": "4.3.0",
+          "System.Threading.ThreadPool": "4.3.0"
+        },
+        "runtime": {
+          "FSharp.DependencyManager.Nuget.dll": {}
+        },
+        "resources": {
+          "it/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "it"
+          },
+          "ru/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ru"
+          },
+          "pl/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "pl"
+          },
+          "pt-BR/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "pt-BR"
+          },
+          "ja/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ja"
+          },
+          "cs/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "cs"
+          },
+          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ko"
+          },
+          "zh-Hans/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "zh-Hans"
+          },
+          "tr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "tr"
+          },
+          "fr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "fr"
+          },
+          "zh-Hant/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "zh-Hant"
+          },
+          "de/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "de"
+          },
+          "es/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "es"
           }
         }
       }
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/38.0.0-dev": {
+    "FSharp.Compiler.Service/39.0.0-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "Microsoft.Build.Framework/16.6.0": {
+    "Microsoft.Build.Framework/16.9.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-3tuTjESQmPyH8qcg2HEWEKinY0rflmCoDmnpaBHTM146j/ilQN08q8hAPHJNS6vDTtKDR/JWnbv16XtSL6F4qw==",
-      "path": "microsoft.build.framework/16.6.0",
-      "hashPath": "microsoft.build.framework.16.6.0.nupkg.sha512"
+      "sha512": "sha512-vY9ftq43is1TlHgUz0RBnTwF36QerDJ87/GXUd6G02h6QpfrB+jWD9vEFs7B7ZsyJ4vIFwGy+g3RcgYQrQWxpA==",
+      "path": "microsoft.build.framework/16.9.0",
+      "hashPath": "microsoft.build.framework.16.9.0.nupkg.sha512"
     },
-    "Microsoft.Build.Tasks.Core/16.6.0": {
+    "Microsoft.Build.Tasks.Core/16.9.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-xJuTzVVpHnVt24RlpTyS07mdRbCOxVjjyikXFroeLDRRzgT7E8pV68mtK4B3Nfd2ygp9VV4LrpLd/rA9+YabYQ==",
-      "path": "microsoft.build.tasks.core/16.6.0",
-      "hashPath": "microsoft.build.tasks.core.16.6.0.nupkg.sha512"
+      "sha512": "sha512-OZbWzY3CDJf9J7NSPxUUCwqbF7GI4DFkr8dprNTWuUBmifcDlyLcP1XxO7uGmIGBYmtdXgo1g4vTAi+nyDPnKw==",
+      "path": "microsoft.build.tasks.core/16.9.0",
+      "hashPath": "microsoft.build.tasks.core.16.9.0.nupkg.sha512"
     },
     "Microsoft.Build.Tasks.Git/1.1.0-beta-20206-02": {
       "type": "package",
@@ -1142,12 +1230,12 @@
       "path": "microsoft.build.tasks.git/1.1.0-beta-20206-02",
       "hashPath": "microsoft.build.tasks.git.1.1.0-beta-20206-02.nupkg.sha512"
     },
-    "Microsoft.Build.Utilities.Core/16.6.0": {
+    "Microsoft.Build.Utilities.Core/16.9.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-4msoF3z88/p7N6GzNZOiTnuBy+q47Bv5miOoEEzvq3Nu5GHGA57O/yQfrHnfKEIa0uqh4GRtzggPYj3h6FdYeA==",
-      "path": "microsoft.build.utilities.core/16.6.0",
-      "hashPath": "microsoft.build.utilities.core.16.6.0.nupkg.sha512"
+      "sha512": "sha512-rpxfQlBo2hkFODFJZKPYxMsl5QGIqQ6GlSYnQGKhl+Fu65cvJDk4jRi/R9i+X5/+lSeHhRlQbo+UUhg6cqMkRw==",
+      "path": "microsoft.build.utilities.core/16.9.0",
+      "hashPath": "microsoft.build.utilities.core.16.9.0.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/1.1.0": {
       "type": "package",
@@ -1162,13 +1250,6 @@
       "sha512": "sha512-aOZA3BWfz9RXjpzt0sRJJMjAscAUm3Hoa4UWAfceV9UTYxgwZ1lZt5nO2myFf+/jetYQo4uTP7zS8sJY67BBxg==",
       "path": "microsoft.netcore.targets/1.1.0",
       "hashPath": "microsoft.netcore.targets.1.1.0.nupkg.sha512"
-    },
-    "Microsoft.NETFramework.ReferenceAssemblies/1.0.0-preview.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-m+pJPEO7HyXvrOna5Sr3s77ewXonjYWJTNL6drh8xACnMNxnlqUDKx9HfGeSE9wmfY0lQwppaeZpFTPGaH7kZg==",
-      "path": "microsoft.netframework.referenceassemblies/1.0.0-preview.2",
-      "hashPath": "microsoft.netframework.referenceassemblies.1.0.0-preview.2.nupkg.sha512"
     },
     "Microsoft.SourceLink.AzureRepos.Git/1.1.0-beta-20206-02": {
       "type": "package",
@@ -1352,12 +1433,12 @@
       "path": "system.collections.concurrent/4.3.0",
       "hashPath": "system.collections.concurrent.4.3.0.nupkg.sha512"
     },
-    "System.Collections.Immutable/1.7.1": {
+    "System.Collections.Immutable/5.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-B43Zsz5EfMwyEbnObwRxW5u85fzJma3lrDeGcSAV1qkhSRTNY5uXAByTn9h9ddNdhM+4/YoLc/CI43umjwIl9Q==",
-      "path": "system.collections.immutable/1.7.1",
-      "hashPath": "system.collections.immutable.1.7.1.nupkg.sha512"
+      "sha512": "sha512-FXkLXiK0sVVewcso0imKQoOxjoPAj42R8HtjjbSjVPAzwDfzoyoznWxgA3c38LDbN9SJux1xXoXYAhz98j7r2g==",
+      "path": "system.collections.immutable/5.0.0",
+      "hashPath": "system.collections.immutable.5.0.0.nupkg.sha512"
     },
     "System.Diagnostics.Debug/4.3.0": {
       "type": "package",
@@ -1548,12 +1629,12 @@
       "path": "system.reflection.extensions/4.3.0",
       "hashPath": "system.reflection.extensions.4.3.0.nupkg.sha512"
     },
-    "System.Reflection.Metadata/1.8.1": {
+    "System.Reflection.Metadata/5.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-1wrPLtYQFUGTsl9OqPzdzmMRdQvo3PRK38y+4rCHG0f6iyvSYwNXVr0orMvsu2orOIiVbk6MMckINI1g54ZvfA==",
-      "path": "system.reflection.metadata/1.8.1",
-      "hashPath": "system.reflection.metadata.1.8.1.nupkg.sha512"
+      "sha512": "sha512-5NecZgXktdGg34rh1OenY1rFNDCI8xSjFr+Z4OU4cU06AQHUdRnIIEeWENu3Wl4YowbzkymAIMvi3WyK9U53pQ==",
+      "path": "system.reflection.metadata/5.0.0",
+      "hashPath": "system.reflection.metadata.5.0.0.nupkg.sha512"
     },
     "System.Reflection.Primitives/4.3.0": {
       "type": "package",
@@ -1653,12 +1734,12 @@
       "path": "system.security.cryptography.algorithms/4.3.0",
       "hashPath": "system.security.cryptography.algorithms.4.3.0.nupkg.sha512"
     },
-    "System.Security.Cryptography.Cng/4.3.0": {
+    "System.Security.Cryptography.Cng/4.7.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-03idZOqFlsKRL4W+LuCpJ6dBYDUWReug6lZjBa3uJWnk5sPCUXckocevTaUA8iT/MFSrY/2HXkOt753xQ/cf8g==",
-      "path": "system.security.cryptography.cng/4.3.0",
-      "hashPath": "system.security.cryptography.cng.4.3.0.nupkg.sha512"
+      "sha512": "sha512-4WQjFuypWtxb/bl/YwEE7LYGn4fgpsikFfBU6xwEm4YBYiRAhXAEJ62lILBu2JJSFbClIAntFTGfDZafn8yZTg==",
+      "path": "system.security.cryptography.cng/4.7.0",
+      "hashPath": "system.security.cryptography.cng.4.7.0.nupkg.sha512"
     },
     "System.Security.Cryptography.Csp/4.3.0": {
       "type": "package",
@@ -1681,6 +1762,13 @@
       "path": "system.security.cryptography.openssl/4.3.0",
       "hashPath": "system.security.cryptography.openssl.4.3.0.nupkg.sha512"
     },
+    "System.Security.Cryptography.Pkcs/4.7.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-0Srzh6YlhjuMxaqMyeCCdZs22cucaUAG6SKDd3gNHBJmre0VZ71ekzWu9rvLD4YXPetyNdPvV6Qst+8C++9v3Q==",
+      "path": "system.security.cryptography.pkcs/4.7.0",
+      "hashPath": "system.security.cryptography.pkcs.4.7.0.nupkg.sha512"
+    },
     "System.Security.Cryptography.Primitives/4.3.0": {
       "type": "package",
       "serviceable": true,
@@ -1694,6 +1782,13 @@
       "sha512": "sha512-t2Tmu6Y2NtJ2um0RtcuhP7ZdNNxXEgUm2JeoA/0NvlMjAhKCnM1NX07TDl3244mVp3QU6LPEhT3HTtH1uF7IYw==",
       "path": "system.security.cryptography.x509certificates/4.3.0",
       "hashPath": "system.security.cryptography.x509certificates.4.3.0.nupkg.sha512"
+    },
+    "System.Security.Cryptography.Xml/4.7.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-B6pAyxMvXGbZemb+ER877KSr6OKis+qAdxhhKKK36I6sgj2js8mbcEVviZEHYV8XRTWjbKsAq8Z/zoaegA30dA==",
+      "path": "system.security.cryptography.xml/4.7.0",
+      "hashPath": "system.security.cryptography.xml.4.7.0.nupkg.sha512"
     },
     "System.Security.Permissions/4.7.0": {
       "type": "package",
@@ -1779,14 +1874,19 @@
       "path": "system.threading.threadpool/4.3.0",
       "hashPath": "system.threading.threadpool.4.3.0.nupkg.sha512"
     },
-    "XliffTasks/1.0.0-beta.20520.1": {
+    "XliffTasks/1.0.0-beta.21258.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-qU2qEnMwuk+EuB2qxu9Bb+wMh/1L79i5DYqQhgvSyxP7U4wmIpxzJTYsl9w5tCymjTA1Py8Zf3dtH96o89mWvw==",
-      "path": "xlifftasks/1.0.0-beta.20520.1",
-      "hashPath": "xlifftasks.1.0.0-beta.20520.1.nupkg.sha512"
+      "sha512": "sha512-Qj9V7H4WzB4LVtOX51g8fFt+6wwslT1qPROoSiONbKC/YEw4Mg8Ug4K5G+0RIzBZkoVXWlMogTUW87usS/O/8g==",
+      "path": "xlifftasks/1.0.0-beta.21258.1",
+      "hashPath": "xlifftasks.1.0.0-beta.21258.1.nupkg.sha512"
     },
-    "FSharp.Core/5.0.0-dev": {
+    "FSharp.Core/5.0.1-dev": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "FSharp.DependencyManager.Nuget/5.0.1-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

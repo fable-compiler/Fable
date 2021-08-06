@@ -80,6 +80,14 @@ let tests =
         sumFirstTwo zs
         |> equal 1.
 
+    testCase "Seq.average for empty sequence" <| fun () ->
+        let xs = Seq.empty<float>
+        (try Seq.average xs |> ignore; false with | _ -> true) |> equal true
+
+    testCase "Seq.averageBy for empty sequence" <| fun () ->
+        let xs = Seq.empty<float>
+        (try Seq.averageBy ((*) 2.) xs |> ignore; false with | _ -> true) |> equal true
+
     testCase "Seq.average works" <| fun () ->
         let xs = seq {1.; 2.; 3.; 4.}
         Seq.average xs
@@ -872,10 +880,10 @@ let tests =
         let res1 = List.ofSeq res
         let res2 = List.ofSeq res
         let expected =
-            [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
-             (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
-             (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
-             (4, 'd'); (4, 'e'); (4, 'f')]
+            [(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f');
+             (2, 'a'); (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f');
+             (3, 'a'); (3, 'b'); (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f');
+             (4, 'a'); (4, 'b'); (4, 'c'); (4, 'd'); (4, 'e'); (4, 'f')]
         accX |> equal 2
         accY |> equal 1
         equal expected res1

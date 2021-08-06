@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5</TargetFramework>
+    <RollForward>Major</RollForward>
+    <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Expecto" Version="5.1.2" />
+    <PackageReference Include="FSharp.Core" Version="5.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Fable.Cli\Fable.Cli.fsproj" />
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="..\..\src\fable-standalone\src\Fable.Standalone.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Main/Util/Util.fs" />
+    <Compile Include="..\..\src\fable-standalone\test\bench\Platform.fs" />
+    <Compile Include="Util/Compiler.fs" />
+    <Compile Include="CompilerMessagesTests.fs" />
+    <Compile Include="AnonRecordInInterfaceTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+</Project>

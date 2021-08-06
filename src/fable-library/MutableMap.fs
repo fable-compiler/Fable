@@ -14,9 +14,6 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
     // new () = MutableMap (Seq.empty, EqualityComparer.Default)
     // new (comparer) = MutableMap (Seq.empty, comparer)
 
-    interface Fable.Core.Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "Dictionary"
-
     member private this.TryFindIndex(k) =
         let h = comparer.GetHashCode(k)
         match hashMap.TryGetValue h with
@@ -37,7 +34,10 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
         hashMap.Clear()
 
     member this.Count =
-        hashMap.Values |> Seq.sumBy (fun pairs -> pairs.Count)
+        let mutable count = 0
+        for pairs in hashMap.Values do
+            count <- count + pairs.Count
+        count
 
     member this.Item
         with get (k: 'Key) =
@@ -76,6 +76,15 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
         | _, _, _ ->
             false
 
+    interface Fable.Core.Symbol_wellknown with
+        member _.``Symbol.toStringTag`` = "Dictionary"
+
+    // Native JS Map (used for primitive keys) doesn't work with `JSON.stringify` but
+    // let's add `toJSON` for consistency with the types within fable-library.
+    interface Fable.Core.IJsonSerializable with
+        member this.toJSON(_key) =
+            Fable.Core.JS.Constructors.Array.from(this) |> box
+
     interface System.Collections.IEnumerable with
         member this.GetEnumerator(): System.Collections.IEnumerator =
             ((this :> IEnumerable<KeyValuePair<'Key, 'Value>>).GetEnumerator() :> System.Collections.IEnumerator)
@@ -108,7 +117,6 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
                 true
             | _ -> false
 
-#if !FABLE_COMPILER
     interface IDictionary<'Key, 'Value> with
         member this.Add(key: 'Key, value: 'Value): unit =
             this.Add(key, value)
@@ -129,7 +137,6 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
             | _ -> false
         member this.Values: ICollection<'Value> =
             [| for pair in this -> pair.Value |] :> ICollection<'Value>
-#endif
 
     interface Fable.Core.JS.Map<'Key, 'Value> with
         member this.size = this.Count

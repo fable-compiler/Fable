@@ -55,6 +55,8 @@ let tests =
             Char.IsLetter('1') |> equal false
             Char.IsLetter('β') |> equal true
             Char.IsLetter('家') |> equal true
+            Char.IsLetter('“') |> equal false
+            Char.IsLetter('”') |> equal false
 
         testCase "Char.IsLetter with two args works" <| fun () ->
             let str = "al1"

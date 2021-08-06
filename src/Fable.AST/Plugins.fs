@@ -9,10 +9,14 @@ type Verbosity =
     | Verbose
     | Silent
 
+type Language =
+    | JavaScript
+    | TypeScript
+
 type CompilerOptions =
       abstract TypedArrays: bool
       abstract ClampByteArrays: bool
-      abstract Typescript: bool
+      abstract Language: Language
       abstract Define: string list
       abstract DebugMode: bool
       abstract OptimizeFSharpAst: bool
@@ -27,6 +31,7 @@ type PluginHelper =
     abstract LogError: string * ?range: SourceLocation -> unit
     abstract GetRootModule: fileName: string -> string
     abstract GetEntity: EntityRef -> Entity
+    abstract GetOutputPath: unit -> string
 
 [<System.AttributeUsage(System.AttributeTargets.Assembly)>]
 type ScanForPluginsAttribute() =

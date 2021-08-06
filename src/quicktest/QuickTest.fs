@@ -12,7 +12,7 @@ open Fable.Core.JsInterop
 open Fable.Core.Testing
 
 let log (o: obj) =
-   printfn "%O" o
+   printfn "%A" o
 
 let equal expected actual =
    let areEqual = expected = actual

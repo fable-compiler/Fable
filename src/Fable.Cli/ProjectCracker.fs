@@ -5,20 +5,21 @@ module Fable.Cli.ProjectCracker
 open System
 open System.Xml.Linq
 open System.Collections.Generic
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open Fable
 open Globbing.Operators
 
 type FablePackage = Fable.Transforms.State.Package
 
-type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, noRestore, projFile) =
+type CrackerOptions(fableOpts, fableLib, outDir, configuration, exclude, replace, noCache, noRestore, projFile) =
     let builtDlls = HashSet()
     member _.FableOptions: CompilerOptions = fableOpts
     member _.FableLib: string option = fableLib
     member _.OutDir: string option = outDir
+    member _.Configuration: string = configuration
     member _.Exclude: string option = exclude
     member _.Replace: Map<string, string> = replace
-    member _.ForcePkgs: bool = forcePkgs
+    member _.NoCache: bool = noCache
     member _.NoRestore: bool = noRestore
     member _.ProjFile: string = projFile
     member _.BuildDll(normalizedDllPath: string) =
@@ -30,7 +31,7 @@ type CrackerOptions(fableOpts, fableLib, outDir, exclude, replace, forcePkgs, no
                 |> Array.skip 1
                 |> Array.rev
                 |> String.concat "/"
-            Process.runSync projDir "dotnet" ["build"] |> ignore
+            Process.runSync projDir "dotnet" ["build"; "-c"; configuration] |> ignore
             builtDlls.Add(normalizedDllPath) |> ignore
 
 type CrackerResponse =
@@ -65,7 +66,6 @@ let makeProjectOptions project sources otherOptions: FSharpProjectOptions =
       LoadTime = DateTime.MaxValue
       UnresolvedReferences = None
       OriginalLoadReferences = []
-      ExtraProjectInfo = None
       Stamp = None }
 
 let tryGetFablePackage (opts: CrackerOptions) (dllPath: string) =
@@ -270,18 +270,13 @@ let getSourcesFromFsproj (projFile: string) =
         | path -> [ path ])
 
 let private isUsefulOption (opt : string) =
-    match opt with
-    // We manage DEBUG (and maybe later TRACE) through CLI
-    | "--define:DEBUG"
-    | "--define:TRACE" -> false
-    | _ ->
-        [ "--define"
-          "--nowarn"
-          "--warnon"
-        //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
-        //   "--langversion" // See getBasicCompilerArgs
-        ]
-        |> List.exists opt.StartsWith
+    [ "--define"
+      "--nowarn"
+      "--warnon"
+    //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
+    //   "--langversion" // See getBasicCompilerArgs
+    ]
+    |> List.exists opt.StartsWith
 
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string,string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
@@ -317,7 +312,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
 
     Log.always("Parsing " + File.getRelativePathFromCwd projFile + "...")
     let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
     // let targetFramework =
     //     match Map.tryFind "TargetFramework" msbuildProps with
@@ -358,9 +353,9 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
       OtherCompilerOptions = otherOpts }
 
 /// For project references of main project, ignore dll and package references
-let easyCrack opts dllRefs (projFile: string): CrackedFsproj =
+let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
     let projOpts, projRefs, _msbuildProps =
-        ProjectCoreCracker.GetProjectOptionsFromProjectFile projFile
+        ProjectCoreCracker.GetProjectOptionsFromProjectFile opts.Configuration projFile
 
     let sourceFiles, otherOpts =
         (projOpts.OtherOptions, ([], []))
@@ -441,7 +436,7 @@ let createFableDir (opts: CrackerOptions) =
         ]
 
     let isEmptyOrOutdated =
-        if opts.ForcePkgs || isDirectoryEmpty fableDir then true
+        if opts.NoCache || isDirectoryEmpty fableDir then true
         else
             let isOutdated =
                 try

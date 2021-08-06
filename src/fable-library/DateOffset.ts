@@ -19,19 +19,52 @@ import { FSharpRef } from "./Types.js";
 import { compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export default function DateTimeOffset(value: number, offset?: number) {
+  checkOffsetInRange(offset);
   const d = new Date(value) as IDateTimeOffset;
   d.offset = offset != null ? offset : new Date().getTimezoneOffset() * -60000;
   return d;
 }
 
-export function fromDate(date: IDateTime, offset?: number) {
-  const isUtc = date.kind === DateKind.UTC;
-  const offset2 = isUtc ? 0 : date.getTimezoneOffset() * -60000;
-  if (offset != null && offset !== offset2) {
-    throw new Error(isUtc
-      ? "The UTC Offset for Utc DateTime instances must be 0."
-      : "The UTC Offset of the local dateTime parameter does not match the offset argument.");
+function checkOffsetInRange(offset?: number) {
+  if (offset != null && offset !== 0) {
+    if (offset % 60000 !== 0) {
+      throw new Error("Offset must be specified in whole minutes.");
+    }
+    if (Math.abs(offset / 3600000) > 14) {
+      throw new Error("Offset must be within plus or minus 14 hours.");
+    }
   }
+}
+
+export function fromDate(date: IDateTime, offset?: number) {
+  let offset2: number = 0;
+  switch (date.kind) {
+    case DateKind.UTC:
+      if(offset != null && offset !== 0) {
+        throw new Error("The UTC Offset for Utc DateTime instances must be 0.");
+      }
+      offset2 = 0;
+      break;
+
+    case DateKind.Local:
+      offset2 = date.getTimezoneOffset() * -60_000;
+      if(offset != null && offset !== offset2) {
+        throw new Error("The UTC Offset of the local dateTime parameter does not match the offset argument.");
+      }
+
+      break;
+
+    case DateKind.Unspecified:
+    default:
+      if(offset == null) {
+        offset2 = date.getTimezoneOffset() * -60_000;
+      }
+      else {
+        offset2 = offset;
+      }
+      break;
+  }
+
   return DateTimeOffset(date.getTime(), offset2);
 }
 
@@ -84,14 +117,7 @@ export function create(
     offset = ms;
     ms = 0;
   }
-  if (offset !== 0) {
-    if (offset % 60000 !== 0) {
-      throw new Error("Offset must be specified in whole minutes");
-    }
-    if (~~(offset / 3600000) > 14) {
-      throw new Error("Offset must be within plus or minus 14 hour");
-    }
-  }
+  checkOffsetInRange(offset);
   let date: Date;
   if (offset === 0) {
     date = new Date(Date.UTC(year, month - 1, day, h, m, s, ms));
@@ -272,4 +298,8 @@ export function op_Addition(x: IDateTimeOffset, y: number) {
 
 export function op_Subtraction(x: IDateTimeOffset, y: number | IDateTimeOffset) {
   return subtract(x, y);
+}
+
+export function toOffset(d: IDateTimeOffset, offset: number): IDateTimeOffset {
+  return DateTimeOffset(d.getTime(), offset);
 }

@@ -9,23 +9,23 @@ open System.IO
 
 type ISourceText =
 
-    abstract Item : int -> char with get
+    abstract Item: index: int -> char with get
 
-    abstract GetLineString : lineIndex: int -> string
+    abstract GetLineString: lineIndex: int -> string
 
-    abstract GetLineCount : unit -> int
+    abstract GetLineCount: unit -> int
 
-    abstract GetLastCharacterPosition : unit -> int * int
+    abstract GetLastCharacterPosition: unit -> int * int
 
-    abstract GetSubTextString : start: int * length: int -> string
+    abstract GetSubTextString: start: int * length: int -> string
 
-    abstract SubTextEquals : target: string * startIndex: int -> bool
+    abstract SubTextEquals: target: string * startIndex: int -> bool
 
-    abstract Length : int
+    abstract Length: int
 
-    abstract ContentEquals : sourceText: ISourceText -> bool
+    abstract ContentEquals: sourceText: ISourceText -> bool
 
-    abstract CopyTo : sourceIndex: int * destination: char [] * destinationIndex: int * count: int -> unit
+    abstract CopyTo: sourceIndex: int * destination: char [] * destinationIndex: int * count: int -> unit
 
 [<Sealed>]
 type StringText(str: string) =
@@ -53,36 +53,36 @@ type StringText(str: string) =
         // So, it's ok that we do this for now.
         lazy getLines str
 
-    member __.String = str
+    member _.String = str
 
-    override __.GetHashCode() = str.GetHashCode()
-    override __.Equals(obj: obj) = 
+    override _.GetHashCode() = str.GetHashCode()
+    override _.Equals(obj: obj) = 
         match obj with
         | :? StringText as other -> other.String.Equals(str)
         | :? string as other -> other.Equals(str)
         | _ -> false        
-    override __.ToString() = str
+    override _.ToString() = str
 
     interface ISourceText with
 
-        member __.Item with get index = str.[index]
+        member _.Item with get index = str.[index]
 
-        member __.GetLastCharacterPosition() =
+        member _.GetLastCharacterPosition() =
             let lines = getLines.Value
             if lines.Length > 0 then
                 (lines.Length, lines.[lines.Length - 1].Length)
             else
                 (0, 0)
 
-        member __.GetLineString(lineIndex) = 
+        member _.GetLineString(lineIndex) = 
             getLines.Value.[lineIndex]
 
-        member __.GetLineCount() = getLines.Value.Length
+        member _.GetLineCount() = getLines.Value.Length
 
-        member __.GetSubTextString(start, length) = 
+        member _.GetSubTextString(start, length) = 
             str.Substring(start, length)
 
-        member __.SubTextEquals(target, startIndex) =
+        member _.SubTextEquals(target, startIndex) =
             if startIndex < 0 || startIndex >= str.Length then
                 invalidArg "startIndex" "Out of range."
 
@@ -99,14 +99,14 @@ type StringText(str: string) =
             str.IndexOf(target, startIndex, target.Length) <> -1              
 #endif
 
-        member __.Length = str.Length
+        member _.Length = str.Length
 
         member this.ContentEquals(sourceText) =
             match sourceText with
             | :? StringText as sourceText when sourceText = this || sourceText.String = str -> true
             | _ -> false
 
-        member __.CopyTo(sourceIndex, destination, destinationIndex, count) =
+        member _.CopyTo(sourceIndex, destination, destinationIndex, count) =
 #if FABLE_COMPILER
             Array.blit (str.ToCharArray()) sourceIndex destination destinationIndex count
 #else
@@ -262,7 +262,7 @@ namespace Internal.Utilities.Text.Lexing
             let chars = Array.init lexbuf.LexemeLength (lexbuf.LexemeChar >> char)
             new System.String(chars)
 #else
-            new System.String(lexbuf.Buffer, lexbuf.BufferScanStart, lexbuf.LexemeLength)
+            new System.String(lexbuf.Buffer,lexbuf.BufferScanStart,lexbuf.LexemeLength)
 #endif
 
         member lexbuf.IsPastEndOfStream 
@@ -279,7 +279,7 @@ namespace Internal.Utilities.Text.Lexing
                 Array.blit buffer bufferScanStart repl bufferScanStart bufferScanLength
                 buffer <- repl
 
-        member __.SupportsFeature featureId = supportsFeature featureId
+        member _.SupportsFeature featureId = supportsFeature featureId
 
         static member FromFunction (supportsFeature:LanguageFeature -> bool, f : 'Char[] * int * int -> int) : LexBuffer<'Char> =
             let extension= Array.zeroCreate 4096
@@ -368,7 +368,7 @@ namespace Internal.Utilities.Text.Lexing
         let numUnicodeCategories = 30 
         let numLowUnicodeChars = 128 
         let numSpecificUnicodeChars = (trans.[0].Length - 1 - numLowUnicodeChars - numUnicodeCategories)/2
-        let lookupUnicodeCharacters state (inp: uint16) =
+        let lookupUnicodeCharacters state inp =
             let inpAsInt = int inp
             // Is it a fast ASCII character?
             if inpAsInt < numLowUnicodeChars then 
@@ -391,7 +391,11 @@ namespace Internal.Utilities.Text.Lexing
                         let c = trans.[state].[baseForSpecificUnicodeChars+i*2]
                         //System.Console.WriteLine("c = {0}, inp = {1}, i = {2}", [| box c; box inp; box i |]);
                         // OK, have we found the entry for a specific unicode character?
+#if FABLE_COMPILER
                         if c = inp
+#else
+                        if char c = inp
+#endif
                         then int trans.[state].[baseForSpecificUnicodeChars+i*2+1]
                         else loop(i+1)
                 loop 0
@@ -410,7 +414,7 @@ namespace Internal.Utilities.Text.Lexing
                 afterRefill (trans,sentinel,lexBuffer,scanUntilSentinel,lexBuffer.EndOfScan,state,eofPos)
             else
                 // read a character - end the scan if there are no further transitions 
-                let inp = uint16 lexBuffer.Buffer.[lexBuffer.BufferScanPos]
+                let inp = lexBuffer.Buffer.[lexBuffer.BufferScanPos]
                 
                 // Find the new state
                 let snew = lookupUnicodeCharacters state inp

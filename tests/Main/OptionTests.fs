@@ -40,6 +40,11 @@ let tests =
         f (Some 2) |> equal 2
         f None |> equal 5
 
+    testCase "defaultValueArg works" <| fun () ->
+        let f o = defaultValueArg o 5
+        f (ValueSome 2) |> equal 2
+        f ValueNone |> equal 5
+
     testCase "Option.defaultValue works" <| fun () ->
         let a = Some "MyValue"
         let b = None

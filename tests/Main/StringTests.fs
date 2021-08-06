@@ -180,6 +180,9 @@ let tests =
             same "%% %%"
             same "%% % % %%"
 
+      testCase "Fix #2398: Exception when two successive string format placeholders and value of first one ends in `%`" <| fun () ->
+          sprintf "%c%s" '%' "text" |> equal "%text"
+
       testCase "Unions with sprintf %A" <| fun () ->
             Bar(1,5) |> sprintf "%A" |> equal "Bar (1, 5)"
             Foo1 4.5 |> sprintf "%A" |> equal "Foo1 4.5"
@@ -885,4 +888,19 @@ let tests =
       // See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
       testCase "Passing Char.IsDigit as a function reference doesn't make String.filter hang" <| fun () ->
             "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
-]
+
+      testCase "sprintf with double % should be unescaped" <| fun () ->
+            sprintf "%d%%" 100 |> equal "100%"
+
+      testCase "interpolated string with double % should be unescaped" <| fun () ->
+            $"{100}%%" |> equal "100%"
+
+      testCase "Can create FormattableString" <| fun () ->
+          let orderAmount = 100
+          let convert (s: FormattableString) = s
+          let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+          s.Format |> equal "You owe: {0:N5} {1} {2}"
+          s.ArgumentCount |> equal 3
+          s.GetArgument(2) |> equal (box true)
+          s.GetArguments() |> equal [|100; 3; true|]
+  ]

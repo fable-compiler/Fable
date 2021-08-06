@@ -200,6 +200,20 @@ let tests =
         Array.blit xs 3 ys 5 4        // [|0; 0; 0; 0; 0; 4; 5; 6; 7; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0|]
         ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
 
+    testCase "Array.blit works with non typed arrays" <| fun () ->
+        let xs = [| 'a'..'h' |] |> Array.map string
+        let ys = Array.zeroCreate 20
+        Array.blit xs 3 ys 5 4
+        ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
+
+#if FABLE_COMPILER
+    testCase "Array.blit works with deceiving typed arrays" <| fun () ->
+        let xs = Fable.Core.JsInterop.emitJsExpr () "[1,2,3,4,5,6,7,8,9,10]"
+        let ys = Array.zeroCreate 20
+        Array.blit xs 3 ys 5 4
+        ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
+#endif
+
     testCase "Array.copy works" <| fun () ->
         let xs = [| 1; 2; 3; 4 |]
         let ys = Array.copy xs
@@ -567,6 +581,30 @@ let tests =
         let xs = [|1.; 2.; 3.; 4.|]
         xs |> Array.reduce (-)
         |> equal -8.
+
+    testCase "Array.reduce Array.append works" <| fun _ -> // See #2372
+        let nums =
+            [|
+                [| 0 |]
+                [| 1 |]
+            |]
+        Array.reduce Array.append nums |> equal [|0; 1|]
+
+        let nums2d =
+            [|
+                [| [| 0 |] |]
+                [| [| 1 |] |]
+            |]
+        Array.reduce Array.append nums2d
+        |> equal [|[|0|]; [|1|]|]
+
+        let strs =
+            [|
+                [| "a" |]
+                [| "b" |]
+            |]
+        Array.reduce Array.append strs
+        |> equal [|"a"; "b"|]
 
     testCase "Array.reduceBack works" <| fun () ->
         let xs = [|1.; 2.; 3.; 4.|]

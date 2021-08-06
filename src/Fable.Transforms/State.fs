@@ -3,7 +3,9 @@ module Fable.Transforms.State
 open Fable
 open Fable.AST
 open System.Collections.Generic
+open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
 
 #if FABLE_COMPILER
 type Dictionary<'TKey, 'TValue> with
@@ -107,7 +109,8 @@ type ImplFile =
         Entities: IReadOnlyDictionary<string, Fable.Entity>
     }
 
-type Project(checkResults: FSharpCheckProjectResults,
+type Project(projFile: string,
+             checkResults: FSharpCheckProjectResults,
              ?getPlugin: PluginRef -> System.Type,
              ?optimizeFSharpAst,
              ?assemblies) =
@@ -142,15 +145,16 @@ type Project(checkResults: FSharpCheckProjectResults,
                    Entities = entities })
         |> dict
 
-    member _.Update(checkResults: FSharpCheckProjectResults) =
-        Project(checkResults,
+    member this.Update(checkResults: FSharpCheckProjectResults) =
+        Project(this.ProjectFile, checkResults,
                 optimizeFSharpAst=optimizeFSharpAst,
                 assemblies=assemblies)
 
+    member _.ProjectFile = projFile
     member _.ImplementationFiles = implFiles
     member _.Assemblies = assemblies
     member _.InlineExprs = inlineExprs
-    member _.Errors = checkResults.Errors
+    member _.Errors = checkResults.Diagnostics
 
 type Log =
     { Message: string
@@ -171,7 +175,7 @@ type Log =
 
 /// Type with utilities for compiling F# files to JS
 /// Not thread-safe, an instance must be created per file
-type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string) =
+type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string) =
     let logs = ResizeArray<Log>()
     let watchDependencies = HashSet<string>()
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
@@ -186,6 +190,8 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.Plugins = project.Assemblies.Plugins
         member _.LibraryDir = fableLibraryDir
         member _.CurrentFile = currentFile
+        member _.OutputDir = outDir
+        member _.ProjectFile = project.ProjectFile
 
         member _.GetImplementationFile(fileName) =
             let fileName = Path.normalizePathAndEnsureFsExtension fileName

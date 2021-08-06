@@ -1,3 +1,152 @@
+### 3.2.10
+
+* Support System.Uri.TryCreate @Choc13
+* Fix #2477: Don't drop "DEBUG" and "TRACE" DefineConstants @stroborobo
+* Fix #2480: Improve tree shaking with fable-libray
+* Fix #2485: Proper representation of Choice with 3 or more items
+* Fix #2491: Unchecked.defaultof with struct tuples
+* Fix #2496: Custom Pow operator
+
+### 3.2.9
+
+* Don't print JS files in watch mode if there're F# errors
+* Fix SRTP with local inline functions
+
+### 3.2.8
+
+* Fix regression in FCS: passing __SOURCE_IDENTIFIER__ to static parameters in type providers
+
+### 3.2.7
+
+* Fix regression: all files were recompiled in watch mode in 3.2.5
+* Fix #2472: Tuple-related methods
+
+### 3.2.6
+
+* Fix #2471: Trait call regression
+
+### 3.2.5
+
+* Fix #2468: SRTP Parser
+* Only show Compile file log in watch compilations
+
+### 3.2.4
+
+* Fix #2438: Print JS sequence expressions always between parentheses
+* Don't jump over mutable idents when inlining
+
+### 3.2.3
+
+* Experimental.namesofLambda
+
+### 3.2.2
+
+* Check for correct types in Anonymous Record when assigning to Interface with [<EmitIndexer>] via !! @Booksbaum
+* Fix #1973: FormattableString support
+
+### 3.2.1
+
+* Fix Event issues and and implement FSharpEvent`2 @chkn
+* Fix #2451: throw exception when sequence is empty @MNie
+* Fix #2445: Improve error message when fable doesn't implement an API
+
+### 3.2.0
+
+* Update to net5.0 and FCS, @ncave
+
+### 3.1.16
+
+* Publish with icon and symbols @cartermp
+
+### 3.1.15
+
+* Add a --sourceMapsRoot CLI option to set source maps sourceRoot @mlaily
+* Fix #2433: Improve type info for plugins like Fable.SvelteStore
+* Fix #2431: Pass output directory info to plugins
+
+### 3.1.14
+
+* Experimental `casenameWithFieldIndex`
+
+### 3.1.12
+
+* Fix #1678: BigInt native JS JSON serialization with toJSON
+* Fix #2151: Implement DateTimeOffset.toOffset @Booksbaum
+* Fix #2410: Invalid offsets are accepted @Booksbaum
+* Fix #2411: DateTime(Unspecified) fails when offset not local timezone @Booksbaum
+* Fix #2417: overloads with struct tuple
+* Fix #2418: List native JS JSON serialization with toJSON
+* Update big.js (decimals) @ncave
+* Update source-map-sharp to 1.0.5
+
+### 3.1.11
+
+* Fix watch compilation issues
+* Fix #2398: two successive string format placeholders and value of first one ends in `%`
+
+### 3.1.10
+
+* Revert breaking change, configuration should default to Debug only in watch mode @forki
+
+### 3.1.9
+
+* Fix crash with delegate alias
+
+### 3.1.8
+
+* Fix #2234: Recompile dependencies in watch mode when Emit/Import attributes change
+* Fix #2406: Check --outDir argument when running clean command
+
+### 3.1.7
+
+* Fix for Fable.Core.JsInterop.importValueDynamic
+
+### 3.1.6
+
+* Support setting a Build configuration with --configuration cli arg @stroborobo
+* Log compiled files in same line
+* Fix #2390: Array.choose is executing choose function two times @ncave
+* Fix #2394: interpolate doesn't unescape %% correctly @thinkbeforecoding
+* Fix #2396: custom exceptions in async workflows
+* Fix #2400: Conversion to delegates
+* Fix: Accessing named capture group in Regex only works with string constant @Booksbaum
+* Fable library improvements and other fixes @ncave
+
+### 3.1.5
+
+* Fix #2384: Polling file watcher @mlaily
+* Fix static constructors with attached members
+
+### 3.1.4
+
+* Fix #2045: Aliasing a function wrapping a multi-arity function in point-free style
+
+### 3.1.3
+
+* Add support for named capture groups in Regexes @Booksbaum
+* Babel AST: cleanup and refactor @dbrattli
+* Fix #1343: Warning when interface name clashes with record field @BillHally
+* Fix #2376: Char.IsLetter with “ and ” @ncave @NickDarvey
+* Fix #2372: Array.reduce Array.append @inosik
+* Fix #2367: Using "unbox null" for callback returns "undefined"
+* Fix #2357: Fall-through to default switch case duplicates the switch case consequent code block
+* Fix #2356: Curried functions mangled via DU, List.fold and match combination
+* Fix #2355: System.Math.Ceiling/Floor returning incorrect values for some Decimals @ncave
+* Fix #2350: Empty files
+* Fix #2116: Incorrect uncurrying with list of function options
+* Fix #2047: Iterating over a list of functions with a for in loop
+* Fix #2046: Assigning a function to scoped mutable variable
+* Fix #2045: Raise warning for point-free function declarations
+
+### 3.1.2
+
+* Fast copy for typed arrays @GordonBGood
+* Return error exit code when wront arguments passed
+* Fix source map writing
+* Fix #2350: Invalid JS class for empty files
+* Fix #2355: System.Math.Ceiling() and System.Math.Floor returning incorrect values for some Decimals @ncave
+* Fix #2357: Remove duplicate switch branches
+
 ### 3.1.1
 
 * Fix #2343: Remove conflicting export default

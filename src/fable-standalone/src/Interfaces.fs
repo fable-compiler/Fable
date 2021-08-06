@@ -19,9 +19,9 @@ type Glyph =
 
 type Error =
     { FileName: string
-      StartLineAlternate: int
+      StartLine: int
       StartColumn: int
-      EndLineAlternate: int
+      EndLine: int
       EndColumn: int
       Message: string
       IsWarning: bool }
@@ -36,6 +36,9 @@ type Completion =
     { Name: string
       Glyph: Glyph }
 
+type SourceMapping =
+    int * int * int * int * string option
+
 type IChecker =
     interface end
 
@@ -48,6 +51,7 @@ type IBabelResult =
 
 type IWriter =
     inherit System.IDisposable
+    abstract AddSourceMapping: SourceMapping -> unit
     abstract EscapeJsStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
@@ -56,7 +60,6 @@ type IFableManager =
     abstract Version: string
     abstract CreateChecker: references: string[] * readAllBytes: (string -> byte[]) * otherOptions: string[] -> IChecker
     abstract ClearParseCaches: checker: IChecker -> unit
-    abstract ParseFSharpScript: checker: IChecker * fileName: string * source: string * ?otherFSharpOptions: string[] -> IParseResults
     abstract ParseFSharpProject: checker: IChecker * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
     abstract ParseFSharpFileInProject: checker: IChecker * fileName: string * projectFileName: string * fileNames: string[] * sources: string[] * ?otherFSharpOptions: string[] -> IParseResults
     abstract GetParseErrors: parseResults: IParseResults -> Error[]
