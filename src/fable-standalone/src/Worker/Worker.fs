@@ -7,9 +7,12 @@ open Fable.WebWorker
 
 let FILE_NAME = "test.fs"
 let PROJECT_NAME = "project.fsproj"
+let precompiledLibs = Map [
+    "Sutil.dll", ("src/Sutil", "fable-repl-lib/sutil")
+]
 
 type IFableInit =
-    abstract member init: unit -> IFableManager
+    abstract member init: precompiledLibs: Map<string, string * string> -> IFableManager
 
 let [<Global>] self: obj = jsNative
 let [<Global>] importScripts(_path: string): unit = jsNative
@@ -60,7 +63,7 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
         | Init(refsDirUrl, extraRefs, refsExtraSuffix) ->
             let getBlobUrl name =
                 refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
-            let manager = FableInit.init()
+            let manager = FableInit.init precompiledLibs
             let references = Array.append Fable.Metadata.coreAssemblies extraRefs
             let! reader = getAssemblyReader(getBlobUrl, references) |> Async.AwaitPromise
             let (checker, checkerTime) = measureTime (fun () ->

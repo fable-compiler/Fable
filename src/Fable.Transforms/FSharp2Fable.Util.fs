@@ -150,15 +150,18 @@ type FsEnt(ent: FSharpEntity) =
     static member Ref (ent: FSharpEntity): Fable.EntityRef =
         let path =
             match ent.Assembly.FileName with
-            // HACK: Fable.Sveltish
-            | Some asmPath when asmPath.EndsWith("Fable.Sveltish.dll") ->
-                let sourcePath = (FsEnt.SourcePath ent).Replace("/home/alfonso/repos/Fable.Sveltish/src/Fable.Sveltish", "fable-repl-lib/sutil")
-                Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
-            // When compiling with netcoreapp target, netstandard only contains redirects
-            // Find the actual assembly name from the entity qualified name
-            | Some asmPath when asmPath.EndsWith("netstandard.dll") ->
-                ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
-            | Some asmPath -> Path.normalizePath asmPath |> Fable.AssemblyPath
+            | Some asmPath ->
+                let filename = Path.GetFileName asmPath
+                match Compiler.StaticOptions.IsPrecompiledLib(filename) with
+                | Some(commonDir, replaceDir) ->
+                    let sourcePath = FsEnt.SourcePath ent
+                    let sourcePath = Path.Combine(replaceDir, sourcePath.[sourcePath.IndexOf(commonDir) + commonDir.Length ..])
+                    Fable.PrecompiledLib(sourcePath, Path.normalizePath asmPath)
+                // When compiling with netcoreapp target, netstandard only contains redirects
+                // Find the actual assembly name from the entity qualified name
+                | None when filename = "netstandard.dll" ->
+                    ent.QualifiedName.Split(',').[1].Trim() |> Fable.CoreAssemblyName
+                | None -> Path.normalizePath asmPath |> Fable.AssemblyPath
             | None -> FsEnt.SourcePath ent |> Fable.SourcePath
         { FullName = FsEnt.FullName ent
           Path = path }

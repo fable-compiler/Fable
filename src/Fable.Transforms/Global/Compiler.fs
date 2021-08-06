@@ -74,7 +74,19 @@ module CompilerExt =
             | _ -> success
         with _ -> false
 
+    type StaticOptions(?precompiledLibs: Map<string, string * string>) =
+        /// E.g. IsPrecompiledLib("Sutil.dll") -> Some("src/Sutil", "fable-repl-lib/sutil")
+        member _.IsPrecompiledLib(dllName: string) =
+            match precompiledLibs with
+            | None -> None
+            | Some libs -> Map.tryFind dllName libs
+
+    let mutable private staticOptions = StaticOptions()
+
     type Compiler with
+        static member InitStaticOptions(opts) = staticOptions <- opts
+        static member StaticOptions = staticOptions
+
         member com.ToPluginHelper() =
             { new PluginHelper with
                 member _.LibraryDir = com.LibraryDir
