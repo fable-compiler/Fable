@@ -433,6 +433,7 @@ let createFableDir (opts: CrackerOptions) =
             "typedArrays", opts.FableOptions.TypedArrays.ToString()
             "clampByteArrays", opts.FableOptions.ClampByteArrays.ToString()
             "optimize", opts.FableOptions.OptimizeFSharpAst.ToString()
+            "lang", opts.FableOptions.Language.ToString()
         ]
 
     let isEmptyOrOutdated =
@@ -481,9 +482,15 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 Process.getCurrentAssembly().Location
                 |> Path.GetDirectoryName
 
+
             let defaultFableLibraryPaths =
-                [ "../../../fable-library/"               // running from nuget tools package
-                  "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
+                match opts.FableOptions.Language with
+                | Python ->
+                    [ "../../../fable-library-py/"               // running from nuget tools package
+                      "../../../../../build/fable-library-py/" ] // running from bin/Release/netcoreapp3.1
+                | _ ->
+                    [ "../../../fable-library/"               // running from nuget tools package
+                      "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
                 |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
 
             let fableLibrarySource =
