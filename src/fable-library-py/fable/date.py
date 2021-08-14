@@ -132,7 +132,7 @@ def date_to_string_with_kind(date, format=None):
         return date_to_string_with_custom_format(date, format, utc)
 
 
-def to_string(date, format, provider=None):
+def to_string(date, format=None, provider=None):
     if date.tzinfo:
         return date_to_string_with_offset(date, format)
 

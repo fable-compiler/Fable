@@ -1,9 +1,11 @@
-from abc import ABC, abstractmethod
 import functools
-from threading import RLock
-from typing import Callable, Iterable, List, TypeVar, Optional
-from enum import Enum
 import math
+import re
+from abc import ABC, abstractmethod
+from enum import Enum
+from threading import RLock
+from typing import Callable, Iterable, List, Optional, TypeVar
+from urllib.parse import unquote, quote
 
 T = TypeVar("T")
 
@@ -386,3 +388,21 @@ def round(value, digits=0):
     e = 1e-8
     r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else __builtins__.round(n)
     return r / m if digits else r
+
+
+def unescape_data_string(s: str) -> str:
+    # https://stackoverflow.com/a/4458580/524236
+    return unquote(re.sub(r"\+", "%20", s))
+
+
+def escape_data_string(s: str) -> str:
+    return quote(s)
+    # .replace(/!/g, "%21")
+    # .replace(/'/g, "%27")
+    # .replace(/\(/g, "%28")
+    # .replace(/\)/g, "%29")
+    # .replace(/\*/g, "%2A");
+
+
+def escape_uri_string(s: str) -> str:
+    return quote(s)

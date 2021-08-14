@@ -143,13 +143,9 @@ def interpolate(string: str, values: Any) -> str:
 
 
 def formatOnce(str2: str, rep: Any):
-    # print("formatOnce: ", str2, rep)
-
     def match(m: Match[str]):
         prefix, flags, padLength, precision, format = m.groups()
-        # print("prefix: ", [prefix])
         once: str = format_replacement(rep, flags, padLength, precision, format)
-        # print("once:", [once])
         return prefix + once.replace("%", "%%")
 
     ret = fsFormatRegExp.sub(match, str2, count=1)
@@ -157,16 +153,11 @@ def formatOnce(str2: str, rep: Any):
 
 
 def create_printer(string: str, cont: Callable[..., Any]):
-    # print("createPrinter", string)
-
     def _(*args: Any):
         strCopy: str = string
         for arg in args:
-            # print("Arg: ", [arg])
             strCopy = formatOnce(strCopy, arg)
-            # print("strCopy", strCopy)
 
-        # print("strCopy", strCopy)
         if fsFormatRegExp.search(strCopy):
             return create_printer(strCopy, cont)
         return cont(strCopy.replace("%%", "%"))
@@ -175,8 +166,6 @@ def create_printer(string: str, cont: Callable[..., Any]):
 
 
 def fs_format(str: str):
-    # print("fsFormat: ", [str])
-
     def _(cont: Callable[..., Any]):
         if fsFormatRegExp.search(str):
             return create_printer(str, cont)
@@ -255,10 +244,6 @@ def format(string: str, *args: Any) -> str:
     return ret
 
 
-def ends_with(string: str, search: str) -> bool:
-    return string.endswith(search)
-
-
 def initialize(n: int, f: Callable[[int], str]) -> str:
     if n < 0:
         raise Exception("String length must be non-negative")
@@ -270,12 +255,11 @@ def initialize(n: int, f: Callable[[int], str]) -> str:
     return "".join(xs)
 
 
-# export function insert(str: string, startIndex: number, value: string) {
-#   if (startIndex < 0 || startIndex > str.length) {
-#     throw new Error("startIndex is negative or greater than the length of this instance.");
-#   }
-#   return str.substring(0, startIndex) + value + str.substring(startIndex);
-# }
+def insert(string: str, startIndex: int, value: str):
+    if startIndex < 0 or startIndex > len(string):
+        raise ValueError("startIndex is negative or greater than the length of this instance.")
+
+    return string[:startIndex] + value + string[startIndex:]
 
 
 def is_null_or_empty(string: Optional[str]):
@@ -294,13 +278,12 @@ def join(delimiter: str, xs: Iterable[Any]) -> str:
     return delimiter.join((str(x) for x in xs))
 
 
-# export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {
-#   const endIndexPlusOne = startIndex + count;
-#   if (endIndexPlusOne > xs.length) {
-#     throw new Error("Index and count must refer to a location within the buffer.");
-#   }
-#   return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
-# }
+def join_with_indices(delimiter: str, xs: List[str], startIndex: int, count: int):
+    endIndexPlusOne = startIndex + count
+    if endIndexPlusOne > len(xs):
+        raise ValueError("Index and count must refer to a location within the buffer.")
+
+    return delimiter.join(xs[startIndex:endIndexPlusOne])
 
 
 def notSupported(name: str) -> NoReturn:
@@ -338,15 +321,14 @@ def padRight(string: str, len: int, ch: Optional[str] = None) -> str:
     return padLeft(string, len, ch, True)
 
 
-# export function remove(str: string, startIndex: number, count?: number) {
-#   if (startIndex >= str.length) {
-#     throw new Error("startIndex must be less than length of string");
-#   }
-#   if (typeof count === "number" && (startIndex + count) > str.length) {
-#     throw new Error("Index and count must refer to a location within the string.");
-#   }
-#   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
-# }
+def remove(string: str, startIndex: int, count: Optional[int] = None):
+    if startIndex >= len(string):
+        raise ValueError("startIndex must be less than length of string")
+
+    if count and (startIndex + count) > len(string):
+        raise ValueError("Index and count must refer to a location within the string.")
+
+    return string[:startIndex] + (string[startIndex + count :] if count is not None else "")
 
 
 def replace(string: str, search: str, replace: str):
@@ -357,12 +339,11 @@ def replicate(n: int, x: str) -> str:
     return initialize(n, lambda _=0: x)
 
 
-# export function getCharAtIndex(input: string, index: number) {
-#   if (index < 0 || index >= input.length) {
-#     throw new Error("Index was outside the bounds of the array.");
-#   }
-#   return input[index];
-# }
+def get_char_at_index(input: str, index: int):
+    if index < 0 or index >= len(input):
+        raise ValueError("Index was outside the bounds of the array.")
+
+    return input[index]
 
 
 def split(string: str, splitters: Union[str, List[str]], count: Optional[int] = None, removeEmpty: int = 0):
@@ -414,29 +395,31 @@ def trim(string: str, *chars: str):
         return string.strip()
 
     pattern = "[" + escape("".join(chars)) + "]+"
-    return re.sub(pattern + "$", re.sub("^" + pattern, string, ""), "")
+    return re.sub(pattern + "$", "", re.sub("^" + pattern, "", string))
 
 
 def trim_start(string: str, *chars: str):
     if not len(chars):
         return string.lstrip()
 
-    return re.sub("^[" + escape("".join(chars)) + "]+", string, "")
+    return re.sub("^[" + escape("".join(chars)) + "]+", "", string)
 
 
 def trim_end(string: str, *chars: str):
     if not len(chars):
         return string.rstrip()
 
-    return re.sub("[" + escape("".join(chars)) + "]+$", string, "")
+    return re.sub("[" + escape("".join(chars)) + "]+$", "", string)
 
 
-# export function filter(pred: (char: string) => boolean, x: string) {
-#   return x.split("").filter((c) => pred(c)).join("");
-# }
+def filter(pred: Callable[[str], bool], x: str):
+    return "".join(c for c in x if pred(c))
 
 
 def substring(string: str, startIndex: int, length: Optional[int] = None) -> str:
+    if startIndex + (length or 0) > len(string):
+        raise ValueError("Invalid startIndex and/or length")
+
     if length is not None:
         return string[startIndex : startIndex + length]
 

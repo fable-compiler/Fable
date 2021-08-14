@@ -32,7 +32,7 @@ class TypeInfo:
     def __str__(self) -> str:
         return full_name(self)
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         return self.fullname == other.fullname and self.generics == other.generics
 
 

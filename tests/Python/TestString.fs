@@ -89,10 +89,6 @@ let ``test string interpolation works with anonymous records`` () =
     |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
 
 [<Fact>]
-let ``test interpolated string with double % should be unescaped`` () =
-    $"{100}%%" |> equal "100%"
-
-[<Fact>]
 let ``test sprintf \"%A\" with lists works`` () =
     let xs = ["Hi"; "Hello"; "Hola"]
     (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
@@ -518,3 +514,321 @@ let ``test String.TrimEnd with chars works`` () =
 let ``test String.Empty works`` () =
     let s = String.Empty
     s |> equal ""
+
+[<Fact>]
+let ``test String.Chars works`` () =
+    let input = "hello"
+    input.Chars(2)
+    |> equal 'l'
+
+[<Fact>]
+let ``test String.Substring works`` () =
+    "abcdefg".Substring(2)
+    |> equal "cdefg"
+
+[<Fact>]
+let ``test String.Substring works with length`` () =
+    "abcdefg".Substring(2, 2)
+    |> equal "cd"
+
+[<Fact>]
+let ``test String.Substring throws error if startIndex or length are out of bounds`` () =
+    let throws f =
+        try f () |> ignore; false
+        with _ -> true
+    throws (fun _ -> "abcdefg".Substring(20)) |> equal true
+    throws (fun _ -> "abcdefg".Substring(2, 10)) |> equal true
+
+[<Fact>]
+let ``test String.ToUpper works`` () =
+    "AbC".ToUpper() |> equal "ABC"
+
+[<Fact>]
+let ``test String.ToLower works`` () =
+    "aBc".ToLower() |> equal "abc"
+
+
+[<Fact>]
+let ``test String.ToUpperInvariant works`` () =
+    "AbC".ToUpperInvariant() |> equal "ABC"
+
+[<Fact>]
+let ``test String.ToLowerInvariant works`` () =
+    "aBc".ToLowerInvariant() |> equal "abc"
+
+[<Fact>]
+let ``test String.Length works`` () =
+    "AbC".Length |> equal 3
+
+[<Fact>]
+let ``test String item works`` () =
+    "AbC".[1] |> equal 'b'
+
+[<Fact>]
+let ``test String.ToCharArray works`` () =
+    let arr = "abcd".ToCharArray()
+    equal "c" (string arr.[2])
+    arr |> Array.map (fun _ -> 1) |> Array.sum
+    |> equal arr.Length
+
+// [<Fact>]
+// let ``test String enumeration handles surrogates pairs`` () =
+//     let unicodeString = ".\U0001f404."
+//     unicodeString |> List.ofSeq |> Seq.length |> equal 4
+//     String.length unicodeString |> equal 4
+//     let mutable len = 0
+//     for i in unicodeString do
+//         len <- len + 1
+//     equal 4 len
+
+[<Fact>]
+let ``test String.Join works`` () =
+    String.Join("--", "a", "b", "c")
+    |> equal "a--b--c"
+    String.Join("--", seq { yield "a"; yield "b"; yield "c" })
+    |> equal "a--b--c"
+
+[<Fact>]
+let ``test String.Join with indices works`` () =
+    String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2)
+    |> equal "b**c"
+    String.Join("*", [|"a"; "b"; "c"; "d"|], 1, 3)
+    |> equal "b*c*d"
+
+[<Fact>]
+let ``test String.Join works with chars`` () =
+    String.Join("--", 'a', 'b', 'c')
+    |> equal "a--b--c"
+    String.Join("--", seq { yield 'a'; yield 'b'; yield 'c' })
+    |> equal "a--b--c"
+    [0..10]
+    |> List.map (fun _ -> '*')
+    |> fun chars -> String.Join("", chars)
+    |> equal "***********"
+
+[<Fact>]
+let ``test String.Join with big integers works`` () =
+    String.Join("--", [|3I; 5I|])
+    |> equal "3--5"
+    String.Join("--", 3I, 5I)
+    |> equal "3--5"
+
+[<Fact>]
+let ``test String.Join with single argument works`` () =
+    String.Join(",", "abc") |> equal "abc"
+    String.Join(",", [|"abc"|]) |> equal "abc"
+    String.Join(",", ["abc"]) |> equal "abc"
+
+[<Fact>]
+let ``test System.String.Concat works`` () =
+    String.Concat("a", "b", "c")
+    |> equal "abc"
+    String.Concat(seq { yield "a"; yield "b"; yield "c" })
+    |> equal "abc"
+
+[<Fact>]
+let ``test System.String.Join with long array works`` () =
+    let n = 1_000_000
+    let a = Array.init n (fun _i -> "a")
+    let s = String.Join("", a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test System.String.Join with long seq works`` () =
+    let n = 1_000_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = String.Join("", a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test System.String.Concat with long array works`` () =
+    let n = 1_000_000
+    let a = Array.init n (fun _i -> "a")
+    let s = String.Concat(a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test System.String.Concat with long seq works`` () =
+    let n = 1_000_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = String.Concat(a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test String.concat with long array works`` () =
+    let n = 1_000_000
+    let a = Array.init n (fun _i -> "a")
+    let s = String.concat "" a
+    s.Length |> equal n
+
+[<Fact>]
+let ``test String.concat with long seq works`` () =
+    let n = 1_000_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = String.concat "" a
+    s.Length |> equal n
+
+[<Fact>]
+let ``test String.Remove works`` () =
+    "abcd".Remove(2)
+    |> equal "ab"
+    "abcd".Remove(1,2)
+    |> equal "ad"
+    "abcd".Remove(0,2)
+    |> equal "cd"
+    "abcd".Remove(0,4)
+    |> equal ""
+    "abcd".Remove(0,0)
+    |> equal "abcd"
+
+[<Fact>]
+let ``test String.Insert work`` () =
+    "foobar".Insert(3, " is ")
+    |> equal "foo is bar"
+
+[<Fact>]
+let ``test Enumerating string works`` () =
+    let mutable res = ""
+    for c in "HELLO" |> Seq.rev do
+          res <- res + (string c)
+    equal "OLLEH" res
+
+// String - F# module functions
+
+[<Fact>]
+let ``test String.concat works`` () =
+    String.concat "--" ["a"; "b"; "c"] |> equal "a--b--c"
+    seq { yield "a"; yield "b"; yield "c" }
+    |> String.concat "-" |> equal "a-b-c"
+
+[<Fact>]
+let ``test String.forall and exists work`` () =
+    "!!!" |> String.forall (fun c -> c = '!') |> equal true
+    "a!a" |> String.forall (fun c -> c = '!') |> equal false
+    "aaa" |> String.forall (fun c -> c = '!') |> equal false
+
+[<Fact>]
+let ``test String.init works`` () =
+    String.init 3 (fun i -> "a")
+    |> equal "aaa"
+
+[<Fact>]
+let ``test String.collect works`` () =
+    "abc" |> String.collect (fun c -> "bcd")
+    |> equal "bcdbcdbcd"
+
+[<Fact>]
+let ``test String.iter works`` () =
+    let res = ref ""
+    "Hello world!"
+    |> String.iter (fun c -> res := !res + c.ToString())
+    equal "Hello world!" !res
+
+[<Fact>]
+let ``test String.iteri works`` () =
+    let mutable res = ""
+    "Hello world!"
+    |> String.iteri (fun c i -> res <- res + i.ToString() + c.ToString())
+    equal "H0e1l2l3o4 5w6o7r8l9d10!11" res
+
+[<Fact>]
+let ``test String.length function works`` () =
+    "AbC" |> String.length
+    |> equal 3
+
+[<Fact>]
+let ``test String.map works`` () =
+    "Hello world!" |> String.map (fun c -> if c = 'H' then '_' else c)
+    |> equal "_ello world!"
+
+[<Fact>]
+let ``test String.mapi works`` () =
+    "Hello world!" |> String.mapi (fun i c -> if i = 1 || c = 'H' then '_' else c)
+    |> equal "__llo world!"
+
+[<Fact>]
+let ``test String.replicate works`` () =
+    String.replicate 3 "hi there"
+    |> equal "hi therehi therehi there"
+
+[<Fact>]
+let ``test String.IsNullOrWhiteSpace works on string with blanks`` () =
+    String.IsNullOrWhiteSpace "Fri Jun 30 2017 12:30:00 GMT+0200 (Mitteleuropäische Sommerzeit)"
+    |> equal false
+
+
+[<Fact>]
+let ``test String.IsNullOrWhiteSpace works on blank only string`` () =
+    String.IsNullOrWhiteSpace "      "
+    |> equal true
+
+[<Fact>]
+let ``test String.filter works`` () =
+    String.filter (fun x -> x <> '.') "a.b.c"
+    |> equal "abc"
+
+[<Fact>]
+let ``test String.filter works when predicate matches everything`` () =
+    String.filter (fun x -> x <> '.') "abc"
+    |> equal "abc"
+
+[<Fact>]
+let ``test String.filter works when predicate doesn't match`` () =
+    String.filter (fun x -> x <> '.') "..."
+    |> equal ""
+
+[<Fact>]
+let ``test String.filter works with empty string`` () =
+    String.filter (fun x -> x <> '.') ""
+    |> equal ""
+
+#if FABLE_COMPILER
+[<Fact>]
+let ``test System.Environment.NewLine works`` () =
+  System.Environment.NewLine
+  |> equal "\n"
+#endif
+
+[<Fact>]
+let ``test System.Uri.UnescapeDataString works`` () =
+    System.Uri.UnescapeDataString("Kevin%20van%20Zonneveld%21") |> equal "Kevin van Zonneveld!"
+    System.Uri.UnescapeDataString("http%3A%2F%2Fkvz.io%2F") |> equal "http://kvz.io/"
+    System.Uri.UnescapeDataString("http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a")
+    |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
+
+//[<Fact>]
+// let ``test System.Uri.EscapeDataString works`` () =
+//     System.Uri.EscapeDataString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld%21"
+//     System.Uri.EscapeDataString("http://kvz.io/") |> equal "http%3A%2F%2Fkvz.io%2F"
+//     System.Uri.EscapeDataString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+//     |> equal "http%3A%2F%2Fwww.google.nl%2Fsearch%3Fq%3DLocutus%26ie%3Dutf-8%26oe%3Dutf-8%26aq%3Dt%26rls%3Dcom.ubuntu%3Aen-US%3Aunofficial%26client%3Dfirefox-a"
+
+// [<Fact>]
+// let ``test System.Uri.EscapeUriString works`` () =
+//     System.Uri.EscapeUriString("Kevin van Zonneveld!") |> equal "Kevin%20van%20Zonneveld!"
+//     System.Uri.EscapeUriString("http://kvz.io/") |> equal "http://kvz.io/"
+//     System.Uri.EscapeUriString("http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a")
+//     |> equal "http://www.google.nl/search?q=Locutus&ie=utf-8&oe=utf-8&aq=t&rls=com.ubuntu:en-US:unofficial&client=firefox-a"
+
+// See #1628, though I'm not sure if the compiled tests are passing just the function reference without wrapping it
+// [<Fact>]
+// let ``test Passing Char.IsDigit as a function reference does not make String.filter hang`` () =
+//     "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
+
+[<Fact>]
+let ``test sprintf with double percent should be unescaped`` () =
+    sprintf "%d%%" 100 |> equal "100%"
+
+[<Fact>]
+let ``test interpolated string with double percent should be unescaped`` () =
+    $"{100}%%" |> equal "100%"
+
+[<Fact>]
+let ``test Can create FormattableString`` () =
+    let orderAmount = 100
+    let convert (s: FormattableString) = s
+    let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+    s.Format |> equal "You owe: {0:N5} {1} {2}"
+    s.ArgumentCount |> equal 3
+    s.GetArgument(2) |> equal (box true)
+    s.GetArguments() |> equal [|100; 3; true|]

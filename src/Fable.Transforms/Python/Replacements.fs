@@ -1595,9 +1595,9 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
         | _ -> None
     match i.CompiledName with
     | "ToUpper" -> icall r t args i.SignatureArgTypes "toLocaleUpperCase"
-    | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "toUpperCase"
+    | "ToUpperInvariant" -> icall r t args i.SignatureArgTypes "upper"
     | "ToLower" -> icall r t args i.SignatureArgTypes "toLocaleLowerCase"
-    | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "toLowerCase"
+    | "ToLowerInvariant" -> icall r t args i.SignatureArgTypes "lower"
     | "ToString" -> toString com ctx r args |> Some
     | "GetUnicodeCategory" | "IsControl" | "IsDigit" | "IsLetter"
     | "IsLetterOrDigit" | "IsUpper" | "IsLower" | "IsNumber"
@@ -1667,9 +1667,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "StartsWith", Some c, [_str; _comp] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
     | ReplaceName [ "ToUpper",          "toLocaleUpperCase"
-                    "ToUpperInvariant", "toUpperCase"
+                    "ToUpperInvariant", "upper"
                     "ToLower",          "toLocaleLowerCase"
-                    "ToLowerInvariant", "toLowerCase" ] methName, Some c, args ->
+                    "ToLowerInvariant", "lower" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "IndexOf", Some c, _ ->
         match args with
@@ -1753,7 +1753,7 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
         let name = Naming.lowerFirst i.CompiledName
-        emitJsExpr r t [Helper.LibCall(com, "Seq", name, Any, args, i.SignatureArgTypes)] "Array.from($0).join('')" |> Some
+        emitJsExpr r t [Helper.LibCall(com, "Seq", name, Any, args, i.SignatureArgTypes)] "''.join(list($0))" |> Some
     | "Concat", _ ->
         Helper.LibCall(com, "String", "join", t, args, ?loc=r) |> Some
     // Rest of StringModule methods
