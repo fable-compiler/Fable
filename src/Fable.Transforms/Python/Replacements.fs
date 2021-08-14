@@ -1671,17 +1671,31 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                     "ToLower",          "toLocaleLowerCase"
                     "ToLowerInvariant", "toLowerCase" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("IndexOf" | "LastIndexOf"), Some c, _ ->
+    | "IndexOf", Some c, _ ->
         match args with
         | [ExprType Char]
         | [ExprType String]
         | [ExprType Char; ExprType(Number(Int32, None))]
         | [ExprType String; ExprType(Number(Int32, None))] ->
-            Helper.InstanceCall(c, Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+            Helper.InstanceCall(c, "find", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
+               |> addErrorAndReturnNull com ctx.InlinePath r |> Some
+    | "LastIndexOf", Some c, _ ->
+        match args with
+        | [ExprType Char]
+        | [ExprType String] ->
+            Helper.InstanceCall(c, "rfind", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+        | [ExprType Char as str; ExprType(Number(Int32, None)) as start]
+        | [ExprType String as str; ExprType(Number(Int32, None)) as start] ->
+            Helper.InstanceCall(c, "rfind", t, [str; Value(NumberConstant(0.0, Int32, None), None); start], i.SignatureArgTypes, ?loc=r) |> Some
         | _ -> "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
                |> addErrorAndReturnNull com ctx.InlinePath r |> Some
     | ("Trim" | "TrimStart" | "TrimEnd"), Some c, _ ->
-        let methName = Naming.lowerFirst i.CompiledName
+        let methName =
+            match i.CompiledName with
+            | "TrimStart" -> "lstrip"
+            | "TrimEnd" -> "rstrip"
+            | _ -> "strip"
         match args with
         | [] -> Helper.InstanceCall(c, methName, t, [], i.SignatureArgTypes, ?loc=r) |> Some
         | head::tail ->
@@ -1689,7 +1703,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 match head.Type, tail with
                 | Array _, [] -> true
                 | _ -> false
-            Helper.LibCall(com, "String", methName, t, c::args, hasSpread=spread, ?loc=r) |> Some
+            Helper.LibCall(com, "String", Naming.lowerFirst i.CompiledName, t, c::args, hasSpread=spread, ?loc=r) |> Some
     | "ToCharArray", Some c, _ ->
         stringToCharArray t c |> Some
     | "Split", Some c, _ ->
