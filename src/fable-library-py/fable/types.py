@@ -204,11 +204,44 @@ class Exception(Exception):
 
 
 class FSharpException(Exception, IComparable):
+    def __init__(self):
+        self.Data0: Any = None
+
     def toJSON(self):
         return record_to_JSON(self)
 
     def __str__(self):
         return recordToString(self)
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+
+        if other is None:
+            return False
+
+        return self.Data0 == other.Data0
+
+    def __lt__(self, other: Any) -> bool:
+        if not isinstance(other, FSharpException):
+            return False
+
+        if self.Data0:
+            if other.Data0:
+                return self.Data0 < other.Data0
+            else:
+                return False
+
+        elif not self.Data0:
+            if other.Data0:
+                return False
+            else:
+                return True
+
+        return super().__lt__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.Data0)
 
     def GetHashCode(self):
         recordGetHashCode(self)

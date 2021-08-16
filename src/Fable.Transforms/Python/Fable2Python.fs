@@ -1099,15 +1099,18 @@ module Util =
         | Fable.Binary(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
             match op with
             | BinaryEqualStrict ->
-                match right, left with
-                 | Expression.Constant(_), _
-                 | _, Expression.Constant(_)  ->
+                match left, right with
+                | Expression.Constant(_), _
+                | _, Expression.Constant(_) ->
                     let op = BinaryEqual
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                 | _ ->
+                | _, Expression.Name(_) ->
+                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | _ ->
+                    let op = BinaryEqual // Use == for the rest
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequalStrict ->
-                match right, left with
+                match left, right with
                  | Expression.Constant(_), _
                  | _, Expression.Constant(_) ->
                     let op = BinaryUnequal
@@ -1115,19 +1118,21 @@ module Util =
                  | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryEqual ->
-                match right with
-                 | Expression.Name({Id=Identifier("None")})  ->
+                match left, right with
+                | Expression.Constant(_), _  ->
+                    let op = BinaryEqual
+                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | _, Expression.Name({Id=Identifier("None")})  ->
                     let op = BinaryEqualStrict
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                 | _ ->
+                | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequal ->
-                //printfn "Right: %A" right
                 match right with
-                 | Expression.Name({Id=Identifier("None")})  ->
+                | Expression.Name({Id=Identifier("None")})  ->
                     let op = BinaryUnequalStrict
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                 | _ ->
+                | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
 
             | BinaryLess
