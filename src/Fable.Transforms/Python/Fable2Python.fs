@@ -1008,7 +1008,7 @@ module Util =
                     let iterator =
                         let body = enumerator2iterator com ctx
                         let name = com.GetIdentifier(ctx, "__iter__")
-                        let args = Arguments.arguments()
+                        let args = Arguments.arguments([Arg.arg("self")])
                         FunctionDef.Create(name = name, args = args, body = body)
                     [ method; iterator]
                 else

@@ -9,7 +9,7 @@ from .util import IComparable
 T = TypeVar("T")
 
 
-class FSharpRef:
+class FSharpRef(Generic[T]):
     def __init__(self, contentsOrGetter, setter=None) -> None:
 
         contents = contentsOrGetter
@@ -26,11 +26,11 @@ class FSharpRef:
             self.setter = set_contents
 
     @property
-    def contents(self):
+    def contents(self) -> T:
         return self.getter()
 
     @contents.setter
-    def contents(self, v):
+    def contents(self, v) -> None:
         self.setter(v)
 
 

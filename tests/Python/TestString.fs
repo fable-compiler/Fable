@@ -628,28 +628,28 @@ let ``test System.String.Concat works`` () =
 
 [<Fact>]
 let ``test System.String.Join with long array works`` () =
-    let n = 1_000_000
+    let n = 100_000
     let a = Array.init n (fun _i -> "a")
     let s = String.Join("", a)
     s.Length |> equal n
 
 [<Fact>]
 let ``test System.String.Join with long seq works`` () =
-    let n = 1_000_000
+    let n = 100_000
     let a = seq { for i in 1..n -> "a" }
     let s = String.Join("", a)
     s.Length |> equal n
 
 [<Fact>]
 let ``test System.String.Concat with long array works`` () =
-    let n = 1_000_000
+    let n = 100_000
     let a = Array.init n (fun _i -> "a")
     let s = String.Concat(a)
     s.Length |> equal n
 
 [<Fact>]
 let ``test System.String.Concat with long seq works`` () =
-    let n = 1_000_000
+    let n = 100_000
     let a = seq { for i in 1..n -> "a" }
     let s = String.Concat(a)
     s.Length |> equal n

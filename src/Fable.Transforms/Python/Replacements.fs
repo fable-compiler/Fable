@@ -1871,8 +1871,8 @@ let nativeArrayFunctions =
     dict [| "Exists", "some"
             "Filter", "filter"
             "Find", "find"
-            "FindIndex", "findIndex"
-            "ForAll", "every"
+            "FindIndex", "find"
+            //"ForAll", "all"
             "Iterate", "forEach"
             "Reduce", "reduce"
             "ReduceBack", "reduceRight" |]
