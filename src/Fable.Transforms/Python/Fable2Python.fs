@@ -7,7 +7,7 @@ open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Python
-open Fable.Python
+open Fable.PY
 open Fable.Core
 
 type ReturnStrategy =

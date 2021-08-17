@@ -351,7 +351,7 @@ module Helpers =
         (entityName, Naming.NoMemberPart)
         ||> match com.Options.Language with
             | Python ->
-                Fable.Python.Naming.sanitizeIdent Fable.Python.Naming.pyBuiltins.Contains
+                Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains
             | _ -> Naming.sanitizeIdent (fun _ -> false)
 
     let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
@@ -382,7 +382,7 @@ module Helpers =
         let part = part.Replace(cleanNameAsJsIdentifier)
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.Python.Naming.sanitizeIdent Fable.Python.Naming.pyBuiltins.Contains name part
+            | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
             | _ ->  Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
@@ -1323,7 +1323,7 @@ module Identifiers =
         let sanitizedName =
             (fsRef.CompiledName, Naming.NoMemberPart)
             ||> match _com.Options.Language with
-                | Python -> Python.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Python.Naming.pyBuiltins.Contains name)
+                | Python -> Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name)
                 | _ -> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName

@@ -7,7 +7,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 
-open Fable.Python
+open Fable.PY
 open Fable.Transforms
 
 type Context = FSharp2Fable.Context
