@@ -35,6 +35,7 @@
     <Compile Include="TestSet.fs" />
     <Compile Include="TestOption.fs" />
     <Compile Include="TestResult.fs" />
+    <Compile Include="TestTailCall.fs" />
     <Compile Include="TestTupleType.fs" />
     <Compile Include="TestUnionType.fs" />
     <Compile Include="TestLoops.fs" />

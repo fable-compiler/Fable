@@ -834,8 +834,7 @@ module Util =
             for (argId, arg) in zippedArgs do
                 let arg = FableTransforms.replaceValues tempVarReplacements arg
                 let arg, stmts = com.TransformAsExpr(ctx, arg)
-                yield! stmts
-                yield! assign None (com.GetIdentifierAsExpr(ctx, argId)) arg |> exprAsStatement ctx
+                yield! stmts @ (assign None (com.GetIdentifierAsExpr(ctx, argId)) arg |> exprAsStatement ctx)
             yield Statement.continue'(?loc=range)
         ]
 
@@ -2046,6 +2045,18 @@ module Util =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
         let args = discardUnitArg args
+
+        // printfn "TailCallOpportunity: %A" ctx.TailCallOpportunity.IsSome
+        let tcArgs, tcDefaults =
+            match ctx.TailCallOpportunity with
+            | Some tc ->
+                tc.Args
+                |> List.map (fun x ->
+                    let name = x.Substring(0, x.Length-4)
+                    Arg.arg(name), Expression.name(name))
+                |> List.unzip
+            | _ -> [], []
+
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
         let ctx =
@@ -2054,7 +2065,7 @@ module Util =
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true
                        BoundVars = ctx.BoundVars.EnterScope() }
 
-        // printfn "Args: %A" (name, args, body)
+        // printfn "Args: %A" args
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
@@ -2082,6 +2093,7 @@ module Util =
                     |> List.map (fun (id, tcArg) -> ident com ctx id, Some (com.GetIdentifierAsExpr(ctx, tcArg)))
                     |> multiVarDeclaration ctx
 
+                //printfn "varDecls: %A" (args, tc.Args)
                 let body = varDecls @ body
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = body @ [ Statement.break'() ]
@@ -2091,10 +2103,10 @@ module Util =
 
         let arguments =
             match args, isUnit with
-            | [], true -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
+            | [], true -> Arguments.arguments(args=Arg.arg(Python.Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
             // So we can also receive unit
-            | _, true -> Arguments.arguments(args |> List.map Arg.arg, defaults=[ Expression.none() ])
-            | _ -> Arguments.arguments(args |> List.map Arg.arg)
+            | _, true -> Arguments.arguments((args |> List.map Arg.arg) @ tcArgs, defaults=Expression.none()::tcDefaults)
+            | _ -> Arguments.arguments((args |> List.map Arg.arg) @ tcArgs, defaults=tcDefaults)
 
         arguments, body
 
