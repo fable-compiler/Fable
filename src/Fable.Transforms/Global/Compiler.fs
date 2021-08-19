@@ -11,7 +11,8 @@ type CompilerOptionsHelper =
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
-                       ?clampByteArrays) =
+                       ?clampByteArrays,
+                       ?rootModule) =
         let define = defaultArg define []
         let isDebug = List.contains "DEBUG" define
         { new CompilerOptions with
@@ -20,6 +21,7 @@ type CompilerOptionsHelper =
               member _.Language = defaultArg language JavaScript
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
+              member _.RootModule = defaultArg rootModule false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
               member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
               member _.ClampByteArrays = defaultArg clampByteArrays false }
@@ -74,19 +76,7 @@ module CompilerExt =
             | _ -> success
         with _ -> false
 
-    type StaticOptions(?precompiledLibs: Map<string, string * string>) =
-        /// E.g. IsPrecompiledLib("Sutil.dll") -> Some("src/Sutil", "fable-repl-lib/sutil")
-        member _.IsPrecompiledLib(dllName: string) =
-            match precompiledLibs with
-            | None -> None
-            | Some libs -> Map.tryFind dllName libs
-
-    let mutable private staticOptions = StaticOptions()
-
     type Compiler with
-        static member InitStaticOptions(opts) = staticOptions <- opts
-        static member StaticOptions = staticOptions
-
         member com.ToPluginHelper() =
             { new PluginHelper with
                 member _.LibraryDir = com.LibraryDir

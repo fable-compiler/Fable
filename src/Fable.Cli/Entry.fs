@@ -174,6 +174,7 @@ type Runner =
                                        fileExtension = fileExt,
                                        define = define,
                                        optimizeFSharpAst = flagEnabled "--optimize" args,
+                                       rootModule = (tryFlag "--rootModule" args |> Option.defaultValue true),
                                        verbosity = verbosity)
 
         let cliArgs =

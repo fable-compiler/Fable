@@ -20,6 +20,7 @@ type CompilerOptions =
       abstract Define: string list
       abstract DebugMode: bool
       abstract OptimizeFSharpAst: bool
+      abstract RootModule: bool
       abstract Verbosity: Verbosity
       abstract FileExtension: string
 

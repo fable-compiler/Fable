@@ -367,7 +367,8 @@ type ProjectParsed(project: Project, checker: InteractiveChecker) =
         let proj = Project(config.ProjectFile,
                            checkResults,
                            getPlugin=loadType,
-                           optimizeFSharpAst=config.FableOptions.OptimizeFSharpAst)
+                           optimizeFSharpAst=config.FableOptions.OptimizeFSharpAst,
+                           rootModule=config.FableOptions.RootModule)
         ProjectParsed(proj, checker)
 
     member this.Update(config: ProjectCracked) =

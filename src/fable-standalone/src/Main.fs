@@ -250,11 +250,7 @@ type BabelResult(program: Babel.Program, errors) =
     interface IBabelResult with
         member _.FableErrors = errors
 
-let init (precompiledLibs: Map<string, string * string>) =
-
-  StaticOptions(precompiledLibs)
-  |> Compiler.InitStaticOptions
-
+let init () =
   { new IFableManager with
         member __.Version = Fable.Literals.VERSION
 
