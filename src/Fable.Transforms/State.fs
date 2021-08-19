@@ -205,8 +205,8 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
             match project.ImplementationFiles.TryGetValue(fileName) with
             | true, file -> file.RootModule
             | false, _ ->
-                // let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
-                // (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
+                let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
+                (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
                 "" // failwith msg
 
         member _.GetEntity(entityRef: Fable.EntityRef) =

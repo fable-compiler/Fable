@@ -309,13 +309,15 @@ module Helpers =
 
     let private getEntityMangledName (com: Compiler) trimRootModule (ent: Fable.EntityRef) =
         let fullName = ent.FullName
-        match trimRootModule, ent.SourcePath with
-        | true, Some sourcePath ->
+        match trimRootModule, ent.Path with
+        | true, Fable.SourcePath sourcePath ->
             let rootMod = com.GetRootModule(sourcePath)
             if fullName.StartsWith(rootMod) then
                 fullName.Substring(rootMod.Length).TrimStart('.')
             else fullName
-        | _ -> fullName
+        // Ignore Precompiled libs and other entities for which we don't have implementation file data
+        | true, (Fable.PrecompiledLib _ | Fable.AssemblyPath _ | Fable.CoreAssemblyName _)
+        | false, _ -> fullName
 
     let cleanNameAsJsIdentifier (name: string) =
         if name = ".ctor" then "$ctor"
