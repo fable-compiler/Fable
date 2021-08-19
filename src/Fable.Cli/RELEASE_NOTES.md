@@ -1,3 +1,7 @@
+### 3.2.11
+
+* Add --rootModule CLI flag
+
 ### 3.2.10
 
 * Support System.Uri.TryCreate @Choc13
