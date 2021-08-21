@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Timer.fs" />
+    <!-- <Compile Include="Timer.fs" /> -->
     <Compile Include="../../fable-library/Global.fs" />
     <!-- <Compile Include="BigInt/n.fsi" /> -->
     <!-- <Compile Include="BigInt/n.fs" /> -->

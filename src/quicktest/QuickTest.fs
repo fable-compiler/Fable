@@ -18,6 +18,9 @@ let hello = printfn "hello world"
 let a = 2 + 2
 let b = 3 - 1
 let c = a + b
+let fn a b c =
+    let d = a + b + c
+    printf "%A %A" b d
 let execute () =
     a.ToString() |> printf "%s"
     printf "c"

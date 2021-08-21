@@ -148,11 +148,10 @@ module Lua =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)
         let stream = new IO.StreamWriter(targetPath)
-        interface LuaPrinter.Writer with
+        interface Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeStringLiteral(str) =
-                // TODO: Check if this works for Dart
+            member _.EscapeJsStringLiteral(str) =
                 Web.HttpUtility.JavaScriptStringEncode(str)
             member _.MakeImportPath(path) =
                 let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
@@ -161,19 +160,18 @@ module Lua =
                     let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
                     File.changeFsExtension isInFableHiddenDir path fileExt
                 else path
-            member _.AddLog(msg, severity, ?range) =
-                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
+            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) = ()
             member _.Dispose() = stream.Dispose()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
-        let _imports, fable =
+        let babel =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
-            |> Fable2Extended.Compiler.transformFile com
+            |> Fable2Babel.Compiler.transformFile com
 
         use writer = new LuaWriter(com, cliArgs, dedupTargetDir, outPath)
         //do! (writer :> LuaPrinter.Writer).Write(sprintf "AST: %A" fable.Declarations)
-        do! LuaPrinter.run writer fable
+        do! run writer babel
     }
 
 
