@@ -201,6 +201,34 @@ let buildLibraryPy() =
     runInDir buildDirPy ("python3 --version")
     runInDir buildDirPy ("python3 ./setup.py develop")
 
+let buildLibraryLua() =
+    let libraryDir = "src/fable-library-lua"
+    let projectDir = libraryDir + "/fable"
+    let buildDirLua = "build/fable-library-lua"
+
+    cleanDirs [buildDirLua]
+
+    runFableWithArgs projectDir [
+        "--outDir " + buildDirLua </> "fable"
+        "--fableLib " + buildDirLua </> "fable"
+        "--lang Lua"
+        "--exclude Fable.Core"
+        "--define FABLE_LIBRARY"
+    ]
+    // Copy *.py from projectDir to buildDir
+    copyDirRecursive libraryDir buildDirLua
+    //copyDirNonRecursive (buildDirLua </> "fable/fable-library") (buildDirLua </> "fable")
+    //copyFile (buildDirPy </> "fable/fable-library/*.py") (buildDirPy </> "fable")
+    // copyFile (buildDirLua </> "fable/system.text.lua") (buildDirLua </> "fable/system_text.lua")
+    // copyFile (buildDirLua </> "fable/fsharp.core.lua") (buildDirLua </> "fable/fsharp_core.lua")
+    // copyFile (buildDirLua </> "fable/fsharp.collections.lua") (buildDirLua </> "fable/fsharp_collections.lua")
+    // copyFile (buildDirLua </> "fable/system.collections.generic.lua") (buildDirLua </> "fable/system_collections_generic.lua")
+    //copyFile (buildDirPy </> "fable/async.lua") (buildDirPy </> "fable/async_.lua")
+    //removeFile (buildDirLua </> "fable/system.text.lua")
+
+    runInDir buildDirLua ("lua -v")
+    //runInDir buildDirLua ("lua ./setup.lua develop")
+
 let buildPyLibraryIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library-py")) then
@@ -607,6 +635,9 @@ match argsLower with
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
+| "quicktest-lua"::_ ->
+    buildPyLibraryIfNotExists()
+    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Lua --exclude Fable.Core --noCache"
 | "jupyter" :: _ ->
     buildPyLibraryIfNotExists ()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> ../Fable.Jupyter/src/fable.out"
@@ -629,6 +660,7 @@ match argsLower with
 | ("fable-library"|"library")::_ -> buildLibraryJs()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
+| ("fable-library-lua" | "library-lua")::_ -> buildLibraryLua()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
 | ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}

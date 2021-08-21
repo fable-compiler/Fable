@@ -141,9 +141,46 @@ module Dart =
         do! DartPrinter.run writer fable
     }
 
+module Lua =
+    open Fable.Transforms.Lua
+    type LuaWriter(com: Compiler, cliArgs: CliArgs, dedupTargetDir, targetPath: string) =
+        let sourcePath = com.CurrentFile
+        let fileExt = cliArgs.CompilerOptions.FileExtension
+        let targetDir = Path.GetDirectoryName(targetPath)
+        let stream = new IO.StreamWriter(targetPath)
+        interface LuaPrinter.Writer with
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
+            member _.EscapeStringLiteral(str) =
+                // TODO: Check if this works for Dart
+                Web.HttpUtility.JavaScriptStringEncode(str)
+            member _.MakeImportPath(path) =
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
+                if path.EndsWith(".fs") then
+                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
+                    File.changeFsExtension isInFableHiddenDir path fileExt
+                else path
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range=range, fileName=com.CurrentFile)
+            member _.Dispose() = stream.Dispose()
+
+    let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
+        let _imports, fable =
+            FSharp2Fable.Compiler.transformFile com
+            |> FableTransforms.transformFile com
+            |> Fable2Extended.Compiler.transformFile com
+
+        use writer = new LuaWriter(com, cliArgs, dedupTargetDir, outPath)
+        //do! (writer :> LuaPrinter.Writer).Write(sprintf "AST: %A" fable.Declarations)
+        do! LuaPrinter.run writer fable
+    }
+
+
 let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) =
     match com.Options.Language with
     | JavaScript | TypeScript -> Js.compileFile com cliArgs dedupTargetDir outPath
     | Python -> Python.compileFile com cliArgs dedupTargetDir outPath
     | Php -> Php.compileFile com outPath
     | Dart -> Dart.compileFile com cliArgs dedupTargetDir outPath
+    | Lua -> Lua.compileFile com cliArgs dedupTargetDir outPath

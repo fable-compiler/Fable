@@ -95,6 +95,7 @@ let defaultFileExt language args =
     | Python -> Path.replaceExtension ".py" fileExt
     | Php -> ".php"
     | Dart -> ".dart"
+    | Lua -> ".lua"
     | _ -> fileExt
 
 let argLanguage args =
@@ -107,6 +108,7 @@ let argLanguage args =
     | "py" | "python" | "Python" -> Python
     | "php" | "Php" | "PHP" -> Php
     | "dart" -> Dart
+    | "lua" | "Lua" -> Lua
     | _ -> JavaScript)
 
 type Runner =
