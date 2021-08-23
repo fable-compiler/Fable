@@ -142,36 +142,20 @@ module Dart =
     }
 
 module Lua =
-    open Fable.Transforms.Lua
-    type LuaWriter(com: Compiler, cliArgs: CliArgs, dedupTargetDir, targetPath: string) =
-        let sourcePath = com.CurrentFile
-        let fileExt = cliArgs.CompilerOptions.FileExtension
-        let targetDir = Path.GetDirectoryName(targetPath)
-        let stream = new IO.StreamWriter(targetPath)
-        interface Writer with
-            member _.Write(str) =
-                stream.WriteAsync(str) |> Async.AwaitTask
-            member _.EscapeJsStringLiteral(str) =
-                Web.HttpUtility.JavaScriptStringEncode(str)
-            member _.MakeImportPath(path) =
-                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
-                if path.EndsWith(".fs") then
-                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    File.changeFsExtension isInFableHiddenDir path fileExt
-                else path
-            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) = ()
-            member _.Dispose() = stream.Dispose()
+    open Fable.Transforms
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
-        let babel =
+        let program =
             FSharp2Fable.Compiler.transformFile com
             |> FableTransforms.transformFile com
-            |> Fable2Babel.Compiler.transformFile com
+            |> Fable2Lua.transformFile com
 
-        use writer = new LuaWriter(com, cliArgs, dedupTargetDir, outPath)
+        use w = new IO.StreamWriter(outPath)
+        let ctx = LuaPrinter.Output.Writer.create w
+        LuaPrinter.Output.writeFile ctx program
+        //use writer = new LuaWriter(com, cliArgs, dedupTargetDir, outPath)
         //do! (writer :> LuaPrinter.Writer).Write(sprintf "AST: %A" fable.Declarations)
-        do! run writer babel
+        //do! run writer program
     }
 
 

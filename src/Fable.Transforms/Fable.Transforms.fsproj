@@ -27,6 +27,8 @@
     <Compile Include="Php/Php.fs" />
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />
+    <Compile Include="Lua/Lua.fs" />
+    <Compile Include="Lua/Fable2Lua.fs" />
     <Compile Include="Lua/LuaPrinter.fs" />
     <Compile Include="Dart/DartPrinter.fs" />
 

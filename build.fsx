@@ -217,14 +217,6 @@ let buildLibraryLua() =
     ]
     // Copy *.py from projectDir to buildDir
     copyDirRecursive libraryDir buildDirLua
-    //copyDirNonRecursive (buildDirLua </> "fable/fable-library") (buildDirLua </> "fable")
-    //copyFile (buildDirPy </> "fable/fable-library/*.py") (buildDirPy </> "fable")
-    // copyFile (buildDirLua </> "fable/system.text.lua") (buildDirLua </> "fable/system_text.lua")
-    // copyFile (buildDirLua </> "fable/fsharp.core.lua") (buildDirLua </> "fable/fsharp_core.lua")
-    // copyFile (buildDirLua </> "fable/fsharp.collections.lua") (buildDirLua </> "fable/fsharp_collections.lua")
-    // copyFile (buildDirLua </> "fable/system.collections.generic.lua") (buildDirLua </> "fable/system_collections_generic.lua")
-    //copyFile (buildDirPy </> "fable/async.lua") (buildDirPy </> "fable/async_.lua")
-    //removeFile (buildDirLua </> "fable/system.text.lua")
 
     runInDir buildDirLua ("lua -v")
     //runInDir buildDirLua ("lua ./setup.lua develop")
@@ -233,6 +225,12 @@ let buildPyLibraryIfNotExists() =
     let baseDir = __SOURCE_DIRECTORY__
     if not (pathExists (baseDir </> "build/fable-library-py")) then
         buildLibraryPy()
+
+let buildLuaLibraryIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    if not (pathExists (baseDir </> "build/fable-library-lua")) then
+        buildLibraryLua()
+
 
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -469,6 +467,22 @@ let testPython() =
     runInDir buildDir "touch __init__.py" // So relative imports works.
     runInDir buildDir "pytest"
 
+let testLua() =
+    buildLuaLibraryIfNotExists() // NOTE: fable-library-py needs to be built separately.
+
+    let projectDir = "tests/Lua"
+    let buildDir = "build/tests/Lua"
+
+    cleanDirs [buildDir]
+    runInDir projectDir "dotnet test"
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+        "--lang Lua"
+    ]
+
+    copyFile (projectDir </> "runtests.lua") (buildDir </> "runtests.lua")
+    runInDir buildDir "lua runtests.lua"
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
@@ -629,6 +643,7 @@ match argsLower with
 | "test-compiler"::_ -> testCompiler()
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
+| "test-lua"::_ -> testLua()
 | "quicktest"::_ ->
     buildLibraryJsIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
