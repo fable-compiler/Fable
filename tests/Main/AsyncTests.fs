@@ -200,7 +200,7 @@ let tests =
     //         do! Async.Sleep 75
     //         equal true !res
     //     }
-
+    
     testCaseAsync "Async.Parallel works" <| fun () ->
         async {
             let makeWork i =
@@ -216,6 +216,24 @@ let tests =
             } |> Async.StartImmediate
             do! Async.Sleep 500
             !res |> Array.sum |> equal 6
+        }
+
+    testCaseAsync "Async.Parallel is lazy" <| fun () ->
+        async {
+            let mutable x = 0
+
+            let a = Async.Parallel [
+                async { System.Threading.Interlocked.Add(ref x, 1) |> ignore<int> }
+                async { System.Threading.Interlocked.Add(ref x, 2) |> ignore<int> }
+            ]
+
+            do! Async.Sleep 100
+
+            equal 0 x
+
+            let! _ = a
+
+            equal 3 x
         }
 
     testCaseAsync "Async.Sequential works" <| fun () ->
