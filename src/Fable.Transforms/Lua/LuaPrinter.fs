@@ -53,6 +53,9 @@ module Output =
         | Plus -> write ctx "+"
         | Minus -> write ctx "-"
         | BinaryTodo x -> writeCommented ctx "binary todo" x
+    let sprintExprSimple = function
+        | Ident i -> i.Name
+        | _ -> ""
     let rec writeExpr ctx = function
         | Ident i ->
             write ctx i.Name
@@ -102,7 +105,19 @@ module Output =
             writeExpr ctxI elseExpr
             writei ctx "end"
         | Macro (s, args) ->
-            writei ctx s
+            let subbedMacro =
+                (s, args |> List.mapi(fun i x -> i.ToString(), sprintExprSimple x))
+                ||> List.fold (fun acc (i, arg) -> acc.Replace("$"+i, arg) )
+            writei ctx subbedMacro
+        | Function(args, body) ->
+            write ctx "function "
+            write ctx "("
+            args |> Helper.separateWithCommas |> write ctx
+            write ctx ")"
+            let ctxI = indent ctx
+            writeln ctxI ""
+            body |> List.iter (writeStatement ctxI)
+            writeln ctx "end"
         | Unknown x ->
             writeCommented ctx "unknown" x
         | x -> sprintf "%A" x |> writeCommented ctx "todo"
@@ -120,7 +135,7 @@ module Output =
             write ctx " = "
             writeExpr ctx expr
             writeln ctx ""
-        | FunctionDeclaration(name, args, body) ->
+        | FunctionDeclaration(name, args, body, exportToMod) ->
             writei ctx "function "
             write ctx name
             write ctx "("
@@ -130,6 +145,12 @@ module Output =
             writeln ctxI ""
             body |> List.iter (writeStatement ctxI)
             writeln ctx "end"
+            if exportToMod then
+                writei ctx "mod."
+                write ctx name
+                write ctx " = "
+                write ctx name
+                writeln ctxI ""
         | Return expr ->
             writei ctx "return "
             writeExpr ctx expr
@@ -140,10 +161,10 @@ module Output =
             writeln ctx ""
 
     let writeFile ctx (file: File) =
-        write ctx "test"
+        writeln ctx "mod = {}"
         for s in file.Statements do
             writeStatement ctx s
-
+        write ctx "return mod"
         //debugging
         //writeln ctx "--[["
         //sprintf "%s" file.ASTDebug |> write ctx

@@ -15,6 +15,7 @@ type LuaIdentity =
 
 type UnaryOp =
     | Not
+    | NotBitwise
 type BinaryOp =
     | Equals
     | Multiply
@@ -39,10 +40,11 @@ type Expr =
     | Macro of string * args: Expr list
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | NoOp
+    | Function of args: string list * body: Statement list
 
 type Statement =
     | Assignment of name: string * Expr
-    | FunctionDeclaration of name: string * args: string list * body: Statement list
+    | FunctionDeclaration of name: string * args: string list * body: Statement list * exportToMod: bool
     | Return of Expr
     | Do of Expr
 

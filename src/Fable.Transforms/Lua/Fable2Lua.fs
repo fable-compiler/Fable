@@ -51,28 +51,34 @@ module Transforms =
                 | BinaryDivide -> Divide
                 | BinaryEqual -> Equals
                 | BinaryPlus -> Plus
+                | BinaryMinus -> Minus
                 | BinaryEqualStrict -> Equals
                 | x -> sprintf "%A" x |> BinaryTodo
             Binary(op, transformExpr left, transformExpr right )
+        | Fable.OperationKind.Unary (op, expr) ->
+            match op with
+            | UnaryNotBitwise -> transformExpr expr //not sure why this is being added
+            | _ -> sprintf "%A %A" op expr |> Unknown
         | x -> Unknown(sprintf "%A" x)
     let asSingleExprIife = function
         | [] -> NoOp
         | [h] ->
-            transformExpr h
+            h
         | exprs ->
             let statements =
                 Helpers.transformStatements
-                    (transformExpr >> Do)
-                    (transformExpr >> Return)
+                    (Do)
+                    (Return)
                     exprs
             FunctionCall(AnonymousFunc([], statements), [])
+    let asSingleExprIifeTr = List.map transformExpr >> asSingleExprIife
     let transformExpr = function
         | Fable.Expr.Value(value, _) -> transformValueKind value
         | Fable.Expr.Call(expr, callInfo, t, r) ->
             //Unknown(sprintf "call %A %A" expr callInfo)
             FunctionCall(transformExpr expr, List.map transformExpr callInfo.Args)
         | Fable.Expr.Import (info, t, r) ->
-            let path = info.Path.Replace(".fs", ".lua") //todo - make less brittle
+            let path = info.Path.Replace(".fs", "") //todo - make less brittle
             let rcall = FunctionCall(Ident { Namespace=None; Name= "require" }, [Const (ConstString path)])
             match info.Selector with
             | "" -> rcall
@@ -84,15 +90,25 @@ module Transforms =
         | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fieldName, isMut), _, _) ->
             Get(transformExpr expr, FieldGet(fieldName))
         | Fable.Expr.Sequential exprs ->
-            asSingleExprIife exprs
+            asSingleExprIifeTr exprs
         | Fable.Expr.Let (ident, value, body) ->
             Let(ident.Name, transformExpr body)
         | Fable.Expr.Emit(m, _, _) ->
+            // let argsExprs = m.CallInfo.Args |> List.map transformExpr
+            // let macroExpr = Macro(m.Macro, argsExprs)
+            // let exprs =
+            //     argsExprs
+            //     @ [macroExpr]
+            // asSingleExprIife exprs
             Macro(m.Macro, m.CallInfo.Args |> List.map transformExpr)
         | Fable.Expr.DecisionTree(expr, lst) ->
             transformExpr expr
         | Fable.Expr.DecisionTreeSuccess(i, exprs, _) ->
-            asSingleExprIife exprs
+            asSingleExprIifeTr exprs
+        | Fable.Expr.Lambda(arg, body, name) ->
+            Function([arg.Name], [transformExpr body |> Return])
+        | Fable.Expr.CurriedApply(applied, args, _, _) ->
+            FunctionCall(transformExpr applied, args |> List.map transformExpr)
         | Fable.Expr.IfThenElse (guardExpr, thenExpr, elseExpr, _) ->
             IfThenElse(transformExpr guardExpr, transformExpr thenExpr, transformExpr elseExpr)
         | x -> Unknown (sprintf "%A" x)
@@ -104,7 +120,13 @@ module Transforms =
             if m.Args.Length = 0 then
                 Assignment(m.Name, transformExpr m.Body)
             else
-                FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), [transformExpr m.Body |> Return])
+                // let body =
+                //     match m.Body with
+                //     | Fable.Expr.Emit(mChild, _, _) ->
+                //         [Macro(mChild.Macro, m.Args |> List.map (fun a -> Ident { Name = a.Name; Namespace = None })) |> Return]
+                //     | _ -> [transformExpr m.Body |> Return]
+                // FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), body, m.Info.IsPublic)
+                FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), [transformExpr m.Body |> Return], m.Info.IsPublic)
         | x -> sprintf "%A" x |> Unknown |> Do
 
 let transformFile com (file: Fable.File): File =
