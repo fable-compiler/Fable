@@ -167,7 +167,7 @@ let tests =
                 testCase (sprintf "float(%f, %f) = %f" ms factor expected) <| fun () ->
                     let t = TimeSpan.FromMilliseconds(ms)
                     let res1 = t.Divide(factor).TotalMilliseconds
-                    let res2 = (t * factor).TotalMilliseconds
+                    let res2 = (t / factor).TotalMilliseconds
                     equal res1 res2
                     equal true (res1 = res2)
                     equal expected res1
