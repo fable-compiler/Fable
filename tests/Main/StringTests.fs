@@ -515,6 +515,8 @@ let tests =
             |> (=) [|"a";"b";"c";"";"d"|] |> equal true
             "a b c  d ".Split()
             |> (=) [|"a";"b";"c";"";"d";""|] |> equal true
+            "a b c  d".Split(null)
+            |> (=) [|"a";"b";"c";"";"d"|] |> equal true
             let array = "a;b,c".Split(',', ';')
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true
