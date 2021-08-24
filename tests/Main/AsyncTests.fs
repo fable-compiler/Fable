@@ -222,9 +222,16 @@ let tests =
         async {
             let mutable x = 0
 
+            let add i =
+#if FABLE_COMPILER
+                x <- x + i
+#else
+                System.Threading.Interlocked.Add(ref x, i) |> ignore<int>
+#endif
+
             let a = Async.Parallel [
-                async { System.Threading.Interlocked.Add(ref x, 1) |> ignore<int> }
-                async { System.Threading.Interlocked.Add(ref x, 2) |> ignore<int> }
+                async { add 1 }
+                async { add 2 }
             ]
 
             do! Async.Sleep 100
