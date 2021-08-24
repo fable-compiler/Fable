@@ -107,7 +107,7 @@ export function parallel<T>(computations: Iterable<IAsync<T>>) {
 export function sequential<T>(computations: Iterable<IAsync<T>>) {
 
   async function _sequential<T>(computations: Iterable<IAsync<T>>): Promise<T[]> {
-    let results: T[] = [];
+    const results: T[] = [];
     for (const c of computations) {
       const result = await startAsPromise(c);
       results.push(result);
