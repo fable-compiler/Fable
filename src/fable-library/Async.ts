@@ -104,6 +104,20 @@ export function parallel<T>(computations: Iterable<IAsync<T>>) {
   return awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w))));
 }
 
+export function sequential<T>(computations: Iterable<IAsync<T>>) {
+
+  async function _sequential<T>(computations: Iterable<IAsync<T>>): Promise<T[]> {
+    let results: T[] = [];
+    for (const c of computations) {
+      const result = await startAsPromise(c);
+      results.push(result);
+    }
+    return results;
+  }
+
+  return awaitPromise<T[]>(_sequential<T>(computations));
+}
+
 export function sleep(millisecondsDueTime: number) {
   return protectedCont((ctx: IAsyncContext<void>) => {
     let tokenId: number;

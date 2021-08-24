@@ -218,6 +218,32 @@ let tests =
             !res |> Array.sum |> equal 6
         }
 
+    testCaseAsync "Async.Sequential works" <| fun () ->
+        async {
+            let mutable _aggregate = 0
+
+            let makeWork i =
+                async {
+                    // check that the individual work items run sequentially and not interleaved
+                    _aggregate <- _aggregate + i
+                    let copyOfI = _aggregate
+                    do! Async.Sleep 100
+                    equal copyOfI _aggregate
+                    do! Async.Sleep 100
+                    equal copyOfI _aggregate
+                    return i
+                }
+            let works = [ for i in 1 .. 5 -> makeWork i ]
+            let now = DateTimeOffset.Now
+            let! result = Async.Sequential works
+            let ``then`` = DateTimeOffset.Now
+            let d = ``then`` - now
+            if d < TimeSpan.FromSeconds 2. then
+                failwithf "expected sequential operations to take longer than 1 second, but took %0.00f" d.TotalSeconds
+            result |> equal [| 1 .. 5 |]
+            result |> Seq.sum |> equal _aggregate
+        }
+
     #if FABLE_COMPILER
     testCaseAsync "Interaction between Async and Promise works" <| fun () ->
         async {
