@@ -1,5 +1,5 @@
 // tslint:disable:max-line-length
-import Long, { fromNumber, op_Division, op_Multiply, toNumber } from "./Long.js";
+import Long, { fromNumber as Long_fromNumber, op_Division as Long_op_Division, op_Multiply as Long_op_Multiply, toNumber as Long_toNumber } from "./Long.js";
 import { FSharpRef } from "./Types.js";
 import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
 
@@ -32,7 +32,7 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
 }
 
 export function fromTicks(ticks: Long) {
-  return toNumber(op_Division(ticks, 10000));
+  return Long_toNumber(Long_op_Division(ticks, 10000));
 }
 
 export function fromDays(d: number) {
@@ -72,7 +72,7 @@ export function milliseconds(ts: number) {
 }
 
 export function ticks(ts: number) {
-  return op_Multiply(fromNumber(ts), 10000);
+  return Long_op_Multiply(Long_fromNumber(ts), 10000);
 }
 
 export function totalDays(ts: number) {
@@ -103,8 +103,18 @@ export function subtract(ts1: number, ts2: number) {
   return ts1 - ts2;
 }
 
+export function multiply(ts: number, factor: number) {
+  return ts * factor;
+}
+
+export function divide(ts: number, b: number) {
+  return ts / b;
+}
+
 export const op_Addition = add;
 export const op_Subtraction = subtract;
+export const op_Multiply = add;
+export const op_Division = subtract;
 
 export const compare = comparePrimitives;
 export const compareTo = comparePrimitives;
