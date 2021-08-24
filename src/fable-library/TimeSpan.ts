@@ -113,8 +113,8 @@ export function divide(ts: number, b: number) {
 
 export const op_Addition = add;
 export const op_Subtraction = subtract;
-export const op_Multiply = add;
-export const op_Division = subtract;
+export const op_Multiply = multiply;
+export const op_Division = divide;
 
 export const compare = comparePrimitives;
 export const compareTo = comparePrimitives;
