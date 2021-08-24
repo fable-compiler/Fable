@@ -228,7 +228,7 @@ let tests =
 #if FABLE_COMPILER
                 x <- x + i
 #else
-                System.Threading.Interlocked.Add(ref x, i) |> ignore<int>
+                System.Threading.Interlocked.Add(&x, i) |> ignore<int>
 #endif
 
             let a = Async.Parallel [
