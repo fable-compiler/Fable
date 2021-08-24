@@ -244,6 +244,24 @@ let tests =
             result |> Seq.sum |> equal _aggregate
         }
 
+    testCaseAsync "Async.Sequential is lazy" <| fun () ->
+        async {
+            let mutable x = 0
+
+            let a = Async.Sequential [
+                async { x <- x + 1 }
+                async { x <- x + 2 }
+            ]
+
+            do! Async.Sleep 100
+
+            equal 0 x
+
+            let! _ = a
+
+            equal 3 x
+        }
+
     #if FABLE_COMPILER
     testCaseAsync "Interaction between Async and Promise works" <| fun () ->
         async {
