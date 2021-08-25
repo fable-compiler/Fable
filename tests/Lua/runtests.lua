@@ -7,5 +7,6 @@ end
 
 TestArithmetic = require('TestArithmetic')
 TestRecords = require('TestRecords')
+TestControlFlow = require('TestControlFlow')
 
 luaunit.run()

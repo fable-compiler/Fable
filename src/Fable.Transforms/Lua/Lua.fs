@@ -38,7 +38,7 @@ type Expr =
     | Unknown of string
     | Let of name: string * value: Expr * body: Expr
     | Macro of string * args: Expr list
-    | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
+    | Ternary of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | NoOp
     | Function of args: string list * body: Statement list
     | NewObj of values: (string * Expr) list

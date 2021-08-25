@@ -147,7 +147,7 @@ module Transforms =
         | Fable.Expr.CurriedApply(applied, args, _, _) ->
             FunctionCall(transformExpr applied, args |> List.map transformExpr)
         | Fable.Expr.IfThenElse (guardExpr, thenExpr, elseExpr, _) ->
-            IfThenElse(transformExpr guardExpr, transformExpr thenExpr, transformExpr elseExpr)
+            Ternary(transformExpr guardExpr, transformExpr thenExpr, transformExpr elseExpr)
         | x -> Unknown (sprintf "%A" x)
 
     let transformDeclarations (com: LuaCompiler) = function

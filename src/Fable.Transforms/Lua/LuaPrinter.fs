@@ -95,16 +95,19 @@ module Output =
             write ctx " = "
             writeExpr ctx value
             writeExpr ctx expr
+        | Ternary(guardExpr, thenExpr, elseExpr) ->
             writeln ctx ""
-        | IfThenElse(guardExpr, thenExpr, elseExpr) ->
-            writei ctx "if "
-            writeExpr ctx guardExpr
-            write ctx " then"
-            let ctxI = indent ctx
+            let ctxA = indent ctx
+            writei ctxA ""
+            writeExpr ctxA guardExpr
+            writeln ctxA ""
+            let ctxI = indent ctxA
+            writei ctxI " and "
             writeExpr ctxI thenExpr
-            writei ctx "else "
+            writeln ctxI ""
+            writei ctxI " or "
             writeExpr ctxI elseExpr
-            writei ctx "end"
+            write ctx ""
         | Macro (s, args) ->
             let subbedMacro =
                 (s, args |> List.mapi(fun i x -> i.ToString(), sprintExprSimple x))
@@ -118,7 +121,7 @@ module Output =
             let ctxI = indent ctx
             writeln ctxI ""
             body |> List.iter (writeStatement ctxI)
-            writeln ctx "end"
+            writei ctx "end"
         | NewObj(args) ->
             write ctx "{"
             let ctxI = indent ctx
@@ -131,8 +134,7 @@ module Output =
                     writeln ctxI ","
             //writeExprs ctxI args
             writeln ctx ""
-            writei ctx ""
-            writeln ctx "}"
+            writei ctx "}"
         | NoOp -> ()
         | Unknown x ->
             writeCommented ctx "unknown" x

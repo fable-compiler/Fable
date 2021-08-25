@@ -22,6 +22,7 @@
     <Compile Include="Util.fs" />
     <Compile Include="TestArithmetic.fs" />
     <Compile Include="TestRecords.fs" />
+    <Compile Include="TestControlFlow.fs" />
     <Compile Include="Main.fs" />
 
   </ItemGroup>
