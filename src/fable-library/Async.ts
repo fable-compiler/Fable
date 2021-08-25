@@ -15,6 +15,11 @@ function emptyContinuation<T>(_x: T) {
   // NOP
 }
 
+// see AsyncBuilder.Delay
+function delay<T>(generator: () => IAsync<T>) {
+  return protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
+}
+
 // MakeAsync: body:(AsyncActivation<'T> -> AsyncReturn) -> Async<'T>
 export function makeAsync<T>(body: IAsync<T>) {
   return body;
@@ -101,7 +106,21 @@ export function ignore<T>(computation: IAsync<T>) {
 }
 
 export function parallel<T>(computations: Iterable<IAsync<T>>) {
-  return awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w))));
+  return delay(() => awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w)))));
+}
+
+export function sequential<T>(computations: Iterable<IAsync<T>>) {
+
+  async function _sequential<T>(computations: Iterable<IAsync<T>>): Promise<T[]> {
+    const results: T[] = [];
+    for (const c of computations) {
+      const result = await startAsPromise(c);
+      results.push(result);
+    }
+    return results;
+  }
+
+  return delay(() => awaitPromise<T[]>(_sequential<T>(computations)));
 }
 
 export function sleep(millisecondsDueTime: number) {
