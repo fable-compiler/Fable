@@ -32,3 +32,9 @@ let testMakeNestedRecord () =
     r.b.one |> equal "b"
     r.a.two |> equal 2
     r.b.two |> equal 4
+
+[<Fact>]
+let testMakeAnonRecord () =
+    let r = {| x = 3.142; y = true |}
+    r.x |> equal 3.142
+    r.y |> equal true

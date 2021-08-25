@@ -50,14 +50,10 @@ module Transforms =
                 let pairs = List.zip names values
                 NewObj(pairs)
             else sprintf "unknown ety %A %A %A %A" values ref args entity |> Unknown
-            // match com.GetByRef ref with
-            // | Some c ->
-            //     let names = c.AttachedMembers |> List.filter(fun q -> q.Info.IsPublic && q.Info.IsInstance) |> List.map (fun m -> m.Name)
-            //     let values = values |> List.map (transformExpr com)
-            //     let pairs = List.zip names values
-            //     NewObj(pairs)
-            //     com.Com.GetEntity(ref)
-            // | x -> sprintf "unknown %A" x |> ConstString |> Const
+        | Fable.NewAnonymousRecord(values, names, _) ->
+            let transformedValues = values |> List.map (transformExpr com)
+            let pairs = List.zip (names |> Array.toList) transformedValues
+            NewObj(pairs)
         | Fable.Null _ ->
             Const(ConstNull)
         | x -> sprintf "unknown %A" x |> ConstString |> Const
@@ -94,12 +90,14 @@ module Transforms =
     let flattenReturnIifes e =
         let rec collectStatementsRec =
             function
+            | Return (FunctionCall(AnonymousFunc([], [Return s]), [])) ->
+                [Return s]
             | Return (FunctionCall(AnonymousFunc([], statements), [])) -> //self executing functions only
                 statements |> List.collect collectStatementsRec
             | x -> [x]
         let statements = collectStatementsRec e
         match statements with
-        | [Return s] -> s |> Return
+        | [Return s] -> Return s
         | [] -> NoOp |> Do
         | _ -> FunctionCall(AnonymousFunc([], statements), []) |> Return
 
@@ -159,13 +157,13 @@ module Transforms =
             if m.Args.Length = 0 then
                 Assignment(m.Name, transformExpr com m.Body)
             else
-                // let body =
-                //     match m.Body with
-                //     | Fable.Expr.Emit(mChild, _, _) ->
-                //         [Macro(mChild.Macro, m.Args |> List.map (fun a -> Ident { Name = a.Name; Namespace = None })) |> Return]
-                //     | _ -> [transformExpr m.Body |> Return]
-                // FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), body, m.Info.IsPublic)
-                FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), [transformExpr com m.Body |> Return |> flattenReturnIifes], m.Info.IsPublic)
+
+                let unwrapSelfExStatements =
+                    match transformExpr com m.Body |> Return |> flattenReturnIifes with
+                    | Return (FunctionCall(AnonymousFunc([], statements), [])) ->
+                        statements
+                    | s -> [s]
+                FunctionDeclaration(m.Name, m.Args |> List.map(fun a -> a.Name), unwrapSelfExStatements, m.Info.IsPublic)
         | Fable.ClassDeclaration(d) ->
             com.AddClassDecl d
             //todo - build prototype members out
