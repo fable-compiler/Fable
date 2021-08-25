@@ -218,8 +218,6 @@ let tests =
             !res |> Array.sum |> equal 6
         }
 
-// current Fable implementation of Async.Parallel is eager, not lazy
-#if !FABLE_COMPILER
     testCaseAsync "Async.Parallel is lazy" <| fun () ->
         async {
             let mutable x = 0
@@ -244,7 +242,6 @@ let tests =
 
             equal 3 x
         }
-#endif
 
     testCaseAsync "Async.Sequential works" <| fun () ->
         async {
@@ -272,8 +269,6 @@ let tests =
             result |> Seq.sum |> equal _aggregate
         }
 
-// current Fable implementation of Async.Sequential is eager, not lazy
-#if !FABLE_COMPILER
     testCaseAsync "Async.Sequential is lazy" <| fun () ->
         async {
             let mutable x = 0
@@ -291,7 +286,6 @@ let tests =
 
             equal 3 x
         }
-#endif
 
     #if FABLE_COMPILER
     testCaseAsync "Interaction between Async and Promise works" <| fun () ->
