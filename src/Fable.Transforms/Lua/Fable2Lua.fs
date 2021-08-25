@@ -54,6 +54,9 @@ module Transforms =
             let transformedValues = values |> List.map (transformExpr com)
             let pairs = List.zip (names |> Array.toList) transformedValues
             NewObj(pairs)
+        | Fable.NewUnion(values, tag, _, _) ->
+            let values = values |> List.map(transformExpr com) |> List.mapi(fun i x -> sprintf "p%i" i, x)
+            NewObj(("tag", tag |> float |> ConstNumber |> Const)::values)
         | Fable.Null _ ->
             Const(ConstNull)
         | x -> sprintf "unknown %A" x |> ConstString |> Const

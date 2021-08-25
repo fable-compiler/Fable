@@ -23,6 +23,7 @@
     <Compile Include="TestArithmetic.fs" />
     <Compile Include="TestRecords.fs" />
     <Compile Include="TestControlFlow.fs" />
+    <Compile Include="TestUnionType.fs" />
     <Compile Include="Main.fs" />
 
   </ItemGroup>

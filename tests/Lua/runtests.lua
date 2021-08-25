@@ -8,5 +8,6 @@ end
 TestArithmetic = require('TestArithmetic')
 TestRecords = require('TestRecords')
 TestControlFlow = require('TestControlFlow')
+TestUnionType = require('TestUnionType')
 
 luaunit.run()
