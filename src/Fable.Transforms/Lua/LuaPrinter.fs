@@ -90,9 +90,10 @@ module Output =
             writeExpr ctx expr
             write ctx "."
             write ctx fieldName
-        | Let(name, expr) ->
-            writei ctx name
+        | Let(name, value, expr) ->
+            write ctx name
             write ctx " = "
+            writeExpr ctx value
             writeExpr ctx expr
             writeln ctx ""
         | IfThenElse(guardExpr, thenExpr, elseExpr) ->
@@ -118,6 +119,21 @@ module Output =
             writeln ctxI ""
             body |> List.iter (writeStatement ctxI)
             writeln ctx "end"
+        | NewObj(args) ->
+            write ctx "{"
+            let ctxI = indent ctx
+            writeln ctxI ""
+            for idx, (name, expr) in args |> List.mapi (fun i x -> i, x) do
+                writei ctxI name
+                write ctxI " = "
+                writeExpr ctxI expr
+                if idx < args.Length - 1 then
+                    writeln ctxI ","
+            //writeExprs ctxI args
+            writeln ctx ""
+            writei ctx ""
+            writeln ctx "}"
+        | NoOp -> ()
         | Unknown x ->
             writeCommented ctx "unknown" x
         | x -> sprintf "%A" x |> writeCommented ctx "todo"
@@ -159,6 +175,7 @@ module Output =
             writei ctx ""
             writeExpr ctx expr
             writeln ctx ""
+        | SNoOp -> ()
 
     let writeFile ctx (file: File) =
         writeln ctx "mod = {}"
@@ -166,8 +183,8 @@ module Output =
             writeStatement ctx s
         write ctx "return mod"
         //debugging
-        //writeln ctx "--[["
-        //sprintf "%s" file.ASTDebug |> write ctx
-        //writeln ctx "rabbit"
-        //sprintf "%A" file.Statements |> write ctx
-        //writeln ctx " --]]"
+        writeln ctx ""
+        // writeln ctx "--[["
+        // sprintf "%s" file.ASTDebug |> write ctx
+        // sprintf "%A" file.Statements |> write ctx
+        // writeln ctx " --]]"

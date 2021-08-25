@@ -36,17 +36,19 @@ type Expr =
     | FunctionCall of f: Expr * args: Expr list
     | AnonymousFunc of args: string list * body: Statement list
     | Unknown of string
-    | Let of name: string * Expr
+    | Let of name: string * value: Expr * body: Expr
     | Macro of string * args: Expr list
     | IfThenElse of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | NoOp
     | Function of args: string list * body: Statement list
+    | NewObj of values: (string * Expr) list
 
 type Statement =
     | Assignment of name: string * Expr
     | FunctionDeclaration of name: string * args: string list * body: Statement list * exportToMod: bool
     | Return of Expr
     | Do of Expr
+    | SNoOp
 
 type File =
     { Filename: string

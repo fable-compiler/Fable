@@ -6,5 +6,6 @@ function TestMod.testHello()
 end
 
 TestArithmetic = require('TestArithmetic')
+TestRecords = require('TestRecords')
 
 luaunit.run()
