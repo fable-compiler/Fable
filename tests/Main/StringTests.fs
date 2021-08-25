@@ -515,8 +515,20 @@ let tests =
             |> (=) [|"a";"b";"c";"";"d"|] |> equal true
             "a b c  d ".Split()
             |> (=) [|"a";"b";"c";"";"d";""|] |> equal true
+            "a\tb".Split()
+            |> (=) [|"a";"b"|] |> equal true
+            "a\nb".Split()
+            |> (=) [|"a";"b"|] |> equal true
+            "a\rb".Split()
+            |> (=) [|"a";"b"|] |> equal true
+            "a\u2003b".Split() // em space
+            |> (=) [|"a";"b"|] |> equal true
             "a b c  d".Split(null)
             |> (=) [|"a";"b";"c";"";"d"|] |> equal true
+            "a\tb".Split(null)
+            |> (=) [|"a";"b"|] |> equal true
+            "a\u2003b".Split() // em space
+            |> (=) [|"a";"b"|] |> equal true
             let array = "a;b,c".Split(',', ';')
             "abc" = array.[0] + array.[1] + array.[2]
             |> equal true

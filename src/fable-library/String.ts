@@ -469,8 +469,8 @@ export function split(str: string, splitters: string[], count?: number, removeEm
       splitters[key - 1] = arguments[key];
     }
   }
-  splitters = splitters.map((x) => escape(x ?? " "));
-  splitters = splitters.length > 0 ? splitters : [" "];
+  splitters = splitters.map((x) => (x == null) ? "\\s" : escape(x));
+  splitters = splitters.length > 0 ? splitters : ["\\s"];
   let i = 0;
   const splits: string[] = [];
   const reg = new RegExp(splitters.join("|"), "g");
