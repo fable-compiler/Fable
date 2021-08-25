@@ -527,7 +527,7 @@ let tests =
             |> (=) [|"a";"b";"c";"";"d"|] |> equal true
             "a\tb".Split(null)
             |> (=) [|"a";"b"|] |> equal true
-            "a\u2003b".Split() // em space
+            "a\u2003b".Split(null) // em space
             |> (=) [|"a";"b"|] |> equal true
             let array = "a;b,c".Split(',', ';')
             "abc" = array.[0] + array.[1] + array.[2]
