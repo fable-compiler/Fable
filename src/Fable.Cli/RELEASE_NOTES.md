@@ -1,3 +1,10 @@
+### 3.2.12
+
+* Fix #2505: Make String.Split match .NET with no or null separators
+* Add TimeSpan.Divide and Multiply @0x53A
+* Add Async.Sequential @0x53A
+* Compile `FormattableString` as JS Templates
+
 ### 3.2.11
 
 * Add --rootModule CLI flag

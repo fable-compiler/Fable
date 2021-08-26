@@ -1,3 +1,7 @@
+### 3.2.9
+
+* Add `FormattableString.GetStrings()` extension
+
 ### 3.2.8
 
 * Experimental.namesofLambda
