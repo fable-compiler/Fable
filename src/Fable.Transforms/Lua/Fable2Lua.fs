@@ -114,7 +114,7 @@ module Transforms =
             //Unknown(sprintf "call %A %A" expr callInfo)
             FunctionCall(transformExpr expr, List.map transformExpr callInfo.Args)
         | Fable.Expr.Import (info, t, r) ->
-            let path = info.Path.Replace(".fs", "") //todo - make less brittle
+            let path = info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
             let rcall = FunctionCall(Ident { Namespace=None; Name= "require" }, [Const (ConstString path)])
             match info.Selector with
             | "" -> rcall

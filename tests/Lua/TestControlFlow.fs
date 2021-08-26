@@ -23,3 +23,15 @@ let testIfElseFn1 () =
 [<Fact>]
 let testIfElseFn2 () =
     bfn false 3 4 |> equal 4
+
+[<Fact>]
+let testIfElseIf () =
+    let a x =
+        if x = 1 then
+            1
+        else if x = 2 then
+            2
+        else 3
+    a 1 |> equal 1
+    a 2 |> equal 2
+    a 3 |> equal 3

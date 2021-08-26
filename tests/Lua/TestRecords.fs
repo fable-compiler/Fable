@@ -33,6 +33,15 @@ let testMakeNestedRecord () =
     r.a.two |> equal 2
     r.b.two |> equal 4
 
+// [<Fact>]
+// let testStructuralCompareRecords () =
+//     let a = { one="string_one"; two=2}
+//     let b = { one="string_one"; two=2}
+//     let c = { one="string_two"; two=4}
+//     a = a |> equal true
+//     a = b |> equal true
+//     a = c |> equal false
+
 [<Fact>]
 let testMakeAnonRecord () =
     let r = {| x = 3.142; y = true |}

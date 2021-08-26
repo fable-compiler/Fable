@@ -215,7 +215,7 @@ let buildLibraryLua() =
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"
     ]
-    // Copy *.py from projectDir to buildDir
+    // Copy *.lua from projectDir to buildDir
     copyDirRecursive libraryDir buildDirLua
 
     runInDir buildDirLua ("lua -v")
