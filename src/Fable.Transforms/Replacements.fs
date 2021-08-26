@@ -3,6 +3,7 @@ module Fable.Transforms.Replacements
 
 #nowarn "1182"
 
+open System.Text.RegularExpressions
 open Fable
 open Fable.AST
 open Fable.AST.Fable
@@ -1181,8 +1182,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         |> Option.map (fun (s, i) ->
             [makeStrConst s; makeIntConst i] |> NewTuple |> makeValue r)
 
+    // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc=r) |> Some
     | _, "Async.StartAsPromise.Static" -> Helper.LibCall(com, "Async", "startAsPromise", t, args, ?loc=r) |> Some
+    | _, "FormattableString.GetStrings" -> get r t thisArg.Value "strs" |> Some
+
     | "Fable.Core.Testing.Assert", _ ->
         match i.CompiledName with
         | "AreEqual" -> Helper.LibCall(com, "Util", "assertEqual", t, args, ?loc=r) |> Some
@@ -1739,10 +1743,37 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
-let formattableString (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "Create", None, [str; args] -> objExpr ["str", str; "args", args] |> Some
-    | "get_Format", Some x, _ -> get r t x "str" |> Some
+    // Even if we're going to wrap it again to make it compatible with FormattableString API, we use a JS template string
+    // because the strings array will always have the same reference so it can be used as a key in a WeakMap
+    // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
+    // of the FormattableString.GetStrings extension in Fable.Core too
+    | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
+        let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
+        let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
+        let callMacro, args, offset =
+            if not hasFormat then
+                let fnArg = Helper.LibValue(com, "String", "fmt", t)
+                "$0", fnArg::args, 1
+            else
+                let fnArg = Helper.LibValue(com, "String", "fmtWith", t)
+                let fmtArg =
+                    matches
+                    |> Array.map (fun m -> makeStrConst m.Groups.[1].Value)
+                    |> Array.toList
+                    |> makeArray String
+                "$0($1)", fnArg::fmtArg::args, 2
+        let sb = System.Text.StringBuilder()
+        let mutable prevIndex = 0
+        for i = 0 to matches.Length - 1 do
+            let m = matches.[i]
+            let strPart = str.Substring(prevIndex, m.Index - prevIndex).Replace("`", "\\`")
+            sb.Append(strPart + "${$" + string(i + offset) + "}") |> ignore
+            prevIndex <- m.Index + m.Length
+        sb.Append(str.Substring(prevIndex).Replace("`", "\\`")) |> ignore
+        emitJsExpr r t args (callMacro + "`" + sb.ToString() + "`") |> Some
+    | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [x], ?loc=r) |> Some
     | "get_ArgumentCount", Some x, _ -> get r t (getSimple x "args") "length" |> Some
     | "GetArgument", Some x, [idx] -> getExpr r t (getSimple x "args") idx |> Some
     | "GetArguments", Some x, [] -> get r t x "args" |> Some

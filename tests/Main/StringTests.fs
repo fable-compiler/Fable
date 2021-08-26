@@ -3,6 +3,7 @@ module Fable.Tests.Strings
 open System
 open Util.Testing
 #if FABLE_COMPILER
+open Fable.Core
 open Fable.Core.JsInterop
 
 module M =
@@ -917,4 +918,24 @@ let tests =
           s.ArgumentCount |> equal 3
           s.GetArgument(2) |> equal (box true)
           s.GetArguments() |> equal [|100; 3; true|]
-  ]
+          let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+          s2.Format |> equal "{0}This is \"{1}\" awesome!"
+          s2.GetArguments() |> equal [|box 7; box "really"|]
+          let s3: FormattableString = $"""I have no holes"""
+          s3.Format |> equal "I have no holes"
+          s3.GetArguments() |> equal [||]
+          let s4: FormattableString = $"I have `backticks`"
+          s4.Format |> equal "I have `backticks`"
+
+#if FABLE_COMPILER
+      testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
+          let orderAmount = 100
+          let convert (s: FormattableString) = s
+          let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
+          s.GetStrings() |> equal [|"You owe: "; " "; " "; ""|]
+          let s2: FormattableString = $"""{5 + 2}This is "{"really"}" awesome!"""
+          s2.GetStrings() |> equal [|""; "This is \""; "\" awesome!"|]
+          let s3: FormattableString = $"""I have no holes"""
+          s3.GetStrings() |> equal [|"I have no holes"|]
+#endif
+]
