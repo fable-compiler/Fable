@@ -479,6 +479,7 @@ let testLua() =
         "--outDir " + buildDir
         "--exclude Fable.Core"
         "--lang Lua"
+        "--fableLib " + "fable-library-lua" </> "fable" //cannot use relative paths in lua. Copy to subfolder?
     ]
 
     copyFile (projectDir </> "runtests.lua") (buildDir </> "runtests.lua")
