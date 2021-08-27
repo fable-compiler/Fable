@@ -3313,7 +3313,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
     | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
-    | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
+    | Types.attribute
+    | Atts.decorator -> Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =
             match argTypes.Value, args with

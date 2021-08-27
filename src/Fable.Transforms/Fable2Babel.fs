@@ -885,18 +885,27 @@ module Util =
                 match optimization, e with
                 | "array", Fable.Call(_,info,_,_) ->
                     match info.Args with
-                    | [Replacements.ArrayOrListLiteral(vals,_)] -> Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range) |> Some
+                    | [Replacements.ArrayOrListLiteral(vals,_)] ->
+                        Fable.Value(Fable.NewArray(vals, Fable.Any), e.Range)
+                        |> transformAsExpr com ctx
+                        |> Some
                     | _ -> None
                 | "pojo", Fable.Call(_,info,_,_) ->
+                    let toPojo caseRule keyValueList =
+                        Replacements.makePojo com caseRule keyValueList
+                        |> Option.map (transformAsExpr com ctx)
                     match info.Args with
-                    | keyValueList::caseRule::_ -> Replacements.makePojo com (Some caseRule) keyValueList
-                    | keyValueList::_ -> Replacements.makePojo com None keyValueList
+                    | keyValueList::caseRule::_ -> toPojo (Some caseRule) keyValueList
+                    | keyValueList::_ -> toPojo None keyValueList
                     | _ -> None
+                | "function", Fable.Delegate(args, body, name) ->
+                    let args, body, returnType, typeParamDecl = transformFunctionWithAnnotations com ctx name args body
+                    Expression.functionExpression(args, body, ?returnType=returnType, ?typeParameters=typeParamDecl) |> Some
                 | _ -> None
             | _ -> None
 
         match optimized, t with
-        | Some e, _ -> com.TransformAsExpr(ctx, e)
+        | Some e, _ -> e
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...

@@ -1083,12 +1083,67 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
               Info = info
               ExportDefault = false }]
 
-let private moduleMemberDeclarationInfo isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.MemberInfo =
+let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFunctionOrValue): Fable.MemberInfo =
     MemberInfo(memb.Attributes,
                    hasSpread=hasParamArray memb,
                    isPublic=isPublic,
+                   isValue=isValue,
                    isInstance=memb.IsInstanceMember,
                    isMutable=memb.IsMutable) :> _
+
+// JS-only feature, in Fable 4 it should be abstracted
+let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
+    let fullDisplayName =
+        memb.TryGetFullDisplayName()
+        |> Option.defaultValue ""
+
+    let applyDecorator body (attrArgs: IList<FSharpType * obj>, attr: FSharpEntity) =
+        attr.MembersFunctionsAndValues
+        |> Seq.tryFind (fun m ->
+                m.IsOverrideOrExplicitInterfaceImplementation
+                && m.CompiledName = "Decorate")
+        |> function
+            | None -> body
+            | Some memb ->
+                let extraArgs =
+                    attrArgs
+                    |> Seq.map (fun (typ, value) ->
+                        let typ = makeType Map.empty typ
+                        Replacements.makeTypeConst com None typ value)
+                    |> Seq.toList
+                let callInfo: Fable.CallInfo =
+                    {
+                        ThisArg = None
+                        Args = body :: (makeStrConst fullDisplayName) :: extraArgs
+                        SignatureArgTypes = []
+                        HasSpread = false
+                        IsJsConstructor = false
+                        CallMemberInfo = None
+                    }
+                let jsDecoratorEnt = attr.BaseType.Value.TypeDefinition
+                let overloadHash = OverloadSuffix.getHash jsDecoratorEnt memb
+                let mangledName = getMangledAbstractMemberName jsDecoratorEnt memb.CompiledName overloadHash
+                let attrRef = FsEnt(attr) |> entityRef com
+                let prototype = getExpr None Fable.Any attrRef (makeStrConst "prototype")
+                getExpr None Fable.Any prototype (makeStrConst mangledName)
+                |> makeCall None body.Type callInfo
+
+    memb.Attributes
+    |> Seq.choose (fun att ->
+        let tdef = nonAbbreviatedDefinition att.AttributeType
+        match tdef.BaseType with
+        | Some tbase when tbase.HasTypeDefinition && tbase.TypeDefinition.TryFullName = Some Atts.decorator ->
+            Some(att.ConstructorArguments, tdef)
+        | _ -> None)
+    |> Seq.toList
+    |> function
+        | [] -> None
+        | decorators ->
+            let body = Fable.Delegate(args, body, None)
+            // Hack to tell the compiler this must be compiled as function (not arrow)
+            // so we don't have issues with bound this
+            let body = Fable.TypeCast(body, body.Type, Some("optimizable:function"))
+            List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
@@ -1111,13 +1166,17 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                     |> makeCall None Fable.Unit (makeCallInfo None [] [])
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
+            let args, body, isValue =
+                match applyDecorators com ctx memb args body with
+                | None -> args, body, false
+                | Some body -> [], body, true
             [Fable.MemberDeclaration
                 { Name = name
                   FullDisplayName = fullDisplayName
                   Args = args
                   Body = body
                   UsedNames = set ctx.UsedNamesInDeclarationScope
-                  Info = moduleMemberDeclarationInfo isPublic memb
+                  Info = moduleMemberDeclarationInfo isPublic isValue memb
                   ExportDefault = false }]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
