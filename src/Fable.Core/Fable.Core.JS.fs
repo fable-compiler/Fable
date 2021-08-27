@@ -16,8 +16,8 @@ module JS =
         inherit Attribute()
         abstract Decorate: fn: Function * fnName: string * [<ParamArray>] attributeArgs: obj[] -> Function
 
-    // Hack because currently doesn't keep information about spread for anonymous function
-    // We also use function to make sure `this` is bound correctly
+    // Hack because currently Fable doesn't keep information about spread for anonymous function
+    // We also use function (instead of an arrow) to make sure `this` is bound correctly
     [<Emit("function (...args) { return $0(args) }")>]
     let spreadFunc (fn: obj[] -> obj): Function = jsNative
 
