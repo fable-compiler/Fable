@@ -1,3 +1,7 @@
+### 3.3.0-beta-001
+
+* Decorators
+
 ### 3.2.14
 
 * Fix #2480: Include package.json in fable-library

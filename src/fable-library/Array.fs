@@ -6,7 +6,6 @@ module ArrayModule
 open System.Collections.Generic
 open Fable.Core
 open Fable.Core.JsInterop
-open Fable.Import
 
 type Cons<'T> =
     [<Emit("new $0($1)")>]

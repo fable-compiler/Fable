@@ -1,3 +1,7 @@
+### 3.3.0
+
+* JS.Decorator attribute
+
 ### 3.2.9
 
 * Add `FormattableString.GetStrings()` extension
