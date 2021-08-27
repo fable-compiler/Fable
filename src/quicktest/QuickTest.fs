@@ -66,3 +66,23 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 // to Fable.Tests project. For example:
 // testCase "Addition works" <| fun () ->
 //     2 + 2 |> equal 4
+
+type LogAttribute(msg1: string, code: int) =
+    inherit JS.DecoratorAttribute()
+    override _.Decorate(fn, fnName, attrArgs) =
+        let msg1 = attrArgs.[0] :?> string
+        let code = attrArgs.[1] :?> int
+        let mutable count = 0
+        JS.spreadFunc(fun args ->
+            count <- count + 1
+            printfn $"[%s{msg1} (code %i{code})] %s{fnName} called %i{count} time(s)!"
+            fn.apply(null, args))
+
+[<Log("MATH", 3)>]
+let myComplexAdder x y = x + y
+
+let test() =
+    myComplexAdder 3 4 |> log
+    myComplexAdder 6 7 |> log
+
+test()
