@@ -105,6 +105,11 @@ module Transforms =
         | _ -> FunctionCall(AnonymousFunc([], statements), []) |> Return
 
     let asSingleExprIifeTr com : Fable.Expr list -> Expr = List.map (transformExpr com) >> asSingleExprIife
+    let (|Regex|_|) pattern input =
+        let m = Regex.Match(input, pattern)
+        if m.Success then Some(List.tail [ for g in m.Groups -> g.Value ])
+        else None
+
     let transformExpr (com: LuaCompiler) expr=
         let transformExpr = transformExpr com
         let transformOp = transformOp com
@@ -114,7 +119,12 @@ module Transforms =
             //Unknown(sprintf "call %A %A" expr callInfo)
             FunctionCall(transformExpr expr, List.map transformExpr callInfo.Args)
         | Fable.Expr.Import (info, t, r) ->
-            let path = info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
+            let path =
+                match info.Kind, info.Path with
+                | LibraryImport, Regex "fable-lib\/(\w+).(?:fs|js)" [name] ->
+                    "fable-lib/" + name
+                | _ ->
+                    info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
             let rcall = FunctionCall(Ident { Namespace=None; Name= "require" }, [Const (ConstString path)])
             match info.Selector with
             | "" -> rcall

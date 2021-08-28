@@ -474,12 +474,13 @@ let testLua() =
     let buildDir = "build/tests/Lua"
 
     cleanDirs [buildDir]
+    copyDirRecursive ("build" </> "fable-library-lua" </> "fable") (buildDir </> "fable-lib")
     runInDir projectDir "dotnet test"
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"
         "--lang Lua"
-        "--fableLib " + "fable-library-lua" </> "fable" //cannot use relative paths in lua. Copy to subfolder?
+        "--fableLib " + buildDir </> "fable-lib" //("fable-library-lua" </> "fable") //cannot use relative paths in lua. Copy to subfolder?
     ]
 
     copyFile (projectDir </> "runtests.lua") (buildDir </> "runtests.lua")
@@ -651,9 +652,6 @@ match argsLower with
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
-| "quicktest-lua"::_ ->
-    buildPyLibraryIfNotExists()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Lua --exclude Fable.Core --noCache"
 | "jupyter" :: _ ->
     buildPyLibraryIfNotExists ()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> ../Fable.Jupyter/src/fable.out"
