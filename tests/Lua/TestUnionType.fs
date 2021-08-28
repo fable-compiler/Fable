@@ -33,3 +33,12 @@ let testMakeUnionContent2 () =
 let testMakeUnionContent3 () =
     let r = B
     r |> equal B
+
+[<Fact>]
+let testMatch1 () =
+    let thing = A("abc", 123)
+    let res =
+        match thing with
+        | A(s, i) -> Some(s, i)
+        | B -> None
+    res |> equal (Some("abc", 123))

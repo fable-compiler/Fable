@@ -29,6 +29,12 @@ module Transforms =
                     yield transformReturn h
                 | [] -> ()
             ]
+        let ident name = Ident {Name = name; Namespace = None}
+        let iife statements = FunctionCall(AnonymousFunc([], statements), [])
+        let maybeIife = function
+            | [] -> NoOp
+            | [Return expr] -> expr
+            | statements -> iife statements
     let transformValueKind (com: LuaCompiler) = function
         | Fable.NumberConstant(v,_,_) ->
             Const(ConstNumber v)
@@ -55,8 +61,13 @@ module Transforms =
             let pairs = List.zip (names |> Array.toList) transformedValues
             NewObj(pairs)
         | Fable.NewUnion(values, tag, _, _) ->
-            let values = values |> List.map(transformExpr com) |> List.mapi(fun i x -> sprintf "p%i" i, x)
+            let values = values |> List.map(transformExpr com) |> List.mapi(fun i x -> sprintf "p_%i" i, x)
             NewObj(("tag", tag |> float |> ConstNumber |> Const)::values)
+        | Fable.NewOption (value, t, _) ->
+            value |> Option.map (transformExpr com) |> Option.defaultValue (Const ConstNull)
+        | Fable.NewTuple(values, isStruct) ->
+            let fields = values |> List.mapi(fun i x -> sprintf "p_%i" i, transformExpr com x)
+            NewObj(fields)
         | Fable.Null _ ->
             Const(ConstNull)
         | x -> sprintf "unknown %A" x |> ConstString |> Const
@@ -89,7 +100,7 @@ module Transforms =
                     (Do)
                     (Return)
                     exprs
-            FunctionCall(AnonymousFunc([], statements), [])
+            statements |> Helpers.maybeIife
     let flattenReturnIifes e =
         let rec collectStatementsRec =
             function
@@ -135,6 +146,8 @@ module Transforms =
             transformOp kind
         | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fieldName, isMut), _, _) ->
             Get(transformExpr expr, FieldGet(fieldName))
+        | Fable.Expr.Get(expr, Fable.GetKind.UnionField(caseIdx, fieldIdx), _, _) ->
+            Get(transformExpr expr, FieldGet(sprintf "p_%i" fieldIdx))
         | Fable.Expr.Sequential exprs ->
             asSingleExprIifeTr com exprs
         | Fable.Expr.Let (ident, value, body) ->
@@ -152,15 +165,34 @@ module Transforms =
             // asSingleExprIife exprs
             Macro(m.Macro, m.CallInfo.Args |> List.map transformExpr)
         | Fable.Expr.DecisionTree(expr, lst) ->
+            com.DecisionTreeTargets(lst)
             transformExpr expr
-        | Fable.Expr.DecisionTreeSuccess(i, exprs, _) ->
-            asSingleExprIifeTr com exprs
+        | Fable.Expr.DecisionTreeSuccess(i, boundValues, _) ->
+            let idents,target = com.GetDecisionTreeTargets(i)
+            let statements =
+                [   for (ident, value) in List.zip idents boundValues do
+                        yield Assignment(ident.Name, transformExpr value)
+                    yield transformExpr target |> Return
+                        ]
+            statements
+            |> Helpers.maybeIife
         | Fable.Expr.Lambda(arg, body, name) ->
             Function([arg.Name], [transformExpr body |> Return])
         | Fable.Expr.CurriedApply(applied, args, _, _) ->
             FunctionCall(transformExpr applied, args |> List.map transformExpr)
         | Fable.Expr.IfThenElse (guardExpr, thenExpr, elseExpr, _) ->
             Ternary(transformExpr guardExpr, transformExpr thenExpr, transformExpr elseExpr)
+        | Fable.Test(expr, kind, b) ->
+            match kind with
+            | Fable.UnionCaseTest i->
+                Binary(Equals, Get(transformExpr expr, FieldGet "tag") , Const (ConstNumber (float i)))
+            | _ ->
+                Unknown(sprintf "test %A %A" expr kind)
+        | Fable.Extended(Fable.ExtendedSet.Throw(expr, _), t) ->
+            let errorExpr =
+                //Const (ConstString "There was an error")
+                transformExpr expr
+            FunctionCall(Helpers.ident "error", [errorExpr])
         | x -> Unknown (sprintf "%A" x)
 
     let transformDeclarations (com: LuaCompiler) = function

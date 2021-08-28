@@ -96,18 +96,19 @@ module Output =
             writeExpr ctx value
             writeExpr ctx expr
         | Ternary(guardExpr, thenExpr, elseExpr) ->
-            writeln ctx ""
-            let ctxA = indent ctx
-            writei ctxA ""
-            writeExpr ctxA guardExpr
-            writeln ctxA ""
-            let ctxI = indent ctxA
-            writei ctxI " and "
+            //let ctxA = indent ctx
+            write ctx "("
+            writeExpr ctx guardExpr
+            //writeln ctx ""
+            let ctxI = indent ctx
+            write ctx " and "
+            //writei ctx "and "
             writeExpr ctxI thenExpr
-            writeln ctxI ""
-            writei ctxI " or "
+            //writeln ctx ""
+            write ctx " or "
+            //writei ctx "or "
             writeExpr ctxI elseExpr
-            write ctx ""
+            write ctx ")"
         | Macro (s, args) ->
             let subbedMacro =
                 (s, args |> List.mapi(fun i x -> i.ToString(), sprintExprSimple x))
@@ -186,7 +187,7 @@ module Output =
         write ctx "return mod"
         //debugging
         writeln ctx ""
-        // writeln ctx "--[["
-        // sprintf "%s" file.ASTDebug |> write ctx
-        // sprintf "%A" file.Statements |> write ctx
-        // writeln ctx " --]]"
+        //writeln ctx "--[["
+        //sprintf "%s" file.ASTDebug |> write ctx
+        //sprintf "%A" file.Statements |> write ctx
+        //writeln ctx " --]]"
