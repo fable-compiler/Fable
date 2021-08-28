@@ -1,4 +1,4 @@
-### 3.3.0
+### 3.3.0-beta-001
 
 * JS.Decorator attribute
 

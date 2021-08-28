@@ -14,7 +14,12 @@ module JS =
     [<AbstractClass>]
     type DecoratorAttribute() =
         inherit Attribute()
-        abstract Decorate: fn: Function * fnName: string * [<ParamArray>] attributeArgs: obj[] -> Function
+        abstract Decorate: fn: Function -> Function
+
+    [<AbstractClass>]
+    type ReflectedDecoratorAttribute() =
+        inherit Attribute()
+        abstract Decorate: fn: Function * fnName: string * fnType: Type -> Function
 
     // Hack because currently Fable doesn't keep information about spread for anonymous function
     // We also use function (instead of an arrow) to make sure `this` is bound correctly

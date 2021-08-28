@@ -1595,6 +1595,8 @@ module Util =
             | Types.comparer
             | Types.equalityComparer -> false
             | _ -> true
+        // Don't mangle abstract classes in Fable.Core.JS namespace
+        | Some fullName when fullName.StartsWith("Fable.Core.JS.") -> false
         // Don't mangle interfaces by default (for better JS interop) unless they have Mangle attribute
         | _ when ent.IsInterface -> hasAttribute Atts.mangle ent.Attributes
         // Mangle members from abstract classes unless they are global/imported or with explicitly attached members
