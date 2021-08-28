@@ -69,16 +69,34 @@ let measureTime (f: unit -> unit) = emitJsStatement () """
 
 type LogAttribute(msg1: string, code: int) =
     inherit JS.DecoratorAttribute()
-    override _.Decorate(fn, fnName, attrArgs) =
-        let msg1 = attrArgs.[0] :?> string
-        let code = attrArgs.[1] :?> int
+    override _.Decorate(fn) =
         let mutable count = 0
         JS.spreadFunc(fun args ->
             count <- count + 1
-            printfn $"[%s{msg1} (code %i{code})] %s{fnName} called %i{count} time(s)!"
+            printfn $"LOG1: [%s{msg1} (code %i{code})] called %i{count} time(s)!"
+            fn.apply(null, args))
+
+type Log2Attribute() =
+    inherit JS.DecoratorAttribute()
+    override _.Decorate(fn) =
+        let mutable count = 0
+        JS.spreadFunc(fun args ->
+            count <- count + 1
+            printfn $"LOG2: called %i{count} time(s)!"
+            fn.apply(null, args))
+
+type Log3Attribute() =
+    inherit JS.ReflectedDecoratorAttribute()
+    override _.Decorate(fn, fnName, fnType) =
+        let mutable count = 0
+        JS.spreadFunc(fun args ->
+            count <- count + 1
+            printfn $"LOG3: [%s{fnName} (%A{fnType})] called %i{count} time(s)!"
             fn.apply(null, args))
 
 [<Log("MATH", 3)>]
+[<Log2>]
+[<Log3>]
 let myComplexAdder x y = x + y
 
 let test() =

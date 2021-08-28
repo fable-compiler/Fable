@@ -1093,52 +1093,56 @@ let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFu
 
 // JS-only feature, in Fable 4 it should be abstracted
 let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
-    let fullDisplayName =
-        memb.TryGetFullDisplayName()
-        |> Option.defaultValue ""
-
-    let applyDecorator mangledName body (attrArgs: IList<FSharpType * obj>, attr: FSharpEntity) =
-        let extraArgs =
-            attrArgs
-            |> Seq.map (fun (typ, value) ->
+    let newDecorator (ent: FSharpEntity) (args: IList<FSharpType * obj>) =
+        let args =
+            args |> Seq.map (fun (typ, value) ->
                 let typ = makeType Map.empty typ
                 Replacements.makeTypeConst com None typ value)
             |> Seq.toList
-        let callInfo: Fable.CallInfo =
-            {
-                ThisArg = None
-                Args = body :: (makeStrConst fullDisplayName) :: extraArgs
-                SignatureArgTypes = []
-                HasSpread = false
-                IsJsConstructor = false
-                CallMemberInfo = None
-            }
-        let attrRef = FsEnt(attr) |> entityRef com
-        let prototype = getExpr None Fable.Any attrRef (makeStrConst "prototype")
-        getExpr None Fable.Any prototype (makeStrConst mangledName)
+        let callInfo = { makeCallInfo None args [] with IsJsConstructor = true }
+        FsEnt(ent) |> entityRef com
+        |> makeCall None Fable.Any callInfo
+
+    let applyDecorator (body: Fable.Expr)
+                       (attr: {| Entity: FSharpEntity
+                                 Args: IList<FSharpType * obj>
+                                 TypeInfo: bool |}) =
+        let extraArgs =
+            if attr.TypeInfo then
+                let fullDisplayName =
+                    memb.TryGetFullDisplayName()
+                    |> Option.defaultValue ""
+                [ makeStrConst fullDisplayName
+                  // TODO: This will create a System.Func type
+                  // should we use lambda to match F#?
+                  Fable.Value(Fable.TypeInfo(body.Type), None)]
+            else
+                []
+        let callInfo = makeCallInfo None (body::extraArgs) []
+        let newAttr = newDecorator attr.Entity attr.Args
+        getExpr None Fable.Any newAttr (makeStrConst "Decorate")
         |> makeCall None body.Type callInfo
 
     memb.Attributes
     |> Seq.choose (fun att ->
-        let tdef = nonAbbreviatedDefinition att.AttributeType
-        match tdef.BaseType with
-        | Some tbase when tbase.HasTypeDefinition && tbase.TypeDefinition.TryFullName = Some Atts.decorator ->
-            Some(att.ConstructorArguments, tdef)
+        let attEnt = nonAbbreviatedDefinition att.AttributeType
+        match attEnt.BaseType with
+        | Some tbase when tbase.HasTypeDefinition ->
+            match tbase.TypeDefinition.TryFullName with
+            | Some Atts.decorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; TypeInfo = false |}
+            | Some Atts.reflectedDecorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; TypeInfo = true |}
+            | _ -> None
         | _ -> None)
+    |> Seq.rev
     |> Seq.toList
     |> function
         | [] -> None
-        | (_, att)::_ as decorators ->
-            let decoratorBase = att.BaseType.Value.TypeDefinition
-            let decorateMemb = decoratorBase.MembersFunctionsAndValues |> Seq.find (fun m -> m.CompiledName = "Decorate")
-            let overloadHash = OverloadSuffix.getHash decoratorBase decorateMemb
-            let mangledName = getMangledAbstractMemberName decoratorBase decorateMemb.CompiledName overloadHash
-
+        | decorators ->
             let body = Fable.Delegate(args, body, None)
             // Hack to tell the compiler this must be compiled as function (not arrow)
             // so we don't have issues with bound this
             let body = Fable.TypeCast(body, body.Type, Some("optimizable:function"))
-            List.fold (applyDecorator mangledName) body decorators |> Some
+            List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args

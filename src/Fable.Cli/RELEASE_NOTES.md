@@ -1,3 +1,7 @@
+### 3.3.0-beta-002
+
+* ReflectedDecorator
+
 ### 3.3.0-beta-001
 
 * Decorators
