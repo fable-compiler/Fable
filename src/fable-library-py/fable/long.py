@@ -48,3 +48,7 @@ def parse(string: str, style: int, unsigned: bool, _bitsize: int, radix: Optiona
 
 def to_string(x):
     return str(x)
+
+
+def compare(a, b):
+    return 0 if a == b else -1 if a < b else 1

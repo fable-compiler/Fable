@@ -21,17 +21,21 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="TestComparison.fs" />
+    <Compile Include="TestCustomOperators.fs" />
+    <Compile Include="TestEnumerable.fs" />
     <Compile Include="TestSeq.fs" />
     <Compile Include="TestSeqExpression.fs" />
     <Compile Include="TestList.fs" />
     <Compile Include="TestMath.fs" />
     <Compile Include="TestFn.fs" />
+    <Compile Include="TestEnum.fs" />
     <Compile Include="TestString.fs" />
     <Compile Include="TestRecordType.fs" />
     <Compile Include="TestReflection.fs" />
     <Compile Include="TestSet.fs" />
     <Compile Include="TestOption.fs" />
     <Compile Include="TestResult.fs" />
+    <Compile Include="TestTailCall.fs" />
     <Compile Include="TestTupleType.fs" />
     <Compile Include="TestUnionType.fs" />
     <Compile Include="TestLoops.fs" />

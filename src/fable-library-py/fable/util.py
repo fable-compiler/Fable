@@ -1,9 +1,11 @@
-from abc import ABC, abstractmethod
 import functools
-from threading import RLock
-from typing import Callable, Iterable, List, TypeVar, Optional
-from enum import Enum
 import math
+import re
+from abc import ABC, abstractmethod
+from enum import Enum
+from threading import RLock
+from typing import Callable, Iterable, List, Optional, TypeVar, Any
+from urllib.parse import unquote, quote
 
 T = TypeVar("T")
 
@@ -95,12 +97,29 @@ def equals(a, b):
     return a == b
 
 
+def is_comparable(x: Any) -> bool:
+    return hasattr(x, "CompareTo") and callable(x.CompareTo)
+
+
 def compare(a, b):
-    if a == b:
+    if a is b:
         return 0
 
-    if hasattr(a, "__lt__") and a < b:
+    if a is None:
+        return -1 if b else 0
+
+    if b is None:
+        return 1 if a else 0
+
+    if is_comparable(a):
+        return a.CompareTo(b)
+
+    if hasattr(a, "__eq__") and callable(a.__eq__) and a == b:
+        return 0
+
+    if hasattr(a, "__lt__") and callable(a.__lt__) and a < b:
         return -1
+
     return 1
 
 
@@ -134,6 +153,11 @@ def min(comparer, x, y):
 
 def max(comparer, x, y):
     return x if comparer(x, y) > 0 else y
+
+
+def clamp(comparer: Callable[[T, T], int], value: T, min: T, max: T):
+    # return (comparer(value, min) < 0) ? min : (comparer(value, max) > 0) ? max : value;
+    return min if (comparer(value, min) < 0) else max if comparer(value, max) > 0 else value
 
 
 def assert_equal(actual, expected, msg=None) -> None:
@@ -215,7 +239,7 @@ class IEnumerator(IDisposable):
 
     def __getattr__(self, name):
         return {
-            "System_Collections_Generic_IEnumerator_1_get_Current": self.Current,
+            "System_Collections_Generic_IEnumerator_00601_get_Current": self.Current,
             "System_Collections.IEnumerator_get_Current": self.Current,
             "System_Collections_IEnumerator_MoveNext": self.MoveNext,
             "System_Collections.IEnumerator_Reset": self.Reset,
@@ -318,11 +342,19 @@ def curry(arity: int, f: Callable) -> Callable:
 
 
 def is_array_like(x):
-    return hasattr(x, "__len__")
+    return hasattr(x, "__len__") and callable(x.__len__)
 
 
 def is_disposable(x):
     return x is not None and isinstance(x, IDisposable)
+
+
+def is_hashable(x: Any) -> bool:
+    return hasattr(x, "GetHashCode")
+
+
+def is_hashable_py(x: Any) -> bool:
+    return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
 def to_iterator(en):
@@ -339,8 +371,22 @@ def to_iterator(en):
     return Iterator()
 
 
+class ObjectRef:
+    id_map = dict()
+    count = 0
+
+    @staticmethod
+    def id(o: Any):
+        _id = id(o)
+        if not _id in ObjectRef.id_map:
+            count = ObjectRef.count + 1
+            ObjectRef.id_map[_id] = count
+
+        return ObjectRef.id_map[_id]
+
+
 def safe_hash(x):
-    return hash(x)
+    return 0 if x is None else x.GetHashCode() if is_hashable(x) else number_hash(ObjectRef.id(x))
 
 
 def string_hash(s):
@@ -355,6 +401,19 @@ def number_hash(x):
     return x * 2654435761 | 0
 
 
+def identity_hash(x: Any) -> int:
+    if x is None:
+        return 0
+
+    if is_hashable(x):
+        return x.GetHashCode()
+
+    if is_hashable_py(x):
+        return hash(x)
+
+    return physical_hash(x)
+
+
 def combine_hash_codes(hashes):
     if not hashes:
         return 0
@@ -363,6 +422,7 @@ def combine_hash_codes(hashes):
 
 
 def structural_hash(x):
+    print("structural_hash: ", x)
     return hash(x)
 
 
@@ -375,7 +435,10 @@ def array_hash(xs):
 
 
 def physical_hash(x):
-    return hash(x)
+    if hasattr(x, "__hash__") and callable(x.__hash__):
+        return hash(x)
+
+    return number_hash(ObjectRef.id(x))
 
 
 def round(value, digits=0):
@@ -386,3 +449,21 @@ def round(value, digits=0):
     e = 1e-8
     r = (i if (i % 2 == 0) else i + 1) if (f > 0.5 - e and f < 0.5 + e) else __builtins__.round(n)
     return r / m if digits else r
+
+
+def unescape_data_string(s: str) -> str:
+    # https://stackoverflow.com/a/4458580/524236
+    return unquote(re.sub(r"\+", "%20", s))
+
+
+def escape_data_string(s: str) -> str:
+    return quote(s)
+    # .replace(/!/g, "%21")
+    # .replace(/'/g, "%27")
+    # .replace(/\(/g, "%28")
+    # .replace(/\)/g, "%29")
+    # .replace(/\*/g, "%2A");
+
+
+def escape_uri_string(s: str) -> str:
+    return quote(s)

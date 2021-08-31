@@ -195,7 +195,6 @@ let buildLibraryPy() =
     copyFile (buildDirPy </> "fable/fsharp.core.py") (buildDirPy </> "fable/fsharp_core.py")
     copyFile (buildDirPy </> "fable/fsharp.collections.py") (buildDirPy </> "fable/fsharp_collections.py")
     copyFile (buildDirPy </> "fable/system.collections.generic.py") (buildDirPy </> "fable/system_collections_generic.py")
-    //copyFile (buildDirPy </> "fable/async.py") (buildDirPy </> "fable/async_.py")
     removeFile (buildDirPy </> "fable/system.text.py")
 
     runInDir buildDirPy ("python3 --version")
@@ -607,10 +606,6 @@ match argsLower with
 | "quicktest-py"::_ ->
     buildPyLibraryIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --lang Python --exclude Fable.Core --noCache"
-| "jupyter" :: _ ->
-    buildPyLibraryIfNotExists ()
-    run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../Fable.Jupyter/src --lang Python --exclude Fable.Core --noCache 2>> ../Fable.Jupyter/src/fable.out"
-
 | "run"::_ ->
     buildLibraryJsIfNotExists()
     // Don't take it from pattern matching as that one uses lowered args

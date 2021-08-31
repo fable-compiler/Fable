@@ -86,7 +86,8 @@ module Helpers =
 
     let inline existsImpl (predicate: 'T -> bool) (array: 'T []) : bool = !! array?some (predicate)
 
-    let inline forAllImpl (predicate: 'T -> bool) (array: 'T []) : bool = !! array?every (predicate)
+    [<Emit("all([$0(x) for x in $1])")>]
+    let forAllImpl (predicate: 'T -> bool) (array: 'T []) : bool = nativeOnly
 
     let inline filterImpl (predicate: 'T -> bool) (array: 'T []) : 'T [] = !! array?filter (predicate)
 
