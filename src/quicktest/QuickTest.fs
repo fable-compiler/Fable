@@ -12,7 +12,8 @@ open Fable.Core.JsInterop
 open Fable.Core.Testing
 
 let log (o: obj) =
-   printfn "%A" o
+    JS.console.log(o)
+    // printfn "%A" o
 
 let equal expected actual =
    let areEqual = expected = actual
@@ -87,11 +88,11 @@ type Log2Attribute() =
 
 type Log3Attribute() =
     inherit JS.ReflectedDecoratorAttribute()
-    override _.Decorate(fn, fnName, fnType) =
-        let mutable count = 0
+    override _.Decorate(fn, info) =
+        log(info.Name, info.ReturnType)
+        for p in info.GetParameters() do
+            log(p.Name, p.ParameterType)
         JS.spreadFunc(fun args ->
-            count <- count + 1
-            printfn $"LOG3: [%s{fnName} (%A{fnType})] called %i{count} time(s)!"
             fn.apply(null, args))
 
 [<Log("MATH", 3)>]

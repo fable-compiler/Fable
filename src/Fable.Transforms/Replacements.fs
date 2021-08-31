@@ -3116,6 +3116,17 @@ let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: E
     | "GetExceptionFields" -> None // TODO!!!
     | _ -> None
 
+let makeMethodInfo com r (name: string) (parameters: (string * Type) list) (returnType: Type) =
+    let t = Any // TODO: Proper type
+    let args = [
+        makeStrConst name
+        parameters
+            |> List.map (fun (name, t) -> makeTuple [makeStrConst name; makeTypeInfo None t])
+            |> makeArray Any
+        makeTypeInfo None returnType
+    ]
+    Helper.LibCall(com, "Reflection", "MethodInfo", t, args, isJsConstructor=true, ?loc=r)
+
 let curryExprAtRuntime com arity (expr: Expr) =
     Helper.LibCall(com, "Util", "curry", expr.Type, [makeIntConst arity; expr])
 
@@ -3294,10 +3305,15 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         else fsharpValue com methName r t info args
     | "Microsoft.FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.PropertyInfo"
+    | "System.Reflection.ParameterInfo"
+    | "System.Reflection.MethodBase"
+    | "System.Reflection.MethodInfo"
     | "System.Reflection.MemberInfo" ->
         match thisArg, info.CompiledName with
         | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
-        | Some c, "get_PropertyType" -> makeIntConst 1 |> getExpr r t c |> Some
+        | Some c, "get_ReturnType" -> makeStrConst "returnType" |> getExpr r t c |> Some
+        | Some c, "GetParameters" -> makeStrConst "parameters" |> getExpr r t c |> Some
+        | Some c, ("get_PropertyType"|"get_ParameterType") -> makeIntConst 1 |> getExpr r t c |> Some
         | Some c, "GetFields" -> Helper.LibCall(com, "Reflection", "getUnionCaseFields", t, [c], ?loc=r) |> Some
         | Some c, "GetValue" -> Helper.LibCall(com, "Reflection", "getValue", t, c::args, ?loc=r) |> Some
         | Some c, "get_Name" ->
