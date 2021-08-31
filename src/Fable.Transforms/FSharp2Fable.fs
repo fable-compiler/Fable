@@ -1093,6 +1093,17 @@ let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFu
 
 // JS-only feature, in Fable 4 it should be abstracted
 let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
+    let methodInfo =
+        lazy
+            let name = memb.DisplayName
+            let returnType = makeType Map.empty memb.ReturnParameter.Type
+            let parameters =
+                memb.CurriedParameterGroups
+                |> Seq.collect id
+                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg{i}", makeType Map.empty p.Type)
+                |> Seq.toList
+            Replacements.makeMethodInfo com None name parameters returnType
+
     let newDecorator (ent: FSharpEntity) (args: IList<FSharpType * obj>) =
         let args =
             args |> Seq.map (fun (typ, value) ->
@@ -1106,18 +1117,10 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpM
     let applyDecorator (body: Fable.Expr)
                        (attr: {| Entity: FSharpEntity
                                  Args: IList<FSharpType * obj>
-                                 TypeInfo: bool |}) =
+                                 MethodInfo: bool |}) =
         let extraArgs =
-            if attr.TypeInfo then
-                let fullDisplayName =
-                    memb.TryGetFullDisplayName()
-                    |> Option.defaultValue ""
-                [ makeStrConst fullDisplayName
-                  // TODO: This will create a System.Func type
-                  // should we use lambda to match F#?
-                  Fable.Value(Fable.TypeInfo(body.Type), None)]
-            else
-                []
+            if attr.MethodInfo then [ methodInfo.Value ]
+            else []
         let callInfo = makeCallInfo None (body::extraArgs) []
         let newAttr = newDecorator attr.Entity attr.Args
         getExpr None Fable.Any newAttr (makeStrConst "Decorate")
@@ -1129,8 +1132,8 @@ let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpM
         match attEnt.BaseType with
         | Some tbase when tbase.HasTypeDefinition ->
             match tbase.TypeDefinition.TryFullName with
-            | Some Atts.decorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; TypeInfo = false |}
-            | Some Atts.reflectedDecorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; TypeInfo = true |}
+            | Some Atts.decorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = false |}
+            | Some Atts.reflectedDecorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = true |}
             | _ -> None
         | _ -> None)
     |> Seq.rev

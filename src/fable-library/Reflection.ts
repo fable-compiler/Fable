@@ -3,6 +3,7 @@ import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Uti
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;
+export type ParameterInfo = FieldInfo;
 
 export type Constructor = new (...args: any[]) => any;
 
@@ -16,6 +17,15 @@ export class CaseInfo {
 }
 
 export type EnumCase = [string, number];
+
+export class MethodInfo {
+  constructor(
+    public name: string,
+    public parameters: ParameterInfo[],
+    public returnType: TypeInfo,
+  ) {
+  }
+}
 
 export class TypeInfo implements IEquatable<TypeInfo> {
   constructor(
@@ -135,14 +145,14 @@ export const float32_type: TypeInfo = new TypeInfo("System.Single");
 export const float64_type: TypeInfo = new TypeInfo("System.Double");
 export const decimal_type: TypeInfo = new TypeInfo("System.Decimal");
 
-export function name(info: FieldInfo | CaseInfo | TypeInfo): string {
+export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string {
   if (Array.isArray(info)) {
     return info[0];
-  } else if (info instanceof CaseInfo) {
-    return info.name;
-  } else {
+  } else if (info instanceof TypeInfo) {
     const i = info.fullname.lastIndexOf(".");
     return i === -1 ? info.fullname : info.fullname.substr(i + 1);
+  } else {
+    return info.name;
   }
 }
 
