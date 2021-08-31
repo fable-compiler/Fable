@@ -41,4 +41,5 @@ let testMatch1 () =
         match thing with
         | A(s, i) -> Some(s, i)
         | B -> None
+        | C(_) -> None
     res |> equal (Some("abc", 123))

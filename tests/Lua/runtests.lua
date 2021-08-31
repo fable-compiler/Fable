@@ -6,6 +6,7 @@ function TestMod.testHello()
 end
 
 TestArithmetic = require('TestArithmetic')
+TestArray = require('TestArray')
 TestRecords = require('TestRecords')
 TestControlFlow = require('TestControlFlow')
 TestUnionType = require('TestUnionType')

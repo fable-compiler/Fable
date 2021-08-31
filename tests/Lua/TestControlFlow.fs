@@ -35,3 +35,10 @@ let testIfElseIf () =
     a 1 |> equal 1
     a 2 |> equal 2
     a 3 |> equal 3
+
+[<Fact>]
+let testForEach1 () =
+    let mutable a = 42
+    for i in 0..5 do
+        a <- i + a
+    a |> equal 57

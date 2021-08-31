@@ -80,21 +80,36 @@ module Output =
             for b in body do
                 writeStatement ctxI b
             writei ctx "end)"
+        | Unary(Not, expr) ->
+            write ctx "not "
+            writeExpr ctx expr
         | Binary (op, left, right) ->
             writeExpr ctx left
             write ctx " "
             writeOp ctx op
             write ctx " "
             writeExpr ctx right
-        | Get(expr, FieldGet(fieldName)) ->
+        | GetField(expr, fieldName) ->
             writeExpr ctx expr
             write ctx "."
             write ctx fieldName
-        | Let(name, value, expr) ->
-            write ctx name
+        | GetAtIndex(expr, idx) ->
+            writeExpr ctx expr
+            write ctx "["
+            //hack alert - lua indexers are 1-based and not 0-based, so we need to "add1". Probably correct soln here is to simplify ast after +1 if possible
+            let add1 = Binary(BinaryOp.Plus, Const (ConstNumber 1.0), idx)
+            writeExpr ctx add1
+            write ctx "]"
+        | SetValue(expr, value) ->
+            writeExpr ctx expr
             write ctx " = "
             writeExpr ctx value
+        | SetExpr(expr, a, value) ->
             writeExpr ctx expr
+            write ctx " = "
+            // writeExpr ctx a
+            // write ctx " "
+            writeExpr ctx value
         | Ternary(guardExpr, thenExpr, elseExpr) ->
             //let ctxA = indent ctx
             write ctx "("
@@ -130,6 +145,18 @@ module Output =
             for idx, (name, expr) in args |> List.mapi (fun i x -> i, x) do
                 writei ctxI name
                 write ctxI " = "
+                writeExpr ctxI expr
+                if idx < args.Length - 1 then
+                    writeln ctxI ","
+            //writeExprs ctxI args
+            writeln ctx ""
+            writei ctx "}"
+        | NewArr(args) ->
+            write ctx "{"
+            let ctxI = indent ctx
+            writeln ctxI ""
+            for idx, expr in args |> List.mapi (fun i x -> i, x) do
+                writei ctxI ""
                 writeExpr ctxI expr
                 if idx < args.Length - 1 then
                     writeln ctxI ","
@@ -177,6 +204,21 @@ module Output =
         | Do expr ->
             writei ctx ""
             writeExpr ctx expr
+            writeln ctx ""
+        | ForLoop (name, start, limit, body) ->
+            writei ctx "for "
+            write ctx name
+            write ctx "="
+            writeExpr ctx start
+            write ctx ", "
+            writeExpr ctx limit
+            write ctx " do"
+            let ctxI = indent ctx
+            for statement in body do
+                writeln ctxI ""
+                writeStatement ctxI statement
+            writeln ctx ""
+            writei ctx "end"
             writeln ctx ""
         | SNoOp -> ()
 

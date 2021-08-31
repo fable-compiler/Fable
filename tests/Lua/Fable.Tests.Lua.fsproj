@@ -21,6 +21,7 @@
   <ItemGroup>
     <Compile Include="Util.fs" />
     <Compile Include="TestArithmetic.fs" />
+    <Compile Include="TestArray.fs" />
     <Compile Include="TestRecords.fs" />
     <Compile Include="TestControlFlow.fs" />
     <Compile Include="TestUnionType.fs" />

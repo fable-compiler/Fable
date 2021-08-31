@@ -35,6 +35,11 @@ module Transforms =
             | [] -> NoOp
             | [Return expr] -> expr
             | statements -> iife statements
+        let tryNewObj (names: string list) (values: Expr list) =
+            if names.Length = values.Length then
+                let pairs = List.zip names values
+                NewObj(pairs)
+            else sprintf "Names and values do not match %A %A" names values |> Unknown
     let transformValueKind (com: LuaCompiler) = function
         | Fable.NumberConstant(v,_,_) ->
             Const(ConstNumber v)
@@ -53,21 +58,22 @@ module Transforms =
             if entity.IsFSharpRecord then
                 let names = entity.FSharpFields |> List.map(fun f -> f.Name)
                 let values = values |> List.map (transformExpr com)
-                let pairs = List.zip names values
-                NewObj(pairs)
+                Helpers.tryNewObj names values
             else sprintf "unknown ety %A %A %A %A" values ref args entity |> Unknown
         | Fable.NewAnonymousRecord(values, names, _) ->
             let transformedValues = values |> List.map (transformExpr com)
-            let pairs = List.zip (names |> Array.toList) transformedValues
-            NewObj(pairs)
+            Helpers.tryNewObj (Array.toList names) transformedValues
         | Fable.NewUnion(values, tag, _, _) ->
             let values = values |> List.map(transformExpr com) |> List.mapi(fun i x -> sprintf "p_%i" i, x)
             NewObj(("tag", tag |> float |> ConstNumber |> Const)::values)
         | Fable.NewOption (value, t, _) ->
             value |> Option.map (transformExpr com) |> Option.defaultValue (Const ConstNull)
         | Fable.NewTuple(values, isStruct) ->
-            let fields = values |> List.mapi(fun i x -> sprintf "p_%i" i, transformExpr com x)
-            NewObj(fields)
+            // let fields = values |> List.mapi(fun i x -> sprintf "p_%i" i, transformExpr com x)
+            // NewObj(fields)
+            NewArr(values |> List.map (transformExpr com))
+        | Fable.NewArray(values, t) ->
+            NewArr(values |> List.map (transformExpr com))
         | Fable.Null _ ->
             Const(ConstNull)
         | x -> sprintf "unknown %A" x |> ConstString |> Const
@@ -87,6 +93,7 @@ module Transforms =
         | Fable.OperationKind.Unary (op, expr) ->
             match op with
             | UnaryNotBitwise -> transformExpr expr //not sure why this is being added
+            | UnaryNot -> Unary(Not, transformExpr expr)
             | _ -> sprintf "%A %A" op expr |> Unknown
         | x -> Unknown(sprintf "%A" x)
     let asSingleExprIife (exprs: Expr list): Expr= //function
@@ -133,29 +140,39 @@ module Transforms =
             let path =
                 match info.Kind, info.Path with
                 | LibraryImport, Regex "fable-lib\/(\w+).(?:fs|js)" [name] ->
+                    let name = //fudge - not sure why these are being nested
+                        match name with
+                        | "Array" -> "fable-library/" + name
+                        | _ -> name
                     "fable-lib/" + name
                 | _ ->
                     info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle
             let rcall = FunctionCall(Ident { Namespace=None; Name= "require" }, [Const (ConstString path)])
             match info.Selector with
             | "" -> rcall
-            | s -> Get(rcall, FieldGet s)
+            | s -> GetField(rcall, s)
         | Fable.Expr.IdentExpr(i) when i.Name <> "" ->
             Ident {Namespace = None; Name = i.Name }
         | Fable.Expr.Operation (kind, _, _) ->
             transformOp kind
         | Fable.Expr.Get(expr, Fable.GetKind.FieldGet(fieldName, isMut), _, _) ->
-            Get(transformExpr expr, FieldGet(fieldName))
+            GetField(transformExpr expr, fieldName)
         | Fable.Expr.Get(expr, Fable.GetKind.UnionField(caseIdx, fieldIdx), _, _) ->
-            Get(transformExpr expr, FieldGet(sprintf "p_%i" fieldIdx))
+            GetField(transformExpr expr, sprintf "p_%i" fieldIdx)
+        | Fable.Expr.Get(expr, Fable.GetKind.ExprGet(e), _, _) ->
+            GetAtIndex(transformExpr expr, transformExpr e)
+        | Fable.Expr.Set(expr, Fable.SetKind.ValueSet, t, value, _) ->
+            SetValue(transformExpr expr, transformExpr value)
+        | Fable.Expr.Set(expr, Fable.SetKind.ExprSet(e), t, value, _) ->
+            SetExpr(transformExpr expr, transformExpr e, transformExpr value)
         | Fable.Expr.Sequential exprs ->
             asSingleExprIifeTr com exprs
         | Fable.Expr.Let (ident, value, body) ->
-            //Let(ident.Name, transformExpr value, transformExpr body)
-            asSingleExprIife [
-                Let(ident.Name, transformExpr value, NoOp)
-                transformExpr body
+            let statements = [
+                Assignment(ident.Name, transformExpr value)
+                transformExpr body |> Return
             ]
+            Helpers.maybeIife statements
         | Fable.Expr.Emit(m, _, _) ->
             // let argsExprs = m.CallInfo.Args |> List.map transformExpr
             // let macroExpr = Macro(m.Macro, argsExprs)
@@ -169,13 +186,15 @@ module Transforms =
             transformExpr expr
         | Fable.Expr.DecisionTreeSuccess(i, boundValues, _) ->
             let idents,target = com.GetDecisionTreeTargets(i)
-            let statements =
-                [   for (ident, value) in List.zip idents boundValues do
-                        yield Assignment(ident.Name, transformExpr value)
-                    yield transformExpr target |> Return
-                        ]
-            statements
-            |> Helpers.maybeIife
+            if idents.Length = boundValues.Length then
+                let statements =
+                    [   for (ident, value) in List.zip idents boundValues do
+                            yield Assignment(ident.Name, transformExpr value)
+                        yield transformExpr target |> Return
+                            ]
+                statements
+                |> Helpers.maybeIife
+            else sprintf "not equal lengths %A %A" idents boundValues |> Unknown
         | Fable.Expr.Lambda(arg, body, name) ->
             Function([arg.Name], [transformExpr body |> Return])
         | Fable.Expr.CurriedApply(applied, args, _, _) ->
@@ -185,7 +204,7 @@ module Transforms =
         | Fable.Test(expr, kind, b) ->
             match kind with
             | Fable.UnionCaseTest i->
-                Binary(Equals, Get(transformExpr expr, FieldGet "tag") , Const (ConstNumber (float i)))
+                Binary(Equals, GetField(transformExpr expr, "tag") , Const (ConstNumber (float i)))
             | _ ->
                 Unknown(sprintf "test %A %A" expr kind)
         | Fable.Extended(Fable.ExtendedSet.Throw(expr, _), t) ->
@@ -193,6 +212,14 @@ module Transforms =
                 //Const (ConstString "There was an error")
                 transformExpr expr
             FunctionCall(Helpers.ident "error", [errorExpr])
+        | Fable.Delegate(idents, body, _) ->
+            Function(idents |> List.map(fun i -> i.Name), [transformExpr body |> Return |> flattenReturnIifes]) //can be flattened
+        | Fable.ForLoop(ident, start, limit, body, isUp, _) ->
+            Helpers.maybeIife [
+                ForLoop(ident.Name, transformExpr start, transformExpr limit, [transformExpr body |> Do])
+                ]
+        | Fable.TypeCast(expr, t) ->
+            transformExpr expr //typecasts are meaningless
         | x -> Unknown (sprintf "%A" x)
 
     let transformDeclarations (com: LuaCompiler) = function

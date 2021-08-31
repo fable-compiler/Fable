@@ -24,24 +24,24 @@ type BinaryOp =
     | Minus
     | BinaryTodo of string
 
-type GetKind =
-    | FieldGet of fieldName: string
-
 type Expr =
     | Ident of LuaIdentity
     | Const of Const
     | Unary of UnaryOp * Expr
     | Binary of BinaryOp * Expr * Expr
-    | Get of Expr * kind: GetKind
+    | GetField of Expr * name: string
+    | GetAtIndex of Expr * idx: Expr
+    | SetValue of Expr * value: Expr
+    | SetExpr of Expr * Expr * value: Expr
     | FunctionCall of f: Expr * args: Expr list
     | AnonymousFunc of args: string list * body: Statement list
     | Unknown of string
-    | Let of name: string * value: Expr * body: Expr
     | Macro of string * args: Expr list
     | Ternary of guardExpr: Expr * thenExpr: Expr * elseExpr: Expr
     | NoOp
     | Function of args: string list * body: Statement list
     | NewObj of values: (string * Expr) list
+    | NewArr of values: Expr list
 
 type Statement =
     | Assignment of name: string * Expr
@@ -49,6 +49,7 @@ type Statement =
     | Return of Expr
     | Do of Expr
     | SNoOp
+    | ForLoop of string * start: Expr* limit: Expr* body: Statement list
 
 type File =
     { Filename: string
