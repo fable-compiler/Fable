@@ -84,7 +84,74 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
                                     OtherFSharpOptions = otherFSharpOptions }
     }
 
+let private compileCode fable fileName fsharpNames fsharpCodes otherFSharpOptions =
+    async {
+        // detect (and remove) the non-F# compiler options to avoid changing msg contract
+        let nonFSharpOptions = set [
+            "--typedArrays"
+            "--clampByteArrays"
+            "--typescript"
+            "--sourceMaps"
+        ]
+        let fableOptions, otherFSharpOptions =
+            otherFSharpOptions |> Array.partition (fun x -> Set.contains x nonFSharpOptions)
+
+        //let fileName = fsharpNames |> Array.last
+        // Check if we need to recreate the FableState because otherFSharpOptions have changed
+        let! fable = makeFableState (Initialized fable) otherFSharpOptions
+        let (parseResults, parsingTime) = measureTime (fun () ->
+            // fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
+            fable.Manager.ParseFSharpFileInProject(fable.Checker, fileName, PROJECT_NAME, fsharpNames, fsharpCodes, otherFSharpOptions)) ()
+
+        let! jsCode, errors, fableTransformTime = async {
+            if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
+                return "", parseResults.Errors, 0.
+            else
+                let options = {|
+                    typedArrays = Array.contains "--typedArrays" fableOptions
+                    typescript = Array.contains "--typescript" fableOptions
+                    sourceMaps = Array.contains "--sourceMaps" fableOptions
+                |}
+                let (res, fableTransformTime) =
+                    measureTime (fun () ->
+                        fable.Manager.CompileToBabelAst("fable-library", parseResults, fileName, typedArrays = options.typedArrays, typescript = options.typescript)
+                    ) ()
+                // Print Babel AST
+                let writer = new SourceWriter(options.sourceMaps)
+                do! fable.Manager.PrintBabelAst(res, writer)
+                let jsCode = writer.Result
+
+                return jsCode, Array.append parseResults.Errors res.FableErrors, fableTransformTime
+        }
+
+        let stats : CompileStats =
+            { FCS_checker = fable.LoadTime
+              FCS_parsing = parsingTime
+              Fable_transform = fableTransformTime }
+
+        return (jsCode, errors, stats)
+    }
+
+let private combineStats (a : CompileStats) (b : CompileStats) : CompileStats =
+    {
+        FCS_checker = a.FCS_checker + b.FCS_checker
+        FCS_parsing = a.FCS_parsing + b.FCS_parsing
+        Fable_transform = a.Fable_transform + b.Fable_transform
+    }
+
+let private asyncSequential (calc : Async<'T> array) : Async<'T array> =
+    async {
+        let mutable result = [] : 'T list
+
+        for c in calc do
+            let! res = c
+            result <- result @ [ res ]
+
+        return Array.ofList result
+    }
+
 let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
+
     let! msg = box.Receive()
     match state.Fable, msg with
     | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, otherFSharpOptions) ->
@@ -112,49 +179,35 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
 
     | Some fable, CompileCode(fsharpCode, otherFSharpOptions) ->
         try
-            // detect (and remove) the non-F# compiler options to avoid changing msg contract
-            let nonFSharpOptions = set [
-                "--typedArrays"
-                "--clampByteArrays"
-                "--typescript"
-                "--sourceMaps"
-            ]
-            let fableOptions, otherFSharpOptions =
-                otherFSharpOptions |> Array.partition (fun x -> Set.contains x nonFSharpOptions)
+            let! (jsCode,errors,stats) = compileCode fable FILE_NAME ([| FILE_NAME |])  ([| fsharpCode |]) otherFSharpOptions
+            CompilationFinished ([| jsCode |], errors, stats) |> state.Worker.Post
+        with er ->
+            JS.console.error er
+            CompilerCrashed er.Message |> state.Worker.Post
+        return! loop box state
 
-            // Check if we need to recreate the FableState because otherFSharpOptions have changed
-            let! fable = makeFableState (Initialized fable) otherFSharpOptions
-            let (parseResults, parsingTime) = measureTime (fun () ->
-                // fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
-                fable.Manager.ParseFSharpFileInProject(fable.Checker, FILE_NAME, PROJECT_NAME, [|FILE_NAME|], [|fsharpCode|], otherFSharpOptions)) ()
+    | Some fable, CompileCodeArray(fsharpCode, otherFSharpOptions) ->
+        try
+            let codes = fsharpCode |> Array.map (fun c -> c.Content)
+            let names = fsharpCode |> Array.mapi (fun i c -> if c.Name = "" then $"test{i}.fs" else c.Name)
 
-            let! jsCode, errors, fableTransformTime = async {
-                if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
-                    return "", parseResults.Errors, 0.
-                else
-                    let options = {|
-                        typedArrays = Array.contains "--typedArrays" fableOptions
-                        typescript = Array.contains "--typescript" fableOptions
-                        sourceMaps = Array.contains "--sourceMaps" fableOptions
-                    |}
-                    let (res, fableTransformTime) =
-                        measureTime (fun () ->
-                            fable.Manager.CompileToBabelAst("fable-library", parseResults, FILE_NAME, typedArrays = options.typedArrays, typescript = options.typescript)
-                        ) ()
-                    // Print Babel AST
-                    let writer = new SourceWriter(options.sourceMaps)
-                    do! fable.Manager.PrintBabelAst(res, writer)
-                    let jsCode = writer.Result
+            let! results =
+                names
+                |> Array.map (fun name ->
+                        compileCode fable name names codes  otherFSharpOptions
+                    )
+                |> asyncSequential
 
-                    return jsCode, Array.append parseResults.Errors res.FableErrors, fableTransformTime
-            }
+            let combinedResults =
+                results
+                |> Array.map (fun (a,b,c) -> [| a |], b, c)
+                |> Array.reduce (fun (a,b,c) (d,e,f) ->
+                        Array.append a d, // JS code
+                        Array.append b e, // Erros
+                        combineStats c f  // Stats
+                    )
 
-            let stats : CompileStats =
-                { FCS_checker = fable.LoadTime
-                  FCS_parsing = parsingTime
-                  Fable_transform = fableTransformTime }
-
-            CompilationFinished (jsCode, errors, stats) |> state.Worker.Post
+            CompilationFinished combinedResults |> state.Worker.Post
         with er ->
             JS.console.error er
             CompilerCrashed er.Message |> state.Worker.Post

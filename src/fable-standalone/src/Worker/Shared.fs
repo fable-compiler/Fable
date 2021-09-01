@@ -6,11 +6,17 @@ open Fable.Core
 open Fable.Core.JsInterop
 open Thoth.Json
 
+type FSharpCodeFile = {
+        Name : string
+        Content : string
+    }
+
 type WorkerRequest =
     /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
     | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * otherFSharpOptions: string[]
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
     | CompileCode of fsharpCode: string * otherFSharpOptions: string[]
+    | CompileCodeArray of fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string
@@ -26,7 +32,7 @@ type WorkerAnswer =
     | Loaded of version: string
     | LoadFailed
     | ParsedCode of errors: Fable.Standalone.Error[]
-    | CompilationFinished of jsCode: string * errors: Fable.Standalone.Error[] * stats: CompileStats
+    | CompilationFinished of jsCode: string[] * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilerCrashed of message: string
     | FoundTooltip of id: Guid * lines: string[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
