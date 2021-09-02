@@ -30,7 +30,8 @@
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />
     <Compile Include="Dart/DartPrinter.fs" />
-
+    <Compile Include="Rust/Rust.Printer.fs" />
+    <Compile Include="Rust/Fable2Rust.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -40,5 +41,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Fable.AST\Fable.AST.fsproj" />
+    <ProjectReference Include="Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
 </Project>

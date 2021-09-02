@@ -141,9 +141,37 @@ module Dart =
         do! DartPrinter.run writer fable
     }
 
+module Rust =
+
+    type RustWriter(com: Compiler, cliArgs: CliArgs, dedupTargetDir, targetPath: string) =
+        let sourcePath = com.CurrentFile
+        let fileExt = cliArgs.CompilerOptions.FileExtension
+        let targetDir = Path.GetDirectoryName(targetPath)
+        let stream = new IO.StreamWriter(targetPath)
+        interface Rust.Printer.Writer with
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
+            member _.MakeImportPath(path) =
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
+                if path.EndsWith(".fs") then Path.ChangeExtension(path, fileExt) else path
+            member _.AddSourceMapping((srcLine, srcCol, genLine, genCol, name)) = ()
+            member _.Dispose() = stream.Dispose()
+
+    let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {
+        let crate =
+            FSharp2Fable.Compiler.transformFile com
+            |> FableTransforms.transformFile com
+            |> Fable2Rust.Compiler.transformFile com
+
+        use writer = new RustWriter(com, cliArgs, dedupTargetDir, outPath)
+        do! Rust.Printer.run writer crate
+    }
+
 let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) =
     match com.Options.Language with
     | JavaScript | TypeScript -> Js.compileFile com cliArgs dedupTargetDir outPath
     | Python -> Python.compileFile com cliArgs dedupTargetDir outPath
     | Php -> Php.compileFile com outPath
     | Dart -> Dart.compileFile com cliArgs dedupTargetDir outPath
+    | Rust -> Rust.compileFile com cliArgs dedupTargetDir outPath

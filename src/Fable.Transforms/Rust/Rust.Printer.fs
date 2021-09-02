@@ -9,7 +9,6 @@ type SourceMapping =
 type Writer =
     inherit System.IDisposable
     abstract AddSourceMapping: SourceMapping -> unit
-    abstract EscapeJsStringLiteral: string -> string
     abstract MakeImportPath: string -> string
     abstract Write: string -> Async<unit>
 

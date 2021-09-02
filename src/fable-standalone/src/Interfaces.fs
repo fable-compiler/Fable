@@ -46,10 +46,7 @@ type IParseResults =
     abstract OtherFSharpOptions: string[]
     abstract Errors: Error[]
 
-type IBabelResult =
-    abstract FableErrors: Error[]
-
-type IRustResult =
+type IFableResult =
     abstract FableErrors: Error[]
 
 type IWriter =
@@ -69,10 +66,7 @@ type IFableManager =
     abstract GetDeclarationLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Range option
     abstract GetToolTipText: parseResults: IParseResults * line: int * col: int * lineText: string -> string[]
     abstract GetCompletionsAtLocation: parseResults: IParseResults * line: int * col: int * lineText: string -> Completion[]
-    abstract CompileToBabelAst: fableLibrary: string * parseResults: IParseResults * fileName: string
-                                * ?typedArrays: bool
-                                * ?typescript: bool -> IBabelResult
-    abstract PrintBabelAst: babelResult: IBabelResult * IWriter -> Async<unit>
-    abstract CompileToRustAst: fableLibrary: string * parseResults: IParseResults * fileName: string -> IRustResult
-    abstract PrintRustAst: rustResult: IRustResult * IWriter -> Async<unit>
+    abstract CompileToTargetAst: fableLibrary: string * parseResults: IParseResults * fileName: string
+                                * typedArrays: bool option * language: string -> IFableResult
+    abstract PrintTargetAst: fableResult: IFableResult * IWriter -> Async<unit>
     abstract FSharpAstToString: parseResults: IParseResults * fileName: string -> string
