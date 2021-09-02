@@ -81,6 +81,10 @@ open Expecto
 
 [<EntryPoint>]
 let main args =
+    System.Globalization.CultureInfo.CurrentCulture <- System.Globalization.CultureInfo("en-us")
+    System.Globalization.CultureInfo.CurrentUICulture <- System.Globalization.CultureInfo("en-us")
+    System.Globalization.CultureInfo.DefaultThreadCurrentCulture <- System.Globalization.CultureInfo("en-us")
+    System.Globalization.CultureInfo.DefaultThreadCurrentUICulture <- System.Globalization.CultureInfo("en-us")
     Array.toList allTests
     |> testList "All"
     |> runTestsWithArgs defaultConfig args
