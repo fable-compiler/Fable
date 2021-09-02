@@ -687,4 +687,27 @@ let tests =
         formatEuro 0.020M |> equal "0,02 €"
         formatEuro 0.20M |> equal "0,20 €"
         formatEuro 2.0M |> equal "2,00 €"
+
+    testList "Double.IsNormal works" [
+        let testData = [
+            // https://github.com/dotnet/runtime/blob/6ff32877f6ae0ddf48218477c7acc78de12f7fbf/src/libraries/System.Runtime/tests/System/DoubleTests.cs#L687-L704
+            Double.NegativeInfinity, false
+            Double.MinValue, true
+            -2.2250738585072014E-308, true
+            -2.2250738585072009E-308, false
+            -4.94065645841247E-324, false
+            -0.0, false
+            Double.NaN, false
+            0.0, false
+            4.94065645841247E-324, false
+            2.2250738585072009E-308, false
+            2.2250738585072014E-308, true
+            Double.MaxValue, true
+            Double.PositiveInfinity, false
+        ]
+
+        for v, e in testData ->
+            testCase $"Double.IsNormal({v}) should be {e}" <| fun _ ->
+                Double.IsNormal v |> equal e
+    ]
 ]

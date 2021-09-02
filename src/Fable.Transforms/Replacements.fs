@@ -2121,6 +2121,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.GlobalCall("Number", t, args, memb="isNaN", ?loc=r) |> Some
     | "IsInfinity", [_] when isFloat ->
         Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "IsNormal", [_] when isFloat ->
+        Helper.LibCall(com, "Double", "isNormal", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | ("Parse" | "TryParse") as meth,
             str::Value(EnumConstant(Value(NumberConstant(style, _),_),_),_)::_ ->
         let style = int style
