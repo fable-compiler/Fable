@@ -124,11 +124,37 @@ module Output =
             //writei ctx "or "
             writeExpr ctxI elseExpr
             write ctx ")"
-        | Macro (s, args) ->
-            let subbedMacro =
-                (s, args |> List.mapi(fun i x -> i.ToString(), sprintExprSimple x))
-                ||> List.fold (fun acc (i, arg) -> acc.Replace("$"+i, arg) )
-            writei ctx subbedMacro
+        | Macro (macro, args) ->
+
+            // let subbedMacro =
+            //     (s, args |> List.mapi(fun i x -> i.ToString(), sprintExprSimple x))
+            //     ||> List.fold (fun acc (i, arg) -> acc.Replace("$"+i, arg) )
+            // writei ctx subbedMacro
+            let regex = System.Text.RegularExpressions.Regex("\$(?<n>\d)(?<s>\.\.\.)?")
+            let matches = regex.Matches(macro)
+            let mutable pos = 0
+            for m in matches do
+                let n = int m.Groups.["n"].Value
+                write ctx (macro.Substring(pos,m.Index-pos))
+                if m.Groups.["s"].Success then
+                    if n < args.Length then
+                        match args.[n] with
+                        | NewArr items ->
+                           let mutable first = true
+                           for value in items do
+                               if first then
+                                   first <- false
+                               else
+                                   write ctx ", "
+                               writeExpr ctx value
+                        | _ ->
+                            writeExpr ctx args.[n]
+
+                elif n < args.Length then
+                    writeExpr ctx args.[n]
+
+                pos <- m.Index + m.Length
+            write ctx (macro.Substring(pos))
         | Function(args, body) ->
             write ctx "function "
             write ctx "("

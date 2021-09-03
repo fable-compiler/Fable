@@ -140,10 +140,10 @@ module Transforms =
             let path =
                 match info.Kind, info.Path with
                 | LibraryImport, Regex "fable-lib\/(\w+).(?:fs|js)" [name] ->
-                    let name = //fudge - not sure why these are being nested
-                        match name with
-                        | "Array" -> "fable-library/" + name
-                        | _ -> name
+                    "fable-lib/" + name
+                | LibraryImport, Regex"fable-library-lua\/fable\/fable-library\/(\w+).(?:fs|js)" [name] ->
+                    "fable-lib/fable-library" + name
+                | LibraryImport, Regex"fable-library-lua\/fable\/(\w+).(?:fs|js)" [name] ->
                     "fable-lib/" + name
                 | _ ->
                     info.Path.Replace(".fs", "").Replace(".js", "") //todo - make less brittle

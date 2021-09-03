@@ -10,17 +10,17 @@ open Fable.Import
 
 [<AllowNullLiteral>]
 type Cons<'T> =
-    [<Emit("$0([0]*$1)")>]
+    [<Emit("{}")>]
     abstract Allocate : len: int -> 'T []
 
 module Helpers =
     [<Emit("list($0)")>]
     let arrayFrom (xs: 'T seq) : 'T [] = nativeOnly
 
-    [<Emit("[None]*$0")>]
+    [<Emit("{}")>]
     let allocateArray (len: int) : 'T [] = nativeOnly
 
-    [<Emit("[x for i, x in enumerate($0)] if i < len")>]
+    [<Emit("{}")>]
     let allocateArrayFrom (xs: 'T []) (len: int) : 'T [] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T [] =
@@ -33,7 +33,13 @@ module Helpers =
     // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
     //     !!target?set(source, offset)
 
-    [<Emit("$0+$1")>]
+    [<Emit("""(function TableConcat(t1,t2)
+        for i=1,#t2 do
+            t1[#t1+1] = t2[i]
+        end
+        return t1
+    end)($0, $1)
+    """)>]
     let concatImpl (array1: 'T []) (arrays: 'T [] seq) : 'T [] = nativeOnly
 
     let fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] =
