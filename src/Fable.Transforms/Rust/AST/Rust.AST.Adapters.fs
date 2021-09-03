@@ -1,3 +1,5 @@
+// Adapters for common Rust functionality
+
 module Fable.Transforms.Rust.AST.Adapters
 
 type i8 = int8
@@ -11,7 +13,7 @@ type u16 = uint16
 type u32 = uint32
 type u64 = uint64
 type u128 = uint64
-type usize = int  // intentional same as isize
+type usize = int // intentionally the same as isize
 type f32 = float32
 type f64 = float
 
@@ -147,7 +149,12 @@ type System.String with
         if self.Length = 0 then None
         else Some(self.Chars(self.Length - 1))
     member self.escape_debug() =
-        System.Web.HttpUtility.JavaScriptStringEncode(self)
+        // escape \t, \r, \n, \\, \', \", [^\x20-\x7F]
+        let res = self.Replace("\\", @"\\").Replace("\'", @"\'").Replace("\"", @"\""")
+        let res = res.Replace("\t", @"\t").Replace("\r", @"\r").Replace("\n", @"\n")
+        let res = System.Text.RegularExpressions.Regex.Replace(res, @"[^\x20-\x7F]",
+                    fun c -> System.String.Format(@"\u{0:x4}", int c.Value.[0]))
+        res
 
 type System.Text.StringBuilder with
     static member new_() =

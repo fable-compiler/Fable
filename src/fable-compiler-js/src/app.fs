@@ -161,14 +161,22 @@ let parseFiles projectFileName options =
     let libDir = options.libDir |> Option.defaultValue (getFableLibDir()) |> normalizeFullPath
 
     let parseFable (res, fileName) =
-        fable.CompileToBabelAst(libDir, res, fileName,
-            typedArrays = options.typedArrays,
-            typescript = options.typescript)
+        fable.CompileToTargetAst(libDir, res, fileName,
+            options.typedArrays, options.language)
 
     let fileExt =
-        match options.outDir with
-        | Some _ -> if options.typescript then ".ts" else ".js"
-        | None -> if options.typescript then ".fs.ts" else ".fs.js"
+        match options.language.ToLowerInvariant() with
+        | "js" | "javascript" -> ".js"
+        | "ts" | "typescript" -> ".ts"
+        | "py" | "python" -> ".py"
+        | "php" -> ".php"
+        | "dart" -> ".dart"
+        | "rust" -> ".rs"
+        | _ -> failwithf "Unsupported language: %s" options.language
+    let fileExt =
+        if Option.isNone options.outDir
+        then ".fs" + fileExt
+        else fileExt
 
     let getOrAddDeduplicateTargetDir =
         let dedupDic = System.Collections.Generic.Dictionary()
@@ -190,12 +198,12 @@ let parseFiles projectFileName options =
                 let fsAstStr = fable.FSharpAstToString(parseRes, fileName)
                 printfn "%s Typed AST: %s" fileName fsAstStr
 
-            // transform F# AST to Babel AST
+            // transform F# AST to target language AST
             let res, ms2 = measureTime parseFable (parseRes, fileName)
             printfn "File: %s, Fable time: %d ms" fileName ms2
             res.FableErrors |> printErrors showWarnings
 
-            // print Babel AST as JavaScript/TypeScript
+            // get output path
             let outPath =
                 match options.outDir with
                 | None ->
@@ -203,8 +211,10 @@ let parseFiles projectFileName options =
                 | Some outDir ->
                     let absPath = Imports.getTargetAbsolutePath getOrAddDeduplicateTargetDir fileName projDir outDir
                     Path.ChangeExtension(absPath, fileExt)
+
+            // print target language AST to writer
             let writer = new SourceWriter(fileName, outPath, projDir, options, fileExt, getOrAddDeduplicateTargetDir)
-            do! fable.PrintBabelAst(res, writer)
+            do! fable.PrintTargetAst(res, writer)
 
             // create output folder
             ensureDirExists(Path.GetDirectoryName(outPath))
@@ -256,8 +266,10 @@ let run opts projectFileName outDir =
         optimize = opts |> hasFlag "--optimize"
         sourceMaps = (opts |> hasFlag "--sourceMaps") || (opts |> hasFlag "-s")
         typedArrays = opts |> tryFlag "--typedArrays"
-                           |> Option.defaultValue (opts |> hasFlag "--typescript" |> not)
-        typescript = opts |> hasFlag "--typescript"
+        language = opts |> argValue ["--language"; "--lang"]
+                        |> Option.orElse (tryFlag "--typescript" opts
+                        |> Option.map (fun _ -> "TypeScript"))
+                        |> Option.defaultValue "JavaScript"
         printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"
     }

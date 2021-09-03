@@ -1,3 +1,5 @@
+// Helpers to simplify Rust AST creation
+
 module Fable.Transforms.Rust.AST.Helpers
 
 open Fable.Transforms.Rust.AST.Adapters
