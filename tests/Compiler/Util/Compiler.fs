@@ -56,7 +56,7 @@ module Compiler =
     let fileName = "tmp.fs"
     let parseFSharpScript () = fable.ParseFSharpFileInProject(checker, fileName, projectFileName, [|fileName|], [|source|])
     let parseResult = parseFSharpScript ()
-    let babelResult = fable.CompileToBabelAst ("", parseResult, fileName)
+    let babelResult = fable.CompileToTargetAst ("", parseResult, fileName, None, "JavaScript")
 
     (fable,checker) |> clear
 

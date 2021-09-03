@@ -98,6 +98,12 @@ module Tokens =
         |> mkErrTokenLit
         |> mkLiteralToken
 
+    let mkExprToken expr: token.Token =
+        expr
+        |> token.Nonterminal.NtExpr
+        |> token.TokenKind.Interpolated
+        |> mkToken
+
 [<AutoOpen>]
 module TokenTrees =
 
@@ -169,9 +175,9 @@ module Literals =
           kind = LitKind.Int(value, LitIntType.Unsuffixed)
           span = DUMMY_SP }
 
-    let mkFloatLit (value: Symbol): Lit =
-        { token = mkFloatTokenLit value
-          kind = LitKind.Float(value, LitFloatType.Unsuffixed)
+    let mkFloatLit (value: f64): Lit =
+        { token = mkFloatTokenLit (string value)
+          kind = LitKind.Float(string value, LitFloatType.Unsuffixed)
           span = DUMMY_SP }
 
     let mkStrLit (value: Symbol): Lit =
@@ -273,28 +279,6 @@ module BinOps =
         respan(DUMMY_SP, kind)
 
 [<AutoOpen>]
-module Attrs =
-
-    let mkAttr kind style: Attribute =
-        { kind = kind
-          id = 0u
-          style = style
-          span = DUMMY_SP }
-
-    let mkAttrItem path args: AttrItem =
-        { path = path
-          args = args
-          tokens = None }
-
-    let mkPathAttr (name: Symbol) (value: Symbol): Attribute =
-        let path = mkPathFromName name None
-        let args = MacArgs.Eq(DUMMY_SP, mkStrToken value)
-        let item = mkAttrItem path args
-        let kind = AttrKind.Normal(item, None)
-        let style = AttrStyle.Outer
-        mkAttr kind style
-
-[<AutoOpen>]
 module Locals =
 
     let mkLocal pat ty init attrs: Local =
@@ -375,6 +359,10 @@ module MacroArgs =
             |> mkVec
         MacArgs.Delimited(DUMMY_DELIMSPAN, delim, args)
 
+    let mkCommaDelimitedMacArgs delim (tokens: token.Token seq): MacArgs =
+        let kind = token.TokenKind.Comma
+        mkDelimitedMacArgs delim kind tokens
+
 [<AutoOpen>]
 module MacCalls =
 
@@ -392,6 +380,56 @@ module MacCalls =
 
     let mkParensCommaDelimitedMacCall symbol (tokens: token.Token seq): MacCall =
         mkCommaDelimitedMacCall symbol MacDelimiter.Parenthesis tokens
+
+[<AutoOpen>]
+module Attrs =
+
+    let mkAttribute kind style: Attribute =
+        { kind = kind
+          id = 0u
+          style = style
+          span = DUMMY_SP }
+
+    let mkAttrItem path args: AttrItem =
+        { path = path
+          args = args
+          tokens = None }
+
+    let mkAttrKind (name: Symbol) args: AttrKind =
+        let path = mkPathFromName name None
+        let item = mkAttrItem path args
+        let kind = AttrKind.Normal(item, None)
+        kind
+
+    let mkAttr (name: Symbol): Attribute =
+        let kind = mkAttrKind name MacArgs.Empty
+        mkAttribute kind AttrStyle.Outer
+
+    let mkAttrEq (name: Symbol) (value: Symbol): Attribute =
+        let args = MacArgs.Eq(DUMMY_SP, mkIdentToken value)
+        let kind = mkAttrKind name args
+        mkAttribute kind AttrStyle.Outer
+
+    let mkAttrDelim (name: Symbol) (values: Symbol seq): Attribute =
+        let tokens = values |> Seq.map mkIdentToken
+        let args = mkCommaDelimitedMacArgs MacDelimiter.Parenthesis tokens
+        let kind = mkAttrKind name args
+        mkAttribute kind AttrStyle.Outer
+
+    let mkInnerAttr (name: Symbol): Attribute =
+        let kind = mkAttrKind name MacArgs.Empty
+        mkAttribute kind AttrStyle.Inner
+
+    let mkInnerAttrEq (name: Symbol) (value: Symbol): Attribute =
+        let args = MacArgs.Eq(DUMMY_SP, mkIdentToken value)
+        let kind = mkAttrKind name args
+        mkAttribute kind AttrStyle.Inner
+
+    let mkInnerAttrDelim (name: Symbol) (values: Symbol seq): Attribute =
+        let tokens = values |> Seq.map mkIdentToken
+        let args = mkCommaDelimitedMacArgs MacDelimiter.Parenthesis tokens
+        let kind = mkAttrKind name args
+        mkAttribute kind AttrStyle.Inner
 
 [<AutoOpen>]
 module Exprs =
@@ -437,6 +475,12 @@ module Exprs =
         value
         |> mkRawStrLit raw
         |> ExprKind.Lit
+        |> mkExpr
+
+    let mkAddrOfExpr isMut expr: Expr =
+        let kind = BorrowKind.Ref
+        let mut = if isMut then Mutability.Mut else Mutability.Not
+        ExprKind.AddrOf(kind, mut, expr)
         |> mkExpr
 
     let mkErrLitExpr value: Expr =
@@ -557,6 +601,14 @@ module Exprs =
         ExprKind.Let(pat, expr)
         |> mkExpr
 
+    let mkFieldExpr expr ident: Expr =
+        ExprKind.Field(expr, ident)
+        |> mkExpr
+
+    let mkIndexExpr expr index: Expr =
+        ExprKind.Index(expr, index)
+        |> mkExpr
+
     let mkEmitExpr symbol: Expr =
         mkErrLitExpr symbol
 
@@ -623,6 +675,10 @@ module Types =
 
     let mkRefTy ty: Ty =
         TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Not })
+        |> mkTy
+
+    let mkMutRefTy ty: Ty =
+        TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Mut })
         |> mkTy
 
     let mkPathTy (name: Symbol) (attrs: GenericArgs option): Ty =
@@ -776,7 +832,6 @@ module Items =
         mkIdent (name)
         |> mkItem attrs (ItemKind.Mod(Unsafety.No, ModKind.Unloaded))
 
-    let TODO_ITEM name: Item =
-        let attrs = mkVec []
-        mkIdent ("TODO_ITEM_" + name)
-        |> mkItem attrs (ItemKind.ExternCrate None)
+    let TODO_ITEM (name: string): Item =
+        let name = "TODO_ITEM_" + name.Replace(".", "_")
+        mkModItem name (mkVec []) (mkVec [])

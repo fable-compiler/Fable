@@ -206,7 +206,7 @@ module TypeInfo =
             |> mkPathTy "Option"
         | Fable.Array genArg ->
             genArg |> transformType com ctx |> Rust.TyKind.Slice
-            |> mkTy |> mkRefTy
+            |> mkTy |> mkMutRefTy
         // | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
         // | Fable.Regex           -> nonGenericTypeInfo Types.regex
         // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
@@ -696,18 +696,14 @@ module Util =
         match memberExpr with
         | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
         | e -> com.TransformAsExpr(ctx, e), true
+*)
+    let get r (expr: Rust.Expr) (memberName: string) =
+        let ident = mkIdent memberName
+        mkFieldExpr expr ident // ?loc=r)
 
-    let get r left memberName =
-        let expr, computed = memberFromName memberName
-        Expression.memberExpression(left, expr, computed, ?loc=r)
-
-    let getExpr r (object: Rust.Expr) (expr: Rust.Expr) =
-        let expr, computed =
-            match expr with
-            | Literal(Literal.StringLiteral(StringLiteral(value, _))) -> memberFromName value
-            | e -> e, true
-        Expression.memberExpression(object, expr, computed, ?loc=r)
-
+    let getExpr r (expr: Rust.Expr) (index: Rust.Expr) =
+        mkIndexExpr expr index // ?loc=r)
+(*
     let rec getParts (parts: string list) (expr: Rust.Expr) =
         match parts with
         | [] -> expr
@@ -805,8 +801,10 @@ module Util =
         Expression.callExpression(get None funcExpr "call", args, ?loc=r)
 *)
     let emitExpression range (txt: string) args =
-        // EmitExpression (txt, List.toArray args, ?loc=range)
-        mkEmitExpr txt // TODO: apply args, range
+        // mkEmitExpr txt // TODO: apply args, range
+        // for now implemented as emit macro // TODO: better implementation
+        let tokens = args |> List.map mkExprToken
+        mkParensCommaDelimitedMacCall txt tokens |> mkMacCallExpr
 (*
     let undefined range =
 //        Undefined(?loc=range) :> Expression
@@ -997,11 +995,17 @@ module Util =
         | Fable.CharConstant x -> mkCharLitExpr x //, ?loc=r)
         | Fable.StringConstant x -> mkStrLitExpr x //, ?loc=r)
         | Fable.NumberConstant (x, kind, _) ->
-            match kind with
-            | Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 -> mkIntLitExpr (uint64 x) //, ?loc=r)
-            | Float32 | Float64 -> mkFloatLitExpr (string x) //, ?loc=r)
+            let expr =
+                match kind with
+                | Float32 | Float64 -> mkFloatLitExpr (abs x) //, ?loc=r)
+                | Int8 | Int16 | Int32 -> mkIntLitExpr (uint64 (abs x)) //, ?loc=r)
+                | UInt8 | UInt16 | UInt32 -> mkIntLitExpr (uint64 (abs x)) //, ?loc=r)
+            // if negative, wrap in unary minus
+            if x < 0.0
+            then expr |> mkUnaryExpr Rust.UnOp.Neg
+            else expr
         // | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, _typ) -> makeArray com ctx values
+        | Fable.NewArray (values, _typ) -> makeArray com ctx values |> mkAddrOfExpr true
         // | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
         | Fable.NewTuple (values, _) -> makeTuple com ctx values
         // | Fable.NewList (headAndTail, _typ) ->
@@ -1311,9 +1315,9 @@ module Util =
 *)
     let transformGet (com: IRustCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         match kind with
-        // | Fable.ExprGet(TransformExpr com ctx prop) ->
-        //     let expr = com.TransformAsExpr(ctx, fableExpr)
-        //     getExpr range expr prop
+        | Fable.ExprGet(TransformExpr com ctx prop) ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            getExpr range expr prop
 
         // | Fable.FieldGet(fieldName,_) ->
         //     let fableExpr =
@@ -1388,17 +1392,14 @@ module Util =
         | _ -> TODO_EXPR (sprintf "%A" fableExpr)
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
-        let left = com.TransformAsExpr(ctx, fableExpr)
-        let right = com.TransformAsExpr(ctx, value)
-        mkAssignExpr left right
-        // let expr = com.TransformAsExpr(ctx, fableExpr)
-        // let value = com.TransformAsExpr(ctx, value) |> wrapIntExpression typ
-        // let ret =
-        //     match kind with
-        //     | Fable.ValueSet -> expr
-        //     | Fable.ExprSet(TransformExpr com ctx e) -> getExpr None expr e
-        //     | Fable.FieldSet(fieldName) -> get None expr fieldName
-        // assign range ret value
+        let expr = com.TransformAsExpr(ctx, fableExpr)
+        let value = com.TransformAsExpr(ctx, value) //|> wrapIntExpression typ
+        let left =
+            match kind with
+            | Fable.ValueSet -> expr
+            | Fable.ExprSet(TransformExpr com ctx e) -> getExpr range expr e
+            | Fable.FieldSet(fieldName) -> get None expr fieldName
+        mkAssignExpr left value //?loc=range)
 
     let transformLet (com: IRustCompiler) ctx (ident: Fable.Ident) value body =
         let isRef = false
@@ -2094,8 +2095,8 @@ module Util =
         | Some path ->
             let fullName = String.concat "::" path
             let fnBody =
-                let stmt1 = mkEmitSemiStmt "let args: Vec<String> = std::env::args().collect()"
-                let stmt2 = mkEmitSemiStmt (sprintf "%s(&args[1..])" fullName) // call main
+                let stmt1 = mkEmitSemiStmt "let mut args: Vec<String> = std::env::args().collect()"
+                let stmt2 = mkEmitSemiStmt (sprintf "%s(&mut args[1..])" fullName) // call main
                 [stmt1; stmt2] |> mkBlock |> Some
             let fnDecl = mkFnDecl NO_PARAMS VOID_RETURN_TY
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
@@ -2266,7 +2267,11 @@ module Util =
         let header = DEFAULT_FN_HEADER
         let gen = NO_GENERICS // TODO: add generics
         let kind = mkFnKind header fnDecl gen (Some fnBodyBlock)
-        let attrs = mkVec []
+        let attrs =
+            info.Attributes
+            |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
+            |> Seq.map (fun _ -> mkAttr "test")
+            |> mkVec
         let fnItem = mkFnItem membName attrs kind
         [fnItem]
 
@@ -2467,7 +2472,7 @@ module Util =
             match i.Split('|') with
             | [| path; selector |] ->
                 let name = System.String.Format("import_{0:x}", hash path)
-                let attrs = mkVec [mkPathAttr "path" path] // TODO: relative path and ".rs" extension
+                let attrs = mkVec [mkAttrEq "path" path] // TODO: relative path and ".rs" extension
                 let item1 = mkUnloadedModItem name attrs
                 let item2 =
                     match selector with
@@ -2613,13 +2618,18 @@ module Compiler =
             OptimizeTailCall = fun () -> ()
             ScopedTypeParams = Set.empty }
 
+        let topAttrs = [
+            mkInnerAttrDelim "allow" ["non_snake_case"]
+            mkInnerAttrDelim "feature" ["stmt_expr_attributes"]
+            mkInnerAttrDelim "feature" ["destructuring_assignment"]
+        ]
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports ctx
         let entryPointDecls = getEntryPointDecls file.Declarations
         let items = importDecls @ rootDecls @ entryPointDecls
 
         let crate: Rust.Crate = {
-            attrs = mkVec []
+            attrs = mkVec topAttrs
             items = mkVec items
             span = DUMMY_SP
             proc_macros = mkVec []

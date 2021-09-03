@@ -205,6 +205,29 @@ let buildPyLibraryIfNotExists() =
     if not (pathExists (baseDir </> "build/fable-library-py")) then
         buildLibraryPy()
 
+let buildLibraryRust() =
+    let libraryDir = "src/fable-library-rust"
+    let projectDir = libraryDir + "/fable"
+    let buildDir = "build/fable-library-rust"
+
+    cleanDirs [buildDir]
+
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--fableLib " + buildDir
+        "--lang Rust"
+        "--exclude Fable.Core"
+        "--define FABLE_LIBRARY"
+    ]
+    // copy *.rs from libraryDir to buildDir
+    copyDirNonRecursive libraryDir buildDir
+    // runInDir buildDir ("cargo build")
+
+let buildLibraryRustIfNotExists() =
+    let baseDir = __SOURCE_DIRECTORY__
+    if not (pathExists (baseDir </> "build/fable-library-rust")) then
+        buildLibraryRust()
+
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
 let testJsFast() =
@@ -440,6 +463,22 @@ let testPython() =
     runInDir buildDir "touch __init__.py" // So relative imports works.
     runInDir buildDir "pytest"
 
+let testRust() =
+    buildLibraryRustIfNotExists()
+
+    let projectDir = "tests/Rust"
+    let buildDir = "build/tests/Rust"
+
+    cleanDirs [buildDir]
+    runInDir projectDir "dotnet test"
+    runFableWithArgs projectDir [
+        "--outDir " + buildDir
+        "--exclude Fable.Core"
+        "--lang Rust"
+    ]
+
+    copyFile (projectDir </> "Cargo.toml") buildDir
+    runInDir buildDir "cargo test"
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
@@ -600,6 +639,7 @@ match argsLower with
 | "test-compiler"::_ -> testCompiler()
 | "test-integration"::_ -> testIntegration()
 | "test-py"::_ -> testPython()
+| "test-rust"::_ -> testRust()
 | "quicktest"::_ ->
     buildLibraryJsIfNotExists()
     run "dotnet watch -p src/Fable.Cli run -- watch --cwd ../quicktest --exclude Fable.Core --noCache --runScript"
@@ -624,6 +664,7 @@ match argsLower with
 | ("fable-library"|"library")::_ -> buildLibraryJs()
 | ("fable-library-ts"|"library-ts")::_ -> buildLibraryTs()
 | ("fable-library-py"|"library-py")::_ -> buildLibraryPy()
+| ("fable-library-rust" | "library-rust")::_ -> buildLibraryRust()
 | ("fable-compiler-js"|"compiler-js")::_ -> buildCompilerJs(minify)
 | ("fable-standalone"|"standalone")::_ -> buildStandalone {|minify=minify; watch=false|}
 | "watch-standalone"::_ -> buildStandalone {|minify=false; watch=true|}
