@@ -15,11 +15,15 @@ type WorkerRequest =
     /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
     | CreateChecker of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option * otherFSharpOptions: string[]
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
+    | ParseFile of file : string * fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
     | CompileCode of fsharpCode: string * otherFSharpOptions: string[]
-    | CompileCodeArray of fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
+    | CompileFiles of fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string
+    | GetTooltipForFile of id: Guid * file: string * line: int * column: int * lineText: string
+    | GetCompletionsForFile of id: Guid * file: string * line: int * column: int * lineText: string
+    | GetDeclarationLocationForFile of id: Guid * file: string * line: int * column: int * lineText: string
     static member Decoder =
         Decode.Auto.generateDecoder<WorkerRequest>()
 
