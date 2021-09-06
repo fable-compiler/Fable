@@ -2,6 +2,7 @@
 namespace Fable.Collections
 
 open System.Collections.Generic
+open Native
 
 [<Sealed>]
 [<CompiledName("Dictionary")>]
@@ -83,7 +84,8 @@ type MutableMap<'Key, 'Value when 'Key: equality>(pairs: KeyValuePair<'Key, 'Val
     // let's add `toJSON` for consistency with the types within fable-library.
     interface Fable.Core.IJsonSerializable with
         member this.toJSON(_key) =
-            Fable.Core.JS.Constructors.Array.from(this) |> box
+            Helpers.arrayFrom(this) |> box
+
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator(): System.Collections.IEnumerator =

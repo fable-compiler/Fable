@@ -46,7 +46,7 @@ let ``test Map.IsEmpty works II`` () =
     ys.IsEmpty |> equal false
 
 [<Fact>]
-let ``test Map.Count works`` () =
+let ``test xs.Count works`` () =
     let xs = Map.empty<int, int>
     xs.Count
     |> equal 0
@@ -64,7 +64,7 @@ let ``test Map.add works`` () =
     |> equal 1
 
 [<Fact>]
-let ``test Map.Add works`` () =
+let ``test xs.Add works`` () =
     let xs = Map.empty.Add(1, 1)
     xs.Count
     |> equal 1
@@ -82,7 +82,7 @@ let ``test Map.containsKey works`` () =
     xs |> Map.containsKey 2 |> equal false
 
 [<Fact>]
-let ``test Map.ContainsKey works`` () =
+let ``test xs.ContainsKey works`` () =
     let xs = Map.empty |> Map.add 1 1
     xs.ContainsKey 1 |> equal true
     xs.ContainsKey 2 |> equal false
@@ -93,7 +93,7 @@ let ``test Map.remove works`` () =
     xs.IsEmpty |> equal true
 
 [<Fact>]
-let ``test Map.Remove works`` () =
+let ``test xs.Remove works`` () =
     let xs = (Map.empty |> Map.add 1 1).Remove 1
     xs.IsEmpty |> equal true
 
@@ -182,7 +182,7 @@ let ``test Map.tryFind works`` () =
     |> equal true
 
 [<Fact>]
-let ``test Map.TryFind works`` () =
+let ``test xs.TryFind works`` () =
     let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
     xs.TryFind 3
     |> Option.isSome

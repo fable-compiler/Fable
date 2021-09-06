@@ -3,6 +3,7 @@
 module Set
 
 open System.Collections.Generic
+open Native
 
 // A functional language implementation of binary trees
 
@@ -778,7 +779,7 @@ type Set<[<EqualityConditionalOn>]'T when 'T: comparison >(comparer:IComparer<'T
 
     interface IJsonSerializable with
         member this.toJSON(_key) =
-            JS.Constructors.Array.from(this) |> box
+            Helpers.arrayFrom(this) |> box
 
     interface System.IComparable with
         member s.CompareTo(that: obj) = SetTree.compare s.Comparer s.Tree ((that :?> Set<'T>).Tree)

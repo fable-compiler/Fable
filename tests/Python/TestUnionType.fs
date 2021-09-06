@@ -199,10 +199,10 @@ let ``test Erased union type testing works`` () =
 #endif
 
 // FIXME:
-// [<Fact>]
-// let ``test Equality works in filter`` () =
-//     let original = [| { Name = "1"; Case = MyUnion3.Case1 } ; { Name = "2"; Case = MyUnion3.Case1 }; { Name = "3"; Case = MyUnion3.Case2 }; { Name = "4"; Case = MyUnion3.Case3 } |]
-//     original
-//     |> Array.filter (fun r -> r.Case = MyUnion3.Case1)
-//     |> Array.length
-//     |> equal 2
+[<Fact>]
+let ``test Equality works in filter`` () =
+    let original = [| { Name = "1"; Case = MyUnion3.Case1 } ; { Name = "2"; Case = MyUnion3.Case1 }; { Name = "3"; Case = MyUnion3.Case2 }; { Name = "4"; Case = MyUnion3.Case3 } |]
+    original
+    |> Array.filter (fun r -> r.Case = MyUnion3.Case1)
+    |> Array.length
+    |> equal 2

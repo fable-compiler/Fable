@@ -1,6 +1,7 @@
 module ListModule
 
 open Fable.Core
+open Native
 
 module SR =
     let indexOutOfBounds = "The index was outside the range of elements in the list."
@@ -87,7 +88,7 @@ type LinkedList<'T when 'T: comparison> =
 
     interface IJsonSerializable with
         member this.toJSON(_key) =
-            JS.Constructors.Array.from(this) |> box
+            Helpers.arrayFrom(this) |> box
 
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
