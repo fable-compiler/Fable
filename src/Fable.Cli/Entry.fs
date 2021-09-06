@@ -132,17 +132,21 @@ type Runner =
     else
         Ok fsprojPath
 
-    // TODO: Remove this check when typed arrays are compatible with typescript
     |> Result.bind (fun projFile ->
         let language = argLanguage args
         let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
-        if language = TypeScript && typedArrays then
+        let outDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
+        let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
+        if outDirLast = ".fable" then
+            Error(".fable is a reserved directory, please use another output directory")
+        // TODO: Remove this check when typed arrays are compatible with typescript
+        elif language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
         else
-            Ok(projFile, language, typedArrays)
+            Ok(projFile, outDir, language, typedArrays)
     )
 
-    |> Result.bind (fun (projFile, language, typedArrays) ->
+    |> Result.bind (fun (projFile, outDir, language, typedArrays) ->
         let verbosity =
             if flagEnabled "--verbose" args then
                 Log.makeVerbose()
@@ -182,7 +186,7 @@ type Runner =
               FableLibraryPath = argValue "--fableLib" args
               RootDir = rootDir
               Configuration = configuration
-              OutDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
+              OutDir = outDir
               SourceMaps = flagEnabled "-s" args || flagEnabled "--sourceMaps" args
               SourceMapsRoot = argValue "--sourceMapsRoot" args
               NoRestore = flagEnabled "--noRestore" args
