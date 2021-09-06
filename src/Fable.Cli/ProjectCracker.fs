@@ -269,11 +269,15 @@ let getSourcesFromFsproj (projFile: string) =
             | globResults -> globResults
         | path -> [ path ])
 
-let private isUsefulOption (opt : string) =
+let private isUsefulOption isProjectRef (opt : string) =
     [ "--define"
       "--nowarn"
       "--warnon"
-    //   "--warnaserror" // Disable for now to prevent unexpected errors, see #2288
+      // Disable --warnaserror in project refs to prevent unexpected errors, see #2288
+      // NOTE: Because Fable collects all sources in a single project, using warnaserror
+      // in the main project will turn warnings in project refs (and packages) to errors as well
+      if not isProjectRef then
+        "--warnaserror"
     //   "--langversion" // See getBasicCompilerArgs
     ]
     |> List.exists opt.StartsWith
@@ -327,7 +331,7 @@ let fullCrack (opts: CrackerOptions): CrackedFsproj =
                 let dllName = getDllName line
                 dllRefs.Add(dllName, line)
                 src, otherOpts
-            elif isUsefulOption line then
+            elif isUsefulOption false line then
                 src, line::otherOpts
             elif line.StartsWith("-") then
                 src, otherOpts
@@ -360,7 +364,7 @@ let easyCrack (opts: CrackerOptions) dllRefs (projFile: string): CrackedFsproj =
     let sourceFiles, otherOpts =
         (projOpts.OtherOptions, ([], []))
         ||> Array.foldBack (fun line (src, otherOpts) ->
-            if isUsefulOption line then
+            if isUsefulOption true line then
                 src, line::otherOpts
             elif line.StartsWith("-") then
                 src, otherOpts
