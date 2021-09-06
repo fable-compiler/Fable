@@ -49,3 +49,22 @@ let testWhile1 () =
     while a < 3 do
         a <- a + 1
     a |> equal 3
+
+[<Fact>]
+let testExHappy() =
+    let a =
+        try
+            3
+        with ex ->
+            4
+    a |> equal 3
+
+[<Fact>]
+let testExThrow() =
+    let a =
+        try
+            failwith "boom"
+            3
+        with ex ->
+            4
+    a |> equal 4

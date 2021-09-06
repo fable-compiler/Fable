@@ -207,8 +207,9 @@ module Output =
                 writeExpr ctx item
 
     and writeStatement ctx = function
-        | Assignment(name, expr) ->
-            writei ctx name
+        | Assignment(names, expr) ->
+            let names = names |> Helper.separateWithCommas
+            writei ctx names
             write ctx " = "
             writeExpr ctx expr
             writeln ctx ""
@@ -257,6 +258,22 @@ module Output =
             write ctx " do"
             let ctxI = indent ctx
             for statement in body do
+                writeln ctxI ""
+                writeStatement ctxI statement
+            writeln ctx ""
+            writei ctx "end"
+            writeln ctx ""
+        | IfThenElse(guard, thenSt, elseSt) ->
+            writei ctx "if "
+            writeExpr ctx guard
+            write ctx " then"
+            let ctxI = indent ctx
+            for statement in thenSt do
+                writeln ctxI ""
+                writeStatement ctxI statement
+            writeln ctx ""
+            writei ctx "else"
+            for statement in elseSt do
                 writeln ctxI ""
                 writeStatement ctxI statement
             writeln ctx ""

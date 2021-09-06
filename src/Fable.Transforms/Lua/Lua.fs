@@ -49,13 +49,14 @@ type Expr =
     | NewArr of values: Expr list
 
 type Statement =
-    | Assignment of name: string * Expr
+    | Assignment of names: string list * Expr
     | FunctionDeclaration of name: string * args: string list * body: Statement list * exportToMod: bool
     | Return of Expr
     | Do of Expr
     | SNoOp
     | ForLoop of string * start: Expr* limit: Expr* body: Statement list
     | WhileLoop of guard: Expr * body: Statement list
+    | IfThenElse of guard: Expr * thenSt: Statement list * elseSt: Statement list
 
 type File =
     { Filename: string

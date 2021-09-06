@@ -99,6 +99,7 @@ module Transforms =
             match op with
             | UnaryNotBitwise -> transformExpr expr //not sure why this is being added
             | UnaryNot -> Unary(Not, transformExpr expr)
+            | UnaryVoid -> NoOp
             | _ -> sprintf "%A %A" op expr |> Unknown
         | x -> Unknown(sprintf "%A" x)
     let asSingleExprIife (exprs: Expr list): Expr= //function
@@ -174,7 +175,7 @@ module Transforms =
             asSingleExprIifeTr com exprs
         | Fable.Expr.Let (ident, value, body) ->
             let statements = [
-                Assignment(ident.Name, transformExpr value)
+                Assignment([ident.Name], transformExpr value)
                 transformExpr body |> Return
             ]
             Helpers.maybeIife statements
@@ -194,7 +195,7 @@ module Transforms =
             if idents.Length = boundValues.Length then
                 let statements =
                     [   for (ident, value) in List.zip idents boundValues do
-                            yield Assignment(ident.Name, transformExpr value)
+                            yield Assignment([ident.Name], transformExpr value)
                         yield transformExpr target |> Return
                             ]
                 statements
@@ -214,8 +215,8 @@ module Transforms =
                 Unknown(sprintf "test %A %A" expr kind)
         | Fable.Extended(Fable.ExtendedSet.Throw(expr, _), t) ->
             let errorExpr =
-                //Const (ConstString "There was an error")
-                transformExpr expr
+                Const (ConstString "There was an error, todo")
+                //transformExpr expr
             FunctionCall(Helpers.ident "error", [errorExpr])
         | Fable.Delegate(idents, body, _) ->
             Function(idents |> List.map(fun i -> i.Name), [transformExpr body |> Return |> flattenReturnIifes]) //can be flattened
@@ -229,14 +230,35 @@ module Transforms =
             Helpers.maybeIife [
                 WhileLoop(transformExpr guard, [transformExpr body |> Do])
             ]
+        | Fable.TryCatch(body, catch, finalizer, _) ->
+            Helpers.maybeIife [
+                Assignment(["status"; "resOrErr"], FunctionCall(Helpers.ident "pcall", [
+                    Function([], [
+                        transformExpr body |> Return
+                    ])
+                ]))
+                let finalizer = finalizer |> Option.map transformExpr
+                let catch = catch |> Option.map (fun (ident, expr) -> ident.Name, transformExpr expr)
+                IfThenElse(Helpers.ident "status", [
+                    match finalizer with
+                    | Some finalizer -> yield Do finalizer
+                    | None -> ()
+                    yield Helpers.ident "resOrErr" |> Return
+                ], [
+                    match catch with
+                    | Some(ident, expr) ->
+                        yield expr |> Return
+                    | _ -> ()
+                ])
+            ]
         | x -> Unknown (sprintf "%A" x)
 
     let transformDeclarations (com: LuaCompiler) = function
         | Fable.ModuleDeclaration m ->
-            Assignment("moduleDecTest", Expr.Const (ConstString "moduledectest"))
+            Assignment(["moduleDecTest"], Expr.Const (ConstString "moduledectest"))
         | Fable.MemberDeclaration m ->
             if m.Args.Length = 0 then
-                Assignment(m.Name, transformExpr com m.Body)
+                Assignment([m.Name], transformExpr com m.Body)
             else
 
                 let unwrapSelfExStatements =
