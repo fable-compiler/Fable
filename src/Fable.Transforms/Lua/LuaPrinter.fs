@@ -49,6 +49,11 @@ module Output =
     let writeOp ctx = function
         | Multiply -> write ctx "*"
         | Equals -> write ctx "=="
+        | Unequal -> write ctx "~="
+        | Less -> write ctx "<"
+        | LessOrEqual -> write ctx "<="
+        | Greater -> write ctx ">"
+        | GreaterOrEqual -> write ctx ">="
         | Divide -> write ctx """/"""
         | Plus -> write ctx "+"
         | Minus -> write ctx "-"

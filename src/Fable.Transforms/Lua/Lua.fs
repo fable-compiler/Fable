@@ -18,6 +18,11 @@ type UnaryOp =
     | NotBitwise
 type BinaryOp =
     | Equals
+    | Unequal
+    | Less
+    | LessOrEqual
+    | Greater
+    | GreaterOrEqual
     | Multiply
     | Divide
     | Plus

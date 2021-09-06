@@ -88,6 +88,11 @@ module Transforms =
                 | BinaryPlus -> Plus
                 | BinaryMinus -> Minus
                 | BinaryEqualStrict -> Equals
+                | BinaryUnequal -> Unequal
+                | BinaryLess -> Less
+                | BinaryGreater -> Greater
+                | BinaryLessOrEqual -> LessOrEqual
+                | BinaryGreaterOrEqual -> GreaterOrEqual
                 | x -> sprintf "%A" x |> BinaryTodo
             Binary(op, transformExpr left, transformExpr right )
         | Fable.OperationKind.Unary (op, expr) ->
