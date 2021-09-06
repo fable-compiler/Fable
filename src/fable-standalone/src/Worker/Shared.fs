@@ -36,7 +36,8 @@ type WorkerAnswer =
     | Loaded of version: string
     | LoadFailed
     | ParsedCode of errors: Fable.Standalone.Error[]
-    | CompilationFinished of jsCode: string[] * errors: Fable.Standalone.Error[] * stats: CompileStats
+    | CompilationFinished of jsCode: string * errors: Fable.Standalone.Error[] * stats: CompileStats
+    | CompilationsFinished of jsCode: string[] * errors: Fable.Standalone.Error[] * stats: CompileStats
     | CompilerCrashed of message: string
     | FoundTooltip of id: Guid * lines: string[]
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
