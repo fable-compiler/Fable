@@ -270,7 +270,34 @@ module TypeInfo =
                 //     Expression.callExpression(callee, generics)
 
         // TODO: remove this catch-all
+        | Fable.LambdaType(_, returnType) ->
+            let inputTypes, returnType = uncurryLambdaType ([], t)
+            transformLambdaType com ctx inputTypes returnType
+            // transformType com ctx t
         | _ -> TODO_TYPE (sprintf "%A" t)
+
+
+    let uncurryLambdaType = function
+        | lst, Fable.LambdaType(u, returnType) ->
+            uncurryLambdaType (lst @ [u], returnType)
+        | lst, treturn -> lst, treturn
+
+    let transformLambdaType com ctx tInputs tRes =
+        let fnRetTy =
+            if tRes = Fable.Unit then VOID_RETURN_TY
+            else transformType com ctx tRes |> Rust.FnRetTy.Ty
+        let pat = mkIdentPat "a" false false
+        let parameters =
+            [
+                for tInput in tInputs ->
+                    mkParam (mkVec []) (transformType com ctx tInput) pat false
+            ]
+        let inputs = parameters |> mkVec
+        let fnDecl = mkFnDecl inputs fnRetTy
+        //fnDecl
+        mkBareFnTy (mkVec []) fnDecl
+        |> Rust.TyKind.BareFn
+        |> mkTy
 
 (*
     let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
@@ -1448,7 +1475,8 @@ module Util =
         let ctx = { ctx with TailCallOpportunity = None }
         let bodyExpr = com.TransformAsExpr(ctx, body)
         mkTryBlockExpr bodyExpr // TODO: add catch and finally
-
+    let transformCurriedApply com ctx range expr args =
+        callFunction range expr (args |> List.map (transformAsExpr com ctx))
         // let handler =
         //     catch |> Option.map (fun (param, body) ->
         //         CatchClause.catchClause(identAsPattern param, transformBlock com ctx returnStrategy body))
@@ -1849,8 +1877,8 @@ module Util =
         | Fable.Call(callee, info, _, range) ->
             transformCall com ctx range callee info
 
-        // | Fable.CurriedApply(callee, args, _, range) ->
-        //     transformCurriedApply com ctx range callee args
+        | Fable.CurriedApply(callee, args, t, range) ->
+            transformCurriedApply com ctx range (transformAsExpr com ctx callee) args
 
         | Fable.Operation(kind, _, range) ->
             transformOperation com ctx range kind
@@ -1905,7 +1933,6 @@ module Util =
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
             transformTryCatch com ctx range body catch finalizer
-
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" expr)
 (*
