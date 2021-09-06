@@ -488,6 +488,9 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 | Python ->
                     [ "../../../fable-library-py/"               // running from nuget tools package
                       "../../../../../build/fable-library-py/" ] // running from bin/Release/netcoreapp3.1
+                | Lua ->
+                    [ "../../../fable-library-lua/"               // running from nuget tools package
+                      "../../../../../build/fable-library-lua/" ] // running from bin/Release/netcoreapp3.1
                 | _ ->
                     [ "../../../fable-library/"               // running from nuget tools package
                       "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
