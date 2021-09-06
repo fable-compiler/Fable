@@ -206,7 +206,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
     | Some fable, CompileCode(fsharpCode, otherFSharpOptions) ->
         try
             let! (jsCode,errors,stats) = compileCode fable FILE_NAME ([| FILE_NAME |])  ([| fsharpCode |]) otherFSharpOptions
-            CompilationFinished ([| jsCode |], errors, stats) |> state.Worker.Post
+            CompilationFinished (jsCode, errors, stats) |> state.Worker.Post
         with er ->
             JS.console.error er
             CompilerCrashed er.Message |> state.Worker.Post
@@ -233,7 +233,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) = async {
                         combineStats c f  // Stats
                     )
 
-            CompilationFinished combinedResults |> state.Worker.Post
+            CompilationsFinished combinedResults |> state.Worker.Post
         with er ->
             JS.console.error er
             CompilerCrashed er.Message |> state.Worker.Post
