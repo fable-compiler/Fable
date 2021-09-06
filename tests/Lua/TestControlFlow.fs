@@ -42,3 +42,10 @@ let testForEach1 () =
     for i in 0..5 do
         a <- i + a
     a |> equal 57
+
+[<Fact>]
+let testWhile1 () =
+    let mutable a = 1
+    while a < 3 do
+        a <- a + 1
+    a |> equal 3

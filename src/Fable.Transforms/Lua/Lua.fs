@@ -55,6 +55,7 @@ type Statement =
     | Do of Expr
     | SNoOp
     | ForLoop of string * start: Expr* limit: Expr* body: Statement list
+    | WhileLoop of guard: Expr * body: Statement list
 
 type File =
     { Filename: string

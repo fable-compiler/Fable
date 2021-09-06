@@ -251,6 +251,17 @@ module Output =
             writeln ctx ""
             writei ctx "end"
             writeln ctx ""
+        | WhileLoop (guard, body) ->
+            writei ctx "while "
+            writeExpr ctx guard
+            write ctx " do"
+            let ctxI = indent ctx
+            for statement in body do
+                writeln ctxI ""
+                writeStatement ctxI statement
+            writeln ctx ""
+            writei ctx "end"
+            writeln ctx ""
         | SNoOp -> ()
 
     let writeFile ctx (file: File) =

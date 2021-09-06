@@ -225,6 +225,10 @@ module Transforms =
                 ]
         | Fable.TypeCast(expr, t) ->
             transformExpr expr //typecasts are meaningless
+        | Fable.WhileLoop(guard, body, label, range) ->
+            Helpers.maybeIife [
+                WhileLoop(transformExpr guard, [transformExpr body |> Do])
+            ]
         | x -> Unknown (sprintf "%A" x)
 
     let transformDeclarations (com: LuaCompiler) = function
