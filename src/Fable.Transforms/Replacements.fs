@@ -1750,6 +1750,11 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
     // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
     // of the FormattableString.GetStrings extension in Fable.Core too
     | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
+        // Escape ` quotations for JS
+        // Note unescaping F# special chars is already done by the compiler
+        let escape (str: string) =
+            str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
+
         let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
         let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
         let callMacro, args, offset =
@@ -1766,12 +1771,13 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
                 "$0($1)", fnArg::fmtArg::args, 2
         let sb = System.Text.StringBuilder()
         let mutable prevIndex = 0
+
         for i = 0 to matches.Length - 1 do
             let m = matches.[i]
-            let strPart = str.Substring(prevIndex, m.Index - prevIndex).Replace("`", "\\`")
+            let strPart = str.Substring(prevIndex, m.Index - prevIndex) |> escape
             sb.Append(strPart + "${$" + string(i + offset) + "}") |> ignore
             prevIndex <- m.Index + m.Length
-        sb.Append(str.Substring(prevIndex).Replace("`", "\\`")) |> ignore
+        sb.Append(str.Substring(prevIndex) |> escape) |> ignore
         emitJsExpr r t args (callMacro + "`" + sb.ToString() + "`") |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [x], ?loc=r) |> Some
     | "get_ArgumentCount", Some x, _ -> get r t (getSimple x "args") "length" |> Some

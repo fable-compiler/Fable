@@ -926,6 +926,8 @@ let tests =
           s3.GetArguments() |> equal [||]
           let s4: FormattableString = $"I have `backticks`"
           s4.Format |> equal "I have `backticks`"
+          let s5: FormattableString = $"I have {{escaped braces}} and %%percentage%%"
+          s5.Format |> equal "I have {escaped braces} and %percentage%"
 
 #if FABLE_COMPILER
       testCase "Can use FormattableString.GetStrings() extension" <| fun () ->
