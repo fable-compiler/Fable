@@ -1494,6 +1494,54 @@ module Curry =
                 equal expected actual
         ]
 
+module Uncurry =
+    // Wrap everything into a compiler directives because we are using JS interop
+    // to provoke the behavior we want
+    #if FABLE_COMPILER
+    open Fable.Core
+
+    let private add2WithLambda (adder: int->int->int) (arg1: int) (arg2: int): int =
+        adder arg1 arg2
+
+    let add_2 =
+        add2WithLambda (JsInterop.import "add2Arguments" "./js/1foo.js")
+
+    let private add10WithLambda
+        (adder: int->int->int->int->int->int->int->int->int->int->int)
+        (arg1: int)
+        (arg2: int)
+        (arg3: int)
+        (arg4: int)
+        (arg5: int)
+        (arg6: int)
+        (arg7: int)
+        (arg8: int)
+        (arg9: int)
+        (arg10: int)
+            : int =
+
+        adder arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10
+
+    let add_10 =
+        add10WithLambda (JsInterop.import "add10Arguments" "./js/1foo.js")
+
+    let tests =
+        [
+            testCase "uncurry function of arity 2 works" <| fun _ ->
+                let actual =
+                    add_2 10 5
+
+                equal 15 actual
+
+            testCase "uncurry function of arity 10 works" <| fun _ ->
+                let actual =
+                    add_10 1 2 3 4 5 6 7 8 9 10
+
+                equal 55 actual
+        ]
+    #else
+    let tests = [ ]
+    #endif
 
 let tests =
     testList "Applicative" (
@@ -1507,4 +1555,5 @@ let tests =
         @ CurriedApplicative.tests
         @ Adaptive.tests
         @ Curry.tests
+        @ Uncurry.tests
     )
