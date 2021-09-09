@@ -1305,15 +1305,6 @@ module Identifiers =
     let tryGetIdentFromScope (ctx: Context) r (fsRef: FSharpMemberOrFunctionOrValue) =
         tryGetIdentFromScopeIf ctx r (fun fsRef' -> obj.Equals(fsRef, fsRef'))
 
-    let rec tryGetBoundValueFromScope (ctx: Context) identName =
-        match ctx.Scope |> List.tryFind (fun (_,ident,_) -> ident.Name = identName) with
-        | Some(_,_,value) ->
-            match value with
-            | Some(Fable.IdentExpr ident) when not ident.IsMutable ->
-                tryGetBoundValueFromScope ctx ident.Name
-            | v -> v
-        | None -> None
-
 module Util =
     open Helpers
     open Patterns

@@ -640,6 +640,27 @@ let toSeq t (e: Expr) =
 
 let (|ListSingleton|) x = [x]
 
+let rec findInScope scope identName =
+    match scope with
+    | [] -> None
+    | (_,ident2,expr)::prevScope ->
+        if identName = ident2.Name then
+            match expr with
+            | Some(MaybeCasted(IdentExpr ident)) when not ident.IsMutable -> findInScope prevScope ident.Name
+            | expr -> expr
+        else findInScope prevScope identName
+
+let (|RequireStringConst|_|) com (ctx: Context) r e =
+    (match e with
+     | StringConst s -> Some s
+     | MaybeCasted(IdentExpr ident) ->
+        match findInScope ctx.Scope ident.Name with
+        | Some(StringConst s) -> Some s
+        | _ -> None
+     | _ -> None)
+    |> Option.orElseWith(fun () ->
+        addError com ctx.InlinePath r "Expecting string literal"; None)
+
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) opName argTypes sourceTypes =
     sourceTypes |> List.tryPick (function
         | DeclaredType(ent,_) ->
@@ -1093,16 +1114,6 @@ let rec defaultof (com: ICompiler) ctx (t: Type) =
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
 
-let rec findInScope scope identName =
-    match scope with
-    | [] -> None
-    | (_,ident2,expr)::prevScope ->
-        if identName = ident2.Name then
-            match expr with
-            | Some(MaybeCasted(IdentExpr ident)) -> findInScope prevScope ident.Name
-            | expr -> expr
-        else findInScope prevScope identName
-
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let fixDynamicImportPath = function
         | Value(StringConstant path, r) when path.EndsWith(".fs") ->
@@ -1227,7 +1238,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             let arg =
                 match arg with
                 | IdentExpr ident ->
-                    FSharp2Fable.Identifiers.tryGetBoundValueFromScope ctx ident.Name
+                    findInScope ctx.Scope ident.Name
                     |> Option.defaultValue arg
                 | arg -> arg
             match arg with
@@ -1241,22 +1252,12 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
                 "The imported value is not coming from a different file"
                 |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | Naming.StartsWith "import" suffix, _ ->
-            let (|RequireStringConst|_|) e =
-                (match e with
-                 | StringConst s -> Some s
-                 | MaybeCasted(IdentExpr ident) ->
-                    match findInScope ctx.Scope ident.Name with
-                    | Some(StringConst s) -> Some s
-                    | _ -> None
-                 | _ -> None)
-                |> Option.orElseWith(fun () ->
-                    addError com ctx.InlinePath r "Import only accepts string literals"; None)
             match suffix, args with
-            | "Member", [RequireStringConst path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
-            | "Default", [RequireStringConst path]     -> makeImportUserGenerated r t "default" path |> Some
-            | "SideEffects", [RequireStringConst path] -> makeImportUserGenerated r t "" path |> Some
-            | "All", [RequireStringConst path]         -> makeImportUserGenerated r t "*" path |> Some
-            | _, [RequireStringConst selector; RequireStringConst path] -> makeImportUserGenerated r t selector path |> Some
+            | "Member", [RequireStringConst com ctx r path]      -> makeImportUserGenerated r t Naming.placeholder path |> Some
+            | "Default", [RequireStringConst com ctx r path]     -> makeImportUserGenerated r t "default" path |> Some
+            | "SideEffects", [RequireStringConst com ctx r path] -> makeImportUserGenerated r t "" path |> Some
+            | "All", [RequireStringConst com ctx r path]         -> makeImportUserGenerated r t "*" path |> Some
+            | _, [RequireStringConst com ctx r selector; RequireStringConst com ctx r path] -> makeImportUserGenerated r t selector path |> Some
             | _ -> None
         // Dynamic casting, erase
         | "op_BangHat", [arg] -> Some arg
@@ -1286,11 +1287,11 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> emitJsExpr r t (callee::args) |> Some
         | Naming.StartsWith "emitJs" rest, [args; macro] ->
             match macro with
-            | StringConst macro ->
+            | RequireStringConst com ctx r macro ->
                 let args = destructureTupleArgs [args]
                 let isStatement = rest = "Statement"
                 emitJs r t args isStatement macro |> Some
-            | _ -> "emitJs only accepts string literals" |> addError com ctx.InlinePath r; None
+            | _ -> None
         | "op_EqualsEqualsGreater", [name; MaybeLambdaUncurriedAtCompileTime value] ->
             NewTuple [name; value] |> makeValue r |> Some
         | "createObj", _ ->
