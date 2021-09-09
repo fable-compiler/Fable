@@ -27,6 +27,14 @@ export function addWithSurprise(x, y) {
     return x + y + 3;
 }
 
+export function add2Arguments(x, y) {
+    return x + y;
+}
+
+export function add10Arguments(a, b, c, d, e, f, g, h, i, j) {
+    return a + b + c + d + e + f + g + h + i + j;
+}
+
 export class MyClass {
     constructor(v) {
         this.__value = typeof v === "string" ? v : "haha";
