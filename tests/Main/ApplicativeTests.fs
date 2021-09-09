@@ -1403,6 +1403,98 @@ module FSharpPlus =
             sequence (seq [Some 1; Some 2]) |> equal expected
     ]
 
+module Curry =
+    let addString (value : string) (f : string -> 'T) =
+        f value
+
+    let addBool (value : bool) (f : bool -> 'T) =
+        f value
+
+    let tests =
+        [
+            // Test the smallest arity I managed to create
+            testCase "curried function of arity 2 works" <| fun _ ->
+                let res =
+
+                    let onSubmit =
+                        fun (arg1 : string)
+                            (arg2 : bool) ->
+
+                            (arg1, arg2)
+
+                    onSubmit
+                        |> addString "name"
+                        |> addBool true
+
+                equal ("name", true) res
+
+            // Test old maximum limit for curried functions
+            testCase "curried function of arity 8 works" <| fun _ ->
+                let actual =
+                    let onSubmit =
+                        fun (arg1 : string)
+                            (arg2 : bool)
+                            (arg3 : string)
+                            (arg4 : string)
+                            (arg5 : string)
+                            (arg6 : string)
+                            (arg7 : string)
+                            (arg8 : string) ->
+
+                            (arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+
+                    onSubmit
+                        |> addString "arg1"
+                        |> addBool true
+                        |> addString "arg3"
+                        |> addString "arg4"
+                        |> addString "arg5"
+                        |> addString "arg6"
+                        |> addString "arg7"
+                        |> addString "arg8"
+
+                let expected =
+                    ("arg1", true, "arg3", "arg4", "arg5", "arg6", "arg7", "arg8")
+
+                equal expected actual
+
+
+            // Test an arity which exceeds the old limit of 8
+            testCase "curried function of arity 10 works" <| fun _ ->
+                let actual =
+                    let onSubmit =
+                        fun (arg1 : string)
+                            (arg2 : bool)
+                            (arg3 : string)
+                            (arg4 : string)
+                            (arg5 : string)
+                            (arg6 : string)
+                            (arg7 : string)
+                            (arg8 : string)
+                            (arg9 : string)
+                            (arg10 : string) ->
+
+                            (arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+
+                    onSubmit
+                        |> addString "arg1"
+                        |> addBool true
+                        |> addString "arg3"
+                        |> addString "arg4"
+                        |> addString "arg5"
+                        |> addString "arg6"
+                        |> addString "arg7"
+                        |> addString "arg8"
+                        |> addString "arg9"
+                        |> addString "arg10"
+
+                let expected =
+                    ("arg1", true, "arg3", "arg4", "arg5", "arg6", "arg7", "arg8", "arg9", "arg10")
+
+                equal expected actual
+        ]
+
+
 let tests =
     testList "Applicative" (
         tests1
@@ -1414,4 +1506,5 @@ let tests =
         @ tests7
         @ CurriedApplicative.tests
         @ Adaptive.tests
+        @ Curry.tests
     )
