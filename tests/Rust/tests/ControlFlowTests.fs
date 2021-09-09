@@ -1,6 +1,5 @@
-module Fable.Tests.TestControlFlow
+module Fable.Tests.ControlFlow
 
-open System
 open Util.Testing
 
 [<Fact>]
@@ -45,10 +44,23 @@ let testCurriedApply () =
     mul 3 2 |> equal 6
     mul2 4 |> equal 8
 
-
 [<Fact>]
 let testForEach1 () =
     let mutable a = 42
     for i in 0..5 do
+        a <- i + a
+    a |> equal 57
+
+[<Fact>]
+let testForEach2 () =
+    let mutable a = 42
+    for i = 0 to 5 do
+        a <- i + a
+    a |> equal 57
+
+[<Fact>]
+let testForEach3 () =
+    let mutable a = 42
+    for i = 5 downto 0 do
         a <- i + a
     a |> equal 57

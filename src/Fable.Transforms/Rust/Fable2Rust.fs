@@ -256,7 +256,7 @@ module TypeInfo =
             | _ ->
                 let ent = com.GetEntity(entRef)
                 let genArgs = generics |> List.map (transformType com ctx) |> mkGenericArgs
-                mkPathTy ent.FullName genArgs
+                mkFullPathTy ent.FullName genArgs
                 // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
                 // /// Check if the entity is actually declared in JS code
                 // if ent.IsInterface
@@ -704,13 +704,15 @@ module Util =
 
     let thisExpr =
         Expression.thisExpression()
-
+*)
     let ofInt i =
-        Expression.numericLiteral(float i)
+        mkIntLitExpr (uint64 (abs i))
+        // Expression.numericLiteral(float i)
 
     let ofString s =
-       Expression.stringLiteral(s)
-
+        mkStrLitExpr s
+    //    Expression.stringLiteral(s)
+(*
     let memberFromName (memberName: string): Rust.Expr * bool =
         match memberName with
         | "ToString" -> Expression.identifier("toString"), false
@@ -724,8 +726,8 @@ module Util =
         | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
         | e -> com.TransformAsExpr(ctx, e), true
 *)
-    let get r (expr: Rust.Expr) (memberName: string) =
-        let ident = mkIdent memberName
+    let getField r (expr: Rust.Expr) (fieldName: string) =
+        let ident = mkIdent fieldName
         mkFieldExpr expr ident // ?loc=r)
 
     let getExpr r (expr: Rust.Expr) (index: Rust.Expr) =
@@ -892,7 +894,7 @@ module Util =
             |]
 
         args, body, returnType, typeParamDecl
-*)
+
     let getUnionCaseName (uci: Fable.UnionCase) =
         // match uci.CompiledName with Some cname -> cname | None -> uci.Name
         uci.FullName
@@ -901,7 +903,7 @@ module Util =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         // getExpr range expr (Expression.stringLiteral("tag"))
         expr
-(*
+
     /// Wrap int expressions with `| 0` to help optimization of JS VMs
     let wrapIntExpression typ (e: Rust.Expr) =
         match e, typ with
@@ -1020,7 +1022,9 @@ module Util =
         // | Fable.UnitConstant -> undefined r
         | Fable.BoolConstant x -> mkBoolLitExpr x //, ?loc=r)
         | Fable.CharConstant x -> mkCharLitExpr x //, ?loc=r)
-        | Fable.StringConstant x -> mkStrLitExpr x //, ?loc=r)
+        | Fable.StringConstant x ->
+            let value = mkStrLitExpr x //, ?loc=r)
+            mkMethodCallExpr "to_string" None value []
         | Fable.NumberConstant (x, kind, _) ->
             let expr =
                 match kind with
@@ -1063,19 +1067,20 @@ module Util =
                 (mkPathFromName "None" None) |> mkPathExpr
         // | Fable.EnumConstant (x, _) ->
         //     com.TransformAsExpr(ctx, x)
-        // | Fable.NewRecord (values, ent, genArgs) ->
-        //     let ent = com.GetEntity(ent)
-        // //     let values = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
-        // //     let parts = ent.FullName.Split('.')
-        // //     let path = mkPathExpr (mkVec parts) // TODO: generics
-        // //     mkStructExpr path fields StructRest.None
-        //     let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
-        //     let consRef = ent |> jsConstructor com ctx
-        //     let typeParamInst =
-        //         if com.Options.Typescript && (ent.FullName = Types.reference)
-        //         then makeGenTypeParamInst com ctx genArgs
-        //         else None
-        //     Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
+        | Fable.NewRecord (values, ent, genArgs) ->
+            let ent = com.GetEntity(ent)
+            let fieldNames = ent.FSharpFields |> Seq.map (fun fi -> fi.Name)
+            let fieldValues = values |> List.map (fun x -> com.TransformAsExpr(ctx, x))
+            let fields =
+                Seq.zip fieldNames fieldValues
+                |> Seq.map (fun (name, value) ->
+                    let attrs = mkVec []
+                    let ident = mkIdent name
+                    mkExprField attrs ident value false false)
+                |> mkVec
+            let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
+            let path = mkPathFromFullName ent.FullName genArgs
+            mkStructExpr path fields // TODO: range
         // | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
         //     let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
         //     Array.zip fieldNames values |> makeJsObject
@@ -1083,18 +1088,11 @@ module Util =
             let ent = com.GetEntity(ent)
             let args = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
-            let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName
-            let callee = (mkPathFromName caseName genArgs) |> mkPathExpr
+            let unionCase = ent.UnionCases |> List.item tag
+            let path = mkPathFromFullName unionCase.FullName genArgs
+            let callee = path |> mkPathExpr
             let range = None // TODO:
             callFunction range callee args
-            // let consRef = ent |> jsConstructor com ctx
-            // let typeParamInst =
-            //     if com.Options.Typescript
-            //     then makeGenTypeParamInst com ctx genArgs
-            //     else None
-            // // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
-            // let values = (ofInt tag)::values |> List.toArray
-            // Expression.newExpression(consRef, values, ?typeArguments=typeParamInst, ?loc=r)
 
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" value)
@@ -1346,15 +1344,9 @@ module Util =
             let expr = com.TransformAsExpr(ctx, fableExpr)
             getExpr range expr prop
 
-        // | Fable.FieldGet(fieldName,_) ->
-        //     let fableExpr =
-        //         match fableExpr with
-        //         // If we're accessing a virtual member with default implementation (see #701)
-        //         // from base class, we can use `super` in JS so we don't need the bound this arg
-        //         | Fable.Value(Fable.BaseValue(_,t), r) -> Fable.Value(Fable.BaseValue(None, t), r)
-        //         | _ -> fableExpr
-        //     let expr = com.TransformAsExpr(ctx, fableExpr)
-        //     get range expr fieldName
+        | Fable.FieldGet(fieldName, _) ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            getField range expr fieldName
 
         // | Fable.ListHead ->
         //     // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1364,21 +1356,19 @@ module Util =
         //     // get range (com.TransformAsExpr(ctx, fableExpr)) "tail"
         //     libCall com ctx range "List" "tail" [|com.TransformAsExpr(ctx, fableExpr)|]
 
-        // | Fable.TupleIndex index ->
-        //     match fableExpr with
-        //     // TODO: Check the erased expressions don't have side effects?
-        //     | Fable.Value(Fable.NewTuple(exprs,_), _) ->
-        //         com.TransformAsExpr(ctx, List.item index exprs)
-        //     | TransformExpr com ctx expr -> getExpr range expr (ofInt index)
+        | Fable.TupleIndex index ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            getExpr range expr (ofInt index)
 
-        // | Fable.OptionValue ->
-        //     let expr = com.TransformAsExpr(ctx, fableExpr)
-        //     if mustWrapOption typ || com.Options.Language = TypeScript
-        //     then libCall com ctx None "Option" "value" [|expr|]
-        //     else expr
+        | Fable.OptionValue ->
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            let value = expr |> mkParenExpr
+            mkMethodCallExpr "unwrap" None value []
 
         | Fable.UnionTag ->
-            getUnionExprTag com ctx range fableExpr
+            let expr = com.TransformAsExpr(ctx, fableExpr)
+            // TODO: range
+            expr
 
         | Fable.UnionField(caseIndex, fieldIndex) ->
             // let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1396,7 +1386,6 @@ module Util =
                     assert(ent.IsFSharpUnion)
                     // let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs // TODO:
                     let unionCase = ent.UnionCases |> List.item caseIndex
-                    let caseName = unionCase |> getUnionCaseName
                     let fieldName = "x"
                     let fields =
                         unionCase.UnionCaseFields
@@ -1405,7 +1394,7 @@ module Util =
                                 mkIdentPat fieldName false false
                             else WILD_PAT)
                         |> mkVec
-                    let path = mkPathFromName caseName None
+                    let path = mkPathFromFullName unionCase.FullName None
                     let pat = mkTupleStructPat path fields
                     let expr = com.TransformAsExpr(ctx, fableExpr)
                     let ifExpr = mkLetExpr pat expr
@@ -1416,7 +1405,7 @@ module Util =
                     failwith "Should not happen"
 
         // TODO: remove this catch-all
-        | _ -> TODO_EXPR (sprintf "%A" fableExpr)
+        | _ -> TODO_EXPR (sprintf "kind: %A" kind)
 
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1425,7 +1414,7 @@ module Util =
             match kind with
             | Fable.ValueSet -> expr
             | Fable.ExprSet(TransformExpr com ctx e) -> getExpr range expr e
-            | Fable.FieldSet(fieldName) -> get None expr fieldName
+            | Fable.FieldSet(fieldName) -> getField None expr fieldName
         mkAssignExpr left value //?loc=range)
 
     let transformLet (com: IRustCompiler) ctx (ident: Fable.Ident) value body =
@@ -1465,9 +1454,11 @@ module Util =
             if isUp then
                 mkRangeExpr (Some startExpr) (Some limitExpr) true
             else
-                mkRangeExpr (Some limitExpr) (Some startExpr) true
-                |> mkParenExpr |> List.singleton |> mkVec
-                |> mkMethodCallExpr "rev" None
+                let downExpr =
+                    mkRangeExpr (Some limitExpr) (Some startExpr) true
+                    |> mkParenExpr
+                // reversed downward range
+                mkMethodCallExpr "rev" None downExpr []
         mkForLoopExpr varPat rangeExpr bodyExpr //?loc=range)
 
     let transformTryCatch (com: IRustCompiler) ctx range body catch finalizer =
@@ -1531,8 +1522,7 @@ module Util =
                 assert(ent.IsFSharpUnion)
                 // let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs // TODO:
                 let unionCase = ent.UnionCases |> List.item tag
-                let caseName = unionCase |> getUnionCaseName
-                let path = mkPathFromName caseName None
+                let path = mkPathFromFullName unionCase.FullName None
                 let fields =
                     match expr with
                     | Fable.IdentExpr id ->
@@ -1551,10 +1541,6 @@ module Util =
             | _ ->
                 failwith "Should not happen"
 
-            // let expected = ofInt tag
-            // let actual = getUnionExprTag com ctx None expr
-            // Expression.binaryExpression(BinaryEqualStrict, actual, expected, ?loc=range)
-
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" expr)
 
@@ -1567,6 +1553,31 @@ module Util =
             // TODO: vars, boundValues
             let body = com.TransformAsExpr(ctx, bodyExpr)
             mkArm attrs pat guard body
+        let makeUnionCasePat evalType evalName caseIndex =
+            match evalType with
+            | Fable.DeclaredType(entRef, genArgs) ->
+                let ent = com.GetEntity(entRef)
+                if ent.IsFSharpUnion then
+                    let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
+                    let unionCase = ent.UnionCases |> List.item caseIndex
+                    let fields =
+                        match evalName with
+                        | Some idName ->
+                            unionCase.UnionCaseFields
+                            |> Seq.mapi (fun i _field ->
+                                let fieldName = $"{idName}_{caseIndex}_{i}"
+                                mkIdentPat fieldName false false
+                            )
+                            |> Seq.toList
+                        | _ ->
+                            [WILD_PAT]
+                        |> mkVec
+                    let path = mkPathFromFullName unionCase.FullName None
+                    Some (mkTupleStructPat path fields)
+                else
+                    None
+            | _ ->
+                None
         let evalType, evalName =
             match evalExpr with
             | Fable.Get (Fable.IdentExpr id, Fable.UnionTag, _, _) ->
@@ -1574,38 +1585,29 @@ module Util =
             | _ -> evalExpr.Type, None
         let arms =
             cases |> List.map (fun (caseExpr, targetIndex, boundValues) ->
+                let patOpt =
+                    match caseExpr with
+                    | Fable.Value (Fable.NumberConstant (tag, Int32, None), r) ->
+                        makeUnionCasePat evalType evalName (int tag)
+                    | _ -> None
                 let pat =
-                    match evalType with
-                    | Fable.DeclaredType(entRef, genArgs) ->
-                        let ent = com.GetEntity(entRef)
-                        let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
-                        match caseExpr with
-                        | Fable.Value (Fable.NumberConstant (tag, Int32, None), r) when ent.IsFSharpUnion ->
-                            let unionCase = ent.UnionCases |> List.item (int tag)
-                            let caseName = unionCase |> getUnionCaseName
-                            let fields =
-                                match evalName with
-                                | Some idName ->
-                                    unionCase.UnionCaseFields
-                                    |> Seq.mapi (fun i _field ->
-                                        let fieldName = $"{idName}_{tag}_{i}"
-                                        mkIdentPat fieldName false false
-                                    )
-                                    |> Seq.toList
-                                | _ ->
-                                    [WILD_PAT]
-                                |> mkVec
-                            let path = mkPathFromName caseName None
-                            mkTupleStructPat path fields
-                        | _ ->
-                            com.TransformAsExpr(ctx, caseExpr) |> mkLitPat
-                    | _ ->
-                        com.TransformAsExpr(ctx, caseExpr) |> mkLitPat
+                    match patOpt with
+                    | Some pat -> pat
+                    | _ -> com.TransformAsExpr(ctx, caseExpr) |> mkLitPat
                 makeArm pat targetIndex boundValues
             )
         let defaultArm =
-            let pat = WILD_PAT
             let targetIndex, boundValues = defaultCase
+            // To see if the default arm should actually be a union case pattern, we have to
+            // examine its body to see if it starts with union field get. // TODO: look deeper
+            // If it does, we'll replace the wildcard "_" with a union case pattern
+            let idents, bodyExpr = targets |> List.item targetIndex
+            let patOpt =
+                match bodyExpr with
+                | Fable.Get (Fable.IdentExpr id, Fable.UnionField(caseIndex, _), _, _) ->
+                    makeUnionCasePat evalType evalName caseIndex
+                | _ -> None
+            let pat = patOpt |> Option.defaultValue WILD_PAT
             makeArm pat targetIndex boundValues
         let expr = com.TransformAsExpr(ctx, evalExpr)
         mkMatchExpr expr (arms @ [defaultArm])
@@ -1708,6 +1710,8 @@ module Util =
                     Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
                 | treeExpr ->
                     checkInner ((caseExpr, targetIndex, boundValues)::cases) evalExpr treeExpr
+            | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
+                Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
             | _ -> None
         match expr with
         | Fable.IfThenElse(Equals(evalExpr, caseExpr),
@@ -2125,10 +2129,10 @@ module Util =
                 let stmt1 = mkEmitSemiStmt "let mut args: Vec<String> = std::env::args().collect()"
                 let stmt2 = mkEmitSemiStmt (sprintf "%s(&mut args[1..])" fullName) // call main
                 [stmt1; stmt2] |> mkBlock |> Some
+            let attrs = mkVec []
             let fnDecl = mkFnDecl NO_PARAMS VOID_RETURN_TY
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
-            let attrs = mkVec []
-            [mkFnItem "main" attrs fnKind]
+            [mkFnItem attrs "main" fnKind]
         | None -> []
 
     let transformModuleMember com ctx isPublic membName isMutable (expr: Fable.Expr) =
@@ -2299,7 +2303,7 @@ module Util =
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
             |> Seq.map (fun _ -> mkAttr "test")
             |> mkVec
-        let fnItem = mkFnItem membName attrs kind
+        let fnItem = mkFnItem attrs membName kind
         [fnItem]
 
 (*
@@ -2344,7 +2348,44 @@ module Util =
             if memb.Info.IsEnumerator then
                 yield makeMethod "Symbol.iterator" [||] (enumerator2iterator com ctx)
         |]
+*)
+    let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+        let generics =
+            ent.GenericParameters |> List.map (fun x -> x.Name)
+            |> mkGenericParams
+        let noAttrs = mkVec []
+        let variants =
+            ent.UnionCases |> Seq.map (fun uci ->
+                let name = uci.Name
+                let fields =
+                    uci.UnionCaseFields |> List.map (fun fi ->
+                        let ty = transformType com ctx fi.FieldType
+                        mkField noAttrs fi.Name ty)
+                mkTupleVariant noAttrs name fields
+            )
+        let enumItem = mkEnumItem noAttrs entName variants generics
+        [enumItem] // TODO: add traits for attached members
 
+    let transformClass (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+        let generics =
+            ent.GenericParameters |> List.map (fun x -> x.Name)
+            |> mkGenericParams
+        let noAttrs = mkVec []
+        let fields =
+            ent.FSharpFields |> Seq.map (fun fi ->
+                let ty = transformType com ctx fi.FieldType
+                mkField noAttrs fi.Name ty)
+        let structItem = mkStructItem noAttrs entName fields generics
+        [structItem] // TODO: add traits for attached members
+
+    let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =
+        let ent = com.GetEntity(decl.Entity)
+        let classMembers = [] // TODO:
+        if ent.IsFSharpUnion
+        then transformUnion com ctx ent decl.Name classMembers
+        else transformClass com ctx ent decl.Name classMembers
+
+(*
     let transformUnion (com: IRustCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
         let fieldIds = getUnionFieldsAsIdents com ctx ent
         let args =
@@ -2451,7 +2492,7 @@ module Util =
         | Fable.ModuleDeclaration decl ->
             let members = decl.Members |> List.collect (transformDeclaration com ctx)
             let attribs = mkVec []
-            let modItem = members |> mkVec |> mkModItem decl.Name attribs
+            let modItem = members |> mkVec |> mkModItem attribs decl.Name
             [modItem]
 
         | Fable.ActionDeclaration decl ->
@@ -2471,7 +2512,7 @@ module Util =
                 // else decls
 
         | Fable.ClassDeclaration decl ->
-            [TODO_ITEM ("class_decl_" + decl.Entity.FullName)]
+            transformClassDecl com ctx decl
             // let ent = decl.Entity
             // let classMembers =
             //     decl.AttachedMembers
@@ -2500,7 +2541,7 @@ module Util =
             | [| path; selector |] ->
                 let name = System.String.Format("import_{0:x}", hash path)
                 let attrs = mkVec [mkAttrEq "path" path] // TODO: relative path and ".rs" extension
-                let item1 = mkUnloadedModItem name attrs
+                let item1 = mkUnloadedModItem attrs name
                 let item2 =
                     match selector with
                     | "" | "*" | "default" ->
@@ -2581,7 +2622,7 @@ module Compiler =
             member _.GetImportExpr(ctx, selector, path, r) =
                 let import = path + "|" + selector
                 imports.Add(import) |> ignore
-                let path = mkPathFromName selector None
+                let path = mkPathFromFullName selector None
                 mkPathExpr path
         //         let cachedName = path + "::" + selector
         //         match imports.TryGetValue(cachedName) with
@@ -2647,6 +2688,7 @@ module Compiler =
 
         let topAttrs = [
             mkInnerAttrDelim "allow" ["non_snake_case"]
+            mkInnerAttrDelim "allow" ["non_camel_case_types"]
             mkInnerAttrDelim "feature" ["stmt_expr_attributes"]
             mkInnerAttrDelim "feature" ["destructuring_assignment"]
         ]

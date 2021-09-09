@@ -1,6 +1,5 @@
 module Fable.Tests.Array
 
-open System
 open Util.Testing
 
 [<Fact>]

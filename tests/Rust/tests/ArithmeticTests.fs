@@ -1,6 +1,5 @@
 module Fable.Tests.Arithmetic
 
-open System
 open Util.Testing
 
 [<Fact>]

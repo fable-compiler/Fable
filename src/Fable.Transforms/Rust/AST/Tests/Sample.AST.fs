@@ -30,7 +30,7 @@ let test_crate: Crate = {
   items = mkVec [
     [stmt1; stmt2] |> mkBlock |> Some
     |> mkFnKind DEFAULT_FN_HEADER (mkFnDecl NO_PARAMS VOID_RETURN_TY) NO_GENERICS
-    |> mkFnItem "main" (mkVec [])
+    |> mkFnItem (mkVec []) "main"
   ]
   span = DUMMY_SP
   proc_macros = mkVec []

@@ -178,7 +178,10 @@ module Literals =
           span = DUMMY_SP }
 
     let mkFloatLit (value: f64): Lit =
-        { token = mkFloatTokenLit (string value)
+        let strValue =
+            let s = string value
+            if s.Contains(".") then s else s + "."
+        { token = mkFloatTokenLit strValue
           kind = LitKind.Float(string value, LitFloatType.Unsuffixed)
           span = DUMMY_SP }
 
@@ -219,7 +222,11 @@ module Paths =
         |> mkPath
 
     let mkPathFromName (name: Symbol) genArgs: Path =
-        let symbols = name.Split('.') |> mkVec
+        let symbols = [name] |> mkVec
+        mkGenericPath symbols genArgs
+
+    let mkPathFromFullName (name: Symbol) genArgs: Path =
+        let symbols = name.Split('.') |> Array.append [|"crate"|] |> mkVec
         mkGenericPath symbols genArgs
 
 [<AutoOpen>]
@@ -250,8 +257,12 @@ module Patterns =
         PatKind.Wild
         |> mkPat
 
-    let mkTupleStructPat (path: Path) (elts: Vec<Pat>): Pat =
-        PatKind.TupleStruct(path, elts)
+    let mkStructPat (path: Path) (fields: Vec<PatField>): Pat =
+        PatKind.Struct(path, fields, false)
+        |> mkPat
+
+    let mkTupleStructPat (path: Path) (fields: Vec<Pat>): Pat =
+        PatKind.TupleStruct(path, fields)
         |> mkPat
 
 [<AutoOpen>]
@@ -292,8 +303,8 @@ module Locals =
           attrs = attrs
           tokens = None }
 
-    let mkIdentLocal symbol init: Local =
-        let pat = mkIdentPat symbol false false
+    let mkIdentLocal name init: Local =
+        let pat = mkIdentPat name false false
         let ty = None
         mkLocal pat ty (Some init) (mkVec [])
 
@@ -443,6 +454,15 @@ module Exprs =
           attrs = mkVec []
           tokens = None }
 
+    let mkExprField attrs ident expr is_shorthand is_placeholder: ExprField =
+        { attrs = attrs
+          id = DUMMY_NODE_ID
+          span = DUMMY_SP
+          ident = ident
+          expr = expr
+          is_shorthand = is_shorthand
+          is_placeholder = is_placeholder }
+
     let mkBoolLitExpr value: Expr =
         value
         |> mkBoolLit
@@ -499,10 +519,10 @@ module Exprs =
         ExprKind.Path(qualified, path)
         |> mkExpr
 
-    let mkStructExpr path fields rest: Expr =
+    let mkStructExpr path fields: Expr =
         { path = path
           fields = fields
-          rest = rest }
+          rest = StructRest.None }
         |> ExprKind.Struct
         |> mkExpr
 
@@ -586,9 +606,11 @@ module Exprs =
         ExprKind.Call(callee, args)
         |> mkExpr
 
-    let mkMethodCallExpr (symbol: Symbol) genArgs args: Expr =
-        let callee = mkPathSegment (mkIdent symbol) genArgs
-        ExprKind.MethodCall(callee, args, DUMMY_SP)
+    let mkMethodCallExpr (name: Symbol) genArgs callee args: Expr =
+        let ident = mkIdent name
+        let segment = mkPathSegment ident genArgs
+        let arguments = callee::args |> mkVec
+        ExprKind.MethodCall(segment, arguments, DUMMY_SP)
         |> mkExpr
 
     let mkMacCallExpr (mac: MacCall): Expr =
@@ -687,49 +709,16 @@ module Types =
         TyKind.Path(None, mkPathFromName name attrs)
         |> mkTy
 
+    let mkFullPathTy (fullName: Symbol) (attrs: GenericArgs option): Ty =
+        TyKind.Path(None, mkPathFromFullName fullName attrs)
+        |> mkTy
+
     let mkArrayTy ty (size: Expr): Ty =
         TyKind.Array(ty, mkAnonConst size)
         |> mkTy
 
     let TODO_TYPE name: Ty =
         mkPathTy ("TODO_TYPE_" + name) None
-
-[<AutoOpen>]
-module Params =
-
-    let mkParam attrs ty pat is_placeholder: Param =
-        { attrs = attrs
-          ty = ty
-          pat = pat
-          id = DUMMY_NODE_ID
-          span = DUMMY_SP
-          is_placeholder = is_placeholder }
-
-    let mkGenericParam ident attrs bounds is_placeholder kind: GenericParam =
-        { id = DUMMY_NODE_ID
-          ident = ident
-          attrs = attrs
-          bounds = bounds
-          is_placeholder = is_placeholder
-          kind = kind }
-
-    let mkParamFromType symbol ty isRef isMut: Param =
-        let attrs: AttrVec = mkVec []
-        let is_placeholder = false
-        let pat = mkIdentPat symbol isRef isMut
-        mkParam attrs ty pat is_placeholder
-
-    let mkGenericParamFromType symbol ty: GenericParam =
-        let ident = mkIdent symbol
-        let attrs: AttrVec = mkVec []
-        let bounds: GenericBounds = mkVec []
-        let is_placeholder = false
-        let kind = GenericParamKind.Type (Some ty)
-        mkGenericParam ident attrs bounds is_placeholder kind
-
-    let mkInferredParam symbol isRef isMut: Param =
-        let ty = TyKind.Infer |> mkTy
-        mkParamFromType symbol ty isRef isMut
 
 [<AutoOpen>]
 module Generic =
@@ -749,6 +738,49 @@ module Generic =
 
     let NO_GENERICS =
         mkVec [] |> mkGenerics
+
+[<AutoOpen>]
+module Params =
+
+    let mkParam attrs ty pat is_placeholder: Param =
+        { attrs = attrs
+          ty = ty
+          pat = pat
+          id = DUMMY_NODE_ID
+          span = DUMMY_SP
+          is_placeholder = is_placeholder }
+
+    let mkGenericParam attrs ident bounds is_placeholder kind: GenericParam =
+        { id = DUMMY_NODE_ID
+          ident = ident
+          attrs = attrs
+          bounds = bounds
+          is_placeholder = is_placeholder
+          kind = kind }
+
+    let mkParamFromType name ty isRef isMut: Param =
+        let attrs: AttrVec = mkVec []
+        let is_placeholder = false
+        let pat = mkIdentPat name isRef isMut
+        mkParam attrs ty pat is_placeholder
+
+    let mkInferredParam name isRef isMut: Param =
+        let ty = TyKind.Infer |> mkTy
+        mkParamFromType name ty isRef isMut
+
+    let mkGenericParamFromName name: GenericParam =
+        let ident = mkIdent name
+        let attrs: AttrVec = mkVec []
+        let bounds: GenericBounds = mkVec []
+        let is_placeholder = false
+        let kind = GenericParamKind.Type None
+        mkGenericParam attrs ident bounds is_placeholder kind
+
+    let mkGenericParams (names: Symbol seq): Generics =
+        names
+        |> Seq.map mkGenericParamFromName
+        |> mkVec
+        |> mkGenerics
 
     let mkGenericArgs (tys: Ty seq): GenericArgs option =
         if Seq.isEmpty tys then None
@@ -786,15 +818,59 @@ module Funcs =
         { inputs = inputs
           output = output }
 
-    let mkFnKind (header: FnHeader) (decl: FnDecl) (gen: Generics) (body: Block option): FnKind =
+    let mkFnKind (header: FnHeader) (decl: FnDecl) (generics: Generics) (body: Block option): FnKind =
         let fnDef = Defaultness.Final
         let fnSig = mkFnSig header decl
-        (fnDef, fnSig, gen, body)
+        (fnDef, fnSig, generics, body)
+
+[<AutoOpen>]
+module Variants =
+
+    let mkFieldDef attrs ident ty vis is_placeholder: FieldDef =
+        { attrs = attrs
+          id = DUMMY_NODE_ID
+          span = DUMMY_SP
+          vis = vis
+          ident = ident
+          ty = ty
+          is_placeholder = is_placeholder }
+
+    let mkVariant attrs ident vis is_placeholder data disr_expr: Variant =
+        { attrs = attrs
+          id = DUMMY_NODE_ID
+          span = DUMMY_SP
+          vis = vis
+          ident = ident
+          data = data
+          disr_expr = disr_expr
+          is_placeholder = is_placeholder }
+
+    let mkField attrs name ty: FieldDef =
+        let ident = mkIdent name
+        let vis = INHERITED_VIS
+        let is_placeholder = false
+        mkFieldDef attrs (Some ident) ty vis is_placeholder
+
+    let mkStructVariant attrs name fields: Variant =
+        let ident = mkIdent name
+        let data = VariantData.Struct(mkVec fields, false)
+        let vis = INHERITED_VIS
+        let is_placeholder = false
+        let disr_expr = None
+        mkVariant attrs ident vis is_placeholder data disr_expr
+
+    let mkTupleVariant attrs name fields: Variant =
+        let ident = mkIdent name
+        let data = VariantData.Tuple(mkVec fields, DUMMY_NODE_ID)
+        let vis = INHERITED_VIS
+        let is_placeholder = false
+        let disr_expr = None
+        mkVariant attrs ident vis is_placeholder data disr_expr
 
 [<AutoOpen>]
 module Items =
 
-    let mkItem attrs kind ident: Item =
+    let mkItem attrs ident kind: Item =
         { attrs = attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
@@ -803,19 +879,21 @@ module Items =
           kind = kind
           tokens = None }
 
-    let mkFnItem name attrs kind: Item =
-        mkIdent (name)
-        |> mkItem attrs (ItemKind.Fn kind)
+    let mkFnItem attrs name kind: Item =
+        let ident = mkIdent name
+        ItemKind.Fn kind
+        |> mkItem attrs ident
 
     let mkUseItem symbols kind: Item =
         let attrs = mkVec []
+        let ident = mkIdent ""
         let useTree = {
             prefix = mkGenericPath symbols None
             kind = kind
             span = DUMMY_SP
         }
-        mkIdent ""
-        |> mkItem attrs (ItemKind.Use(useTree))
+        ItemKind.Use(useTree)
+        |> mkItem attrs ident
 
     let mkSimpleUseItem symbols (alias: Ident option): Item =
         UseTreeKind.Simple(alias, DUMMY_NODE_ID, DUMMY_NODE_ID)
@@ -825,15 +903,37 @@ module Items =
         UseTreeKind.Glob
         |> mkUseItem symbols
 
-    let mkModItem name attrs items: Item =
+    let mkModItem attrs name items: Item =
+        let ident = mkIdent name
         let kind = ModKind.Loaded(items, Inline.Yes, DUMMY_SP)
-        mkIdent (name)
-        |> mkItem attrs (ItemKind.Mod(Unsafety.No, kind))
+        ItemKind.Mod(Unsafety.No, kind)
+        |> mkItem attrs ident
 
-    let mkUnloadedModItem name attrs: Item =
-        mkIdent (name)
-        |> mkItem attrs (ItemKind.Mod(Unsafety.No, ModKind.Unloaded))
+    let mkUnloadedModItem attrs name: Item =
+        let ident = mkIdent name
+        ItemKind.Mod(Unsafety.No, ModKind.Unloaded)
+        |> mkItem attrs ident
+
+    let mkEnumItem attrs name variants generics: Item =
+        let ident = mkIdent name
+        let enumDef: EnumDef = { variants = mkVec variants }
+        ItemKind.Enum(enumDef, generics)
+        |> mkItem attrs ident
+
+    let mkStructItem attrs name fields generics: Item =
+        let ident = mkIdent name
+        let data = VariantData.Struct(mkVec fields, false)
+        ItemKind.Struct(data, generics)
+        |> mkItem attrs ident
+
+    let mkUnionItem attrs name fields generics: Item =
+        let ident = mkIdent name
+        let data = VariantData.Struct(mkVec fields, false)
+        ItemKind.Union(data, generics)
+        |> mkItem attrs ident
 
     let TODO_ITEM (name: string): Item =
+        let attrs = mkVec []
         let name = "TODO_ITEM_" + name.Replace(".", "_")
-        mkModItem name (mkVec []) (mkVec [])
+        let items = mkVec []
+        mkModItem attrs name items

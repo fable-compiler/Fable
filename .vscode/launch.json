@@ -47,7 +47,7 @@
             "name": "Run Fable.Cli",
             "type": "coreclr",
             "request": "launch",
-            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/netcoreapp3.1/fable.dll",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
             "args": ["watch", "--exclude", "Fable.Core"],
             "cwd": "${workspaceRoot}/src/quicktest",
             "stopAtEntry": false,
@@ -84,6 +84,7 @@
             "program": "${workspaceFolder}/src/fable-standalone/test/bench-compiler/bin/Debug/net5.0/bench-compiler.dll",
             // "args": ["${workspaceRoot}/tests/Main/Fable.Tests.fsproj", "out-tests", "--fableLib", "out-lib"],
             "args": ["${workspaceRoot}/../fable-test/fable-test.fsproj", "out-test", "--fableLib", "out-lib", "--printAst"],
+            // "args": ["${workspaceRoot}/tests/Rust/Fable.Tests.Rust.fsproj", "out-tests", "--lang", "Rust", "--fableLib", "out-lib"],
             "cwd": "${workspaceFolder}/src/fable-standalone/test/bench-compiler"
         },
         {
@@ -106,5 +107,17 @@
             "stopAtEntry": false,
             "console": "internalConsole"
         },
+        {
+            "name": "Run Fable.Cli on Rust Tests",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
+            "args": ["--outDir", "${workspaceRoot}/build/tests/Rust", "--exclude", "Fable.Core", "--lang", "Rust"],
+            "cwd": "${workspaceRoot}/tests/Rust",
+            "stopAtEntry": false,
+            "console": "internalConsole"
+        },
+
     ]
 }
