@@ -8,9 +8,9 @@ module Testing =
     open Fable.Core.PyInterop
 
     type Assert =
-        [<Emit("assertEquals($0,$1)")>]
+        [<Emit("luaunit.assertEquals($0,$1)")>]
         static member AreEqual(actual: 'T, expected: 'T, ?msg: string): unit = nativeOnly
-        [<Emit("assertNotEquals($0,$1)")>]
+        [<Emit("luaunit.assertNotEquals($0,$1)")>]
         static member NotEqual(actual: 'T, expected: 'T, ?msg: string): unit = nativeOnly
 
     let equal expected actual: unit = Assert.AreEqual(actual, expected)

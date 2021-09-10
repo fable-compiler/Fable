@@ -28,6 +28,8 @@ type BinaryOp =
     | Plus
     | Minus
     | BinaryTodo of string
+    | And
+    | Or
 
 type Expr =
     | Ident of LuaIdentity
@@ -35,6 +37,7 @@ type Expr =
     | Unary of UnaryOp * Expr
     | Binary of BinaryOp * Expr * Expr
     | GetField of Expr * name: string
+    | GetObjMethod of Expr * name: string
     | GetAtIndex of Expr * idx: Expr
     | SetValue of Expr * value: Expr
     | SetExpr of Expr * Expr * value: Expr

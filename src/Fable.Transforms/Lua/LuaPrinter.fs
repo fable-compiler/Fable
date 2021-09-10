@@ -57,6 +57,8 @@ module Output =
         | Divide -> write ctx """/"""
         | Plus -> write ctx "+"
         | Minus -> write ctx "-"
+        | And -> write ctx "and"
+        | Or -> write ctx "or"
         | BinaryTodo x -> writeCommented ctx "binary todo" x
     let sprintExprSimple = function
         | Ident i -> i.Name
@@ -69,7 +71,7 @@ module Output =
             | ConstString s -> s |> sprintf "'%s'" |> write ctx
             | ConstNumber n -> n |> sprintf "%f" |> write ctx
             | ConstBool b -> b |> sprintf "%b" |> write ctx
-            | ConstNull -> write ctx "null"
+            | ConstNull -> write ctx "nil"
         | FunctionCall(e, args) ->
             writeExpr ctx e
             write ctx "("
@@ -97,6 +99,10 @@ module Output =
         | GetField(expr, fieldName) ->
             writeExpr ctx expr
             write ctx "."
+            write ctx fieldName
+        | GetObjMethod(expr, fieldName) ->
+            writeExpr ctx expr
+            write ctx ":"
             write ctx fieldName
         | GetAtIndex(expr, idx) ->
             writeExpr ctx expr
@@ -217,6 +223,7 @@ module Output =
             writei ctx "function "
             write ctx name
             write ctx "("
+            // let args = if exportToMod then "self"::args else args
             args |> Helper.separateWithCommas |> write ctx
             write ctx ")"
             let ctxI = indent ctx
@@ -226,8 +233,10 @@ module Output =
             if exportToMod then
                 writei ctx "mod."
                 write ctx name
-                write ctx " = "
+                write ctx " = function(self, ...) "
                 write ctx name
+                write ctx "(...)"
+                write ctx " end"
                 writeln ctxI ""
         | Return expr ->
             writei ctx "return "

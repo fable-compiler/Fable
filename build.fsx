@@ -217,7 +217,7 @@ let buildLibraryLua() =
     // Copy *.lua from projectDir to buildDir
     copyDirRecursive libraryDir buildDirLua
 
-    runInDir buildDirLua ("lua -v")
+    runInDir buildDirLua ("lua52 -v")
     //runInDir buildDirLua ("lua ./setup.lua develop")
 
 let buildPyLibraryIfNotExists() =
@@ -482,8 +482,9 @@ let testLua() =
         "--fableLib " + buildDir </> "fable-lib" //("fable-library-lua" </> "fable") //cannot use relative paths in lua. Copy to subfolder?
     ]
 
+    copyFile (projectDir </> "luaunit.lua") (buildDir </> "luaunit.lua")
     copyFile (projectDir </> "runtests.lua") (buildDir </> "runtests.lua")
-    runInDir buildDir "lua runtests.lua"
+    runInDir buildDir "lua52 runtests.lua"
 
 let buildLocalPackageWith pkgDir pkgCommand fsproj action =
     let version = "3.0.0-local-build-" + DateTime.Now.ToString("yyyyMMdd-HHmm")
