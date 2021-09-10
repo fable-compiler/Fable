@@ -16,6 +16,17 @@
             "console": "internalConsole"
         },
         {
+            "name": "BuildLuaTest",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/Fable.Cli/bin/Debug/net5.0/fable.dll",
+            "args": ["watch", "--cwd", "tests/Lua", "--exclude", "Fable.Core", "--outDir", "build/tests/Lua", "--lang", "Lua", "--fableLib", "build/tests/Lua/fable-lib"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": true,
+            "console": "internalConsole"
+        },
+        {
             "name": "Attach to Node",
             "port": 9229,
             "request": "attach",

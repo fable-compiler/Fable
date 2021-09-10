@@ -201,6 +201,10 @@ module Output =
             writeln ctx ""
             writei ctx "}"
         | NoOp -> ()
+        | Brackets expr ->
+            write ctx "("
+            writeExpr ctx expr
+            write ctx ")"
         | Unknown x ->
             writeCommented ctx "unknown" x
         | x -> sprintf "%A" x |> writeCommented ctx "todo"
@@ -213,9 +217,11 @@ module Output =
                 writeExpr ctx item
 
     and writeStatement ctx = function
-        | Assignment(names, expr) ->
+        | Assignment(names, expr, isLocal) ->
             let names = names |> Helper.separateWithCommas
-            writei ctx names
+            writei ctx ""
+            if isLocal then write ctx "local "
+            write ctx names
             write ctx " = "
             writeExpr ctx expr
             writeln ctx ""
@@ -297,7 +303,7 @@ module Output =
         write ctx "return mod"
         //debugging
         writeln ctx ""
-        //writeln ctx "--[["
-        //sprintf "%s" file.ASTDebug |> write ctx
+        // writeln ctx "--[["
+        // sprintf "%s" file.ASTDebug |> write ctx
         //sprintf "%A" file.Statements |> write ctx
         //writeln ctx " --]]"

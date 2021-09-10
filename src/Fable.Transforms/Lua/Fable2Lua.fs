@@ -169,6 +169,8 @@ module Transforms =
                     | Fable.AnonymousRecordType(_, _) ->
                         GetObjMethod(transformExpr expr, fieldName)
                     | _ -> transformExpr expr
+                | Fable.Expr.Delegate _ ->
+                    transformExpr expr |> Brackets
                 | _ -> transformExpr expr
             FunctionCall(lhs, List.map transformExpr callInfo.Args)
         | Fable.Expr.Import (info, t, r) ->
@@ -208,7 +210,7 @@ module Transforms =
             asSingleExprIifeTr com exprs
         | Fable.Expr.Let (ident, value, body) ->
             let statements = [
-                Assignment([ident.Name], transformExpr value)
+                Assignment([ident.Name], transformExpr value, true)
                 transformExpr body |> Return
             ]
             Helpers.maybeIife statements
@@ -228,7 +230,7 @@ module Transforms =
             if idents.Length = boundValues.Length then
                 let statements =
                     [   for (ident, value) in List.zip idents boundValues do
-                            yield Assignment([ident.Name], transformExpr value)
+                            yield Assignment([ident.Name], transformExpr value, false)
                         yield transformExpr target |> Return
                             ]
                 statements
@@ -282,7 +284,7 @@ module Transforms =
                     Function([], [
                         transformExpr body |> Return
                     ])
-                ]))
+                ]), true)
                 let finalizer = finalizer |> Option.map transformExpr
                 let catch = catch |> Option.map (fun (ident, expr) -> ident.Name, transformExpr expr)
                 IfThenElse(Helpers.ident "status", [
@@ -301,10 +303,10 @@ module Transforms =
 
     let transformDeclarations (com: LuaCompiler) = function
         | Fable.ModuleDeclaration m ->
-            Assignment(["moduleDecTest"], Expr.Const (ConstString "moduledectest"))
+            Assignment(["moduleDecTest"], Expr.Const (ConstString "moduledectest"), false)
         | Fable.MemberDeclaration m ->
             if m.Args.Length = 0 then
-                Assignment([m.Name], transformExpr com m.Body)
+                Assignment([m.Name], transformExpr com m.Body, true)
             else
 
                 let unwrapSelfExStatements =

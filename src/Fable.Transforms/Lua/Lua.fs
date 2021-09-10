@@ -42,6 +42,7 @@ type Expr =
     | SetValue of Expr * value: Expr
     | SetExpr of Expr * Expr * value: Expr
     | FunctionCall of f: Expr * args: Expr list
+    | Brackets of Expr
     | AnonymousFunc of args: string list * body: Statement list
     | Unknown of string
     | Macro of string * args: Expr list
@@ -52,7 +53,7 @@ type Expr =
     | NewArr of values: Expr list
 
 type Statement =
-    | Assignment of names: string list * Expr
+    | Assignment of names: string list * Expr * isLocal: bool
     | FunctionDeclaration of name: string * args: string list * body: Statement list * exportToMod: bool
     | Return of Expr
     | Do of Expr

@@ -68,3 +68,19 @@ let testExThrow() =
         with ex ->
             4
     a |> equal 4
+
+
+[<Fact>]
+let testSimpleFnParam() =
+    let add a b = a + b
+    let fn addFn a b = addFn a b
+    fn (add) 3 2 |> equal 5
+
+[<Fact>]
+let testPartialApply() =
+    let add a b = a + b
+    let fn addFn a b = addFn a b
+    fn (add) 3 2 |> equal 5
+    let fnAdd4 = fn (add) 4
+    fnAdd4 5 |> equal 9
+    fnAdd4 2 |> equal 6

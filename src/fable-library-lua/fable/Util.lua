@@ -26,6 +26,13 @@
 -- end
 -- return mod
 
+function TableConcat(t1,t2)
+    for i=1,#t2 do
+        t1[#t1+1] = t2[i]
+    end
+    return t1
+end
+
 -- https://stackoverflow.com/questions/5977654/how-do-i-use-the-bitwise-operator-xor-in-lua
 local function BitXOR(a,b)--Bitwise xor
     local p,c=1,0
@@ -1459,106 +1466,111 @@ function ____exports.checkArity(self, arity, f)
     end)) or f
 end
 function ____exports.partialApply(self, arity, f, args)
-    if f == nil then
-        return nil
-    elseif f[CURRIED_KEY] ~= nil then
-        f = f[CURRIED_KEY]
-        do
-            local i = 0
-            while i < #args do
-                f = f(nil, args[i + 1])
-                i = i + 1
-            end
-        end
-        return f
-    else
-        local ____switch209 = arity
-        if ____switch209 == 1 then
-            goto ____switch209_case_0
-        elseif ____switch209 == 2 then
-            goto ____switch209_case_1
-        elseif ____switch209 == 3 then
-            goto ____switch209_case_2
-        elseif ____switch209 == 4 then
-            goto ____switch209_case_3
-        elseif ____switch209 == 5 then
-            goto ____switch209_case_4
-        elseif ____switch209 == 6 then
-            goto ____switch209_case_5
-        elseif ____switch209 == 7 then
-            goto ____switch209_case_6
-        elseif ____switch209 == 8 then
-            goto ____switch209_case_7
-        end
-        goto ____switch209_case_default
-        ::____switch209_case_0::
-        do
-            return function(____, a1) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1})
-            ) end
-        end
-        ::____switch209_case_1::
-        do
-            return function(____, a1) return function(____, a2) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1, a2})
-            ) end end
-        end
-        ::____switch209_case_2::
-        do
-            return function(____, a1) return function(____, a2) return function(____, a3) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1, a2, a3})
-            ) end end end
-        end
-        ::____switch209_case_3::
-        do
-            return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1, a2, a3, a4})
-            ) end end end end
-        end
-        ::____switch209_case_4::
-        do
-            return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1, a2, a3, a4, a5})
-            ) end end end end end
-        end
-        ::____switch209_case_5::
-        do
-            return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return function(____, a6) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1, a2, a3, a4, a5, a6})
-            ) end end end end end end
-        end
-        ::____switch209_case_6::
-        do
-            return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return function(____, a6) return function(____, a7) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1, a2, a3, a4, a5, a6, a7})
-            ) end end end end end end end
-        end
-        ::____switch209_case_7::
-        do
-            return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return function(____, a6) return function(____, a7) return function(____, a8) return f:apply(
-                nil,
-                __TS__ArrayConcat(args, {a1, a2, a3, a4, a5, a6, a7, a8})
-            ) end end end end end end end end
-        end
-        ::____switch209_case_default::
-        do
-            error(
-                __TS__New(
-                    Error,
-                    "Partially applying to more than 8-arity is not supported: " .. tostring(arity)
-                ),
-                0
-            )
-        end
-        ::____switch209_end::
+    if arity == 1 then
+        return function (a) return f(table.unpack(__TS__ArrayConcat({ table.unpack(args) }, a))) end
+    elseif arity == 2 then
+        return function (a, b) return f(table.unpack(__TS__ArrayConcat({ table.unpack(args) }, a, b))) end
     end
+    -- if f == nil then
+    --     return nil
+    -- elseif type(f) == 'table' and f[CURRIED_KEY] ~= nil then
+    --     f = f[CURRIED_KEY]
+    --     do
+    --         local i = 0
+    --         while i < #args do
+    --             f = f(nil, args[i + 1])
+    --             i = i + 1
+    --         end
+    --     end
+    --     return f
+    -- else
+    --     local ____switch209 = arity
+    --     if ____switch209 == 1 then
+    --         goto ____switch209_case_0
+    --     elseif ____switch209 == 2 then
+    --         goto ____switch209_case_1
+    --     elseif ____switch209 == 3 then
+    --         goto ____switch209_case_2
+    --     elseif ____switch209 == 4 then
+    --         goto ____switch209_case_3
+    --     elseif ____switch209 == 5 then
+    --         goto ____switch209_case_4
+    --     elseif ____switch209 == 6 then
+    --         goto ____switch209_case_5
+    --     elseif ____switch209 == 7 then
+    --         goto ____switch209_case_6
+    --     elseif ____switch209 == 8 then
+    --         goto ____switch209_case_7
+    --     end
+    --     goto ____switch209_case_default
+    --     ::____switch209_case_0::
+    --     do
+    --         return function(____, a1) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1})
+    --         ) end
+    --     end
+    --     ::____switch209_case_1::
+    --     do
+    --         return function(____, a1) return function(____, a2) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1, a2})
+    --         ) end end
+    --     end
+    --     ::____switch209_case_2::
+    --     do
+    --         return function(____, a1) return function(____, a2) return function(____, a3) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1, a2, a3})
+    --         ) end end end
+    --     end
+    --     ::____switch209_case_3::
+    --     do
+    --         return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1, a2, a3, a4})
+    --         ) end end end end
+    --     end
+    --     ::____switch209_case_4::
+    --     do
+    --         return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1, a2, a3, a4, a5})
+    --         ) end end end end end
+    --     end
+    --     ::____switch209_case_5::
+    --     do
+    --         return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return function(____, a6) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1, a2, a3, a4, a5, a6})
+    --         ) end end end end end end
+    --     end
+    --     ::____switch209_case_6::
+    --     do
+    --         return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return function(____, a6) return function(____, a7) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1, a2, a3, a4, a5, a6, a7})
+    --         ) end end end end end end end
+    --     end
+    --     ::____switch209_case_7::
+    --     do
+    --         return function(____, a1) return function(____, a2) return function(____, a3) return function(____, a4) return function(____, a5) return function(____, a6) return function(____, a7) return function(____, a8) return f:apply(
+    --             nil,
+    --             __TS__ArrayConcat(args, {a1, a2, a3, a4, a5, a6, a7, a8})
+    --         ) end end end end end end end end
+    --     end
+    --     ::____switch209_case_default::
+    --     do
+    --         error(
+    --             __TS__New(
+    --                 Error,
+    --                 "Partially applying to more than 8-arity is not supported: " .. tostring(arity)
+    --             ),
+    --             0
+    --         )
+    --     end
+    --     ::____switch209_end::
+    -- end
 end
 function ____exports.mapCurriedArgs(self, fn, mappings)
     local function mapArg(self, fn, arg, mappings, idx)
