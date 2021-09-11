@@ -3,12 +3,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.2.12</Version>
-    <PackageVersion>3.2.12</PackageVersion>
-    <PackageReleaseNotes>* Fix #2505: Make String.Split match .NET with no or null separators
-* Add TimeSpan.Divide and Multiply @0x53A
-* Add Async.Sequential @0x53A
-* Compile `FormattableString` as JS Templates</PackageReleaseNotes>
+    <Version>3.2.14</Version>
+    <PackageVersion>3.2.14</PackageVersion>
+    <PackageReleaseNotes>* Fix #2480: Include package.json in fable-library
+* Fix #2522: Warn if user sets .fable as outDir
+* Fix #2525: Support infinite arity for currying/uncurrying
+* Fix plugin version check</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>

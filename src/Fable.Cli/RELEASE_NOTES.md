@@ -1,3 +1,10 @@
+### 3.2.14
+
+* Fix #2480: Include package.json in fable-library
+* Fix #2522: Warn if user sets .fable as outDir
+* Fix #2525: Support infinite arity for currying/uncurrying
+* Fix plugin version check
+
 ### 3.2.12
 
 * Fix #2505: Make String.Split match .NET with no or null separators
