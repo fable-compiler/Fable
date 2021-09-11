@@ -1744,6 +1744,25 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | meth, args ->
         Helper.LibCall(com, "String", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
 
+let printJsTaggedTemplate (str: string) (holes: {| Index: int; Length: int |}[]) (printHoleContent: int -> string) =
+    // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler
+    // TODO: Do we need to escape other sequences? See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates_and_escape_sequences
+    let escape (str: string) =
+        str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
+
+    let sb = System.Text.StringBuilder("`")
+    let mutable prevIndex = 0
+
+    for i = 0 to holes.Length - 1 do
+        let m = holes.[i]
+        let strPart = str.Substring(prevIndex, m.Index - prevIndex) |> escape
+        sb.Append(strPart + "${" + (printHoleContent i) + "}") |> ignore
+        prevIndex <- m.Index + m.Length
+
+    sb.Append(str.Substring(prevIndex) |> escape) |> ignore
+    sb.Append("`") |> ignore
+    sb.ToString()
+
 let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Even if we're going to wrap it again to make it compatible with FormattableString API, we use a JS template string
@@ -1751,11 +1770,6 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
     // Attention, if we change the shape of the object ({ strs, args }) we need to change the resolution
     // of the FormattableString.GetStrings extension in Fable.Core too
     | "Create", None, [StringConst str; Value(NewArray(args, _),_)] ->
-        // Escape ` quotations for JS
-        // Note unescaping F# special chars is already done by the compiler
-        let escape (str: string) =
-            str.Replace("`", "\\`") //.Replace("{{", "{").Replace("}}", "}").Replace("%%", "%")
-
         let matches = Regex.Matches(str, @"\{\d+(.*?)\}") |> Seq.cast<Match> |> Seq.toArray
         let hasFormat = matches |> Array.exists (fun m -> m.Groups.[1].Value.Length > 0)
         let callMacro, args, offset =
@@ -1770,16 +1784,10 @@ let formattableString (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo)
                     |> Array.toList
                     |> makeArray String
                 "$0($1)", fnArg::fmtArg::args, 2
-        let sb = System.Text.StringBuilder()
-        let mutable prevIndex = 0
-
-        for i = 0 to matches.Length - 1 do
-            let m = matches.[i]
-            let strPart = str.Substring(prevIndex, m.Index - prevIndex) |> escape
-            sb.Append(strPart + "${$" + string(i + offset) + "}") |> ignore
-            prevIndex <- m.Index + m.Length
-        sb.Append(str.Substring(prevIndex) |> escape) |> ignore
-        emitJsExpr r t args (callMacro + "`" + sb.ToString() + "`") |> Some
+        let jsTaggedTemplate =
+            let holes = matches |> Array.map (fun m -> {| Index = m.Index; Length = m.Length |})
+            printJsTaggedTemplate str holes (fun i -> "$" + string(i + offset))
+        emitJsExpr r t args (callMacro + jsTaggedTemplate) |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [x], ?loc=r) |> Some
     | "get_ArgumentCount", Some x, _ -> get r t (getSimple x "args") "length" |> Some
     | "GetArgument", Some x, [idx] -> getExpr r t (getSimple x "args") idx |> Some

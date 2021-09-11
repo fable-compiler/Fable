@@ -67,13 +67,16 @@ module CompilerExt =
                 let m = r.Match(v)
                 int m.Groups.[1].Value,
                 int m.Groups.[2].Value,
-                if m.Groups.[3].Success then Some(int m.Groups.[3].Value) else None
+                if m.Groups.[3].Success then int m.Groups.[3].Value else 0
+
             let actualMajor, actualMinor, actualPatch = parse actual
             let expectedMajor, expectedMinor, expectedPatch = parse expected
-            let success = actualMajor = expectedMajor && actualMinor >= expectedMinor
-            match expectedPatch, actualPatch with
-            | Some expectedPatch, Some actualPatch -> success && actualPatch >= expectedPatch
-            | _ -> success
+
+            // Fail also if actual major is bigger than expected major version
+            actualMajor = expectedMajor && (
+                actualMinor > expectedMinor
+                || (actualMinor = expectedMinor && actualPatch >= expectedPatch)
+            )
         with _ -> false
 
     type Compiler with
