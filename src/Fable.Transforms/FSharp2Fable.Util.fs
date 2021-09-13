@@ -1472,6 +1472,8 @@ module Util =
                     ImportAtt("default", path.Trim()) |> Some
                 | Atts.importMember, [(:? string as path)] ->
                     ImportAtt(Naming.placeholder, path.Trim()) |> Some
+                | _, [(:? string as path)] ->
+                    ImportAtt("default", path.Trim()) |> Some
                 | _, [(:? string as selector); (:? string as path)] ->
                     ImportAtt(selector.Trim(), path.Trim()) |> Some
                 | _ -> None
