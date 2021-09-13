@@ -908,7 +908,16 @@ let tests =
             sprintf "%d%%" 100 |> equal "100%"
 
       testCase "interpolated string with double % should be unescaped" <| fun () ->
-            $"{100}%%" |> equal "100%"
+          $"{100}%%" |> equal "100%"
+
+      testCase "interpolated string with format and double % should be unescaped" <| fun () ->
+          $"%.2f{100.4566666}%%" |> equal "100.46%"
+
+      testCase "interpolated string with double braces should be unescaped" <| fun () ->
+          $"{{ {100} }}" |> equal "{ 100 }"
+
+      testCase "interpolated string with format and double braces should be unescaped" <| fun () ->
+          $"{{ %.2f{100.4566666} }}" |> equal "{ 100.46 }"
 
       testCase "Can create FormattableString" <| fun () ->
           let orderAmount = 100
