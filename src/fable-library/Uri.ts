@@ -7,8 +7,8 @@ export const enum UriKind {
 }
 
 type State =
-  | { value: URL; kind: UriKind.Absolute }
-  | { value: string; kind: UriKind.Relative };
+  | { original: string; value: URL; kind: UriKind.Absolute }
+  | { original: string; value: string; kind: UriKind.Relative };
 
 const ok = <T>(value: T): Result<T> => ({
   tag: "ok",
@@ -38,18 +38,18 @@ export class Uri {
     switch (kind) {
       case UriKind.Absolute:
         return Uri.isAbsoluteUri(uri)
-          ? ok(new Uri({ value: new URL(uri), kind }))
+          ? ok(new Uri({ original: uri, value: new URL(uri), kind }))
           : error(
               "Invalid URI: The format of the URI could not be determined."
             );
       case UriKind.Relative:
         return Uri.isAbsoluteUri(uri)
           ? error("URI is not a relative path.")
-          : ok(new Uri({ value: uri, kind }));
+          : ok(new Uri({ original: uri, value: uri, kind }));
       case UriKind.RelativeOrAbsolute:
         return Uri.isAbsoluteUri(uri)
-          ? ok(new Uri({ value: new URL(uri), kind: UriKind.Absolute }))
-          : ok(new Uri({ value: uri, kind: UriKind.Relative }));
+          ? ok(new Uri({ original: uri, value: new URL(uri), kind: UriKind.Absolute }))
+          : ok(new Uri({ original: uri, value: uri, kind: UriKind.Relative }));
       default:
         const never: never = kind;
         return never;
@@ -65,6 +65,7 @@ export class Uri {
       : typeof relativeUri === "string"
       ? ok(
           new Uri({
+            original: new URL(relativeUri, baseUri.uri.value).toString(),
             value: new URL(relativeUri, baseUri.uri.value),
             kind: UriKind.Absolute,
           })
@@ -72,6 +73,7 @@ export class Uri {
       : relativeUri.uri.kind === UriKind.Relative
       ? ok(
           new Uri({
+            original: new URL(relativeUri.uri.value, baseUri.uri.value).toString(),
             value: new URL(relativeUri.uri.value, baseUri.uri.value),
             kind: UriKind.Absolute,
           })
@@ -196,6 +198,10 @@ export class Uri {
 
   get fragment() {
     return this.asUrl().hash;
+  }
+
+  get originalString(): string {
+    return this.uri.original;
   }
 }
 

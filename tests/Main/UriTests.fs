@@ -145,4 +145,16 @@ let tests =
         let uri = Uri("HTTP://www.test4.com:80/a%20b%20c.html")
         uri.ToString() |> equal "http://www.test4.com/a b c.html"
         sprintf "%A" uri |> equal "http://www.test4.com/a b c.html"
+
+    testCase "Uri.OriginalString works" <| fun _ ->
+        let cases = [
+            "http://example.org"
+            "http://example.org/"
+            "HTTP://www.ConToso.com:80//thick%20and%20thin.htm"
+            "http://www.test0.com/hello?a=b#c"
+        ]
+
+        for case in cases do
+            let uri = Uri(case)
+            uri.OriginalString |> equal case
   ]
