@@ -911,6 +911,10 @@ type BaseClass2 (f: string -> string -> string) =
 type AddString2 (f: string -> string -> string) =
   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
 
+type IAddFn = int -> int -> int
+type IAdder =
+    abstract Add: IAddFn
+
 module private PseudoElmish =
     let justReturn2 (f: 'a->'b->'c) = f
     let justReturn3 (f: 'a->'b->'c->'d) = f
@@ -1307,6 +1311,18 @@ let tests7 = [
             | [f] -> f 3 4
             | _ -> -1
         equal 7 x
+
+    // See https://github.com/fable-compiler/Fable/issues/2436#issuecomment-919165092
+    testCase "Functions passed to an object expression are uncurried" <| fun () ->
+        let mutable d = 0
+        let getAdder x =
+            d <- d + 1
+            fun y z -> x + y + z
+        let _ = getAdder 4
+        let f = getAdder 4
+        let adder = { new IAdder with member _.Add = f }
+        d |> equal 2
+        adder.Add 3 4 |> equal 11
 
     testCase "Iterating list of functions #2047" <| fun _ ->
         let mutable s = "X"
