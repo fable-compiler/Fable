@@ -194,8 +194,9 @@ module TypeInfo =
         //     |> libReflectionCall com ctx None "enum"
         | Fable.Number(kind, _) ->
             numberType kind
-        // | Fable.LambdaType(argType, returnType) ->
-        //     genericTypeInfo "lambda" [|argType; returnType|]
+        | Fable.LambdaType(_, returnType) ->
+            let inputTypes, returnType = uncurryLambdaType ([], t)
+            transformLambdaType com ctx inputTypes returnType
         // | Fable.DelegateType(argTypes, returnType) ->
         //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
         | Fable.Tuple(genArgs, _) ->
@@ -270,12 +271,7 @@ module TypeInfo =
                 //     Expression.callExpression(callee, generics)
 
         // TODO: remove this catch-all
-        | Fable.LambdaType(_, returnType) ->
-            let inputTypes, returnType = uncurryLambdaType ([], t)
-            transformLambdaType com ctx inputTypes returnType
-            // transformType com ctx t
         | _ -> TODO_TYPE (sprintf "%A" t)
-
 
     let uncurryLambdaType = function
         | lst, Fable.LambdaType(u, returnType) ->
@@ -828,13 +824,10 @@ module Util =
     let callFunctionWithThisContext r callee (args: Rust.Expr list) =
         let args = thisExpr::args |> List.toArray
         Expression.callExpression(get None funcExpr "call", args, ?loc=r)
-*)
+
     let emitExpression range (txt: string) args =
-        // mkEmitExpr txt // TODO: apply args, range
-        // for now implemented as emit macro // TODO: better implementation
-        let tokens = args |> List.map mkExprToken
-        mkParensCommaDelimitedMacCall txt tokens |> mkMacCallExpr
-(*
+        mkEmitExpr txt // TODO: apply args, range
+
     let undefined range =
 //        Undefined(?loc=range) :> Expression
         Expression.unaryExpression(UnaryVoid, Expression.numericLiteral(0.), ?loc=range)
@@ -1269,7 +1262,9 @@ module Util =
         // let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
         transformCallArgs com ctx info.HasSpread info.Args
         // |> List.append thisArg
-        |> emitExpression range macro
+        // for now implemented as emit macro
+        // TODO: better implementation, range
+        |> mkMacroExpr macro
 
     let transformCall (com: IRustCompiler) ctx range callee (callInfo: Fable.CallInfo) =
         let callee = com.TransformAsExpr(ctx, callee)
@@ -1362,8 +1357,7 @@ module Util =
 
         | Fable.OptionValue ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            let value = expr |> mkParenExpr
-            mkMethodCallExpr "unwrap" None value []
+            mkMethodCallExpr "unwrap" None expr []
 
         | Fable.UnionTag ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1399,7 +1393,7 @@ module Util =
                     let expr = com.TransformAsExpr(ctx, fableExpr)
                     let ifExpr = mkLetExpr pat expr
                     let thenExpr = mkPathFromName fieldName None |> mkPathExpr
-                    let elseExpr = mkParensCommaDelimitedMacCall "unreachable" [] |> mkMacCallExpr
+                    let elseExpr = mkMacroExpr "unreachable" []
                     mkIfThenElseExpr ifExpr thenExpr elseExpr
                 | _ ->
                     failwith "Should not happen"
@@ -1454,11 +1448,11 @@ module Util =
             if isUp then
                 mkRangeExpr (Some startExpr) (Some limitExpr) true
             else
-                let downExpr =
+                // downward loop
+                let rangeExpr =
                     mkRangeExpr (Some limitExpr) (Some startExpr) true
                     |> mkParenExpr
-                // reversed downward range
-                mkMethodCallExpr "rev" None downExpr []
+                mkMethodCallExpr "rev" None rangeExpr []
         mkForLoopExpr varPat rangeExpr bodyExpr //?loc=range)
 
     let transformTryCatch (com: IRustCompiler) ctx range body catch finalizer =
@@ -1508,9 +1502,10 @@ module Util =
         match kind with
         // | Fable.TypeTest t ->
         //     transformTypeTest com ctx range expr t
-        // | Fable.OptionTest nonEmpty ->
-        //     let op = if nonEmpty then BinaryUnequal else BinaryEqual
-        //     Expression.binaryExpression(op, com.TransformAsExpr(ctx, expr), Expression.nullLiteral(), ?loc=range)
+        | Fable.OptionTest nonEmpty ->
+            let test = if nonEmpty then "is_some" else "is_none"
+            let expr = com.TransformAsExpr(ctx, expr)
+            mkMethodCallExpr test None expr []
         // | Fable.ListTest nonEmpty ->
         //     let expr = com.TransformAsExpr(ctx, expr)
         //     let expr = libCall com ctx range "List" "isEmpty" [|expr|]
@@ -1604,7 +1599,8 @@ module Util =
             let idents, bodyExpr = targets |> List.item targetIndex
             let patOpt =
                 match bodyExpr with
-                | Fable.Get (Fable.IdentExpr id, Fable.UnionField(caseIndex, _), _, _) ->
+                | Fable.Get (Fable.IdentExpr id, Fable.UnionField(caseIndex, _), _, _)
+                    when Some id.Name = evalName && id.Type = evalType->
                     makeUnionCasePat evalType evalName caseIndex
                 | _ -> None
             let pat = patOpt |> Option.defaultValue WILD_PAT

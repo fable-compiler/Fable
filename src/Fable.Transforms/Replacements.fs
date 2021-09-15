@@ -107,8 +107,6 @@ module Helpers =
             |> addError com ctx.InlinePath r
             Any)
 
-    let isRustLang (com: ICompiler) = com.Options.Language = Rust
-
 open Helpers
 open Fable.Transforms
 
@@ -596,7 +594,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
     | NumberExt typeFrom, NumberExt typeTo  ->
-        if not (isRustLang com) && needToCast typeFrom typeTo then
+        if not (com.Options.Language = Rust) && needToCast typeFrom typeTo then
             match typeFrom with
             | Long _ -> Helper.LibCall(com, "Long", "toInt", targetType, args)
             | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
@@ -2028,7 +2026,9 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
 let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
+    | "get_Value", Some c ->
+        if com.Options.Language = Rust then Get(c, OptionValue, t, r) |> Some
+        else Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None

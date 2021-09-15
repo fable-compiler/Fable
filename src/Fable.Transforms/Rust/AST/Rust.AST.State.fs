@@ -158,20 +158,19 @@ let print_crate(sm: SourceMap,
     s.ann.post(s, AnnNode.Crate(krate))
     s.s.eof()
 
-// This makes printed token streams look slightly nicer,s
+// This makes printed token streams look slightly nicer,
 // and also addresses some specific regressions described in #63896 and #73345.
 let tt_prepend_space(tt: token.TokenTree, prev: token.TokenTree): bool =
-    false
     // if let TokenTree.Token(token_) = prev then
     //     if let token.DocComment(comment_kind, _) = token_.kind then
     //         return comment_kind <> CommentKind.Line
-    // match tt with
-    //     | token.TokenTree.Token(token_) -> token_.kind <> token.Comma
-    //     | token.TokenTree.Delimited(_, token.DelimToken.Paren, _) ->
-    //         not(matches(prev), TokenTree.Token(Token { kind: token.Ident(_), .. }))
-    //     | token.TokenTree.Delimited(_, token.DelimToken.Bracket, _) ->
-    //         not(matches(prev), TokenTree.Token(Token { kind: token.Pound, .. }))
-    //     | token.TokenTree.Delimited(_) -> true
+    match tt with
+        | token.TokenTree.Token(token_) -> token_.kind <> token.TokenKind.Comma
+        // | token.TokenTree.Delimited(_, token.DelimToken.Paren, _) ->
+        //     not(matches(prev), TokenTree.Token(Token { kind: token.Ident(_), .. }))
+        // | token.TokenTree.Delimited(_, token.DelimToken.Bracket, _) ->
+        //     not(matches(prev), TokenTree.Token(Token { kind: token.Pound, .. }))
+        | token.TokenTree.Delimited(_) -> true
 
 let binop_to_string(op: token.BinOpToken): string =
     match op with
