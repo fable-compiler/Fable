@@ -186,8 +186,8 @@ export function isEnum(t: TypeInfo) {
   return t.enumCases != null && t.enumCases.length > 0;
 }
 
-export function isSubclassOf(t1: TypeInfo, t2: TypeInfo) {
-  return t1.parent?.Equals(t2) ?? false;
+export function isSubclassOf(t1: TypeInfo, t2: TypeInfo): Boolean {
+  return t1.parent != null && (t1.parent.Equals(t2) || isSubclassOf(t1.parent, t2));
 }
 
 /**
