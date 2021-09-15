@@ -5,6 +5,8 @@ open System.Text.RegularExpressions
 
 module JS =
     type [<AllowNullLiteral>] Function =
+        abstract name: string
+        abstract length: int
         abstract apply: thisArg: obj * args: obj[] -> obj
         abstract bind: thisArg: obj * [<ParamArray>] args: obj[] -> Function
         abstract call: thisArg: obj * [<ParamArray>] args: obj[] -> obj
