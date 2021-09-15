@@ -405,6 +405,10 @@ type MyUnion2 = Foo of int * int
 type MyRecord1 = { Foo: int; Bar: string }
 type MyRecord2 = { Foo: int; Bar: string }
 
+type SubclassTest1() = class end
+type SubclassTest2() = inherit SubclassTest1()
+type SubclassTest3() = inherit SubclassTest2()
+
 let tests =
   testList "Types" [
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
@@ -878,6 +882,10 @@ let tests =
     testCase "Two records of different type with same shape are not equal" <| fun () ->
         areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord2.Foo = 2; Bar = "oh" } |> equal false
         areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord1.Foo = 2; Bar = "oh" } |> equal true
+
+    testCase "IsSubclassOf checks whole hierarchy" <| fun () ->
+        typeof<SubclassTest2>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
+        typeof<SubclassTest3>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
 
 #if FABLE_COMPILER
     testCase "Choice with arity 3+ is represented correctly" <| fun () -> // See #2485
