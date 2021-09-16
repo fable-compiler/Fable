@@ -1,6 +1,7 @@
-### 3.3.0-beta-001
+### 3.3.1
 
-* JS.Decorator attribute
+* JS.Decorator/ReflectedDecorator attributes
+* JS.Function
 
 ### 3.2.9
 

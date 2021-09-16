@@ -1,10 +1,10 @@
-### 3.3.0-beta-002
+### 3.3.0
 
-* ReflectedDecorator
-
-### 3.3.0-beta-001
-
-* Decorators
+* JS.Decorator/ReflectedDecorator attributes
+* Fix isSubclassOf to walk up the inheritance chain @chkn
+* Fix #2520: Uri.OriginalString @njlr
+* Fix #2532: Measure products
+* Optimize interpolate strings without formatting into JS templates
 
 ### 3.2.14
 
