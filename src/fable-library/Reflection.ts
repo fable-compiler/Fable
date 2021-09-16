@@ -130,6 +130,10 @@ export function enum_type(fullname: string, underlyingType: TypeInfo, enumCases:
   return new TypeInfo(fullname, [underlyingType], undefined, undefined, undefined, undefined, enumCases);
 }
 
+export function measure_type(fullname: string): TypeInfo {
+  return new TypeInfo(fullname);
+}
+
 export const obj_type: TypeInfo = new TypeInfo("System.Object");
 export const unit_type: TypeInfo = new TypeInfo("Microsoft.FSharp.Core.Unit");
 export const char_type: TypeInfo = new TypeInfo("System.Char");

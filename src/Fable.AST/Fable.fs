@@ -84,6 +84,7 @@ type Entity =
     abstract IsValueType: bool
     abstract IsFSharpExceptionDeclaration: bool
     abstract IsInterface: bool
+    abstract IsMeasure: bool
 
 type Type =
     | MetaType

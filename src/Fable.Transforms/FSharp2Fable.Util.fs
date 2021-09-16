@@ -203,6 +203,7 @@ type FsEnt(ent: FSharpEntity) =
         member _.IsFSharpExceptionDeclaration = ent.IsFSharpExceptionDeclaration
         member _.IsValueType = ent.IsValueType
         member _.IsInterface = ent.IsInterface
+        member _.IsMeasure = ent.IsMeasure
 
 type MemberInfo(?attributes: FSharpAttribute seq,
                     ?hasSpread: bool,
@@ -763,7 +764,9 @@ module TypeHelpers =
         | None -> Fable.GenericParam name
         | Some typ -> typ
 
-    let makeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
+    // TODO: We need to filter the measure generic arguments
+    // But for that we need to pass the compiler here, which needs a bigger refactoring
+    let makeTypeGenArgs ctxTypeArgs (genArgs: IList<FSharpType>) =
         genArgs |> Seq.map (fun genArg ->
             if genArg.IsGenericParameter
             then resolveGenParam ctxTypeArgs genArg.GenericParameter
@@ -829,9 +832,15 @@ module TypeHelpers =
                   Path = Fable.CoreAssemblyName "System.Runtime" }
             Fable.DeclaredType(r, [])
 
+    let private makeFSharpCoreType fullName =
+            let r: Fable.EntityRef =
+                { FullName = fullName
+                  Path = Fable.CoreAssemblyName "FSharp.Core" }
+            Fable.DeclaredType(r, [])
+
     let makeTypeFromDef ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =
         if tdef.IsArrayType then
-            makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
+            makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
         elif tdef.IsDelegate then
             makeTypeFromDelegate ctxTypeArgs genArgs tdef
         elif tdef.IsEnum then
@@ -847,12 +856,13 @@ module TypeHelpers =
             | Types.regex -> Fable.Regex
             | Types.type_ -> Fable.MetaType
             | Types.valueOption
-            | Types.option -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Option
-            | Types.resizeArray -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
-            | Types.list -> makeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
+            | Types.option -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Option
+            | Types.resizeArray -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.Array
+            | Types.list -> makeTypeGenArgs ctxTypeArgs genArgs |> List.head |> Fable.List
             | DicContains numberTypes kind -> Fable.Number kind
             | "Microsoft.FSharp.Core.int64`1" -> makeSystemRuntimeType Types.int64
             | "Microsoft.FSharp.Core.decimal`1" -> makeSystemRuntimeType Types.decimal
+            | "Microsoft.FSharp.Core.CompilerServices.MeasureProduct`2" as fullName -> makeFSharpCoreType fullName
             // TODO: FCS doesn't expose the abbreviated type of a MeasureAnnotatedAbbreviation,
             // so we need to hard-cde FSharp.UMX types
             | Naming.StartsWith "FSharp.UMX." (DicContains fsharpUMX choice) ->
@@ -867,7 +877,7 @@ module TypeHelpers =
                 ]
                 // Rest of declared types
                 |> Option.defaultWith (fun () ->
-                    Fable.DeclaredType(FsEnt.Ref tdef, makeGenArgs ctxTypeArgs genArgs))
+                    Fable.DeclaredType(FsEnt.Ref tdef, makeTypeGenArgs ctxTypeArgs genArgs))
 
     let rec makeType (ctxTypeArgs: Map<string, Fable.Type>) (NonAbbreviatedType t) =
         // Generic parameter (try to resolve for inline functions)
@@ -875,14 +885,14 @@ module TypeHelpers =
             resolveGenParam ctxTypeArgs t.GenericParameter
         // Tuple
         elif t.IsTupleType then
-            makeGenArgs ctxTypeArgs t.GenericArguments |> Fable.Tuple
+            makeTypeGenArgs ctxTypeArgs t.GenericArguments |> Fable.Tuple
         // Function
         elif t.IsFunctionType then
             let argType = makeType ctxTypeArgs t.GenericArguments.[0]
             let returnType = makeType ctxTypeArgs t.GenericArguments.[1]
             Fable.LambdaType(argType, returnType)
         elif t.IsAnonRecordType then
-            let genArgs = makeGenArgs ctxTypeArgs t.GenericArguments
+            let genArgs = makeTypeGenArgs ctxTypeArgs t.GenericArguments
             let fields = t.AnonRecordTypeDetails.SortedFieldNames
             Fable.AnonymousRecordType(fields, genArgs)
         elif t.HasTypeDefinition then

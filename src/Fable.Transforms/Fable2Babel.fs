@@ -223,6 +223,11 @@ module Reflection =
                     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
                     || FSharp2Fable.Util.isReplacementCandidate ent then
                     genericEntity ent.FullName generics
+                // TODO: Strictly measure types shouldn't appear in the runtime, but we support it for now
+                // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
+                elif ent.IsMeasure then
+                    [| Expression.stringLiteral(ent.FullName) |]
+                    |> libReflectionCall com ctx None "measure"
                 else
                     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
                     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)

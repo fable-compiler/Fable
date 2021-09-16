@@ -83,7 +83,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             | _ -> failwith "Unexpected args for List constructor"
         Fable.NewList(headAndTail, typ) |> makeValue r
     | DiscriminatedUnion(tdef, genArgs) ->
-        let genArgs = makeGenArgs ctx.GenericArgs genArgs
+        let genArgs = makeTypeGenArgs ctx.GenericArgs genArgs
         let tag = unionCaseTag com tdef unionCase
         Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
@@ -875,14 +875,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.NewRecord(fsType, argExprs) ->
         let r = makeRangeFrom fsExpr
         let! argExprs = transformExprList com ctx argExprs
-        let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+        let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
         return Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs) |> makeValue r
 
     | FSharpExprPatterns.NewAnonRecord(fsType, argExprs) ->
         let r = makeRangeFrom fsExpr
         let! argExprs = transformExprList com ctx argExprs
         let fieldNames = fsType.AnonRecordTypeDetails.SortedFieldNames
-        let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+        let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
         return Fable.NewAnonymousRecord(argExprs, fieldNames, genArgs) |> makeValue r
 
     | FSharpExprPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
@@ -1296,6 +1296,7 @@ let private isIgnoredLeafEntity (ent: FSharpEntity) =
     || ent.IsEnum
     || ent.IsMeasure
     || ent.IsFSharpAbbreviation
+    || ent.IsDelegate
     || ent.IsNamespace // Ignore empty namespaces
 
 // In case this is a recursive module, do a first pass to get all entity and member names
