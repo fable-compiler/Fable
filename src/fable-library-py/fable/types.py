@@ -92,11 +92,10 @@ def recordEquals(self, other):
     if self is other:
         return True
 
-    for name in self.__dict__.keys():
-        if not equals(self.__dict__[name], other.__dict__[name]):
-            return False
+    a = self.__dict__ if hasattr(self, "__dict__") else self
+    b = other.__dict__ if hasattr(other, "__dict__") else other
 
-    return True
+    return a == b
 
 
 def recordCompareTo(self, other):

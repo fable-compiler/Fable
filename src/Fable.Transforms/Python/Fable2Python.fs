@@ -2,6 +2,7 @@ module rec Fable.Transforms.Fable2Python
 
 open System
 open System.Collections.Generic
+open System.IO
 open System.Text.RegularExpressions
 
 open Fable
@@ -414,11 +415,9 @@ module Helpers =
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport moduleName =
-        // printfn "ModuleName: %s" moduleName
+        //printfn "ModuleName: %s" moduleName
         let _reFableLib =
             Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
-        // let _reFable =
-        //     Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
         if m.Groups.Count > 1 then
@@ -431,15 +430,21 @@ module Helpers =
             // printfn "-> Module: %A" moduleName
             moduleName
         elif moduleName.Contains(".fs") then
-            // Modules should have short, all-lowercase names.
+            // PEP-8: Modules should have short, all-lowercase names.
             let moduleName =
-                let name =
-                    let lower = Path.GetFileNameWithoutExtension(moduleName) |> Naming.applyCaseRule CaseRules.SnakeCase
-                    (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+                let path =
+                    moduleName.Split [| Path.DirectorySeparatorChar |]
+                    |> Array.choose (function
+                        | name when name.Contains(".fs") ->
+                            let lower = Path.GetFileNameWithoutExtension(name) |> Naming.applyCaseRule CaseRules.SnakeCase
+                            (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+                            |> Some
+                        | name when name = "" || name = "." || name = ".." -> None
+                        | name -> Some name )
+                    |> (fun path -> String.Join(".", path))
+                $".{path}"
 
-                $".{name}"
-
-            // printfn "-> Module: %A" moduleName
+            //printfn "-> Module: %A" moduleName
             moduleName
         else
             // Cannot dashify / clean here since Python modules are separated by dots
@@ -839,6 +844,7 @@ module Util =
         ]
 
     let transformImport (com: IPythonCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
+        //printfn "transformImport: %A" (name, moduleName)
         let name, parts =
             let parts = Array.toList(name.Split('.'))
             parts.Head, parts.Tail
@@ -2046,7 +2052,8 @@ module Util =
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
         let args = discardUnitArg args
 
-        // printfn "TailCallOpportunity: %A" ctx.TailCallOpportunity.IsSome
+        // For Python we need to append the TC-arguments to any declared (arrow) function inside the while-loop of the
+        // TCO. We will set them as default values to themselves e.g `i=i` to capture the value and not the variable.
         let tcArgs, tcDefaults =
             match ctx.TailCallOpportunity with
             | Some tc ->
@@ -2102,11 +2109,13 @@ module Util =
             | _ -> args |> List.map (ident com ctx), body
 
         let arguments =
+            let args = args |> List.map Arg.arg
+
             match args, isUnit with
             | [], true -> Arguments.arguments(args=Arg.arg(Python.Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
             // So we can also receive unit
-            | _, true -> Arguments.arguments((args |> List.map Arg.arg) @ tcArgs, defaults=Expression.none()::tcDefaults)
-            | _ -> Arguments.arguments((args |> List.map Arg.arg) @ tcArgs, defaults=tcDefaults)
+            | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none()::tcDefaults)
+            | _ -> Arguments.arguments(args @ tcArgs, defaults=tcDefaults)
 
         arguments, body
 
@@ -2460,47 +2469,52 @@ module Util =
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformImports (imports: Import list) : Statement list =
-        // printfn "Imports: %A" imports
+        //printfn "transformImports: %A" imports
         let imports =
             imports
             |> List.map (fun im ->
                 let moduleName = im.Module |> Helpers.rewriteFableImport
                 match im.Name with
+                | Some "*"
                 | Some "default" ->
-                    // printfn "modules: %A" (moduleName, im.LocalIdent.Value)
+                    //printfn "modules: %A" (moduleName, im.LocalIdent.Value)
                     let (Identifier local) = im.LocalIdent.Value
                     if moduleName <> local then
                         Some moduleName, Alias.alias(im.LocalIdent.Value)
                     else
                         None, Alias.alias(im.LocalIdent.Value)
                 | Some name ->
+                    // printfn "transformImports: %A" (moduleName, name)
                     let name = Naming.toSnakeCase name
                     Some moduleName, Alias.alias(Identifier(Helpers.clean name), ?asname=im.LocalIdent)
                 | None ->
-                    None, Alias.alias(Identifier(moduleName), ?asname=None))
+                    None, Alias.alias(Identifier(moduleName), ?asname=im.LocalIdent))
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
         [
-            for (moduleName, alias) in imports do
+            for (moduleName, aliases) in imports do
                 match moduleName with
                 | Some name ->
-                    Statement.importFrom (Some(Identifier(name)), alias)
+                    Statement.importFrom (Some(Identifier(name)), aliases)
                 | None ->
                     // Do not put multiple imports on a single line. flake8(E401)
-                    for alias in alias do
+                    for alias in aliases do
                         Statement.import([alias])
         ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
-        // printfn "getIdentForImport: %A" (moduleName, name)
+        //printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
             |> Python.Identifier
             |> Some
+        // | Some "*" ->
+        //     name
+        //     |> Option.map Python.Identifier
         | Some name ->
             match name with
-            | "*" | "default" -> Path.GetFileNameWithoutExtension(moduleName)
+            | "default" | "*" -> Path.GetFileNameWithoutExtension(moduleName)
             | _ -> name
             |> getUniqueNameInRootScope ctx
             |> Python.Identifier
@@ -2519,7 +2533,7 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
-                // printfn "GetImportExpr: %A" (moduleName, name)
+                //printfn "GetImportExpr: %A" (moduleName, name)
                 let cachedName = moduleName + "::" + defaultArg name "module"
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
@@ -2528,7 +2542,15 @@ module Compiler =
                     | None -> Expression.none()
                 | false, _ ->
                     let localId = getIdentForImport ctx moduleName name
+                    //printfn "localId: %A" localId
                     match name with
+                    | Some "*"
+                    | None ->
+                        let i =
+                            { Name = None
+                              Module = moduleName
+                              LocalIdent = localId }
+                        imports.Add(cachedName, i)
                     | Some name ->
                         let i =
                           { Name =
@@ -2539,12 +2561,6 @@ module Compiler =
                                 |> Some
                             Module = moduleName
                             LocalIdent = localId }
-                        imports.Add(cachedName, i)
-                    | None ->
-                        let i =
-                            { Name = None
-                              Module = moduleName
-                              LocalIdent = localId }
                         imports.Add(cachedName, i)
 
                     match localId with
