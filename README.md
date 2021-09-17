@@ -23,7 +23,7 @@ Then run `dotnet fsi build.fsx` at the root folder to see the build options.
 
 ## Contributing
 
-Just by using Fable you're already contributing! You can help the community a lot by sharing examples and experiences in your personal blog and adding a link to the [community contributions](https://github.com/fable-compiler/community/edit/master/public/community.json).
+Just by using Fable you're already contributing! You can help the community a lot by sharing examples and experiences in your personal (or Fable's) blog and/or by editing the [Fable Resources](https://fable.io/resources.html) page.
 
 Send bug reports (ideally with minimal code to reproduce the problem) and feature requests to this [GitHub repository](https://github.com/fable-compiler/Fable/issues). To interact with the community you can use the [Gitter chat](https://gitter.im/fable-compiler/Fable) but please note maintainers are not checking the chat regularly.
 
