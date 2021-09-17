@@ -1,11 +1,12 @@
 [<RequireQualifiedAccess>]
-module Fable.Transforms.Replacements
+module Fable.Transforms.Rust.Replacements
 
 #nowarn "1182"
 
 open Fable
 open Fable.AST
 open Fable.AST.Fable
+open Fable.Transforms
 
 type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
@@ -593,14 +594,7 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
     | Char, _ -> Helper.InstanceCall(args.Head, "charCodeAt", targetType, [makeIntConst 0])
     | String, _ -> stringToInt com ctx r targetType args
     | Builtin BclBigInt, _ -> Helper.LibCall(com, "BigInt", castBigIntMethod targetType, targetType, args)
-    | NumberExt typeFrom, NumberExt typeTo  ->
-        if needToCast typeFrom typeTo then
-            match typeFrom with
-            | Long _ -> Helper.LibCall(com, "Long", "toInt", targetType, args)
-            | Decimal -> Helper.LibCall(com, "Decimal", "toNumber", targetType, args)
-            | _ -> args.Head
-            |> emitCast typeTo
-        else TypeCast(args.Head, targetType)
+    | NumberExt typeFrom, NumberExt typeTo -> TypeCast(args.Head, targetType)
     | _ ->
         addWarning com ctx.InlinePath r "Cannot make conversion because source type is unknown"
         TypeCast(args.Head, targetType)
@@ -1414,7 +1408,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
 
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
-        Helper.GlobalCall("Math", t, args, argTypes, meth, ?loc=r)
+        match args with
+        | thisArg::restArgs -> Helper.InstanceCall(thisArg, meth, t, restArgs, ?loc=r)
+        | _ -> "Missing argument." |> addErrorAndReturnNull com ctx.InlinePath r
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), _ ->
@@ -1719,7 +1715,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Length", [arg] -> getAttachedMemberWith r t arg "length" |> Some
+    | "Length", [arg] -> Helper.InstanceCall(arg, "len", t, []) |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
@@ -1794,7 +1790,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         match ar.Type with
         // Fable translates System.Collections.Generic.List as Array
         // TODO: Check also IList?
-        | Array _ ->  getAttachedMemberWith r t ar "length" |> Some
+        | Array _ ->  Helper.InstanceCall(ar, "len", t, []) |> Some
         | _ -> Helper.LibCall(com, "Util", "count", t, [ar], ?loc=r) |> Some
     | "Clear", Some ar, _ ->
         Helper.LibCall(com, "Util", "clear", t, [ar], ?loc=r) |> Some
@@ -1886,7 +1882,7 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some arg, _ -> getAttachedMemberWith r t arg "length" |> Some
+    | "get_Length", Some arg, _ -> Helper.InstanceCall(arg, "len", t, []) |> Some
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
@@ -1917,7 +1913,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToList", args ->
         Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Length" | "Count"), [arg] -> getAttachedMemberWith r t arg "length" |> Some
+    | ("Length" | "Count"), [arg] -> Helper.InstanceCall(arg, "len", t, []) |> Some
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> setExpr r ar idx value |> Some
@@ -1927,7 +1923,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let t = match t with Array t -> t | _ -> Any
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
-        eq (getAttachedMemberWith r (Number(Int32, None)) ar "length") (makeIntConst 0) |> Some
+        eq (Helper.InstanceCall(ar, "len", t, [])) (makeIntConst 0) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
@@ -2026,8 +2022,7 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
 let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | "get_Value", Some c ->
-        Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
+    | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
@@ -2037,8 +2032,7 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, "Option", "toArray", Array t, [arg], ?loc=r)
     match i.CompiledName, args with
     | "None", _ -> NewOption(None, t, false) |> makeValue r |> Some
-    | "GetValue", [c] ->
-        Helper.LibCall(com, "Option", "value", t, args, ?loc=r) |> Some
+    | "GetValue", [c] -> Get(c, OptionValue, t, r) |> Some
     | ("OfObj" | "OfNullable"), _ ->
         Helper.LibCall(com, "Option", "ofNullable", t, args, ?loc=r) |> Some
     | ("ToObj" | "ToNullable"), _ ->

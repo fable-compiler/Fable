@@ -13,7 +13,7 @@ module Idents =
         let symbol = symbol.Replace("$", "_")
         Ident.from_str(symbol)
 
-    let inline mkVec (items: _ seq) =
+    let inline internal mkVec (items: _ seq) =
         Vec(items)
 
 [<AutoOpen>]
@@ -210,23 +210,22 @@ module Paths =
 
     let mkPath segments: Path =
         { span = DUMMY_SP
-          segments = segments
+          segments = mkVec segments
           tokens = None }
 
-    let mkGenericPath (symbols: Vec<Symbol>) genArgs: Path =
-        let len = symbols.len()
+    let mkGenericPath (symbols: Symbol seq) genArgs: Path =
+        let len = Seq.length symbols
         let args i = if i < len - 1 then None else genArgs
         symbols
         |> Seq.mapi (fun i s -> mkPathSegment (mkIdent s) (args i))
-        |> mkVec
         |> mkPath
 
     let mkPathFromName (name: Symbol) genArgs: Path =
-        let symbols = [name] |> mkVec
+        let symbols = [name]
         mkGenericPath symbols genArgs
 
     let mkPathFromFullName (name: Symbol) genArgs: Path =
-        let symbols = name.Split('.') |> Array.append [|"crate"|] |> mkVec
+        let symbols = name.Split('.') |> Array.append [|"crate"|]
         mkGenericPath symbols genArgs
 
 [<AutoOpen>]
@@ -257,12 +256,12 @@ module Patterns =
         PatKind.Wild
         |> mkPat
 
-    let mkStructPat (path: Path) (fields: Vec<PatField>): Pat =
-        PatKind.Struct(path, fields, false)
+    let mkStructPat (path: Path) (fields: PatField seq): Pat =
+        PatKind.Struct(path, mkVec fields, false)
         |> mkPat
 
-    let mkTupleStructPat (path: Path) (fields: Vec<Pat>): Pat =
-        PatKind.TupleStruct(path, fields)
+    let mkTupleStructPat (path: Path) (fields: Pat seq): Pat =
+        PatKind.TupleStruct(path, mkVec fields)
         |> mkPat
 
 [<AutoOpen>]
@@ -294,19 +293,19 @@ module BinOps =
 [<AutoOpen>]
 module Locals =
 
-    let mkLocal pat ty init attrs: Local =
+    let mkLocal attrs pat ty init: Local =
         { id = DUMMY_NODE_ID
           pat = pat
           ty = ty
           init = init
           span = DUMMY_SP
-          attrs = attrs
+          attrs = mkVec attrs
           tokens = None }
 
     let mkIdentLocal name init: Local =
         let pat = mkIdentPat name false false
         let ty = None
-        mkLocal pat ty (Some init) (mkVec [])
+        mkLocal [] pat ty (Some init)
 
 [<AutoOpen>]
 module Statements =
@@ -340,7 +339,7 @@ module Blocks =
 module Arms =
 
     let mkArm attrs pat guard body: Arm =
-        { attrs = attrs
+        { attrs = mkVec attrs
           pat = pat
           guard = guard
           body = body
@@ -455,7 +454,7 @@ module Exprs =
           tokens = None }
 
     let mkExprField attrs ident expr is_shorthand is_placeholder: ExprField =
-        { attrs = attrs
+        { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
           ident = ident
@@ -499,10 +498,12 @@ module Exprs =
         |> ExprKind.Lit
         |> mkExpr
 
-    let mkAddrOfExpr isMut expr: Expr =
-        let kind = BorrowKind.Ref
-        let mut = if isMut then Mutability.Mut else Mutability.Not
-        ExprKind.AddrOf(kind, mut, expr)
+    let mkAddrOfExpr expr: Expr =
+        ExprKind.AddrOf(BorrowKind.Ref, Mutability.Not, expr)
+        |> mkExpr
+
+    let mkMutAddrOfExpr expr: Expr =
+        ExprKind.AddrOf(BorrowKind.Ref, Mutability.Mut, expr)
         |> mkExpr
 
     let mkErrLitExpr value: Expr =
@@ -521,17 +522,17 @@ module Exprs =
 
     let mkStructExpr path fields: Expr =
         { path = path
-          fields = fields
+          fields = mkVec fields
           rest = StructRest.None }
         |> ExprKind.Struct
         |> mkExpr
 
-    let mkArrayExpr (elements: Vec<Expr>): Expr =
-        ExprKind.Array(elements)
+    let mkArrayExpr (elements: Expr seq): Expr =
+        ExprKind.Array(mkVec elements)
         |> mkExpr
 
-    let mkTupleExpr (elements: Vec<Expr>): Expr =
-        ExprKind.Tup(elements)
+    let mkTupleExpr (elements: Expr seq): Expr =
+        ExprKind.Tup(mkVec elements)
         |> mkExpr
 
     let mkCastExpr ty expr: Expr =
@@ -603,7 +604,7 @@ module Exprs =
         |> mkExpr
 
     let mkCallExpr (callee: Expr) args: Expr =
-        ExprKind.Call(callee, args)
+        ExprKind.Call(callee, mkVec args)
         |> mkExpr
 
     let mkMethodCallExpr (name: Symbol) genArgs callee args: Expr =
@@ -696,11 +697,15 @@ module Types =
           span = DUMMY_SP
           tokens = None }
 
-    let mkBareFnTy generic_params decl: BareFnTy =
+    let mkBareFnTy genParams fnDecl: BareFnTy =
         { unsafety = Unsafety.No
           ext = Extern.None
-          generic_params = generic_params
-          decl = decl }
+          generic_params = mkVec genParams
+          decl = fnDecl }
+
+    let mkFnTy genParams fnDecl: Ty =
+        TyKind.BareFn(mkBareFnTy genParams fnDecl)
+        |> mkTy
 
     let mkRefTy ty: Ty =
         TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Not })
@@ -722,6 +727,14 @@ module Types =
         TyKind.Array(ty, mkAnonConst size)
         |> mkTy
 
+    let mkSliceTy ty: Ty =
+        TyKind.Slice(ty)
+        |> mkTy
+
+    let mkTupleTy tys: Ty =
+        TyKind.Tup(mkVec tys)
+        |> mkTy
+
     let TODO_TYPE name: Ty =
         mkPathTy ("TODO_TYPE_" + name) None
 
@@ -730,25 +743,25 @@ module Generic =
 
     let mkWhereClause has_where_token predicates: WhereClause =
         { has_where_token = has_where_token
-          predicates = predicates
+          predicates = mkVec predicates
           span = DUMMY_SP }
 
     let NO_WHERE_CLAUSE =
-        mkVec [] |> mkWhereClause false
+        mkWhereClause false []
 
     let mkGenerics params_: Generics =
-        { params_ = params_
+        { params_ = mkVec params_
           where_clause = NO_WHERE_CLAUSE
           span = DUMMY_SP }
 
     let NO_GENERICS =
-        mkVec [] |> mkGenerics
+        mkGenerics []
 
 [<AutoOpen>]
 module Params =
 
     let mkParam attrs ty pat is_placeholder: Param =
-        { attrs = attrs
+        { attrs = mkVec attrs
           ty = ty
           pat = pat
           id = DUMMY_NODE_ID
@@ -758,13 +771,13 @@ module Params =
     let mkGenericParam attrs ident bounds is_placeholder kind: GenericParam =
         { id = DUMMY_NODE_ID
           ident = ident
-          attrs = attrs
-          bounds = bounds
+          attrs = mkVec attrs
+          bounds = mkVec bounds
           is_placeholder = is_placeholder
           kind = kind }
 
     let mkParamFromType name ty isRef isMut: Param =
-        let attrs: AttrVec = mkVec []
+        let attrs = []
         let is_placeholder = false
         let pat = mkIdentPat name isRef isMut
         mkParam attrs ty pat is_placeholder
@@ -775,8 +788,8 @@ module Params =
 
     let mkGenericParamFromName name: GenericParam =
         let ident = mkIdent name
-        let attrs: AttrVec = mkVec []
-        let bounds: GenericBounds = mkVec []
+        let attrs = []
+        let bounds = []
         let is_placeholder = false
         let kind = GenericParamKind.Type None
         mkGenericParam attrs ident bounds is_placeholder kind
@@ -784,7 +797,6 @@ module Params =
     let mkGenericParams (names: Symbol seq): Generics =
         names
         |> Seq.map mkGenericParamFromName
-        |> mkVec
         |> mkGenerics
 
     let mkGenericArgs (tys: Ty seq): GenericArgs option =
@@ -811,16 +823,13 @@ module Funcs =
     let VOID_RETURN_TY: FnRetTy =
         FnRetTy.Default(DUMMY_SP)
 
-    let NO_PARAMS: Vec<Param> =
-        mkVec []
-
     let mkFnSig header decl: FnSig =
         { header = header
           decl = decl
           span = DUMMY_SP }
 
-    let mkFnDecl (inputs: Vec<Param>) (output: FnRetTy): FnDecl =
-        { inputs = inputs
+    let mkFnDecl (inputs: Param seq) (output: FnRetTy): FnDecl =
+        { inputs = mkVec inputs
           output = output }
 
     let mkFnKind (header: FnHeader) (decl: FnDecl) (generics: Generics) (body: Block option): FnKind =
@@ -832,7 +841,7 @@ module Funcs =
 module Variants =
 
     let mkFieldDef attrs ident ty vis is_placeholder: FieldDef =
-        { attrs = attrs
+        { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
           vis = vis
@@ -841,7 +850,7 @@ module Variants =
           is_placeholder = is_placeholder }
 
     let mkVariant attrs ident vis is_placeholder data disr_expr: Variant =
-        { attrs = attrs
+        { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
           vis = vis
@@ -876,7 +885,7 @@ module Variants =
 module Items =
 
     let mkItem attrs ident kind: Item =
-        { attrs = attrs
+        { attrs = mkVec attrs
           id = DUMMY_NODE_ID
           span = DUMMY_SP
           vis = PUBLIC_VIS
@@ -890,7 +899,7 @@ module Items =
         |> mkItem attrs ident
 
     let mkUseItem symbols kind: Item =
-        let attrs = mkVec []
+        let attrs = []
         let ident = mkIdent ""
         let useTree = {
             prefix = mkGenericPath symbols None
@@ -910,7 +919,7 @@ module Items =
 
     let mkModItem attrs name items: Item =
         let ident = mkIdent name
-        let kind = ModKind.Loaded(items, Inline.Yes, DUMMY_SP)
+        let kind = ModKind.Loaded(mkVec items, Inline.Yes, DUMMY_SP)
         ItemKind.Mod(Unsafety.No, kind)
         |> mkItem attrs ident
 
@@ -937,8 +946,29 @@ module Items =
         ItemKind.Union(data, generics)
         |> mkItem attrs ident
 
+    let mkStaticItem attrs name ty isMut exprOpt: Item =
+        let ident = mkIdent name
+        let mut = if isMut then Mutability.Mut else Mutability.Not
+        ItemKind.Static(ty, mut, exprOpt)
+        |> mkItem attrs ident
+
+    let mkConstItem attrs name ty exprOpt: Item =
+        let ident = mkIdent name
+        let def = Defaultness.Final
+        ItemKind.Const(def, ty, exprOpt)
+        |> mkItem attrs ident
+
     let TODO_ITEM (name: string): Item =
-        let attrs = mkVec []
+        let attrs = []
         let name = "TODO_ITEM_" + name.Replace(".", "_")
-        let items = mkVec []
+        let items = []
         mkModItem attrs name items
+
+[<AutoOpen>]
+module Crates =
+
+    let mkCrate attrs items: Crate =
+        { attrs = mkVec attrs
+          items = mkVec items
+          span = DUMMY_SP
+          proc_macros = mkVec [] }

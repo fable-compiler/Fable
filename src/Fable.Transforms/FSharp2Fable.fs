@@ -1403,6 +1403,7 @@ type FableCompiler(com: Compiler) =
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
             match this.Options.Language with
             | Python -> PY.Replacements.tryCall this ctx r t info thisArg args
+            | Rust -> Rust.Replacements.tryCall this ctx r t info thisArg args
             | _ -> Replacements.tryCall this ctx r t info thisArg args
 
         member this.GetInlineExpr(memb) =

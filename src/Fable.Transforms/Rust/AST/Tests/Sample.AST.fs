@@ -25,13 +25,9 @@ let stmt2 =
   |> mkParensCommaDelimitedMacCall "println"
   |> mkMacCallStmt
 
-let test_crate: Crate = {
-  attrs = mkVec []
-  items = mkVec [
+let fnItem =
     [stmt1; stmt2] |> mkBlock |> Some
-    |> mkFnKind DEFAULT_FN_HEADER (mkFnDecl NO_PARAMS VOID_RETURN_TY) NO_GENERICS
-    |> mkFnItem (mkVec []) "main"
-  ]
-  span = DUMMY_SP
-  proc_macros = mkVec []
-}
+    |> mkFnKind DEFAULT_FN_HEADER (mkFnDecl [] VOID_RETURN_TY) NO_GENERICS
+    |> mkFnItem [] "main"
+
+let testCrate = mkCrate [] [fnItem]

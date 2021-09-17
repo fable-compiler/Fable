@@ -26,6 +26,7 @@
     <Compile Include="tests/OptionTests.fs" />
     <Compile Include="tests/UnionTests.fs" />
     <Compile Include="tests/RecordTests.fs" />
+    <!-- <Compile Include="tests/NBodyTests.fs" /> -->
     <Compile Include="src/main.fs" />
   </ItemGroup>
 </Project>

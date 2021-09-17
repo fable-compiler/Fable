@@ -65,16 +65,16 @@ type TestClass () =
     [<TestMethod>]
     member _.test_crate_to_string() =
         let sm: SourceMap = SourceMap()
-        let krate: Crate = Sample.AST.test_crate
+        let krate: Crate = Sample.AST.testCrate
         let filename: FileName = "filename.rs"
         let input: string = ""
         let ann: PpAnn = NoAnn() :> PpAnn
         let is_expanded: bool = false
         let edition: Edition = Edition.Edition2021
 
-        let str = print_crate(sm, krate, filename, input, ann, is_expanded, edition)
-        let expected = "pub fn main() { let a = vec![1,2,3,4,5]; println!(\"{:?}\",a); }\n"
-        assert_eq(str, expected)
+        let actual = print_crate(sm, krate, filename, input, ann, is_expanded, edition)
+        let expected = "pub fn main() { let a = vec![1, 2, 3, 4, 5]; println!(\"{:?}\", a); }\n"
+        assert_eq(actual, expected)
 
 let run() =
     let tests = TestClass()

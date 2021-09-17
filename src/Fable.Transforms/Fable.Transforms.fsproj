@@ -17,6 +17,7 @@
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="ReplacementsInject.fs" />
     <Compile Include="Python/Replacements.fs" />
+    <Compile Include="Rust/Replacements.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fs" />
@@ -30,7 +31,7 @@
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />
     <Compile Include="Dart/DartPrinter.fs" />
-    <Compile Include="Rust/Rust.Printer.fs" />
+    <Compile Include="Rust/RustPrinter.fs" />
     <Compile Include="Rust/Fable2Rust.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
