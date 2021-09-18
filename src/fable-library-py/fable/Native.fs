@@ -10,7 +10,7 @@ open Fable.Import
 
 [<AllowNullLiteral>]
 type Cons<'T> =
-    [<Emit("$0($1)")>]
+    [<Emit("$0([0]*$1)")>]
     abstract Allocate : len: int -> 'T []
 
 module Helpers =
@@ -36,9 +36,10 @@ module Helpers =
     [<Emit("$0+$1")>]
     let concatImpl (array1: 'T []) (arrays: 'T [] seq) : 'T [] = nativeOnly
 
-    [<Emit("$0[:$2]+([$1]*$3)")>]
-    let fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] = nativeOnly
-
+    let fillImpl (array: 'T []) (value: 'T) (start: int) (count: int) : 'T [] =
+        for i = 0 to count - 1 do
+            array.[i+start] <- value
+        array
 
     [<Emit("functools.reduce($0, $2, $1)")>]
     let foldImpl (folder: 'State -> 'T -> 'State) (state: 'State) (array: 'T []) : 'State = nativeOnly
@@ -53,7 +54,7 @@ module Helpers =
         !! array?reduceRight (System.Func<'State, 'T, int, 'State>(folder), state)
 
     // Typed arrays not supported, only dynamic ones do
-    let inline pushImpl (array: 'T []) (item: 'T) : int = !! array?push (item)
+    let inline pushImpl (array: 'T []) (item: 'T) : int = !! array?append (item)
 
     // Typed arrays not supported, only dynamic ones do
     let inline insertImpl (array: 'T []) (index: int) (item: 'T) : 'T [] = !! array?splice (index, 0, item)
@@ -85,7 +86,8 @@ module Helpers =
 
     let inline existsImpl (predicate: 'T -> bool) (array: 'T []) : bool = !! array?some (predicate)
 
-    let inline forAllImpl (predicate: 'T -> bool) (array: 'T []) : bool = !! array?every (predicate)
+    [<Emit("all([$0(x) for x in $1])")>]
+    let forAllImpl (predicate: 'T -> bool) (array: 'T []) : bool = nativeOnly
 
     let inline filterImpl (predicate: 'T -> bool) (array: 'T []) : 'T [] = !! array?filter (predicate)
 
@@ -95,8 +97,8 @@ module Helpers =
     let inline reduceBackImpl (reduction: 'T -> 'T -> 'T) (array: 'T []) : 'T = !! array?reduceRight (reduction)
 
     // Inlining in combination with dynamic application may cause problems with uncurrying
-    // Using Emit keeps the argument signature
-    [<Emit("$1.sort($0)")>]
+    // Using Emit keeps the argument signature. Note: Python cannot take an argument here.
+    [<Emit("$1.sort()")>]
     let sortInPlaceWithImpl (comparer: 'T -> 'T -> int) (array: 'T []) : unit = nativeOnly //!!array?sort(comparer)
 
     [<Emit("$2.set($0.subarray($1, $1 + $4), $3)")>]

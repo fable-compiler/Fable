@@ -139,7 +139,7 @@ module PrinterExtensions =
             printer.Print(name)
             match arg.Annotation with
             | Some ann ->
-                printer.Print("=")
+                printer.Print(": ")
                 printer.Print(ann)
             | _ -> ()
 
@@ -157,12 +157,12 @@ module PrinterExtensions =
             let args = arguments.Args |> List.map AST.Arg
             let defaults = arguments.Defaults
             for i = 0 to args.Length - 1 do
-                printer.Print(args.[i])
-                if i >= args.Length - defaults.Length then
-                    printer.Print("=")
-                    printer.Print(defaults.[i-defaults.Length])
-                if i < args.Length - 1 then
-                    printer.Print(", ")
+                 printer.Print(args.[i])
+                 if i >= args.Length - defaults.Length then
+                     printer.Print("=")
+                     printer.Print(defaults.[i-(args.Length-defaults.Length)])
+                 if i < args.Length - 1 then
+                     printer.Print(", ")
 
             match arguments.Args, arguments.VarArg with
             | [], Some vararg ->
@@ -450,7 +450,7 @@ module PrinterExtensions =
             if (List.isEmpty >> not) node.Args.Args then
                 printer.Print(" ")
 
-            printer.PrintCommaSeparatedList(node.Args.Args)
+            printer.Print(node.Args)
             printer.Print(": ")
 
             printer.Print(node.Body)

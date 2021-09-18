@@ -1251,10 +1251,15 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
                     match getEntityDeclarationName com entRef with
                     | "" -> usedNames
                     | entName ->
+                        let reflectionSuffix =
+                            match com.Options.Language with
+                            | Python -> Fable.PY.Naming.reflectionSuffix
+                            | _ -> Naming.reflectionSuffix
+
                         addUsedRootName com entName usedNames
                         // Fable will inject an extra declaration for reflection,
                         // so add also the name with the reflection suffix
-                        |> addUsedRootName com (entName + Naming.reflectionSuffix)
+                        |> addUsedRootName com (entName + reflectionSuffix)
             | sub ->
                 getUsedRootNames com usedNames sub
         | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb,_,_) ->
@@ -1396,7 +1401,9 @@ type FableCompiler(com: Compiler) =
             transformExpr this ctx fsExpr |> run
 
         member this.TryReplace(ctx, r, t, info, thisArg, args) =
-            Replacements.tryCall this ctx r t info thisArg args
+            match this.Options.Language with
+            | Python -> PY.Replacements.tryCall this ctx r t info thisArg args
+            | _ -> Replacements.tryCall this ctx r t info thisArg args
 
         member this.GetInlineExpr(memb) =
             let membUniqueName = getMemberUniqueName com memb

@@ -208,7 +208,7 @@ type RecordGetValueType = {
 }
 
 [<Fact>]
-let ``test Reflection: Array`` () =
+let ``test Reflection Array`` () =
     let arType = typeof<int[]>
     let liType = typeof<int list>
     equal true arType.IsArray
@@ -217,5 +217,36 @@ let ``test Reflection: Array`` () =
     typeof<int> = elType |> equal true
     typeof<bool> = elType |> equal false
     liType.GetElementType() |> equal null
+
+[<Fact>]
+let ``test FSharp.Reflection Record`` () =
+    let typ = typeof<MyRecord>
+    let record = { String = "a"; Int = 1 }
+    let recordTypeFields = FSharpType.GetRecordFields typ
+    let recordValueFields = FSharpValue.GetRecordFields record
+
+    let expectedRecordFields =
+        [|
+            "String", box "a"
+            "Int", box 1
+        |]
+
+    let recordFields =
+        recordTypeFields
+        |> Array.map (fun field -> field.Name)
+        |> flip Array.zip recordValueFields
+
+    let isRecord = FSharpType.IsRecord typ
+    let matchRecordFields = recordFields = expectedRecordFields
+    let matchIndividualRecordFields =
+        Array.zip recordTypeFields recordValueFields
+        |> Array.forall (fun (info, value) ->
+            FSharpValue.GetRecordField(record, info) = value
+        )
+    let canMakeSameRecord =
+        unbox<MyRecord> (FSharpValue.MakeRecord(typ, recordValueFields)) = record
+
+    let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
+    all |> equal true
 
 #endif

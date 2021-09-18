@@ -1,29 +1,29 @@
 from decimal import Decimal, MAX_EMAX, MIN_EMIN
 
-get_Zero = Decimal(0)
+get_zero = Decimal(0)
 
-get_One = Decimal(1)
+get_one = Decimal(1)
 
-get_MinusOne = Decimal(-1)
+get_minus_one = Decimal(-1)
 
-get_MaxValue = MAX_EMAX
+get_max_value = MAX_EMAX
 
-get_MinValue = MIN_EMIN
+get_min_value = MIN_EMIN
 
 
-def fromParts(low: int, mid: int, high: int, isNegative: bool, scale: int):
+def from_parts(low: int, mid: int, high: int, isNegative: bool, scale: int):
     sign = -1 if isNegative else 1
 
     if low < 0:
         low = 0x100000000 + low
 
     if mid < 0:
-        mid = 0xffffffff00000000 + mid + 1
+        mid = 0xFFFFFFFF00000000 + mid + 1
     else:
         mid = mid << 32
 
     if high < 0:
-        high = 0xffffffff0000000000000000 + high + 1
+        high = 0xFFFFFFFF0000000000000000 + high + 1
     else:
         high = high << 64
 
@@ -34,5 +34,9 @@ def fromParts(low: int, mid: int, high: int, isNegative: bool, scale: int):
     return value
 
 
-def op_Addition(x: Decimal, y: Decimal):
+def op_addition(x: Decimal, y: Decimal):
     return x + y
+
+
+def to_string(x):
+    return str(x)

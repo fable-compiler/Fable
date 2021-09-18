@@ -1,11 +1,14 @@
 module rec Fable.Transforms.Fable2Python
 
+open System
+open System.Collections.Generic
+open System.IO
+open System.Text.RegularExpressions
+
 open Fable
 open Fable.AST
 open Fable.AST.Python
-open System.Collections.Generic
-open System.Text.RegularExpressions
-open Fable.Naming
+open Fable.PY
 open Fable.Core
 
 type ReturnStrategy =
@@ -395,55 +398,53 @@ module Helpers =
     let getUniqueIdentifier (name: string): Python.Identifier =
         do index.MoveNext() |> ignore
         let idx = index.Current.ToString()
-        Python.Identifier($"{name}_{idx}")
+        let deliminator =
+            if Char.IsLower name.[0] then "_" else ""
+        Python.Identifier($"{name}{deliminator}{idx}")
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
         // printfn $"clean: {name}"
         match name with
-        | "this" -> "self"
-        | "async" -> "async_"
-        | "from" -> "from_"
-        | "class" -> "class_"
-        | "for" -> "for_"
         | "Math" -> "math"
-        | "Error" -> "Exception"
-        | "toString" -> "str"
-        | "len" -> "len_"
         | "Map" -> "dict"
+        | "Set" -> "set"
         | "Int32Array" -> "list"
         | "Infinity" -> "float('inf')"
         | _ ->
-            name |> String.map(fun c -> if List.contains c ['.'; '$'; '`'; '*'; ' '] then '_' else c)
+            (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport moduleName =
-        // printfn "ModuleName: %s" moduleName
+        //printfn "ModuleName: %s" moduleName
         let _reFableLib =
             Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
 
         let m = _reFableLib.Match(moduleName)
-        let dashify = applyCaseRule CaseRules.SnakeCase
-
         if m.Groups.Count > 1 then
             let pymodule =
-                m.Groups.["module"].Value
-                |> dashify
-                |> clean
+                let lower = m.Groups.["module"].Value |> Naming.applyCaseRule CaseRules.SnakeCase
+                (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-            let moduleName = String.concat "." [ "fable"; pymodule ]
+            let moduleName = $"fable.{pymodule}"
 
             // printfn "-> Module: %A" moduleName
             moduleName
         elif moduleName.Contains(".fs") then
-            // Modules should have short, all-lowercase names.
+            // PEP-8: Modules should have short, all-lowercase names.
             let moduleName =
-                let name =
-                    Path.GetFileNameWithoutExtension(moduleName)
-                    |> dashify
-                    |> clean
-                $".{name}"
+                let path =
+                    moduleName.Split [| Path.DirectorySeparatorChar |]
+                    |> Array.choose (function
+                        | name when name.Contains(".fs") ->
+                            let lower = Path.GetFileNameWithoutExtension(name) |> Naming.applyCaseRule CaseRules.SnakeCase
+                            (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+                            |> Some
+                        | name when name = "" || name = "." || name = ".." -> None
+                        | name -> Some name )
+                    |> (fun path -> String.Join(".", path))
+                $".{path}"
 
-            // printfn "-> Module: %A" moduleName
+            //printfn "-> Module: %A" moduleName
             moduleName
         else
             // Cannot dashify / clean here since Python modules are separated by dots
@@ -458,7 +459,7 @@ module Helpers =
     /// and should not be printet.
     let isProductiveStatement (stmt: Python.Statement) =
         let rec hasNoSideEffects (e: Python.Expression) =
-            //printfn $"hasNoSideEffects: {e}"
+            // printfn $"hasNoSideEffects: {e}"
 
             match e with
             | Constant _ -> true
@@ -467,6 +468,8 @@ module Helpers =
             | _ -> false
 
         match stmt with
+        // Remove `self = self`
+        | Statement.Assign { Targets = [ Name {Id=Identifier("self")}]; Value = Name {Id=Identifier("self")}} -> None
         | Expr expr ->
             if hasNoSideEffects expr.Value then
                 None
@@ -509,13 +512,12 @@ module Util =
         | args -> args
 
     let getUniqueNameInRootScope (ctx: Context) name =
-        let name = Helpers.clean name
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
             name <> "str" // Do not rewrite `str`
             && (ctx.UsedNames.RootScope.Contains(name)
             || ctx.UsedNames.DeclarationScopes.Contains(name)))
         ctx.UsedNames.RootScope.Add(name) |> ignore
-        name
+        Helpers.clean name
 
     let getUniqueNameInDeclarationScope (ctx: Context) name =
         let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name ->
@@ -599,8 +601,11 @@ module Util =
         | n when n.StartsWith("Symbol.iterator") ->
             let name = Identifier "__iter__"
             Expression.name(name)
-        | n when Naming.hasIdentForbiddenChars n -> Expression.constant(n)
-        | n -> com.GetIdentifierAsExpr(ctx, n)
+        | n when Naming.hasIdentForbiddenChars n ->
+            (n, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+            |> Expression.constant
+        | n ->
+            com.GetIdentifierAsExpr(ctx, n)
 
     let get (com: IPythonCompiler) ctx r left memberName subscript =
         // printfn "get: %A" (left, memberName)
@@ -639,7 +644,7 @@ module Util =
         |> List.map (fun x -> Expression.constant(x))
         |> Expression.list
 
-    let makeJsObject com ctx (pairs: seq<string * Expression>) =
+    let makePyObject com ctx (pairs: seq<string * Expression>) =
         pairs |> Seq.map (fun (name, value) ->
            //let prop, computed = memberFromName com ctx name
            let prop = Expression.constant(name)
@@ -692,6 +697,7 @@ module Util =
         Statement.expr(callSuper args)
 
     let makeClassConstructor (args: Arguments) body =
+        // printfn "makeClassConstructor"
         let name = Identifier("__init__")
         let self = Arg.arg("self")
         let args = { args with Args = self::args.Args }
@@ -720,7 +726,7 @@ module Util =
         Expression.emit (value, args, ?loc=range)
 
     let undefined range: Expression =
-        Expression.name(identifier = Identifier("None"), ?loc=range)
+        Expression.none()
 
     let getGenericTypeParams (types: Fable.Type list) =
         let rec getGenParams = function
@@ -762,12 +768,10 @@ module Util =
 
         let ctx = { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
         let args, body = transformFunction com ctx funcName args body
-        // TODO: add self argument in this function
-
         let args =
             let len = args.Args.Length
             if not hasSpread || len = 0 then args
-            else { args with VarArg = Some args.Args.[len-1]; Args = args.Args.[..len-2] }
+            else { args with VarArg = Some { args.Args.[len-1] with Annotation = None } ; Args = args.Args.[..len-2] }
 
         args, body
 
@@ -783,16 +787,20 @@ module Util =
         stmts @ [ Statement.return'(e) ]
 
     let makeArrowFunctionExpression (args: Arguments) (body: Statement list) : Expression * Statement list =
-        // Need to be able to receive unit for arrow expressions
-        let arguments =
+        let args =
             match args.Args with
-            | [] -> Arguments.arguments [ Arg.arg (Python.Identifier("_"), Expression.name (Python.Identifier("None"))) ]
+            | [] -> Arguments.arguments(args=[ Arg.arg(Python.Identifier("_unit")) ], defaults=[ Expression.none() ])
             | _ -> args
-        let name = Helpers.getUniqueIdentifier "arrow"
-        let func = FunctionDef.Create(name = name, args = arguments, body = body)
-        Expression.name (name), [ func ]
 
-    let makeFunction name (args, (body: Expression)) : Statement =
+        match body with
+            | [ Statement.Return({Value=Some expr}) ] -> Expression.lambda(args, expr), []
+            | _ ->
+                let name = Helpers.getUniqueIdentifier "arrow"
+                let func = FunctionDef.Create(name = name, args = args, body = body)
+                Expression.name (name), [ func ]
+
+    let makeFunction name (args: Arguments, (body: Expression)) : Statement =
+        // printfn "Name: %A" name
         let body = wrapExprInBlockWithReturn (body, [])
         FunctionDef.Create(name = name, args = args, body = body)
 
@@ -831,12 +839,12 @@ module Util =
             for (argId, arg) in zippedArgs do
                 let arg = FableTransforms.replaceValues tempVarReplacements arg
                 let arg, stmts = com.TransformAsExpr(ctx, arg)
-                yield! stmts
-                yield! assign None (com.GetIdentifierAsExpr(ctx, argId)) arg |> exprAsStatement ctx
+                yield! stmts @ (assign None (com.GetIdentifierAsExpr(ctx, argId)) arg |> exprAsStatement ctx)
             yield Statement.continue'(?loc=range)
         ]
 
     let transformImport (com: IPythonCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
+        //printfn "transformImport: %A" (name, moduleName)
         let name, parts =
             let parts = Array.toList(name.Split('.'))
             parts.Head, parts.Tail
@@ -877,20 +885,20 @@ module Util =
         //| Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx values
         | Fable.NewArrayFrom (size, typ) ->
-            let args =
-                match size with
-                | Fable.Value(kind=Fable.ValueKind.NumberConstant(value=0.0)) ->
-                    [ Fable.Expr.Value(Fable.ValueKind.NewOption(None, typ, false), None) ]
-                | _ ->
-                    []
+            // printfn "NewArrayFrom: %A" (size, size.Type, typ)
+            let arg, stmts = com.TransformAsExpr(ctx, size)
 
-            let array, stmts = makeArray com ctx args
-            match args with
-            | [] ->
-                array, stmts
+            match size with
+            | Fable.Value(kind=Fable.ValueKind.NumberConstant(value=0.0)) ->
+                Expression.list [], []
             | _ ->
-                let size, stmts' = com.TransformAsExpr(ctx, size)
-                Expression.binOp(array, Mult, size), stmts @ stmts'
+                match size.Type with
+                | Fable.Type.Number(_) ->
+                    let array = Expression.list [ Expression.constant(0) ]
+                    Expression.binOp(array, Mult, arg), stmts
+                | _ ->
+                    let name = Expression.name("list")
+                    Expression.call(name, [arg]), stmts
 
         | Fable.NewTuple(vals,_) -> makeArray com ctx vals
         // Optimization for bundle size: compile list literals as List.ofArray
@@ -930,7 +938,7 @@ module Util =
             Expression.call(consRef, values, ?loc=r), stmts @ stmts'
         | Fable.NewAnonymousRecord(values, fieldNames, _genArgs) ->
             let values, stmts = values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
-            List.zip (List.ofArray fieldNames) values |> makeJsObject com ctx , stmts
+            List.zip (List.ofArray fieldNames) values |> makePyObject com ctx , stmts
         | Fable.NewUnion(values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
             let values, stmts = List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
@@ -981,36 +989,31 @@ module Util =
         let makeMethod prop hasSpread args body decorators =
             let args, body =
                 getMemberArgsAndBody com ctx (Attached(isStatic=false)) hasSpread args body
+
             let name = com.GetIdentifier(ctx, prop)
             let self = Arg.arg("self")
-            let args = { args with Args = self::args.Args }
+            let args =
+                match decorators with
+                // Remove extra parameters from getters, i.e _unit=None
+                | [Expression.Name({Id=Identifier("property")})]  -> { args with Args = [ self ]; Defaults=[] }
+                | _ -> { args with Args = self::args.Args }
             FunctionDef.Create(name, args, body, decorators)
 
         let members =
             members |> List.collect (fun memb ->
                 let info = memb.Info
-                let prop = memberFromName com ctx memb.Name
-                // If compileAsClass is false, it means getters don't have side effects
-                // and can be compiled as object fields (see condition above)
-                if info.IsValue || (not compileAsClass && info.IsGetter) then
-                     let expr, stmts = com.TransformAsExpr(ctx, memb.Body)
-                     let stmts =
-                        let decorators = [ Expression.name ("staticmethod") ]
-                        stmts |> List.map (function | FunctionDef(def) -> FunctionDef({ def with DecoratorList = decorators}) | ex -> ex)
-                     stmts @ [ Statement.assign([prop], expr) ]
-                elif info.IsGetter then
-                    // printfn "IsGetter: %A" prop
+                if info.IsGetter || info.IsValue then
                     let decorators = [ Expression.name("property") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsSetter then
-                    let decorators = [ Expression.name ("property") ]
+                    let decorators = [ Expression.name ($"{memb.Name}.setter") ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
                 elif info.IsEnumerator then
                     let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
                     let iterator =
                         let body = enumerator2iterator com ctx
                         let name = com.GetIdentifier(ctx, "__iter__")
-                        let args = Arguments.arguments()
+                        let args = Arguments.arguments([Arg.arg("self")])
                         FunctionDef.Create(name = name, args = args, body = body)
                     [ method; iterator]
                 else
@@ -1066,7 +1069,7 @@ module Util =
         | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
 
     let resolveExpr (ctx: Context) t strategy pyExpr: Statement list =
-        //printfn "resolveExpr: %A" pyExpr
+        // printfn "resolveExpr: %A" (pyExpr, strategy)
         match strategy with
         | None | Some ReturnUnit -> exprAsStatement ctx pyExpr
         // TODO: Where to put these int wrappings? Add them also for function arguments?
@@ -1087,6 +1090,9 @@ module Util =
         // Transform `~(~(a/b))` to `a // b`
         | Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Binary(BinaryOperator.BinaryDivide, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')))))) ->
             Expression.binOp(left, FloorDiv, right), stmts @ stmts'
+        | Fable.Unary(UnaryOperator.UnaryNotBitwise, Fable.Operation(kind=Fable.Unary(UnaryOperator.UnaryNotBitwise, TransformExpr com ctx (left, stmts)))) ->
+            let name = Expression.name("int")
+            Expression.call(name, [left]), stmts
         | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) ->
             Expression.unaryOp(op, expr, ?loc=range), stmts
 
@@ -1098,15 +1104,18 @@ module Util =
         | Fable.Binary(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
             match op with
             | BinaryEqualStrict ->
-                match right, left with
-                 | Expression.Constant(_), _
-                 | _, Expression.Constant(_)  ->
+                match left, right with
+                | Expression.Constant(_), _
+                | _, Expression.Constant(_) ->
                     let op = BinaryEqual
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                 | _ ->
+                | _, Expression.Name(_) ->
+                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | _ ->
+                    let op = BinaryEqual // Use == for the rest
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequalStrict ->
-                match right, left with
+                match left, right with
                  | Expression.Constant(_), _
                  | _, Expression.Constant(_) ->
                     let op = BinaryUnequal
@@ -1114,19 +1123,21 @@ module Util =
                  | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryEqual ->
-                match right with
-                 | Expression.Name({Id=Identifier("None")})  ->
+                match left, right with
+                | Expression.Constant(_), _  ->
+                    let op = BinaryEqual
+                    Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
+                | _, Expression.Name({Id=Identifier("None")})  ->
                     let op = BinaryEqualStrict
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                 | _ ->
+                | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
             | BinaryUnequal ->
-                //printfn "Right: %A" right
                 match right with
-                 | Expression.Name({Id=Identifier("None")})  ->
+                | Expression.Name({Id=Identifier("None")})  ->
                     let op = BinaryUnequalStrict
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
-                 | _ ->
+                | _ ->
                     Expression.compare(left, op, [right], ?loc=range), stmts @ stmts'
 
             | BinaryLess
@@ -1155,12 +1166,22 @@ module Util =
         emitExpression range macro args, stmts @ stmts'
 
     let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallInfo) : Expression * Statement list =
-        let callee, stmts = com.TransformAsExpr(ctx, callee)
+        // printfn "transformCall: %A" (callee, callInfo.Args)
+        let callee', stmts = com.TransformAsExpr(ctx, callee)
         let args, stmts' = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
-        match callInfo.ThisArg with
-        | Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee (thisArg::args), stmts @ stmts' @ stmts''
-        | None when callInfo.IsConstructor -> Expression.call(callee, args, ?loc=range), stmts @ stmts'
-        | None -> callFunction range callee args, stmts @ stmts'
+        match callee, callInfo.ThisArg with
+        | Fable.Get(expr, Fable.FieldGet(fieldName="set"), _, _), _ ->
+            // printfn "Type: %A" expr.Type
+            let right, stmts = com.TransformAsExpr(ctx, callInfo.Args.Head)
+            let arg, stmts' = com.TransformAsExpr(ctx, callInfo.Args.Tail.Head)
+            let value, stmts'' = com.TransformAsExpr(ctx, expr)
+            Expression.none(), Statement.assign([Expression.subscript (value, right)], arg) :: stmts @ stmts' @ stmts''
+        | Fable.Get(expr, Fable.FieldGet(fieldName="sort"), _, _), _ ->
+            callFunction range callee' [], stmts @ stmts'
+
+        | _, Some(TransformExpr com ctx (thisArg, stmts'')) -> callFunction range callee' (thisArg::args), stmts @ stmts' @ stmts''
+        | _, None when callInfo.IsConstructor -> Expression.call(callee', args, ?loc=range), stmts @ stmts'
+        | _, None -> callFunction range callee' args, stmts @ stmts'
 
     let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
         match transformCallArgs com ctx false args with
@@ -1193,19 +1214,24 @@ module Util =
             let expr, stmts = transformCurriedApply com ctx range callee args
             stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
+    let getNonLocals (body: Statement list) =
+        let body, nonLocals =
+            body
+            |> List.partition (function | Statement.NonLocal _ -> false | _ -> true)
+
+        let nonLocal =
+            nonLocals
+            |> List.collect (function | Statement.NonLocal(nl) -> nl.Names | _ -> [])
+            |> List.distinct
+            |> Statement.nonLocal
+        [ nonLocal ], body
+
     let transformBody (com: IPythonCompiler) ctx ret (body: Statement list) : Statement list =
         match body with
         | [] -> [ Pass ]
         | _ ->
-            let body, nonLocals =
-                body
-                |> List.partition (function | Statement.NonLocal _ -> false | _ -> true)
-
-            let nonLocal =
-                nonLocals
-                |> List.collect (function | Statement.NonLocal(nl) -> nl.Names | _ -> [])
-                |> Statement.nonLocal
-            nonLocal :: body
+            let nonLocals, body = getNonLocals body
+            nonLocals @ body
 
     // When expecting a block, it's usually not necessary to wrap it
     // in a lambda to isolate its variable context
@@ -1287,11 +1313,14 @@ module Util =
             let attr = Python.Identifier("lower")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
+        | Fable.FieldGet(fieldName="findIndex") ->
+            let attr = Python.Identifier("index")
+            let value, stmts = com.TransformAsExpr(ctx, fableExpr)
+            Expression.attribute (value = value, attr = attr, ctx = Load), stmts
         | Fable.FieldGet(fieldName="indexOf") ->
             let attr = Python.Identifier("find")
             let value, stmts = com.TransformAsExpr(ctx, fableExpr)
             Expression.attribute (value = value, attr = attr, ctx = Load), stmts
-
         | Fable.ExprGet(TransformExpr com ctx (prop, stmts)) ->
             let expr, stmts' = com.TransformAsExpr(ctx, fableExpr)
             let expr, stmts'' = getExpr com ctx range expr prop
@@ -1440,12 +1469,12 @@ module Util =
 
         let value, stmts = com.TransformAsExpr(ctx, evalExpr)
 
-        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list): Python.Statement list option =
+        let rec ifThenElse (fallThrough: Python.Expression option) (cases: (Statement list * Expression option) list) : Python.Statement list =
             match cases with
-            | [] -> None
+            | [] -> []
             | (body, test) :: cases ->
                 match test with
-                | None -> body |> Some
+                | None -> body
                 | Some test ->
                     let expr = Expression.compare (left = value, ops = [ Eq ], comparators = [ test ])
 
@@ -1458,13 +1487,23 @@ module Util =
                     if body.IsEmpty then
                         ifThenElse (Some test) cases
                     else
-                        [ Statement.if' (test = test, body = body, ?orelse = ifThenElse None cases) ]
-                        |> Some
+                        // Remove any break statements from body
+                        let body =
+                            body
+                            |> List.filter (function | Statement.Break -> false | _ -> true)
+                            |> function
+                                // Make sure we don't have an empty body
+                                | [] -> [ Statement.Pass ]
+                                | body ->  body
+
+                        let nonLocals, body = getNonLocals body
+                        let nonLocals, orElse = ifThenElse None cases |> List.append nonLocals |> getNonLocals
+                        nonLocals @ [ Statement.if'(test = test, body = body, orelse = orElse) ]
 
         let result = cases |> ifThenElse None
         match result with
-        | Some ifStmt -> stmts @ ifStmt
-        | None -> []
+        | [] -> []
+        | ifStmt -> stmts @ ifStmt
 
     let matchTargetIdentAndValues idents values =
         if List.isEmpty idents then []
@@ -1498,6 +1537,8 @@ module Util =
     let exprAsStatement (ctx: Context) (expr: Expression) : Statement list =
         // printfn "exprAsStatement: %A" expr
         match expr with
+        // A single None will be removed (i.e transformCall may return None)
+        | Name({Id=Identifier "None"}) -> []
         | NamedExpr({Target=target; Value=value; Loc=loc }) ->
             let nonLocals =
                 match target with
@@ -1731,7 +1772,8 @@ module Util =
         let name = Expression.name (name)
         Expression.call (name), [ func ]
 
-    let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list=
+    let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr): Expression * Statement list =
+        //printfn "transformAsExpr: %A" expr
         match expr with
         | Fable.TypeCast(e,t) -> transformCast com ctx t e
 
@@ -1756,24 +1798,30 @@ module Util =
         | Fable.ObjectExpr (members, _, baseCall) ->
           transformObjectExpr com ctx members baseCall
 
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="has"), _, _), info, _, range) ->
+            let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
+            let value, stmts' = com.TransformAsExpr(ctx, expr)
+            Expression.compare (value, [ComparisonOperator.In], [right]), stmts @ stmts'
+
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="slice"), _, _), info, _, range) ->
             let left, stmts = com.TransformAsExpr(ctx, expr)
             let args, stmts' = info.Args |> List.map (fun arg -> com.TransformAsExpr(ctx, arg)) |> List.unzip |> (fun (e, s) -> (e, List.collect id s))
             let slice =
                 match args with
+                | [] ->  Expression.slice()
                 | [ lower ] -> Expression.slice(lower=lower)
                 | [ Expression.Name({Id=Identifier("None")}); upper ] -> Expression.slice(upper=upper)
                 | [ lower; upper ] -> Expression.slice(lower=lower, upper=upper)
                 | _ -> failwith $"Array slice with {args.Length} not supported"
-            Expression.subscript (left, slice), stmts
+            Expression.subscript (left, slice), stmts @ stmts'
 
         | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="toString"), _, _), info, _, range) ->
             let func = Expression.name("str")
             let left, stmts = com.TransformAsExpr(ctx, expr)
             Expression.call (func, [ left ]), stmts
 
-        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="Equals"), _, _), info, _, range) ->
-            let right, stmts = com.TransformAsExpr(ctx, info.Args.Head)
+        | Fable.Call(Fable.Get(expr, Fable.FieldGet(fieldName="Equals"), _, _), { Args=[arg]}, _, range) ->
+            let right, stmts = com.TransformAsExpr(ctx, arg)
             let left, stmts' = com.TransformAsExpr(ctx, expr)
             Expression.compare (left, [Eq], [right]), stmts @ stmts'
 
@@ -1998,11 +2046,24 @@ module Util =
 
             [ Statement.for'(target = target, iter = iter, body = body) ]
 
-    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr): Arguments * Statement list =
+    let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) : Arguments * Statement list =
         let tailcallChance =
             Option.map (fun name ->
                 NamedTailCallOpportunity(com, ctx, name, args) :> ITailCallOpportunity) name
         let args = discardUnitArg args
+
+        // For Python we need to append the TC-arguments to any declared (arrow) function inside the while-loop of the
+        // TCO. We will set them as default values to themselves e.g `i=i` to capture the value and not the variable.
+        let tcArgs, tcDefaults =
+            match ctx.TailCallOpportunity with
+            | Some tc ->
+                tc.Args
+                |> List.map (fun x ->
+                    let name = x.Substring(0, x.Length-4)
+                    Arg.arg(name), Expression.name(name))
+                |> List.unzip
+            | _ -> [], []
+
         let declaredVars = ResizeArray()
         let mutable isTailCallOptimized = false
         let ctx =
@@ -2011,6 +2072,7 @@ module Util =
                        OptimizeTailCall = fun () -> isTailCallOptimized <- true
                        BoundVars = ctx.BoundVars.EnterScope() }
 
+        // printfn "Args: %A" args
         let body =
             if body.Type = Fable.Unit then
                 transformBlock com ctx (Some ReturnUnit) body
@@ -2018,6 +2080,14 @@ module Util =
                 transformBlock com ctx (Some Return) body
             else
                 transformAsExpr com ctx body |> wrapExprInBlockWithReturn
+
+        let isUnit =
+            List.tryLast args
+            |> Option.map (function
+                | { Type=Fable.GenericParam(_)} -> true
+                | _ -> false)
+            |> Option.defaultValue false
+
         let args, body =
             match isTailCallOptimized, tailcallChance with
             | true, Some tc ->
@@ -2030,21 +2100,26 @@ module Util =
                     |> List.map (fun (id, tcArg) -> ident com ctx id, Some (com.GetIdentifierAsExpr(ctx, tcArg)))
                     |> multiVarDeclaration ctx
 
+                //printfn "varDecls: %A" (args, tc.Args)
                 let body = varDecls @ body
                 // Make sure we don't get trapped in an infinite loop, see #1624
                 let body = body @ [ Statement.break'() ]
                 args', Statement.while'(Expression.constant(true), body)
                 |> List.singleton
             | _ -> args |> List.map (ident com ctx), body
-        // let body =
-        //     if declaredVars.Count = 0 then body
-        //     else
-        //         let varDeclStatement = multiVarDeclaration ctx [for v in declaredVars -> ident com ctx v, None]
-        //         varDeclStatement @ body
-        //printfn "Args: %A" (args, body)
-        let args = Arguments.arguments(args |> List.map Arg.arg)
-        args, body
 
+        let arguments =
+            let args = args |> List.map Arg.arg
+
+            match args, isUnit with
+            | [], true -> Arguments.arguments(args=Arg.arg(Python.Identifier("_unit"))::tcArgs, defaults=Expression.none()::tcDefaults)
+            // So we can also receive unit
+            | _, true -> Arguments.arguments(args @ tcArgs, defaults=Expression.none()::tcDefaults)
+            | _ -> Arguments.arguments(args @ tcArgs, defaults=tcDefaults)
+
+        arguments, body
+
+    // Declares a Python entry point, i.e `if __name__ == "__main__"`
     let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expression) =
         com.GetImportExpr(ctx, "sys") |> ignore
         let args = emitExpression None "sys.argv[1:]" []
@@ -2103,7 +2178,7 @@ module Util =
     let getEntityFieldsAsIdents _com (ent: Fable.Entity) =
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let name = field.Name |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+            let name = (field.Name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun name -> Naming.pyBuiltins.Contains name)
             let typ = field.FieldType
             let id: Fable.Ident = { makeTypedIdent typ name with IsMutable = field.IsMutable }
             id)
@@ -2121,6 +2196,7 @@ module Util =
             |> Seq.toArray
 
     let declareClassType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) (baseExpr: Expression option) classMembers =
+        // printfn "declareClassType"
         let classCons = makeClassConstructor consArgs consBody
         let classFields = Array.empty
         let classMembers = List.append [ classCons ] classMembers
@@ -2137,6 +2213,7 @@ module Util =
         classStmt
 
     let declareType (com: IPythonCompiler) ctx (ent: Fable.Entity) entName (consArgs: Arguments) (consBody: Statement list) baseExpr classMembers : Statement list =
+        // printfn "declareType"
         let typeDeclaration = declareClassType com ctx ent entName consArgs consBody baseExpr classMembers
         let reflectionDeclaration, stmts =
             let genArgs = Array.init (ent.GenericParameters.Length) (fun i -> "gen" + string i |> makeIdent)
@@ -2185,33 +2262,62 @@ module Util =
 
     let transformAttachedProperty (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
         let isStatic = not memb.Info.IsInstance
-        //let kind = if memb.Info.IsGetter then ClassGetter else ClassSetter
+        let isGetter = memb.Info.IsGetter
+
+        let decorators =
+            if isStatic then
+                [ Expression.name("staticmethod") ]
+            elif isGetter then
+                [ Expression.name("property") ]
+            else
+                [ Expression.name($"{memb.Name}.setter") ]
         let args, body =
             getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
         let key =
             memberFromName com ctx memb.Name
             |> nameFromKey com ctx
 
-        let self = Arg.arg("self")
-        let arguments = { args with Args = self::args.Args }
-        FunctionDef.Create(key, arguments, body = body)
-        |> List.singleton
+        let arguments =
+            if isStatic then
+                args
+            else
+                let self = Arg.arg("self")
+                { args with Args = self::args.Args }
+
+        // Python do not support static getters.
+        if isStatic && isGetter then
+            match body with
+            | [Statement.Return({Value=Some x})] ->
+                [ Statement.assign([Expression.name(key)], x ) ]
+            | _ -> failwith "Statements not supported for static class properties"
+        else
+            FunctionDef.Create(key, arguments, body = body, decoratorList=decorators)
+            |> List.singleton
 
     let transformAttachedMethod (com: IPythonCompiler) ctx (memb: Fable.MemberDecl) =
         // printfn "transformAttachedMethod: %A" memb
 
         let isStatic = not memb.Info.IsInstance
-        let makeMethod name args body =
+        let decorators =
+            if isStatic then
+                [Expression.name("staticmethod")]
+            else
+                []
+        let makeMethod name args body decorators =
             let key = memberFromName com ctx name |> nameFromKey com ctx
-            FunctionDef.Create(key, args, body = body)
+            FunctionDef.Create(key, args, body = body, decoratorList=decorators)
         let args, body =
             getMemberArgsAndBody com ctx (Attached isStatic) memb.Info.HasSpread memb.Args memb.Body
         let self = Arg.arg("self")
-        let arguments = { args with Args = self::args.Args }
+        let arguments =
+            if isStatic then
+                args
+            else
+                { args with Args = self::args.Args }
         [
-            yield makeMethod memb.Name arguments body
+            yield makeMethod memb.Name arguments body decorators
             if memb.Info.IsEnumerator then
-                yield makeMethod "__iter__" (Arguments.arguments [self]) (enumerator2iterator com ctx)
+                yield makeMethod "__iter__" (Arguments.arguments([self])) (enumerator2iterator com ctx) decorators
         ]
 
     let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -2252,6 +2358,7 @@ module Util =
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+        // printfn "transformClassWithCompilerGeneratedConstructor"
         let fieldIds = getEntityFieldsAsIdents com ent
         let args = fieldIds |> Array.map (fun id -> com.GetIdentifier(ctx, id.Name) |> Expression.name)
         let baseExpr =
@@ -2276,6 +2383,7 @@ module Util =
         declareType com ctx ent entName args body baseExpr classMembers
 
     let transformClassWithImplicitConstructor (com: IPythonCompiler) ctx (classDecl: Fable.ClassDecl) classMembers (cons: Fable.MemberDecl) =
+        // printfn "transformClassWithImplicitConstructor"
         let classEnt = com.GetEntity(classDecl.Entity)
         let classIdent = Expression.name(com.GetIdentifier(ctx, classDecl.Name))
         let consArgs, consBody =
@@ -2306,7 +2414,8 @@ module Util =
         ]
 
     let rec transformDeclaration (com: IPythonCompiler) ctx decl =
-        //printfn "transformDeclaration: %A" decl
+        // printfn "transformDeclaration: %A" decl
+        // printfn "ctx.UsedNames: %A" ctx.UsedNames
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
             let result = f ctx
@@ -2360,40 +2469,52 @@ module Util =
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
     let transformImports (imports: Import list) : Statement list =
-        // printfn "Imports: %A" imports
+        //printfn "transformImports: %A" imports
         let imports =
             imports
             |> List.map (fun im ->
                 let moduleName = im.Module |> Helpers.rewriteFableImport
                 match im.Name with
+                | Some "*"
                 | Some "default" ->
-                    Some moduleName, Alias.alias(im.LocalIdent.Value)
+                    //printfn "modules: %A" (moduleName, im.LocalIdent.Value)
+                    let (Identifier local) = im.LocalIdent.Value
+                    if moduleName <> local then
+                        Some moduleName, Alias.alias(im.LocalIdent.Value)
+                    else
+                        None, Alias.alias(im.LocalIdent.Value)
                 | Some name ->
+                    // printfn "transformImports: %A" (moduleName, name)
+                    let name = Naming.toSnakeCase name
                     Some moduleName, Alias.alias(Identifier(Helpers.clean name), ?asname=im.LocalIdent)
                 | None ->
-                    None, Alias.alias(Identifier(moduleName), ?asname=None))
+                    None, Alias.alias(Identifier(moduleName), ?asname=im.LocalIdent))
             |> List.groupBy fst
             |> List.map (fun (a, b) -> a, List.map snd b)
         [
-            for (moduleName, alias) in imports do
+            for (moduleName, aliases) in imports do
                 match moduleName with
                 | Some name ->
-                    Statement.importFrom (Some(Identifier(name)), alias)
+                    Statement.importFrom (Some(Identifier(name)), aliases)
                 | None ->
                     // Do not put multiple imports on a single line. flake8(E401)
-                    for alias in alias do
+                    for alias in aliases do
                         Statement.import([alias])
         ]
 
     let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
+        //printfn "getIdentForImport: %A" (moduleName, name)
         match name with
         | None ->
             Path.GetFileNameWithoutExtension(moduleName)
             |> Python.Identifier
             |> Some
+        // | Some "*" ->
+        //     name
+        //     |> Option.map Python.Identifier
         | Some name ->
             match name with
-            | "*" | "default" -> Path.GetFileNameWithoutExtension(moduleName)
+            | "default" | "*" -> Path.GetFileNameWithoutExtension(moduleName)
             | _ -> name
             |> getUniqueNameInRootScope ctx
             |> Python.Identifier
@@ -2412,7 +2533,7 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, moduleName, ?name, ?r) =
-                // printfn "GetImportExpr: %A" (moduleName, name)
+                //printfn "GetImportExpr: %A" (moduleName, name)
                 let cachedName = moduleName + "::" + defaultArg name "module"
                 match imports.TryGetValue(cachedName) with
                 | true, i ->
@@ -2421,8 +2542,15 @@ module Compiler =
                     | None -> Expression.none()
                 | false, _ ->
                     let localId = getIdentForImport ctx moduleName name
+                    //printfn "localId: %A" localId
                     match name with
-                    | Some "toString" -> () // Do not import `str` in Python
+                    | Some "*"
+                    | None ->
+                        let i =
+                            { Name = None
+                              Module = moduleName
+                              LocalIdent = localId }
+                        imports.Add(cachedName, i)
                     | Some name ->
                         let i =
                           { Name =
@@ -2433,12 +2561,6 @@ module Compiler =
                                 |> Some
                             Module = moduleName
                             LocalIdent = localId }
-                        imports.Add(cachedName, i)
-                    | None ->
-                        let i =
-                            { Name = None
-                              Module = moduleName
-                              LocalIdent = localId }
                         imports.Add(cachedName, i)
 
                     match localId with
@@ -2477,7 +2599,7 @@ module Compiler =
             for decl in file.Declarations do
                 hs.UnionWith(decl.UsedNames)
             hs
-
+        // printfn "file: %A" file.Declarations
         let ctx =
           { File = file
             UsedNames = { RootScope = HashSet file.UsedNamesInRootScope

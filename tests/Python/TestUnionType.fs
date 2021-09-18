@@ -59,19 +59,19 @@ let (|A|) n = n
 
 type MyExUnion = MyExUnionCase of exn
 
-// type Wrapper(s: string) =
-//     member x.Value = s |> Seq.rev |> Seq.map string |> String.concat ""
+type Wrapper(s: string) =
+    member x.Value = s |> Seq.rev |> Seq.map string |> String.concat ""
 
-// [<RequireQualifiedAccess>]
-// type MyUnion =
-// | Case1
-// | Case2
-// | Case3
+[<RequireQualifiedAccess>]
+type MyUnion3 =
+| Case1
+| Case2
+| Case3
 
-// type R = {
-//     Name: string
-//     Case: MyUnion
-// }
+type R = {
+    Name: string
+    Case: MyUnion3
+}
 
 #if FABLE_COMPILER
 open Fable.Core
@@ -176,3 +176,33 @@ let ``test Active patterns can be combined with union case matching`` () = // Se
     Some(5, Some 2) |> test |> equal 7
     Some(5, None) |> test |> equal 0
     None |> test |> equal 0
+
+[<Fact>]
+let ``test Types can have Exception fields`` () =
+    let (MyExUnionCase ex) =
+        try
+            exn "foo" |> raise
+        with ex -> MyExUnionCase ex
+    ex.Message |> equal "foo"
+
+#if FABLE_COMPILER
+[<Fact>]
+let ``test Erased union type testing works`` () =
+    let toString (arg: U3<string, int, Wrapper>) =
+        match arg with
+        | U3.Case1 s -> s
+        | U3.Case2 i -> i * 2 |> string
+        | U3.Case3 t -> t.Value
+    U3.Case1 "HELLO" |> toString |> equal "HELLO"
+    U3.Case2 3 |> toString |> equal "6"
+    "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
+#endif
+
+// FIXME:
+[<Fact>]
+let ``test Equality works in filter`` () =
+    let original = [| { Name = "1"; Case = MyUnion3.Case1 } ; { Name = "2"; Case = MyUnion3.Case1 }; { Name = "3"; Case = MyUnion3.Case2 }; { Name = "4"; Case = MyUnion3.Case3 } |]
+    original
+    |> Array.filter (fun r -> r.Case = MyUnion3.Case1)
+    |> Array.length
+    |> equal 2

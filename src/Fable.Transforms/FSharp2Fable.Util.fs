@@ -349,7 +349,10 @@ module Helpers =
     let getEntityDeclarationName (com: Compiler) (ent: Fable.EntityRef) =
         let entityName = getEntityMangledName com true ent |> cleanNameAsJsIdentifier
         (entityName, Naming.NoMemberPart)
-        ||> Naming.sanitizeIdent (fun _ -> false)
+        ||> match com.Options.Language with
+            | Python ->
+                Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains
+            | _ -> Naming.sanitizeIdent (fun _ -> false)
 
     let private getMemberMangledName (com: Compiler) trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then
@@ -377,7 +380,10 @@ module Helpers =
         let name, part = getMemberMangledName com true memb
         let name = cleanNameAsJsIdentifier name
         let part = part.Replace(cleanNameAsJsIdentifier)
-        let sanitizedName = Naming.sanitizeIdent (fun _ -> false) name part
+        let sanitizedName =
+            match com.Options.Language with
+            | Python -> Fable.PY.Naming.sanitizeIdent Fable.PY.Naming.pyBuiltins.Contains name part
+            | _ ->  Naming.sanitizeIdent (fun _ -> false) name part
         sanitizedName, not(String.IsNullOrEmpty(part.OverloadSuffix))
 
     /// Used to identify members uniquely in the inline expressions dictionary
@@ -392,7 +398,9 @@ module Helpers =
         ctx.UsedNamesInRootScope.Contains name || ctx.UsedNamesInDeclarationScope.Contains name
 
     let getIdentUniqueName (ctx: Context) name =
-        let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (isUsedName ctx)
+        let name =
+            (name, Naming.NoMemberPart)
+            ||> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UsedNamesInDeclarationScope.Add(name) |> ignore
         name
 
@@ -1312,8 +1320,11 @@ module Identifiers =
         { ctx with Scope = (fsRef, ident, value)::ctx.Scope}
 
     let makeIdentFrom (_com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue): Fable.Ident =
-        let sanitizedName = (fsRef.CompiledName, Naming.NoMemberPart)
-                            ||> Naming.sanitizeIdent (isUsedName ctx)
+        let sanitizedName =
+            (fsRef.CompiledName, Naming.NoMemberPart)
+            ||> match _com.Options.Language with
+                | Python -> Fable.PY.Naming.sanitizeIdent (fun name -> isUsedName ctx name || Fable.PY.Naming.pyBuiltins.Contains name)
+                | _ -> Naming.sanitizeIdent (isUsedName ctx)
         ctx.UsedNamesInDeclarationScope.Add(sanitizedName) |> ignore
         { Name = sanitizedName
           Type = makeType ctx.GenericArgs fsRef.FullType

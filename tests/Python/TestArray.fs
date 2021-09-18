@@ -124,3 +124,167 @@ let ``test Array slice with non-numeric arrays work`` () =
     xs.[1..2] <- [|"X";"X";"X";"X"|]
     equal xs.[2] "X"
     equal xs.[3] "D"
+
+[<Fact>]
+let ``test Array literals work`` () =
+    let x = [| 1; 2; 3; 4; 5 |]
+    equal 5 x.Length
+
+[<Fact>]
+let ``test Array indexer getter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    x.[2] |> equal 3.
+
+[<Fact>]
+let ``test Array indexer setter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    x.[3] <- 10.
+    equal 10. x.[3]
+
+[<Fact>]
+let ``test Array getter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.get x 2 |> equal 3.
+
+[<Fact>]
+let ``test Array setter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.set x 3 10.
+    equal 10. x.[3]
+
+[<Fact>]
+let ``test Array.Length works`` () =
+    let xs = [| 1.; 2.; 3.; 4. |]
+    xs.Length |> equal 4
+
+[<Fact>]
+let ``test Array.zeroCreate works`` () =
+    let xs = Array.zeroCreate 2
+    equal 2 xs.Length
+    equal 0 xs.[1]
+
+// See https://github.com/fable-compiler/repl/issues/96
+[<Fact>]
+let ``test Array.zeroCreate works with KeyValuePair`` () =
+    let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
+    equal 0. a.[1].Key
+    equal false a.[2].Value
+
+[<Fact>]
+let ``test Array.create works`` () =
+    let xs = Array.create 2 5
+    equal 2 xs.Length
+    Array.sum xs |> equal 10
+
+[<Fact>]
+let ``test Array.blit works`` () =
+    let xs = [| 1..10 |]
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4        // [|0; 0; 0; 0; 0; 4; 5; 6; 7; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0|]
+    ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
+
+[<Fact>]
+let ``test Array.blit works with non typed arrays`` () =
+    let xs = [| 'a'..'h' |] |> Array.map string
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal "defg"
+
+[<Fact>]
+let ``test Array.copy works`` () =
+    let xs = [| 1; 2; 3; 4 |]
+    let ys = Array.copy xs
+    xs.[0] <- 0                   // Ensure a deep copy
+    ys |> Array.sum |> equal 10
+
+[<Fact>]
+let ``test Array.distinct works`` () =
+    let xs = [| 1; 1; 1; 2; 2; 3; 3 |]
+    let ys = xs |> Array.distinct
+    ys |> Array.length |> equal 3
+    ys |> Array.sum |> equal 6
+
+[<Fact>]
+let ``test Array.distinct with tuples works`` () =
+    let xs = [|(1, 2); (2, 3); (1, 2)|]
+    let ys = xs |> Array.distinct
+    ys |> Array.length |> equal 2
+    ys |> Array.sumBy fst |> equal 3
+
+[<Fact>]
+let ``test Array.distinctBy works`` () =
+    let xs = [| 4; 4; 4; 6; 6; 5; 5 |]
+    let ys = xs |> Array.distinctBy (fun x -> x % 2)
+    ys |> Array.length |> equal 2
+    ys |> Array.head >= 4 |> equal true
+
+[<Fact>]
+let ``test Array.distinctBy with tuples works`` () =
+      let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
+      let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
+      ys |> Array.length |> equal 2
+      ys |> Array.head |> fst >= 4 |> equal true
+
+// FIXME: this test currently hangs
+// [<Fact>]
+// let ``test Array distinctBy works on large array`` () =
+//     let xs = [| 0 .. 50000 |]
+//     let ys =
+//         Array.append xs xs
+//         |> Array.distinctBy(fun x -> x.ToString())
+//     ys |> equal xs
+
+[<Fact>]
+let ``test Array.sub works`` () =
+    let xs = [|0..99|]
+    let ys = Array.sub xs 5 10    // [|5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]
+    ys |> Array.sum |> equal 95
+
+[<Fact>]
+let ``test Array.fill works`` () =
+    let xs = Array.zeroCreate 4   // [|0; 0; 0; 0|]
+    Array.fill xs 1 2 3           // [|0; 3; 3; 0|]
+    xs |> Array.sum |> equal 6
+
+[<Fact>]
+let ``test Array.empty works`` () =
+    let xs = Array.empty<int>
+    xs.Length |> equal 0
+
+[<Fact>]
+let ``test Array.append works`` () =
+    let xs1 = [|1; 2; 3; 4|]
+    let zs1 = Array.append [|0|] xs1
+    zs1.[0] + zs1.[1] |> equal 1
+    let xs2 = [|"a"; "b"; "c"|]
+    let zs2 = Array.append [|"x";"y"|] xs2
+    zs2.[1] + zs2.[3] |> equal "yb"
+
+[<Fact>]
+let ``test Array.average works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.average xs
+    |> equal 2.5
+
+[<Fact>]
+let ``test Array.averageBy works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    Array.averageBy (fun x -> x * 2.) xs
+    |> equal 5.
+
+[<Fact>]
+let ``test Array.average works with custom types`` () =
+    [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.average |> equal (MyNumber 2)
+
+[<Fact>]
+let ``test Array.averageBy works with custom types`` () =
+    [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+    |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+
+[<Fact>]
+let ``test Array.choose with ints works`` () =
+    let xs = [| 1; 2; 3; 4; 5; 6; 7; 8; 9; 10 |]
+    let result = xs |> Array.choose (fun i ->
+        if i % 2 = 1 then Some i
+        else None)
+    result.Length |> equal 5

@@ -1,25 +1,54 @@
-from expression.core import option
-
-
 class Some:
     def __init__(self, value):
         self.value = value
 
+    def __eq__(self, other):
+        if self is other:
+            return True
 
-def defaultArg(value, default_value):
-    return option.default_arg(option.of_optional(value), default_value)
+        if other is None:
+            return False
+
+        if self.value == other.value:
+            return True
+
+        return False
+
+    def __str__(self):
+        return f"Some {self.value}"
+
+    def __repr__(self):
+        return str(self)
 
 
-def defaultArgWith(value, default_value):
-    return option.default_arg(option.of_optional(value), default_value())
+def default_arg(opt, default_value):
+    return value(opt) if opt is not None else default_value
 
 
-def map(mapping, value):
-    return option.of_optional(value).map(mapping).default_value(None)
+def default_arg_with(opt, def_thunk):
+    return value(opt) if opt is not None else def_thunk()
 
 
-def toArray(value):
-    return option.of_optional(value).to_list()
+def filter(predicate, opt):
+    if opt is not None:
+        return opt if predicate(value(opt)) else None
+    return opt
+
+
+def map(mapping, opt):
+    return some(mapping(value(opt))) if opt is not None else None
+
+
+def map2(mapping, opt1, opt2):
+    return mapping(value(opt1), value(opt2)) if (opt1 is not None and opt2 is not None) else None
+
+
+def map3(mapping, opt1, opt2, opt3):
+    return (
+        mapping(value(opt1), value(opt2), value(opt3))
+        if (opt1 is not None and opt2 is not None and opt3 is not None)
+        else None
+    )
 
 
 def some(x):
@@ -33,4 +62,38 @@ def value(x):
         return x.value if isinstance(x, Some) else x
 
 
-__all__ = ["defaultArg", "defaultArgWith", "map", "some", "Some", "toArray", "value"]
+def of_nullable(x):
+    return x
+
+
+def to_nullable(x):
+    return None if x is None else value(x)
+
+
+def flatten(x):
+    return None if x is None else value(x)
+
+
+def to_array(opt):
+    return [] if opt is None else [value(opt)]
+
+
+def bind(binder, opt):
+    return binder(value(opt)) if opt is not None else None
+
+
+__all__ = [
+    "bind",
+    "defaultArg",
+    "defaultArgWith",
+    "flatten",
+    "map",
+    "map2",
+    "map3",
+    "ofNullable",
+    "some",
+    "Some",
+    "toArray",
+    "toNullable",
+    "value",
+]

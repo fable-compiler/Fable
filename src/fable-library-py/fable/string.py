@@ -1,117 +1,24 @@
+from argparse import ArgumentError
 import re
+import locale
 from abc import ABC
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Iterable, Match, NoReturn, Optional, Pattern, Union, TypeVar
+from typing import Any, Callable, Iterable, Match, NoReturn, Optional, Pattern, Union, TypeVar, overload, List
+from enum import Enum
 
-# import multiply
-# import Numeric
-# import toExponential
-# import toFixed
-# import toHex
-# import toPrecision
-# import "./Date.js"
-# import "./Numeric.js"
-# import "./RegExp.js"
-# import "./Types.js"
 from .numeric import to_fixed, to_precision, to_exponential, to_hex, multiply
-from .types import toString
-
-# import { escape }
-# import { toString as dateToString }
-# import { toString }
+from .types import to_string
+from .date import to_string as date_to_string
+from .reg_exp import escape
 
 T = TypeVar("T")
 
 
 fsFormatRegExp: Pattern[str] = re.compile(r"(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w)")
-interpolateRegExp: Pattern[str] = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
-formatRegExp: Pattern[str] = re.compile(r"\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}")
+interpolate_regexp: Pattern[str] = re.compile(r"(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)")
+format_regexp: Pattern[str] = re.compile(r"\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}")
 
-
-# const enum StringComparison {
-#   CurrentCulture = 0,
-#   CurrentCultureIgnoreCase = 1,
-#   InvariantCulture = 2,
-#   InvariantCultureIgnoreCase = 3,
-#   Ordinal = 4,
-#   OrdinalIgnoreCase = 5,
-# }
-
-# function cmp(x: string, y: string, ic: boolean | StringComparison) {
-#   function isIgnoreCase(i: boolean | StringComparison) {
-#     return i === true ||
-#       i === StringComparison.CurrentCultureIgnoreCase ||
-#       i === StringComparison.InvariantCultureIgnoreCase ||
-#       i === StringComparison.OrdinalIgnoreCase;
-#   }
-#   function isOrdinal(i: boolean | StringComparison) {
-#     return i === StringComparison.Ordinal ||
-#       i === StringComparison.OrdinalIgnoreCase;
-#   }
-#   if (x == null) { return y == null ? 0 : -1; }
-#   if (y == null) { return 1; } // everything is bigger than null
-
-#   if (isOrdinal(ic)) {
-#     if (isIgnoreCase(ic)) { x = x.toLowerCase(); y = y.toLowerCase(); }
-#     return (x === y) ? 0 : (x < y ? -1 : 1);
-#   } else {
-#     if (isIgnoreCase(ic)) { x = x.toLocaleLowerCase(); y = y.toLocaleLowerCase(); }
-#     return x.localeCompare(y);
-#   }
-# }
-
-# export function compare(...args: any[]): number {
-#   switch (args.length) {
-#     case 2: return cmp(args[0], args[1], false);
-#     case 3: return cmp(args[0], args[1], args[2]);
-#     case 4: return cmp(args[0], args[1], args[2] === true);
-#     case 5: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), false);
-#     case 6: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5]);
-#     case 7: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5] === true);
-#     default: throw new Error("String.compare: Unsupported number of parameters");
-#   }
-# }
-
-# export function compareOrdinal(x: string, y: string) {
-#   return cmp(x, y, StringComparison.Ordinal);
-# }
-
-# export function compareTo(x: string, y: string) {
-#   return cmp(x, y, StringComparison.CurrentCulture);
-# }
-
-# export function startsWith(str: string, pattern: string, ic: number) {
-#   if (str.length >= pattern.length) {
-#     return cmp(str.substr(0, pattern.length), pattern, ic) === 0;
-#   }
-#   return false;
-# }
-
-# export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
-#   if (str == null || str === "") {
-#     return -1;
-#   }
-#   const startIndex = (args.length > 0) ? args[0] : 0;
-#   if (startIndex < 0) {
-#     throw new Error("Start index cannot be negative");
-#   }
-#   const length = (args.length > 1) ? args[1] : str.length - startIndex;
-#   if (length < 0) {
-#     throw new Error("Length cannot be negative");
-#   }
-#   if (length > str.length - startIndex) {
-#     throw new Error("Invalid startIndex and length");
-#   }
-#   str = str.substr(startIndex, length);
-#   for (const c of anyOf) {
-#     const index = str.indexOf(c);
-#     if (index > -1) {
-#       return index + startIndex;
-#     }
-#   }
-#   return -1;
-# }
 
 IPrintfFormatContinuation = Callable[[Callable[[str], Any]], Callable[[str], Any]]
 
@@ -124,40 +31,43 @@ class IPrintfFormat(ABC):
 
 def printf(input: str) -> IPrintfFormat:
     # print("printf: ", input)
-    format: IPrintfFormatContinuation = fsFormat(input)
+    format: IPrintfFormatContinuation = fs_format(input)
     return IPrintfFormat(input=input, cont=format)
 
 
-def continuePrint(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -> Union[Any, Callable[[str], Any]]:
-    # print("continuePrint", cont)
-    if isinstance(arg, str):
-        return cont(arg)
+def continue_print(cont: Callable[[str], Any], arg: Union[IPrintfFormat, str]) -> Any:
+    """Print continuation."""
 
-    return arg.cont(cont)
+    if isinstance(arg, IPrintfFormat):
+        ret = arg.cont(cont)
+        return ret
 
-
-def toConsole(arg: Union[IPrintfFormat, str]) -> Union[Any, Callable[[str], Any]]:
-    return continuePrint(print, arg)
+    return cont(arg)
 
 
-def toConsoleError(arg: Union[IPrintfFormat, str]):
-    return continuePrint(lambda x: print(x), arg)
+def to_console(arg: Union[IPrintfFormat, Any]) -> Any:
+    return continue_print(print, arg)
 
 
-def toText(arg: Union[IPrintfFormat, str]) -> Union[str, Callable]:
+def to_console_error(arg: Union[IPrintfFormat, str]):
+    return continue_print(lambda x: print(x), arg)
+
+
+# Set return to `Any` since `Union[str, Callable]` will make type
+# checkers really unhappy.
+def to_text(arg: Union[IPrintfFormat, str]) -> Any:
     cont: Callable[[str], Any] = lambda x: x
-    return continuePrint(cont, arg)
+    return continue_print(cont, arg)
 
 
-def toFail(arg: Union[IPrintfFormat, str]):
+def to_fail(arg: Union[IPrintfFormat, str]):
     def fail(msg: str):
         raise Exception(msg)
 
-    return continuePrint(fail, arg)
+    return continue_print(fail, arg)
 
 
-def formatReplacement(rep: Any, flags: Any, padLength: Any, precision: Any, format: Any):
-    # print("Got here", rep, format)
+def format_replacement(rep: Any, flags: Any, padLength: Any, precision: Any, format: Any):
     sign = ""
     flags = flags or ""
     format = format or ""
@@ -190,9 +100,9 @@ def formatReplacement(rep: Any, flags: Any, padLength: Any, precision: Any, form
             rep = str(rep)
 
     elif isinstance(rep, datetime):
-        rep = dateToString(rep)
+        rep = date_to_string(rep)
     else:
-        rep = toString(rep)
+        rep = to_string(rep)
 
     if padLength is not None:
         padLength = int(padLength)
@@ -215,7 +125,7 @@ def interpolate(string: str, values: Any) -> str:
     valIdx = 0
     strIdx = 0
     result = ""
-    matches = interpolateRegExp.finditer(string)
+    matches = interpolate_regexp.finditer(string)
     for match in matches:
         # The first group corresponds to the no-escape char (^|[^%]), the actual pattern starts in the next char
         # Note: we don't use negative lookbehind because some browsers don't support it yet
@@ -223,7 +133,7 @@ def interpolate(string: str, values: Any) -> str:
         result += string[strIdx:matchIndex].replace("%%", "%")
         [_, flags, padLength, precision, format] = match.groups()
         # print(match.groups())
-        result += formatReplacement(values[valIdx], flags, padLength, precision, format)
+        result += format_replacement(values[valIdx], flags, padLength, precision, format)
         valIdx += 1
 
         strIdx = match.end()
@@ -233,43 +143,32 @@ def interpolate(string: str, values: Any) -> str:
 
 
 def formatOnce(str2: str, rep: Any):
-    # print("formatOnce: ", str2, rep)
-
     def match(m: Match[str]):
         prefix, flags, padLength, precision, format = m.groups()
-        # print("prefix: ", [prefix])
-        once: str = formatReplacement(rep, flags, padLength, precision, format)
-        # print("once:", [once])
+        once: str = format_replacement(rep, flags, padLength, precision, format)
         return prefix + once.replace("%", "%%")
 
     ret = fsFormatRegExp.sub(match, str2, count=1)
     return ret
 
 
-def createPrinter(string: str, cont: Callable[..., Any]):
-    # print("createPrinter", string)
-
+def create_printer(string: str, cont: Callable[..., Any]):
     def _(*args: Any):
         strCopy: str = string
         for arg in args:
-            # print("Arg: ", [arg])
             strCopy = formatOnce(strCopy, arg)
-            # print("strCopy", strCopy)
 
-        # print("strCopy", strCopy)
         if fsFormatRegExp.search(strCopy):
-            return createPrinter(strCopy, cont)
+            return create_printer(strCopy, cont)
         return cont(strCopy.replace("%%", "%"))
 
     return _
 
 
-def fsFormat(str: str):
-    # print("fsFormat: ", [str])
-
+def fs_format(str: str):
     def _(cont: Callable[..., Any]):
         if fsFormatRegExp.search(str):
-            return createPrinter(str, cont)
+            return create_printer(str, cont)
         return cont(str)
 
     return _
@@ -283,10 +182,8 @@ def format(string: str, *args: Any) -> str:
     #     args.shift()
 
     def match(m: Match[str]):
-        print("Groups: ", m.groups())
         idx, padLength, format, precision_, pattern = list(m.groups())
         rep = args[int(idx)]
-        print("rep: ", [rep])
         if isinstance(rep, (int, float)):
             precision: Optional[int] = None if precision_ is None else int(precision_)
 
@@ -318,7 +215,6 @@ def format(string: str, *args: Any) -> str:
                     nonlocal sign, rep
 
                     intPart, decimalPart = list(m.groups())
-                    # print("**************************: ", rep)
                     if rep < 0:
                         rep = multiply(rep, -1)
                         sign = "-"
@@ -330,9 +226,9 @@ def format(string: str, *args: Any) -> str:
                 rep = sign + rep
 
         elif isinstance(rep, datetime):
-            rep = dateToString(rep, pattern or format)
+            rep = date_to_string(rep, pattern or format)
         else:
-            rep = toString(rep)
+            rep = to_string(rep)
 
         try:
             padLength = int((padLength or " ")[1:])
@@ -343,13 +239,9 @@ def format(string: str, *args: Any) -> str:
         print("return rep: ", [rep])
         return rep
 
-    ret = formatRegExp.sub(match, string)
+    ret = format_regexp.sub(match, string)
     print("ret: ", ret)
     return ret
-
-
-def endsWith(string: str, search: str) -> bool:
-    return string.endswith(search)
 
 
 def initialize(n: int, f: Callable[[int], str]) -> str:
@@ -363,20 +255,19 @@ def initialize(n: int, f: Callable[[int], str]) -> str:
     return "".join(xs)
 
 
-# export function insert(str: string, startIndex: number, value: string) {
-#   if (startIndex < 0 || startIndex > str.length) {
-#     throw new Error("startIndex is negative or greater than the length of this instance.");
-#   }
-#   return str.substring(0, startIndex) + value + str.substring(startIndex);
-# }
+def insert(string: str, startIndex: int, value: str):
+    if startIndex < 0 or startIndex > len(string):
+        raise ValueError("startIndex is negative or greater than the length of this instance.")
+
+    return string[:startIndex] + value + string[startIndex:]
 
 
-def isNullOrEmpty(string: Optional[str]):
-    not isinstance(string, str) or not len(string)
+def is_null_or_empty(string: Optional[str]):
+    return not isinstance(string, str) or not len(string)
 
 
-def isNullOrWhiteSpace(string: Optional[Any]) -> bool:
-    return not isinstance(string, str) or string.isspace()
+def is_null_or_white_space(string: Optional[Any]) -> bool:
+    return not string or not isinstance(string, str) or string.isspace()
 
 
 def concat(*xs: Iterable[Any]) -> str:
@@ -387,13 +278,12 @@ def join(delimiter: str, xs: Iterable[Any]) -> str:
     return delimiter.join((str(x) for x in xs))
 
 
-# export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {
-#   const endIndexPlusOne = startIndex + count;
-#   if (endIndexPlusOne > xs.length) {
-#     throw new Error("Index and count must refer to a location within the buffer.");
-#   }
-#   return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
-# }
+def join_with_indices(delimiter: str, xs: List[str], startIndex: int, count: int):
+    endIndexPlusOne = startIndex + count
+    if endIndexPlusOne > len(xs):
+        raise ValueError("Index and count must refer to a location within the buffer.")
+
+    return delimiter.join(xs[startIndex:endIndexPlusOne])
 
 
 def notSupported(name: str) -> NoReturn:
@@ -431,15 +321,14 @@ def padRight(string: str, len: int, ch: Optional[str] = None) -> str:
     return padLeft(string, len, ch, True)
 
 
-# export function remove(str: string, startIndex: number, count?: number) {
-#   if (startIndex >= str.length) {
-#     throw new Error("startIndex must be less than length of string");
-#   }
-#   if (typeof count === "number" && (startIndex + count) > str.length) {
-#     throw new Error("Index and count must refer to a location within the string.");
-#   }
-#   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
-# }
+def remove(string: str, startIndex: int, count: Optional[int] = None):
+    if startIndex >= len(string):
+        raise ValueError("startIndex must be less than length of string")
+
+    if count and (startIndex + count) > len(string):
+        raise ValueError("Index and count must refer to a location within the string.")
+
+    return string[:startIndex] + (string[startIndex + count :] if count is not None else "")
 
 
 def replace(string: str, search: str, replace: str):
@@ -450,79 +339,220 @@ def replicate(n: int, x: str) -> str:
     return initialize(n, lambda _=0: x)
 
 
-# export function getCharAtIndex(input: string, index: number) {
-#   if (index < 0 || index >= input.length) {
-#     throw new Error("Index was outside the bounds of the array.");
-#   }
-#   return input[index];
-# }
+def get_char_at_index(input: str, index: int):
+    if index < 0 or index >= len(input):
+        raise ValueError("Index was outside the bounds of the array.")
 
-# export function split(str: string, splitters: string[], count?: number, removeEmpty?: number) {
-#   count = typeof count === "number" ? count : undefined;
-#   removeEmpty = typeof removeEmpty === "number" ? removeEmpty : undefined;
-#   if (count && count < 0) {
-#     throw new Error("Count cannot be less than zero");
-#   }
-#   if (count === 0) {
-#     return [];
-#   }
-#   if (!Array.isArray(splitters)) {
-#     if (removeEmpty === 0) {
-#       return str.split(splitters, count);
-#     }
-#     const len = arguments.length;
-#     splitters = Array(len - 1);
-#     for (let key = 1; key < len; key++) {
-#       splitters[key - 1] = arguments[key];
-#     }
-#   }
-#   splitters = splitters.map((x) => escape(x));
-#   splitters = splitters.length > 0 ? splitters : [" "];
-#   let i = 0;
-#   const splits: string[] = [];
-#   const reg = new RegExp(splitters.join("|"), "g");
-#   while (count == null || count > 1) {
-#     const m = reg.exec(str);
-#     if (m === null) { break; }
-#     if (!removeEmpty || (m.index - i) > 0) {
-#       count = count != null ? count - 1 : count;
-#       splits.push(str.substring(i, m.index));
-#     }
-#     i = reg.lastIndex;
-#   }
-#   if (!removeEmpty || (str.length - i) > 0) {
-#     splits.push(str.substring(i));
-#   }
-#   return splits;
-# }
+    return input[index]
 
-# export function trim(str: string, ...chars: string[]) {
-#   if (chars.length === 0) {
-#     return str.trim();
-#   }
-#   const pattern = "[" + escape(chars.join("")) + "]+";
-#   return str.replace(new RegExp("^" + pattern), "").replace(new RegExp(pattern + "$"), "");
-# }
 
-# export function trimStart(str: string, ...chars: string[]) {
-#   return chars.length === 0
-#     ? (str as any).trimStart()
-#     : str.replace(new RegExp("^[" + escape(chars.join("")) + "]+"), "");
-# }
+def split(string: str, splitters: Union[str, List[str]], count: Optional[int] = None, removeEmpty: int = 0):
+    """Split string
 
-# export function trimEnd(str: string, ...chars: string[]) {
-#   return chars.length === 0
-#     ? (str as any).trimEnd()
-#     : str.replace(new RegExp("[" + escape(chars.join("")) + "]+$"), "");
-# }
+    Returns a string array that contains the substrings in this instance
+    that are delimited by elements of a specified string or Unicode
+    character array."""
 
-# export function filter(pred: (char: string) => boolean, x: string) {
-#   return x.split("").filter((c) => pred(c)).join("");
-# }
+    if count and count < 0:
+        raise ValueError("Count cannot be less than zero")
+
+    if count == 0:
+        return []
+
+    if isinstance(splitters, str):
+        if not removeEmpty:
+            return string.split(splitters, count - 1 if count else -1)
+
+        splitters = [splitters]
+
+    splitters = [escape(x) for x in splitters] or [" "]
+
+    i = 0
+    splits = []
+    matches = re.finditer("|".join(splitters), string)
+    for m in matches:
+        if count is not None and count <= 1:
+            break
+
+        split = string[i : m.start()]
+        if split or not removeEmpty:
+            splits.append(split)
+
+            count = count - 1 if count is not None else count
+
+        i = m.end()
+
+    if (count is None or count and count > 0) and len(string) - i > -1:
+        split = string[i:]
+        if split or not removeEmpty:
+            splits.append(split)
+
+    return splits
+
+
+def trim(string: str, *chars: str):
+    if not len(chars):
+        return string.strip()
+
+    pattern = "[" + escape("".join(chars)) + "]+"
+    return re.sub(pattern + "$", "", re.sub("^" + pattern, "", string))
+
+
+def trim_start(string: str, *chars: str):
+    if not len(chars):
+        return string.lstrip()
+
+    return re.sub("^[" + escape("".join(chars)) + "]+", "", string)
+
+
+def trim_end(string: str, *chars: str):
+    if not len(chars):
+        return string.rstrip()
+
+    return re.sub("[" + escape("".join(chars)) + "]+$", "", string)
+
+
+def filter(pred: Callable[[str], bool], x: str):
+    return "".join(c for c in x if pred(c))
 
 
 def substring(string: str, startIndex: int, length: Optional[int] = None) -> str:
+    if startIndex + (length or 0) > len(string):
+        raise ValueError("Invalid startIndex and/or length")
+
     if length is not None:
-        return string[startIndex:startIndex + length]
+        return string[startIndex : startIndex + length]
 
     return string[startIndex:]
+
+
+class StringComparison(Enum):
+    CurrentCulture = 0
+    CurrentCultureIgnoreCase = 1
+    InvariantCulture = 2
+    InvariantCultureIgnoreCase = 3
+    Ordinal = 4
+    OrdinalIgnoreCase = 5
+
+
+def cmp(x: str, y: str, ic: Union[bool, StringComparison]) -> int:
+    def is_ignore_case(i: Union[bool, StringComparison]) -> bool:
+        return (
+            i is True
+            or i == StringComparison.CurrentCultureIgnoreCase.value
+            or i == StringComparison.InvariantCultureIgnoreCase.value
+            or i == StringComparison.OrdinalIgnoreCase.value
+        )
+
+    def is_ordinal(i: Union[bool, StringComparison]) -> bool:
+        return i == StringComparison.Ordinal.value or i == StringComparison.OrdinalIgnoreCase.value
+
+    if not x:
+        return 0 if not y else -1
+    if not y:
+        return 1  # everything is bigger than None
+
+    if is_ordinal(ic):
+        if is_ignore_case(ic):
+            x = x.lower()
+            y = y.lower()
+
+        return 0 if x == y else -1 if x < y else 1
+    elif is_ignore_case(ic):
+        x = x.lower()
+        y = y.lower()
+
+    return locale.strcoll(x, y)
+
+
+@overload
+def compare(__string1: str, __string2: str) -> int:
+    """Compares two specified String objects and returns an integer that
+    indicates their relative position in the sort order."""
+    ...
+
+
+@overload
+def compare(__string1: str, __string2: str, ignore_case: bool, culture: StringComparison) -> int:
+    ...
+
+
+def compare(*args: Any) -> int:
+    """Compares two specified String objects and returns an integer that
+    indicates their relative position in the sort order.
+
+    All overloads of the Compare method return a 32-bit signed integer
+    indicating the lexical relationship between the two comparands.
+
+    - Less than zero: The first substring precedes the second
+        substring in the sort order.
+    - Zero: The substrings occur in the same position in the sort
+        order, or length is zero.
+    - Greater than zero: The first substring follows the second
+        substring in the sort order.
+
+    Returns:
+        Integer that indicates the relationship of the two substrings
+        to each other in the sort order:
+    """
+    length = len(args)
+
+    if length == 2:
+        return cmp(args[0], args[1], False)
+    if length == 3:
+        return cmp(args[0], args[1], args[2])
+    if length == 4:
+        return cmp(args[0], args[1], args[2])
+    if length == 5:
+        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], False)
+    if length == 6:
+        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], args[5])
+    if length == 7:
+        return cmp(args[0][args[1] : args[4] + 1], args[2][args[3] : args[4] + 1], args[5])
+    raise Exception("String.compare: Unsupported number of parameters")
+
+
+def compare_to(this: str, other: str) -> int:
+    """Compare this string with other
+
+    Compares this instance with a specified String object and indicates
+    whether this instance precedes, follows, or appears in the same
+    position in the sort order as the specified string.
+    """
+    return cmp(this, other, StringComparison.CurrentCulture)
+
+
+def ends_with(string: str, search: str):
+    idx = string.rfind(search)
+    return idx >= 0 and idx == len(string) - len(search)
+
+
+def starts_with(string: str, pattern: str, ic: int):
+    if len(string) >= len(pattern):
+        return cmp(string[0 : len(pattern)], pattern, True if ic else False) == 0
+
+    return False
+
+
+def index_of_any(string: str, any_of: List[str], *args: int):
+    if not string:
+        return -1
+
+    start_index = args[0] if len(args) > 0 else 0
+    if start_index < 0:
+        raise ValueError("Start index cannot be negative")
+
+    length = args[1] if len(args) > 1 else len(string) - start_index
+    if length < 0:
+        raise ValueError("Length cannot be negative")
+
+    if length > len(string) - start_index:
+        raise ValueError("Invalid start_index and length")
+
+    string = string[start_index:length]
+    for c in any_of:
+        index = string.find(c)
+        if index > -1:
+            return index + start_index
+
+    return -1
