@@ -469,8 +469,8 @@ export function split(str: string, splitters: string[], count?: number, removeEm
       splitters[key - 1] = arguments[key];
     }
   }
-  splitters = splitters.map((x) => escape(x));
-  splitters = splitters.length > 0 ? splitters : [" "];
+  splitters = splitters.filter((x) => x).map((x) => escape(x));
+  splitters = splitters.length > 0 ? splitters : ["\\s"];
   let i = 0;
   const splits: string[] = [];
   const reg = new RegExp(splitters.join("|"), "g");
@@ -518,4 +518,24 @@ export function substring(str: string, startIndex: number, length?: number) {
     throw new Error("Invalid startIndex and/or length");
   }
   return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
+}
+
+interface FormattableString {
+  strs: TemplateStringsArray,
+  args: any[],
+  fmts?: string[]
+}
+
+export function fmt(strs: TemplateStringsArray, ...args: any[]): FormattableString {
+  return ({ strs, args });
+}
+
+export function fmtWith(fmts: string[]) {
+  return (strs: TemplateStringsArray, ...args: any[]) => ({ strs, args, fmts } as FormattableString);
+}
+
+export function getFormat(s: FormattableString) {
+  return s.fmts
+    ? s.strs.reduce((acc, newPart, index) => acc + `{${String(index - 1) + s.fmts![index - 1]}}` + newPart)
+    : s.strs.reduce((acc, newPart, index) => acc + `{${index - 1}}` + newPart);
 }

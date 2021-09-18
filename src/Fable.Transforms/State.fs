@@ -113,8 +113,10 @@ type Project(projFile: string,
              checkResults: FSharpCheckProjectResults,
              ?getPlugin: PluginRef -> System.Type,
              ?optimizeFSharpAst,
-             ?assemblies) =
+             ?assemblies,
+             ?rootModule) =
 
+    let rootModule = defaultArg rootModule true
     let optimizeFSharpAst = defaultArg optimizeFSharpAst false
     let getPlugin = defaultArg getPlugin (fun _ -> failwith "Plugins are not supported")
     let assemblies =
@@ -139,14 +141,14 @@ type Project(projFile: string,
                         loop e.NestedEntities
             FSharp2Fable.Compiler.getRootFSharpEntities file |> loop
             let key = Path.normalizePathAndEnsureFsExtension file.FileName
-            key, { Ast = file
-                   RootModule = FSharp2Fable.Compiler.getRootModule file
-                   Entities = entities })
+            let rootModule = if rootModule then FSharp2Fable.Compiler.getRootModule file else ""
+            key, { Ast = file; RootModule = rootModule; Entities = entities })
         |> dict
 
     member this.Update(checkResults: FSharpCheckProjectResults) =
         Project(this.ProjectFile, checkResults,
                 optimizeFSharpAst=optimizeFSharpAst,
+                rootModule=rootModule,
                 assemblies=assemblies)
 
     member _.ProjectFile = projFile
@@ -203,13 +205,14 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
             match project.ImplementationFiles.TryGetValue(fileName) with
             | true, file -> file.RootModule
             | false, _ ->
-                let msg = sprintf "Cannot find root module for %s. If this belongs to a package, make sure it includes the source files." fileName
+                let msg = $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
                 (this :> Compiler).AddLog(msg, Severity.Warning, fileName=currentFile)
                 "" // failwith msg
 
         member _.GetEntity(entityRef: Fable.EntityRef) =
             match entityRef.Path with
             | Fable.CoreAssemblyName name -> project.Assemblies.GetEntityByCoreAssemblyName(name, entityRef)
+            | Fable.PrecompiledLib(_, path)
             | Fable.AssemblyPath path -> project.Assemblies.GetEntityByAssemblyPath(path, entityRef)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName

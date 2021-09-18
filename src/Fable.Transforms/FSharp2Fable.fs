@@ -79,7 +79,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
             | _ -> failwith "Unexpected args for List constructor"
         Fable.NewList(headAndTail, typ) |> makeValue r
     | DiscriminatedUnion(tdef, genArgs) ->
-        let genArgs = makeGenArgs ctx.GenericArgs genArgs
+        let genArgs = makeTypeGenArgs ctx.GenericArgs genArgs
         let tag = unionCaseTag com tdef unionCase
         Fable.NewUnion(argExprs, tag, FsEnt.Ref tdef, genArgs) |> makeValue r
 
@@ -873,14 +873,14 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
     | FSharpExprPatterns.NewRecord(fsType, argExprs) ->
         let r = makeRangeFrom fsExpr
         let! argExprs = transformExprList com ctx argExprs
-        let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+        let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
         return Fable.NewRecord(argExprs, FsEnt.Ref fsType.TypeDefinition, genArgs) |> makeValue r
 
     | FSharpExprPatterns.NewAnonRecord(fsType, argExprs) ->
         let r = makeRangeFrom fsExpr
         let! argExprs = transformExprList com ctx argExprs
         let fieldNames = fsType.AnonRecordTypeDetails.SortedFieldNames
-        let genArgs = makeGenArgs ctx.GenericArgs (getGenericArguments fsType)
+        let genArgs = makeTypeGenArgs ctx.GenericArgs (getGenericArguments fsType)
         return Fable.NewAnonymousRecord(argExprs, fieldNames, genArgs) |> makeValue r
 
     | FSharpExprPatterns.NewUnionCase(fsType, unionCase, argExprs) ->
@@ -1081,12 +1081,69 @@ let private transformMemberValue (com: IFableCompiler) ctx isPublic name fullDis
               Info = info
               ExportDefault = false }]
 
-let private moduleMemberDeclarationInfo isPublic (memb: FSharpMemberOrFunctionOrValue): Fable.MemberInfo =
+let private moduleMemberDeclarationInfo isPublic isValue (memb: FSharpMemberOrFunctionOrValue): Fable.MemberInfo =
     MemberInfo(memb.Attributes,
                    hasSpread=hasParamArray memb,
                    isPublic=isPublic,
+                   isValue=isValue,
                    isInstance=memb.IsInstanceMember,
                    isMutable=memb.IsMutable) :> _
+
+// JS-only feature, in Fable 4 it should be abstracted
+let private applyDecorators (com: IFableCompiler) (_ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Ident list) (body: Fable.Expr) =
+    let methodInfo =
+        lazy
+            let name = memb.DisplayName
+            let returnType = makeType Map.empty memb.ReturnParameter.Type
+            let parameters =
+                memb.CurriedParameterGroups
+                |> Seq.collect id
+                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg{i}", makeType Map.empty p.Type)
+                |> Seq.toList
+            Replacements.makeMethodInfo com None name parameters returnType
+
+    let newDecorator (ent: FSharpEntity) (args: IList<FSharpType * obj>) =
+        let args =
+            args |> Seq.map (fun (typ, value) ->
+                let typ = makeType Map.empty typ
+                Replacements.makeTypeConst com None typ value)
+            |> Seq.toList
+        let callInfo = { makeCallInfo None args [] with IsJsConstructor = true }
+        FsEnt(ent) |> entityRef com
+        |> makeCall None Fable.Any callInfo
+
+    let applyDecorator (body: Fable.Expr)
+                       (attr: {| Entity: FSharpEntity
+                                 Args: IList<FSharpType * obj>
+                                 MethodInfo: bool |}) =
+        let extraArgs =
+            if attr.MethodInfo then [ methodInfo.Value ]
+            else []
+        let callInfo = makeCallInfo None (body::extraArgs) []
+        let newAttr = newDecorator attr.Entity attr.Args
+        getExpr None Fable.Any newAttr (makeStrConst "Decorate")
+        |> makeCall None body.Type callInfo
+
+    memb.Attributes
+    |> Seq.choose (fun att ->
+        let attEnt = nonAbbreviatedDefinition att.AttributeType
+        match attEnt.BaseType with
+        | Some tbase when tbase.HasTypeDefinition ->
+            match tbase.TypeDefinition.TryFullName with
+            | Some Atts.decorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = false |}
+            | Some Atts.reflectedDecorator -> Some {| Entity = attEnt; Args = att.ConstructorArguments; MethodInfo = true |}
+            | _ -> None
+        | _ -> None)
+    |> Seq.rev
+    |> Seq.toList
+    |> function
+        | [] -> None
+        | decorators ->
+            let body = Fable.Delegate(args, body, None)
+            // Hack to tell the compiler this must be compiled as function (not arrow)
+            // so we don't have issues with bound this
+            let body = Fable.TypeCast(body, body.Type, Some("optimizable:function"))
+            List.fold applyDecorator body decorators |> Some
 
 let private transformMemberFunction (com: IFableCompiler) ctx isPublic name fullDisplayName (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
     let bodyCtx, args = bindMemberArgs com ctx args
@@ -1109,13 +1166,17 @@ let private transformMemberFunction (com: IFableCompiler) ctx isPublic name full
                     |> makeCall None Fable.Unit (makeCallInfo None [] [])
                   UsedNames = set ctx.UsedNamesInDeclarationScope }]
         else
+            let args, body, isValue =
+                match applyDecorators com ctx memb args body with
+                | None -> args, body, false
+                | Some body -> [], body, true
             [Fable.MemberDeclaration
                 { Name = name
                   FullDisplayName = fullDisplayName
                   Args = args
                   Body = body
                   UsedNames = set ctx.UsedNamesInDeclarationScope
-                  Info = moduleMemberDeclarationInfo isPublic memb
+                  Info = moduleMemberDeclarationInfo isPublic isValue memb
                   ExportDefault = false }]
 
 let private transformMemberFunctionOrValue (com: IFableCompiler) ctx (memb: FSharpMemberOrFunctionOrValue) args (body: FSharpExpr) =
@@ -1233,6 +1294,7 @@ let private isIgnoredLeafEntity (ent: FSharpEntity) =
     || ent.IsEnum
     || ent.IsMeasure
     || ent.IsFSharpAbbreviation
+    || ent.IsDelegate
     || ent.IsNamespace // Ignore empty namespaces
 
 // In case this is a recursive module, do a first pass to get all entity and member names

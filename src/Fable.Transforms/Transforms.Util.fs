@@ -23,6 +23,8 @@ module Atts =
     let [<Literal>] erase = "Fable.Core.EraseAttribute" // typeof<Fable.Core.EraseAttribute>.FullName
     let [<Literal>] stringEnum = "Fable.Core.StringEnumAttribute" // typeof<Fable.Core.StringEnumAttribute>.FullName
     let [<Literal>] inject = "Fable.Core.InjectAttribute" // typeof<Fable.Core.InjectAttribute>.FullName
+    let [<Literal>] decorator = "Fable.Core.JS.DecoratorAttribute" // typeof<Fable.Core.JS.DecoratorAttribute>.FullName
+    let [<Literal>] reflectedDecorator = "Fable.Core.JS.ReflectedDecoratorAttribute" // typeof<Fable.Core.JS.ReflectedDecoratorAttribute>.FullName
 
 [<RequireQualifiedAccess>]
 module Types =
@@ -404,6 +406,9 @@ module AST =
 
     let makeArray elementType arrExprs =
         NewArray(arrExprs, elementType) |> makeValue None
+
+    let makeTuple tupleExprs =
+        NewTuple tupleExprs |> makeValue None
 
     let makeDelegate args body =
         Delegate(args, body, None)

@@ -405,8 +405,38 @@ type MyUnion2 = Foo of int * int
 type MyRecord1 = { Foo: int; Bar: string }
 type MyRecord2 = { Foo: int; Bar: string }
 
+type SubclassTest1() = class end
+type SubclassTest2() = inherit SubclassTest1()
+type SubclassTest3() = inherit SubclassTest2()
+
+[<Measure>] type a
+[<Measure>] type b
+[<Measure>] type c = a * b
+[<Measure>] type d = a / b
+
+type MeasureTest<[<Measure>] 'T> = { X: float<'T> }
+type MeasureTestGen<[<Measure>] 'T, 'V> = { X: float<'T>; Y: 'V }
+
+type MeasureTest1_ = { Y: MeasureTestGen<a, int> }
+type MeasureTest1 = { Y: MeasureTest<a*b> }
+type MeasureTest2 = { Y: float<c> }
+type MeasureTest3 = { Y: MeasureTest<a/b> }
+type MeasureTest4 = { Y: float<d> }
+
+// Check that types with product measures compile, see #2532
+type MeasureTest5 = { Y: MeasureTest<c> }
+type MeasureTest6 = { Y: MeasureTest<d> }
+
 let tests =
   testList "Types" [
+    // TODO: This test produces different results in Fable and .NET
+    // See Fable.Transforms.FSharp2Fable.TypeHelpers.makeTypeGenArgs
+    // testCase "Reflection for types with measures work" <| fun () ->
+    //     Reflection.FSharpType.GetRecordFields(typeof<MeasureTest1_>)
+    //     |> Array.item 0
+    //     |> fun fi -> fi.PropertyType.GetGenericArguments().Length
+    //     |> equal 1
+
     testCase "Types can instantiate their parent in the constructor" <| fun () ->
         let t = TestType9()
         t.Greet("Maxime") |> equal "Hello Maxime"
@@ -878,4 +908,14 @@ let tests =
     testCase "Two records of different type with same shape are not equal" <| fun () ->
         areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord2.Foo = 2; Bar = "oh" } |> equal false
         areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord1.Foo = 2; Bar = "oh" } |> equal true
+
+    testCase "IsSubclassOf checks whole hierarchy" <| fun () ->
+        typeof<SubclassTest2>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
+        typeof<SubclassTest3>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
+
+#if FABLE_COMPILER
+    testCase "Choice with arity 3+ is represented correctly" <| fun () -> // See #2485
+        Choice2Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice2Of3"
+        Choice3Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice3Of3"
+#endif
   ]

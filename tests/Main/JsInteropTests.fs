@@ -11,6 +11,40 @@ open Fable.Core.Experimental
 
 importSideEffects "./js/polyfill.js"
 
+let logs = ResizeArray()
+
+type LogAttribute(msg1: string, code: int) =
+    inherit JS.DecoratorAttribute()
+    override _.Decorate(fn) =
+        let mutable count = 0
+        JS.spreadFunc(fun args ->
+            count <- count + 1
+            logs.Add $"LOG1: [%s{msg1} (code %i{code})] called %i{count} time(s)!"
+            fn.apply(null, args))
+
+type Log2Attribute() =
+    inherit JS.DecoratorAttribute()
+    override _.Decorate(fn) =
+        let mutable count = 0
+        JS.spreadFunc(fun args ->
+            count <- count + 1
+            logs.Add $"LOG2: called %i{count} time(s)!"
+            fn.apply(null, args))
+
+type Log3Attribute() =
+    inherit JS.ReflectedDecoratorAttribute()
+    override _.Decorate(fn, info) =
+        logs.Add $"{info.Name}: {info.ReturnType}"
+        for p in info.GetParameters() do
+            logs.Add $"{p.Name}: {p.ParameterType}"
+        JS.spreadFunc(fun args ->
+            fn.apply(null, args))
+
+[<Log("MATH", 3)>]
+[<Log2>]
+[<Log3>]
+let myComplexAdder x y = x + y
+
 let inline getNameofLambda (f: 'T->'U) =
     nameofLambda f
 
@@ -208,6 +242,19 @@ let tests =
         x.dileHola("Pepe") |> equal "Hola, Pepe???"
 
 #if FABLE_COMPILER
+    testCase "Decorators work" <| fun () ->
+        myComplexAdder 3 4 |> equal 7
+        myComplexAdder 6 7 |> equal 13
+        logs |> Seq.toList |> equal [
+          "myComplexAdder: System.Int32"
+          "x: System.Int32"
+          "y: System.Int32"
+          "LOG1: [MATH (code 3)] called 1 time(s)!"
+          "LOG2: called 1 time(s)!"
+          "LOG1: [MATH (code 3)] called 2 time(s)!"
+          "LOG2: called 2 time(s)!"
+        ]
+
     testCase "List can be JSON serialized" <| fun () ->
         let x = [3; 2; 1]
         JS.JSON.stringify(x)

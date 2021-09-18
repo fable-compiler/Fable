@@ -1,7 +1,7 @@
 namespace Fable
 
 module Literals =
-    let [<Literal>] VERSION = "3.2.9"
+    let [<Literal>] VERSION = "3.3.0"
 
 type CompilerOptionsHelper =
     static member DefaultExtension = ".fs.js"
@@ -11,7 +11,8 @@ type CompilerOptionsHelper =
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
-                       ?clampByteArrays) =
+                       ?clampByteArrays,
+                       ?rootModule) =
         let define = defaultArg define []
         let isDebug = List.contains "DEBUG" define
 
@@ -21,6 +22,7 @@ type CompilerOptionsHelper =
               member _.Language = defaultArg language JavaScript
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
+              member _.RootModule = defaultArg rootModule false
               member _.Verbosity = defaultArg verbosity Verbosity.Normal
               member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
               member _.ClampByteArrays = defaultArg clampByteArrays false }
@@ -66,13 +68,16 @@ module CompilerExt =
                 let m = r.Match(v)
                 int m.Groups.[1].Value,
                 int m.Groups.[2].Value,
-                if m.Groups.[3].Success then Some(int m.Groups.[3].Value) else None
+                if m.Groups.[3].Success then int m.Groups.[3].Value else 0
+
             let actualMajor, actualMinor, actualPatch = parse actual
             let expectedMajor, expectedMinor, expectedPatch = parse expected
-            let success = actualMajor = expectedMajor && actualMinor >= expectedMinor
-            match expectedPatch, actualPatch with
-            | Some expectedPatch, Some actualPatch -> success && actualPatch >= expectedPatch
-            | _ -> success
+
+            // Fail also if actual major is bigger than expected major version
+            actualMajor = expectedMajor && (
+                actualMinor > expectedMinor
+                || (actualMinor = expectedMinor && actualPatch >= expectedPatch)
+            )
         with _ -> false
 
     type Compiler with

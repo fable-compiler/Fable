@@ -144,6 +144,7 @@ let buildLibraryJsWithOptions (opts: {| watch: bool |}) =
         runTSLint projectDir
         runTypeScript projectDir
         runFableWithArgs projectDir fableOpts
+        removeDirRecursive (buildDir </> ".fable")
 
 let buildLibraryJs() = buildLibraryJsWithOptions {| watch = false |}
 let watchLibraryJs() = buildLibraryJsWithOptions {| watch = true |}

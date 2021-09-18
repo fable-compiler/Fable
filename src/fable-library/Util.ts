@@ -585,74 +585,40 @@ export function clear<T>(col: Iterable<T>) {
   }
 }
 
-const CURRIED_KEY = "__CURRIED__";
+const CURRIED = Symbol("curried");
 
 export function uncurry(arity: number, f: Function) {
   // f may be a function option with None value
   if (f == null || f.length > 1) {
     return f;
   }
-
-  let uncurriedFn: Function;
-  switch (arity) {
-    case 2:
-      uncurriedFn = (a1: any, a2: any) => f(a1)(a2);
-      break;
-    case 3:
-      uncurriedFn = (a1: any, a2: any, a3: any) => f(a1)(a2)(a3);
-      break;
-    case 4:
-      uncurriedFn = (a1: any, a2: any, a3: any, a4: any) => f(a1)(a2)(a3)(a4);
-      break;
-    case 5:
-      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any) => f(a1)(a2)(a3)(a4)(a5);
-      break;
-    case 6:
-      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any) => f(a1)(a2)(a3)(a4)(a5)(a6);
-      break;
-    case 7:
-      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any) =>
-        f(a1)(a2)(a3)(a4)(a5)(a6)(a7);
-      break;
-    case 8:
-      uncurriedFn = (a1: any, a2: any, a3: any, a4: any, a5: any, a6: any, a7: any, a8: any) =>
-        f(a1)(a2)(a3)(a4)(a5)(a6)(a7)(a8);
-      break;
-    default:
-      throw new Error("Uncurrying to more than 8-arity is not supported: " + arity);
+  const uncurried = (...args: any[]) => {
+    let res = f;
+    for (let i = 0; i < arity; i++) {
+      res = res(args[i]);
+    }
+    return res;
   }
-  (uncurriedFn as any)[CURRIED_KEY] = f;
-  return uncurriedFn;
+  (uncurried as any)[CURRIED] = f;
+  return uncurried;
+}
+
+function _curry(args: any[],  arity: number, f: Function): (x: any) => any {
+  return (arg: any) => arity === 1
+    ? f(...args.concat([arg]))
+    // Note it's important to generate a new args array every time
+    // because a partially applied function can be run multiple times
+    : _curry(args.concat([arg]), arity - 1, f);
 }
 
 export function curry(arity: number, f: Function): Function | undefined {
   if (f == null || f.length === 1) {
     return f;
   }
-  if (CURRIED_KEY in f) {
-    return (f as any)[CURRIED_KEY];
-  }
-  switch (arity) {
-    case 2:
-      return (a1: any) => (a2: any) => f(a1, a2);
-    case 3:
-      return (a1: any) => (a2: any) => (a3: any) => f(a1, a2, a3);
-    case 4:
-      return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f(a1, a2, a3, a4);
-    case 5:
-      return (a1: any) => (a2: any) => (a3: any) =>
-        (a4: any) => (a5: any) => f(a1, a2, a3, a4, a5);
-    case 6:
-      return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
-        (a5: any) => (a6: any) => f(a1, a2, a3, a4, a5, a6);
-    case 7:
-      return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
-        (a6: any) => (a7: any) => f(a1, a2, a3, a4, a5, a6, a7);
-    case 8:
-      return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
-        (a7: any) => (a8: any) => f(a1, a2, a3, a4, a5, a6, a7, a8);
-    default:
-      throw new Error("Currying to more than 8-arity is not supported: " + arity);
+  else if (CURRIED in f) {
+    return (f as any)[CURRIED];
+  } else {
+    return _curry([], arity, f);
   }
 }
 
@@ -665,40 +631,14 @@ export function checkArity(arity: number, f: Function): Function {
 export function partialApply(arity: number, f: Function, args: any[]): any {
   if (f == null) {
     return undefined;
-  } else if (CURRIED_KEY in f) {
-    f = (f as any)[CURRIED_KEY];
+  } else if (CURRIED in f) {
+    f = (f as any)[CURRIED];
     for (let i = 0; i < args.length; i++) {
       f = f(args[i]);
     }
     return f;
   } else {
-    switch (arity) {
-      case 1:
-        // Wrap arguments to make sure .concat doesn't destruct arrays. Example
-        // [1,2].concat([3,4],5)   --> [1,2,3,4,5]    // fails
-        // [1,2].concat([[3,4],5]) --> [1,2,[3,4],5]  // ok
-        return (a1: any) => f.apply(undefined, args.concat([a1]));
-      case 2:
-        return (a1: any) => (a2: any) => f.apply(undefined, args.concat([a1, a2]));
-      case 3:
-        return (a1: any) => (a2: any) => (a3: any) => f.apply(undefined, args.concat([a1, a2, a3]));
-      case 4:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => f.apply(undefined, args.concat([a1, a2, a3, a4]));
-      case 5:
-        return (a1: any) => (a2: any) => (a3: any) =>
-          (a4: any) => (a5: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5]));
-      case 6:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) =>
-          (a5: any) => (a6: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6]));
-      case 7:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) =>
-          (a6: any) => (a7: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7]));
-      case 8:
-        return (a1: any) => (a2: any) => (a3: any) => (a4: any) => (a5: any) => (a6: any) =>
-          (a7: any) => (a8: any) => f.apply(undefined, args.concat([a1, a2, a3, a4, a5, a6, a7, a8]));
-      default:
-        throw new Error("Partially applying to more than 8-arity is not supported: " + arity);
-    }
+    return _curry(args, arity, f);
   }
 }
 
