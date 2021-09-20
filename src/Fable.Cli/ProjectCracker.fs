@@ -482,12 +482,14 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 Process.getCurrentAssembly().Location
                 |> Path.GetDirectoryName
 
-
             let defaultFableLibraryPaths =
                 match opts.FableOptions.Language with
                 | Python ->
                     [ "../../../fable-library-py/"               // running from nuget tools package
                       "../../../../../build/fable-library-py/" ] // running from bin/Release/netcoreapp3.1
+                | Rust ->
+                    [ "../../../fable-library-rust/"
+                      "../../../../../build/fable-library-rust/" ]
                 | _ ->
                     [ "../../../fable-library/"               // running from nuget tools package
                       "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1

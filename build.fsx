@@ -223,10 +223,10 @@ let buildLibraryRust() =
     copyDirNonRecursive libraryDir buildDir
     // runInDir buildDir ("cargo build")
 
-let buildLibraryRustIfNotExists() =
-    let baseDir = __SOURCE_DIRECTORY__
-    if not (pathExists (baseDir </> "build/fable-library-rust")) then
-        buildLibraryRust()
+// let buildLibraryRustIfNotExists() =
+//     let baseDir = __SOURCE_DIRECTORY__
+//     if not (pathExists (baseDir </> "build/fable-library-rust")) then
+//         buildLibraryRust()
 
 // Like testJs() but doesn't create bundles/packages for fable-standalone & friends
 // Mainly intended for CI
@@ -464,7 +464,8 @@ let testPython() =
     runInDir buildDir "pytest"
 
 let testRust() =
-    buildLibraryRustIfNotExists()
+    // buildLibraryRustIfNotExists()
+    buildLibraryRust()
 
     let projectDir = "tests/Rust"
     let buildDir = "build/tests/Rust"

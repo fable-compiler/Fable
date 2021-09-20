@@ -1,4 +1,5 @@
 module Util
 
 let equals a b =
-    true
+    false
+    // LanguagePrimitives.PhysicalEquality a b

@@ -213,20 +213,16 @@ module Paths =
           segments = mkVec segments
           tokens = None }
 
-    let mkGenericPath (symbols: Symbol seq) genArgs: Path =
-        let len = Seq.length symbols
+    let mkGenericPath (names: Symbol seq) genArgs: Path =
+        let len = Seq.length names
         let args i = if i < len - 1 then None else genArgs
-        symbols
+        names
         |> Seq.mapi (fun i s -> mkPathSegment (mkIdent s) (args i))
         |> mkPath
 
-    let mkPathFromName (name: Symbol) genArgs: Path =
-        let symbols = [name]
-        mkGenericPath symbols genArgs
-
-    let mkPathFromFullName (name: Symbol) genArgs: Path =
-        let symbols = name.Split('.') |> Array.append [|"crate"|]
-        mkGenericPath symbols genArgs
+    let mkFullNamePath (fullName: Symbol) genArgs: Path =
+        let names = fullName.Split('.') |> Array.append [|"crate"|]
+        mkGenericPath names genArgs
 
 [<AutoOpen>]
 module Patterns =
@@ -379,7 +375,7 @@ module MacroArgs =
 module MacCalls =
 
     let mkMacCall symbol delim kind (tokens: token.Token seq): MacCall =
-        { path = mkPathFromName symbol None
+        { path = mkGenericPath [symbol] None
           args = mkDelimitedMacArgs delim kind tokens
           prior_type_ascription = None }
 
@@ -408,7 +404,7 @@ module Attrs =
           tokens = None }
 
     let mkAttrKind (name: Symbol) args: AttrKind =
-        let path = mkPathFromName name None
+        let path = mkGenericPath [name] None
         let item = mkAttrItem path args
         let kind = AttrKind.Normal(item, None)
         kind
@@ -519,6 +515,14 @@ module Exprs =
     let mkQualifiedPathExpr (qualified: Option<QSelf>) path: Expr =
         ExprKind.Path(qualified, path)
         |> mkExpr
+
+    let mkGenericPathExpr names genArgs: Expr =
+        mkGenericPath names genArgs
+        |> mkPathExpr
+
+    let mkFullNamePathExpr fullName genArgs: Expr =
+        mkFullNamePath fullName genArgs
+        |> mkPathExpr
 
     let mkStructExpr path fields: Expr =
         { path = path
@@ -715,12 +719,12 @@ module Types =
         TyKind.Rptr(None, { ty = ty; mutbl = Mutability.Mut })
         |> mkTy
 
-    let mkPathTy (name: Symbol) (attrs: GenericArgs option): Ty =
-        TyKind.Path(None, mkPathFromName name attrs)
+    let mkGenericPathTy (names: Symbol seq) (genArgs: GenericArgs option): Ty =
+        TyKind.Path(None, mkGenericPath names genArgs)
         |> mkTy
 
-    let mkFullPathTy (fullName: Symbol) (attrs: GenericArgs option): Ty =
-        TyKind.Path(None, mkPathFromFullName fullName attrs)
+    let mkFullNamePathTy (fullName: Symbol) (genArgs: GenericArgs option): Ty =
+        TyKind.Path(None, mkFullNamePath fullName genArgs)
         |> mkTy
 
     let mkArrayTy ty (size: Expr): Ty =
@@ -736,7 +740,7 @@ module Types =
         |> mkTy
 
     let TODO_TYPE name: Ty =
-        mkPathTy ("TODO_TYPE_" + name) None
+        mkGenericPathTy ["TODO_TYPE_" + name] None
 
 [<AutoOpen>]
 module Generic =
@@ -898,24 +902,30 @@ module Items =
         ItemKind.Fn kind
         |> mkItem attrs ident
 
-    let mkUseItem symbols kind: Item =
+    let mkUseTree parts kind: UseTree =
+        { prefix = mkGenericPath parts None
+          kind = kind
+          span = DUMMY_SP }
+
+    let mkUseItem parts kind: Item =
         let attrs = []
         let ident = mkIdent ""
-        let useTree = {
-            prefix = mkGenericPath symbols None
-            kind = kind
-            span = DUMMY_SP
-        }
+        let useTree = mkUseTree parts kind
         ItemKind.Use(useTree)
         |> mkItem attrs ident
 
-    let mkSimpleUseItem symbols (alias: Ident option): Item =
+    let mkSimpleUseItem parts (alias: Ident option): Item =
         UseTreeKind.Simple(alias, DUMMY_NODE_ID, DUMMY_NODE_ID)
-        |> mkUseItem symbols
+        |> mkUseItem parts
 
-    let mkGlobUseItem symbols: Item =
+    let mkNestedUseItem parts useTrees: Item =
+        let useTrees = useTrees |> Seq.map (fun x -> x, DUMMY_NODE_ID)
+        UseTreeKind.Nested(mkVec useTrees)
+        |> mkUseItem parts
+
+    let mkGlobUseItem parts: Item =
         UseTreeKind.Glob
-        |> mkUseItem symbols
+        |> mkUseItem parts
 
     let mkModItem attrs name items: Item =
         let ident = mkIdent name

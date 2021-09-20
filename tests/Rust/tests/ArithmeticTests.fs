@@ -36,12 +36,6 @@ let testLocalsWithFcalls () =
     a + b + c |> equal 6
 
 [<Fact>]
-let testAddStrings () =
-    let a () = "hello"
-    let b () = "world"
-    a() + " " + b() |> equal "hello world"
-
-[<Fact>]
 let testLocalFunction () =
     let locAdd1 a =
         addFn 1 a

@@ -625,11 +625,14 @@ let toArray r t expr =
 let stringToCharArray t e =
     Helper.InstanceCall(e, "split", t, [makeStrConst ""])
 
-let toSeq t (e: Expr) =
-    match e.Type with
+let toSeq t (expr: Expr) =
+    match expr.Type with
     // Convert to array to get 16-bit code units, see #1279
-    | String -> stringToCharArray t e
-    | _ -> TypeCast(e, t)
+    | String -> stringToCharArray t expr
+    | _ -> TypeCast(expr, t)
+
+let getLength r t (expr: Expr) =
+    TypeCast(Helper.InstanceCall(expr, "len", t, [], ?loc=r), t)
 
 let (|ListSingleton|) x = [x]
 
@@ -757,33 +760,34 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
     Helper.LibCall(com, "Util", methodName, Number(Int32, None), [arg], ?loc=r)
 
 let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
-    let is equal expr =
-        if equal then expr
-        else makeUnOp None Boolean expr UnaryNot
+    // let is equal expr =
+    //     if equal then expr
+    //     else makeUnOp None Boolean expr UnaryNot
     match left.Type with
-    | Builtin (BclGuid|BclTimeSpan)
-    | Boolean | Char | String | Number _ | Enum _ ->
-        let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
-        makeBinOp r Boolean left right op
-    | Builtin (BclDateTime|BclDateTimeOffset) ->
-        Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Builtin (FSharpSet _|FSharpMap _) ->
-        Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
-    | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
-        Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | DeclaredType _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Array t ->
-        let f = makeComparerFunction com ctx t
-        Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
-    | List _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | MetaType ->
-        Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
-    | Tuple _ ->
-        Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
+    // | Builtin (BclGuid|BclTimeSpan)
+    // | Boolean | Char | String | Number _ | Enum _ ->
+    //     let op = if equal then BinaryEqualStrict else BinaryUnequalStrict
+    //     makeBinOp r Boolean left right op
+    // | Builtin (BclDateTime|BclDateTimeOffset) ->
+    //     Helper.LibCall(com, "Date", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    // | Builtin (FSharpSet _|FSharpMap _) ->
+    //     Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
+    // | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
+    //     Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
+    // | DeclaredType _ ->
+    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    // | Array t ->
+    //     let f = makeComparerFunction com ctx t
+    //     Helper.LibCall(com, "Array", "equalsWith", Boolean, [f; left; right], ?loc=r) |> is equal
+    // | List _ ->
+    //     Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    // | MetaType ->
+    //     Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
+    // | Tuple _ ->
+    //     Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     | _ ->
-        Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+        // Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
+        makeEqOp r left right BinaryEqualStrict
 
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
@@ -1632,7 +1636,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                    |> addErrorAndReturnNull com ctx.InlinePath r |> Some
         | _ ->
             fsFormat com ctx r t i thisArg args
-    | "get_Length", Some c, _ -> getAttachedMemberWith r t c "length" |> Some
+    | "get_Length", Some c, _ -> getLength r t c |> Some
     | "get_Chars", Some c, _ ->
         Helper.LibCall(com, "String", "getCharAtIndex", t, args, i.SignatureArgTypes, c, ?loc=r) |> Some
     | "Equals", Some x, [y] | "Equals", None, [x; y] ->
@@ -1715,7 +1719,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Length", [arg] -> Helper.InstanceCall(arg, "len", t, []) |> Some
+    | "Length", [arg] -> getLength r t arg |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
@@ -1790,7 +1794,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         match ar.Type with
         // Fable translates System.Collections.Generic.List as Array
         // TODO: Check also IList?
-        | Array _ ->  Helper.InstanceCall(ar, "len", t, []) |> Some
+        | Array _ ->  getLength r t ar |> Some
         | _ -> Helper.LibCall(com, "Util", "count", t, [ar], ?loc=r) |> Some
     | "Clear", Some ar, _ ->
         Helper.LibCall(com, "Util", "clear", t, [ar], ?loc=r) |> Some
@@ -1882,7 +1886,7 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
 
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some arg, _ -> Helper.InstanceCall(arg, "len", t, []) |> Some
+    | "get_Length", Some arg, _ -> getLength r t arg |> Some
     | "get_Item", Some arg, [idx] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [idx; value] -> setExpr r arg idx value |> Some
     | "Copy", None, [_source; _sourceIndex; _target; _targetIndex; _count] -> copyToArray com r t i args
@@ -1913,7 +1917,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Helper.LibCall(com, "List", "toArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
     | "ToList", args ->
         Helper.LibCall(com, "List", "ofArray", t, args, i.SignatureArgTypes, ?loc=r) |> Some
-    | ("Length" | "Count"), [arg] -> Helper.InstanceCall(arg, "len", t, []) |> Some
+    | ("Length" | "Count"), [arg] -> getLength r t arg |> Some
     | "Item", [idx; ar] -> getExpr r t ar idx |> Some
     | "Get", [ar; idx] -> getExpr r t ar idx |> Some
     | "Set", [ar; idx; value] -> setExpr r ar idx value |> Some
@@ -1923,7 +1927,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let t = match t with Array t -> t | _ -> Any
         newArray (makeIntConst 0) t |> Some
     | "IsEmpty", [ar] ->
-        eq (Helper.InstanceCall(ar, "len", t, [])) (makeIntConst 0) |> Some
+        eq (getLength r t ar) (makeIntConst 0) |> Some
     | "CopyTo", args ->
         copyToArray com r t i args
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
