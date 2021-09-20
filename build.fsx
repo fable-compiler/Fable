@@ -475,6 +475,7 @@ let testRust() =
         "--outDir " + buildDir
         "--exclude Fable.Core"
         "--lang Rust"
+        "--fableLib " + "fable-library-rust"
     ]
 
     copyFile (projectDir </> "Cargo.toml") buildDir

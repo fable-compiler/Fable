@@ -33,6 +33,7 @@
     <!-- <Compile Include="../../fable-library/Map.fs" /> -->
     <!-- <Compile Include="AsyncBuilder.fs" /> -->
     <!-- <Compile Include="Async.fs" /> -->
+    <Compile Include="Util.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2304,8 +2304,24 @@ module Util =
             then mkSemiBlock fnBody
             else mkExprBlock fnBody
         let header = DEFAULT_FN_HEADER
-        let gen = NO_GENERICS // TODO: add generics
-        let kind = mkFnKind header fnDecl gen (Some fnBodyBlock)
+        let generics =
+            //it does not seem like the current AST gives access to the actual generic params, so this is inferring them from useage,
+            //which is a hack/temporary solution that only works for trivial cases.
+            let parameters =
+                args
+                |> List.choose (fun a ->
+                            match a.Type with
+                            | Fable.GenericParam (name, constraints) -> Some (name, constraints)
+                            | _ -> //recurse to find nested params in functions etc?
+                                None)
+                |> List.distinct
+                |> List.map(fun (name, constraints) ->
+                    //todo map constraints
+                    mkGenericParam [] (mkIdent (name)) [] false (Rust.AST.Types.GenericParamKind.Type None)
+                    )
+            //todo map return type if encoded as generic param
+            parameters |> mkGenerics
+        let kind = mkFnKind header fnDecl generics (Some fnBodyBlock)
         let attrs =
             info.Attributes
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
@@ -2546,17 +2562,19 @@ module Util =
         |> List.sort
         |> List.collect (fun (i: string) ->
             match i.Split('|') with
-            | [| path; selector |] ->
-                let name = System.String.Format("import_{0:x}", hash path)
-                let attrs = [mkAttrEq "path" path] // TODO: relative path and ".rs" extension
+            | [| path; moduleNamespace; selector |] ->
+                let hashedPath = hash path
+                let name = System.String.Format("import_{0:x}", hashedPath, moduleNamespace)
+                let useName = System.String.Format("import_{0:x}::{1:x}", hashedPath, moduleNamespace)
+                let attrs = [mkAttrEq "path" (path.Replace(".js", ".rs") |> sprintf "\"%s\"")] // TODO: relative path and ".rs" extension
                 let item1 = mkUnloadedModItem attrs name
                 let item2 =
                     match selector with
                     | "" | "*" | "default" ->
-                        mkGlobUseItem [name]
+                        mkGlobUseItem [useName]
                     | _ ->
                         let parts = selector.Split('.') |> List.ofSeq
-                        mkSimpleUseItem (name::parts) None
+                        mkSimpleUseItem (useName::parts) None
                 [item1; item2]
             | _ -> []
             )
@@ -2628,8 +2646,16 @@ module Compiler =
                     addWarning com [] range msg
 
             member _.GetImportExpr(ctx, selector, path, r) =
-                let import = path + "|" + selector
+
+                let mnamespace =
+                    //Todo - somehow we need to get out the NAMESPACE of the requested input, which seems not to be available in the Type, ImportKind, or SourceLocation.
+                    //the below is a fudge that will only work when the module is the same as the file name, with no namespace prefix
+                    path.Replace(".js", "").Split('/') |> Seq.rev |> Seq.tryHead
+                    |> Option.map(fun n -> n + "|")
+                    |> Option.defaultValue ""
+                let import = path + "|" + mnamespace + selector
                 imports.Add(import) |> ignore
+
                 let path = mkPathFromFullName selector None
                 mkPathExpr path
         //         let cachedName = path + "::" + selector
