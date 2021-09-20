@@ -1065,6 +1065,8 @@ let tryEntityRef (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Error" |> Some
+    | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
+    | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
     | _ -> None
 
 let tryJsConstructor com (ent: Entity) =
