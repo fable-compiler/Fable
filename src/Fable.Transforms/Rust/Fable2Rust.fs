@@ -1205,7 +1205,19 @@ module Util =
             let classExpr = Expression.classExpression(classBody, ?superClass=baseExpr)
             Expression.newExpression(classExpr, [||])
 *)
-    let transformCallArgs (com: IRustCompiler) ctx hasSpread args =
+
+    let derefOrClone typ expr =
+        match typ with
+        | Fable.String ->
+            mkMethodCallExpr "clone" None expr []
+        | _ -> expr
+    let shouldPassByRef (com: IRustCompiler) = function
+        | Fable.Type.DeclaredType (ref, gargs) ->
+            let ety = com.GetEntity ref
+            ety.IsFSharpRecord
+            //todo - what needs to be covered here.. presumably any dotnet reference types + some borrow constraint
+        | _ -> false
+    let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
         match args with
         | []
         | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> []
@@ -1218,7 +1230,16 @@ module Util =
         //     | last::rest ->
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
-        | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args
+        | args ->
+            args
+            |> List.mapi (fun idx e ->
+                let passByRef =
+                    List.tryItem idx argTypes
+                    |> Option.map (shouldPassByRef com)
+                    |> Option.defaultValue false
+
+                let transformed = com.TransformAsExpr (ctx, e)
+                if passByRef then mkAddrOfExpr transformed else transformed)
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
         match strategy with
@@ -1278,14 +1299,14 @@ module Util =
         let macro = info.Macro
         let info = info.CallInfo
         // let thisArg = info.ThisArg |> Option.map (fun e -> com.TransformAsExpr(ctx, e)) |> Option.toList
-        transformCallArgs com ctx info.HasSpread info.Args
+        transformCallArgs com ctx info.HasSpread info.Args info.SignatureArgTypes
         // |> List.append thisArg
         // for now implemented as emit macro
         // TODO: better implementation, range
         |> mkMacroExpr macro
 
     let transformCall (com: IRustCompiler) ctx range calleeExpr (callInfo: Fable.CallInfo) =
-        let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args
+        let args = transformCallArgs com ctx callInfo.HasSpread callInfo.Args callInfo.SignatureArgTypes
         match calleeExpr with
         | Fable.Get(callee, Fable.FieldGet(membName, _), _t, _r) ->
             // instance call
@@ -1381,7 +1402,7 @@ module Util =
                 else
                     mkMethodCallExpr "borrow" None field []
                     |> mkUnaryExpr Rust.UnOp.Deref
-            else field
+            else derefOrClone typ field
 
         // | Fable.ListHead ->
         //     // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -2296,6 +2317,10 @@ module Util =
 *)
     let typedParam (com: IRustCompiler) ctx (id: Fable.Ident) =
         let ty = transformType com ctx id.Type
+        let ty =
+            if shouldPassByRef com id.Type then
+                mkRefTy ty
+            else ty
         let isRef = false
         let isMut = false
         mkParamFromType id.Name ty isRef isMut //?loc=id.Range)
@@ -2419,7 +2444,7 @@ module Util =
                         mkField [] fi.Name ty)
                 mkTupleVariant [] name fields
             )
-        let attrs = []
+        let attrs = [mkAttrDelim "derive" ["Clone";"PartialEq";"Debug"]]
         let enumItem = mkEnumItem attrs entName variants generics
         [enumItem] // TODO: add traits for attached members
 

@@ -16,3 +16,11 @@ let ``Union case matching works`` () =
         | Case2 b -> b
         | Case3 c -> c
     res |> equal 5
+
+[<Fact>]
+let ``Union case equality works`` () =
+    Case1 5 = Case1 5 |> equal true
+    Case1 5 = Case2 5 |> equal false
+    Case3 2 = Case3 3 |> equal false
+    Case2 1 = Case2 1 |> equal true
+    Case3 1 = Case3 1 |> equal true
