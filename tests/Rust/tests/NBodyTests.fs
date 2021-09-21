@@ -72,10 +72,10 @@ let advance (bodies: Planet[], dt: float) =
     let size = N_BODIES - 1
 
     for i in 0 .. size do
-        let mutable bi = bodies.[i]
+        let bi = bodies.[i]
 
         for j in (i + 1) .. size do
-            let mutable bj = bodies.[j]
+            let bj = bodies.[j]
 
             let dx = bi.x - bj.x
             let dy = bi.y - bj.y

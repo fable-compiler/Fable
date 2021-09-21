@@ -135,8 +135,7 @@ module TypeInfo =
 
     let referenceType name =
         [mkGenericPathTy [name] None]
-        |> mkGenericArgs
-        |> mkGenericPathTy ["std";"rc";"Rc"]
+        |> mkGenericTy ["std";"rc";"Rc"]
 
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
     let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
@@ -210,8 +209,7 @@ module TypeInfo =
             |> mkTupleTy
         | Fable.Option(genArg, _) ->
             [genArg] |> List.map (transformType com ctx)
-            |> mkGenericArgs
-            |> mkGenericPathTy ["Option"]
+            |> mkGenericTy ["Option"]
         | Fable.Array genArg ->
             genArg |> transformType com ctx
             |> mkSliceTy |> mkMutRefTy
@@ -723,6 +721,14 @@ module Util =
         | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
         | e -> com.TransformAsExpr(ctx, e), true
 *)
+    let isCopyType t =
+        match t with
+        | Fable.Boolean
+        | Fable.Char
+        | Fable.Enum _
+        | Fable.Number _ -> true
+        | _ -> false
+
     let getField r (expr: Rust.Expr) (fieldName: string) =
         let ident = mkIdent fieldName
         mkFieldExpr expr ident // ?loc=r)
@@ -1005,6 +1011,11 @@ module Util =
         let callee = mkGenericPathExpr ["std";"rc";"Rc";"new"] None
         callFunction r callee [value]
 
+    let mutableValue (com: IRustCompiler) (ctx: Context) r t value: Rust.Expr =
+        let cellTy = if isCopyType t then "Cell" else "RefCell"
+        let callee = mkGenericPathExpr ["core";"cell";cellTy;"new"] None
+        callFunction r callee [value]
+
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
         match value with
         // | Fable.BaseValue (None, _) -> Super(None)
@@ -1068,13 +1079,16 @@ module Util =
         //     com.TransformAsExpr(ctx, x)
         | Fable.NewRecord (values, ent, genArgs) ->
             let ent = com.GetEntity(ent)
-            let fieldNames = ent.FSharpFields |> Seq.map (fun fi -> fi.Name)
-            let fieldValues = values |> List.map (fun x -> com.TransformAsExpr(ctx, x))
             let fields =
-                Seq.zip fieldNames fieldValues
-                |> Seq.map (fun (name, value) ->
+                Seq.zip ent.FSharpFields values
+                |> Seq.map (fun (fi, value) ->
                     let attrs = []
-                    let ident = mkIdent name
+                    let ident = mkIdent fi.Name
+                    let value = com.TransformAsExpr(ctx, value)
+                    let value =
+                        if fi.IsMutable
+                        then mutableValue com ctx r fi.FieldType value
+                        else value
                     mkExprField attrs ident value false false)
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
             let path = mkFullNamePath ent.FullName genArgs
@@ -1358,9 +1372,16 @@ module Util =
                 | _ -> prop
             getExpr range expr prop
 
-        | Fable.FieldGet(fieldName, _) ->
+        | Fable.FieldGet(fieldName, isMutable) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            getField range expr fieldName
+            let field = getField range expr fieldName
+            if isMutable then
+                if isCopyType typ then
+                    mkMethodCallExpr "get" None field []
+                else
+                    mkMethodCallExpr "borrow" None field []
+                    |> mkUnaryExpr Rust.UnOp.Deref
+            else field
 
         // | Fable.ListHead ->
         //     // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1421,12 +1442,21 @@ module Util =
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         let value = com.TransformAsExpr(ctx, value) //|> wrapIntExpression typ
-        let left =
-            match kind with
-            | Fable.ValueSet -> expr
-            | Fable.ExprSet(TransformExpr com ctx e) -> getExpr range expr e
-            | Fable.FieldSet(fieldName) -> getField None expr fieldName
-        mkAssignExpr left value //?loc=range)
+        match kind with
+        | Fable.ValueSet ->
+            mkAssignExpr expr value
+        | Fable.ExprSet(TransformExpr com ctx e) ->
+            let left = getExpr range expr e
+            mkAssignExpr left value //?loc=range)
+        | Fable.FieldSet(fieldName) ->
+            let field = getField None expr fieldName
+            if isCopyType typ then
+                mkMethodCallExpr "set" None field [value]
+            else
+                let mutableField =
+                    mkMethodCallExpr "borrow_mut" None field []
+                    |> mkUnaryExpr Rust.UnOp.Deref
+                mkAssignExpr mutableField value //?loc=range)
 
     let transformLet (com: IRustCompiler) ctx (ident: Fable.Ident) value body =
         let isRef = false
@@ -1434,11 +1464,6 @@ module Util =
         let pat = mkIdentPat ident.Name isRef isMut
         let ty = transformType com ctx ident.Type
         let init = transformAsExpr com ctx value
-        // let ty, init =
-        //     match ident.Type with
-        //     | Fable.Array _ -> // TODO: deep inspect body for array set
-        //         mkMutRefTy ty, mkMutAddrOfExpr init
-        //     | _ -> ty, init
         let attrs = []
         let letBind = mkLocal attrs pat (Some ty) (Some init)
         let letStmt = mkLocalStmt letBind
@@ -1456,7 +1481,7 @@ module Util =
             mkIfThenElseExpr guardExpr thenExpr elseExpr //?loc=range)
 
     let transformWhileLoop (com: IRustCompiler) ctx range label guard body =
-        // TODO: label
+        // TODO: loop label
         let guardExpr = com.TransformAsExpr(ctx, guard)
         let bodyExpr = com.TransformAsExpr(ctx, body)
         mkWhileExpr guardExpr bodyExpr //?loc=range)
@@ -2155,7 +2180,7 @@ module Util =
         let expr = transformAsExpr com ctx fableExpr
         let attrs = []
         let ty = transformType com ctx fableExpr.Type
-        let item = mkStaticItem attrs membName ty isMutable (Some expr)
+        let item = mkConstItem attrs membName ty (Some expr) // TODO: isMutable
         [item]
 (*
     let declareModuleMember isPublic membName isMutable (expr: Rust.Expr) =
@@ -2405,7 +2430,12 @@ module Util =
         let fields =
             ent.FSharpFields |> Seq.map (fun fi ->
                 let ty = transformType com ctx fi.FieldType
-                mkField [] fi.Name ty)
+                if fi.IsMutable then // wrap it in a cell
+                    let cellTy = if isCopyType fi.FieldType then "Cell" else "RefCell"
+                    let ty = mkGenericTy ["core"; "cell"; cellTy] [ty]
+                    mkField [] fi.Name ty
+                else mkField [] fi.Name ty
+            )
         let attrs = [mkAttrDelim "derive" ["Clone";"PartialEq";"Debug"]];
         let structItem = mkStructItem attrs entName fields generics
         [structItem] // TODO: add traits for attached members

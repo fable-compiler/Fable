@@ -693,6 +693,36 @@ module Stmts =
         |> mkStmt
 
 [<AutoOpen>]
+module Generic =
+
+    let mkWhereClause has_where_token predicates: WhereClause =
+        { has_where_token = has_where_token
+          predicates = mkVec predicates
+          span = DUMMY_SP }
+
+    let NO_WHERE_CLAUSE =
+        mkWhereClause false []
+
+    let mkGenerics params_: Generics =
+        { params_ = mkVec params_
+          where_clause = NO_WHERE_CLAUSE
+          span = DUMMY_SP }
+
+    let NO_GENERICS =
+        mkGenerics []
+
+    let mkGenericArgs (tys: Ty seq): GenericArgs option =
+        if Seq.isEmpty tys then
+            None
+        else
+            let args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg)
+            let genArgs: AngleBracketedArgs = {
+                span = DUMMY_SP
+                args = mkVec args
+            }
+            genArgs |> GenericArgs.AngleBracketed |> Some
+
+[<AutoOpen>]
 module Types =
 
     let mkTy kind: Ty =
@@ -739,27 +769,12 @@ module Types =
         TyKind.Tup(mkVec tys)
         |> mkTy
 
+    let mkGenericTy path tys: Ty =
+        mkGenericArgs tys
+        |> mkGenericPathTy path
+
     let TODO_TYPE name: Ty =
         mkGenericPathTy ["TODO_TYPE_" + name] None
-
-[<AutoOpen>]
-module Generic =
-
-    let mkWhereClause has_where_token predicates: WhereClause =
-        { has_where_token = has_where_token
-          predicates = mkVec predicates
-          span = DUMMY_SP }
-
-    let NO_WHERE_CLAUSE =
-        mkWhereClause false []
-
-    let mkGenerics params_: Generics =
-        { params_ = mkVec params_
-          where_clause = NO_WHERE_CLAUSE
-          span = DUMMY_SP }
-
-    let NO_GENERICS =
-        mkGenerics []
 
 [<AutoOpen>]
 module Params =
@@ -802,15 +817,6 @@ module Params =
         names
         |> Seq.map mkGenericParamFromName
         |> mkGenerics
-
-    let mkGenericArgs (tys: Ty seq): GenericArgs option =
-        if Seq.isEmpty tys then None
-        else
-            let genArgs: AngleBracketedArgs = {
-                span = DUMMY_SP
-                args = tys |> Seq.map (GenericArg.Type >> AngleBracketedArg.Arg) |> mkVec
-            }
-            genArgs |> GenericArgs.AngleBracketed |> Some
 
 [<AutoOpen>]
 module Funcs =

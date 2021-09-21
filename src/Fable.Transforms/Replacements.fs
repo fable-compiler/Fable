@@ -2026,8 +2026,7 @@ let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: 
 // See fable-library/Option.ts for more info on how options behave in Fable runtime
 let options (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | "get_Value", Some c ->
-        Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [c], ?loc=r) |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
