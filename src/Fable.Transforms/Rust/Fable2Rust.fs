@@ -692,7 +692,11 @@ module Util =
         // Expression.identifier(id.Name, ?loc=id.Range)
         let name = id.Name |> Naming.sanitizeIdent
         let genArgs = None // TODO: generics
-        mkGenericPathExpr [name] genArgs
+        let expr = mkGenericPathExpr [name] genArgs
+        // if isCopyType com id.Type then expr
+        // else expr |> mkAddrOfExpr
+        expr
+
 (*
     let identAsPattern (id: Fable.Ident) =
         Pattern.identifier(id.Name, ?loc=id.Range)
@@ -721,12 +725,17 @@ module Util =
         | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
         | e -> com.TransformAsExpr(ctx, e), true
 *)
-    let isCopyType t =
+    let isCopyType (_com: IRustCompiler) t =
         match t with
         | Fable.Boolean
         | Fable.Char
         | Fable.Enum _
         | Fable.Number _ -> true
+        | Fable.Array _ -> true // arrays are passed as slices
+        // TODO: should we consider some dotnet value types?
+        // | Fable.Type.DeclaredType (entRef, gargs) ->
+        //     let ent = com.GetEntity entRef
+        //     ent.IsValueType && not (ent.IsFSharpRecord)
         | _ -> false
 
     let getField r (expr: Rust.Expr) (fieldName: string) =
@@ -1012,7 +1021,7 @@ module Util =
         callFunction r callee [value]
 
     let mutableValue (com: IRustCompiler) (ctx: Context) r t value: Rust.Expr =
-        let cellTy = if isCopyType t then "Cell" else "RefCell"
+        let cellTy = if isCopyType com t then "Cell" else "RefCell"
         let callee = mkGenericPathExpr ["core";"cell";cellTy;"new"] None
         callFunction r callee [value]
 
@@ -1211,12 +1220,7 @@ module Util =
         | Fable.String ->
             mkMethodCallExpr "clone" None expr []
         | _ -> expr
-    let shouldPassByRef (com: IRustCompiler) = function
-        | Fable.Type.DeclaredType (ref, gargs) ->
-            let ety = com.GetEntity ref
-            ety.IsFSharpRecord
-            //todo - what needs to be covered here.. presumably any dotnet reference types + some borrow constraint
-        | _ -> false
+
     let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
         match args with
         | []
@@ -1231,15 +1235,17 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
+            // args |> List.map (fun e -> com.TransformAsExpr(ctx, e))
             args
             |> List.mapi (fun idx e ->
                 let passByRef =
                     List.tryItem idx argTypes
-                    |> Option.map (shouldPassByRef com)
+                    |> Option.map (fun t -> not (isCopyType com t))
                     |> Option.defaultValue false
 
-                let transformed = com.TransformAsExpr (ctx, e)
-                if passByRef then mkAddrOfExpr transformed else transformed)
+                let expr = com.TransformAsExpr (ctx, e)
+                if passByRef then mkAddrOfExpr expr else expr)
+
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
         match strategy with
@@ -1397,7 +1403,7 @@ module Util =
             let expr = com.TransformAsExpr(ctx, fableExpr)
             let field = getField range expr fieldName
             if isMutable then
-                if isCopyType typ then
+                if isCopyType com typ then
                     mkMethodCallExpr "get" None field []
                 else
                     mkMethodCallExpr "borrow" None field []
@@ -1471,7 +1477,7 @@ module Util =
             mkAssignExpr left value //?loc=range)
         | Fable.FieldSet(fieldName) ->
             let field = getField None expr fieldName
-            if isCopyType typ then
+            if isCopyType com typ then
                 mkMethodCallExpr "set" None field [value]
             else
                 let mutableField =
@@ -2317,10 +2323,7 @@ module Util =
 *)
     let typedParam (com: IRustCompiler) ctx (id: Fable.Ident) =
         let ty = transformType com ctx id.Type
-        let ty =
-            if shouldPassByRef com id.Type then
-                mkRefTy ty
-            else ty
+        let ty = if isCopyType com id.Type then ty else mkRefTy ty
         let isRef = false
         let isMut = false
         mkParamFromType id.Name ty isRef isMut //?loc=id.Range)
@@ -2456,7 +2459,7 @@ module Util =
             ent.FSharpFields |> Seq.map (fun fi ->
                 let ty = transformType com ctx fi.FieldType
                 if fi.IsMutable then // wrap it in a cell
-                    let cellTy = if isCopyType fi.FieldType then "Cell" else "RefCell"
+                    let cellTy = if isCopyType com fi.FieldType then "Cell" else "RefCell"
                     let ty = mkGenericTy ["core"; "cell"; cellTy] [ty]
                     mkField [] fi.Name ty
                 else mkField [] fi.Name ty

@@ -38,6 +38,7 @@ let ``Deep record fields works`` () =
     x.d.b |> equal "2"
     x.d.c |> equal 3.0
     x.s |> equal "hello"
+
 [<Fact>]
 let ``Deep record structural equality works`` () =
     let a = { d={ a=1; b="2"; c=3.0 }; s="hello" }
@@ -65,6 +66,7 @@ let ``Call pass record byref to add fns works with borrow`` () =
 
 let transformDeepAddA ar =
     { d=transformAddA ar.d; s=ar.s } // borrow ar, clone s
+
 [<Fact>]
 let ``Call pass record byref deep to add fns works with borrow`` () =
     let x = {d ={ a=1; b="2"; c=3.0 }; s="one"}
@@ -76,3 +78,14 @@ let ``Call pass record byref deep to add fns works with borrow`` () =
     x2.d.a |> equal 3
     x3.d.a |> equal 2
     z2.d.a |> equal 6
+
+// [<Fact>]
+// let ``Let bindings borrow instead of move`` () =
+//     let x = { d={ a=1; b="2"; c=3.0 }; s="hello" }
+//     let mutable y = x
+//     let mutable z = x.d
+//     y.s |> equal "hello"
+//     x.d.a |> equal 1
+//     z.a |> equal 1
+//     x.s |> equal "hello"
+//     x.d |> equal y.d
