@@ -144,6 +144,7 @@ let (|BuiltinDefinition|_|) = function
     | Types.fsharpSet -> Some(FSharpSet(Any))
     | Types.fsharpMap -> Some(FSharpMap(Any,Any))
     | Types.hashset -> Some(BclHashSet(Any))
+    // | Types.stack -> Some(BclStack(Any))
     | Types.dictionary -> Some(BclDictionary(Any,Any))
     | Types.keyValuePair -> Some(BclKeyValuePair(Any,Any))
     | Types.result -> Some(FSharpResult(Any,Any))
@@ -157,6 +158,7 @@ let (|BuiltinEntity|_|) (ent: string, genArgs) =
     | BuiltinDefinition(FSharpSet _), [t] -> Some(FSharpSet(t))
     | BuiltinDefinition(FSharpMap _), [k;v] -> Some(FSharpMap(k,v))
     | BuiltinDefinition(BclHashSet _), [t] -> Some(BclHashSet(t))
+    // | BuiltinDefinition(BclStack _), [t] -> Some(BclStack(t))
     | BuiltinDefinition(BclDictionary _), [k;v] -> Some(BclDictionary(k,v))
     | BuiltinDefinition(BclKeyValuePair _), [k;v] -> Some(BclKeyValuePair(k,v))
     | BuiltinDefinition(FSharpResult _), [k;v] -> Some(FSharpResult(k,v))
@@ -2474,6 +2476,17 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     // | "SymmetricExceptWith"
     | _ -> None
 
+let stacks (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | ".ctor", None, args ->
+        let moduleName, mangledName = getMangledNames i thisArg
+        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, isJsConstructor=true, ?thisArg=thisArg, ?loc=r) |> Some
+    | ("Push" | "Pop" | "Peek" | "get_Count" | "Clear" | "Contains" |
+        "TryPeek" | "TryPop" | "ToArray" as meth), Some c, args ->
+        let moduleName, mangledName = getMangledNames i thisArg
+        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
+    | _ -> None
+
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.JsConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
@@ -3192,6 +3205,7 @@ let private replacedModules =
     Types.icollectionGeneric, resizeArrays
     Types.icollection, resizeArrays
     Types.hashset, hashSets
+    Types.stack, stacks
     Types.iset, hashSets
     Types.option, options
     Types.valueOption, options
@@ -3341,6 +3355,14 @@ let tryBaseConstructor com ctx (ent: Entity) (argTypes: Lazy<Type list>) genArgs
             | _ -> failwith "Unexpected hashset constructor"
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
         Some(makeImportLib com Any entityName "MutableSet", args)
+    | Types.stack ->
+        let args =
+            match argTypes.Value, args with
+            | [], _ ->
+                []
+            | _ -> failwith "Unexpected stack constructor"
+        let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "Stack"
+        Some(makeImportLib com Any entityName "Stack", args)
     | _ -> None
 
 let tryType = function

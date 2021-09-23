@@ -64,6 +64,7 @@
     <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="SeqTests.fs" />
     <Compile Include="SetTests.fs" />
+    <Compile Include="StackTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="SudokuTest.fs" />
     <Compile Include="TailCallTests.fs" />
