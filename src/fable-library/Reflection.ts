@@ -194,6 +194,10 @@ export function isSubclassOf(t1: TypeInfo, t2: TypeInfo): boolean {
   return t1.parent != null && (t1.parent.Equals(t2) || isSubclassOf(t1.parent, t2));
 }
 
+export function isInstanceOfType(t: TypeInfo, o: any) {
+  return t.construct != null && o instanceof t.construct
+}
+
 /**
  * This doesn't replace types for fields (records) or cases (unions)
  * but it should be enough for type comparison purposes
