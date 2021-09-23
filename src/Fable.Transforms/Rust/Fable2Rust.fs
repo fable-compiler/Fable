@@ -133,10 +133,21 @@ module TypeInfo =
     let primitiveType name =
         mkGenericPathTy [name] None
 
-    let referenceType name =
-        [mkGenericPathTy [name] None]
+    /// will emit Arc or Rc wrapper depending on context. Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
+    let wrapRefCountTy ty =
+        [ty]
         |> mkGenericTy ["std";"rc";"Rc"]
 
+    /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
+    let shouldBeRefCountWrapped (_com: IRustCompiler) t =
+        match t with
+        | Fable.String -> true
+        | Fable.Type.DeclaredType(etyRef, _) ->
+            let ety = _com.GetEntity(etyRef)
+            //todo - work out if this entity is/can be Copy. If copy, do not wrap?
+            (ety.IsFSharpRecord || ety.IsFSharpUnion)
+            && not ety.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
+        | _ -> false
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
     let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
         let numberType kind =
@@ -164,119 +175,121 @@ module TypeInfo =
         //         if not(Array.isEmpty generics) then
         //             Expression.arrayExpression(generics)
         //     |]
-        match t with
-        // | Fable.Any -> primitiveType "obj"
-        | Fable.GenericParam(name, _) ->
-            mkGenericPathTy [name] None
-            // match Map.tryFind name genMap with
-            // | Some t -> t
-            // | None ->
-            //     Replacements.genericTypeInfoError name |> addError com [] r
-            //     Expression.nullLiteral()
-        // | Fable.Unit    -> primitiveType "unit"
-        | Fable.Boolean -> primitiveType "bool"
-        | Fable.Char    -> primitiveType "char"
-        | Fable.String  -> referenceType "String"
-        // | Fable.Enum entRef ->
-        //     let ent = com.GetEntity(entRef)
+        let ty =
+            match t with
+            // | Fable.Any -> primitiveType "obj"
+            | Fable.GenericParam(name, _) ->
+                mkGenericPathTy [name] None
+                // match Map.tryFind name genMap with
+                // | Some t -> t
+                // | None ->
+                //     Replacements.genericTypeInfoError name |> addError com [] r
+                //     Expression.nullLiteral()
+            // | Fable.Unit    -> primitiveType "unit"
+            | Fable.Boolean -> primitiveType "bool"
+            | Fable.Char    -> primitiveType "char"
+            | Fable.String  -> primitiveType "String"
+            // | Fable.Enum entRef ->
+            //     let ent = com.GetEntity(entRef)
 
-        //     let mutable numberKind = Int32
-        //     let cases =
-        //         ent.FSharpFields |> Seq.choose (fun fi ->
-        //             // F# seems to include a field with this name in the underlying type
-        //             match fi.Name with
-        //             | "value__" ->
-        //                 match fi.FieldType with
-        //                 | Fable.Number kind -> numberKind <- kind
-        //                 | _ -> ()
-        //                 None
-        //             | name ->
-        //                 let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
-        //                 Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
-        //         |> Seq.toArray
-        //         |> Expression.arrayExpression
-        //     [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
-        //     |> libReflectionCall com ctx None "enum"
-        | Fable.Number(kind, _) ->
-            numberType kind
-        | Fable.LambdaType(_, returnType) ->
-            let inputTypes, returnType = uncurryLambdaType ([], t)
-            transformLambdaType com ctx inputTypes returnType
-        // | Fable.DelegateType(argTypes, returnType) ->
-        //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
-        | Fable.Tuple(genArgs, _) ->
-            genArgs |> List.map (transformType com ctx)
-            |> mkTupleTy
-        | Fable.Option(genArg, _) ->
-            [genArg] |> List.map (transformType com ctx)
-            |> mkGenericTy ["Option"]
-        | Fable.Array genArg ->
-            genArg |> transformType com ctx
-            |> mkSliceTy |> mkMutRefTy
-        // | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
-        // | Fable.Regex           -> nonGenericTypeInfo Types.regex
-        // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
-        // | Fable.AnonymousRecordType(fieldNames, genArgs) ->
-        //     let genArgs = resolveGenerics (List.toArray genArgs)
-        //     Array.zip fieldNames genArgs
-        //     |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
-        //     |> libReflectionCall com ctx None "anonRecord"
-        | Fable.DeclaredType(entRef, generics) ->
-            let fullName = entRef.FullName
-            match fullName, generics with
-            // | Replacements.BuiltinEntity kind ->
-            //     match kind with
-            //     | Replacements.BclGuid
-            //     | Replacements.BclTimeSpan
-            //     | Replacements.BclDateTime
-            //     | Replacements.BclDateTimeOffset
-            //     | Replacements.BclTimer
-            //     | Replacements.BclInt64
-            //     | Replacements.BclUInt64
-            //     | Replacements.BclDecimal
-            //     | Replacements.BclBigInt -> genericEntity fullName [||]
-            //     | Replacements.BclHashSet gen
-            //     | Replacements.FSharpSet gen ->
-            //         genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
-            //     | Replacements.BclDictionary(key, value)
-            //     | Replacements.BclKeyValuePair(key, value)
-            //     | Replacements.FSharpMap(key, value) ->
-            //         genericEntity fullName [|
-            //             transformTypeInfo com ctx r genMap key
-            //             transformTypeInfo com ctx r genMap value
-            //         |]
-            //     | Replacements.FSharpResult(ok, err) ->
-            //         let ent = com.GetEntity(entRef)
-            //         transformUnionReflectionInfo com ctx r ent [|
-            //             transformTypeInfo com ctx r genMap ok
-            //             transformTypeInfo com ctx r genMap err
-            //         |]
-            //     | Replacements.FSharpChoice gen ->
-            //         let ent = com.GetEntity(entRef)
-            //         let gen = List.map (transformTypeInfo com ctx r genMap) gen
-            //         List.toArray gen |> transformUnionReflectionInfo com ctx r ent
-            //     | Replacements.FSharpReference gen ->
-            //         let ent = com.GetEntity(entRef)
-            //         [|transformTypeInfo com ctx r genMap gen|]
-            //         |> transformRecordReflectionInfo com ctx r ent
-            | _ ->
-                let ent = com.GetEntity(entRef)
-                let genArgs = generics |> List.map (transformType com ctx) |> mkGenericArgs
-                mkFullNamePathTy ent.FullName genArgs
-                // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
-                // /// Check if the entity is actually declared in JS code
-                // if ent.IsInterface
-                //     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                //     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                //     || FSharp2Fable.Util.isReplacementCandidate ent then
-                //     genericEntity ent.FullName generics
-                // else
-                //     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
-                //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
-                //     Expression.callExpression(callee, generics)
+            //     let mutable numberKind = Int32
+            //     let cases =
+            //         ent.FSharpFields |> Seq.choose (fun fi ->
+            //             // F# seems to include a field with this name in the underlying type
+            //             match fi.Name with
+            //             | "value__" ->
+            //                 match fi.FieldType with
+            //                 | Fable.Number kind -> numberKind <- kind
+            //                 | _ -> ()
+            //                 None
+            //             | name ->
+            //                 let value = match fi.LiteralValue with Some v -> System.Convert.ToDouble v | None -> 0.
+            //                 Expression.arrayExpression([|Expression.stringLiteral(name); Expression.numericLiteral(value)|]) |> Some)
+            //         |> Seq.toArray
+            //         |> Expression.arrayExpression
+            //     [|Expression.stringLiteral(entRef.FullName); numberType numberKind; cases |]
+            //     |> libReflectionCall com ctx None "enum"
+            | Fable.Number(kind, _) ->
+                numberType kind
+            | Fable.LambdaType(_, returnType) ->
+                let inputTypes, returnType = uncurryLambdaType ([], t)
+                transformLambdaType com ctx inputTypes returnType
+            // | Fable.DelegateType(argTypes, returnType) ->
+            //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
+            | Fable.Tuple(genArgs, _) ->
+                genArgs |> List.map (transformType com ctx)
+                |> mkTupleTy
+            | Fable.Option(genArg, _) ->
+                [genArg] |> List.map (transformType com ctx)
+                |> mkGenericTy ["Option"]
+            | Fable.Array genArg ->
+                genArg |> transformType com ctx
+                |> mkSliceTy |> mkMutRefTy
+            // | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
+            // | Fable.Regex           -> nonGenericTypeInfo Types.regex
+            // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
+            // | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+            //     let genArgs = resolveGenerics (List.toArray genArgs)
+            //     Array.zip fieldNames genArgs
+            //     |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
+            //     |> libReflectionCall com ctx None "anonRecord"
+            | Fable.DeclaredType(entRef, generics) ->
+                let fullName = entRef.FullName
+                match fullName, generics with
+                // | Replacements.BuiltinEntity kind ->
+                //     match kind with
+                //     | Replacements.BclGuid
+                //     | Replacements.BclTimeSpan
+                //     | Replacements.BclDateTime
+                //     | Replacements.BclDateTimeOffset
+                //     | Replacements.BclTimer
+                //     | Replacements.BclInt64
+                //     | Replacements.BclUInt64
+                //     | Replacements.BclDecimal
+                //     | Replacements.BclBigInt -> genericEntity fullName [||]
+                //     | Replacements.BclHashSet gen
+                //     | Replacements.FSharpSet gen ->
+                //         genericEntity fullName [|transformTypeInfo com ctx r genMap gen|]
+                //     | Replacements.BclDictionary(key, value)
+                //     | Replacements.BclKeyValuePair(key, value)
+                //     | Replacements.FSharpMap(key, value) ->
+                //         genericEntity fullName [|
+                //             transformTypeInfo com ctx r genMap key
+                //             transformTypeInfo com ctx r genMap value
+                //         |]
+                //     | Replacements.FSharpResult(ok, err) ->
+                //         let ent = com.GetEntity(entRef)
+                //         transformUnionReflectionInfo com ctx r ent [|
+                //             transformTypeInfo com ctx r genMap ok
+                //             transformTypeInfo com ctx r genMap err
+                //         |]
+                //     | Replacements.FSharpChoice gen ->
+                //         let ent = com.GetEntity(entRef)
+                //         let gen = List.map (transformTypeInfo com ctx r genMap) gen
+                //         List.toArray gen |> transformUnionReflectionInfo com ctx r ent
+                //     | Replacements.FSharpReference gen ->
+                //         let ent = com.GetEntity(entRef)
+                //         [|transformTypeInfo com ctx r genMap gen|]
+                //         |> transformRecordReflectionInfo com ctx r ent
+                | _ ->
+                    let ent = com.GetEntity(entRef)
+                    let genArgs = generics |> List.map (transformType com ctx) |> mkGenericArgs
+                    mkFullNamePathTy ent.FullName genArgs
+                    // // let generics = generics |> List.map (transformTypeInfo com ctx r genMap) |> List.toArray
+                    // /// Check if the entity is actually declared in JS code
+                    // if ent.IsInterface
+                    //     || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+                    //     || FSharp2Fable.Util.isGlobalOrImportedEntity ent
+                    //     || FSharp2Fable.Util.isReplacementCandidate ent then
+                    //     genericEntity ent.FullName generics
+                    // else
+                    //     let reflectionMethodExpr = FSharp2Fable.Util.entityRefWithSuffix com ent Naming.reflectionSuffix
+                    //     let callee = com.TransformAsExpr(ctx, reflectionMethodExpr)
+                    //     Expression.callExpression(callee, generics)
 
-        // TODO: remove this catch-all
-        | _ -> TODO_TYPE (sprintf "%A" t)
+            // TODO: remove this catch-all
+            | _ -> TODO_TYPE (sprintf "%A" t)
+        if shouldBeRefCountWrapped com t then wrapRefCountTy ty else ty
 
     let uncurryLambdaType = function
         | lst, Fable.LambdaType(u, returnType) ->
@@ -1097,11 +1110,12 @@ module Util =
                     let value =
                         if fi.IsMutable
                         then mutableValue com ctx r fi.FieldType value
-                        else value
+                        else maybeCloneRef com fi.FieldType value
                     mkExprField attrs ident value false false)
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
             let path = mkFullNamePath ent.FullName genArgs
             mkStructExpr path fields // TODO: range
+            |> referenceValue com ctx None
         // | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
         //     let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
         //     Array.zip fieldNames values |> makeJsObject
@@ -1113,6 +1127,7 @@ module Util =
             let callee = mkFullNamePathExpr unionCase.FullName genArgs
             let range = None // TODO:
             callFunction range callee args
+            |> referenceValue com ctx None
 
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" value)
@@ -1215,11 +1230,17 @@ module Util =
             Expression.newExpression(classExpr, [||])
 *)
 
-    let derefOrClone typ expr =
-        match typ with
-        | Fable.String ->
+    /// For any ref counted types, clone when passing over a boundary, binding, closing over, etc
+    let maybeCloneRef com typ expr =
+        if shouldBeRefCountWrapped com typ then
+            //possible future optimization here - if only use, do not clone and move instead
             mkMethodCallExpr "clone" None expr []
-        | _ -> expr
+        else expr
+    /// For any ref counted types, these sometimes need to be unwrapped for pattern matching purposes etc
+    let maybeUnwrapRef com typ expr=
+        if shouldBeRefCountWrapped com typ then
+            mkUnaryExpr Rust.AST.Types.UnOp.Deref expr
+        else expr
 
     let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
         match args with
@@ -1238,13 +1259,10 @@ module Util =
             // args |> List.map (fun e -> com.TransformAsExpr(ctx, e))
             args
             |> List.mapi (fun idx e ->
-                let passByRef =
-                    List.tryItem idx argTypes
-                    |> Option.map (fun t -> not (isCopyType com t))
-                    |> Option.defaultValue false
-
                 let expr = com.TransformAsExpr (ctx, e)
-                if passByRef then mkAddrOfExpr expr else expr)
+                List.tryItem idx argTypes
+                |> Option.map (fun t -> maybeCloneRef com t expr)
+                |> Option.defaultValue expr)
 
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
@@ -1255,7 +1273,7 @@ module Util =
         | Some(Assign left) -> ExpressionStatement(assign None left rustExpr)
         | Some(Target left) -> ExpressionStatement(assign None (left |> Expression.Identifier) rustExpr)
 *)
-    let transformOperation com ctx range opKind: Rust.Expr =
+    let transformOperation com ctx t range opKind: Rust.Expr =
         match opKind with
         | Fable.Unary(op, TransformExpr com ctx expr) ->
             match op with
@@ -1292,7 +1310,16 @@ module Util =
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
                 | BinaryOperator.BinaryIn -> failwithf "BinaryIn not supported"
                 | BinaryOperator.BinaryInstanceOf -> failwithf "BinaryInstanceOf not supported"
-            mkBinaryExpr (mkBinOp kind) left right //?loc=range)
+            let left = maybeUnwrapRef com t left
+            let right = maybeUnwrapRef com t right
+            match t, kind with
+            | Fable.Type.String, Rust.BinOpKind.Add ->
+                //todo - not quite right, need to do something like (*c).clone() + &d where c and d are Rc<string>. Need brackets!
+                //proprietary string concatenation - String + &String = String
+                mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
+                |> referenceValue com ctx None
+            | _ ->
+                mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
         | Fable.Logical(op, TransformExpr com ctx left, TransformExpr com ctx right) ->
             let kind =
@@ -1408,7 +1435,7 @@ module Util =
                 else
                     mkMethodCallExpr "borrow" None field []
                     |> mkUnaryExpr Rust.UnOp.Deref
-            else derefOrClone typ field
+            else field
 
         // | Fable.ListHead ->
         //     // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1456,6 +1483,7 @@ module Util =
                     let path = mkFullNamePath unionCase.FullName None
                     let pat = mkTupleStructPat path fields
                     let expr = com.TransformAsExpr(ctx, fableExpr)
+                                    //|> maybeUnwrapRef com fableExpr.Type // unwrap required here?
                     let ifExpr = mkLetExpr pat expr
                     let thenExpr = mkGenericPathExpr [fieldName] None
                     let elseExpr = mkMacroExpr "unreachable" []
@@ -1605,6 +1633,7 @@ module Util =
                         [WILD_PAT]
                 let pat = mkTupleStructPat path fields
                 let expr = com.TransformAsExpr(ctx, expr)
+                               |>  maybeUnwrapRef com expr.Type
                 mkLetExpr pat expr
             | _ ->
                 failwith "Should not happen"
@@ -1678,6 +1707,8 @@ module Util =
             let pat = patOpt |> Option.defaultValue WILD_PAT
             makeArm pat targetIndex boundValues
         let expr = com.TransformAsExpr(ctx, evalExpr)
+
+        let expr = maybeUnwrapRef com evalType expr
         mkMatchExpr expr (arms @ [defaultArm])
 
 (*
@@ -1952,8 +1983,8 @@ module Util =
         | Fable.CurriedApply(callee, args, t, range) ->
             transformCurriedApply com ctx range (transformAsExpr com ctx callee) args
 
-        | Fable.Operation(kind, _, range) ->
-            transformOperation com ctx range kind
+        | Fable.Operation(kind, t, range) ->
+            transformOperation com ctx t range kind
 
         | Fable.Get(expr, kind, typ, range) ->
             transformGet com ctx range typ expr kind
@@ -2323,7 +2354,6 @@ module Util =
 *)
     let typedParam (com: IRustCompiler) ctx (id: Fable.Ident) =
         let ty = transformType com ctx id.Type
-        let ty = if isCopyType com id.Type then ty else mkRefTy ty
         let isRef = false
         let isMut = false
         mkParamFromType id.Name ty isRef isMut //?loc=id.Range)

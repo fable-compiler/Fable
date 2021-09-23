@@ -3,10 +3,12 @@ module Fable.Tests.String
 open Util.Testing
 
 [<Fact>]
+//todo - this is not actually adding the strings, it is concatenating them at compile time!
 let ``Adding strings works`` () =
-    let a () = "hello"
-    let b () = "world"
-    let actual = a() + " " + b()
+    let a = "hello"
+    let b = "world"
+    let actual = a + " " + b
+    //let actual2 = a + b //need to make two copies so the compiler does not inline
     actual |> equal "hello world"
 
 [<Fact>]
