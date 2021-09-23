@@ -423,7 +423,11 @@ let isDirectoryEmpty dir =
 let createFableDir (opts: CrackerOptions) =
     let fableDir =
         let baseDir = opts.OutDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(opts.ProjFile))
-        IO.Path.Combine(baseDir, Naming.fableHiddenDir)
+        let dirName =
+            match opts.FableOptions.Language with
+            | Python -> "fable"
+            | _ -> Naming.fableHiddenDir
+        IO.Path.Combine(baseDir, dirName)
 
     let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
     let newInfo =
@@ -459,17 +463,20 @@ let createFableDir (opts: CrackerOptions) =
 
     fableDir
 
+let copyDir (source: string) (target: string) =
+    IO.Directory.CreateDirectory(target) |> ignore
+    if IO.Directory.Exists source |> not then
+        failwith ("Source directory is missing: " + source)
+    let source = source.TrimEnd('/', '\\')
+    let target = target.TrimEnd('/', '\\')
+    for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
+        IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
+    for newPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
+        IO.File.Copy(newPath, newPath.Replace(source, target), true)
+
 let copyDirIfDoesNotExist (source: string) (target: string) =
     if isDirectoryEmpty target then
-        IO.Directory.CreateDirectory(target) |> ignore
-        if IO.Directory.Exists source |> not then
-            failwith ("Source directory is missing: " + source)
-        let source = source.TrimEnd('/', '\\')
-        let target = target.TrimEnd('/', '\\')
-        for dirPath in IO.Directory.GetDirectories(source, "*", IO.SearchOption.AllDirectories) do
-            IO.Directory.CreateDirectory(dirPath.Replace(source, target)) |> ignore
-        for newPath in IO.Directory.GetFiles(source, "*.*", IO.SearchOption.AllDirectories) do
-            IO.File.Copy(newPath, newPath.Replace(source, target), true)
+        copyDir source target
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
     let fableLibDir = createFableDir opts
@@ -482,12 +489,11 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 Process.getCurrentAssembly().Location
                 |> Path.GetDirectoryName
 
-
             let defaultFableLibraryPaths =
                 match opts.FableOptions.Language with
                 | Python ->
-                    [ "../../../fable-library-py/"               // running from nuget tools package
-                      "../../../../../build/fable-library-py/" ] // running from bin/Release/netcoreapp3.1
+                    [ "../../../fable-library-py/fable"               // running from nuget tools package
+                      "../../../../../build/fable-library-py/fable" ] // running from bin/Release/netcoreapp3.1
                 | _ ->
                     [ "../../../fable-library/"               // running from nuget tools package
                       "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
@@ -502,9 +508,14 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
-            let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
-            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
-            fableLibraryTarget
+            match opts.FableOptions.Language with
+            | Python ->
+                copyDir fableLibrarySource fableLibDir
+                fableLibDir
+            | _ ->
+                let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
+                copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+                fableLibraryTarget
 
     let pkgRefs =
         pkgs |> List.map (fun pkg ->

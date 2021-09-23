@@ -62,11 +62,12 @@ module Python =
         let fileExt = ".py"
         let targetDir = Path.GetDirectoryName(targetPath)
         // PEP8: Modules should have short, all-lowercase names
-        let fileName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
+        let fileName =
+            Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(targetPath))
+                .Replace(".", "_")
         let fileName = Naming.applyCaseRule Core.CaseRules.SnakeCase fileName
         // Note that Python modules cannot contain dots or it will be impossible to import them
         let targetPath = Path.Combine(targetDir, fileName + fileExt)
-
         let stream = new IO.StreamWriter(targetPath)
 
         interface PythonPrinter.Writer with

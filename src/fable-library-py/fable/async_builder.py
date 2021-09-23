@@ -1,7 +1,8 @@
 from abc import abstractmethod
 from collections import deque
 from threading import Timer, Lock, RLock
-from fable.util import IDisposable
+
+from .util import IDisposable
 
 
 class OperationCanceledError(Exception):

@@ -393,6 +393,19 @@ module Reflection =
                         warnAndEvalToFalse ent.FullName, []
 
 module Helpers =
+    let (|ParseModule|_|) (pattern: string) (moduleName: string) =
+        let _reFableLib =
+            Regex($".*(\/{pattern}.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
+
+        let m = _reFableLib.Match(moduleName)
+        if m.Groups.Count > 1 then
+            let pymodule =
+                let lower = m.Groups.["module"].Value |> Naming.applyCaseRule CaseRules.SnakeCase
+                (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
+            Some pymodule
+        else
+            None
+
     let index = (Seq.initInfinite id).GetEnumerator()
 
     let getUniqueIdentifier (name: string): Python.Identifier =
@@ -416,20 +429,12 @@ module Helpers =
 
     let rewriteFableImport moduleName =
         //printfn "ModuleName: %s" moduleName
-        let _reFableLib =
-            Regex(".*(\/fable-library.*)\/(?<module>[^\/]*)\.(js|fs)", RegexOptions.Compiled)
-
-        let m = _reFableLib.Match(moduleName)
-        if m.Groups.Count > 1 then
-            let pymodule =
-                let lower = m.Groups.["module"].Value |> Naming.applyCaseRule CaseRules.SnakeCase
-                (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-
-            let moduleName = $"fable.{pymodule}"
-
-            // printfn "-> Module: %A" moduleName
-            moduleName
-        elif moduleName.Contains(".fs") then
+        match moduleName with
+        | ParseModule "fable-library" pymodule ->
+            $".{pymodule}"
+        | ParseModule("fable") pymodule ->
+            $".fable.{pymodule}"
+        | moduleName when moduleName.Contains(".fs") ->
             // PEP-8: Modules should have short, all-lowercase names.
             let moduleName =
                 let path =
@@ -446,7 +451,7 @@ module Helpers =
 
             //printfn "-> Module: %A" moduleName
             moduleName
-        else
+        | _ ->
             // Cannot dashify / clean here since Python modules are separated by dots
             moduleName
 
@@ -2203,7 +2208,6 @@ module Util =
         //printfn "ClassMembers: %A" classMembers
         let classBody =
             let body = [ yield! classFields; yield! classMembers ]
-            //printfn "Body: %A" body
             match body with
             | [] -> [ Pass ]
             | _ -> body
@@ -2339,7 +2343,6 @@ module Util =
                         | _ -> identAsExpr com ctx id
 
                     Statement.assign([left], right))
-                    //assign None left right |> Statement.expr)
             ]
         let cases =
             let expr, stmts =
@@ -2509,9 +2512,6 @@ module Util =
             Path.GetFileNameWithoutExtension(moduleName)
             |> Python.Identifier
             |> Some
-        // | Some "*" ->
-        //     name
-        //     |> Option.map Python.Identifier
         | Some name ->
             match name with
             | "default" | "*" -> Path.GetFileNameWithoutExtension(moduleName)
