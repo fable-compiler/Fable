@@ -3113,7 +3113,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | "get_FullName" | "get_Namespace"
         | "get_IsArray" | "GetElementType"
         | "get_IsGenericType" | "GetGenericTypeDefinition"
-        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" ->
+        | "get_IsEnum" | "GetEnumUnderlyingType" | "GetEnumValues" | "GetEnumNames" | "IsSubclassOf" | "IsInstanceOfType" ->
             let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
             Helper.LibCall(com, "Reflection", meth, t, thisArg::args, ?loc=r) |> Some
         | _ -> None

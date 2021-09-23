@@ -913,6 +913,33 @@ let tests =
         typeof<SubclassTest2>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
         typeof<SubclassTest3>.IsSubclassOf(typeof<SubclassTest1>) |> equal true
 
+    testCase "IsInstanceOfType works with class types" <| fun () ->
+        let s1, s2 = SubclassTest1(), SubclassTest2()
+        typeof<SubclassTest1>.IsInstanceOfType(s1) |> equal true
+        typeof<SubclassTest2>.IsInstanceOfType(s1) |> equal false
+        typeof<SubclassTest3>.IsInstanceOfType(s1) |> equal false
+        typeof<SubclassTest1>.IsInstanceOfType(s2) |> equal true
+        typeof<SubclassTest2>.IsInstanceOfType(s2) |> equal true
+        typeof<SubclassTest3>.IsInstanceOfType(s2) |> equal false
+
+    testCase "IsInstanceOfType works with nominal records" <| fun () ->
+        typeof<MyRecord1>.IsInstanceOfType({ MyRecord1.Foo = 2; Bar = "oh" }) |> equal true
+        typeof<MyRecord2>.IsInstanceOfType({ MyRecord1.Foo = 2; Bar = "oh" }) |> equal false
+
+    testCase "IsInstanceOfType works with nominal unions" <| fun () ->
+        typeof<MyUnion1>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal true
+        typeof<MyUnion2>.IsInstanceOfType(MyUnion1.Foo(1,2)) |> equal false
+
+    testCase "IsInstanceOfType works with anonymous records" <| fun () ->
+        typeof<{| foo: string; bar: int |}>.IsInstanceOfType({| foo = "hi"; bar = 5 |}) |> equal true
+        typeof<{| foo: string; bar: int |}>.IsInstanceOfType({| foo = "hi"; bar = "oh" |}) |> equal false
+
+    testCase "IsInstanceOfType works with functions" <| fun () ->
+        typeof<unit -> unit>.IsInstanceOfType(fun () -> ()) |> equal true
+        typeof<unit -> int>.IsInstanceOfType(fun () -> ()) |> equal false
+        typeof<string -> int>.IsInstanceOfType(String.length) |> equal true
+        typeof<int -> int>.IsInstanceOfType(String.length) |> equal false
+
 #if FABLE_COMPILER
     testCase "Choice with arity 3+ is represented correctly" <| fun () -> // See #2485
         Choice2Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice2Of3"
