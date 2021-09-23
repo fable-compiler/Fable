@@ -940,6 +940,12 @@ let tests =
         typeof<string -> int>.IsInstanceOfType(String.length) |> equal true
         typeof<int -> int>.IsInstanceOfType(String.length) |> equal false
 
+    testCase "IsInstanceOfType works with primitives" <| fun () ->
+        typeof<string>.IsInstanceOfType("hello") |> equal true
+        typeof<string>.IsInstanceOfType(5) |> equal false
+        typeof<int>.IsInstanceOfType(5) |> equal true
+        typeof<int>.IsInstanceOfType("hello") |> equal false
+
 #if FABLE_COMPILER
     testCase "Choice with arity 3+ is represented correctly" <| fun () -> // See #2485
         Choice2Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice2Of3"
