@@ -160,6 +160,9 @@ module TypeInfo =
         | Fable.String -> true
         | Fable.Array _ -> true
         | Fable.Option _ -> true
+        | Fable.Type.Tuple (types, isStruct) ->
+            not isStruct
+        | Fable.Type.AnonymousRecordType _ -> true
         | Fable.Type.DeclaredType(entRef, _) ->
             let ent = com.GetEntity(entRef)
             // TODO: work out if this entity is/can be Copy. If copy, do not wrap?
@@ -248,7 +251,9 @@ module TypeInfo =
             // | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
             // | Fable.Regex           -> nonGenericTypeInfo Types.regex
             // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
-            // | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+            | Fable.AnonymousRecordType(fieldNames, genArgs) ->
+                genArgs |> List.map (transformType com ctx) //temporary - just use tuples for now!
+                |> mkTupleTy
             //     let genArgs = resolveGenerics (List.toArray genArgs)
             //     Array.zip fieldNames genArgs
             //     |> Array.map (fun (k, t) -> Expression.arrayExpression[|Expression.stringLiteral(k); t|])
@@ -1083,7 +1088,9 @@ module Util =
         // | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
         | Fable.NewArray (values, typ) -> makeArray com ctx typ values
         // | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
-        | Fable.NewTuple (values, _isStruct) -> makeTuple com ctx values
+        | Fable.NewTuple (values, isStruct) ->
+            let tuple = makeTuple com ctx values
+            if isStruct then tuple else makeRefValue com ctx None tuple
         // | Fable.NewList (headAndTail, _typ) ->
         //     let rec getItems acc = function
         //         | None -> List.rev acc, None
@@ -1130,7 +1137,8 @@ module Util =
             let path = mkFullNamePath ent.FullName genArgs
             mkStructExpr path fields // TODO: range
             |> makeRefValue com ctx None
-        // | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
+        | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
+            Fable.NewTuple (values, false) |> transformValue com ctx None   //temporary, use tuples!
         //     let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
         //     Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion (values, tag, ent, genArgs) ->
@@ -1246,8 +1254,20 @@ module Util =
     // For any ref counted types, clone when passing over a boundary, binding, closing over, etc
     let transformMaybeCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
-        if shouldBeRefCountWrapped com e.Type then
-            // TODO: possible future optimization here - if only use, do not clone and move instead
+        let isOnlyReference =
+            match e with
+            | Fable.Call _ ->
+                //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
+                true
+            | Fable.Value(kind, r) ->
+                //an inline value kind is also never bound, so can assume this is the only reference also
+                true
+            | _ ->
+                //would need to track all useages to work out if this is actually referenced more than once, so for safety assume false
+                false
+
+         // todo : if the source is also not refwrapped but still cloneable, clone if not isOnlyReference
+        if shouldBeRefCountWrapped com e.Type && not isOnlyReference then
             mkMethodCallExpr "clone" None expr []
         else expr
 
@@ -1323,10 +1343,12 @@ module Util =
             let right = maybeUnwrapRef com t right
             match t, kind with
             | Fable.Type.String, Rust.BinOpKind.Add ->
-                //todo - not quite right, need to do something like (*c).clone() + &d where c and d are Rc<string>. Need brackets!
                 //proprietary string concatenation - String + &String = String
+                let left = mkMethodCallExpr "to_string" None left []
+                let strTy = primitiveType "str" |> referenceType
                 mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
                 |> makeRefValue com ctx None
+                |> mkCastExpr strTy
             | _ ->
                 mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
@@ -1444,11 +1466,16 @@ module Util =
                 getExpr range expr prop
 
         | Fable.FieldGet(fieldName, isMutable) ->
-            let expr = com.TransformAsExpr(ctx, fableExpr)
-            let field = getField range expr fieldName
-            if isMutable
-            then mutableGet com ctx range typ field
-            else field
+            match fableExpr.Type with
+            | Fable.AnonymousRecordType (fields, args) ->   //temporary - redirect anon to tuple calls
+                let idx = fields |> Array.findIndex (fun f -> f = fieldName)
+                (Fable.TupleIndex (idx)) |> transformGet com ctx range typ fableExpr
+            | _ ->
+                let expr = com.TransformAsExpr(ctx, fableExpr)
+                let field = getField range expr fieldName
+                if isMutable
+                then mutableGet com ctx range typ field
+                else field
 
         // | Fable.ListHead ->
         //     // get range (com.TransformAsExpr(ctx, fableExpr)) "head"
@@ -1460,7 +1487,7 @@ module Util =
 
         | Fable.TupleIndex index ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            getExpr range expr (ofInt index)
+            mkFieldExpr expr (mkIdent (index.ToString()))
 
         | Fable.OptionValue ->
             let expr = com.TransformAsExpr(ctx, fableExpr)

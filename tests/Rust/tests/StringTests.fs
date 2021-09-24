@@ -3,11 +3,11 @@ module Fable.Tests.String
 open Util.Testing
 
 [<Fact>]
-// TODO: this is not actually adding the strings, it is concatenating them at compile time!
 let ``Adding strings works`` () =
     let a = "hello"
     let b = "world"
     let actual = a + " " + b
+    a |> equal "hello" //bind out a to prevent inlining
     actual |> equal "hello world"
 
 [<Fact>]

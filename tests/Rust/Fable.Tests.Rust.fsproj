@@ -25,7 +25,9 @@
     <Compile Include="tests/ArrayTests.fs" />
     <Compile Include="tests/OptionTests.fs" />
     <Compile Include="tests/UnionTests.fs" />
+    <Compile Include="tests/TupleTests.fs" />
     <Compile Include="tests/RecordTests.fs" />
+    <Compile Include="tests/AnonRecordTests.fs" />
     <Compile Include="tests/StringTests.fs" />
     <!-- <Compile Include="tests/NBodyTests.fs" /> -->
     <Compile Include="src/main.fs" />

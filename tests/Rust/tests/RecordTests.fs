@@ -89,3 +89,13 @@ let ``Call pass record byref deep to add fns works with borrow`` () =
 //     z.a |> equal 1
 //     x.s |> equal "hello"
 //     x.d |> equal y.d
+
+let recordPatternMatchFn = function
+    | { b = "hello"; a=x } -> x
+    | _ -> -1
+
+let ``Pattern matching works`` () =
+    let resA = recordPatternMatchFn { a=1; b="hello"; c=3.0 }
+    let resB = recordPatternMatchFn { a=2; b="fail"; c=3.0 }
+    resA |> equal 1
+    resB |> equal -1
