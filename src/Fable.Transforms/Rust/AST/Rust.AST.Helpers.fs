@@ -409,35 +409,24 @@ module Attrs =
         let kind = AttrKind.Normal(item, None)
         kind
 
-    let mkAttr (name: Symbol): Attribute =
-        let kind = mkAttrKind name MacArgs.Empty
+    let mkAttr (name: Symbol) (values: Symbol seq): Attribute =
+        let tokens = values |> Seq.map mkIdentToken
+        let args =
+            if Seq.isEmpty tokens then MacArgs.Empty
+            else mkCommaDelimitedMacArgs MacDelimiter.Parenthesis tokens
+        let kind = mkAttrKind name args
         mkAttribute kind AttrStyle.Outer
 
-    let mkAttrEq (name: Symbol) (value: Symbol): Attribute =
+    let mkEqAttr (name: Symbol) (value: Symbol): Attribute =
         let args = MacArgs.Eq(DUMMY_SP, mkIdentToken value)
         let kind = mkAttrKind name args
         mkAttribute kind AttrStyle.Outer
 
-    let mkAttrDelim (name: Symbol) (values: Symbol seq): Attribute =
-        let tokens = values |> Seq.map mkIdentToken
-        let args = mkCommaDelimitedMacArgs MacDelimiter.Parenthesis tokens
-        let kind = mkAttrKind name args
-        mkAttribute kind AttrStyle.Outer
+    let mkInnerAttr (name: Symbol) (values: Symbol seq): Attribute =
+        { mkAttr name values with style = AttrStyle.Inner }
 
-    let mkInnerAttr (name: Symbol): Attribute =
-        let kind = mkAttrKind name MacArgs.Empty
-        mkAttribute kind AttrStyle.Inner
-
-    let mkInnerAttrEq (name: Symbol) (value: Symbol): Attribute =
-        let args = MacArgs.Eq(DUMMY_SP, mkIdentToken value)
-        let kind = mkAttrKind name args
-        mkAttribute kind AttrStyle.Inner
-
-    let mkInnerAttrDelim (name: Symbol) (values: Symbol seq): Attribute =
-        let tokens = values |> Seq.map mkIdentToken
-        let args = mkCommaDelimitedMacArgs MacDelimiter.Parenthesis tokens
-        let kind = mkAttrKind name args
-        mkAttribute kind AttrStyle.Inner
+    let mkInnerEqAttr (name: Symbol) (value: Symbol): Attribute =
+        { mkEqAttr name value with style = AttrStyle.Inner }
 
 [<AutoOpen>]
 module Exprs =
@@ -903,35 +892,37 @@ module Items =
           kind = kind
           tokens = None }
 
+    let mkNonPublicItem item: Item =
+        { item with vis = INHERITED_VIS }
+
     let mkFnItem attrs name kind: Item =
         let ident = mkIdent name
         ItemKind.Fn kind
         |> mkItem attrs ident
 
-    let mkUseTree parts kind: UseTree =
-        { prefix = mkGenericPath parts None
-          kind = kind
-          span = DUMMY_SP }
-
-    let mkUseItem parts kind: Item =
-        let attrs = []
+    let mkUseItem attrs parts kind: Item =
+        let mkUseTree parts kind: UseTree =
+            { prefix = mkGenericPath parts None
+              kind = kind
+              span = DUMMY_SP }
         let ident = mkIdent ""
         let useTree = mkUseTree parts kind
         ItemKind.Use(useTree)
         |> mkItem attrs ident
+        |> mkNonPublicItem
 
-    let mkSimpleUseItem parts (alias: Ident option): Item =
+    let mkSimpleUseItem attrs parts (alias: Ident option): Item =
         UseTreeKind.Simple(alias, DUMMY_NODE_ID, DUMMY_NODE_ID)
-        |> mkUseItem parts
+        |> mkUseItem attrs parts
 
-    let mkNestedUseItem parts useTrees: Item =
+    let mkNestedUseItem attrs parts useTrees: Item =
         let useTrees = useTrees |> Seq.map (fun x -> x, DUMMY_NODE_ID)
         UseTreeKind.Nested(mkVec useTrees)
-        |> mkUseItem parts
+        |> mkUseItem attrs parts
 
-    let mkGlobUseItem parts: Item =
+    let mkGlobUseItem attrs parts: Item =
         UseTreeKind.Glob
-        |> mkUseItem parts
+        |> mkUseItem attrs parts
 
     let mkModItem attrs name items: Item =
         let ident = mkIdent name

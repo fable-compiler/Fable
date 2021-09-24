@@ -79,16 +79,17 @@ let ``Call pass record byref deep to add fns works with borrow`` () =
     x3.d.a |> equal 2
     z2.d.a |> equal 6
 
-// [<Fact>]
-// let ``Let bindings borrow instead of move`` () =
-//     let x = { d={ a=1; b="2"; c=3.0 }; s="hello" }
-//     let mutable y = x
-//     let mutable z = x.d
-//     y.s |> equal "hello"
-//     x.d.a |> equal 1
-//     z.a |> equal 1
-//     x.s |> equal "hello"
-//     x.d |> equal y.d
+[<Fact>]
+let ``Let bindings borrow instead of move`` () =
+    let x = { d={ a=1; b="2"; c=3.0 }; s="hello" }
+    let y = x
+    let z = x.d
+    z |> equal x.d // prevents inlining
+    y.s |> equal "hello"
+    x.d.a |> equal 1
+    z.a |> equal 1
+    x.s |> equal "hello"
+    x.d |> equal y.d
 
 let recordPatternMatchFn = function
     | { b = "hello"; a=x } -> x

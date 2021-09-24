@@ -467,11 +467,14 @@ let testRust() =
     // buildLibraryRustIfNotExists()
     buildLibraryRust()
 
+    let testAstDir = "src/Fable.Transforms/Rust/AST/Tests"
     let projectDir = "tests/Rust"
     let buildDir = "build/tests/Rust"
 
-    cleanDirs [buildDir]
+    runInDir testAstDir "dotnet test"
     runInDir projectDir "dotnet test"
+
+    cleanDirs [buildDir]
     runFableWithArgs projectDir [
         "--outDir " + buildDir
         "--exclude Fable.Core"

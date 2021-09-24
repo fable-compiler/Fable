@@ -2256,7 +2256,6 @@ module Util =
         // ExpressionStatement(emitExpression funcExpr.loc "process.exit($0)" [main], ?loc=funcExpr.loc)
         PrivateModuleDeclaration(ExpressionStatement(main))
 *)
-
     let rec tryFindEntryPoint decl: string list option =
         match decl with
         | Fable.ModuleDeclaration decl ->
@@ -2472,7 +2471,7 @@ module Util =
         let attrs =
             info.Attributes
             |> Seq.filter (fun att -> att.Entity.FullName.EndsWith(".FactAttribute"))
-            |> Seq.map (fun _ -> mkAttr "test")
+            |> Seq.map (fun _ -> mkAttr "test" [])
         let fnItem = mkFnItem attrs membName kind
         [fnItem]
 
@@ -2532,7 +2531,7 @@ module Util =
                         mkField [] fi.Name ty)
                 mkTupleVariant [] name fields
             )
-        let attrs = [mkAttrDelim "derive" ["Clone";"PartialEq";"Debug"]]
+        let attrs = [mkAttr "derive" ["Clone";"PartialEq";"Debug"]]
         let enumItem = mkEnumItem attrs entName variants generics
         [enumItem] // TODO: add traits for attached members
 
@@ -2549,7 +2548,7 @@ module Util =
                     mkField [] fi.Name ty
                 else mkField [] fi.Name ty
             )
-        let attrs = [mkAttrDelim "derive" ["Clone";"PartialEq";"Debug"]];
+        let attrs = [mkAttr "derive" ["Clone";"PartialEq";"Debug"]];
         let structItem = mkStructItem attrs entName fields generics
         [structItem] // TODO: add traits for attached members
 
@@ -2657,9 +2656,9 @@ module Util =
         ]
 *)
     let preludeDecls = [
-        mkSimpleUseItem ["std"; "rc"; "Rc"] None
-        mkSimpleUseItem ["core"; "cell"; "Cell"] None
-        mkSimpleUseItem ["core"; "cell"; "RefCell"] None
+        mkSimpleUseItem [] ["std"; "rc"; "Rc"] None
+        mkSimpleUseItem [] ["core"; "cell"; "Cell"] None
+        mkSimpleUseItem [] ["core"; "cell"; "RefCell"] None
         ]
 
     let rec transformDeclaration (com: IRustCompiler) ctx decl =
@@ -2727,15 +2726,15 @@ module Util =
                 let hashedPath = hash path
                 let name = System.String.Format("import_{0:x}", hashedPath, moduleNamespace)
                 let useName = System.String.Format("import_{0:x}::{1:x}", hashedPath, moduleNamespace)
-                let attrs = [mkAttrEq "path" (path.Replace(".js", ".rs") |> sprintf "\"%s\"")] // TODO: relative path and ".rs" extension
+                let attrs = [mkEqAttr "path" (path.Replace(".js", ".rs") |> sprintf "\"%s\"")] // TODO: relative path
                 let item1 = mkUnloadedModItem attrs name
                 let item2 =
                     match selector with
                     | "" | "*" | "default" ->
-                        mkGlobUseItem [useName]
+                        mkGlobUseItem [] [useName]
                     | _ ->
                         let parts = selector.Split('.') |> List.ofSeq
-                        mkSimpleUseItem (useName::parts) None
+                        mkSimpleUseItem [] (useName::parts) None
                 [item1; item2]
             | _ -> []
             )
@@ -2880,10 +2879,11 @@ module Compiler =
             ScopedTypeParams = Set.empty }
 
         let topAttrs = [
-            mkInnerAttrDelim "allow" ["non_snake_case"]
-            mkInnerAttrDelim "allow" ["non_camel_case_types"]
-            mkInnerAttrDelim "feature" ["stmt_expr_attributes"]
-            mkInnerAttrDelim "feature" ["destructuring_assignment"]
+            mkInnerAttr "allow" ["unused_imports"] // TODO: remove later?
+            mkInnerAttr "allow" ["non_snake_case"]
+            mkInnerAttr "allow" ["non_camel_case_types"]
+            mkInnerAttr "feature" ["stmt_expr_attributes"]
+            mkInnerAttr "feature" ["destructuring_assignment"]
         ]
         let useDecls = preludeDecls
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
