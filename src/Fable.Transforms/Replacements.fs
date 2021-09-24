@@ -2474,17 +2474,6 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     // | "SymmetricExceptWith"
     | _ -> None
 
-let stacks (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | ".ctor", None, args ->
-        let moduleName, mangledName = getMangledNames i thisArg
-        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, isJsConstructor=true, ?thisArg=thisArg, ?loc=r) |> Some
-    | ("Push" | "Pop" | "Peek" | "get_Count" | "Clear" | "Contains" |
-        "TryPeek" | "TryPop" | "ToArray" as meth), Some c, args ->
-        let moduleName, mangledName = getMangledNames i thisArg
-        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, ?thisArg=thisArg, ?loc=r) |> Some
-    | _ -> None
-
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ -> Helper.JsConstructorCall(makeIdentExpr "Error", t, args, ?loc=r) |> Some
@@ -3203,7 +3192,7 @@ let private replacedModules =
     Types.icollectionGeneric, resizeArrays
     Types.icollection, resizeArrays
     Types.hashset, hashSets
-    Types.stack, stacks
+    Types.stack, bclType
     Types.iset, hashSets
     Types.option, options
     Types.valueOption, options
