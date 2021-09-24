@@ -130,24 +130,43 @@ module Naming =
 
 module TypeInfo =
 
-    let primitiveType name =
+    let isCopyType (_com: IRustCompiler) t =
+        match t with
+        | Fable.Boolean
+        | Fable.Char
+        | Fable.Enum _
+        | Fable.Number _ -> true
+        // TODO: should we consider some dotnet value types?
+        // | Fable.Type.DeclaredType (entRef, gargs) ->
+        //     let ent = com.GetEntity entRef
+        //     ent.IsValueType && not (ent.IsFSharpRecord)
+        | _ -> false
+
+    let primitiveType (name: string): Rust.Ty =
         mkGenericPathTy [name] None
 
-    /// will emit Arc or Rc wrapper depending on context. Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
-    let wrapRefCountTy ty =
-        [ty]
-        |> mkGenericTy ["std";"rc";"Rc"]
+    /// TODO: Emit Arc or Rc wrapper depending on context.
+    /// Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
+    let referenceType (ty: Rust.Ty): Rust.Ty =
+        [ty] |> mkGenericTy ["std";"rc";"Rc"]
+
+    let mutableCellType com (t: Fable.Type) (ty: Rust.Ty): Rust.Ty =
+        let cellTy = if isCopyType com t then "Cell" else "RefCell"
+        [ty] |> mkGenericTy ["core";"cell";cellTy]
 
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
-    let shouldBeRefCountWrapped (_com: IRustCompiler) t =
+    let shouldBeRefCountWrapped (com: IRustCompiler) t =
         match t with
         | Fable.String -> true
-        | Fable.Type.DeclaredType(etyRef, _) ->
-            let ety = _com.GetEntity(etyRef)
-            //todo - work out if this entity is/can be Copy. If copy, do not wrap?
-            (ety.IsFSharpRecord || ety.IsFSharpUnion)
-            && not ety.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
+        | Fable.Array _ -> true
+        | Fable.Option _ -> true
+        | Fable.Type.DeclaredType(entRef, _) ->
+            let ent = com.GetEntity(entRef)
+            // TODO: work out if this entity is/can be Copy. If copy, do not wrap?
+            (ent.IsFSharpRecord || ent.IsFSharpUnion)
+            && not ent.IsValueType  // F# struct records/unions/tuples are modelled as value types, and should support Copy where possible, or Clone if 1 or more children are not Copy
         | _ -> false
+
     // let transformTypeInfo (com: IRustCompiler) ctx r (genMap: Map<string, Rust.Expr>) (t: Fable.Type): Rust.Ty =
     let transformType (com: IRustCompiler) ctx (t: Fable.Type): Rust.Ty =
         let numberType kind =
@@ -188,7 +207,7 @@ module TypeInfo =
             // | Fable.Unit    -> primitiveType "unit"
             | Fable.Boolean -> primitiveType "bool"
             | Fable.Char    -> primitiveType "char"
-            | Fable.String  -> primitiveType "String"
+            | Fable.String  -> primitiveType "str"
             // | Fable.Enum entRef ->
             //     let ent = com.GetEntity(entRef)
 
@@ -224,7 +243,8 @@ module TypeInfo =
                 |> mkGenericTy ["Option"]
             | Fable.Array genArg ->
                 genArg |> transformType com ctx
-                |> mkSliceTy |> mkMutRefTy
+                |> mutableCellType com genArg
+                |> mkSliceTy
             // | Fable.List genArg     -> genericTypeInfo "list" [|genArg|]
             // | Fable.Regex           -> nonGenericTypeInfo Types.regex
             // | Fable.MetaType        -> nonGenericTypeInfo Types.type_
@@ -289,7 +309,8 @@ module TypeInfo =
 
             // TODO: remove this catch-all
             | _ -> TODO_TYPE (sprintf "%A" t)
-        if shouldBeRefCountWrapped com t then wrapRefCountTy ty else ty
+
+        if shouldBeRefCountWrapped com t then referenceType ty else ty
 
     let uncurryLambdaType = function
         | lst, Fable.LambdaType(u, returnType) ->
@@ -738,19 +759,6 @@ module Util =
         | Fable.Value(Fable.StringConstant name, _) -> memberFromName name
         | e -> com.TransformAsExpr(ctx, e), true
 *)
-    let isCopyType (_com: IRustCompiler) t =
-        match t with
-        | Fable.Boolean
-        | Fable.Char
-        | Fable.Enum _
-        | Fable.Number _ -> true
-        | Fable.Array _ -> true // arrays are passed as slices
-        // TODO: should we consider some dotnet value types?
-        // | Fable.Type.DeclaredType (entRef, gargs) ->
-        //     let ent = com.GetEntity entRef
-        //     ent.IsValueType && not (ent.IsFSharpRecord)
-        | _ -> false
-
     let getField r (expr: Rust.Expr) (fieldName: string) =
         let ident = mkIdent fieldName
         mkFieldExpr expr ident // ?loc=r)
@@ -763,9 +771,13 @@ module Util =
         | [] -> expr
         | m::ms -> get None expr m |> getParts ms
 *)
-    let makeArray (com: IRustCompiler) ctx (exprs: Fable.Expr list) =
-        List.map (fun e -> com.TransformAsExpr(ctx, e)) exprs
+    let makeArray (com: IRustCompiler) ctx typ (exprs: Fable.Expr list) =
+        exprs
+        |> List.map (fun e ->
+            com.TransformAsExpr(ctx, e)
+            |> makeMutValue com ctx None typ)
         |> mkArrayExpr
+        |> makeRefValue com ctx None
 
     let makeTuple (com: IRustCompiler) ctx (exprs: Fable.Expr list) =
         List.map (fun e -> com.TransformAsExpr(ctx, e)) exprs
@@ -1029,13 +1041,13 @@ module Util =
     let transformCurry (com: IRustCompiler) (ctx: Context) _r expr arity: Rust.Expr =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 *)
-    let referenceValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
-        let callee = mkGenericPathExpr ["std";"rc";"Rc";"new"] None
+    let makeRefValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
+        let callee = mkGenericPathExpr ["std";"rc";"Rc";"from"] None
         callFunction r callee [value]
 
-    let mutableValue (com: IRustCompiler) (ctx: Context) r t value: Rust.Expr =
+    let makeMutValue (com: IRustCompiler) (ctx: Context) r t value: Rust.Expr =
         let cellTy = if isCopyType com t then "Cell" else "RefCell"
-        let callee = mkGenericPathExpr ["core";"cell";cellTy;"new"] None
+        let callee = mkGenericPathExpr ["core";"cell";cellTy;"from"] None
         callFunction r callee [value]
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
@@ -1054,9 +1066,10 @@ module Util =
         | Fable.BoolConstant x -> mkBoolLitExpr x //, ?loc=r)
         | Fable.CharConstant x -> mkCharLitExpr x //, ?loc=r)
         | Fable.StringConstant x ->
-            let value = mkStrLitExpr x //, ?loc=r)
-            let strValue = mkMethodCallExpr "to_string" None value []
-            referenceValue com ctx r strValue
+            let value = mkStrLitExpr x
+            let strTy = primitiveType "str" |> referenceType
+            makeRefValue com ctx r value
+            |> mkCastExpr strTy // casting is necessary for Rc<_> to get type
         | Fable.NumberConstant (x, kind, _) ->
             let expr =
                 match kind with
@@ -1068,9 +1081,9 @@ module Util =
             then expr |> mkUnaryExpr Rust.UnOp.Neg
             else expr
         // | Fable.RegexConstant (source, flags) -> Expression.regExpLiteral(source, flags, ?loc=r)
-        | Fable.NewArray (values, _typ) -> makeArray com ctx values |> mkMutAddrOfExpr
+        | Fable.NewArray (values, typ) -> makeArray com ctx typ values
         // | Fable.NewArrayFrom (size, typ) -> makeTypedAllocatedFrom com ctx typ size
-        | Fable.NewTuple (values, _) -> makeTuple com ctx values
+        | Fable.NewTuple (values, _isStruct) -> makeTuple com ctx values
         // | Fable.NewList (headAndTail, _typ) ->
         //     let rec getItems acc = function
         //         | None -> List.rev acc, None
@@ -1093,10 +1106,10 @@ module Util =
             match value with
             | Some (TransformExpr com ctx arg) ->
                 let callee = mkGenericPathExpr ["Some"] None
-                let range = None // TODO:
-                callFunction range callee [arg]
+                callFunction r callee [arg]
             | None ->
                 mkGenericPathExpr ["None"] None
+            |> makeRefValue com ctx None
         // | Fable.EnumConstant (x, _) ->
         //     com.TransformAsExpr(ctx, x)
         | Fable.NewRecord (values, ent, genArgs) ->
@@ -1106,16 +1119,17 @@ module Util =
                 |> Seq.map (fun (fi, value) ->
                     let attrs = []
                     let ident = mkIdent fi.Name
-                    let value = com.TransformAsExpr(ctx, value)
                     let value =
-                        if fi.IsMutable
-                        then mutableValue com ctx r fi.FieldType value
-                        else maybeCloneRef com fi.FieldType value
+                        if fi.IsMutable then
+                            com.TransformAsExpr(ctx, value)
+                            |> makeMutValue com ctx r fi.FieldType
+                        else
+                            maybeCloneRef com ctx value
                     mkExprField attrs ident value false false)
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
             let path = mkFullNamePath ent.FullName genArgs
             mkStructExpr path fields // TODO: range
-            |> referenceValue com ctx None
+            |> makeRefValue com ctx None
         // | Fable.NewAnonymousRecord (values, fieldNames, _genArgs) ->
         //     let values = List.mapToArray (fun x -> com.TransformAsExpr(ctx, x)) values
         //     Array.zip fieldNames values |> makeJsObject
@@ -1125,9 +1139,8 @@ module Util =
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
             let unionCase = ent.UnionCases |> List.item tag
             let callee = mkFullNamePathExpr unionCase.FullName genArgs
-            let range = None // TODO:
-            callFunction range callee args
-            |> referenceValue com ctx None
+            callFunction r callee args
+            |> makeRefValue com ctx None
 
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" value)
@@ -1230,14 +1243,19 @@ module Util =
             Expression.newExpression(classExpr, [||])
 *)
 
-    /// For any ref counted types, clone when passing over a boundary, binding, closing over, etc
-    let maybeCloneRef com typ expr =
-        if shouldBeRefCountWrapped com typ then
-            //possible future optimization here - if only use, do not clone and move instead
-            mkMethodCallExpr "clone" None expr []
-        else expr
-    /// For any ref counted types, these sometimes need to be unwrapped for pattern matching purposes etc
-    let maybeUnwrapRef com typ expr=
+    // For any ref counted types, clone when passing over a boundary, binding, closing over, etc
+    let maybeCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
+        let expr = com.TransformAsExpr (ctx, e)
+        match e with
+        | Fable.Value(Fable.StringConstant name, _) -> expr
+        | _ ->
+            if shouldBeRefCountWrapped com e.Type then
+                // TODO: possible future optimization here - if only use, do not clone and move instead
+                mkMethodCallExpr "clone" None expr []
+            else expr
+
+    // For any ref counted types, these sometimes need to be unwrapped for pattern matching purposes etc
+    let maybeUnwrapRef com typ expr =
         if shouldBeRefCountWrapped com typ then
             mkUnaryExpr Rust.AST.Types.UnOp.Deref expr
         else expr
@@ -1245,7 +1263,7 @@ module Util =
     let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
         match args with
         | []
-        | [MaybeCasted(Fable.Value(Fable.UnitConstant,_))] -> []
+        | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
         // | args when hasSpread ->
         //     match List.rev args with
         //     | [] -> []
@@ -1256,13 +1274,7 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
-            // args |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-            args
-            |> List.mapi (fun idx e ->
-                let expr = com.TransformAsExpr (ctx, e)
-                List.tryItem idx argTypes
-                |> Option.map (fun t -> maybeCloneRef com t expr)
-                |> Option.defaultValue expr)
+            args |> List.map (maybeCloneRef com ctx)
 
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
@@ -1317,7 +1329,7 @@ module Util =
                 //todo - not quite right, need to do something like (*c).clone() + &d where c and d are Rc<string>. Need brackets!
                 //proprietary string concatenation - String + &String = String
                 mkBinaryExpr (mkBinOp kind) left (mkAddrOfExpr right)
-                |> referenceValue com ctx None
+                |> makeRefValue com ctx None
             | _ ->
                 mkBinaryExpr (mkBinOp kind) left right //?loc=range)
 
@@ -1412,29 +1424,33 @@ module Util =
             | statements -> Rust.Stmt.ifStatement(guardExpr, thenStmnt, Statement.blockStatement(statements), ?loc=r)
             |> Array.singleton
 *)
+    let mutableGet (com: IRustCompiler) ctx range typ expr =
+        if isCopyType com typ then
+            mkMethodCallExpr "get" None expr []
+        else
+            mkMethodCallExpr "borrow" None expr []
+            |> mkUnaryExpr Rust.UnOp.Deref
+
     let transformGet (com: IRustCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
         match kind with
-        | Fable.ExprGet index ->
+        | Fable.ExprGet idx ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
-            let prop = com.TransformAsExpr(ctx, index)
-            let prop =
-                // if indexing an array, cast index to usize
-                match fableExpr.Type, index.Type with
-                | Fable.Array _, Fable.Number(Int32, None) ->
-                    let uintTy = primitiveType "usize"
-                    mkCastExpr uintTy prop
-                | _ -> prop
-            getExpr range expr prop
+            let prop = com.TransformAsExpr(ctx, idx)
+            // if indexing an array, cast index to usize
+            match fableExpr.Type, idx.Type with
+            | Fable.Array t, Fable.Number(Int32, None) ->
+                let uintTy = primitiveType "usize"
+                let prop = mkCastExpr uintTy prop
+                getExpr range expr prop
+                |> mutableGet com ctx range t
+            | _ ->
+                getExpr range expr prop
 
         | Fable.FieldGet(fieldName, isMutable) ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
             let field = getField range expr fieldName
-            if isMutable then
-                if isCopyType com typ then
-                    mkMethodCallExpr "get" None field []
-                else
-                    mkMethodCallExpr "borrow" None field []
-                    |> mkUnaryExpr Rust.UnOp.Deref
+            if isMutable
+            then mutableGet com ctx range typ field
             else field
 
         // | Fable.ListHead ->
@@ -1494,24 +1510,36 @@ module Util =
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "kind: %A" kind)
 
+    let mutableSet (com: IRustCompiler) ctx range typ expr value =
+            if isCopyType com typ then
+                mkMethodCallExpr "set" None expr [value]
+            else
+                let mutableField =
+                    mkMethodCallExpr "borrow_mut" None expr []
+                    |> mkUnaryExpr Rust.UnOp.Deref
+                mkAssignExpr mutableField value //?loc=range)
+
     let transformSet (com: IRustCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         let value = com.TransformAsExpr(ctx, value) //|> wrapIntExpression typ
         match kind with
         | Fable.ValueSet ->
             mkAssignExpr expr value
-        | Fable.ExprSet(TransformExpr com ctx e) ->
-            let left = getExpr range expr e
-            mkAssignExpr left value //?loc=range)
+        | Fable.ExprSet idx ->
+            let prop = com.TransformAsExpr(ctx, idx)
+            // if indexing an array, cast index to usize
+            match fableExpr.Type, idx.Type with
+            | Fable.Array t, Fable.Number(Int32, None) ->
+                let uintTy = primitiveType "usize"
+                let prop = mkCastExpr uintTy prop
+                let left = getExpr range expr prop
+                mutableSet com ctx range typ left value
+            | _ ->
+                let left = getExpr range expr prop
+                mkAssignExpr left value //?loc=range)
         | Fable.FieldSet(fieldName) ->
             let field = getField None expr fieldName
-            if isCopyType com typ then
-                mkMethodCallExpr "set" None field [value]
-            else
-                let mutableField =
-                    mkMethodCallExpr "borrow_mut" None field []
-                    |> mkUnaryExpr Rust.UnOp.Deref
-                mkAssignExpr mutableField value //?loc=range)
+            mutableSet com ctx range typ field value
 
     let transformLet (com: IRustCompiler) ctx (ident: Fable.Ident) value body =
         let isRef = false
@@ -2223,11 +2251,16 @@ module Util =
             decls |> List.tryPick tryFindEntryPoint
         match entryPoint with
         | Some path ->
-            let fullName = String.concat "::" path
-            let fnBody =
-                let stmt1 = mkEmitSemiStmt "let mut args: Vec<std::rc::Rc<String>> = std::env::args().map(std::rc::Rc::new).collect()"
-                let stmt2 = mkEmitSemiStmt (sprintf "%s(&mut args[1..])" fullName) // call main with args
-                [stmt1; stmt2] |> mkBlock |> Some
+            let strBody = [
+                "use std::rc::Rc"
+                "use core::cell::RefCell"
+                "let toMutableStr = |x: &String| RefCell::from(Rc::from(x.to_owned()))"
+                "let args: Vec<String> = std::env::args().collect()"
+                "let args: Vec<RefCell<Rc<str>>> = args[1..].iter().map(toMutableStr).collect()"
+                (String.concat "::" path) + "(Rc::from(args.to_owned()))"
+            ]
+            let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
+
             let attrs = []
             let fnDecl = mkFnDecl [] VOID_RETURN_TY
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
@@ -2238,7 +2271,7 @@ module Util =
         let expr = transformAsExpr com ctx fableExpr
         let attrs = []
         let ty = transformType com ctx fableExpr.Type
-        let item = mkConstItem attrs membName ty (Some expr) // TODO: isMutable
+        let item = mkStaticItem attrs membName ty isMutable (Some expr)
         [item]
 (*
     let declareModuleMember isPublic membName isMutable (expr: Rust.Expr) =
