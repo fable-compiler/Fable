@@ -148,11 +148,11 @@ module TypeInfo =
     /// TODO: Emit Arc or Rc wrapper depending on context.
     /// Could also support Gc<T> in the future - https://github.com/Manishearth/rust-gc
     let referenceType (ty: Rust.Ty): Rust.Ty =
-        [ty] |> mkGenericTy ["std";"rc";"Rc"]
+        [ty] |> mkGenericTy ["Rc"]
 
     let mutableCellType com (t: Fable.Type) (ty: Rust.Ty): Rust.Ty =
         let cellTy = if isCopyType com t then "Cell" else "RefCell"
-        [ty] |> mkGenericTy ["core";"cell";cellTy]
+        [ty] |> mkGenericTy [cellTy]
 
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
     let shouldBeRefCountWrapped (com: IRustCompiler) t =
@@ -1042,12 +1042,12 @@ module Util =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 *)
     let makeRefValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
-        let callee = mkGenericPathExpr ["std";"rc";"Rc";"from"] None
+        let callee = mkGenericPathExpr ["Rc";"from"] None
         callFunction r callee [value]
 
     let makeMutValue (com: IRustCompiler) (ctx: Context) r t value: Rust.Expr =
         let cellTy = if isCopyType com t then "Cell" else "RefCell"
-        let callee = mkGenericPathExpr ["core";"cell";cellTy;"from"] None
+        let callee = mkGenericPathExpr [cellTy;"from"] None
         callFunction r callee [value]
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
@@ -1124,7 +1124,7 @@ module Util =
                             com.TransformAsExpr(ctx, value)
                             |> makeMutValue com ctx r fi.FieldType
                         else
-                            maybeCloneRef com ctx value
+                            transformMaybeCloneRef com ctx value
                     mkExprField attrs ident value false false)
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
             let path = mkFullNamePath ent.FullName genArgs
@@ -1244,15 +1244,12 @@ module Util =
 *)
 
     // For any ref counted types, clone when passing over a boundary, binding, closing over, etc
-    let maybeCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
+    let transformMaybeCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
         let expr = com.TransformAsExpr (ctx, e)
-        match e with
-        | Fable.Value(Fable.StringConstant name, _) -> expr
-        | _ ->
-            if shouldBeRefCountWrapped com e.Type then
-                // TODO: possible future optimization here - if only use, do not clone and move instead
-                mkMethodCallExpr "clone" None expr []
-            else expr
+        if shouldBeRefCountWrapped com e.Type then
+            // TODO: possible future optimization here - if only use, do not clone and move instead
+            mkMethodCallExpr "clone" None expr []
+        else expr
 
     // For any ref counted types, these sometimes need to be unwrapped for pattern matching purposes etc
     let maybeUnwrapRef com typ expr =
@@ -1274,7 +1271,7 @@ module Util =
         //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
         //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
         | args ->
-            args |> List.map (maybeCloneRef com ctx)
+            args |> List.map (transformMaybeCloneRef com ctx)
 
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
@@ -1546,7 +1543,7 @@ module Util =
         let isMut = ident.IsMutable
         let pat = mkIdentPat ident.Name isRef isMut
         let ty = transformType com ctx ident.Type
-        let init = transformAsExpr com ctx value
+        let init = transformMaybeCloneRef com ctx value
         let attrs = []
         let letBind = mkLocal attrs pat (Some ty) (Some init)
         let letStmt = mkLocalStmt letBind
@@ -2252,8 +2249,6 @@ module Util =
         match entryPoint with
         | Some path ->
             let strBody = [
-                "use std::rc::Rc"
-                "use core::cell::RefCell"
                 "let toMutableStr = |x: &String| RefCell::from(Rc::from(x.to_owned()))"
                 "let args: Vec<String> = std::env::args().collect()"
                 "let args: Vec<RefCell<Rc<str>>> = args[1..].iter().map(toMutableStr).collect()"
@@ -2634,6 +2629,12 @@ module Util =
             yield declareModuleMember cons.Info.IsPublic cons.Name false exposedCons
         ]
 *)
+    let preludeDecls = [
+        mkSimpleUseItem ["std"; "rc"; "Rc"] None
+        mkSimpleUseItem ["core"; "cell"; "Cell"] None
+        mkSimpleUseItem ["core"; "cell"; "RefCell"] None
+        ]
+
     let rec transformDeclaration (com: IRustCompiler) ctx decl =
         let withCurrentScope ctx (usedNames: Set<string>) f =
             let ctx = { ctx with UsedNames = { ctx.UsedNames with CurrentDeclarationScope = HashSet usedNames } }
@@ -2643,9 +2644,12 @@ module Util =
 
         match decl with
         | Fable.ModuleDeclaration decl ->
-            let members = decl.Members |> List.collect (transformDeclaration com ctx)
+            // TODO: collect use decls from usage in body
+            let useDecls = []
+            let memberDecls = decl.Members |> List.collect (transformDeclaration com ctx)
             let attrs =  []
-            let modItem = members |> mkModItem attrs decl.Name
+            let modDecls = preludeDecls @ useDecls @ memberDecls
+            let modItem = modDecls |> mkModItem attrs decl.Name
             [modItem]
 
         | Fable.ActionDeclaration decl ->
@@ -2854,11 +2858,7 @@ module Compiler =
             mkInnerAttrDelim "feature" ["stmt_expr_attributes"]
             mkInnerAttrDelim "feature" ["destructuring_assignment"]
         ]
-        let useDecls = [
-            // mkSimpleUseItem ["std"; "rc"; "Rc"] None
-            // mkSimpleUseItem ["core"; "cell"; "Cell"] None
-            // mkSimpleUseItem ["core"; "cell"; "RefCell"] None
-            ]
+        let useDecls = preludeDecls
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
         let importDecls = com.GetAllImports() |> transformImports ctx
         let entryPointDecls = getEntryPointDecls file.Declarations
