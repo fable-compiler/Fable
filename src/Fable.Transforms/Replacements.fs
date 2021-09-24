@@ -286,6 +286,20 @@ let (|NewAnonymousRecord|_|) = function
         Some([], exprs, fieldNames, genArgs, r)
     | _ -> None
 
+let (|ErasedType|_|) (com: Compiler) = function
+    | Fable.AnonymousRecordType (fieldNames, genArgs) when com.Options.EraseTypes ->
+        Some (fieldNames, 0, false, genArgs)
+    | Fable.DeclaredType (ent, genArgs) ->
+        let ent = com.GetEntity(ent)
+        if FSharp2Fable.Util.isErasedEntity com ent then
+            let offset = if ent.IsFSharpUnion then 2 else 1
+            let fieldNames =
+                if ent.IsFSharpUnion then [||] // not used for unions
+                else ent.FSharpFields |> List.map (fun x -> x.Name) |> List.toArray
+            Some (fieldNames, offset, ent.IsFSharpUnion, genArgs)
+        else None
+    | _ -> None
+
 let coreModFor = function
     | BclGuid -> "Guid"
     | BclDateTime -> "Date"
@@ -444,6 +458,9 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Number _ -> Helper.InstanceCall(head, "toString", String, tail)
         | Array _ | List _ ->
             Helper.LibCall(com, "Types", "seqToString", String, [head], ?loc=r)
+        | ErasedType com (_, offset, isUnion, _) ->
+            let args = [makeIntConst offset; makeBoolConst isUnion; head]
+            Helper.LibCall(com, "Types", "erasedTypeToString", String, args, ?loc=r)
         // | DeclaredType(ent, _) when ent.IsFSharpUnion || ent.IsFSharpRecord || ent.IsValueType ->
         //     Helper.InstanceCall(head, "toString", String, [], ?loc=r)
         // | DeclaredType(ent, _) ->
@@ -761,6 +778,7 @@ let identityHash com r (arg: Expr) =
         // | Array _ -> "arrayHash"
         // | Builtin (BclDateTime|BclDateTimeOffset) -> "dateHash"
         // | Builtin (BclInt64|BclUInt64|BclDecimal) -> "fastStructuralHash"
+        | ErasedType com _ -> "structuralHash"
         | DeclaredType _ -> "safeHash"
         | _ -> "identityHash"
     Helper.LibCall(com, "Util", methodName, Number Int32, [arg], ?loc=r)
@@ -777,6 +795,7 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
         | Array _ -> "arrayHash"
         | Builtin (BclDateTime|BclDateTimeOffset) -> "dateHash"
         | Builtin (BclInt64|BclUInt64|BclDecimal) -> "fastStructuralHash"
+        | ErasedType com _ -> "structuralHash"
         | DeclaredType(ent, _) ->
             let ent = com.GetEntity(ent)
             if not ent.IsInterface then "safeHash"
@@ -799,6 +818,8 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
         Helper.InstanceCall(left, "Equals", Boolean, [right]) |> is equal
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "equals", Boolean, [left; right], ?loc=r) |> is equal
+    | ErasedType com _ ->
+        Helper.LibCall(com, "Util", "equalArrays", Boolean, [left; right], ?loc=r) |> is equal
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Array t ->
@@ -823,6 +844,8 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         Helper.LibCall(com, "Date", "compare", Number Int32, [left; right], ?loc=r)
     | Builtin (BclInt64|BclUInt64|BclDecimal|BclBigInt as bt) ->
         Helper.LibCall(com, coreModFor bt, "compare", Number Int32, [left; right], ?loc=r)
+    | ErasedType com _ ->
+        Helper.LibCall(com, "Util", "compareArrays", Number Int32, [left; right], ?loc=r)
     | DeclaredType _ ->
         Helper.LibCall(com, "Util", "compare", Number Int32, [left; right], ?loc=r)
     | Array t ->

@@ -212,14 +212,15 @@ let getCompletionsAtLocation (parseResults: ParseResults) (line: int) (col: int)
     | None ->
         [||]
 
-let compileToFableAst (parseResults: IParseResults) fileName fableLibrary typedArrays language =
+let compileToFableAst (parseResults: IParseResults) fileName fableLibrary typedArrays language eraseTypes =
     let res = parseResults :?> ParseResults
     let project = res.GetProject()
     let define = parseResults.OtherFSharpOptions |> Array.choose (fun x ->
         if x.StartsWith("--define:") || x.StartsWith("-d:")
         then x.[(x.IndexOf(':') + 1)..] |> Some
         else None) |> Array.toList
-    let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
+    let options = Fable.CompilerOptionsHelper.Make(language=language,
+                    define=define, ?typedArrays=typedArrays, ?eraseTypes=eraseTypes)
     let com = CompilerImpl(fileName, project, options, fableLibrary)
     let fableAst =
         FSharp2Fable.Compiler.transformFile com
@@ -288,10 +289,10 @@ let init () =
             getCompletionsAtLocation res line col lineText
 
         member __.CompileToBabelAst(fableLibrary:string, parseResults:IParseResults, fileName:string,
-                                    ?typedArrays, ?typescript) =
+                                    ?typedArrays, ?typescript, ?eraseTypes) =
             let language = match typescript with | Some true -> TypeScript | _ -> JavaScript
             let com, fableAst, errors =
-                compileToFableAst parseResults fileName fableLibrary typedArrays language
+                compileToFableAst parseResults fileName fableLibrary typedArrays language eraseTypes
             let babelAst =
                 fableAst |> Fable2Babel.Compiler.transformFile com
             upcast BabelResult(babelAst, errors)

@@ -152,6 +152,7 @@ let parseFiles projectFileName options =
 
     let parseFable (res, fileName) =
         fable.CompileToBabelAst(libDir, res, fileName,
+            eraseTypes = options.eraseTypes,
             typedArrays = options.typedArrays,
             typescript = options.typescript)
 
@@ -248,6 +249,7 @@ let run opts projectFileName outDir =
         typedArrays = opts |> tryFlag "--typedArrays"
                            |> Option.defaultValue (opts |> hasFlag "--typescript" |> not)
         typescript = opts |> hasFlag "--typescript"
+        eraseTypes = opts |> hasFlag "--eraseTypes"
         printAst = opts |> hasFlag "--printAst"
         // watch = opts |> hasFlag "--watch"
     }
