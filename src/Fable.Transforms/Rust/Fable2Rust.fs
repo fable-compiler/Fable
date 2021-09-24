@@ -1565,17 +1565,43 @@ module Util =
             let field = getField None expr fieldName
             mutableSet com ctx range typ field value
 
-    let transformLet (com: IRustCompiler) ctx (ident: Fable.Ident) value body =
-        let isRef = false
-        let isMut = ident.IsMutable
-        let pat = mkIdentPat ident.Name isRef isMut
-        let ty = transformType com ctx ident.Type
-        let init = transformMaybeCloneRef com ctx value
-        let attrs = []
-        let letBind = mkLocal attrs pat (Some ty) (Some init)
-        let letStmt = mkLocalStmt letBind
-        let letBody = transformAsExpr com ctx body |> mkExprStmt
-        [letStmt; letBody] |> mkBlock |> mkBlockExpr
+    let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr) =
+        let expr = com.TransformAsExpr(ctx, e)
+        if e.Type = Fable.Unit
+        then mkSemiStmt expr
+        else mkExprStmt expr
+
+    // flatten nested sequential expressions (depth first)
+    let rec flattenSequential (expr: Fable.Expr) =
+        match expr with
+        | Fable.Sequential exprs ->
+            List.collect flattenSequential exprs
+        | _ -> [expr]
+
+    let transformLet (com: IRustCompiler) ctx bindings body =
+        let makeLetStmt (ident: Fable.Ident, value: Fable.Expr) =
+            let isRef = false
+            let isMut = ident.IsMutable
+            let pat = mkIdentPat ident.Name isRef isMut
+            let ty = transformType com ctx ident.Type
+            let init = transformMaybeCloneRef com ctx value
+            let local = mkLocal [] pat (Some ty) (Some init)
+            mkLocalStmt local
+        let letStmts = bindings |> List.map makeLetStmt
+        let bodyStmts =
+            match body with
+            | Fable.Sequential exprs ->
+                let exprs = flattenSequential body
+                List.map (transformAsStmt com ctx) exprs
+            | _ ->
+                [transformAsStmt com ctx body]
+        (letStmts @ bodyStmts) |> mkBlock |> mkBlockExpr
+
+    let transformSequential (com: IRustCompiler) ctx exprs =
+        exprs
+        |> List.map (transformAsStmt com ctx)
+        |> mkBlock
+        |> mkBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
         let guardExpr = com.TransformAsExpr(ctx, guard)
@@ -1614,6 +1640,7 @@ module Util =
         let ctx = { ctx with TailCallOpportunity = None }
         let bodyExpr = com.TransformAsExpr(ctx, body)
         mkTryBlockExpr bodyExpr // TODO: add catch and finally
+
     let transformCurriedApply com ctx range expr args =
         callFunction range expr (args |> List.map (transformAsExpr com ctx))
         // let handler =
@@ -1999,8 +2026,8 @@ module Util =
             else
                 transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
 *)
-    let rec transformAsExpr (com: IRustCompiler) ctx (expr: Fable.Expr): Rust.Expr =
-        match expr with
+    let rec transformAsExpr (com: IRustCompiler) ctx (fableExpr: Fable.Expr): Rust.Expr =
+        match fableExpr with
 
         | Fable.TypeCast(e, t) -> transformCast com ctx t e
 
@@ -2054,7 +2081,14 @@ module Util =
             transformSet com ctx range expr typ value kind
 
         | Fable.Let(ident, value, body) ->
-            transformLet com ctx ident value body
+            // flatten nested let binding expressions
+            let rec flatten acc expr =
+                match expr with
+                | Fable.Let(ident, value, body) ->
+                    flatten ((ident, value)::acc) body
+                | _ -> List.rev acc, expr
+            let bindings, body = flatten [] fableExpr
+            transformLet com ctx bindings body
             // if ctx.HoistVars [ident] then
             //     let assignment = transformBindingAsExpr com ctx ident value
             //     Expression.sequenceExpression([|assignment; com.TransformAsExpr(ctx, body)|])
@@ -2068,12 +2102,9 @@ module Util =
         //     else iife com ctx expr
 
         | Fable.Sequential exprs ->
-            exprs
-            |> List.map (fun e ->
-                com.TransformAsExpr(ctx, e)
-                |> (if e.Type = Fable.Unit then mkSemiStmt else mkExprStmt))
-            |> mkBlock
-            |> mkBlockExpr
+            // flatten nested sequential expressions
+            let exprs = flattenSequential fableExpr
+            transformSequential com ctx exprs
 
         | Fable.Emit(info, _, range) ->
             // if info.IsJsStatement then iife com ctx expr
@@ -2088,8 +2119,9 @@ module Util =
 
         | Fable.TryCatch (body, catch, finalizer, range) ->
             transformTryCatch com ctx range body catch finalizer
+
         // TODO: remove this catch-all
-        | _ -> TODO_EXPR (sprintf "%A" expr)
+        | _ -> TODO_EXPR (sprintf "%A" fableExpr)
 (*
     let rec transformAsStatements (com: IRustCompiler) ctx returnStrategy
                                     (expr: Fable.Expr): Rust.Stmt array =
