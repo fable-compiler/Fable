@@ -667,6 +667,18 @@ let tests =
          !count
          |> equal 11
 
+    testCase "Seq.cache works for infinite sequences" <| fun () ->
+        let guids =
+            Seq.initInfinite (fun _ -> System.Guid.NewGuid())
+            |> Seq.cache
+
+        let n = 10
+
+        let xs = guids |> Seq.truncate n |> Seq.toList
+        let ys = guids |> Seq.truncate n |> Seq.toList
+
+        xs |> equal ys
+
     testCase "Seq.cast works" <| fun () ->
         let xs = [box 1; box 2; box 3]
         let ys = Seq.cast<int> xs
