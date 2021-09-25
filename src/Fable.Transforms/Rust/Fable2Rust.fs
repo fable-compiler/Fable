@@ -1565,13 +1565,18 @@ module Util =
             let field = getField None expr fieldName
             mutableSet com ctx range typ field value
 
-    let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr) =
+    let transformAsStmt (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Stmt =
         let expr = com.TransformAsExpr(ctx, e)
-        if e.Type = Fable.Unit
-        then mkSemiStmt expr
-        else mkExprStmt expr
+        mkExprStmt expr
 
-    // flatten nested sequential expressions (depth first)
+    // flatten nested Let binding expressions
+    let rec flattenLet acc (expr: Fable.Expr) =
+        match expr with
+        | Fable.Let(ident, value, body) ->
+            flattenLet ((ident, value)::acc) body
+        | _ -> List.rev acc, expr
+
+    // flatten nested Sequential expressions (depth first)
     let rec flattenSequential (expr: Fable.Expr) =
         match expr with
         | Fable.Sequential exprs ->
@@ -2082,12 +2087,7 @@ module Util =
 
         | Fable.Let(ident, value, body) ->
             // flatten nested let binding expressions
-            let rec flatten acc expr =
-                match expr with
-                | Fable.Let(ident, value, body) ->
-                    flatten ((ident, value)::acc) body
-                | _ -> List.rev acc, expr
-            let bindings, body = flatten [] fableExpr
+            let bindings, body = flattenLet [] fableExpr
             transformLet com ctx bindings body
             // if ctx.HoistVars [ident] then
             //     let assignment = transformBindingAsExpr com ctx ident value
