@@ -428,7 +428,7 @@ module Helpers =
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport (com: IPythonCompiler) moduleName =
-        printfn "ModuleName: %s" moduleName
+        // printfn "ModuleName: %s" moduleName
 
         let prefix =
             match com.OutputType with
@@ -455,7 +455,7 @@ module Helpers =
                     |> (fun path -> String.Join(".", path))
                 $"{prefix}{path}"
 
-            printfn "-> Module: %A" moduleName
+            // printfn "-> Module: %A" moduleName
             moduleName
         | _ ->
             // Cannot dashify / clean here since Python modules are separated by dots
