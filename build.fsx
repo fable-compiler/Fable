@@ -188,7 +188,7 @@ let buildLibraryPy() =
     cleanDirs [buildDirPy]
 
     runFableWithArgs projectDir [
-        "--outDir " + buildDirPy </> "fable"
+        "--outDir " + buildDirPy </> "fable_library"
         "--fableLib " + buildDirPy
         "--lang Python"
         "--exclude Fable.Core"
@@ -197,11 +197,11 @@ let buildLibraryPy() =
 
     // Copy python related files from projectDir to buildDir
     copyFiles libraryDir "*" buildDirPy
-    copyFiles projectDir "*.py" (buildDirPy </> "fable")
+    copyFiles projectDir "*.py" (buildDirPy </> "fable_library")
 
     // Fix issues with Fable .fsproj not supporting links
-    copyDirNonRecursive (buildDirPy </> "fable/fable-library") (buildDirPy </> "fable")
-    removeDirRecursive (buildDirPy </> "fable/fable-library")
+    copyDirNonRecursive (buildDirPy </> "fable_library/fable-library") (buildDirPy </> "fable_library")
+    removeDirRecursive (buildDirPy </> "fable_library/fable-library")
 
 
 let buildPyLibraryIfNotExists() =
@@ -441,7 +441,7 @@ let testPython() =
         "--lang Python"
     ]
 
-    runInDir buildDir "touch __init__.py" // So relative imports works.
+    //runInDir buildDir "touch __init__.py" // So relative imports works.
     runInDir buildDir "pytest"
 
 
