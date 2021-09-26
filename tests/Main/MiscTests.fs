@@ -1159,4 +1159,16 @@ let tests =
         setOutRef a &foo.x
         foo.x |> equal 1
 
+    testCase "Assigning to unit works" <| fun () -> // See #2548
+        let mutable value = 2
+        let inline doit x (f: 'A -> 'T) =
+            let mutable r = Unchecked.defaultof<_>
+            r <- f x
+            r
+
+        doit "a" (fun a -> a + "b")
+        |> equal "ab"
+
+        doit 2 (fun x -> value <- value + x)
+        value |> equal 4
   ]

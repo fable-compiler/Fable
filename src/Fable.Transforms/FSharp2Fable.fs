@@ -826,7 +826,12 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) fsExpr =
             return makeCall r Fable.Unit info valToSet
         | _ ->
             let valToSet = makeValueFrom com ctx r valToSet
-            return Fable.Set(valToSet, None, valueExpr, r)
+            // It can happen that we're assigning to a value of unit type
+            // and Fable replaces it with unit constant, see #2548
+            return
+                match valToSet.Type with
+                | Fable.Unit -> valueExpr
+                | _ -> Fable.Set(valToSet, None, valueExpr, r)
 
     | FSharpExprPatterns.NewArray(FableType com ctx elTyp, argExprs) ->
         let! argExprs = transformExprList com ctx argExprs
@@ -1457,7 +1462,7 @@ type FableCompiler(com: Compiler) =
         member this.InjectArgument(ctx, r, genArgs, parameter) =
             Inject.injectArg this ctx r genArgs parameter
 
-        member this.GetInlineExpr(memb) =
+        member _.GetInlineExpr(memb) =
             let membUniqueName = getMemberUniqueName com memb
             match memb.DeclaringEntity with
             | None -> failwith ("Unexpected inlined member without declaring entity. Please report: " + membUniqueName)
@@ -1465,7 +1470,7 @@ type FableCompiler(com: Compiler) =
                 // The entity name is not included in the member unique name for type extensions, see #1667
                 let entRef = FsEnt.Ref ent
                 match entRef.SourcePath with
-                | None -> failwith ("Cannot access source path of %s" + entRef.FullName)
+                | None -> failwith ("Cannot access source path of " + entRef.FullName)
                 | Some fileName ->
                     com.AddWatchDependency(fileName)
                     com.GetOrAddInlineExpr(membUniqueName, fun () ->

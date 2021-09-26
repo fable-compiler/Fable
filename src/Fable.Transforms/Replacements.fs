@@ -2996,22 +2996,14 @@ let uris (com: ICompiler) (ctx: Context) (r: SourceLocation option) t (i: CallIn
     | "UnescapeDataString" -> Helper.LibCall(com, "Util", "unescapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeDataString"   -> Helper.LibCall(com, "Util", "escapeDataString", t, args, i.SignatureArgTypes) |> Some
     | "EscapeUriString"    -> Helper.LibCall(com, "Util", "escapeUriString", t, args, i.SignatureArgTypes) |> Some
-    | "get_IsAbsoluteUri" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
-    | "get_Scheme" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
-    | "get_Host" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
-    | "get_AbsolutePath" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
-    | "get_AbsoluteUri" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
-    | "get_PathAndQuery" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
-    | "get_Query" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
-    | "get_Fragment" ->
-        Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
+    | "get_IsAbsoluteUri"
+    | "get_Scheme"
+    | "get_Host"
+    | "get_AbsolutePath"
+    | "get_AbsoluteUri"
+    | "get_PathAndQuery"
+    | "get_Query"
+    | "get_Fragment"
     | "get_OriginalString" ->
         Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst |> get r t thisArg.Value |> Some
     | _ -> None
