@@ -130,7 +130,9 @@ let buildLibraryWithOptions (opts: {| watch: bool |}) =
     cleanDirs [buildDir]
     runInDir baseDir "npm install"
     makeDirRecursive buildDir
-    copyFile (projectDir </> "package.json") buildDir
+
+    // package.json is causing issues so disable it for now #2549
+    // copyFile (projectDir </> "package.json") buildDir
 
     if opts.watch then
         Async.Parallel [
