@@ -529,7 +529,12 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
-            let targetDir = IO.Path.Combine(fableLibDir, pkg.Id + "." + pkg.Version)
+            let targetDir =
+                match opts.FableOptions.Language with
+                | Python ->
+                    let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
+                    IO.Path.Combine(fableLibDir, name.Replace(".", "_"))
+                | _ -> IO.Path.Combine(fableLibDir, pkg.Id + "." + pkg.Version)
             copyDirIfDoesNotExist sourceDir targetDir
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
 
