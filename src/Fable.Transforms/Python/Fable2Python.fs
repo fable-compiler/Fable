@@ -427,13 +427,19 @@ module Helpers =
         | _ ->
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
-    let rewriteFableImport moduleName =
-        //printfn "ModuleName: %s" moduleName
+    let rewriteFableImport (com: IPythonCompiler) moduleName =
+        printfn "ModuleName: %s" moduleName
+
+        let prefix =
+            match com.OutputType with
+            | OutputType.Exe -> ""
+            | _ -> "."
+
         match moduleName with
         | ParseModule "fable-library" pymodule ->
-            $".{pymodule}"
+            $"{prefix}{pymodule}"
         | ParseModule("fable") pymodule ->
-            $".fable.{pymodule}"
+            $"{prefix}fable.fable_library.{pymodule}"
         | moduleName when moduleName.Contains(".fs") ->
             // PEP-8: Modules should have short, all-lowercase names.
             let moduleName =
@@ -447,9 +453,9 @@ module Helpers =
                         | name when name = "" || name = "." || name = ".." -> None
                         | name -> Some name )
                     |> (fun path -> String.Join(".", path))
-                $".{path}"
+                $"{prefix}{path}"
 
-            //printfn "-> Module: %A" moduleName
+            printfn "-> Module: %A" moduleName
             moduleName
         | _ ->
             // Cannot dashify / clean here since Python modules are separated by dots
@@ -849,7 +855,6 @@ module Util =
         ]
 
     let transformImport (com: IPythonCompiler) ctx (r: SourceLocation option) (name: string) (moduleName: string) =
-        //printfn "transformImport: %A" (name, moduleName)
         let name, parts =
             let parts = Array.toList(name.Split('.'))
             parts.Head, parts.Tail
@@ -1786,7 +1791,7 @@ module Util =
 
         | Fable.IdentExpr id -> identAsExpr com ctx id, []
 
-        | Fable.Import({ Selector = selector; Path = path }, _, r) ->
+        | Fable.Import({ Selector = selector; Path = path; Kind=kind }, _, r) ->
             transformImport com ctx r selector path, []
 
         | Fable.Test(expr, kind, range) ->
@@ -1934,7 +1939,7 @@ module Util =
         | Fable.IdentExpr id ->
             identAsExpr com ctx id |> resolveExpr ctx id.Type returnStrategy
 
-        | Fable.Import({ Selector = selector; Path = path }, t, r) ->
+        | Fable.Import({ Selector = selector; Path = path; Kind=kind }, t, r) ->
             transformImport com ctx r selector path |> resolveExpr ctx t returnStrategy
 
         | Fable.Test(expr, kind, range) ->
@@ -2471,12 +2476,12 @@ module Util =
                 else
                     transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name classMembers
 
-    let transformImports (imports: Import list) : Statement list =
+    let transformImports (com: IPythonCompiler) (imports: Import list) : Statement list =
         //printfn "transformImports: %A" imports
         let imports =
             imports
             |> List.map (fun im ->
-                let moduleName = im.Module |> Helpers.rewriteFableImport
+                let moduleName = im.Module |> Helpers.rewriteFableImport com
                 match im.Name with
                 | Some "*"
                 | Some "default" ->
@@ -2581,6 +2586,7 @@ module Compiler =
             member _.LibraryDir = com.LibraryDir
             member _.CurrentFile = com.CurrentFile
             member _.OutputDir = com.OutputDir
+            member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
             member _.GetEntity(fullName) = com.GetEntity(fullName)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
@@ -2615,6 +2621,6 @@ module Compiler =
             ScopedTypeParams = Set.empty }
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
-        let importDecls = com.GetAllImports() |> transformImports
+        let importDecls = com.GetAllImports() |> transformImports com
         let body = importDecls @ rootDecls
         Module.module' (body)

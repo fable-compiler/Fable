@@ -257,7 +257,14 @@ type ProjectCracked(projFile: string,
 
     member _.MakeCompiler(currentFile, project, outDir) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
-        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir, ?outDir=outDir)
+        let outputType =
+            match crackerResponse.OutputType with
+            | Some "Exe" -> OutputType.Exe
+            | _ -> OutputType.Library
+
+        printfn "MakeCompiler, outputType: %A" outputType
+
+        CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir, outType=outputType, ?outDir=outDir)
 
     member _.MapSourceFiles(f) =
         ProjectCracked(projFile, Array.map f sourceFiles, fableCompilerOptions, crackerResponse)

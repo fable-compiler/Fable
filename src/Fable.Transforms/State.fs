@@ -174,7 +174,7 @@ type Log =
 
 /// Type with utilities for compiling F# files to JS
 /// Not thread-safe, an instance must be created per file
-type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, ?outDir: string) =
+type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: string, outType: OutputType, ?outDir: string) =
     let logs = ResizeArray<Log>()
     let watchDependencies = HashSet<string>()
     let fableLibraryDir = fableLibraryDir.TrimEnd('/')
@@ -190,6 +190,7 @@ type CompilerImpl(currentFile, project: Project, options, fableLibraryDir: strin
         member _.LibraryDir = fableLibraryDir
         member _.CurrentFile = currentFile
         member _.OutputDir = outDir
+        member _.OutputType = outType
         member _.ProjectFile = project.ProjectFile
 
         member _.GetImplementationFile(fileName) =
