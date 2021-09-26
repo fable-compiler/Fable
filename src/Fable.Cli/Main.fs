@@ -262,8 +262,6 @@ type ProjectCracked(projFile: string,
             | Some "Exe" -> OutputType.Exe
             | _ -> OutputType.Library
 
-        printfn "MakeCompiler, outputType: %A" outputType
-
         CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir, outType=outputType, ?outDir=outDir)
 
     member _.MapSourceFiles(f) =

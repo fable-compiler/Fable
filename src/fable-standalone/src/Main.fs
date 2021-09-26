@@ -221,7 +221,7 @@ let compileToFableAst (parseResults: IParseResults) fileName fableLibrary typedA
         else None) |> Array.toList
     let options = Fable.CompilerOptionsHelper.Make(language=language, define=define, ?typedArrays=typedArrays)
     let outputType = OutputType.Library // TODO: This is the default. Fix to actual output type
-    let com = CompilerImpl(fileName, project, options, outputType, fableLibrary)
+    let com = CompilerImpl(fileName, project, options, fableLibrary, outputType)
     let fableAst =
         FSharp2Fable.Compiler.transformFile com
         |> FableTransforms.transformFile com
