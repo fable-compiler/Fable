@@ -8,16 +8,16 @@ type CompilerOptionsHelper =
     static member Make(?language,
                        ?typedArrays,
                        ?define,
+                       ?debugMode,
                        ?optimizeFSharpAst,
                        ?verbosity,
                        ?fileExtension,
                        ?clampByteArrays,
                        ?rootModule) =
         let define = defaultArg define []
-        let isDebug = List.contains "DEBUG" define
         { new CompilerOptions with
               member _.Define = define
-              member _.DebugMode = isDebug
+              member _.DebugMode = defaultArg debugMode true
               member _.Language = defaultArg language JavaScript
               member _.TypedArrays = defaultArg typedArrays true
               member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false

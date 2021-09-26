@@ -177,6 +177,7 @@ type Runner =
                                        typedArrays = typedArrays,
                                        fileExtension = fileExt,
                                        define = define,
+                                       debugMode = (configuration = "Debug"),
                                        optimizeFSharpAst = flagEnabled "--optimize" args,
                                        rootModule = (tryFlag "--rootModule" args |> Option.defaultValue true),
                                        verbosity = verbosity)

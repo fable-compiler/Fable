@@ -430,6 +430,7 @@ let createFableDir (opts: CrackerOptions) =
         Map [
             "version", Literals.VERSION
             "define", opts.FableOptions.Define |> List.sort |> String.concat ","
+            "debug", opts.FableOptions.DebugMode.ToString()
             "typedArrays", opts.FableOptions.TypedArrays.ToString()
             "clampByteArrays", opts.FableOptions.ClampByteArrays.ToString()
             "optimize", opts.FableOptions.OptimizeFSharpAst.ToString()
