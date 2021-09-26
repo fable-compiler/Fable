@@ -2440,7 +2440,18 @@ module Util =
         [typeDeclaration; reflectionDeclaration]
 *)
     let typedParam (com: IRustCompiler) ctx (id: Fable.Ident) =
-        let ty = transformType com ctx id.Type
+        let ty =
+            match id.Type with
+            | Fable.Type.LambdaType(arg, t) -> //redirecting a function type to a closure allows greater flexibilty
+                //mkFullNamePathTy "F" None
+                let inputTypes, returnType = uncurryLambdaType ([], id.Type)
+
+                let traitTy =
+                    [mkFnTraitGenericBound (inputTypes |> List.map (transformType com ctx)) (returnType |> transformType com ctx |> Rust.FnRetTy.Ty)]
+                    |> mkImplTraitsTy
+                //transformLambdaType com ctx inputTypes returnType
+                traitTy
+            | _ -> transformType com ctx id.Type
         let isRef = false
         let isMut = false
         mkParamFromType id.Name ty isRef isMut //?loc=id.Range)
@@ -2464,7 +2475,7 @@ module Util =
             |> List.map (typedParam com ctx)
         let fnDecl = mkFnDecl inputs fnRetTy
         let fnBody = com.TransformAsExpr(ctx, body)
-        fnDecl, fnBody
+        fnDecl, fnBody, newTypeParams
 
     let transformLambda (com: IRustCompiler) ctx (args: Fable.Ident list) (body: Fable.Expr) =
         let fnRetTy = VOID_RETURN_TY
@@ -2477,7 +2488,7 @@ module Util =
         mkClosureExpr fnDecl fnBody
 
     let transformModuleFunction (com: IRustCompiler) ctx (info: Fable.MemberInfo) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
-        let fnDecl, fnBody = transformFunction com ctx args body
+        let fnDecl, fnBody, fnGenericNames = transformFunction com ctx args body
         let fnBodyBlock =
             if body.Type = Fable.Unit
             then mkSemiBlock fnBody
@@ -2487,14 +2498,9 @@ module Util =
             //it does not seem like the current AST gives access to the actual generic params, so this is inferring them from useage,
             //which is a hack/temporary solution that only works for trivial cases.
             let parameters =
-                args
-                |> List.choose (fun a ->
-                            match a.Type with
-                            | Fable.GenericParam (name, constraints) -> Some (name, constraints)
-                            | _ -> //recurse to find nested params in functions etc?
-                                None)
-                |> List.distinct
-                |> List.map(fun (name, constraints) ->
+                fnGenericNames
+                |> Set.toList
+                |> List.map(fun name ->
                     //todo map constraints
                     mkGenericParam [] (mkIdent (name)) [] false (Rust.AST.Types.GenericParamKind.Type None)
                     )

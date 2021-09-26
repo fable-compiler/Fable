@@ -711,6 +711,15 @@ module Generic =
             }
             genArgs |> GenericArgs.AngleBracketed |> Some
 
+    let mkParenArgs inputs output: GenericArgs =
+        let genArgs: ParenthesizedArgs = {
+            span = DUMMY_SP
+            inputs_span = DUMMY_SP
+            inputs = mkVec inputs
+            output = output
+        }
+        genArgs |> GenericArgs.Parenthesized
+
 [<AutoOpen>]
 module Types =
 
@@ -728,6 +737,34 @@ module Types =
 
     let mkFnTy genParams fnDecl: Ty =
         TyKind.BareFn(mkBareFnTy genParams fnDecl)
+        |> mkTy
+
+    let mkFnTraitGenericBound inputs output =
+        let ptref: Types.PolyTraitRef = {
+            bound_generic_params = mkVec []
+            span = DUMMY_SP
+            trait_ref = {
+                path = {
+                    segments = mkVec [
+                        {
+                            ident = mkIdent "Fn"
+                            id = DUMMY_NODE_ID
+                            args = mkParenArgs inputs output |> Some
+                        }
+                    ]
+                    span = DUMMY_SP
+                    tokens = None
+                }
+                ref_id = DUMMY_NODE_ID
+            }
+        }
+        GenericBound.Trait(ptref, TraitBoundModifier.None)
+
+    let mkTraitsTy traits: Ty =
+        TyKind.TraitObject(mkVec traits, TraitObjectSyntax.None)
+        |> mkTy
+    let mkImplTraitsTy traits =
+        TyKind.ImplTrait(DUMMY_NODE_ID, mkVec traits)
         |> mkTy
 
     let mkRefTy ty: Ty =
