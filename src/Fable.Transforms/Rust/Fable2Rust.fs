@@ -1628,7 +1628,8 @@ module Util =
         let startExpr = com.TransformAsExpr(ctx, start)
         let limitExpr = com.TransformAsExpr(ctx, limit)
         let bodyExpr = com.TransformAsExpr(ctx, body)
-        let varPat = mkIdentPat var.Name false false
+        let varName = if var.Name = "forLoopVar" then "_" + var.Name else var.Name
+        let varPat = mkIdentPat varName false false
         let rangeExpr =
             if isUp then
                 mkRangeExpr (Some startExpr) (Some limitExpr) true
