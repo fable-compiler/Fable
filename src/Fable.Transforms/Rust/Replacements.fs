@@ -95,8 +95,8 @@ module Helpers =
     let isNull expr =
         Operation(Binary(BinaryEqual, expr, Value(Null Any, None)), Boolean, None)
 
-    let error msg =
-        Helper.JsConstructorCall(makeIdentExpr "Error", Any, [msg])
+    let error msg = msg
+        // Helper.JsConstructorCall(makeIdentExpr "Error", Any, [msg])
 
     let s txt = Value(StringConstant txt, None)
 
@@ -2043,8 +2043,12 @@ let optionModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: E
         Helper.LibCall(com, "Option", "toNullable", t, args, ?loc=r) |> Some
     | "IsSome", [c] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [c] -> Test(c, OptionTest false, r) |> Some
-    | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
+    | ("Filter" | "Flatten" | "Map2" | "Map3" as meth), args ->
         Helper.LibCall(com, "Option", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc=r) |> Some
+    | "Map", [f; inp] ->
+        Helper.InstanceCall(inp, "map", t, [f], ?loc=r) |> Some
+    | "Bind", [f; inp] ->
+        Helper.InstanceCall(inp, "and_then", t, [f], ?loc=r) |> Some
     | "ToArray", [arg] ->
         toArray r t arg |> Some
     | "ToList", [arg] ->

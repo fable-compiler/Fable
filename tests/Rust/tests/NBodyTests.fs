@@ -148,7 +148,7 @@ let bench (bodies: Planet[], steps: int, dt: float) =
 let ``NBody calc works`` () =
     let bodies = getBodies ()
     let dt = 0.01
-    let steps = 1_000_000
+    let steps = 10_000
     init(bodies)
     let energy = bench(bodies, steps, dt)
-    energy |> equal -0.16908633014999394
+    energy |> equal -0.16901655337360005

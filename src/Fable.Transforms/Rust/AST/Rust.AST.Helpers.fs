@@ -6,12 +6,35 @@ open Fable.Transforms.Rust.AST.Adapters
 open Fable.Transforms.Rust.AST.Spans
 open Fable.Transforms.Rust.AST.Types
 
+module kw = Fable.Transforms.Rust.AST.Symbols.kw
+// module sym = Fable.Transforms.Rust.AST.Symbols.sym
+
+type HashSet<'T> = System.Collections.Generic.HashSet<'T>
+
+[<AutoOpen>]
+module Naming =
+
+    let allKeywords = HashSet(kw.RustKeywords)
+    let topKeywords = HashSet(["crate"; "self"; "super"; "Self"])
+
+    let sanitizeIdent (ident: string) =
+        let ident = ident.Replace("$", "_").Replace("`", "_")
+        if topKeywords.Contains(ident) then ident + "_"
+        elif allKeywords.Contains(ident) then "r#" + ident
+        else ident
+
 [<AutoOpen>]
 module Idents =
 
     let mkIdent (symbol: Symbol): Ident =
-        let symbol = symbol.Replace("$", "_")
+        let symbol = sanitizeIdent symbol
         Ident.from_str(symbol)
+
+    let mkUnsanitizedIdent (symbol: Symbol): Ident =
+        Ident.from_str(symbol)
+
+[<AutoOpen>]
+module Vectors =
 
     let inline internal mkVec (items: _ seq) =
         Vec(items)
@@ -213,16 +236,17 @@ module Paths =
           segments = mkVec segments
           tokens = None }
 
-    let mkGenericPath (names: Symbol seq) genArgs: Path =
-        let len = Seq.length names
+    let mkGenericPath (idents: Ident seq) genArgs: Path =
+        let len = Seq.length idents
         let args i = if i < len - 1 then None else genArgs
-        names
-        |> Seq.mapi (fun i s -> mkPathSegment (mkIdent s) (args i))
+        idents
+        |> Seq.mapi (fun i ident -> mkPathSegment ident (args i))
         |> mkPath
 
     let mkFullNamePath (fullName: Symbol) genArgs: Path =
-        let names = fullName.Split('.') |> Array.append [|"crate"|]
-        mkGenericPath names genArgs
+        let idents = fullName.Split('.') |> Seq.map mkIdent
+        let idents = Seq.append [mkUnsanitizedIdent "crate"] idents
+        mkGenericPath idents genArgs
 
 [<AutoOpen>]
 module Patterns =
@@ -375,7 +399,7 @@ module MacroArgs =
 module MacCalls =
 
     let mkMacCall symbol delim kind (tokens: token.Token seq): MacCall =
-        { path = mkGenericPath [symbol] None
+        { path = mkGenericPath [mkIdent symbol] None
           args = mkDelimitedMacArgs delim kind tokens
           prior_type_ascription = None }
 
@@ -404,7 +428,7 @@ module Attrs =
           tokens = None }
 
     let mkAttrKind (name: Symbol) args: AttrKind =
-        let path = mkGenericPath [name] None
+        let path = mkGenericPath [mkIdent name] None
         let item = mkAttrItem path args
         let kind = AttrKind.Normal(item, None)
         kind
@@ -506,7 +530,8 @@ module Exprs =
         |> mkExpr
 
     let mkGenericPathExpr names genArgs: Expr =
-        mkGenericPath names genArgs
+        let idents = names |> Seq.map mkIdent
+        mkGenericPath idents genArgs
         |> mkPathExpr
 
     let mkFullNamePathExpr fullName genArgs: Expr =
@@ -739,7 +764,7 @@ module Types =
         TyKind.BareFn(mkBareFnTy genParams fnDecl)
         |> mkTy
 
-    let mkFnTraitGenericBound inputs output =
+    let mkFnTraitGenericBound inputs output: GenericBound =
         let ptref: Types.PolyTraitRef = {
             bound_generic_params = mkVec []
             span = DUMMY_SP
@@ -763,7 +788,8 @@ module Types =
     let mkTraitsTy traits: Ty =
         TyKind.TraitObject(mkVec traits, TraitObjectSyntax.None)
         |> mkTy
-    let mkImplTraitsTy traits =
+
+    let mkImplTraitsTy traits: Ty =
         TyKind.ImplTrait(DUMMY_NODE_ID, mkVec traits)
         |> mkTy
 
@@ -776,11 +802,14 @@ module Types =
         |> mkTy
 
     let mkGenericPathTy (names: Symbol seq) (genArgs: GenericArgs option): Ty =
-        TyKind.Path(None, mkGenericPath names genArgs)
+        let idents = names |> Seq.map mkIdent
+        let path = mkGenericPath idents genArgs
+        TyKind.Path(None, path)
         |> mkTy
 
     let mkFullNamePathTy (fullName: Symbol) (genArgs: GenericArgs option): Ty =
-        TyKind.Path(None, mkFullNamePath fullName genArgs)
+        let path = mkFullNamePath fullName genArgs
+        TyKind.Path(None, path)
         |> mkTy
 
     let mkArrayTy ty (size: Expr): Ty =
@@ -937,29 +966,31 @@ module Items =
         ItemKind.Fn kind
         |> mkItem attrs ident
 
-    let mkUseItem attrs parts kind: Item =
-        let mkUseTree parts kind: UseTree =
-            { prefix = mkGenericPath parts None
+    let mkUseItem attrs names kind: Item =
+        let mkUseTree prefix kind: UseTree =
+            { prefix = prefix
               kind = kind
               span = DUMMY_SP }
+        let idents = names |> Seq.map mkIdent
+        let prefix = mkGenericPath idents None
+        let useTree = mkUseTree prefix kind
         let ident = mkIdent ""
-        let useTree = mkUseTree parts kind
         ItemKind.Use(useTree)
         |> mkItem attrs ident
         |> mkNonPublicItem
 
-    let mkSimpleUseItem attrs parts (alias: Ident option): Item =
+    let mkSimpleUseItem attrs names (alias: Ident option): Item =
         UseTreeKind.Simple(alias, DUMMY_NODE_ID, DUMMY_NODE_ID)
-        |> mkUseItem attrs parts
+        |> mkUseItem attrs names
 
-    let mkNestedUseItem attrs parts useTrees: Item =
+    let mkNestedUseItem attrs names useTrees: Item =
         let useTrees = useTrees |> Seq.map (fun x -> x, DUMMY_NODE_ID)
         UseTreeKind.Nested(mkVec useTrees)
-        |> mkUseItem attrs parts
+        |> mkUseItem attrs names
 
-    let mkGlobUseItem attrs parts: Item =
+    let mkGlobUseItem attrs names: Item =
         UseTreeKind.Glob
-        |> mkUseItem attrs parts
+        |> mkUseItem attrs names
 
     let mkModItem attrs name items: Item =
         let ident = mkIdent name

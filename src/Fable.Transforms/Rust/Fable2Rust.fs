@@ -7,17 +7,17 @@ open Fable.Transforms.Rust.AST.Spans
 open Fable.Transforms.Rust.AST.Helpers
 
 module Rust = Fable.Transforms.Rust.AST.Types
-module token = Fable.Transforms.Rust.AST.Types.token
-module kw = Fable.Transforms.Rust.AST.Symbols.kw
-module sym = Fable.Transforms.Rust.AST.Symbols.sym
+// module token = Fable.Transforms.Rust.AST.Types.token
+// module kw = Fable.Transforms.Rust.AST.Symbols.kw
+// module sym = Fable.Transforms.Rust.AST.Symbols.sym
 
 type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 
-type ReturnStrategy =
-    | Return
-    | ReturnUnit
-    | Assign of Rust.Expr
-    | Target of Ident
+// type ReturnStrategy =
+//     | Return
+//     | ReturnUnit
+//     | Assign of Rust.Expr
+//     | Target of Ident
 
 // type Import =
 //   { Selector: string
@@ -125,15 +125,6 @@ module Reflection =
         [|fullnameExpr; Expression.arrayExpression(generics); jsConstructor com ctx ent; cases|]
         |> libReflectionCall com ctx None "union"
 *)
-
-module Naming =
-    let allKeywords = HashSet(kw.RustKeywords)
-    let topKeywords = HashSet(["crate"; "self"; "super"; "Self"])
-
-    let sanitizeIdent (ident: string) =
-        if topKeywords.Contains(ident) then ident + "_"
-        elif allKeywords.Contains(ident) then "r#" + ident
-        else ident
 
 module TypeInfo =
 
@@ -749,9 +740,8 @@ module Util =
 *)
     let identAsExpr (id: Fable.Ident) =
         // Expression.identifier(id.Name, ?loc=id.Range)
-        let name = id.Name |> Naming.sanitizeIdent
         let genArgs = None // TODO: generics
-        let expr = mkGenericPathExpr [name] genArgs
+        let expr = mkGenericPathExpr [id.Name] genArgs
         // if isCopyType com id.Type then expr
         // else expr |> mkAddrOfExpr
         expr
@@ -1615,7 +1605,9 @@ module Util =
                 | Fable.LambdaType _
                 | Fable.DelegateType _ -> None
                 | _ ->
-                    transformType com { ctx with Typegen = { FavourClosureTraitOverFunctionPointer = true; IsParamType = false } } ident.Type
+                    let typegen = { FavourClosureTraitOverFunctionPointer = true; IsParamType = false }
+                    let ctx = { ctx with Typegen = typegen }
+                    transformType com ctx ident.Type
                     |> Some
             let init = transformMaybeCloneRef com ctx value
             let local = mkLocal [] pat ty (Some init)
@@ -2150,6 +2142,17 @@ module Util =
         | Fable.TryCatch (body, catch, finalizer, range) ->
             transformTryCatch com ctx range body catch finalizer
 
+        | Fable.Extended(Fable.Throw(expr, _typ), _range) ->
+            mkMacroExpr "panic" [transformAsExpr com ctx expr]
+
+        // | Fable.Extended(kind, _) ->
+        //     match kind with
+        //     | Fable.Throw _ ->
+        //     | Fable.Return _ ->
+        //     | Fable.Break _ ->
+        //     | Fable.Debugger ->
+        //     | Fable.Curry _ ->
+
         // TODO: remove this catch-all
         | _ -> TODO_EXPR (sprintf "%A" fableExpr)
 (*
@@ -2469,7 +2472,9 @@ module Util =
         [typeDeclaration; reflectionDeclaration]
 *)
     let typedParam (com: IRustCompiler) ctx (id: Fable.Ident) =
-        let ty = transformType com { ctx with Typegen = { FavourClosureTraitOverFunctionPointer = true; IsParamType = true} } id.Type
+        let typegen = { FavourClosureTraitOverFunctionPointer = true; IsParamType = true}
+        let ctx = { ctx with Typegen = typegen }
+        let ty = transformType com ctx id.Type
         let isRef = false
         let isMut = false
         mkParamFromType id.Name ty isRef isMut //?loc=id.Range)
