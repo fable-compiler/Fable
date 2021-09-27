@@ -189,7 +189,7 @@ let buildLibraryPy() =
 
     runFableWithArgs projectDir [
         "--outDir " + buildDirPy </> "fable_library"
-        "--fableLib " + buildDirPy
+        "--fableLib " + buildDirPy </> "fable_library"
         "--lang Python"
         "--exclude Fable.Core"
         "--define FABLE_LIBRARY"

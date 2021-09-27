@@ -433,7 +433,7 @@ let createFableDir (opts: CrackerOptions) =
         let baseDir = opts.OutDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(opts.ProjFile))
         let dirName =
             match opts.FableOptions.Language with
-            | Python -> "fable"
+            | Python -> PY.Naming.fableHiddenDir
             | _ -> Naming.fableHiddenDir
         IO.Path.Combine(baseDir, dirName)
 
@@ -520,7 +520,7 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
             | Python ->
                 let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable_library")
                 copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
-                fableLibDir
+                fableLibraryTarget
             | _ ->
                 let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
                 copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget

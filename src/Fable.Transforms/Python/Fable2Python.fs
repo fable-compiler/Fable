@@ -399,10 +399,10 @@ module Helpers =
 
         let m = _reFableLib.Match(moduleName)
         if m.Groups.Count > 1 then
-            let pymodule =
+            let pyModule =
                 let lower = m.Groups.["module"].Value |> Naming.applyCaseRule CaseRules.SnakeCase
                 (lower, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
-            Some pymodule
+            Some pyModule
         else
             None
 
@@ -428,18 +428,24 @@ module Helpers =
             (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (fun _ -> false)
 
     let rewriteFableImport (com: IPythonCompiler) moduleName =
-        // printfn "ModuleName: %s" moduleName
+        //printfn "ModuleName: %s" moduleName
 
         let prefix =
             match com.OutputType with
-            | OutputType.Exe -> ""
-            | _ -> "."
+            | OutputType.Exe ->
+                printfn "OutputType: Exe"
+                ""
+            | _ ->
+                printfn "OutputType: Library"
+                "."
 
         match moduleName with
-        | ParseModule "fable-library" pymodule ->
-            $"{prefix}{pymodule}"
-        | ParseModule("fable") pymodule ->
-            $"{prefix}fable.fable_library.{pymodule}"
+        | ParseModule "fable-library" pyModule ->
+            $"{prefix}{pyModule}"
+        | ParseModule("fable_library") pyModule ->
+            $"..fable_library.{pyModule}"                
+        | ParseModule("fable") pyModule ->
+            $"{prefix}fable.fable_library.{pyModule}"
         | moduleName when moduleName.Contains(".fs") ->
             // PEP-8: Modules should have short, all-lowercase names.
             let moduleName =
@@ -2481,6 +2487,7 @@ module Util =
         let imports =
             imports
             |> List.map (fun im ->
+                //printfn "Import: %A" im
                 let moduleName = im.Module |> Helpers.rewriteFableImport com
                 match im.Name with
                 | Some "*"

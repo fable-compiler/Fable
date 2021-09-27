@@ -257,7 +257,18 @@ type ProjectCracked(projFile: string,
 
     member _.MakeCompiler(currentFile, project, outDir) =
         let fableLibDir = Path.getRelativePath currentFile crackerResponse.FableLibDir
-        let outputType = crackerResponse.OutputType
+        let common = Path.getCommonBaseDir([currentFile; crackerResponse.FableLibDir])
+        let outputType =
+            // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be
+            // compiled as part of the main project which might be a program (Exe) or library (Library).
+            let fableHiddenDir =
+                match fableCompilerOptions.Language with
+                | Python -> PY.Naming.fableHiddenDir
+                | _ -> Naming.fableHiddenDir
+            if common.EndsWith(fableHiddenDir) then
+                Some "Library"
+            else
+                crackerResponse.OutputType
         CompilerImpl(currentFile, project, fableCompilerOptions, fableLibDir, ?outDir=outDir, ?outType=outputType)
 
     member _.MapSourceFiles(f) =
