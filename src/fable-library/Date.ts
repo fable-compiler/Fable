@@ -219,7 +219,12 @@ export function parseRaw(input: string) {
     } else {
       throw new Error("The string is not a valid Date.");
     }
+
+    if (isNaN(date.getTime())) {
+      throw new Error("The string is not a valid Date.");
+    }
   }
+
   return date;
 }
 
