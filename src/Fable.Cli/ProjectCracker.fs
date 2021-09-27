@@ -4,6 +4,7 @@ module Fable.Cli.ProjectCracker
 
 open System
 open System.Xml.Linq
+open System.Text.Json
 open System.Collections.Generic
 open FSharp.Compiler.CodeAnalysis
 open Fable
@@ -425,26 +426,18 @@ let createFableDir (opts: CrackerOptions) =
         let baseDir = opts.OutDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(opts.ProjFile))
         IO.Path.Combine(baseDir, Naming.fableHiddenDir)
 
-    let compilerInfo = IO.Path.Combine(fableDir, "compiler_info.txt")
-    let newInfo =
-        Map [
-            "version", Literals.VERSION
-            "define", opts.FableOptions.Define |> List.sort |> String.concat ","
-            "debug", opts.FableOptions.DebugMode.ToString()
-            "typedArrays", opts.FableOptions.TypedArrays.ToString()
-            "clampByteArrays", opts.FableOptions.ClampByteArrays.ToString()
-            "optimize", opts.FableOptions.OptimizeFSharpAst.ToString()
-        ]
+    let jsonOptions = JsonSerializerOptions()
+    jsonOptions.Converters.Add(Serialization.JsonFSharpConverter())
+    let compilerInfoPath = IO.Path.Combine(fableDir, "compiler_info.txt")
+    let newInfo = {| version = Literals.VERSION; options = opts.FableOptions |}
 
     let isEmptyOrOutdated =
         if opts.NoCache || isDirectoryEmpty fableDir then true
         else
             let isOutdated =
                 try
-                    IO.File.ReadLines(compilerInfo)
-                    |> Seq.map (fun line -> let parts = line.Split("=") in parts.[0], parts.[1])
-                    |> Map
-                    |> fun oldInfo -> oldInfo <> newInfo
+                    let oldInfo = IO.File.ReadAllText(compilerInfoPath)
+                    JsonSerializer.Deserialize(oldInfo, jsonOptions) <> newInfo
                 with _ -> true
             if isOutdated then
                 IO.Directory.Delete(fableDir, true)
@@ -454,7 +447,7 @@ let createFableDir (opts: CrackerOptions) =
         if IO.Directory.Exists(fableDir) then
             IO.Directory.Delete(fableDir, true)
         IO.Directory.CreateDirectory(fableDir) |> ignore
-        IO.File.WriteAllLines(compilerInfo, newInfo |> Seq.map (fun kv -> kv.Key + "=" + kv.Value))
+        IO.File.WriteAllText(compilerInfoPath, JsonSerializer.Serialize(newInfo, jsonOptions))
         IO.File.WriteAllText(IO.Path.Combine(fableDir, ".gitignore"), "**/*")
 
     fableDir

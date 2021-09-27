@@ -14,15 +14,17 @@ type Language =
     | TypeScript
 
 type CompilerOptions =
-      abstract TypedArrays: bool
-      abstract ClampByteArrays: bool
-      abstract Language: Language
-      abstract Define: string list
-      abstract DebugMode: bool
-      abstract OptimizeFSharpAst: bool
-      abstract RootModule: bool
-      abstract Verbosity: Verbosity
-      abstract FileExtension: string
+    {
+        TypedArrays: bool
+        ClampByteArrays: bool
+        Language: Language
+        Define: string list
+        DebugMode: bool
+        OptimizeFSharpAst: bool
+        RootModule: bool
+        Verbosity: Verbosity
+        FileExtension: string
+    }
 
 type PluginHelper =
     abstract LibraryDir: string

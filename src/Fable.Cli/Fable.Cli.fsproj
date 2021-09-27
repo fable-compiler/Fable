@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Dotnet.ProjInfo" Version="0.44.0" />
+    <PackageReference Include="FSharp.SystemTextJson" Version="0.17.4" />
     <PackageReference Include="source-map-sharp" Version="1.0.7" />
     <PackageReference Include="FSharp.Core" Version="5.0.1" />
   </ItemGroup>

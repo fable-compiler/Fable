@@ -14,17 +14,17 @@ type CompilerOptionsHelper =
                        ?fileExtension,
                        ?clampByteArrays,
                        ?rootModule) =
-        let define = defaultArg define []
-        { new CompilerOptions with
-              member _.Define = define
-              member _.DebugMode = defaultArg debugMode true
-              member _.Language = defaultArg language JavaScript
-              member _.TypedArrays = defaultArg typedArrays true
-              member _.OptimizeFSharpAst = defaultArg optimizeFSharpAst false
-              member _.RootModule = defaultArg rootModule false
-              member _.Verbosity = defaultArg verbosity Verbosity.Normal
-              member _.FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
-              member _.ClampByteArrays = defaultArg clampByteArrays false }
+        {
+            CompilerOptions.Define = defaultArg define []
+            DebugMode = defaultArg debugMode true
+            Language = defaultArg language JavaScript
+            TypedArrays = defaultArg typedArrays true
+            OptimizeFSharpAst = defaultArg optimizeFSharpAst false
+            RootModule = defaultArg rootModule false
+            Verbosity = defaultArg verbosity Verbosity.Normal
+            FileExtension = defaultArg fileExtension CompilerOptionsHelper.DefaultExtension
+            ClampByteArrays = defaultArg clampByteArrays false
+        }
 
 [<RequireQualifiedAccess>]
 type Severity =
