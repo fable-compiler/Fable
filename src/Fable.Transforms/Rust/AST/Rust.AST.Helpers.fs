@@ -593,7 +593,7 @@ module Exprs =
         |> mkExpr
 
     let mkClosureExpr (decl: FnDecl) (body: Expr): Expr =
-        ExprKind.Closure(CaptureBy.Ref, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
+        ExprKind.Closure(CaptureBy.Value, Asyncness.No, Movability.Movable, decl, body, DUMMY_SP)
         |> mkExpr
 
     let mkCallExpr (callee: Expr) args: Expr =

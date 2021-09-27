@@ -34,6 +34,11 @@ type UsedNames =
     DeclarationScopes: HashSet<string>
     CurrentDeclarationScope: HashSet<string> }
 
+type TypegenContext = {
+    FavourClosureTraitOverFunctionPointer: bool
+    IsParamType: bool
+}
+
 type Context =
   { File: Fable.File
     UsedNames: UsedNames
@@ -41,7 +46,9 @@ type Context =
     HoistVars: Fable.Ident list -> bool
     TailCallOpportunity: ITailCallOpportunity option
     OptimizeTailCall: unit -> unit
-    ScopedTypeParams: Set<string> }
+    ScopedTypeParams: Set<string>
+    Typegen: TypegenContext
+    }
 
 type IRustCompiler =
     inherit Fable.Compiler
@@ -154,6 +161,11 @@ module TypeInfo =
         let cellTy = if isCopyType com t then "Cell" else "RefCell"
         [ty] |> mkGenericTy [cellTy]
 
+    let isCloneable (com: IRustCompiler) = function
+        | Fable.String -> true
+        | Fable.Type.LambdaType _
+        | Fable.Type.DelegateType _ -> true
+        | _ -> false
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
     let shouldBeRefCountWrapped (com: IRustCompiler) t =
         match t with
@@ -235,7 +247,15 @@ module TypeInfo =
                 numberType kind
             | Fable.LambdaType(_, returnType) ->
                 let inputTypes, returnType = uncurryLambdaType ([], t)
-                transformLambdaType com ctx inputTypes returnType
+                if ctx.Typegen.FavourClosureTraitOverFunctionPointer then
+                    let bounds =
+                        [mkFnTraitGenericBound (inputTypes |> List.map (transformType com ctx)) (returnType |> transformType com ctx |> Rust.FnRetTy.Ty)]
+                    if ctx.Typegen.IsParamType then
+                        mkImplTraitsTy bounds
+                    else
+                        mkTraitsTy bounds
+                else
+                    transformLambdaType com ctx inputTypes returnType
             // | Fable.DelegateType(argTypes, returnType) ->
             //     genericTypeInfo "delegate" ([|yield! argTypes; yield returnType|])
             | Fable.Tuple(genArgs, _) ->
@@ -1259,15 +1279,17 @@ module Util =
             | Fable.Call _ ->
                 //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
                 true
+            | Fable.CurriedApply _ -> true
             | Fable.Value(kind, r) ->
                 //an inline value kind is also never bound, so can assume this is the only reference also
                 true
+            | Fable.Lambda _ -> true
             | _ ->
                 //would need to track all useages to work out if this is actually referenced more than once, so for safety assume false
                 false
 
          // todo : if the source is also not refwrapped but still cloneable, clone if not isOnlyReference
-        if shouldBeRefCountWrapped com e.Type && not isOnlyReference then
+        if (shouldBeRefCountWrapped com e.Type || isCloneable com e.Type) && not isOnlyReference then
             mkMethodCallExpr "clone" None expr []
         else expr
 
@@ -1588,9 +1610,15 @@ module Util =
             let isRef = false
             let isMut = ident.IsMutable
             let pat = mkIdentPat ident.Name isRef isMut
-            let ty = transformType com ctx ident.Type
+            let ty =
+                match ident.Type with
+                | Fable.LambdaType _
+                | Fable.DelegateType _ -> None
+                | _ ->
+                    transformType com { ctx with Typegen = { FavourClosureTraitOverFunctionPointer = true; IsParamType = false } } ident.Type
+                    |> Some
             let init = transformMaybeCloneRef com ctx value
-            let local = mkLocal [] pat (Some ty) (Some init)
+            let local = mkLocal [] pat ty (Some init)
             mkLocalStmt local
         let letStmts = bindings |> List.map makeLetStmt
         let bodyStmts =
@@ -1648,7 +1676,8 @@ module Util =
         mkTryBlockExpr bodyExpr // TODO: add catch and finally
 
     let transformCurriedApply com ctx range expr args =
-        callFunction range expr (args |> List.map (transformAsExpr com ctx))
+        let trArgs = transformCallArgs com ctx () args []
+        callFunction range expr (trArgs)
         // let handler =
         //     catch |> Option.map (fun (param, body) ->
         //         CatchClause.catchClause(identAsPattern param, transformBlock com ctx returnStrategy body))
@@ -2440,18 +2469,7 @@ module Util =
         [typeDeclaration; reflectionDeclaration]
 *)
     let typedParam (com: IRustCompiler) ctx (id: Fable.Ident) =
-        let ty =
-            match id.Type with
-            | Fable.Type.LambdaType(arg, t) -> //redirecting a function type to a closure allows greater flexibilty
-                //mkFullNamePathTy "F" None
-                let inputTypes, returnType = uncurryLambdaType ([], id.Type)
-
-                let traitTy =
-                    [mkFnTraitGenericBound (inputTypes |> List.map (transformType com ctx)) (returnType |> transformType com ctx |> Rust.FnRetTy.Ty)]
-                    |> mkImplTraitsTy
-                //transformLambdaType com ctx inputTypes returnType
-                traitTy
-            | _ -> transformType com ctx id.Type
+        let ty = transformType com { ctx with Typegen = { FavourClosureTraitOverFunctionPointer = true; IsParamType = true} } id.Type
         let isRef = false
         let isMut = false
         mkParamFromType id.Name ty isRef isMut //?loc=id.Range)
@@ -2482,10 +2500,43 @@ module Util =
         let inputs =
             args
             |> List.filter (fun id -> id.Type <> Fable.Unit)
-            |> List.map (inferredParam com ctx)
+            |> List.map (fun i -> mkParamFromType i.Name (transformType com ctx i.Type) false false)
         let fnDecl = mkFnDecl inputs fnRetTy
         let fnBody = com.TransformAsExpr(ctx, body)
-        mkClosureExpr fnDecl fnBody
+        let closedOverCloneableNames =
+            let paramNamesToExclude = args |> List.map (fun arg -> arg.Name) |> Set.ofList
+            let mutable names:ResizeArray<string> = ResizeArray()
+            FableTransforms.deepExists
+                (function | Fable.Expr.IdentExpr ident ->
+                                if shouldBeRefCountWrapped com ident.Type && not (Set.contains ident.Name paramNamesToExclude) then
+                                    names.Add(ident.Name)
+                                else
+                                    match ident.Type with
+                                    | Fable.Type.LambdaType _
+                                    | Fable.Type.DelegateType _ ->
+                                        //Closures may capture Ref counted vars, so by cloning the actual closure, you inadvertently clone all attached ref counted vars
+                                        names.Add(ident.Name)
+                                    | _ -> ()
+                                    ()
+                                false
+                          | _ -> false) body
+                |> ignore
+            names
+            |> Seq.toList
+            |> List.distinct //there seem to be duplicates in some contexts?
+        let closureExpr = mkClosureExpr fnDecl fnBody
+        if closedOverCloneableNames.Length > 0 then
+            mkBlockExpr (mkBlock [
+                for name in closedOverCloneableNames do
+                    let pat = mkIdentPat (name) false false
+                    let identExpr = com.TransformAsExpr(ctx, makeIdentExpr name)
+                    let nexpr = mkMethodCallExpr "clone" None identExpr []
+                    let letExpr = mkLetExpr pat nexpr
+                    yield letExpr |> Rust.AST.Types.StmtKind.Semi |> mkStmt
+
+                yield closureExpr |> Rust.AST.Types.StmtKind.Expr |> mkStmt
+            ])
+        else closureExpr
 
     let transformModuleFunction (com: IRustCompiler) ctx (info: Fable.MemberInfo) (membName: string) (args: Fable.Ident list) (body: Fable.Expr) =
         let fnDecl, fnBody, fnGenericNames = transformFunction com ctx args body
@@ -2915,7 +2966,8 @@ module Compiler =
             HoistVars = fun _ -> false
             TailCallOpportunity = None
             OptimizeTailCall = fun () -> ()
-            ScopedTypeParams = Set.empty }
+            ScopedTypeParams = Set.empty
+            Typegen = { FavourClosureTraitOverFunctionPointer = false; IsParamType = false } }
 
         let topAttrs = [
             mkInnerAttr "allow" ["unused_imports"] // TODO: remove later?
