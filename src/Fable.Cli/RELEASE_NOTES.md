@@ -1,3 +1,11 @@
+### 3.3.1
+
+* Fix #2097: Async.StartChild does not apply timeout @njlr
+* Fix #2530: System.Collections.Generic.Stack @njlr
+* Fix #2548: Assigning to value of unit type
+* Fix #2549: Native ESM support
+* Serialize compiler_info as JSON
+
 ### 3.3.0
 
 * JS.Decorator/ReflectedDecorator attributes

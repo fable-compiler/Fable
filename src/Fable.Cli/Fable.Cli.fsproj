@@ -3,13 +3,13 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>3.3.0</Version>
-    <PackageVersion>3.3.0</PackageVersion>
-    <PackageReleaseNotes>* JS.Decorator/ReflectedDecorator attributes
-* Fix isSubclassOf to walk up the inheritance chain @chkn
-* Fix #2520: Uri.OriginalString @njlr
-* Fix #2532: Measure products
-* Optimize interpolate strings without formatting into JS templates</PackageReleaseNotes>
+    <Version>3.3.1</Version>
+    <PackageVersion>3.3.1</PackageVersion>
+    <PackageReleaseNotes>* Fix #2097: Async.StartChild does not apply timeout @njlr
+* Fix #2530: System.Collections.Generic.Stack @njlr
+* Fix #2548: Assigning to value of unit type
+* Fix #2549: Native ESM support
+* Serialize compiler_info as JSON</PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
     <RollForward>Major</RollForward>
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
