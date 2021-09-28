@@ -47,8 +47,7 @@ type Context =
     TailCallOpportunity: ITailCallOpportunity option
     OptimizeTailCall: unit -> unit
     ScopedTypeParams: Set<string>
-    Typegen: TypegenContext
-    }
+    Typegen: TypegenContext }
 
 type IRustCompiler =
     inherit Fable.Compiler
@@ -60,14 +59,15 @@ type IRustCompiler =
     // abstract TransformImport: Context * selector:string * path:string -> Rust.Expr
     // abstract TransformFunction: Context * string option * Fable.Ident list * Fable.Expr -> (Pattern array) * BlockStatement
 
-(*
-
 // TODO: All things that depend on the library should be moved to Replacements
 // to become independent of the specific implementation
 module Lib =
-    let libCall (com: IRustCompiler) ctx r moduleName memberName args =
-        Expression.callExpression(com.TransformImport(ctx, memberName, getLibPath com moduleName), args, ?loc=r)
 
+    let libCall com ctx r moduleName memberName args =
+        let libPath = getLibPath com moduleName
+        let callee = Util.transformImport com ctx None memberName libPath
+        Util.callFunction com ctx r callee args
+(*
     let libConsCall (com: IRustCompiler) ctx r moduleName memberName args =
         Expression.newExpression(com.TransformImport(ctx, memberName, getLibPath com moduleName), args, ?loc=r)
 
@@ -157,6 +157,7 @@ module TypeInfo =
         | Fable.Type.LambdaType _
         | Fable.Type.DelegateType _ -> true
         | _ -> false
+
     /// Check to see if the type is to be modelled as a ref counted wrapper such as Rc<T> or Arc<T> in a multithreaded context
     let shouldBeRefCountWrapped (com: IRustCompiler) t =
         match t with
@@ -647,7 +648,7 @@ module Annotation =
 *)
 module Util =
 
-    // open Lib
+    open Lib
     // open Reflection
     // open Annotation
     open TypeInfo
@@ -839,16 +840,7 @@ module Util =
 
     let assign range left right =
         Expression.assignmentExpression(AssignEqual, left, right, ?loc=range)
-*)
-    /// Immediately Invoked Function Expression
-    let iife (com: IRustCompiler) ctx (expr: Fable.Expr) =
-        let fnExpr = transformLambda com ctx [] expr
-        let range = None // TODO:
-        callFunction range fnExpr []
-        // let _, body = com.TransformFunction(ctx, None, [], expr)
-        // // Use an arrow function in case we need to capture `this`
-        // Expression.callExpression(Expression.arrowFunctionExpression([||], body), [||])
-(*
+
     let multiVarDeclaration kind (variables: (Identifier * Expression option) list) =
         let varDeclarators =
             // TODO: Log error if there're duplicated non-empty var declarations
@@ -874,8 +866,19 @@ module Util =
     let makeClassConstructor args body =
         ClassMember.classMethod(ClassImplicitConstructor, Expression.identifier("constructor"), args, body)
 *)
-    let callFunction range callee (args: Rust.Expr list) =
-        mkCallExpr callee args //?loc=range)
+    let callFunction com ctx range (callee: Rust.Expr) (args: Fable.Expr list) =
+        let trArgs = transformCallArgs com ctx false args []
+        mkCallExpr callee trArgs //?loc=range)
+
+    /// Immediately Invoked Function Expression
+    let iife (com: IRustCompiler) ctx (expr: Fable.Expr) =
+        let fnExpr = transformLambda com ctx [] expr
+        let range = None // TODO:
+        callFunction com ctx range fnExpr []
+        // let _, body = com.TransformFunction(ctx, None, [], expr)
+        // // Use an arrow function in case we need to capture `this`
+        // Expression.callExpression(Expression.arrowFunctionExpression([||], body), [||])
+
 (*
     let callFunctionWithThisContext r callee (args: Rust.Expr list) =
         let args = thisExpr::args |> List.toArray
@@ -1056,14 +1059,58 @@ module Util =
     let transformCurry (com: IRustCompiler) (ctx: Context) _r expr arity: Rust.Expr =
         com.TransformAsExpr(ctx, Replacements.curryExprAtRuntime com arity expr)
 *)
-    let makeRefValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
+    let makeRefValue (com: IRustCompiler) ctx r (value: Rust.Expr) =
         let callee = mkGenericPathExpr ["Rc";"from"] None
-        callFunction r callee [value]
+        mkCallExpr callee [value]
 
-    let makeMutValue (com: IRustCompiler) (ctx: Context) r t value: Rust.Expr =
+    let makeMutValue (com: IRustCompiler) ctx r t (value: Rust.Expr) =
         let cellTy = if isCopyType com t then "Cell" else "RefCell"
         let callee = mkGenericPathExpr [cellTy;"from"] None
-        callFunction r callee [value]
+        mkCallExpr callee [value]
+
+    // For any ref counted types, clone when passing over a boundary, binding, closing over, etc
+    let transformMaybeCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
+        let expr = com.TransformAsExpr (ctx, e)
+        let isOnlyReference =
+            match e with
+            | Fable.Call _ ->
+                //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
+                true
+            | Fable.CurriedApply _ -> true
+            | Fable.Value(kind, r) ->
+                //an inline value kind is also never bound, so can assume this is the only reference also
+                true
+            | Fable.Lambda _ -> true
+            | _ ->
+                //would need to track all useages to work out if this is actually referenced more than once, so for safety assume false
+                false
+
+         // todo : if the source is also not refwrapped but still cloneable, clone if not isOnlyReference
+        if (shouldBeRefCountWrapped com e.Type || isCloneable com e.Type) && not isOnlyReference then
+            mkMethodCallExpr "clone" None expr []
+        else expr
+
+    let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
+        match args with
+        | []
+        | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
+        // | args when hasSpread ->
+        //     match List.rev args with
+        //     | [] -> []
+        //     | (Replacements.ArrayOrListLiteral(spreadArgs,_))::rest ->
+        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+        //         rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
+        //     | last::rest ->
+        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
+        //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
+        | args ->
+            args |> List.map (transformMaybeCloneRef com ctx)
+
+    // For any ref counted types, these sometimes need to be unwrapped for pattern matching purposes etc
+    let maybeUnwrapRef com typ expr =
+        if shouldBeRefCountWrapped com typ then
+            mkUnaryExpr Rust.AST.Types.UnOp.Deref expr
+        else expr
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value: Rust.Expr =
         match value with
@@ -1121,9 +1168,9 @@ module Util =
         //         |> libCall com ctx r "List" "ofArrayWithTail"
         | Fable.NewOption (value, t, _) ->
             match value with
-            | Some (TransformExpr com ctx arg) ->
+            | Some arg ->
                 let callee = mkGenericPathExpr ["Some"] None
-                callFunction r callee [arg]
+                callFunction com ctx r callee [arg]
             | None ->
                 mkGenericPathExpr ["None"] None
             |> makeRefValue com ctx None
@@ -1153,11 +1200,10 @@ module Util =
         //     Array.zip fieldNames values |> makeJsObject
         | Fable.NewUnion (values, tag, ent, genArgs) ->
             let ent = com.GetEntity(ent)
-            let args = List.map (fun x -> com.TransformAsExpr(ctx, x)) values
             let genArgs = genArgs |> List.map (transformType com ctx) |> mkGenericArgs
             let unionCase = ent.UnionCases |> List.item tag
             let callee = mkFullNamePathExpr unionCase.FullName genArgs
-            callFunction r callee args
+            callFunction com ctx r callee values
             |> makeRefValue com ctx None
 
         // TODO: remove this catch-all
@@ -1261,50 +1307,6 @@ module Util =
             Expression.newExpression(classExpr, [||])
 *)
 
-    // For any ref counted types, clone when passing over a boundary, binding, closing over, etc
-    let transformMaybeCloneRef (com: IRustCompiler) ctx (e: Fable.Expr): Rust.Expr =
-        let expr = com.TransformAsExpr (ctx, e)
-        let isOnlyReference =
-            match e with
-            | Fable.Call _ ->
-                //if the source is the returned value of a function, it is never bound, so we can assume this is the only reference
-                true
-            | Fable.CurriedApply _ -> true
-            | Fable.Value(kind, r) ->
-                //an inline value kind is also never bound, so can assume this is the only reference also
-                true
-            | Fable.Lambda _ -> true
-            | _ ->
-                //would need to track all useages to work out if this is actually referenced more than once, so for safety assume false
-                false
-
-         // todo : if the source is also not refwrapped but still cloneable, clone if not isOnlyReference
-        if (shouldBeRefCountWrapped com e.Type || isCloneable com e.Type) && not isOnlyReference then
-            mkMethodCallExpr "clone" None expr []
-        else expr
-
-    // For any ref counted types, these sometimes need to be unwrapped for pattern matching purposes etc
-    let maybeUnwrapRef com typ expr =
-        if shouldBeRefCountWrapped com typ then
-            mkUnaryExpr Rust.AST.Types.UnOp.Deref expr
-        else expr
-
-    let transformCallArgs (com: IRustCompiler) ctx hasSpread args (argTypes: Fable.Type list) =
-        match args with
-        | []
-        | [MaybeCasted(Fable.Value(Fable.UnitConstant, _))] -> []
-        // | args when hasSpread ->
-        //     match List.rev args with
-        //     | [] -> []
-        //     | (Replacements.ArrayOrListLiteral(spreadArgs,_))::rest ->
-        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-        //         rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
-        //     | last::rest ->
-        //         let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
-        //         rest @ [Expression.spreadElement(com.TransformAsExpr(ctx, last))]
-        | args ->
-            args |> List.map (transformMaybeCloneRef com ctx)
-
 (*
     let resolveExpr t strategy rustExpr: Rust.Stmt =
         match strategy with
@@ -1392,9 +1394,10 @@ module Util =
             let callee = com.TransformAsExpr(ctx, calleeExpr)
             match callInfo.ThisArg with
             | Some(TransformExpr com ctx thisArg) ->
-                callFunction range callee (thisArg::args)
+                mkCallExpr callee (thisArg::args)
             // | None when callInfo.IsJsConstructor -> Expression.newExpression(callee, List.toArray args, ?loc=range)
-            | None -> callFunction range callee args
+            | None ->
+                mkCallExpr callee args
 (*
     let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
         match transformCallArgs com ctx false args with
@@ -1502,8 +1505,9 @@ module Util =
             mkFieldExpr expr (mkIdent (index.ToString()))
 
         | Fable.OptionValue ->
-            let expr = com.TransformAsExpr(ctx, fableExpr)
-            mkMethodCallExpr "unwrap" None expr []
+            // let expr = com.TransformAsExpr(ctx, fableExpr)
+            // mkMethodCallExpr "unwrap" None expr []
+            libCall com ctx range "Option" "get" [fableExpr]
 
         | Fable.UnionTag ->
             let expr = com.TransformAsExpr(ctx, fableExpr)
@@ -1667,9 +1671,9 @@ module Util =
         let bodyExpr = com.TransformAsExpr(ctx, body)
         mkTryBlockExpr bodyExpr // TODO: add catch and finally
 
-    let transformCurriedApply com ctx range expr args =
-        let trArgs = transformCallArgs com ctx () args []
-        callFunction range expr (trArgs)
+    let transformCurriedApply (com: IRustCompiler) ctx range expr args =
+        let callee = com.TransformAsExpr(ctx, expr)
+        callFunction com ctx range callee args
         // let handler =
         //     catch |> Option.map (fun (param, body) ->
         //         CatchClause.catchClause(identAsPattern param, transformBlock com ctx returnStrategy body))
@@ -2087,7 +2091,7 @@ module Util =
             transformCall com ctx range callee info
 
         | Fable.CurriedApply(callee, args, t, range) ->
-            transformCurriedApply com ctx range (transformAsExpr com ctx callee) args
+            transformCurriedApply com ctx range callee args
 
         | Fable.Operation(kind, t, range) ->
             transformOperation com ctx t range kind
