@@ -263,7 +263,7 @@ type ProjectCracked(projFile: string,
             // compiled as part of the main project which might be a program (Exe) or library (Library).
             let fableHiddenDir =
                 match fableCompilerOptions.Language with
-                | Python -> PY.Naming.fableHiddenDir
+                | Python -> PY.Naming.fableUnhiddenDir
                 | _ -> Naming.fableHiddenDir
             if common.EndsWith(fableHiddenDir) then
                 Some "Library"

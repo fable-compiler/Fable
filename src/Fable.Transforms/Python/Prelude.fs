@@ -7,7 +7,7 @@ module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
-    let [<Literal>] fableHiddenDir = "fable"
+    let [<Literal>] fableUnhiddenDir = "fable"
     
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)

@@ -433,7 +433,7 @@ let createFableDir (opts: CrackerOptions) =
         let baseDir = opts.OutDir |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName(opts.ProjFile))
         let dirName =
             match opts.FableOptions.Language with
-            | Python -> PY.Naming.fableHiddenDir
+            | Python -> PY.Naming.fableUnhiddenDir
             | _ -> Naming.fableHiddenDir
         IO.Path.Combine(baseDir, dirName)
 
@@ -498,13 +498,8 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 |> Path.GetDirectoryName
 
             let defaultFableLibraryPaths =
-                match opts.FableOptions.Language with
-                | Python ->
-                    [ "../../../fable-library-py/fable_library"               // running from nuget tools package
-                      "../../../../../build/fable-library-py/fable_library" ] // running from bin/Release/netcoreapp3.1
-                | _ ->
-                    [ "../../../fable-library/"               // running from nuget tools package
-                      "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
+                [ "../../../fable-library/"               // running from nuget tools package
+                  "../../../../../build/fable-library/" ] // running from bin/Release/netcoreapp3.1
                 |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
 
             let fableLibrarySource =
@@ -516,25 +511,55 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
                 failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
 
             Log.verbose(lazy ("fable-library: " + fableLibrarySource))
-            match opts.FableOptions.Language with
-            | Python ->
-                let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable_library")
-                copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
-                fableLibraryTarget
-            | _ ->
-                let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
-                copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
-                fableLibraryTarget
+            let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable-library" + "." + Literals.VERSION)
+            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            fableLibraryTarget
+
+    let pkgRefs =
+        pkgs |> List.map (fun pkg ->
+            let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
+            let targetDir = IO.Path.Combine(fableLibDir, pkg.Id + "." + pkg.Version)
+            copyDirIfDoesNotExist sourceDir targetDir
+            { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
+
+    fableLibraryPath, pkgRefs
+    
+// Separate handling for Python. Use plain lowercase package names without dots or version info.
+let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePackage list) =
+    let fableLibDir = createFableDir opts
+
+    let fableLibraryPath =
+        match opts.FableLib with
+        | Some path -> Path.normalizeFullPath path
+        | None ->
+            let assemblyDir =
+                Process.getCurrentAssembly().Location
+                |> Path.GetDirectoryName
+
+            let defaultFableLibraryPaths =
+                [ "../../../fable-library-py/fable_library"               // running from nuget tools package
+                  "../../../../../build/fable-library-py/fable_library" ] // running from bin/Release/netcoreapp3.1
+                |> List.map (fun x -> Path.GetFullPath(Path.Combine(assemblyDir, x)))
+
+            let fableLibrarySource =
+                defaultFableLibraryPaths
+                |> List.tryFind IO.Directory.Exists
+                |> Option.defaultValue (List.last defaultFableLibraryPaths)
+
+            if isDirectoryEmpty fableLibrarySource then
+                failwithf "fable-library directory is empty, please build FableLibrary: %s" fableLibrarySource
+
+            Log.verbose(lazy ("fable-library: " + fableLibrarySource))
+            let fableLibraryTarget = IO.Path.Combine(fableLibDir, "fable_library")
+            copyDirIfDoesNotExist fableLibrarySource fableLibraryTarget
+            fableLibraryTarget
 
     let pkgRefs =
         pkgs |> List.map (fun pkg ->
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
             let targetDir =
-                match opts.FableOptions.Language with
-                | Python ->
-                    let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
-                    IO.Path.Combine(fableLibDir, name.Replace(".", "_"))
-                | _ -> IO.Path.Combine(fableLibDir, pkg.Id + "." + pkg.Version)
+                let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
+                IO.Path.Combine(fableLibDir, name.Replace(".", "_"))
             copyDirIfDoesNotExist sourceDir targetDir
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) })
 
@@ -552,7 +577,11 @@ let getFullProjectOpts (opts: CrackerOptions) =
     let projRefs, mainProj = retryGetCrackedProjects opts
 
     let fableLibDir, pkgRefs =
-        copyFableLibraryAndPackageSources opts mainProj.PackageReferences
+        match opts.FableOptions.Language with
+        | Python ->
+            copyFableLibraryAndPackageSourcesPy opts mainProj.PackageReferences
+        | _ ->
+            copyFableLibraryAndPackageSources opts mainProj.PackageReferences
 
     let pkgRefs =
         pkgRefs |> List.map (fun pkg ->

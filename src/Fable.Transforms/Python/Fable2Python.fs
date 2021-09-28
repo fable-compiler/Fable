@@ -432,12 +432,8 @@ module Helpers =
 
         let prefix =
             match com.OutputType with
-            | OutputType.Exe ->
-                printfn "OutputType: Exe"
-                ""
-            | _ ->
-                printfn "OutputType: Library"
-                "."
+            | OutputType.Exe -> ""
+            | _ -> "."
 
         match moduleName with
         | ParseModule "fable-library" pyModule ->
