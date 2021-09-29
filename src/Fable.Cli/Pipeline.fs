@@ -73,13 +73,6 @@ module Python =
         interface PythonPrinter.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
-            member _.MakeImportPath(path) =
-                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-                let path = Imports.getImportPath dedupTargetDir sourcePath targetPath projDir cliArgs.OutDir path
-                if path.EndsWith(".fs") then
-                    let isInFableHiddenDir = Path.Combine(targetDir, path) |> Naming.isInFableHiddenDir
-                    File.changeFsExtension isInFableHiddenDir path "" // Remove file extension
-                else path
             member _.Dispose() = stream.Dispose()
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) dedupTargetDir (outPath: string) = async {

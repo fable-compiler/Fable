@@ -417,9 +417,14 @@ module AST =
     let makeIntConst (x: int) = NumberConstant (float x, Int32, None) |> makeValue None
     let makeFloatConst (x: float) = NumberConstant (x, Float64, None) |> makeValue None
 
-    let getLibPath (com: Compiler) moduleName =
-        com.LibraryDir + "/" + moduleName + ".js"
-
+    let getLibPath (com: Compiler) (moduleName: string) =
+        match com.Options.Language with
+        | Python ->
+            // Python modules should be all lower case without any dots (PEP8)
+            let moduleName = moduleName.ToLower().Replace(".", "_")
+            com.LibraryDir + "/" + moduleName + ".py"
+        | _ -> com.LibraryDir + "/" + moduleName + ".js"
+    
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import({ Selector = selector.Trim()
                  Path = path.Trim()

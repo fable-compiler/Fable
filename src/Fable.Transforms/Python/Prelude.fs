@@ -9,6 +9,9 @@ module Naming =
 
     let [<Literal>] fableUnhiddenDir = "fable"
     
+    let isInFableUniddenDir (file: string) =
+        file.Split([|'\\'; '/'|]) |> Array.exists ((=) fableUnhiddenDir)
+
     let lowerFirst (s: string) =
         s.Substring(0,1).ToLowerInvariant() + s.Substring(1)
 
