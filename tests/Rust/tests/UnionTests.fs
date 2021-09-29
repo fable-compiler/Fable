@@ -48,7 +48,30 @@ let ``Union fn call works`` () =
 type WrappedUnion =
     | AString of string
 
-// let ``Union with wrapped type works`` () =
-//     let a = AString "hello"
-//     let b = match a with AString s -> s + " world"
-//     b |> equal "hello world"
+let ``Union with wrapped type works`` () =
+    let a = AString "hello"
+    let b = match a with AString s -> s + " world"
+    b |> equal "hello world"
+
+type DeepRecord = {Value: string}
+type DeepWrappedUnion =
+    //| DeepWrappedA of string * DeepRecord
+    | DeepWrappedB of string
+    | DeepWrappedC of int
+    //| DeepWrappedD of DeepRecord    //does not yet work
+
+let matchStrings = function
+    //| DeepWrappedA (s, d) -> d.Value + s //todo - not working
+    | DeepWrappedB s -> s
+    | DeepWrappedC c -> "nothing"
+    //| DeepWrappedD d -> d.Value //todo - not working
+
+let ``Deep union with wrapped type works`` () =
+    //let a = DeepWrappedA (" world", {Value = "hello"})
+    let b = DeepWrappedB "world"
+    let c = DeepWrappedC 42//todo to string!
+    //let d = DeepWrappedD { Value = "hello" }//todo to string!
+    //a |> matchStrings |> equal "hello world"
+    b |> matchStrings |> equal "world"
+    c |> matchStrings |> equal "nothing"
+   // d |> matchStrings |> equal "hello"
