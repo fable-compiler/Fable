@@ -166,12 +166,12 @@ export function maxValue() {
 }
 
 export function parseRaw(input: string) {
-  if (input === null) {
-    throw new Error("Value cannot be null when parsing DateTime");
+  function fail() {
+    throw new Error(`The string is not a valid Date: ${input}`);
   }
 
-  if (input.trim() === "") {
-    throw new Error("An empty string is not recognized as a valid DateTime");
+  if (input === null || input.trim() === "") {
+    fail();
   }
 
   let date = new Date(input);
@@ -217,11 +217,12 @@ export function parseRaw(input: string) {
       // correct for daylight savings time
       date = new Date(date.getTime() + (date.getTimezoneOffset() - baseDate.getTimezoneOffset()) * 60000);
     } else {
-      throw new Error("The string is not a valid Date.");
+      fail();
     }
 
+    // Check again the date is valid after transformations, see #2229
     if (isNaN(date.getTime())) {
-      throw new Error("The string is not a valid Date.");
+      fail();
     }
   }
 
