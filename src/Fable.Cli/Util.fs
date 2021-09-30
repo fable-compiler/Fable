@@ -270,7 +270,7 @@ module Imports =
         let importPath = Path.normalizePath importPath
         let outDir = Path.normalizePath outDir
         // It may happen the importPath is already in outDir,
-        // for example package sources in .fable folder
+        // for example package sources in fable_modules folder
         if importPath.StartsWith(outDir) then importPath
         else
             let importDir = Path.GetDirectoryName(importPath)
