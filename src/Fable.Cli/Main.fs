@@ -537,7 +537,7 @@ let rec startCompilation (changes: ISet<string>) (state: State) = async {
     logs
     |> Array.filter (fun log ->
         match log.Severity, log.FileName with
-        // Ignore warnings from packages in `.fable` folder
+        // Ignore warnings from packages in `fable_modules` folder
         | Severity.Warning, Some filename when Naming.isInFableHiddenDir(filename) -> false
         | Severity.Warning, _ -> true
         | _ -> false)

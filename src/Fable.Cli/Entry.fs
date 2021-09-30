@@ -47,7 +47,7 @@ Commands:
   -h|--help         Show help
   --version         Print version
   watch             Run Fable in watch mode
-  clean             Remove .fable folders and files with specified extension (default .fs.js)
+  clean             Remove fable_modules folders and files with specified extension (default .fs.js)
 
 Arguments:
   --cwd             Working directory
@@ -137,8 +137,8 @@ type Runner =
         let typedArrays = tryFlag "--typedArrays" args |> Option.defaultValue true
         let outDir = argValueMulti ["-o"; "--outDir"] args |> Option.map normalizeAbsolutePath
         let outDirLast = outDir |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast) |> Option.defaultValue ""
-        if outDirLast = ".fable" then
-            Error(".fable is a reserved directory, please use another output directory")
+        if outDirLast = Naming.fableHiddenDir then
+            Error($"{Naming.fableHiddenDir} is a reserved directory, please use another output directory")
         // TODO: Remove this check when typed arrays are compatible with typescript
         elif language = TypeScript && typedArrays then
             Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
