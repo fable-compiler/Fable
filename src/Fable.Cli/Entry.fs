@@ -65,7 +65,7 @@ Arguments:
   --runFast         The command after the argument will be executed BEFORE compilation
   --runWatch        Like run, but will execute after each watch compilation
   --runScript       Runs the generated script for last file with node
-                    (Requires `"type": "module"` in package.json and at minimum Node.js 12.20, 14.14, or 16.0.)
+                    (Requires `"type": "module"` in package.json and at minimum Node.js 12.20, 14.14, or 16.0.0)
 
   --yes             Automatically reply 'yes' (e.g. with `clean` command)
   --noRestore       Skip `dotnet restore`

@@ -91,6 +91,12 @@ type ParamListAttribute() =
 
 type ParamSeqAttribute = ParamListAttribute
 
+/// Used to convert arguments from specified index into an object
+[<AttributeUsage(AttributeTargets.Constructor ||| AttributeTargets.Method)>]
+type ParamObjectAttribute(int: int) =
+    inherit Attribute()
+    new () = ParamObjectAttribute(0)
+
 /// Experimental: Currently only intended for some specific libraries
 [<AttributeUsage(AttributeTargets.Parameter)>]
 type InjectAttribute() =
